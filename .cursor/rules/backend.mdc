@@ -1,0 +1,76 @@
+---
+description: Java/Spring Boot backend conventions and Modulith module rules.
+globs: backend/**
+alwaysApply: false
+---
+
+# Backend (Java / Spring Boot / Spring Modulith)
+
+## Module structure
+
+- A new module = a new folder under `backend/modules/<name>/`. Do not edit
+  `settings.gradle.kts` — it discovers modules automatically by scanning that
+  directory. If a module isn't showing up, the folder is in the wrong place,
+  not a settings problem.
+- Module `build.gradle.kts` should normally be exactly:
+```kotlin
+  plugins {
+      id("quickapp.module-conventions")
+  }
+```
+  If a module needs an extra dependency beyond what the convention plugin gives
+  it (Java 25 toolchain, Spring Boot BOM, spring-context, JUnit 5 test wiring),
+  add it directly to that module's `build.gradle.kts`. Do not modify the shared
+  convention plugin for a one-module need.
+- Anything implementing module logic that shouldn't be visible to other modules
+  goes in an `internal` sub-package. Anything another module (or `backend`
+  itself) is meant to call goes in the module's top-level package.
+- Cross-module communication: Spring application events, not direct calls into
+  another module's `internal` package. If you find yourself wanting to import
+  from another module's `internal`, that's a signal the interaction should be
+  an event, or the shared piece should be pulled into its own module.
+
+## Verifying module boundaries
+
+- `backend/src/test/.../ModularityTests.java` calls `ApplicationModules.verify()`.
+  Run it after any change that touches module structure:
+./gradlew :backend:test --tests ModularityTests
+- This must pass before a backend PR merges. A failure here means a boundary
+  was actually violated — fix the structure, don't weaken the test.
+
+## New endpoint checklist
+
+- Controller + DTO in the module's public package (not `internal`).
+- Business logic in `internal`.
+- Update `contracts/openapi.yaml` for the new/changed endpoint.
+- Unit test for the logic, integration test (Testcontainers, real Postgres) for
+  the endpoint itself.
+- Use constructor injection, not field injection.
+
+## Known Gradle/Spring gotchas (hit and fixed once already — don't rediscover these)
+
+- Any module whose main code uses a Spring annotation (`@Service`, `@Component`,
+  `@Repository`, etc.) needs Spring on its classpath. The convention plugin
+  already provides this — but if you're ever writing a module's build file by
+  hand instead of applying the convention, remember: `spring-context` as an
+  `implementation` dependency, plus the Spring Boot BOM via
+  `dependencyManagement { imports { mavenBom(...) } }`. Without the BOM, you'd
+  have to pin a version number by hand and it can drift from the rest of the app.
+- `useJUnitPlatform()` must be set on the `test` task, or Gradle silently looks
+  for JUnit 4-style tests and reports "no tests found" even when JUnit 5 tests
+  exist and compile fine. Already set in the convention plugin.
+- Repositories (`mavenCentral()`) are declared once, centrally, in
+  `dependencyResolutionManagement` inside the root `settings.gradle.kts` — not
+  per-module. A module with no repository access will fail to resolve any
+  dependency with a "no repositories are defined" error.
+- Precompiled script plugins (files like `quickapp.module-conventions.gradle.kts`
+  inside `build-logic`) cannot use the generated `libs.x.y` version-catalog
+  shortcut — Gradle doesn't guarantee those accessors work inside a file that's
+  itself defining a plugin. Use
+  `extensions.getByType<VersionCatalogsExtension>().named("libs")` and
+  `.findLibrary(...)` / `.findVersion(...)` instead.
+
+## Running tests
+./gradlew :backend:test                    # all backend unit tests
+./gradlew :backend:test --tests <ClassName> # one test class
+Report the actual pass/fail result — don't assume a test passed without running it.

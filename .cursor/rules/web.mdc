@@ -1,0 +1,31 @@
+---
+description: Reactive web frontend conventions.
+globs: web/**
+alwaysApply: false
+---
+
+# Web (reactive frontend)
+
+- Stack: Vite + React + TypeScript + Tailwind; shadcn-style primitives under
+  `web/src/components/ui/`.
+- **Toolchain:** Local Node `>=20` (`package.json` `engines`). CI pins Node via
+  `web/.nvmrc` and npm via `packageManager` + Corepack. Prefer `.nvmrc` when
+  regenerating the lockfile. CI enables Corepack and only runs `npm ci` (never
+  `npm install`).
+- API calls go through the hand-written client in `web/src/api/`, kept in sync
+  with `contracts/openapi.yaml`. Never hand-roll a `fetch` to a backend endpoint
+  outside that client. In `npm run dev`, `/api` is proxied to the backend (see
+  `vite.config.ts`); override with `VITE_API_BASE_URL` when needed.
+- Server/async UI state: local React state (`useState`) in the fetching component
+  for now — no global store and no React Query until a second remote screen needs
+  shared cache. Inject the API client via props when testing.
+- Components: one component per file under `web/src/components/`; colocated
+  `*.test.tsx` next to the component; shared UI primitives in
+  `web/src/components/ui/`.
+- New component with any logic (not pure presentational) → component test with
+  Testing Library (Vitest). New user-facing product flow → Playwright e2e
+  (deferred for the greeting harness; add when a real flow lands).
+- Loading/error/empty states are required for every data-fetching component, not
+  an afterthought — write them in the same pass as the happy path.
+- Run `npm run lint` + `npm test` (and `npm run build` before PR) from `web/`
+  before calling frontend work done.

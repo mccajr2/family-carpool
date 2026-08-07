@@ -1,0 +1,17 @@
+---
+description: Testing discipline, enforced on every task regardless of file type.
+alwaysApply: true
+---
+
+# Testing (always applies)
+
+- Never call a change "done" without a passing test that would fail if the change
+  were reverted. If you can't write one, say so explicitly rather than skipping it.
+- New backend endpoint or service method → unit test + integration test in the same PR.
+- New UI component/screen with logic → component/unit test. New user-facing flow →
+  one e2e test, not one per component.
+- Never weaken a test to make it pass (loosening an assertion, adding a sleep to
+  hide a race, catching an exception just to swallow it). Fix the code or flag the
+  test as wrong and say why.
+- Run the relevant test suite before declaring a task complete. Report the actual
+  result, not an assumption that it passed.

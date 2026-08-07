@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Quickapp API
+  version: 0.1.0
+  description: >
+    Contract-first API for quickapp. This spike documents the greeting
+    harness endpoint used to verify cross-stack networking.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /api/greeting:
+    get:
+      operationId: getGreeting
+      summary: Return a greeting for the given name
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name to greet
+          example: Android
+      responses:
+        "200":
+          description: Greeting message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GreetingResponse"
+              example:
+                message: Hello, Android, from a Spring Modulith module.
+components:
+  schemas:
+    GreetingResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: Hello, Android, from a Spring Modulith module.

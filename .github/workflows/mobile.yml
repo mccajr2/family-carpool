@@ -1,0 +1,37 @@
+name: mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yml"
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            mobile/**/*.gradle*
+            mobile/**/*.gradle.kts
+            mobile/gradle/libs.versions.toml
+            mobile/gradle/wrapper/gradle-wrapper.properties
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Run sharedLogic host tests and assemble debug
+        run: ./gradlew :sharedLogic:testAndroidHostTest :androidApp:assembleDebug --no-daemon
