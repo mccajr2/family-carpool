@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-07-10
+Updated: 2026-08-07
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -9,14 +9,58 @@ next slice. Do not turn this file into a mega-spec.
 
 ## Vision
 
-This repository is the **quickapp starter template** — not a product. New apps
-are created with GitHub **Use this template**, then fill Vision here in **that**
-repo. See `docs/using-as-template.md`.
+A **family scheduling and carpool app** for households with **multiple kids**
+across **multiple sports and activities**.
+
+Adults need one place to see every kid’s events (when/where/travel), detect
+conflicts, assign **who covers whom**, and coordinate **team carpools** —
+without living inside each activity’s proprietary app and without coaches
+administering software.
+
+**Two pillars**
+
+1. **Calendar** — unified schedule across kids/activities; overridable
+   leave-from places; estimated leave-by; conflict detection; coverage
+   confirmation.
+2. **Carpool** — opt-in team spaces (parent invite); household garage; simple
+   **request / accept** with multi-kid seat counts.
+
+**Primary users:** single- and multi-adult care networks (parents in one or two
+homes, grandparents, nannies, etc.).
+
+**Success:** Before the next practice or game, adults know where kids need to
+be, whether the circle can cover it, when to leave, and whether a teammate can
+share the ride.
+
+**Clients (beta):** **Web + Android + iOS in parallel**, contract-first
+(OpenAPI → backend → web + mobile clients together when a surface ships).
 
 ## Product non-goals
 
-- Building a real product inside the upstream template clone
-- Shipping the `greeting` harness as application functionality
+- Emergency / rescue broadcast mode
+- Live turn-by-turn navigation inside the app
+- Paid live-traffic providers
+- Coach/league admin consoles, fees, full club OS
+- Vendor-specific private sport APIs as the schedule source of truth
+- Desktop-first dashboard UX
+- Driver-only role (defer)
+- Sign in with Apple/Google (defer)
+
+## Locked decisions
+
+| Topic | Decision |
+|--------|----------|
+| Schedule import | **RSS/Atom + iCal/`.ics` URL** first; **manual add/edit** escape hatch; dedupe by feed item UID when present; poll on a sensible interval; show **last-synced** time |
+| Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join |
+| Places | **Named places** (Mom’s house, Dad’s house, Grandma’s, School) — not one address for the whole circle |
+| Roles | **Organizer** (invite/remove, manage feeds/kids) + **Caregiver** (calendar, coverage, carpool, garage). Driver-only later |
+| Driving | Orthogonal to role: **0+ vehicles** or “don’t drive”; non-drivers stay full Caregivers and can **request** rides |
+| Same team, multiple kids | Attach **which kids** belong on a feed/team; calendar shows both |
+| Carpool request | **One request covering all attending kids who still need a ride** by default (seats = kid count); **override** to drop a kid (e.g. sick) |
+| Feed vs carpool | **Feed = calendar only**. **Carpool join = parent invite code/link** (first family enables space; members reshare/regenerate). No coach admin |
+| Auth | **Magic link / email code first**; **optional password** for frequent users |
+| Leave-by | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic) |
+| Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
 
 ## Upcoming (ranked)
 
@@ -24,7 +68,22 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| — | — | — | — | _(empty — run `/roadmap` with a product idea)_ |
+| 1 | adult-auth-magic-link | planned | 2026-08-07 · initial | Magic link / email code sign-in; sessions; per-adult accounts (no password yet) |
+| 2 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users atop magic-link accounts |
+| 3 | family-circle-and-kids | planned | 2026-08-07 · initial | Create family circle; add/edit kids; creating adult is Organizer |
+| 4 | family-adult-invites-roles | planned | 2026-08-07 · initial | Invite link/code to join circle; Organizer invite/remove; Caregiver role |
+| 5 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
+| 6 | place-geocoding | planned | 2026-08-07 · re-rank split | Nominatim geocode for places/venues; cache; respectful User-Agent |
+| 7 | activity-feed-sync | planned | 2026-08-07 · re-rank split | RSS/Atom + iCal URL import; poll; dedupe by UID; last-synced; kid↔feed attachment |
+| 8 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
+| 9 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
+| 10 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
+| 11 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
+| 12 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
+| 13 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 14 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 15 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 16 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -35,7 +94,16 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 | Id | Added | Summary |
 |----|-------|---------|
-| — | — | — |
+| app-identity-rename | 2026-08-07 · initial | Rename packages/clients from quickapp template identity before public beta |
+| push-notifications | 2026-08-07 · initial | Push for coverage asks, ride request/accept, conflict alerts |
+| sign-in-apple-google | 2026-08-07 · initial | Sign in with Apple / Google (deferred from auth v1) |
+| driver-only-role | 2026-08-07 · initial | Narrow Driver-only role (orthogonal driving stays in garage for now) |
+| rescue-broadcast | 2026-08-07 · initial | Emergency / rescue broadcast mode |
+| paid-live-traffic | 2026-08-07 · initial | Paid live-traffic providers for leave-by |
+| coach-league-admin | 2026-08-07 · initial | Coach/league admin consoles, fees, club OS |
+| in-app-chat | 2026-08-07 · initial | Messaging between caregivers / carpool members |
+| osm-map-tiles | 2026-08-07 · initial | Optional in-app map with OSM tiles + attribution |
+| maps-deep-links | 2026-08-07 · initial | Open external directions via OS maps deep links |
 
 ## Active specs
 
@@ -62,3 +130,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 |------|--------|
 | 2026-07-10 | Roadmap file introduced (empty product backlog; infra specs recorded under Done). |
 | 2026-07-11 | Template packaging: Vision/non-goals clarify upstream is a starter template. |
+| 2026-08-07 | First product carve-up: family calendar + carpool vision; non-goals and locked decisions captured. |
+| 2026-08-07 | Re-rank split: thinned auth, feed/calendar, leave-by, and coverage into 16 PR-sized slices (was 11). |
