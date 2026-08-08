@@ -92,7 +92,7 @@ internal fun createHttpClient(): HttpClient =
         }
     }
 
-private suspend fun ensureSuccess(
+internal suspend fun ensureSuccess(
     response: HttpResponse,
     fallback: String,
 ) {
@@ -101,7 +101,7 @@ private suspend fun ensureSuccess(
     }
 }
 
-private suspend fun awaitMessage(
+internal suspend fun awaitMessage(
     response: HttpResponse,
     fallback: String,
 ): String {

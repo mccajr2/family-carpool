@@ -57,10 +57,14 @@ fun AuthScreen(session: AuthSession) {
     ) {
         when (val current = state) {
             is AuthUiModel.State.SignedIn -> {
-                Text("Signed in", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    text = current.email.ifBlank { "…" },
-                    modifier = Modifier.padding(top = 8.dp),
+                FamilyScreen(
+                    session = session,
+                    onSignOut = {
+                        scope.launch {
+                            model.signOut()
+                            refresh()
+                        }
+                    },
                 )
                 if (current.error != null) {
                     Text(
@@ -68,24 +72,6 @@ fun AuthScreen(session: AuthSession) {
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 8.dp),
                     )
-                }
-                if (current.loading) {
-                    CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
-                } else {
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch {
-                                model.signOut()
-                                refresh()
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp),
-                    ) {
-                        Text("Sign out")
-                    }
                 }
             }
 

@@ -4,10 +4,15 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
+import type { FamilyClient } from "@/api/familyClient"
 import { AuthScreen } from "@/components/AuthScreen"
 
 function mockClient(partial: Partial<AuthClient>): AuthClient {
   return partial as AuthClient
+}
+
+function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
+  return partial as FamilyClient
 }
 
 describe("AuthScreen", () => {
@@ -25,10 +30,12 @@ describe("AuthScreen", () => {
       adult: { id: "1", email: "parent@example.com", displayName: null },
     })
     const logout = vi.fn().mockResolvedValue(undefined)
+    const getCircle = vi.fn().mockResolvedValue(null)
 
     render(
       <AuthScreen
         client={mockClient({ requestCode, verifyCode, logout })}
+        familyClient={mockFamilyClient({ getCircle })}
         session={session}
       />,
     )
@@ -39,8 +46,9 @@ describe("AuthScreen", () => {
     expect(await screen.findByLabelText("One-time code")).toHaveValue("654321")
     await user.click(screen.getByRole("button", { name: "Verify code" }))
 
-    expect(await screen.findByText("parent@example.com")).toBeInTheDocument()
     expect(session.getAccessToken()).toBe("tok")
+    expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    expect(screen.getByText(/parent@example.com/)).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Sign out" }))
     expect(await screen.findByRole("button", { name: "Send code" })).toBeInTheDocument()

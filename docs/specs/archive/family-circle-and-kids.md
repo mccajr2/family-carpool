@@ -1,8 +1,9 @@
 # Spec: family-circle-and-kids
 
-Status: approved  
+Status: done  
 Created: 2026-08-07  
 Approved: 2026-08-08  
+Completed: 2026-08-08  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `family-circle-and-kids`
 
@@ -59,41 +60,41 @@ team.” Sibling vs player is not a kid type. Document briefly in
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents create/get/update circle, add/update/delete kid, and
+- [x] OpenAPI documents create/get/update circle, add/update/delete kid, and
       Bearer protection; adult `displayName` may be non-null after create.
-- [ ] Authenticated adult with **no** circle can `POST` create with required
+- [x] Authenticated adult with **no** circle can `POST` create with required
       adult display name and optional circle name → becomes **Organizer**;
       adult `displayName` is persisted; circle may have **zero** kids.
-- [ ] UI uses circle name when set; otherwise shows a **“Your family”**
+- [x] UI uses circle name when set; otherwise shows a **“Your family”**
       placeholder (or equivalent).
-- [ ] Second create for the same adult fails with a documented conflict (e.g.
+- [x] Second create for the same adult fails with a documented conflict (e.g.
       **409**); `GET` circle without membership returns documented empty/404.
-- [ ] Organizer can **add** a kid (display name), **rename** a kid, and
+- [x] Organizer can **add** a kid (display name), **rename** a kid, and
       **remove** a kid; list kids on get-circle; unknown kid id → 404;
       kid in another circle → 404 (no leak).
-- [ ] Unauthenticated family calls → **401**; adult cannot mutate another
+- [x] Unauthenticated family calls → **401**; adult cannot mutate another
       adult’s circle.
-- [ ] Web, Android, and iOS: signed-in flow supports create-circle and
+- [x] Web, Android, and iOS: signed-in flow supports create-circle and
       kids CRUD at a minimal level (same Bearer session as auth).
-- [ ] Backend unit + integration tests cover create, conflict, kids CRUD, and
+- [x] Backend unit + integration tests cover create, conflict, kids CRUD, and
       authz enough that reverting fails a test; client tests cover the new API
       client paths; `ModularityTests` passes with `family` (and `auth`).
 
 ## Tasks
 
-- [ ] **Contract:** Add family circle + kids paths and schemas to
+- [x] **Contract:** Add family circle + kids paths and schemas to
       `contracts/openapi.yaml`; keep auth `/me` displayName accurate.
-- [ ] **Backend (`family` module):** Flyway migration; entities/repos; create /
+- [x] **Backend (`family` module):** Flyway migration; entities/repos; create /
       get / patch circle; kids add/update/delete; Organizer membership; enforce
       one circle per adult.
-- [ ] **Backend (auth touch):** Public way for family (or controller layer) to
+- [x] **Backend (auth touch):** Public way for family (or controller layer) to
       set current adult `displayName` without breaking Modulith boundaries.
-- [ ] **Web:** Family API client + minimal create-circle / kids UI after auth.
-- [ ] **Mobile (`sharedLogic`):** Family client types + calls.
-- [ ] **Android / iOS:** Minimal create-circle / kids UI wired to sharedLogic.
-- [ ] **Tests:** Backend unit + Testcontainers integration; web + sharedLogic
+- [x] **Web:** Family API client + minimal create-circle / kids UI after auth.
+- [x] **Mobile (`sharedLogic`):** Family client types + calls.
+- [x] **Android / iOS:** Minimal create-circle / kids UI wired to sharedLogic.
+- [x] **Tests:** Backend unit + Testcontainers integration; web + sharedLogic
       tests; ModularityTests green.
-- [ ] **Docs:** Architecture note for circle/kid/feed linking; README smoke
+- [x] **Docs:** Architecture note for circle/kid/feed linking; README smoke
       mentions create circle after auth if useful.
 
 ## Open questions

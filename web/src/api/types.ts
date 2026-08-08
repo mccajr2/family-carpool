@@ -1,4 +1,4 @@
-/** Mirrors auth schemas in `contracts/openapi.yaml`. */
+/** Mirrors schemas in `contracts/openapi.yaml`. */
 export type Adult = {
   id: string
   email: string
@@ -15,6 +15,25 @@ export type AuthSessionResponse = {
   accessToken: string
   tokenType: "Bearer"
   adult: Adult
+}
+
+export type FamilyRole = "ORGANIZER" | "CAREGIVER"
+
+export type Kid = {
+  id: string
+  displayName: string
+}
+
+export type FamilyCircle = {
+  id: string
+  name: string | null
+  role: FamilyRole
+  kids: Kid[]
+}
+
+export type CreateFamilyCircleRequest = {
+  adultDisplayName: string
+  name?: string | null
 }
 
 export type ErrorResponse = {

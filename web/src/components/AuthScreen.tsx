@@ -2,7 +2,9 @@ import { useState } from "react"
 
 import { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder, authSession } from "@/api/authSession"
+import { FamilyClient } from "@/api/familyClient"
 import type { Adult } from "@/api/types"
+import { FamilyScreen } from "@/components/FamilyScreen"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,11 +22,13 @@ type Status =
 
 type AuthScreenProps = {
   client?: AuthClient
+  familyClient?: FamilyClient
   session?: AuthSessionHolder
 }
 
 export function AuthScreen({
   client = new AuthClient(),
+  familyClient,
   session = authSession,
 }: AuthScreenProps) {
   const [email, setEmail] = useState("")
@@ -68,54 +72,20 @@ export function AuthScreen({
     }
   }
 
-  async function onSignOut() {
-    setStatus({ kind: "loading" })
-    const token = session.getAccessToken()
-    try {
-      if (token) {
-        await client.logout(token)
-      }
-    } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
-      return
-    }
-    session.clear()
-    setAdult(null)
-    setCodeSent(false)
-    setCode("")
-    setDevHint(null)
-    setStatus({ kind: "idle" })
-  }
-
   if (adult) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Signed in</CardTitle>
-          <CardDescription>Bearer session held in memory for this tab.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p role="status" className="text-sm">
-            {adult.email}
-          </p>
-          {status.kind === "error" ? (
-            <p role="alert" className="text-sm text-destructive">
-              {status.message}
-            </p>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void onSignOut()}
-            disabled={status.kind === "loading"}
-          >
-            {status.kind === "loading" ? "Signing out…" : "Sign out"}
-          </Button>
-        </CardContent>
-      </Card>
+      <FamilyScreen
+        session={session}
+        authClient={client}
+        familyClient={familyClient}
+        onSignedOut={() => {
+          setAdult(null)
+          setCodeSent(false)
+          setCode("")
+          setDevHint(null)
+          setStatus({ kind: "idle" })
+        }}
+      />
     )
   }
 

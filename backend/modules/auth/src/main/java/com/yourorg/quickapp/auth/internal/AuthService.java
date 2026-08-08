@@ -133,6 +133,28 @@ public class AuthService {
         sessions.save(session);
     }
 
+    @Transactional
+    public AdultResponse updateDisplayName(UUID adultId, String rawDisplayName) {
+        String displayName = normalizeDisplayName(rawDisplayName);
+        AdultEntity adult =
+                adults.findById(adultId)
+                        .orElseThrow(() -> unauthorized("Missing or invalid Bearer token"));
+        adult.setDisplayName(displayName);
+        adults.save(adult);
+        return toResponse(adult);
+    }
+
+    static String normalizeDisplayName(String rawDisplayName) {
+        if (rawDisplayName == null || rawDisplayName.isBlank()) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "adultDisplayName must not be blank");
+        }
+        String trimmed = rawDisplayName.trim();
+        if (trimmed.length() > 80) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "adultDisplayName is too long");
+        }
+        return trimmed;
+    }
+
     public static AuthException unauthorized(String message) {
         return new AuthException(HttpStatus.UNAUTHORIZED, message);
     }
