@@ -27,6 +27,9 @@ class AuthSession(
         return client.getMe(token)
     }
 
+    fun requireAccessToken(): String =
+        tokenStore.loadAccessToken() ?: throw AuthApiException("Not signed in")
+
     suspend fun logout() {
         val token = tokenStore.loadAccessToken()
         if (token != null) {

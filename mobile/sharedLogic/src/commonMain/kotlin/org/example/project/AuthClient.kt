@@ -22,54 +22,71 @@ class AuthClient(
     private val baseUrl: String,
     private val httpClient: HttpClient = createHttpClient(),
 ) {
-    suspend fun requestCode(email: String): RequestAuthCodeResponse {
-        val response =
-            httpClient.post("$baseUrl/api/auth/request-code") {
-                contentType(ContentType.Application.Json)
-                setBody(RequestAuthCodeRequest(email))
-            }
-        ensureSuccess(response, "Request code failed")
-        return response.body()
-    }
+    suspend fun requestCode(email: String): RequestAuthCodeResponse =
+        withConnectivityHint {
+            val response =
+                httpClient.post("$baseUrl/api/auth/request-code") {
+                    contentType(ContentType.Application.Json)
+                    setBody(RequestAuthCodeRequest(email))
+                }
+            ensureSuccess(response, "Request code failed")
+            response.body()
+        }
 
     suspend fun verifyCode(
         email: String,
         code: String,
-    ): AuthSessionResponse {
-        val response =
-            httpClient.post("$baseUrl/api/auth/verify-code") {
-                contentType(ContentType.Application.Json)
-                setBody(VerifyAuthCodeRequest(email, code))
-            }
-        ensureSuccess(response, "Verify code failed")
-        return response.body()
-    }
+    ): AuthSessionResponse =
+        withConnectivityHint {
+            val response =
+                httpClient.post("$baseUrl/api/auth/verify-code") {
+                    contentType(ContentType.Application.Json)
+                    setBody(VerifyAuthCodeRequest(email, code))
+                }
+            ensureSuccess(response, "Verify code failed")
+            response.body()
+        }
 
-    suspend fun getMe(accessToken: String): Adult {
-        val response =
-            httpClient.get("$baseUrl/api/auth/me") {
-                header(HttpHeaders.Authorization, "Bearer $accessToken")
-            }
-        ensureSuccess(response, "Current adult failed")
-        return response.body()
-    }
+    suspend fun getMe(accessToken: String): Adult =
+        withConnectivityHint {
+            val response =
+                httpClient.get("$baseUrl/api/auth/me") {
+                    header(HttpHeaders.Authorization, "Bearer $accessToken")
+                }
+            ensureSuccess(response, "Current adult failed")
+            response.body()
+        }
 
     suspend fun logout(accessToken: String) {
-        val response =
-            httpClient.post("$baseUrl/api/auth/logout") {
-                header(HttpHeaders.Authorization, "Bearer $accessToken")
+        withConnectivityHint {
+            val response =
+                httpClient.post("$baseUrl/api/auth/logout") {
+                    header(HttpHeaders.Authorization, "Bearer $accessToken")
+                }
+            if (response.status != HttpStatusCode.NoContent && !response.status.isSuccess()) {
+                throw AuthApiException(awaitMessage(response, "Logout failed"))
             }
-        if (response.status != HttpStatusCode.NoContent && !response.status.isSuccess()) {
-            throw AuthApiException(awaitMessage(response, "Logout failed"))
         }
     }
+
+    private suspend inline fun <T> withConnectivityHint(block: suspend () -> T): T =
+        try {
+            block()
+        } catch (error: AuthApiException) {
+            throw error
+        } catch (error: Throwable) {
+            throw AuthApiException(connectivityMessage(baseUrl, error), error)
+        }
 
     companion object {
         fun create(baseUrl: String = apiBaseUrl()): AuthClient = AuthClient(baseUrl)
     }
 }
 
-class AuthApiException(message: String) : Exception(message)
+class AuthApiException(
+    message: String,
+    cause: Throwable? = null,
+) : Exception(message, cause)
 
 @Serializable
 private data class RequestAuthCodeRequest(val email: String)
@@ -92,7 +109,15 @@ internal fun createHttpClient(): HttpClient =
         }
     }
 
-private suspend fun ensureSuccess(
+internal fun connectivityMessage(
+    baseUrl: String,
+    error: Throwable,
+): String {
+    val detail = error.message?.takeIf { it.isNotBlank() } ?: error::class.simpleName ?: "network error"
+    return "Cannot reach $baseUrl ($detail). Is the backend running? On Android run: adb reverse tcp:8080 tcp:8080"
+}
+
+internal suspend fun ensureSuccess(
     response: HttpResponse,
     fallback: String,
 ) {
@@ -101,7 +126,7 @@ private suspend fun ensureSuccess(
     }
 }
 
-private suspend fun awaitMessage(
+internal suspend fun awaitMessage(
     response: HttpResponse,
     fallback: String,
 ): String {

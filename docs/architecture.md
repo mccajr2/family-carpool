@@ -11,10 +11,11 @@ work flows through it*.
 roadmap → spec → contract → backend module → mobile/web clients → UI.
 
 The disposable **greeting** harness was removed with the first product feature
-(`adult-auth-magic-link`). Cross-stack smoke is now **email OTP auth**.
+(`adult-auth-magic-link`). Cross-stack smoke is **email OTP auth** plus
+**family circle + kids**.
 
 Proven toolchain checkpoints (from the starter) remain valid; the live product
-path is auth:
+path is auth → family:
 
 | Checkpoint | Proves |
 |------------|--------|
@@ -27,13 +28,13 @@ path-filtered CI).
 
 ## Auth (v1)
 
-Locked for `adult-auth-magic-link` (see active/archive spec):
+Locked for `adult-auth-magic-link` (see archive spec):
 
 | Topic | Decision |
 |--------|----------|
 | Proof | Email one-time code only (no magic link in v1) |
 | Session | Opaque **Bearer** token on web + Android + iOS |
-| First verify | Auto-create adult; `displayName` deferred to family-circle |
+| First verify | Auto-create adult; `displayName` set when creating a family circle |
 | Persistence | Postgres + Flyway; Testcontainers in backend integration tests |
 | Dev mail | `LoggingAuthMailPort` + optional `app.auth.dev-code-echo` |
 | Prod mail | Upcoming `auth-email-delivery` (pre-beta) |
@@ -41,16 +42,49 @@ Locked for `adult-auth-magic-link` (see active/archive spec):
 | Mobile tokens | Android `EncryptedSharedPreferences`; iOS Keychain |
 
 Modulith module: `backend/modules/auth/`. Contract paths under `/api/auth/*`.
+Public surface for other modules: `AdultSessionApi` (resolve Bearer adult,
+update `displayName`).
+
+## Family circle (v1)
+
+Locked for `family-circle-and-kids`:
+
+| Topic | Decision |
+|--------|----------|
+| Cardinality | **At most one** circle membership per adult (multi-circle → parking) |
+| Create | Required adult display name; optional circle name (UI: “Your family”) |
+| Role on create | `ORGANIZER` (Caregiver arrives with invites) |
+| Kid | Stable id + display name only (no birth year / player vs sibling type) |
+| Empty circle | Allowed (add kids later) |
+
+Modulith module: `backend/modules/family/`. Contract paths under `/api/family/*`.
+
+**How objects link (extensible):**
+
+- **Adult** ↔ **circle** via membership (+ role)
+- **Kid** belongs to a **circle**
+- Later **activity feeds** attach to a circle; **feed↔kid** links mean “on this
+  team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
+  a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
+
+```
+Adult --membership--> FamilyCircle <-- Kid
+                           ^
+                           | (later)
+                      ActivityFeed --feed↔kid--> Kid
+```
 
 ## Repository layout
 
 ```
 family-carpool/
 ├── backend/              # Spring Boot app + Modulith modules (root Gradle build)
-│   └── modules/auth/     # Email OTP + Bearer sessions
+│   └── modules/
+│       ├── auth/         # Email OTP + Bearer sessions
+│       └── family/       # Family circle + kids
 ├── mobile/               # Separate Gradle build (KMP)
-│   ├── sharedLogic/      # Auth client + secure token store
-│   ├── sharedUI/         # Compose Multiplatform (Android auth UI)
+│   ├── sharedLogic/      # Auth + family clients + secure token store
+│   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)
 │   ├── androidApp/       # Jetpack Compose shell
 │   └── iosApp/           # Native SwiftUI shell (Xcode project)
 ├── contracts/
@@ -225,19 +259,20 @@ Run: `./gradlew :backend:test` and
 - **Ktor Client** — `ktor-client-core` + OkHttp (Android) + Darwin (iOS).
 - **JSON** — kotlinx.serialization + Ktor ContentNegotiation.
 - **Base URL** — `expect fun apiBaseUrl()` in commonMain:
-  - Android emulator → `http://10.0.2.2:8080`
+  - Android (emulator or USB) → `http://127.0.0.1:8080` after
+    `adb reverse tcp:8080 tcp:8080`
   - iOS simulator → `http://localhost:8080`
 - **iOS Swift interop** — callback wrapper in `iosMain` (e.g. `AuthBridge`)
   rather than exposing `suspend` directly to SwiftUI.
-- **Dev-only cleartext HTTP** — Android `network_security_config.xml` (localhost +
-  `10.0.2.2`); iOS ATS exception for `localhost` in `Info.plist`.
+- **Dev-only cleartext HTTP** — Android `network_security_config.xml` (`127.0.0.1`,
+  localhost, `10.0.2.2`); iOS ATS exception for `localhost` in `Info.plist`.
 
 ### Running locally
 
 | Target | How |
 |--------|-----|
 | Backend | `./gradlew :backend:bootRun` (repo root) |
-| Android | Open `mobile/` in Android Studio → run `androidApp` on emulator |
+| Android | Open `mobile/` in Android Studio → run `androidApp`; then `adb reverse tcp:8080 tcp:8080` |
 | iOS | Open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on simulator |
 
 Manual success signal: sign in with email OTP on each client (dev code echo / log

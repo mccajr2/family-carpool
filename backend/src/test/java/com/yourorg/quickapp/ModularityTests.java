@@ -13,6 +13,7 @@ class ModularityTests {
         modules.forEach(System.out::println);
 
         assertThat(modules.getModuleByName("auth")).isPresent();
+        assertThat(modules.getModuleByName("family")).isPresent();
         assertThat(modules.getModuleByName("greeting")).isEmpty();
     }
 }

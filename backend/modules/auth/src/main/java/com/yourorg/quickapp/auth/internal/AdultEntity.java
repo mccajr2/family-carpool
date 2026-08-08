@@ -42,4 +42,8 @@ class AdultEntity {
     String displayName() {
         return displayName;
     }
+
+    void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
 }

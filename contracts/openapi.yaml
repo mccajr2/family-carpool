@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.2.0
+  version: 0.3.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
-    one-time codes and Bearer sessions (v1). Magic links, passwords, and
-    HTTP-only web cookies are out of scope for this revision.
+    one-time codes and Bearer sessions. Family circles (one per adult in v1)
+    hold kids and Organizer membership. Magic links, passwords, multi-circle
+    membership, and HTTP-only web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -13,6 +14,8 @@ servers:
 tags:
   - name: auth
     description: Email OTP sign-in and Bearer sessions
+  - name: family
+    description: Family circle and kids (one circle per adult in v1)
 
 paths:
   /api/auth/request-code:
@@ -127,7 +130,7 @@ paths:
               example:
                 id: 01900000-0000-7000-8000-000000000001
                 email: parent@example.com
-                displayName: null
+                displayName: Alex
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -147,6 +150,249 @@ paths:
           description: Session revoked (idempotent if already revoked)
         "401":
           description: Missing or invalid Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle:
+    post:
+      operationId: createFamilyCircle
+      tags: [family]
+      summary: Create the current adult's family circle
+      description: >
+        Creates a circle for an authenticated adult who does not yet belong to
+        one. The adult becomes ORGANIZER. Requires an adult display name; circle
+        name is optional (clients show "Your family" when unset). Zero kids is
+        allowed. A second create for the same adult returns 409.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFamilyCircleRequest"
+            example:
+              adultDisplayName: Alex
+              name: McCarthy house
+      responses:
+        "201":
+          description: Circle created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+              example:
+                id: 01900000-0000-7000-8000-000000000010
+                name: McCarthy house
+                role: ORGANIZER
+                kids: []
+        "400":
+          description: Invalid request (e.g. blank adult display name)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Adult already belongs to a family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: getFamilyCircle
+      tags: [family]
+      summary: Get the current adult's family circle and kids
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Circle with membership role and kids
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+              example:
+                id: 01900000-0000-7000-8000-000000000010
+                name: McCarthy house
+                role: ORGANIZER
+                kids:
+                  - id: 01900000-0000-7000-8000-000000000021
+                    displayName: Sam
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateFamilyCircle
+      tags: [family]
+      summary: Update the current adult's family circle
+      description: >
+        Updates the optional circle name. Pass null to clear the name (UI falls
+        back to "Your family"). Only members of the circle may update it.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFamilyCircleRequest"
+            example:
+              name: Our house
+      responses:
+        "200":
+          description: Circle updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/kids:
+    post:
+      operationId: addKid
+      tags: [family]
+      summary: Add a kid to the current adult's family circle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKidRequest"
+            example:
+              displayName: Sam
+      responses:
+        "201":
+          description: Kid created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kid"
+              example:
+                id: 01900000-0000-7000-8000-000000000021
+                displayName: Sam
+        "400":
+          description: Invalid request (e.g. blank display name)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/kids/{kidId}:
+    parameters:
+      - name: kidId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateKid
+      tags: [family]
+      summary: Rename a kid in the current adult's family circle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKidRequest"
+            example:
+              displayName: Samantha
+      responses:
+        "200":
+          description: Kid updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Kid"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kid not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteKid
+      tags: [family]
+      summary: Remove a kid from the current adult's family circle
+      description: Hard-deletes the kid row (acceptable until feeds/events exist).
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Kid removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kid not found in the current adult's circle (or no circle)
           content:
             application/json:
               schema:
@@ -246,7 +492,104 @@ components:
         displayName:
           type: string
           nullable: true
-          description: Null until set in family-circle flow
+          description: >
+            Null until set when creating a family circle (or later profile
+            flows). May be non-null after createFamilyCircle.
+
+    CreateFamilyCircleRequest:
+      type: object
+      required:
+        - adultDisplayName
+      properties:
+        adultDisplayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Required display name for the creating adult
+          example: Alex
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 80
+          description: Optional circle name; omit or null for unnamed ("Your family")
+          example: McCarthy house
+
+    UpdateFamilyCircleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+          maxLength: 80
+          description: >
+            New circle name. Null clears the name so clients show "Your family".
+          example: Our house
+
+    FamilyCircle:
+      type: object
+      required:
+        - id
+        - role
+        - kids
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+          description: Null when unnamed; clients should show "Your family"
+        role:
+          $ref: "#/components/schemas/FamilyRole"
+        kids:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kid"
+
+    FamilyRole:
+      type: string
+      enum: [ORGANIZER, CAREGIVER]
+      description: >
+        ORGANIZER on create in this revision. CAREGIVER is reserved for the
+        invites slice.
+
+    Kid:
+      type: object
+      required:
+        - id
+        - displayName
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable kid identifier
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+
+    CreateKidRequest:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Sam
+
+    UpdateKidRequest:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Samantha
 
     ErrorResponse:
       type: object

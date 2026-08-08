@@ -59,6 +59,7 @@ class AuthBridgeTest {
                             client = AuthClient("http://localhost:8080", httpClient),
                             tokenStore = store,
                         ),
+                    familyClient = FamilyClient("http://localhost:8080", httpClient),
                     scope = CoroutineScope(Dispatchers.Unconfined),
                 )
 

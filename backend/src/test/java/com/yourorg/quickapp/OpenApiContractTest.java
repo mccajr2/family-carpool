@@ -8,8 +8,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards the auth OpenAPI contract for adult-auth-magic-link. Fails if greeting
- * returns or required auth paths / Bearer scheme are removed.
+ * Guards OpenAPI contract paths for auth + family circle. Fails if greeting
+ * returns or required paths / Bearer scheme are removed.
  */
 class OpenApiContractTest {
 
@@ -35,6 +35,33 @@ class OpenApiContractTest {
         assertThat(yaml).contains("AuthSessionResponse:");
         assertThat(yaml).contains("Adult:");
         assertThat(yaml).contains("devCode:");
+    }
+
+    @Test
+    void familyContractDocumentsCircleAndKidsUnderBearer() throws IOException {
+        String yaml = Files.readString(resolveOpenApi());
+
+        assertThat(yaml).contains("/api/family/circle");
+        assertThat(yaml).contains("/api/family/circle/kids");
+        assertThat(yaml).contains("/api/family/circle/kids/{kidId}");
+
+        assertThat(yaml).contains("operationId: createFamilyCircle");
+        assertThat(yaml).contains("operationId: getFamilyCircle");
+        assertThat(yaml).contains("operationId: updateFamilyCircle");
+        assertThat(yaml).contains("operationId: addKid");
+        assertThat(yaml).contains("operationId: updateKid");
+        assertThat(yaml).contains("operationId: deleteKid");
+
+        assertThat(yaml).contains("CreateFamilyCircleRequest:");
+        assertThat(yaml).contains("UpdateFamilyCircleRequest:");
+        assertThat(yaml).contains("FamilyCircle:");
+        assertThat(yaml).contains("FamilyRole:");
+        assertThat(yaml).contains("Kid:");
+        assertThat(yaml).contains("CreateKidRequest:");
+        assertThat(yaml).contains("UpdateKidRequest:");
+        assertThat(yaml).contains("adultDisplayName:");
+        assertThat(yaml).contains("ORGANIZER");
+        assertThat(yaml).contains("\"409\"");
     }
 
     private static Path resolveOpenApi() {
