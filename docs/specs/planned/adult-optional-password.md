@@ -13,16 +13,17 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-Frequent users want an optional password on top of magic-link accounts so they
+Frequent users want an optional password on top of email-OTP accounts so they
 are not email-bound every session.
 
 ## Non-goals (sketch)
 
-- Replacing magic link as primary onboarding
+- Replacing email OTP as primary onboarding / recovery
 - Apple / Google sign-in
 - Password-only account creation
 
 ## Notes
 
-- Depends on `adult-auth-magic-link`.
-- Split out so magic-link auth stays one PR.
+- Depends on `adult-auth-magic-link` (done).
+- Pre-beta convenience — do not block family/calendar/carpool slices.
+- Ranked with `auth-email-delivery` and `web-auth-session-hardening` near beta.
