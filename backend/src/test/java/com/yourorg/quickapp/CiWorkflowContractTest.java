@@ -28,6 +28,8 @@ class CiWorkflowContractTest {
         assertThat(yaml).contains("gitleaks/gitleaks-action@v3.0.0");
         assertThat(yaml).contains("pull_request:");
         assertThat(yaml).contains("push:");
+        // Required so gitleaks-action can GET /pulls/{n}/commits under read-only tokens.
+        assertThat(yaml).contains("pull-requests: read");
         // Secrets can land in any path — no path filters under on:.
         String onBlock = yaml.split("jobs:", 2)[0];
         assertThat(onBlock).doesNotContain("paths:");
