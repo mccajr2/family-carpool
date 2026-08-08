@@ -24,7 +24,7 @@ alwaysApply: false
   `web/src/components/ui/`.
 - New component with any logic (not pure presentational) → component test with
   Testing Library (Vitest). New user-facing product flow → Playwright e2e
-  (deferred for the greeting harness; add when a real flow lands).
+  (deferred until a multi-step product flow needs browser e2e).
 - Loading/error/empty states are required for every data-fetching component, not
   an afterthought — write them in the same pass as the happy path.
 - Run `npm run lint` + `npm test` (and `npm run build` before PR) from `web/`

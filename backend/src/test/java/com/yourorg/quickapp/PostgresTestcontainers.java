@@ -1,0 +1,39 @@
+package com.yourorg.quickapp;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+
+/**
+ * Shared Postgres Testcontainers lifecycle for backend SpringBootTests.
+ */
+public final class PostgresTestcontainers {
+
+    private static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
+                    .withDatabaseName("family_carpool_test")
+                    .withUsername("test")
+                    .withPassword("test");
+
+    static {
+        // Allow tests to run when Docker is available; fail clearly otherwise.
+        POSTGRES.start();
+    }
+
+    private PostgresTestcontainers() {}
+
+    public static void registerDatasource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("app.auth.dev-code-echo", () -> "true");
+        registry.add("app.auth.code-pepper", () -> "test-pepper");
+    }
+
+    public static boolean dockerAvailable() {
+        return Files.exists(Path.of("/var/run/docker.sock"))
+                || Files.exists(Path.of("/Users/jasonmccarthy/.docker/run/docker.sock"));
+    }
+}

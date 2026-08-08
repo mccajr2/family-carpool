@@ -1,42 +1,258 @@
 openapi: 3.0.3
 info:
-  title: Quickapp API
-  version: 0.1.0
+  title: Family Carpool API
+  version: 0.2.0
   description: >
-    Contract-first API for quickapp. This spike documents the greeting
-    harness endpoint used to verify cross-stack networking.
+    Contract-first API for family-carpool. Adult authentication uses email
+    one-time codes and Bearer sessions (v1). Magic links, passwords, and
+    HTTP-only web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
+
+tags:
+  - name: auth
+    description: Email OTP sign-in and Bearer sessions
+
 paths:
-  /api/greeting:
-    get:
-      operationId: getGreeting
-      summary: Return a greeting for the given name
-      parameters:
-        - name: name
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Name to greet
-          example: Android
+  /api/auth/request-code:
+    post:
+      operationId: requestAuthCode
+      tags: [auth]
+      summary: Request a one-time sign-in code for an email address
+      description: >
+        Always returns the same success shape whether or not the email is already
+        registered (no account enumeration). Delivers a short-lived single-use
+        code via the configured mail port. Production-shaped configs must not
+        include the plaintext code in the response; a documented dev delivery
+        path may log or echo the code for local smoke testing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestAuthCodeRequest"
+            example:
+              email: parent@example.com
       responses:
-        "200":
-          description: Greeting message
+        "202":
+          description: Code accepted for delivery (same body for new or existing emails)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GreetingResponse"
+                $ref: "#/components/schemas/RequestAuthCodeResponse"
               example:
-                message: Hello, Android, from a Spring Modulith module.
+                email: parent@example.com
+                expiresInSeconds: 600
+                # `devCode` is only present when the server runs with explicit
+                # dev code-echo enabled; omit in production-shaped configs.
+        "400":
+          description: Invalid request (e.g. malformed email)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many code requests for this email or client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/verify-code:
+    post:
+      operationId: verifyAuthCode
+      tags: [auth]
+      summary: Verify a one-time code and create a Bearer session
+      description: >
+        On success, auto-creates an adult account if this email is new, issues
+        an opaque Bearer session token, and returns the adult summary. Codes are
+        single-use; a second verify with the same code fails.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyAuthCodeRequest"
+            example:
+              email: parent@example.com
+              code: "123456"
+      responses:
+        "200":
+          description: Signed in; Bearer token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+              example:
+                accessToken: opaque-session-token
+                tokenType: Bearer
+                adult:
+                  id: 01900000-0000-7000-8000-000000000001
+                  email: parent@example.com
+                  displayName: null
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid, expired, or already-used code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many verify attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/me:
+    get:
+      operationId: getCurrentAdult
+      tags: [auth]
+      summary: Return the adult for the current Bearer session
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adult"
+              example:
+                id: 01900000-0000-7000-8000-000000000001
+                email: parent@example.com
+                displayName: null
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Revoke the current Bearer session
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Session revoked (idempotent if already revoked)
+        "401":
+          description: Missing or invalid Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: >
+        Opaque session token returned by verifyAuthCode. Send as
+        `Authorization: Bearer <accessToken>`.
+
   schemas:
-    GreetingResponse:
+    RequestAuthCodeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Adult email (server normalizes trim + lowercase)
+          example: parent@example.com
+
+    RequestAuthCodeResponse:
+      type: object
+      required:
+        - email
+        - expiresInSeconds
+      properties:
+        email:
+          type: string
+          format: email
+          example: parent@example.com
+        expiresInSeconds:
+          type: integer
+          minimum: 1
+          description: Seconds until the issued code expires
+          example: 600
+        devCode:
+          type: string
+          description: >
+            Plaintext OTP present only when explicit dev code-echo is enabled.
+            Must be omitted in production-shaped configuration.
+          example: "123456"
+
+    VerifyAuthCodeRequest:
+      type: object
+      required:
+        - email
+        - code
+      properties:
+        email:
+          type: string
+          format: email
+          example: parent@example.com
+        code:
+          type: string
+          minLength: 4
+          maxLength: 12
+          description: One-time code from email (typically 6 digits)
+          example: "123456"
+
+    AuthSessionResponse:
+      type: object
+      required:
+        - accessToken
+        - tokenType
+        - adult
+      properties:
+        accessToken:
+          type: string
+          description: Opaque Bearer session token
+        tokenType:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        adult:
+          $ref: "#/components/schemas/Adult"
+
+    Adult:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable adult identifier
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+          description: Null until set in family-circle flow
+
+    ErrorResponse:
       type: object
       required:
         - message
       properties:
         message:
           type: string
-          example: Hello, Android, from a Spring Modulith module.
+          example: Invalid or expired code
