@@ -259,19 +259,20 @@ Run: `./gradlew :backend:test` and
 - **Ktor Client** — `ktor-client-core` + OkHttp (Android) + Darwin (iOS).
 - **JSON** — kotlinx.serialization + Ktor ContentNegotiation.
 - **Base URL** — `expect fun apiBaseUrl()` in commonMain:
-  - Android emulator → `http://10.0.2.2:8080`
+  - Android (emulator or USB) → `http://127.0.0.1:8080` after
+    `adb reverse tcp:8080 tcp:8080`
   - iOS simulator → `http://localhost:8080`
 - **iOS Swift interop** — callback wrapper in `iosMain` (e.g. `AuthBridge`)
   rather than exposing `suspend` directly to SwiftUI.
-- **Dev-only cleartext HTTP** — Android `network_security_config.xml` (localhost +
-  `10.0.2.2`); iOS ATS exception for `localhost` in `Info.plist`.
+- **Dev-only cleartext HTTP** — Android `network_security_config.xml` (`127.0.0.1`,
+  localhost, `10.0.2.2`); iOS ATS exception for `localhost` in `Info.plist`.
 
 ### Running locally
 
 | Target | How |
 |--------|-----|
 | Backend | `./gradlew :backend:bootRun` (repo root) |
-| Android | Open `mobile/` in Android Studio → run `androidApp` on emulator |
+| Android | Open `mobile/` in Android Studio → run `androidApp`; then `adb reverse tcp:8080 tcp:8080` |
 | iOS | Open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on simulator |
 
 Manual success signal: sign in with email OTP on each client (dev code echo / log

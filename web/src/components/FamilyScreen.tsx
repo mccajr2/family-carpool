@@ -33,9 +33,12 @@ function circleTitle(circle: FamilyCircle): string {
 export function FamilyScreen({
   session,
   authClient,
-  familyClient = new FamilyClient(),
+  familyClient: familyClientProp,
   onSignedOut,
 }: FamilyScreenProps) {
+  // Default param `new FamilyClient()` would be a new instance every render and
+  // retrigger the load effect forever (frozen "Loading…" / create form).
+  const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
   const [status, setStatus] = useState<Status>({ kind: "loading" })
   const [circle, setCircle] = useState<FamilyCircle | null>(null)
   const [adult, setAdult] = useState<Adult | null>(() => session.getAdult())
@@ -204,20 +207,20 @@ export function FamilyScreen({
         <CardHeader>
           <CardTitle>Create your family</CardTitle>
           <CardDescription>
-            Signed in as {adult?.email ?? "unknown"}. Add a display name to create
-            your circle.
+            Signed in as {adult?.email ?? "unknown"}. Your name is required; family
+            name is optional (defaults to “Your family”).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Input
-            aria-label="Your display name"
+            aria-label="Your name"
             value={adultDisplayName}
             onChange={(event) => setAdultDisplayName(event.target.value)}
-            placeholder="Alex"
+            placeholder="Your name"
             disabled={status.kind === "loading"}
           />
           <Input
-            aria-label="Family name (optional)"
+            aria-label="Your family (optional)"
             value={circleName}
             onChange={(event) => setCircleName(event.target.value)}
             placeholder="Your family"

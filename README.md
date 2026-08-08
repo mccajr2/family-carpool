@@ -59,7 +59,13 @@ Open the app → email OTP → create family (display name) → add/rename/remov
 → Sign out. Unnamed circles show as **Your family**.
 
 **Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator
-(backend on host; emulator uses `10.0.2.2:8080`).
+or USB device. With the backend on the host, forward the port once per device:
+
+```bash
+adb reverse tcp:8080 tcp:8080
+```
+
+The app calls `http://127.0.0.1:8080` (same as iOS localhost after reverse).
 
 **iOS:** open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on a simulator.
 

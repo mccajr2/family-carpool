@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
-import type { FamilyClient } from "@/api/familyClient"
+import { FamilyClient } from "@/api/familyClient"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
@@ -59,7 +59,7 @@ describe("FamilyScreen", () => {
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Create your family" })).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText("Your display name"), "Alex")
+    await user.type(screen.getByLabelText("Your name"), "Alex")
     await user.click(screen.getByRole("button", { name: "Create family" }))
 
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
@@ -104,5 +104,28 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("heading", { name: "McCarthy house" })).toBeInTheDocument()
+  })
+
+  it("loads the circle only once when using the default FamilyClient", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: null,
+    })
+    const getCircle = vi
+      .spyOn(FamilyClient.prototype, "getCircle")
+      .mockResolvedValue(null)
+
+    render(<FamilyScreen session={session} onSignedOut={vi.fn()} />)
+
+    expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(getCircle).toHaveBeenCalledTimes(1)
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(getCircle).toHaveBeenCalledTimes(1)
+
+    getCircle.mockRestore()
   })
 })

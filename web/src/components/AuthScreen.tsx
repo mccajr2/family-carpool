@@ -27,10 +27,14 @@ type AuthScreenProps = {
 }
 
 export function AuthScreen({
-  client = new AuthClient(),
-  familyClient,
+  client: clientProp,
+  familyClient: familyClientProp,
   session = authSession,
 }: AuthScreenProps) {
+  const [client] = useState(() => clientProp ?? new AuthClient())
+  const [familyClient] = useState(
+    () => familyClientProp ?? new FamilyClient(),
+  )
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [codeSent, setCodeSent] = useState(false)

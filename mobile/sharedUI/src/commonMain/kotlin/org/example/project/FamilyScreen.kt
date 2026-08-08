@@ -59,7 +59,7 @@ fun FamilyScreen(
             is FamilyUiModel.State.NeedsCreate -> {
                 Text("Create your family", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    text = "Signed in as ${current.email.ifBlank { "…" }}",
+                    text = "Signed in as ${current.email.ifBlank { "…" }}. Your name is required; family name is optional.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 OutlinedTextField(
@@ -68,7 +68,7 @@ fun FamilyScreen(
                         model.updateAdultDisplayName(it)
                         refresh()
                     },
-                    label = { Text("Your display name") },
+                    label = { Text("Your name") },
                     singleLine = true,
                     enabled = !current.loading,
                     modifier = Modifier.fillMaxWidth(),
@@ -79,7 +79,8 @@ fun FamilyScreen(
                         model.updateCircleName(it)
                         refresh()
                     },
-                    label = { Text("Family name (optional)") },
+                    label = { Text("Your family (optional)") },
+                    placeholder = { Text("Your family") },
                     singleLine = true,
                     enabled = !current.loading,
                     modifier = Modifier.fillMaxWidth(),

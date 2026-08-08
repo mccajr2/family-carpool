@@ -77,13 +77,13 @@ struct ContentView: View {
         case .needsCreate:
             Text("Create your family")
                 .font(.title2.bold())
-            Text("Signed in as \(model.signedInEmail.isEmpty ? "…" : model.signedInEmail)")
+            Text("Signed in as \(model.signedInEmail.isEmpty ? "…" : model.signedInEmail). Your name is required; family name is optional.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            TextField("Your display name", text: $model.adultDisplayName)
+            TextField("Your name", text: $model.adultDisplayName)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
-            TextField("Family name (optional)", text: $model.circleNameInput)
+            TextField("Your family (optional)", text: $model.circleNameInput)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
             if let errorMessage = model.errorMessage {
