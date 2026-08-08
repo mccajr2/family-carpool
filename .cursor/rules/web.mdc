@@ -8,7 +8,8 @@ alwaysApply: false
 
 - Stack: Vite + React + TypeScript + Tailwind; shadcn-style primitives under
   `web/src/components/ui/`.
-- **Toolchain:** Local Node `>=20` (`package.json` `engines`). CI pins Node via
+- **Toolchain:** Local Node must match `package.json` `engines`
+  (`^22.22.2 || ^24.15.0 || >=26`, driven by jsdom 30). CI pins Node via
   `web/.nvmrc` and npm via `packageManager` + Corepack. Prefer `.nvmrc` when
   regenerating the lockfile. CI enables Corepack and only runs `npm ci` (never
   `npm install`).
