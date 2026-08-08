@@ -23,14 +23,21 @@ Steps:
    `docs/specs/active/<feature-name>.md`.
 4. Set `Parent: docs/roadmap.md` on the spec when this id appears on the roadmap
    (or when the user is working from the product roadmap).
-5. Ask clarifying questions ONE AT A TIME if the feature request is ambiguous —
+5. **Greeting harness check.** Read `docs/using-as-template.md` (delete-harness
+   section). If `backend/modules/greeting/` still exists and this spec is the
+   app's **first real product feature** (domain/auth vertical, not template or
+   CI-only work): the spec **must** include deleting the greeting harness in
+   this PR — do not list "keep greeting" as a non-goal and do not extend the
+   greeting module. Follow the checklist in that doc (module, contract, web +
+   mobile, tests, README smoke). If greeting is already gone, skip.
+6. Ask clarifying questions ONE AT A TIME if the feature request is ambiguous —
    specifically about: what's explicitly out of scope, whether this touches the
    OpenAPI contract, and what "done" looks like. Do not proceed to writing full
    acceptance criteria until scope is clear enough for real (not vague) criteria.
-6. Fill in Problem, Non-goals, Approach, Acceptance Criteria, and a Tasks checklist
+7. Fill in Problem, Non-goals, Approach, Acceptance Criteria, and a Tasks checklist
    broken down by layer (backend/contract/web/iOS/tests) — omit layers this feature
    doesn't touch.
-7. **Split if too big (while fleshing out).** If full AC/tasks reveal multiple
+8. **Split if too big (while fleshing out).** If full AC/tasks reveal multiple
    independent shippable capabilities (or the task list no longer fits one PR):
    - Stop — do not publish a mega-spec for approval.
    - Hand off to `/roadmap`: split into 2+ ids with **Added** `re-rank split`,
@@ -39,8 +46,8 @@ Steps:
      needed to match the surviving roadmap row); demote the rest to `planned`.
    - Update `docs/roadmap.md` Active/Upcoming accordingly, then show the narrowed
      spec for approval (or wait for the user to confirm the split first).
-8. Update `docs/roadmap.md`: set this id’s status to `active`; add/update the
+9. Update `docs/roadmap.md`: set this id’s status to `active`; add/update the
    **Active specs** row (branch + link). Do not re-rank other items unless the
-   user also asked for a re-rank via `/roadmap` (or step 7 required a split).
-9. Do NOT start implementing. Stop after the spec is written and show it to me for
-   approval before any code changes.
+   user also asked for a re-rank via `/roadmap` (or step 8 required a split).
+10. Do NOT start implementing. Stop after the spec is written and show it to me for
+    approval before any code changes.

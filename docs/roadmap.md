@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-07
+Updated: 2026-08-07 (adult-auth-magic-link → active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -58,7 +58,7 @@ share the ride.
 | Same team, multiple kids | Attach **which kids** belong on a feed/team; calendar shows both |
 | Carpool request | **One request covering all attending kids who still need a ride** by default (seats = kid count); **override** to drop a kid (e.g. sick) |
 | Feed vs carpool | **Feed = calendar only**. **Carpool join = parent invite code/link** (first family enables space; members reshare/regenerate). No coach admin |
-| Auth | **Magic link / email code first**; **optional password** for frequent users |
+| Auth | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups |
 | Leave-by | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic) |
 | Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
 
@@ -68,8 +68,8 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | adult-auth-magic-link | planned | 2026-08-07 · initial | Magic link / email code sign-in; sessions; per-adult accounts (no password yet) |
-| 2 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users atop magic-link accounts |
+| 1 | adult-auth-magic-link | active | 2026-08-07 · initial | Email OTP sign-in; Bearer sessions; per-adult accounts (no password / no display name yet) |
+| 2 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users atop email-code accounts |
 | 3 | family-circle-and-kids | planned | 2026-08-07 · initial | Create family circle; add/edit kids; creating adult is Organizer |
 | 4 | family-adult-invites-roles | planned | 2026-08-07 · initial | Invite link/code to join circle; Organizer invite/remove; Caregiver role |
 | 5 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
@@ -84,6 +84,8 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | 14 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
 | 15 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
 | 16 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 17 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 18 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -111,7 +113,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| — | — | — |
+| adult-auth-magic-link | `adult-auth-magic-link` | [active](specs/active/adult-auth-magic-link.md) |
 
 ## Done
 
@@ -132,3 +134,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-07-11 | Template packaging: Vision/non-goals clarify upstream is a starter template. |
 | 2026-08-07 | First product carve-up: family calendar + carpool vision; non-goals and locked decisions captured. |
 | 2026-08-07 | Re-rank split: thinned auth, feed/calendar, leave-by, and coverage into 16 PR-sized slices (was 11). |
+| 2026-08-07 | `/spec adult-auth-magic-link`: email OTP + Bearer v1; display name deferred to family-circle. |
+| 2026-08-07 | `auth-email-delivery` + `web-auth-session-hardening` → Upcoming ranks 17–18 as pre-beta gates (dev stays easy; do not block product slices). |

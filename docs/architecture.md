@@ -57,6 +57,11 @@ Gradle builds share no Gradle code with each other or with web — only
 `main` is protected: work lands only via pull request. **One active spec → one
 feature branch → one PR.**
 
+**Template lifecycle:** apps created from this starter keep the disposable
+`greeting` harness only until the first real product feature ships — then delete
+it (`docs/using-as-template.md`). Agents running `/spec` must check that doc;
+see AGENTS.md non-negotiables.
+
 Large product ideas go through the **roadmap** first; implementable slices still
 use `/spec`.
 
