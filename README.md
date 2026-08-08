@@ -44,7 +44,7 @@ curl "http://localhost:8080/api/greeting?name=Android"
 
 ```bash
 cd web
-npm ci                 # Node >=20 locally; CI uses web/.nvmrc + packageManager
+npm ci                 # Node ^22.22.2 || ^24.15 || >=26; CI uses web/.nvmrc + packageManager
 npm run dev
 ```
 

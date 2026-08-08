@@ -1,0 +1,62 @@
+# Dependabot version updates — weekly grouped PRs (noise control).
+# Security alerts are enabled in repo Settings → Code security.
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      web-production-minor-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      web-development-minor-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # Root Gradle build (backend + build-logic). Major bumps stay ungrouped for review.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      gradle-root-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: gradle
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      gradle-mobile-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
