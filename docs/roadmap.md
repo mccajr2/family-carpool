@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-08 (re-rank: product slices before optional password)
+Updated: 2026-08-08 (park multi-circle / follow / attention stories)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -51,7 +51,7 @@ share the ride.
 | Topic | Decision |
 |--------|----------|
 | Schedule import | **RSS/Atom + iCal/`.ics` URL** first; **manual add/edit** escape hatch; dedupe by feed item UID when present; poll on a sensible interval; show **last-synced** time |
-| Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join |
+| Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join; **v1 = at most one circle per adult** (multi-circle / blended / multi-grandkid households → parking) |
 | Places | **Named places** (Mom’s house, Dad’s house, Grandma’s, School) — not one address for the whole circle |
 | Roles | **Organizer** (invite/remove, manage feeds/kids) + **Caregiver** (calendar, coverage, carpool, garage). Driver-only later |
 | Driving | Orthogonal to role: **0+ vehicles** or “don’t drive”; non-drivers stay full Caregivers and can **request** rides |
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | family-circle-and-kids | planned | 2026-08-07 · initial | Create family circle; add/edit kids; creating adult is Organizer |
+| 1 | family-circle-and-kids | active | 2026-08-07 · initial | Create family circle; add/edit kids; creating adult is Organizer |
 | 2 | family-adult-invites-roles | planned | 2026-08-07 · initial | Invite link/code to join circle; Organizer invite/remove; Caregiver role |
 | 3 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
 | 4 | place-geocoding | planned | 2026-08-07 · re-rank split | Nominatim geocode for places/venues; cache; respectful User-Agent |
@@ -95,6 +95,10 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 | Id | Added | Summary |
 |----|-------|---------|
+| multi-circle-membership | 2026-08-08 · enhancement | Adult in multiple family circles (blended households; grandparents with more than one grandkid family) |
+| read-only-calendar-follows | 2026-08-08 · enhancement | Follow another team/kid calendar read-only (e.g. last year’s teammates on a new team) |
+| venue-proximity-alerts | 2026-08-08 · enhancement | Notify when followed/circle kids are at or near the same venue around the same time |
+| caregiver-attention-balance | 2026-08-08 · enhancement | Surface which kids get more caregiver attention so adults (e.g. grandparents) can rebalance |
 | app-identity-rename | 2026-08-07 · initial | Rename packages/clients from quickapp template identity before public beta |
 | push-notifications | 2026-08-07 · initial | Push for coverage asks, ride request/accept, conflict alerts |
 | sign-in-apple-google | 2026-08-07 · initial | Sign in with Apple / Google (deferred from auth v1) |
@@ -110,7 +114,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None._
+| Id | Branch | Spec |
+|----|--------|------|
+| family-circle-and-kids | `family-circle-and-kids` | [active](specs/active/family-circle-and-kids.md) |
 
 ## Done
 
@@ -136,3 +142,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-07 | `auth-email-delivery` + `web-auth-session-hardening` → Upcoming ranks 17–18 as pre-beta gates (dev stays easy; do not block product slices). |
 | 2026-08-08 | `/pr adult-auth-magic-link`: email OTP + Bearer shipped; greeting harness deleted; next up `adult-optional-password`. |
 | 2026-08-08 | Re-rank: product slices first; `adult-optional-password` → rank 17 with other pre-beta auth gates; next up `family-circle-and-kids`. |
+| 2026-08-08 | Parked multi-circle, read-only calendar follows, venue-proximity alerts, and caregiver attention-balance; v1 stays one circle per adult. |
