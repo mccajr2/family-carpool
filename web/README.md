@@ -1,6 +1,6 @@
 # web
 
-Vite + React + TypeScript client for quickapp.
+Vite + React + TypeScript client for family-carpool.
 
 ## Toolchain
 
@@ -36,6 +36,7 @@ Scripts: `dev`, `build`, `lint`, `test`.
 In `npm run dev`, `/api` is proxied to `http://localhost:8080` (avoids CORS).
 Override with `VITE_API_BASE_URL` when you need a different origin.
 
-With the backend running (`./gradlew :backend:bootRun` from the repo root), open
-the app and fetch a greeting — success text includes
-`from a Spring Modulith module.`
+With the backend running (`./gradlew :backend:bootRun` from the repo root) and
+Postgres available, open the app and complete email OTP sign-in. With
+`AUTH_DEV_CODE_ECHO=true` (default), the request-code response includes `devCode`
+for local smoke.

@@ -1,19 +1,20 @@
 # Architecture
 
-Long-lived design decisions for quickapp. Feature-specific detail lives in
-`docs/specs/`; this document explains *how the repo is organized* and *how work
-flows through it*.
+Long-lived design decisions for **family-carpool**. Feature-specific detail lives
+in `docs/specs/`; this document explains *how the repo is organized* and *how
+work flows through it*.
 
 ## What this repo is
 
-quickapp is an **SDD (spec-driven development) starter template**, not a shipped
-product. Create a new GitHub repository from this template for each real app
-(see `docs/using-as-template.md`). The `greeting` backend module and demo UIs are
-disposable harnesses that prove the toolchain. Real apps reuse the same patterns:
-roadmap → spec → contract → backend module → mobile/web clients → native or
-browser UI.
+**family-carpool** is a product repo created from the quickapp SDD starter (see
+`docs/using-as-template.md` for upstream template notes). Workflow:
+roadmap → spec → contract → backend module → mobile/web clients → UI.
 
-Three checkpoints are verified in git:
+The disposable **greeting** harness was removed with the first product feature
+(`adult-auth-magic-link`). Cross-stack smoke is now **email OTP auth**.
+
+Proven toolchain checkpoints (from the starter) remain valid; the live product
+path is auth:
 
 | Checkpoint | Proves |
 |------------|--------|
@@ -21,19 +22,35 @@ Three checkpoints are verified in git:
 | 2 | KMP `sharedLogic` callable from native Android and iOS |
 | 3 | Full cross-stack path: OpenAPI → REST endpoint → Ktor client → native UI |
 
-Web (`web/`) is a fourth consumer of the same OpenAPI contract (React harness +
-path-filtered CI). See `docs/specs/archive/kmp-networking-spike.md` for
-checkpoint 3 evidence.
+Web (`web/`) is a fourth consumer of the same OpenAPI contract (React +
+path-filtered CI).
+
+## Auth (v1)
+
+Locked for `adult-auth-magic-link` (see active/archive spec):
+
+| Topic | Decision |
+|--------|----------|
+| Proof | Email one-time code only (no magic link in v1) |
+| Session | Opaque **Bearer** token on web + Android + iOS |
+| First verify | Auto-create adult; `displayName` deferred to family-circle |
+| Persistence | Postgres + Flyway; Testcontainers in backend integration tests |
+| Dev mail | `LoggingAuthMailPort` + optional `app.auth.dev-code-echo` |
+| Prod mail | Upcoming `auth-email-delivery` (pre-beta) |
+| Web hardening | Upcoming `web-auth-session-hardening` (HTTP-only cookie; pre-beta) |
+| Mobile tokens | Android `EncryptedSharedPreferences`; iOS Keychain |
+
+Modulith module: `backend/modules/auth/`. Contract paths under `/api/auth/*`.
 
 ## Repository layout
 
 ```
-quickapp/
+family-carpool/
 ├── backend/              # Spring Boot app + Modulith modules (root Gradle build)
-│   └── modules/*         # One folder = one vertical slice (auto-discovered)
+│   └── modules/auth/     # Email OTP + Bearer sessions
 ├── mobile/               # Separate Gradle build (KMP)
-│   ├── sharedLogic/      # Shared business logic + networking
-│   ├── sharedUI/         # Compose Multiplatform (Android uses this today)
+│   ├── sharedLogic/      # Auth client + secure token store
+│   ├── sharedUI/         # Compose Multiplatform (Android auth UI)
 │   ├── androidApp/       # Jetpack Compose shell
 │   └── iosApp/           # Native SwiftUI shell (Xcode project)
 ├── contracts/
@@ -42,7 +59,7 @@ quickapp/
 ├── docs/
 │   ├── architecture.md   # ← this file
 │   ├── using-as-template.md
-│   ├── roadmap.md        # product backlog (empty on the template)
+│   ├── roadmap.md        # product backlog
 │   └── specs/            # planned/ + active/ + archive/
 └── web/                  # Vite + React + TypeScript (npm; separate from Gradle)
 ```
@@ -56,6 +73,11 @@ Gradle builds share no Gradle code with each other or with web — only
 
 `main` is protected: work lands only via pull request. **One active spec → one
 feature branch → one PR.**
+
+**Template lifecycle:** the upstream starter keeps a disposable `greeting` harness
+until the first real product feature; **this product repo has already deleted
+it.** Agents running `/spec` should skip the harness-deletion step when
+`backend/modules/greeting/` is absent (see AGENTS.md).
 
 Large product ideas go through the **roadmap** first; implementable slices still
 use `/spec`.
@@ -126,12 +148,12 @@ flowchart LR
     end
 
     subgraph mobile [mobile/sharedLogic]
-        Client[GreetingClient / future clients]
+        Client[AuthClient / AuthSession]
         ApiConfig[apiBaseUrl expect/actual]
     end
 
     subgraph webApp [web/src/api]
-        WebClient[GreetingClient]
+        WebClient[AuthClient]
     end
 
     subgraph contract [Contract]
@@ -155,8 +177,8 @@ flowchart LR
     Controller --> Service
 ```
 
-**Verified path today:** `GET /api/greeting?name={platform}` →
-`{ "message": "Hello, {name}, from a Spring Modulith module." }`
+**Verified path today:** `POST /api/auth/request-code` → `POST /api/auth/verify-code`
+→ Bearer token → `GET /api/auth/me` / `POST /api/auth/logout` on web, Android, and iOS.
 
 ## Backend (Spring Modulith)
 
@@ -205,7 +227,7 @@ Run: `./gradlew :backend:test` and
 - **Base URL** — `expect fun apiBaseUrl()` in commonMain:
   - Android emulator → `http://10.0.2.2:8080`
   - iOS simulator → `http://localhost:8080`
-- **iOS Swift interop** — callback wrapper in `iosMain` (e.g. `GreetingBridge`)
+- **iOS Swift interop** — callback wrapper in `iosMain` (e.g. `AuthBridge`)
   rather than exposing `suspend` directly to SwiftUI.
 - **Dev-only cleartext HTTP** — Android `network_security_config.xml` (localhost +
   `10.0.2.2`); iOS ATS exception for `localhost` in `Info.plist`.
@@ -218,8 +240,8 @@ Run: `./gradlew :backend:test` and
 | Android | Open `mobile/` in Android Studio → run `androidApp` on emulator |
 | iOS | Open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on simulator |
 
-Manual success signal: UI shows `from a Spring Modulith module.` in the greeting
-text (proves a real HTTP round-trip, not local `sayHello()`).
+Manual success signal: sign in with email OTP on each client (dev code echo / log
+when enabled).
 
 Run tests: `cd mobile && ./gradlew :sharedLogic:testAndroidHostTest :sharedLogic:iosSimulatorArm64Test`
 
@@ -242,7 +264,7 @@ Run tests: `cd mobile && ./gradlew :sharedLogic:testAndroidHostTest :sharedLogic
 | sharedLogic client | Ktor `MockEngine` in `commonTest` | — |
 | Platform config | `androidHostTest` / `iosTest` | — |
 | Native UI | Compile (`assembleDebug`, `xcodebuild`) | Emulator/simulator smoke |
-| Web client / harness | Vitest + Testing Library | `npm run dev` against `bootRun` |
+| Web client / auth UI | Vitest + Testing Library | `npm run dev` against `bootRun` |
 
 Never call work "done" without a passing test that would fail if the change were
 reverted. Never weaken a test to make it pass.
@@ -279,7 +301,7 @@ to `main` after merge. See **SDD workflow** above for the branch-per-spec rule.
 
 - iOS CI (`macos-latest` / simulator tests)
 - Contract validation (Spectral + spec/implementation diff) — see below
-- Playwright e2e for real web product flows (harness uses Vitest only)
+- Playwright e2e for real web product flows (auth UI uses Vitest only today)
 
 ## Not built yet
 
@@ -288,8 +310,8 @@ These are intentional gaps; add via spec when ready:
 - OpenAPI code generation for clients
 - Contract validation in CI (Spectral + spec/implementation diff)
 - Shared design tokens across web / Compose / SwiftUI (look-and-feel consistency)
-- Postgres persistence, auth, production error handling
-- Normalized network error messages in `sharedLogic` (iOS Darwin errors are verbose)
+- Production SMTP/API mail (`auth-email-delivery`) and web cookie session hardening
+- Production-grade error handling / normalized `sharedLogic` network errors
 
 ## When to add contract validation in CI
 
@@ -299,14 +321,11 @@ Add when **any** of these becomes true:
 2. A second endpoint/module makes manual alignment error-prone
 3. You want style/validity lint on `contracts/openapi.yaml` in every PR
 
-Until then, `GreetingControllerIntegrationTest`, mobile `GreetingClientTest`, and
-web `GreetingClient` / harness tests enforce alignment for the single endpoint.
+Until then, `OpenApiContractTest`, auth integration tests, mobile `AuthClientTest`,
+and web `AuthClient` / `AuthScreen` tests enforce contract alignment.
 First CI step when ready: Spectral on `contracts/openapi.yaml` for validity/style.
 
 ## Adding a real feature (checklist)
-
-Use this **in a repo created from the template**, after the harness smoke test
-passes (see `docs/using-as-template.md`):
 
 1. `/roadmap` if the idea is multi-slice; else `/spec <feature-name>` — feature
    branch, scope, non-goals, acceptance criteria, tasks by layer.
@@ -314,7 +333,7 @@ passes (see `docs/using-as-template.md`):
    backend + all consumers).
 3. Backend: new module or extend existing slice; controller public, logic `internal`.
 4. Mobile: new or extended client in `sharedLogic`; wire UI on each platform.
-5. Web: required before merge if contract changed (once `web/` exists).
+5. Web: required before merge if contract changed.
 6. Tests at each layer; manual smoke if UI/network involved.
 7. `/pr` — archive spec, update `docs/roadmap.md` Done/Active, open the PR, merge
    when CI is green.

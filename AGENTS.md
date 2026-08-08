@@ -77,6 +77,12 @@ see `docs/using-as-template.md`.
 - Before any multi-file change, create a git checkpoint commit first.
 - Don't invent a dependency. Check the relevant `build.gradle.kts` / `libs.versions.toml`
   / `package.json` first. If it's new, ask before adding it.
+- **First real product feature deletes the greeting harness.** If
+  `backend/modules/greeting/` still exists and the slice is the app's first
+  shipped product vertical (not template/CI hygiene), the same PR must remove
+  greeting per `docs/using-as-template.md` (module, OpenAPI path, web + mobile
+  clients/UI, obsolete tests, README smoke → the real feature). Do not keep or
+  "extend" greeting alongside product auth or domain APIs.
 
 ## How specs work here
 

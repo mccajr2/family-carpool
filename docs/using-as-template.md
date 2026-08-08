@@ -14,7 +14,9 @@ repo from the template** for each real app; leave this copy clean.
 4. Smoke-test the harness (below), then start product work with `/roadmap` or
    `/spec`.
 
-### Smoke test (keep greeting until this passes)
+### Smoke test (template clones with greeting still present)
+
+On a **fresh** template clone, before the first product feature:
 
 ```bash
 # Backend
@@ -28,6 +30,8 @@ cd web && npm ci && npm run dev
 
 Success: greeting text includes `from a Spring Modulith module.`
 
+**family-carpool note:** this product repo has already deleted the greeting
+harness. Use the **auth smoke** path in the root `README.md` instead.
 ### Mobile (Android SDK required)
 
 Install Android Studio (or the command-line SDK). On a fresh clone, mobile Gradle
@@ -74,6 +78,9 @@ Automation (cookiecutter/Copier) is intentionally deferred until manual rename
 hurts twice.
 
 ## Delete the greeting harness (after first real feature)
+
+**Already done in family-carpool** (`adult-auth-magic-link`). Keep this checklist
+for other apps created from the upstream template:
 
 Keep `greeting` until the new app has its own vertical slice and you no longer
 need the cross-stack smoke demo. Then:

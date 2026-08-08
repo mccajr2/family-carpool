@@ -25,4 +25,6 @@ for schedules and rides. Creating adult becomes Organizer and can add/edit kids.
 ## Notes
 
 - Depends on `adult-auth-magic-link`.
+- **Display name / “what should we call you?”** — collect here (create or join
+  circle). Auth v1 auto-creates adults with email only (`displayName` null).
 - Roles introduced lightly here (Organizer on create); invite/remove Caregivers in `family-adult-invites-roles`.

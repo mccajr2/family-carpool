@@ -1,52 +1,74 @@
-import SwiftUI
 import SharedLogic
+import SwiftUI
 
 struct ContentView: View {
-    @State private var showContent = false
-    @State private var greetingText: String?
-    @State private var errorText: String?
-
-    private var greetingDisplayText: String {
-        if let errorText {
-            return "SwiftUI: Error: \(errorText)"
-        }
-        if let greetingText {
-            return "SwiftUI: \(greetingText)"
-        }
-        return "SwiftUI: Loading..."
-    }
+    @StateObject private var model = AuthViewModel()
 
     var body: some View {
-        VStack {
-            Button("Click me!") {
-                withAnimation {
-                    showContent.toggle()
-                    if !showContent {
-                        greetingText = nil
-                        errorText = nil
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            switch model.phase {
+            case .signedIn:
+                Text("Signed in")
+                    .font(.title2.bold())
+                Text(model.signedInEmail.isEmpty ? "…" : model.signedInEmail)
+                if let errorMessage = model.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .font(.footnote)
                 }
-            }
+                Button(model.isLoading ? "Signing out…" : "Sign out") {
+                    model.signOut()
+                }
+                .disabled(model.isLoading)
+            case .signedOut, .codeSent:
+                Text("Sign in")
+                    .font(.title2.bold())
+                Text("Email one-time code")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-            if showContent {
-                VStack(spacing: 16) {
-                    Image(systemName: "swift")
-                        .font(.system(size: 200))
-                        .foregroundColor(.accentColor)
-                    Text(greetingDisplayText)
+                TextField("Email", text: $model.email)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .autocorrectionDisabled()
+                    .disabled(model.isLoading)
+                    .textFieldStyle(.roundedBorder)
+
+                if model.phase == .codeSent {
+                    TextField("One-time code", text: $model.code)
+                        .keyboardType(.numberPad)
+                        .textContentType(.oneTimeCode)
+                        .disabled(model.isLoading)
+                        .textFieldStyle(.roundedBorder)
+                    if let devHint = model.devHint {
+                        Text("Dev code echo: \(devHint)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button(model.isLoading ? "Verifying…" : "Verify code") {
+                        model.verifyCode()
+                    }
+                    .disabled(model.isLoading || model.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else {
+                    Button(model.isLoading ? "Sending…" : "Send code") {
+                        model.sendCode()
+                    }
+                    .disabled(model.isLoading || model.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .onAppear {
-                    guard greetingText == nil, errorText == nil else { return }
-                    GreetingBridge().fetchGreeting(
-                        onSuccess: { greetingText = $0 },
-                        onError: { errorText = $0 }
-                    )
+
+                if model.isLoading {
+                    ProgressView()
+                }
+                if let errorMessage = model.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .font(.footnote)
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
