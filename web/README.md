@@ -4,13 +4,14 @@ Vite + React + TypeScript client for family-carpool.
 
 ## Toolchain
 
-Local installs accept Node `>=20`. CI pins Node via `web/.nvmrc` and npm via
+Local installs must satisfy `package.json` → `engines` (aligned with jsdom 30:
+Node `^22.22.2 || ^24.15.0 || >=26`). CI pins Node via `web/.nvmrc` and npm via
 `packageManager` + Corepack.
 
 | What | Where | Role |
 |------|--------|------|
-| Node `>=20` | `package.json` → `engines` | Local floor — Homebrew Node 20/22/24 all work |
-| Node `24.4.1` | `web/.nvmrc` | CI (and preferred when regenerating the lockfile) |
+| Node `^22.22.2 \|\| ^24.15.0 \|\| >=26` | `package.json` → `engines` | Local floor — Node 20 is too old for the Vitest/jsdom stack |
+| Node `24.19.0` | `web/.nvmrc` | CI (and preferred when regenerating the lockfile) |
 | npm `11.4.2` | `package.json` → `packageManager` | CI via Corepack |
 
 ```bash

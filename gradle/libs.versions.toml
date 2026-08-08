@@ -1,6 +1,6 @@
 [versions]
 springBoot = "4.1.0"
-springModulith = "2.0.2"
+springModulith = "2.1.0"
 testcontainers = "1.21.3"
 
 [libraries]

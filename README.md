@@ -39,7 +39,7 @@ curl -s -X POST http://localhost:8080/api/auth/verify-code \
 
 ```bash
 cd web
-npm ci                 # Node >=20 locally; CI uses web/.nvmrc + packageManager
+npm ci                 # Node ^22.22.2 || ^24.15 || >=26; CI uses web/.nvmrc + packageManager
 npm run dev
 ```
 
@@ -81,6 +81,6 @@ npm test
 
 ## Status
 
-Active product: family calendar + carpool roadmap; `adult-auth-magic-link` in
-progress. `main` is PR-protected. Pre-beta gates later: `auth-email-delivery`,
-`web-auth-session-hardening`.
+Active product: family calendar + carpool roadmap; `adult-auth-magic-link` is
+done (this PR). `main` is PR-protected. Next up: `adult-optional-password`.
+Pre-beta gates later: `auth-email-delivery`, `web-auth-session-hardening`.
