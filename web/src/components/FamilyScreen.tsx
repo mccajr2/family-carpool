@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import type { Adult, FamilyCircle, Kid } from "@/api/types"
+import type { Adult, FamilyCircle, FamilyMember, Kid } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -19,6 +19,8 @@ type Status =
   | { kind: "loading" }
   | { kind: "error"; message: string }
 
+type EmptyMode = "choose" | "create" | "join"
+
 type FamilyScreenProps = {
   session: AuthSessionHolder
   authClient?: AuthClient
@@ -28,6 +30,10 @@ type FamilyScreenProps = {
 
 function circleTitle(circle: FamilyCircle): string {
   return circle.name?.trim() ? circle.name : "Your family"
+}
+
+function memberLabel(member: FamilyMember): string {
+  return member.displayName?.trim() ? member.displayName : member.email
 }
 
 export function FamilyScreen({
@@ -42,8 +48,11 @@ export function FamilyScreen({
   const [status, setStatus] = useState<Status>({ kind: "loading" })
   const [circle, setCircle] = useState<FamilyCircle | null>(null)
   const [adult, setAdult] = useState<Adult | null>(() => session.getAdult())
+  const [emptyMode, setEmptyMode] = useState<EmptyMode>("choose")
   const [adultDisplayName, setAdultDisplayName] = useState("")
   const [circleName, setCircleName] = useState("")
+  const [inviteCodeInput, setInviteCodeInput] = useState("")
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [newKidName, setNewKidName] = useState("")
   const [editingKidId, setEditingKidId] = useState<string | null>(null)
   const [editingKidName, setEditingKidName] = useState("")
@@ -63,6 +72,20 @@ export function FamilyScreen({
           return
         }
         setCircle(loaded)
+        if (loaded?.role === "ORGANIZER") {
+          try {
+            const invite = await familyClient.getInvite(token)
+            if (!cancelled) {
+              setInviteCode(invite.code)
+            }
+          } catch {
+            if (!cancelled) {
+              setInviteCode(null)
+            }
+          }
+        } else {
+          setInviteCode(null)
+        }
         setStatus({ kind: "idle" })
       } catch (error) {
         if (cancelled) {
@@ -88,6 +111,15 @@ export function FamilyScreen({
     return token
   }
 
+  async function refreshAdult(token: string) {
+    if (!authClient) {
+      return
+    }
+    const me = await authClient.getMe(token)
+    session.setSession(token, me)
+    setAdult(me)
+  }
+
   async function onCreateCircle() {
     setStatus({ kind: "loading" })
     try {
@@ -97,11 +129,98 @@ export function FamilyScreen({
         name: circleName.trim() ? circleName.trim() : null,
       })
       setCircle(created)
-      if (authClient) {
-        const me = await authClient.getMe(token)
-        session.setSession(token, me)
-        setAdult(me)
-      }
+      const invite = await familyClient.getInvite(token)
+      setInviteCode(invite.code)
+      await refreshAdult(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onJoinCircle() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const joined = await familyClient.joinCircle(token, {
+        code: inviteCodeInput.trim(),
+        adultDisplayName: adultDisplayName.trim() ? adultDisplayName.trim() : null,
+      })
+      setCircle(joined)
+      setInviteCode(null)
+      await refreshAdult(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRegenerateInvite() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const invite = await familyClient.regenerateInvite(token)
+      setInviteCode(invite.code)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onLeaveCircle() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.leaveCircle(token)
+      setCircle(null)
+      setInviteCode(null)
+      setEmptyMode("choose")
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onUpdateMemberRole(member: FamilyMember, role: "ORGANIZER" | "CAREGIVER") {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.updateMemberRole(token, member.adultId, role)
+      setCircle(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemoveMember(member: FamilyMember) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.removeMember(token, member.adultId)
+      setCircle((current) =>
+        current
+          ? {
+              ...current,
+              members: current.members.filter((item) => item.adultId !== member.adultId),
+            }
+          : current,
+      )
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -202,42 +321,129 @@ export function FamilyScreen({
   }
 
   if (!circle) {
+    const needsName = !adult?.displayName
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Create your family</CardTitle>
+          <CardTitle>
+            {emptyMode === "join"
+              ? "Join a family"
+              : emptyMode === "create"
+                ? "Create your family"
+                : "Your family"}
+          </CardTitle>
           <CardDescription>
-            Signed in as {adult?.email ?? "unknown"}. Your name is required; family
-            name is optional (defaults to “Your family”).
+            Signed in as {adult?.email ?? "unknown"}. Create a circle or join with
+            an invite code.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <Input
-            aria-label="Your name"
-            value={adultDisplayName}
-            onChange={(event) => setAdultDisplayName(event.target.value)}
-            placeholder="Your name"
-            disabled={status.kind === "loading"}
-          />
-          <Input
-            aria-label="Your family (optional)"
-            value={circleName}
-            onChange={(event) => setCircleName(event.target.value)}
-            placeholder="Your family"
-            disabled={status.kind === "loading"}
-          />
+          {emptyMode === "choose" ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => {
+                  setEmptyMode("create")
+                  setStatus({ kind: "idle" })
+                }}
+                disabled={status.kind === "loading"}
+              >
+                Create family
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEmptyMode("join")
+                  setStatus({ kind: "idle" })
+                }}
+                disabled={status.kind === "loading"}
+              >
+                Have an invite code?
+              </Button>
+            </>
+          ) : null}
+
+          {emptyMode === "create" ? (
+            <>
+              <Input
+                aria-label="Your name"
+                value={adultDisplayName}
+                onChange={(event) => setAdultDisplayName(event.target.value)}
+                placeholder="Your name"
+                disabled={status.kind === "loading"}
+              />
+              <Input
+                aria-label="Your family (optional)"
+                value={circleName}
+                onChange={(event) => setCircleName(event.target.value)}
+                placeholder="Your family"
+                disabled={status.kind === "loading"}
+              />
+              <Button
+                type="button"
+                onClick={() => void onCreateCircle()}
+                disabled={status.kind === "loading" || !adultDisplayName.trim()}
+              >
+                {status.kind === "loading" ? "Creating…" : "Create family"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEmptyMode("choose")}
+                disabled={status.kind === "loading"}
+              >
+                Back
+              </Button>
+            </>
+          ) : null}
+
+          {emptyMode === "join" ? (
+            <>
+              <Input
+                aria-label="Invite code"
+                value={inviteCodeInput}
+                onChange={(event) => setInviteCodeInput(event.target.value)}
+                placeholder="Invite code"
+                disabled={status.kind === "loading"}
+              />
+              {needsName ? (
+                <Input
+                  aria-label="Your name"
+                  value={adultDisplayName}
+                  onChange={(event) => setAdultDisplayName(event.target.value)}
+                  placeholder="Your name"
+                  disabled={status.kind === "loading"}
+                />
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => void onJoinCircle()}
+                disabled={
+                  status.kind === "loading" ||
+                  !inviteCodeInput.trim() ||
+                  (needsName && !adultDisplayName.trim())
+                }
+              >
+                {status.kind === "loading" ? "Joining…" : "Join family"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEmptyMode("choose")}
+                disabled={status.kind === "loading"}
+              >
+                Back
+              </Button>
+            </>
+          ) : null}
+
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
               {status.message}
             </p>
           ) : null}
-          <Button
-            type="button"
-            onClick={() => void onCreateCircle()}
-            disabled={status.kind === "loading" || !adultDisplayName.trim()}
-          >
-            {status.kind === "loading" ? "Creating…" : "Create family"}
-          </Button>
+
           <Button
             type="button"
             variant="outline"
@@ -251,6 +457,8 @@ export function FamilyScreen({
     )
   }
 
+  const isOrganizer = circle.role === "ORGANIZER"
+
   return (
     <Card>
       <CardHeader>
@@ -261,6 +469,77 @@ export function FamilyScreen({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {isOrganizer && inviteCode ? (
+          <section aria-label="Invite code" className="flex flex-col gap-2">
+            <p className="text-sm">
+              Invite code: <span className="font-mono">{inviteCode}</span>
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void onRegenerateInvite()}
+              disabled={status.kind === "loading"}
+            >
+              Regenerate code
+            </Button>
+          </section>
+        ) : null}
+
+        <section aria-label="Members" className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Members</p>
+          <ul className="flex flex-col gap-2">
+            {circle.members.map((member) => {
+              const isSelf = member.adultId === adult?.id
+              return (
+                <li
+                  key={member.adultId}
+                  className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                >
+                  <span className="flex-1 text-sm">
+                    {memberLabel(member)} · {member.role}
+                    {isSelf ? " (you)" : ""}
+                  </span>
+                  {isOrganizer && !isSelf ? (
+                    <>
+                      {member.role === "CAREGIVER" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void onUpdateMemberRole(member, "ORGANIZER")}
+                          disabled={status.kind === "loading"}
+                        >
+                          Promote
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void onUpdateMemberRole(member, "CAREGIVER")}
+                          disabled={status.kind === "loading"}
+                        >
+                          Demote
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void onRemoveMember(member)}
+                        disabled={status.kind === "loading"}
+                      >
+                        Remove
+                      </Button>
+                    </>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+
         <section aria-label="Kids" className="flex flex-col gap-3">
           {circle.kids.length === 0 ? (
             <p className="text-sm text-muted-foreground">No kids yet.</p>
@@ -268,7 +547,7 @@ export function FamilyScreen({
             <ul className="flex flex-col gap-2">
               {circle.kids.map((kid) => (
                 <li key={kid.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  {editingKidId === kid.id ? (
+                  {isOrganizer && editingKidId === kid.id ? (
                     <>
                       <Input
                         aria-label={`Rename ${kid.displayName}`}
@@ -300,27 +579,31 @@ export function FamilyScreen({
                   ) : (
                     <>
                       <span className="flex-1 text-sm">{kid.displayName}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingKidId(kid.id)
-                          setEditingKidName(kid.displayName)
-                        }}
-                        disabled={status.kind === "loading"}
-                      >
-                        Rename
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void onRemoveKid(kid.id)}
-                        disabled={status.kind === "loading"}
-                      >
-                        Remove
-                      </Button>
+                      {isOrganizer ? (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingKidId(kid.id)
+                              setEditingKidName(kid.displayName)
+                            }}
+                            disabled={status.kind === "loading"}
+                          >
+                            Rename
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onRemoveKid(kid.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Remove
+                          </Button>
+                        </>
+                      ) : null}
                     </>
                   )}
                 </li>
@@ -329,28 +612,39 @@ export function FamilyScreen({
           )}
         </section>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            aria-label="New kid name"
-            value={newKidName}
-            onChange={(event) => setNewKidName(event.target.value)}
-            placeholder="Kid display name"
-            disabled={status.kind === "loading"}
-          />
-          <Button
-            type="button"
-            onClick={() => void onAddKid()}
-            disabled={status.kind === "loading" || !newKidName.trim()}
-          >
-            Add kid
-          </Button>
-        </div>
+        {isOrganizer ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              aria-label="New kid name"
+              value={newKidName}
+              onChange={(event) => setNewKidName(event.target.value)}
+              placeholder="Kid display name"
+              disabled={status.kind === "loading"}
+            />
+            <Button
+              type="button"
+              onClick={() => void onAddKid()}
+              disabled={status.kind === "loading" || !newKidName.trim()}
+            >
+              Add kid
+            </Button>
+          </div>
+        ) : null}
 
         {status.kind === "error" ? (
           <p role="alert" className="text-sm text-destructive">
             {status.message}
           </p>
         ) : null}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void onLeaveCircle()}
+          disabled={status.kind === "loading"}
+        >
+          Leave family
+        </Button>
 
         <Button
           type="button"

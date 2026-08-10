@@ -61,6 +61,81 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun getInvite(accessToken: String): FamilyInvite {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/invite") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Get invite failed")
+        return response.body()
+    }
+
+    suspend fun regenerateInvite(accessToken: String): FamilyInvite {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/invite/regenerate") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Regenerate invite failed")
+        return response.body()
+    }
+
+    suspend fun joinCircle(
+        accessToken: String,
+        code: String,
+        adultDisplayName: String? = null,
+    ): FamilyCircle {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/join") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(JoinFamilyCircleRequest(code, adultDisplayName))
+            }
+        ensureSuccess(response, "Join family circle failed")
+        return response.body()
+    }
+
+    suspend fun leaveCircle(accessToken: String) {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/leave") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Leave family circle failed"))
+        }
+    }
+
+    suspend fun updateMemberRole(
+        accessToken: String,
+        adultId: String,
+        role: FamilyRole,
+    ): FamilyCircle {
+        val response =
+            httpClient.patch("$baseUrl/api/family/circle/members/$adultId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(UpdateFamilyMemberRoleRequest(role))
+            }
+        ensureSuccess(response, "Update member role failed")
+        return response.body()
+    }
+
+    suspend fun removeMember(
+        accessToken: String,
+        adultId: String,
+    ) {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/members/$adultId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Remove member failed"))
+        }
+    }
+
     suspend fun addKid(
         accessToken: String,
         displayName: String,

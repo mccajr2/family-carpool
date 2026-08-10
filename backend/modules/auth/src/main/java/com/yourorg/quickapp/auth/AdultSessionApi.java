@@ -11,5 +11,7 @@ public interface AdultSessionApi {
 
     AdultResponse requireCurrentAdult(HttpServletRequest request);
 
+    AdultResponse requireAdult(UUID adultId);
+
     AdultResponse updateDisplayName(UUID adultId, String displayName);
 }

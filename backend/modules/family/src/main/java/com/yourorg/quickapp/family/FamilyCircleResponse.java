@@ -3,4 +3,9 @@ package com.yourorg.quickapp.family;
 import java.util.List;
 import java.util.UUID;
 
-public record FamilyCircleResponse(UUID id, String name, FamilyRole role, List<KidResponse> kids) {}
+public record FamilyCircleResponse(
+        UUID id,
+        String name,
+        FamilyRole role,
+        List<FamilyMemberResponse> members,
+        List<KidResponse> kids) {}

@@ -126,6 +126,14 @@ public class AuthService {
         return toResponse(requireActiveSession(accessToken).adult());
     }
 
+    @Transactional(readOnly = true)
+    public AdultResponse requireAdult(UUID adultId) {
+        return adults
+                .findById(adultId)
+                .map(AuthService::toResponse)
+                .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "Adult not found"));
+    }
+
     @Transactional
     public void logout(String accessToken) {
         AuthSessionEntity session = requireActiveSession(accessToken).session();
