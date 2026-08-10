@@ -677,9 +677,10 @@ class FamilyUiModel(
         if (current.circle.role != FamilyRole.ORGANIZER) return
         _state = current.copy(loading = true, error = null)
         try {
+            val token = session.requireAccessToken()
             val feed =
                 familyClient.createFeed(
-                    session.requireAccessToken(),
+                    token,
                     current.newFeedName.trim(),
                     current.newFeedUrl.trim(),
                     current.newFeedKidIds,
@@ -691,6 +692,7 @@ class FamilyUiModel(
                     newFeedName = "",
                     newFeedUrl = "",
                     newFeedKidIds = emptyList(),
+                    calendarItems = loadCalendarItems(token),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Add feed failed")
@@ -703,9 +705,10 @@ class FamilyUiModel(
         val feedId = current.editingFeedId ?: return
         _state = current.copy(loading = true, error = null)
         try {
+            val token = session.requireAccessToken()
             val updated =
                 familyClient.updateFeed(
-                    session.requireAccessToken(),
+                    token,
                     feedId,
                     current.editingFeedName.trim(),
                     current.editingFeedUrl.trim(),
@@ -719,6 +722,7 @@ class FamilyUiModel(
                     editingFeedName = "",
                     editingFeedUrl = "",
                     editingFeedKidIds = emptyList(),
+                    calendarItems = loadCalendarItems(token),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Update feed failed")
@@ -730,8 +734,14 @@ class FamilyUiModel(
         if (current.circle.role != FamilyRole.ORGANIZER) return
         _state = current.copy(loading = true, error = null)
         try {
-            familyClient.deleteFeed(session.requireAccessToken(), feedId)
-            _state = current.copy(loading = false, feeds = current.feeds.filterNot { it.id == feedId })
+            val token = session.requireAccessToken()
+            familyClient.deleteFeed(token, feedId)
+            _state =
+                current.copy(
+                    loading = false,
+                    feeds = current.feeds.filterNot { it.id == feedId },
+                    calendarItems = loadCalendarItems(token),
+                )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Remove feed failed")
         }
@@ -742,11 +752,13 @@ class FamilyUiModel(
         if (current.circle.role != FamilyRole.ORGANIZER) return
         _state = current.copy(loading = true, error = null)
         try {
-            val updated = familyClient.syncFeed(session.requireAccessToken(), feedId)
+            val token = session.requireAccessToken()
+            val updated = familyClient.syncFeed(token, feedId)
             _state =
                 current.copy(
                     loading = false,
                     feeds = current.feeds.map { if (it.id == feedId) updated else it },
+                    calendarItems = loadCalendarItems(token),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Sync feed failed")

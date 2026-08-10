@@ -632,6 +632,7 @@ describe("FamilyScreen", () => {
       eventCount: 4,
     })
     const deleteFeed = vi.fn().mockResolvedValue(undefined)
+    const listCalendar = vi.fn().mockResolvedValue([])
 
     render(
       <FamilyScreen
@@ -654,6 +655,7 @@ describe("FamilyScreen", () => {
           }),
           getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
           listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar,
           createFeed,
           syncFeed,
           deleteFeed,
@@ -676,10 +678,15 @@ describe("FamilyScreen", () => {
       "https://example.com/team.ics",
       ["k1"],
     )
+    expect(listCalendar.mock.calls.length).toBeGreaterThanOrEqual(2)
 
+    const calendarCallsBeforeSync = listCalendar.mock.calls.length
     await user.click(screen.getByRole("button", { name: "Sync now" }))
     expect(await screen.findByText("Sam · Sync failed: Fetch failed")).toBeInTheDocument()
     expect(syncFeed).toHaveBeenCalledWith("tok", "f1")
+    await waitFor(() => {
+      expect(listCalendar.mock.calls.length).toBeGreaterThan(calendarCallsBeforeSync)
+    })
 
     await user.click(
       within(screen.getByLabelText("Activity feeds")).getByRole("button", {

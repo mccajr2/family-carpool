@@ -523,6 +523,7 @@ export function FamilyScreen({
       setNewFeedName("")
       setNewFeedUrl("")
       setNewFeedKidIds([])
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -550,6 +551,7 @@ export function FamilyScreen({
       setEditingFeedName("")
       setEditingFeedUrl("")
       setEditingFeedKidIds([])
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -565,6 +567,7 @@ export function FamilyScreen({
       const token = await requireToken()
       await familyClient.deleteFeed(token, feedId)
       setFeeds((current) => current.filter((feed) => feed.id !== feedId))
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -582,6 +585,7 @@ export function FamilyScreen({
       setFeeds((current) =>
         current.map((feed) => (feed.id === feedId ? updated : feed)),
       )
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({

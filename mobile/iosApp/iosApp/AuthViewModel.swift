@@ -871,6 +871,7 @@ final class AuthViewModel: ObservableObject {
                     self.newFeedName = ""
                     self.newFeedUrl = ""
                     self.newFeedKidIds = []
+                    self.loadCalendar()
                 }
             },
             onError: feedError
@@ -917,6 +918,7 @@ final class AuthViewModel: ObservableObject {
                         self.feeds[index] = item
                     }
                     self.cancelEditFeed()
+                    self.loadCalendar()
                 }
             },
             onError: feedError
@@ -931,8 +933,9 @@ final class AuthViewModel: ObservableObject {
             feedId: feedId,
             onSuccess: { [weak self] in
                 Task { @MainActor in
-                    self?.isLoading = false
-                    self?.feeds.removeAll { $0.id == feedId }
+                    guard let self else { return }
+                    self.feeds.removeAll { $0.id == feedId }
+                    self.loadCalendar()
                 }
             },
             onError: feedError
@@ -948,7 +951,6 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self] id, name, sourceUrl, kidIds, lastSyncedAt, lastSyncError, eventCount in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.isLoading = false
                     let item = self.makeFeedItem(
                         id: id,
                         name: name,
@@ -961,6 +963,7 @@ final class AuthViewModel: ObservableObject {
                     if let index = self.feeds.firstIndex(where: { $0.id == id }) {
                         self.feeds[index] = item
                     }
+                    self.loadCalendar()
                 }
             },
             onError: feedError

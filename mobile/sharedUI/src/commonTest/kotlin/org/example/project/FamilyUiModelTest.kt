@@ -477,6 +477,71 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun syncFeedReloadsCalendarItems() =
+        runTest {
+            var calendarJson =
+                """[{"id":"e1","source":"FEED","title":"Practice","startsAt":"2026-09-05T08:00:00Z","endsAt":"2026-09-05T08:50:00Z","location":null,"kidIds":["k1"],"feedId":"f1","feedName":"Soccer"}]"""
+            val engine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content = """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":["k1"],"lastSyncedAt":"2026-08-10T12:00:00Z","lastSyncError":null,"eventCount":1}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds/f1/sync" -> {
+                            calendarJson =
+                                """[{"id":"e1","source":"FEED","title":"Practice","startsAt":"2026-09-05T12:00:00Z","endsAt":"2026-09-05T12:50:00Z","location":null,"kidIds":["k1"],"feedId":"f1","feedName":"Soccer"}]"""
+                            respond(
+                                content =
+                                    """{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":["k1"],"lastSyncedAt":"2026-08-10T12:30:00Z","lastSyncError":null,"eventCount":1}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = calendarJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(engine, token = "tok")
+            model.load()
+            val before = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("2026-09-05T08:00:00Z", before.calendarItems.single().startsAt)
+
+            model.syncFeed("f1")
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("2026-09-05T12:00:00Z", after.calendarItems.single().startsAt)
+        }
+
+    @Test
     fun refreshFeedsReloadsListWithoutSync() =
         runTest {
             var listCalls = 0
