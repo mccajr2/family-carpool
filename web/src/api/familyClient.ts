@@ -8,6 +8,7 @@ import type {
   JoinFamilyCircleRequest,
   Kid,
   ManualEvent,
+  CalendarItem,
   Place,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -354,6 +355,24 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Sync feed failed"))
     }
     return (await response.json()) as ActivityFeed
+  }
+
+  async listCalendar(
+    accessToken: string,
+    from: string,
+    to: string,
+  ): Promise<CalendarItem[]> {
+    const params = new URLSearchParams({ from, to })
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/calendar?${params}`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List calendar failed"))
+    }
+    return (await response.json()) as CalendarItem[]
   }
 
   async listEvents(accessToken: string): Promise<ManualEvent[]> {

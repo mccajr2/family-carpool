@@ -1,21 +1,23 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.8.0
+  version: 0.9.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
     hold kids, named places, activity feeds (Organizer-managed iCal/webcal
     subscriptions with soft-fail sync and server-side background polling),
     manual events (any member may CRUD one-off schedule items with 1+ kids),
+    a unified circle calendar read (feed + manual items in a time window),
     and memberships (ORGANIZER / CAREGIVER). Organizers share a short invite
     code; Caregivers join via that code. Any member may manage named places
     (label + free-text address; optional lat/lng from geocoding with soft-fail
-    and retry locate) and manual events. Feed last-synced / error / event count
-    may update from Sync now or from the server poller — clients re-GET the
-    feeds list to observe changes. Magic links, passwords, multi-circle
-    membership, invite deep links, email/push invite delivery, and HTTP-only
-    web cookies are out of scope for this revision.
+    and retry locate) and manual events, and may read the calendar agenda.
+    Feed last-synced / error / event count may update from Sync now or from
+    the server poller — clients re-GET the feeds list to observe changes.
+    Magic links, passwords, multi-circle membership, invite deep links,
+    email/push invite delivery, and HTTP-only web cookies are out of scope
+    for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -25,11 +27,12 @@ tags:
     description: Email OTP sign-in and Bearer sessions
   - name: family
     description: >
-      Family circle, kids, named places, activity feeds, manual events, invite
-      code, and memberships (one circle per adult in v1). Organizer-only writes
-      for invite regen, roles, remove, kids, circle rename, and activity feed
-      create/update/delete/sync. Any member may create/update/delete places and
-      manual events, and retry place geocoding.
+      Family circle, kids, named places, activity feeds, manual events, unified
+      calendar read, invite code, and memberships (one circle per adult in v1).
+      Organizer-only writes for invite regen, roles, remove, kids, circle rename,
+      and activity feed create/update/delete/sync. Any member may create/update/
+      delete places and manual events, retry place geocoding, and list the
+      circle calendar.
 
 paths:
   /api/auth/request-code:
@@ -1192,6 +1195,87 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/calendar:
+    get:
+      operationId: listCircleCalendar
+      tags: [family]
+      summary: List unified calendar items (feed + manual) in a time window
+      description: >
+        Any circle member. Returns feed-imported and manual events whose
+        startsAt falls in the half-open interval [from, to), ordered by
+        startsAt ascending, then source, then id. Feed items include feedId /
+        feedName and kidIds from the feed; manual items omit feed fields.
+        Empty array when none match. from must be strictly before to (400
+        otherwise). Adults without a circle receive 404. Does not mutate
+        feed snapshots or manual events.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive window start (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-08-01T00:00:00Z"
+        - name: to
+          in: query
+          required: true
+          description: Exclusive window end (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-09-01T00:00:00Z"
+      responses:
+        "200":
+          description: Calendar items in the window (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarItem"
+              example:
+                - id: 01900000-0000-7000-8000-000000000051
+                  source: MANUAL
+                  title: Dentist
+                  startsAt: "2026-08-15T16:00:00Z"
+                  endsAt: null
+                  location: Clinic
+                  kidIds:
+                    - 01900000-0000-7000-8000-000000000021
+                  feedId: null
+                  feedName: null
+                - id: 01900000-0000-7000-8000-000000000061
+                  source: FEED
+                  title: Practice
+                  startsAt: "2026-08-15T17:00:00Z"
+                  endsAt: "2026-08-15T18:00:00Z"
+                  location: Field 3
+                  kidIds:
+                    - 01900000-0000-7000-8000-000000000021
+                  feedId: 01900000-0000-7000-8000-000000000041
+                  feedName: U12
+        "400":
+          description: Missing from/to, or from is not strictly before to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/family/circle/events:
     get:
       operationId: listManualEvents
@@ -1901,6 +1985,67 @@ components:
           items:
             type: string
             format: uuid
+
+    CalendarItemSource:
+      type: string
+      description: Whether the calendar row came from a manual event or a synced feed
+      enum:
+        - MANUAL
+        - FEED
+
+    CalendarItem:
+      type: object
+      required:
+        - id
+        - source
+        - title
+        - startsAt
+        - kidIds
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Manual event id or feed event id
+        source:
+          $ref: "#/components/schemas/CalendarItemSource"
+        title:
+          type: string
+          description: Manual title or feed event summary
+          example: Practice
+        startsAt:
+          type: string
+          format: date-time
+          description: Event start instant (UTC)
+          example: "2026-08-15T17:00:00Z"
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional end instant (UTC)
+          example: "2026-08-15T18:00:00Z"
+        location:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Optional free-text location
+          example: Field 3
+        kidIds:
+          type: array
+          description: >
+            Manual: event↔kids. Feed: kids linked to the parent activity feed.
+          items:
+            type: string
+            format: uuid
+        feedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present when source is FEED; omitted/null for MANUAL
+        feedName:
+          type: string
+          nullable: true
+          description: Present when source is FEED; omitted/null for MANUAL
+          example: U12
 
     CreateManualEventRequest:
       type: object

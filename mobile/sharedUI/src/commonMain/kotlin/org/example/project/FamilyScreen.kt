@@ -572,15 +572,78 @@ private fun ReadyContent(
         Text("Add place")
     }
 
-    Text("Manual events", style = MaterialTheme.typography.titleSmall)
+    Text("Agenda", style = MaterialTheme.typography.titleSmall)
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
     }
-    if (current.events.isEmpty()) {
-        Text("No manual events yet.", style = MaterialTheme.typography.bodySmall)
+    if (current.circle.kids.isNotEmpty()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            val allSelected = current.agendaKidFilter == null
+            if (allSelected) {
+                Button(
+                    onClick = {
+                        model.setAgendaKidFilter(null)
+                        refresh()
+                    },
+                    enabled = !current.loading,
+                ) {
+                    Text("All kids")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        model.setAgendaKidFilter(null)
+                        refresh()
+                    },
+                    enabled = !current.loading,
+                ) {
+                    Text("All kids")
+                }
+            }
+            current.circle.kids.forEach { kid ->
+                val selected = current.agendaKidFilter == kid.id
+                if (selected) {
+                    Button(
+                        onClick = {
+                            model.setAgendaKidFilter(kid.id)
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text(kid.displayName)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            model.setAgendaKidFilter(kid.id)
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text(kid.displayName)
+                    }
+                }
+            }
+        }
+    }
+    val visibleItems =
+        if (current.agendaKidFilter == null) {
+            current.calendarItems
+        } else {
+            current.calendarItems.filter { current.agendaKidFilter in it.kidIds }
+        }
+    if (visibleItems.isEmpty()) {
+        Text(
+            "No events in the loaded window.",
+            style = MaterialTheme.typography.bodySmall,
+        )
     } else {
-        current.events.forEach { event ->
-            if (current.editingEventId == event.id) {
+        visibleItems.forEach { item ->
+            val isManual = item.source == CalendarItemSource.MANUAL
+            if (isManual && current.editingEventId == item.id) {
                 OutlinedTextField(
                     value = current.editingEventTitle,
                     onValueChange = {
@@ -665,50 +728,65 @@ private fun ReadyContent(
                 }
             } else {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(event.title)
+                    Text(item.title)
                     Text(
-                        if (event.endsAt.isNullOrBlank()) {
-                            formatIsoForDisplay(event.startsAt)
-                        } else {
-                            "${formatIsoForDisplay(event.startsAt)} → ${formatIsoForDisplay(event.endsAt!!)}"
-                        },
+                        formatEventWhen(item.startsAt, item.endsAt),
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    if (!event.location.isNullOrBlank()) {
-                        Text(event.location!!, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        calendarSourceLabel(item.source, item.feedName),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (!item.location.isNullOrBlank()) {
+                        Text(item.location!!, style = MaterialTheme.typography.bodySmall)
                     }
                     val kidNames =
-                        event.kidIds.mapNotNull { id ->
+                        item.kidIds.mapNotNull { id ->
                             current.circle.kids.find { it.id == id }?.displayName
                         }.joinToString(", ")
                     if (kidNames.isNotEmpty()) {
                         Text(kidNames, style = MaterialTheme.typography.bodySmall)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                model.beginEditEvent(event)
-                                refresh()
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Edit")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    model.removeEvent(event.id)
+                    if (isManual) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    model.beginEditEvent(item)
                                     refresh()
-                                }
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Remove event")
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Edit")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.removeEvent(item.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Remove event")
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    OutlinedButton(
+        onClick = {
+            scope.launch {
+                model.loadMoreCalendar()
+                refresh()
+            }
+        },
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Load more")
     }
 
     OutlinedTextField(

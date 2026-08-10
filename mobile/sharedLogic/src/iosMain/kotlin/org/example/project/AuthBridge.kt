@@ -492,6 +492,42 @@ class AuthBridge {
         onError,
     )
 
+    fun listCalendar(
+        from: String,
+        to: String,
+        onSuccess: (
+            ids: List<String>,
+            sources: List<String>,
+            titles: List<String>,
+            startsAts: List<String>,
+            endsAts: List<String>,
+            locations: List<String>,
+            kidIdsJoined: List<String>,
+            feedIds: List<String>,
+            feedNames: List<String>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val items = familyClient.listCalendar(session.requireAccessToken(), from, to)
+                onSuccess(
+                    items.map { it.id },
+                    items.map { it.source.name },
+                    items.map { it.title },
+                    items.map { it.startsAt },
+                    items.map { it.endsAt.orEmpty() },
+                    items.map { it.location.orEmpty() },
+                    items.map { it.kidIds.joinToString(",") },
+                    items.map { it.feedId.orEmpty() },
+                    items.map { it.feedName.orEmpty() },
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "List calendar failed")
+            }
+        }
+    }
+
     fun listEvents(
         onSuccess: (
             ids: List<String>,

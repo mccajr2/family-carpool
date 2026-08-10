@@ -58,8 +58,9 @@ class IcalParserTest {
         assertThat(events).hasSize(2);
         assertThat(events.get(0).uid()).isEqualTo("sportsyou-evt-55@fixture.local");
         assertThat(events.get(0).summary()).isEqualTo("Away Game — Travel");
-        // Local TZID times are treated as UTC wall-clock for this minimal parser.
-        assertThat(events.get(0).startsAt()).isEqualTo(Instant.parse("2026-09-20T09:00:00Z"));
+        // 09:00 America/New_York on 2026-09-20 is EDT (UTC-4) → 13:00Z
+        assertThat(events.get(0).startsAt()).isEqualTo(Instant.parse("2026-09-20T13:00:00Z"));
+        assertThat(events.get(0).endsAt()).isEqualTo(Instant.parse("2026-09-20T14:30:00Z"));
         assertThat(events.get(0).location()).isEqualTo("Memorial Park");
         assertThat(events.get(1).uid()).isEqualTo("sportsyou-evt-56@fixture.local");
         assertThat(events.get(1).startsAt()).isEqualTo(Instant.parse("2026-09-21T00:00:00Z"));
@@ -70,9 +71,53 @@ class IcalParserTest {
         List<ParsedIcalEvent> events = parser.parse(readFixture("feeds/sportsengine-like.ics"));
         assertThat(events).hasSize(3);
         assertThat(events.get(0).uid()).isEqualTo("se-2026-game-88@fixture.local");
-        assertThat(events.get(0).location()).isEqualTo("SportsEngine Complex\\, Field 4");
+        assertThat(events.get(0).location())
+                .isEqualTo("155 Gore St, Cambridge, MA 02141, US");
+        // 08:00–08:50 America/New_York on 2026-10-05 is EDT → 12:00–12:50Z (not 4am Eastern)
+        assertThat(events.get(0).startsAt()).isEqualTo(Instant.parse("2026-10-05T12:00:00Z"));
+        assertThat(events.get(0).endsAt()).isEqualTo(Instant.parse("2026-10-05T12:50:00Z"));
         assertThat(events.get(2).uid()).isNull();
         assertThat(events.get(2).summary()).isEqualTo("Optional Scrimmage (no UID)");
+        assertThat(events.get(2).startsAt()).isEqualTo(Instant.parse("2026-10-08T17:00:00Z"));
+    }
+
+    @Test
+    void usesCalendarXWrTimezoneForFloatingLocalTimes() {
+        String ical =
+                """
+                BEGIN:VCALENDAR
+                X-WR-TIMEZONE:America/New_York
+                BEGIN:VEVENT
+                UID:float-1
+                DTSTART:20260905T080000
+                DTEND:20260905T085000
+                SUMMARY:Practice
+                END:VEVENT
+                END:VCALENDAR
+                """;
+        List<ParsedIcalEvent> events = parser.parse(ical);
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().startsAt()).isEqualTo(Instant.parse("2026-09-05T12:00:00Z"));
+        assertThat(events.getFirst().endsAt()).isEqualTo(Instant.parse("2026-09-05T12:50:00Z"));
+    }
+
+    @Test
+    void extractTzid_readsQuotedAndBareValues() {
+        assertThat(IcalParser.extractTzid("DTSTART;TZID=America/New_York:20260905T080000"))
+                .isEqualTo("America/New_York");
+        assertThat(IcalParser.extractTzid("DTSTART;TZID=\"America/New_York\":20260905T080000"))
+                .isEqualTo("America/New_York");
+        assertThat(IcalParser.extractTzid("DTSTART:20260905T080000Z")).isNull();
+    }
+
+    @Test
+    void unescapesIcalTextEscapes() {
+        assertThat(IcalParser.unescapeText("155 Gore St\\, Cambridge\\, MA 02141\\, US"))
+                .isEqualTo("155 Gore St, Cambridge, MA 02141, US");
+        assertThat(IcalParser.unescapeText("Line1\\nLine2")).isEqualTo("Line1\nLine2");
+        assertThat(IcalParser.unescapeText("a\\\\b\\;c")).isEqualTo("a\\b;c");
+        assertThat(IcalParser.unescapeText(null)).isNull();
+        assertThat(IcalParser.unescapeText("plain")).isEqualTo("plain");
     }
 
     private static String readFixture(String classpathPath) throws IOException {

@@ -33,6 +33,55 @@ class InstantIsoTest {
     }
 
     @Test
+    fun formatEventWhen_joinsOptionalEnd() {
+        assertEquals(
+            formatIsoForDisplay("2026-08-15T17:00:00Z"),
+            formatEventWhen("2026-08-15T17:00:00Z", null),
+        )
+        val withEnd = formatEventWhen("2026-08-15T17:00:00Z", "2026-08-15T18:00:00Z")
+        assertTrue(withEnd.contains("→"), withEnd)
+    }
+
+    @Test
+    fun defaultCalendarWindow_isLocalTodayPlus30Days() {
+        val now = Instant.parse("2026-08-15T17:30:00Z").toEpochMilliseconds()
+        val window = defaultCalendarWindow(now)
+        val from = Instant.parse(window.from).toEpochMilliseconds()
+        val to = Instant.parse(window.to).toEpochMilliseconds()
+        assertEquals(30L * 24 * 60 * 60 * 1000, to - from)
+        // from is local midnight of the same local calendar day as now
+        assertEquals(0, localHourMinute(from).first)
+        assertEquals(0, localHourMinute(from).second)
+    }
+
+    @Test
+    fun advanceCalendarWindow_pagesFromPreviousEnd() {
+        val first = defaultCalendarWindow(Instant.parse("2026-08-15T17:30:00Z").toEpochMilliseconds())
+        val second = advanceCalendarWindow(first.to)
+        assertEquals(first.to, second.from)
+        val span =
+            Instant.parse(second.to).toEpochMilliseconds() -
+                Instant.parse(second.from).toEpochMilliseconds()
+        assertEquals(30L * 24 * 60 * 60 * 1000, span)
+    }
+
+    @Test
+    fun ensureCalendarWindowCovers_extendsUntilInstantFits() {
+        val first = defaultCalendarWindow(Instant.parse("2026-08-15T12:00:00Z").toEpochMilliseconds())
+        val far = "2026-11-01T17:00:00Z"
+        val covered = ensureCalendarWindowCovers(first.to, far)
+        assertTrue(far < covered)
+        assertTrue(covered > first.to)
+    }
+
+    @Test
+    fun calendarSourceLabel_prefersFeedName() {
+        assertEquals("Manual", calendarSourceLabel(CalendarItemSource.MANUAL, null))
+        assertEquals("Soccer", calendarSourceLabel(CalendarItemSource.FEED, "Soccer"))
+        assertEquals("Feed", calendarSourceLabel(CalendarItemSource.FEED, "  "))
+    }
+
+    @Test
     fun combineUtcDateAndLocalTime_keepsCalendarDayAndAppliesClock() {
         // 2026-08-15 UTC midnight from a Material DatePicker selection
         val dateMillis = Instant.parse("2026-08-15T00:00:00Z").toEpochMilliseconds()

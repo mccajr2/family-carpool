@@ -55,7 +55,27 @@ class ActivityFeedEventEntity {
         return id;
     }
 
+    UUID feedId() {
+        return feedId;
+    }
+
     String uid() {
         return uid;
+    }
+
+    String summary() {
+        return summary;
+    }
+
+    Instant startsAt() {
+        return startsAt;
+    }
+
+    Instant endsAt() {
+        return endsAt;
+    }
+
+    String location() {
+        return location;
     }
 }

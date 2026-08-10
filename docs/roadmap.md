@@ -69,20 +69,19 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | family-calendar-surface | active | 2026-08-07 · re-rank split | Phone-first **agenda** of feed + manual events (unified schedule list) |
-| 2 | app-shell-navigation | planned | 2026-08-10 · enhancement | Tab/nav shell: split long family scroll into focused screens (Calendar, Family, Places, …) |
-| 3 | cross-platform-ui-system | planned | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
-| 4 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
-| 5 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
-| 6 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
-| 7 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
-| 8 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
-| 9 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
-| 10 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
-| 11 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 12 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 13 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 14 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 1 | app-shell-navigation | planned | 2026-08-10 · enhancement | Tab/nav shell: split long family scroll into focused screens (Calendar, Family, Places, …) |
+| 2 | cross-platform-ui-system | planned | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
+| 3 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
+| 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
+| 5 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
+| 6 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
+| 7 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 8 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 9 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 10 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -115,12 +114,13 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| family-calendar-surface | `family-calendar-surface` | [active](specs/active/family-calendar-surface.md) |
+| — | — | — |
 
 ## Done
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| family-calendar-surface | 2026-08-10 | [archive](specs/archive/family-calendar-surface.md) |
 | manual-events | 2026-08-10 | [archive](specs/archive/manual-events.md) |
 | activity-feed-poller | 2026-08-10 | [archive](specs/archive/activity-feed-poller.md) |
 | activity-feed-subscribe | 2026-08-10 | [archive](specs/archive/activity-feed-subscribe.md) |
@@ -168,3 +168,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/spec family-calendar-surface`: agenda + unified calendar GET; manual writes from agenda; grid deferred. |
 | 2026-08-10 | Added `app-shell-navigation` (rank 2): split long family scroll into focused screens; grid → rank 3. |
 | 2026-08-10 | Added `cross-platform-ui-system` (rank 3): shared custom UI language across web/Android/iOS; grid → rank 4. |
+| 2026-08-10 | `/implement family-calendar-surface`: calendar module + Agenda UI (web/Android/iOS); docs updated. |
+| 2026-08-10 | `/pr family-calendar-surface`: unified calendar Agenda shipped; next up `app-shell-navigation`. |
+| 2026-08-10 | Agenda **Load more**: clients append +30d pages beyond the initial window (web/Android/iOS). |

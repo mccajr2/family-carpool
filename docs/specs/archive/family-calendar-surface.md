@@ -1,6 +1,6 @@
 # Spec: family-calendar-surface
 
-Status: Approved  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-10  
 Approved: 2026-08-10  
@@ -73,7 +73,8 @@ extend existing service with a range query used only via that public API.
 **Clients (web + Android + iOS):**
 
 - Primary **Agenda** surface for every member: load a default window of **local
-start-of-today → +30 days** (send as UTC instants); show readable local times
+start-of-today → +30 days** (send as UTC instants); **Load more** appends the
+next +30 days via the same range API; show readable local times
 (same spirit as current web/iOS formatters).
 - Each row: title, when, location, kid labels, and a feed vs manual cue
 (`feedName` or “Manual”).
@@ -90,30 +91,30 @@ grid remains a follow-up id.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: calendar item schema + `GET /api/family/circle/calendar` with
+- [x] OpenAPI: calendar item schema + `GET /api/family/circle/calendar` with
   ```
   required `from`/`to`; 400/401/404 documented; version bumped; web + mobile
   clients updated in the same change.
   ```
-- [ ] Any circle member receives feed + manual items in `[from, to)`, ordered by
+- [x] Any circle member receives feed + manual items in `[from, to)`, ordered by
   ```
   `startsAt`; Caregiver succeeds (not Organizer-only). Empty → `[]`.
   ```
-- [ ] Feed items include `kidIds` from the feed’s kids and `feedId`/`feedName`;
+- [x] Feed items include `kidIds` from the feed’s kids and `feedId`/`feedName`;
   ```
   manual items omit feed fields and remain editable via existing events API.
   ```
-- [ ] `from ≥ to` → **400**; unauthenticated → **401**; adult with no membership
+- [x] `from ≥ to` → **400**; unauthenticated → **401**; adult with no membership
   ```
   → **404**.
   ```
-- [ ] Web, Android, and iOS: Agenda UI (default today→+30d), kid filter optional,
+- [x] Web, Android, and iOS: Agenda UI (default today→+30d), kid filter optional,
   ```
   add/edit/delete **manual** events from that surface; feed rows read-only;
   dedicated manage-events list removed as primary UX; errors surfaced near
   the agenda.
   ```
-- [ ] Unit + integration tests cover range merge, authz, ordering, empty window,
+- [x] Unit + integration tests cover range merge, authz, ordering, empty window,
   ```
   bad range; `ModularityTests` green.
   ```
@@ -122,25 +123,25 @@ grid remains a follow-up id.
 
 ## Tasks
 
-- [ ] **Backend:** New `calendar` module + controller; `FeedCalendarApi` /
+- [x] **Backend:** New `calendar` module + controller; `FeedCalendarApi` /
   ```
   `ManualEventCalendarApi` (names flexible) on feeds/events; range queries;
   Caregiver-readable feed events for calendar only.
   ```
-- [ ] **Contract:** OpenAPI calendar path/schemas; bump version.
-- [ ] **Web:** types + client; Agenda UI + manual write flows; drop primary
+- [x] **Contract:** OpenAPI calendar path/schemas; bump version.
+- [x] **Web:** types + client; Agenda UI + manual write flows; drop primary
   ```
   manage-events block; tests.
   ```
-- [ ] **Mobile:** sharedLogic client/models; sharedUI + iOS Agenda; same write
+- [x] **Mobile:** sharedLogic client/models; sharedUI + iOS Agenda; same write
   ```
   rules; tests.
   ```
-- [ ] **Docs:** `docs/architecture.md` calendar orchestration notes; roadmap
+- [x] **Docs:** `docs/architecture.md` calendar orchestration notes; roadmap
   ```
   Active row.
   ```
-- [ ] **Tests:** unit + integration as in AC; client tests for merge display /
+- [x] **Tests:** unit + integration as in AC; client tests for merge display /
   ```
   filter / manual edit gating.
   ```
@@ -159,7 +160,8 @@ grid remains a follow-up id.
 | Writes             | Manual add/edit/delete from agenda; feed rows read-only          |
 | Data API           | Unified `GET .../calendar?from&to`                               |
 | Default window     | Local start-of-today → +30 days                                  |
-| Kid filter         | Client-side chips on loaded window                               |
+| Load more          | Append next +30d page via same `from`/`to` API (web/Android/iOS) |
+| Kid filter         | Client-side chips on the loaded window                           |
 | Module             | New Modulith `calendar` orchestrating feeds + events public APIs |
 
 

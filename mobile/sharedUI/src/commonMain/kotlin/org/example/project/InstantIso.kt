@@ -68,6 +68,114 @@ fun formatIsoForDisplay(iso: String): String {
     return formatter.format(Date(millis))
 }
 
+fun formatEventWhen(startsAt: String, endsAt: String?): String {
+    val start = formatIsoForDisplay(startsAt)
+    val endsTrimmed = endsAt?.trim().orEmpty()
+    if (endsTrimmed.isEmpty()) {
+        return start
+    }
+    return "$start → ${formatIsoForDisplay(endsTrimmed)}"
+}
+
+/** Default agenda page size in local calendar days. */
+const val CALENDAR_PAGE_DAYS = 30
+
+/** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
+data class CalendarWindow(
+    val from: String,
+    val to: String,
+)
+
+fun defaultCalendarWindow(nowMillis: Long = nowEpochMillis()): CalendarWindow {
+    val start =
+        Calendar.getInstance().apply {
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    return advanceCalendarWindow(epochMillisToIsoUtc(start.timeInMillis), CALENDAR_PAGE_DAYS)
+}
+
+fun advanceCalendarWindow(
+    fromIso: String,
+    days: Int = CALENDAR_PAGE_DAYS,
+): CalendarWindow {
+    val fromMillis = parseIsoToEpochMillis(fromIso) ?: nowEpochMillis()
+    val from =
+        Calendar.getInstance().apply {
+            timeInMillis = fromMillis
+        }
+    val to =
+        Calendar.getInstance().apply {
+            timeInMillis = from.timeInMillis
+            add(Calendar.DAY_OF_MONTH, days)
+        }
+    return CalendarWindow(
+        from = epochMillisToIsoUtc(from.timeInMillis),
+        to = epochMillisToIsoUtc(to.timeInMillis),
+    )
+}
+
+fun calendarWindowThrough(
+    loadedToIso: String,
+    nowMillis: Long = nowEpochMillis(),
+): CalendarWindow {
+    val start =
+        Calendar.getInstance().apply {
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    return CalendarWindow(
+        from = epochMillisToIsoUtc(start.timeInMillis),
+        to = loadedToIso,
+    )
+}
+
+fun ensureCalendarWindowCovers(
+    loadedToIso: String,
+    instantIso: String,
+    days: Int = CALENDAR_PAGE_DAYS,
+): String {
+    var to = loadedToIso
+    var guard = 0
+    while (instantIso >= to && guard < 120) {
+        to = advanceCalendarWindow(to, days).to
+        guard++
+    }
+    return to
+}
+
+fun mergeCalendarItems(
+    current: List<CalendarItem>,
+    more: List<CalendarItem>,
+): List<CalendarItem> {
+    val seen = current.map { "${it.source}:${it.id}" }.toMutableSet()
+    val merged = current.toMutableList()
+    for (item in more) {
+        val key = "${item.source}:${item.id}"
+        if (key in seen) continue
+        seen.add(key)
+        merged.add(item)
+    }
+    return merged.sortedWith(
+        compareBy({ it.startsAt }, { it.source.name }, { it.id }),
+    )
+}
+
+fun calendarSourceLabel(
+    source: CalendarItemSource,
+    feedName: String?,
+): String =
+    when (source) {
+        CalendarItemSource.FEED -> feedName?.trim()?.takeIf { it.isNotEmpty() } ?: "Feed"
+        CalendarItemSource.MANUAL -> "Manual"
+    }
+
 /**
  * Material DatePicker [selectedDateMillis] is UTC midnight of the chosen calendar day.
  * Combine with local hour/minute into a single instant.

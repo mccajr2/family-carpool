@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import { isPlaceLocated, type ActivityFeed, type Adult, type FamilyCircle, type FamilyMember, type Kid, type ManualEvent, type Place, feedSyncStatusLabel } from "@/api/types"
+import { isPlaceLocated, type ActivityFeed, type Adult, type CalendarItem, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,7 +13,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { coerceEndsAfterStart, formatEventWhen, validateManualEventTimes } from "@/components/eventTimes"
+import {
+  advanceCalendarWindow,
+  calendarSourceLabel,
+  calendarWindowThrough,
+  coerceEndsAfterStart,
+  defaultCalendarWindow,
+  ensureCalendarWindowCovers,
+  formatEventWhen,
+  mergeCalendarItems,
+  validateManualEventTimes,
+} from "@/components/eventTimes"
 
 type Status =
   | { kind: "idle" }
@@ -48,7 +58,7 @@ function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
     .join(", ")
 }
 
-function eventKidNames(event: ManualEvent, kids: Kid[]): string {
+function eventKidNames(event: { kidIds: string[] }, kids: Kid[]): string {
   const namesById = new Map(kids.map((kid) => [kid.id, kid.displayName]))
   return event.kidIds
     .map((id) => namesById.get(id))
@@ -106,7 +116,11 @@ export function FamilyScreen({
   const [editingFeedName, setEditingFeedName] = useState("")
   const [editingFeedUrl, setEditingFeedUrl] = useState("")
   const [editingFeedKidIds, setEditingFeedKidIds] = useState<string[]>([])
-  const [events, setEvents] = useState<ManualEvent[]>([])
+  const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([])
+  const [calendarLoadedTo, setCalendarLoadedTo] = useState(
+    () => defaultCalendarWindow().to,
+  )
+  const [agendaKidFilter, setAgendaKidFilter] = useState<string | null>(null)
   const [newEventTitle, setNewEventTitle] = useState("")
   const [newEventStartsAt, setNewEventStartsAt] = useState(defaultNewEventStartsLocal)
   const [newEventEndsAt, setNewEventEndsAt] = useState("")
@@ -118,6 +132,28 @@ export function FamilyScreen({
   const [editingEventEndsAt, setEditingEventEndsAt] = useState("")
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
+
+  async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
+    const window = calendarWindowThrough(loadedTo)
+    setCalendarItems(await familyClient.listCalendar(token, window.from, window.to))
+  }
+
+  async function loadMoreCalendar() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const page = advanceCalendarWindow(calendarLoadedTo)
+      const more = await familyClient.listCalendar(token, page.from, page.to)
+      setCalendarItems((current) => mergeCalendarItems(current, more))
+      setCalendarLoadedTo(page.to)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -136,17 +172,20 @@ export function FamilyScreen({
         setCircle(loaded)
         if (loaded) {
           try {
-            const loadedEvents = await familyClient.listEvents(token)
+            const window = defaultCalendarWindow()
+            const items = await familyClient.listCalendar(token, window.from, window.to)
             if (!cancelled) {
-              setEvents(loadedEvents)
+              setCalendarItems(items)
+              setCalendarLoadedTo(window.to)
             }
           } catch {
             if (!cancelled) {
-              setEvents([])
+              setCalendarItems([])
+              setCalendarLoadedTo(defaultCalendarWindow().to)
             }
           }
         } else {
-          setEvents([])
+          setCalendarItems([])
         }
         if (loaded?.role === "ORGANIZER") {
           try {
@@ -217,7 +256,8 @@ export function FamilyScreen({
       })
       setCircle(created)
       setFeeds([])
-      setEvents([])
+      setCalendarItems([])
+      setCalendarLoadedTo(defaultCalendarWindow().to)
       const invite = await familyClient.getInvite(token)
       setInviteCode(invite.code)
       await refreshAdult(token)
@@ -241,7 +281,8 @@ export function FamilyScreen({
       setCircle(joined)
       setInviteCode(null)
       setFeeds([])
-      setEvents([])
+      setCalendarItems([])
+      setCalendarLoadedTo(defaultCalendarWindow().to)
       await refreshAdult(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -510,6 +551,7 @@ export function FamilyScreen({
       setNewFeedName("")
       setNewFeedUrl("")
       setNewFeedKidIds([])
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -537,6 +579,7 @@ export function FamilyScreen({
       setEditingFeedName("")
       setEditingFeedUrl("")
       setEditingFeedKidIds([])
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -552,6 +595,7 @@ export function FamilyScreen({
       const token = await requireToken()
       await familyClient.deleteFeed(token, feedId)
       setFeeds((current) => current.filter((feed) => feed.id !== feedId))
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -569,6 +613,7 @@ export function FamilyScreen({
       setFeeds((current) =>
         current.map((feed) => (feed.id === feedId ? updated : feed)),
       )
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -602,24 +647,21 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
+      const startsAt = fromDatetimeLocalValue(newEventStartsAt.trim())
       const endsAt = newEventEndsAt.trim()
         ? fromDatetimeLocalValue(newEventEndsAt.trim())
         : null
-      const created = await familyClient.createEvent(
+      await familyClient.createEvent(
         token,
         newEventTitle.trim(),
-        fromDatetimeLocalValue(newEventStartsAt.trim()),
+        startsAt,
         newEventKidIds,
         endsAt,
         newEventLocation.trim() ? newEventLocation.trim() : null,
       )
-      setEvents((current) =>
-        [...current, created].sort((a, b) =>
-          a.startsAt === b.startsAt
-            ? a.id.localeCompare(b.id)
-            : a.startsAt.localeCompare(b.startsAt),
-        ),
-      )
+      const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
+      setCalendarLoadedTo(nextTo)
+      await reloadCalendar(token, nextTo)
       setNewEventTitle("")
       setNewEventStartsAt(defaultNewEventStartsLocal())
       setNewEventEndsAt("")
@@ -634,7 +676,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onSaveEvent(event: ManualEvent) {
+  async function onSaveEvent(eventId: string) {
     const validation = validateManualEventTimes(editingEventStartsAt, editingEventEndsAt)
     if (validation) {
       setStatus({ kind: "error", message: validation })
@@ -643,27 +685,22 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
+      const startsAt = fromDatetimeLocalValue(editingEventStartsAt.trim())
       const endsAt = editingEventEndsAt.trim()
         ? fromDatetimeLocalValue(editingEventEndsAt.trim())
         : null
-      const updated = await familyClient.updateEvent(
+      await familyClient.updateEvent(
         token,
-        event.id,
+        eventId,
         editingEventTitle.trim(),
-        fromDatetimeLocalValue(editingEventStartsAt.trim()),
+        startsAt,
         editingEventKidIds,
         endsAt,
         editingEventLocation.trim() ? editingEventLocation.trim() : null,
       )
-      setEvents((current) =>
-        current
-          .map((item) => (item.id === event.id ? updated : item))
-          .sort((a, b) =>
-            a.startsAt === b.startsAt
-              ? a.id.localeCompare(b.id)
-              : a.startsAt.localeCompare(b.startsAt),
-          ),
-      )
+      const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
+      setCalendarLoadedTo(nextTo)
+      await reloadCalendar(token, nextTo)
       setEditingEventId(null)
       setEditingEventTitle("")
       setEditingEventStartsAt("")
@@ -684,7 +721,7 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       await familyClient.deleteEvent(token, eventId)
-      setEvents((current) => current.filter((event) => event.id !== eventId))
+      await reloadCalendar(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -870,6 +907,10 @@ export function FamilyScreen({
     editingEventStartsAt.trim() && editingEventStartsAt > datetimeMin
       ? editingEventStartsAt
       : datetimeMin
+  const visibleCalendarItems =
+    agendaKidFilter == null
+      ? calendarItems
+      : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
 
   return (
     <Card>
@@ -1171,32 +1212,59 @@ export function FamilyScreen({
           </Button>
         </div>
 
-        <section aria-label="Manual events" className="flex flex-col gap-3">
-          <p className="text-sm font-medium">Manual events</p>
+        <section aria-label="Agenda" className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Agenda</p>
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
               {status.message}
             </p>
           ) : null}
-          {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No manual events yet.</p>
+          {circle.kids.length > 0 ? (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter agenda by kid">
+              <Button
+                type="button"
+                size="sm"
+                variant={agendaKidFilter == null ? "default" : "outline"}
+                onClick={() => setAgendaKidFilter(null)}
+                disabled={status.kind === "loading"}
+              >
+                All kids
+              </Button>
+              {circle.kids.map((kid) => (
+                <Button
+                  key={kid.id}
+                  type="button"
+                  size="sm"
+                  variant={agendaKidFilter === kid.id ? "default" : "outline"}
+                  onClick={() => setAgendaKidFilter(kid.id)}
+                  disabled={status.kind === "loading"}
+                >
+                  {kid.displayName}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {visibleCalendarItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No events in the loaded window.</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {events.map((event) => {
-                const kidsLabel = eventKidNames(event, circle.kids)
+              {visibleCalendarItems.map((item) => {
+                const kidsLabel = eventKidNames(item, circle.kids)
+                const sourceLabel = calendarSourceLabel(item.source, item.feedName)
+                const isManual = item.source === "MANUAL"
                 return (
-                  <li key={event.id} className="flex flex-col gap-2">
-                    {editingEventId === event.id ? (
+                  <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
+                    {isManual && editingEventId === item.id ? (
                       <>
                         <Input
-                          aria-label={`Edit title for ${event.title}`}
+                          aria-label={`Edit title for ${item.title}`}
                           value={editingEventTitle}
                           onChange={(e) => setEditingEventTitle(e.target.value)}
                           disabled={status.kind === "loading"}
                         />
                         <Input
                           type="datetime-local"
-                          aria-label={`Edit start for ${event.title}`}
+                          aria-label={`Edit start for ${item.title}`}
                           value={editingEventStartsAt}
                           min={datetimeMin}
                           onChange={(e) => {
@@ -1210,14 +1278,14 @@ export function FamilyScreen({
                         />
                         <Input
                           type="datetime-local"
-                          aria-label={`Edit end for ${event.title}`}
+                          aria-label={`Edit end for ${item.title}`}
                           value={editingEventEndsAt}
                           min={editingEventEndsMin}
                           onChange={(e) => setEditingEventEndsAt(e.target.value)}
                           disabled={status.kind === "loading"}
                         />
                         <Input
-                          aria-label={`Edit location for ${event.title}`}
+                          aria-label={`Edit location for ${item.title}`}
                           value={editingEventLocation}
                           onChange={(e) => setEditingEventLocation(e.target.value)}
                           placeholder="Location (optional)"
@@ -1233,7 +1301,7 @@ export function FamilyScreen({
                               >
                                 <input
                                   type="checkbox"
-                                  aria-label={`Assign ${kid.displayName} to ${event.title}`}
+                                  aria-label={`Assign ${kid.displayName} to ${item.title}`}
                                   checked={editingEventKidIds.includes(kid.id)}
                                   onChange={() =>
                                     toggleKidId(
@@ -1253,7 +1321,7 @@ export function FamilyScreen({
                           <Button
                             type="button"
                             size="sm"
-                            onClick={() => void onSaveEvent(event)}
+                            onClick={() => void onSaveEvent(item.id)}
                             disabled={
                               status.kind === "loading" ||
                               !editingEventTitle.trim() ||
@@ -1284,13 +1352,16 @@ export function FamilyScreen({
                     ) : (
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <span className="flex-1 text-sm">
-                          {event.title}
+                          {item.title}
                           <span className="block text-muted-foreground">
-                            {formatEventWhen(event.startsAt, event.endsAt)}
+                            {formatEventWhen(item.startsAt, item.endsAt)}
                           </span>
-                          {event.location ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {sourceLabel}
+                          </span>
+                          {item.location ? (
                             <span className="block text-xs text-muted-foreground">
-                              {event.location}
+                              {item.location}
                             </span>
                           ) : null}
                           {kidsLabel ? (
@@ -1299,33 +1370,37 @@ export function FamilyScreen({
                             </span>
                           ) : null}
                         </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingEventId(event.id)
-                            setEditingEventTitle(event.title)
-                            setEditingEventStartsAt(toDatetimeLocalValue(event.startsAt))
-                            setEditingEventEndsAt(
-                              event.endsAt ? toDatetimeLocalValue(event.endsAt) : "",
-                            )
-                            setEditingEventLocation(event.location ?? "")
-                            setEditingEventKidIds([...event.kidIds])
-                          }}
-                          disabled={status.kind === "loading"}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onRemoveEvent(event.id)}
-                          disabled={status.kind === "loading"}
-                        >
-                          Remove event
-                        </Button>
+                        {isManual ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingEventId(item.id)
+                                setEditingEventTitle(item.title)
+                                setEditingEventStartsAt(toDatetimeLocalValue(item.startsAt))
+                                setEditingEventEndsAt(
+                                  item.endsAt ? toDatetimeLocalValue(item.endsAt) : "",
+                                )
+                                setEditingEventLocation(item.location ?? "")
+                                setEditingEventKidIds([...item.kidIds])
+                              }}
+                              disabled={status.kind === "loading"}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void onRemoveEvent(item.id)}
+                              disabled={status.kind === "loading"}
+                            >
+                              Remove event
+                            </Button>
+                          </>
+                        ) : null}
                       </div>
                     )}
                   </li>
@@ -1333,6 +1408,14 @@ export function FamilyScreen({
               })}
             </ul>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadMoreCalendar()}
+            disabled={status.kind === "loading"}
+          >
+            Load more
+          </Button>
         </section>
 
         <div className="flex flex-col gap-2">

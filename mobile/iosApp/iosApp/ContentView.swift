@@ -272,20 +272,34 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
-            Text("Manual events")
+            Text("Agenda")
                 .font(.headline)
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
                     .font(.footnote)
             }
-            if model.events.isEmpty {
-                Text("No manual events yet.")
+            if !model.kids.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        Button("All kids") { model.agendaKidFilter = nil }
+                            .buttonStyle(.bordered)
+                            .tint(model.agendaKidFilter == nil ? .accentColor : .secondary)
+                        ForEach(model.kids) { kid in
+                            Button(kid.displayName) { model.agendaKidFilter = kid.id }
+                                .buttonStyle(.bordered)
+                                .tint(model.agendaKidFilter == kid.id ? .accentColor : .secondary)
+                        }
+                    }
+                }
+            }
+            if model.visibleCalendarItems.isEmpty {
+                Text("No events in the loaded window.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(model.events) { event in
-                    if model.editingEventId == event.id {
+                ForEach(model.visibleCalendarItems) { item in
+                    if model.editingEventId == item.id, item.isManual {
                         TextField("Title", text: $model.editingEventTitle)
                             .disabled(model.isLoading)
                             .textFieldStyle(.roundedBorder)
@@ -325,31 +339,38 @@ struct ContentView: View {
                         }
                     } else {
                         VStack(alignment: .leading) {
-                            Text(event.title)
-                            Text(event.whenLabel)
+                            Text(item.title)
+                            Text(item.whenLabel)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
-                            if let location = event.location, !location.isEmpty {
+                            Text(item.sourceLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let location = item.location, !location.isEmpty {
                                 Text(location)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            let kidsLabel = event.kidNamesLabel(kids: model.kids)
+                            let kidsLabel = item.kidNamesLabel(kids: model.kids)
                             if !kidsLabel.isEmpty {
                                 Text(kidsLabel)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            HStack {
-                                Button("Edit") { model.beginEditEvent(event) }
-                                    .disabled(model.isLoading)
-                                Button("Remove event") { model.removeEvent(event.id) }
-                                    .disabled(model.isLoading)
+                            if item.isManual {
+                                HStack {
+                                    Button("Edit") { model.beginEditEvent(item) }
+                                        .disabled(model.isLoading)
+                                    Button("Remove event") { model.removeEvent(item.id) }
+                                        .disabled(model.isLoading)
+                                }
                             }
                         }
                     }
                 }
             }
+            Button("Load more") { model.loadMoreCalendar() }
+                .disabled(model.isLoading)
 
             TextField("New event title", text: $model.newEventTitle)
                 .disabled(model.isLoading)

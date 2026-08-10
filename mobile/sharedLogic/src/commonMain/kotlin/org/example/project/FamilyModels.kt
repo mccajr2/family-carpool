@@ -66,6 +66,25 @@ data class ManualEvent(
 )
 
 @Serializable
+enum class CalendarItemSource {
+    MANUAL,
+    FEED,
+}
+
+@Serializable
+data class CalendarItem(
+    val id: String,
+    val source: CalendarItemSource,
+    val title: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val location: String? = null,
+    val kidIds: List<String> = emptyList(),
+    val feedId: String? = null,
+    val feedName: String? = null,
+)
+
+@Serializable
 data class FamilyMember(
     val adultId: String,
     val email: String,

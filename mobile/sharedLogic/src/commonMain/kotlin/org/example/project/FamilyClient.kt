@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -305,6 +306,21 @@ class FamilyClient(
                 header(HttpHeaders.Authorization, "Bearer $accessToken")
             }
         ensureSuccess(response, "Sync feed failed")
+        return response.body()
+    }
+
+    suspend fun listCalendar(
+        accessToken: String,
+        from: String,
+        to: String,
+    ): List<CalendarItem> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/calendar") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                parameter("from", from)
+                parameter("to", to)
+            }
+        ensureSuccess(response, "List calendar failed")
         return response.body()
     }
 

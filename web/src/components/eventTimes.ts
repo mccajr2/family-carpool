@@ -68,3 +68,85 @@ export function formatEventWhen(startsAt: string, endsAt: string | null | undefi
   return start
 }
 
+/** Default agenda page size in local calendar days. */
+export const CALENDAR_PAGE_DAYS = 30
+
+function startOfLocalDay(now: Date): Date {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
+/** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
+export function defaultCalendarWindow(now: Date = new Date()): { from: string; to: string } {
+  return advanceCalendarWindow(startOfLocalDay(now).toISOString(), CALENDAR_PAGE_DAYS)
+}
+
+/**
+ * Next exclusive page: `[fromIso, fromIso + days)` using the Date local calendar.
+ * Pass the previous window's `to` as `fromIso`.
+ */
+export function advanceCalendarWindow(
+  fromIso: string,
+  days: number = CALENDAR_PAGE_DAYS,
+): { from: string; to: string } {
+  const from = new Date(fromIso)
+  const to = new Date(from)
+  to.setDate(to.getDate() + days)
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
+/** Full reload range: local today through an already-loaded exclusive `to`. */
+export function calendarWindowThrough(
+  loadedToIso: string,
+  now: Date = new Date(),
+): { from: string; to: string } {
+  return { from: startOfLocalDay(now).toISOString(), to: loadedToIso }
+}
+
+/** Grow `loadedTo` until `instantIso` falls inside `[…, loadedTo)`. */
+export function ensureCalendarWindowCovers(
+  loadedToIso: string,
+  instantIso: string,
+  days: number = CALENDAR_PAGE_DAYS,
+): string {
+  let to = loadedToIso
+  let guard = 0
+  while (instantIso >= to && guard < 120) {
+    to = advanceCalendarWindow(to, days).to
+    guard++
+  }
+  return to
+}
+
+export function mergeCalendarItems<T extends { id: string; source: string; startsAt: string }>(
+  current: T[],
+  more: T[],
+): T[] {
+  const seen = new Set(current.map((item) => `${item.source}:${item.id}`))
+  const merged = [...current]
+  for (const item of more) {
+    const key = `${item.source}:${item.id}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    merged.push(item)
+  }
+  return merged.sort((a, b) =>
+    a.startsAt === b.startsAt
+      ? `${a.source}:${a.id}`.localeCompare(`${b.source}:${b.id}`)
+      : a.startsAt.localeCompare(b.startsAt),
+  )
+}
+
+export function calendarSourceLabel(
+  source: "MANUAL" | "FEED",
+  feedName: string | null | undefined,
+): string {
+  if (source === "FEED") {
+    return feedName?.trim() ? feedName.trim() : "Feed"
+  }
+  return "Manual"
+}
+
