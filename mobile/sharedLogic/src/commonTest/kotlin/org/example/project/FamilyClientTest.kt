@@ -260,6 +260,35 @@ class FamilyClientTest {
         }
 
     @Test
+    fun listCalendar() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get -> {
+                            assertEquals("2026-08-01T00:00:00Z", request.url.parameters["from"])
+                            assertEquals("2026-09-01T00:00:00Z", request.url.parameters["to"])
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null},{"id":"fe1","source":"FEED","title":"Practice","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Field 3","kidIds":["k1"],"feedId":"f1","feedName":"U12"}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val items =
+                client.listCalendar("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z")
+            assertEquals(2, items.size)
+            assertEquals(CalendarItemSource.MANUAL, items[0].source)
+            assertEquals(CalendarItemSource.FEED, items[1].source)
+            assertEquals("U12", items[1].feedName)
+        }
+
+    @Test
     fun inviteJoinLeaveAndMemberRole() =
         runTest {
             val mockEngine =

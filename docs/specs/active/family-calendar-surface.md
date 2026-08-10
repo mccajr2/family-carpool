@@ -127,7 +127,7 @@ grid remains a follow-up id.
   `ManualEventCalendarApi` (names flexible) on feeds/events; range queries;
   Caregiver-readable feed events for calendar only.
   ```
-- [ ] **Contract:** OpenAPI calendar path/schemas; bump version.
+- [x] **Contract:** OpenAPI calendar path/schemas; bump version.
 - [ ] **Web:** types + client; Agenda UI + manual write flows; drop primary
   ```
   manage-events block; tests.

@@ -380,4 +380,48 @@ describe("FamilyClient", () => {
     )
     expect(fetchFn.mock.calls[4]?.[1]).toMatchObject({ method: "DELETE" })
   })
+
+  it("lists unified calendar items for a time window", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const items = [
+      {
+        id: "e1",
+        source: "MANUAL",
+        title: "Dentist",
+        startsAt: "2026-08-15T16:00:00Z",
+        endsAt: null,
+        location: "Clinic",
+        kidIds: ["k1"],
+        feedId: null,
+        feedName: null,
+      },
+      {
+        id: "fe1",
+        source: "FEED",
+        title: "Practice",
+        startsAt: "2026-08-15T17:00:00Z",
+        endsAt: "2026-08-15T18:00:00Z",
+        location: "Field 3",
+        kidIds: ["k1"],
+        feedId: "f1",
+        feedName: "U12",
+      },
+    ]
+
+    const fetchFn = vi.fn().mockResolvedValueOnce(json(items))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.listCalendar("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"),
+    ).resolves.toMatchObject([{ source: "MANUAL" }, { source: "FEED", feedName: "U12" }])
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar?from=2026-08-01T00%3A00%3A00Z&to=2026-09-01T00%3A00%3A00Z",
+    )
+  })
 })

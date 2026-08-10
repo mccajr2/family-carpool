@@ -52,6 +52,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle/feeds/{feedId}/sync");
         assertThat(yaml).contains("/api/family/circle/events");
         assertThat(yaml).contains("/api/family/circle/events/{eventId}");
+        assertThat(yaml).contains("/api/family/circle/calendar");
         assertThat(yaml).contains("/api/family/circle/invite");
         assertThat(yaml).contains("/api/family/circle/invite/regenerate");
         assertThat(yaml).contains("/api/family/circle/join");
@@ -84,6 +85,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: getManualEvent");
         assertThat(yaml).contains("operationId: updateManualEvent");
         assertThat(yaml).contains("operationId: deleteManualEvent");
+        assertThat(yaml).contains("operationId: listCircleCalendar");
 
         assertThat(yaml).contains("CreateFamilyCircleRequest:");
         assertThat(yaml).contains("UpdateFamilyCircleRequest:");
@@ -105,6 +107,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("ManualEvent:");
         assertThat(yaml).contains("CreateManualEventRequest:");
         assertThat(yaml).contains("UpdateManualEventRequest:");
+        assertThat(yaml).contains("CalendarItem:");
+        assertThat(yaml).contains("CalendarItemSource:");
         assertThat(yaml).contains("sourceUrl:");
         assertThat(yaml).contains("lastSyncedAt:");
         assertThat(yaml).contains("lastSyncError:");
@@ -118,9 +122,10 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.8.0");
+        assertThat(yaml).contains("version: 0.9.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
+        assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("components:");
     }
 

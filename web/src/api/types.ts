@@ -71,6 +71,20 @@ export type ManualEvent = {
   kidIds: string[]
 }
 
+export type CalendarItemSource = "MANUAL" | "FEED"
+
+export type CalendarItem = {
+  id: string
+  source: CalendarItemSource
+  title: string
+  startsAt: string
+  endsAt: string | null
+  location: string | null
+  kidIds: string[]
+  feedId: string | null
+  feedName: string | null
+}
+
 export type FamilyMember = {
   adultId: string
   email: string
