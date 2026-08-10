@@ -108,7 +108,7 @@ will read feed events + manual events.
       `FamilyScreen` for all members; tests.
 - [x] **Mobile:** sharedLogic models/client + tests; Android sharedUI; iOS
       AuthViewModel / ContentView manage-events CRUD.
-- [ ] **Docs:** `docs/architecture.md` — events module + authz categories
+- [x] **Docs:** `docs/architecture.md` — events module + authz categories
       (Organizer plumbing vs any-member content).
 - [ ] **Tests:** service unit + controller integration (Caregiver write, 400/401/404,
       endsAt validation); `OpenApiContractTest`; web + KMP client tests;

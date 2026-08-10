@@ -68,6 +68,16 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD; hard delete; list all ordered by `startsAt` asc; separate from feed snapshots (`events` module). Calendar later composes feed + manual. Thin manage-list UI this slice; calendar becomes primary write UX later |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
 
+**Write authorization (two intentional categories):**
+
+1. **Organizer plumbing** — who is in the circle and how external calendars are
+   wired: kids, invite/roles, circle rename, **activity feeds** (+ Sync now /
+   poller). Caregivers consume feeds via later calendar UI; they do not manage
+   subscribe URLs.
+2. **Any-member household content** — day-to-day shared facts everyone may
+   contribute: **named places** (+ retry locate) and **manual events**. Same
+   write policy for both; no creator-only edit rules in v1.
+
 Modulith modules: `backend/modules/family/` (circle, kids, places, membership
 API), `backend/modules/feeds/` (subscriptions + synced events), and
 `backend/modules/events/` (manual events). Contract paths under
