@@ -68,6 +68,50 @@ fun formatIsoForDisplay(iso: String): String {
     return formatter.format(Date(millis))
 }
 
+fun formatEventWhen(startsAt: String, endsAt: String?): String {
+    val start = formatIsoForDisplay(startsAt)
+    val endsTrimmed = endsAt?.trim().orEmpty()
+    if (endsTrimmed.isEmpty()) {
+        return start
+    }
+    return "$start → ${formatIsoForDisplay(endsTrimmed)}"
+}
+
+/** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
+data class CalendarWindow(
+    val from: String,
+    val to: String,
+)
+
+fun defaultCalendarWindow(nowMillis: Long = nowEpochMillis()): CalendarWindow {
+    val start =
+        Calendar.getInstance().apply {
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    val end =
+        Calendar.getInstance().apply {
+            timeInMillis = start.timeInMillis
+            add(Calendar.DAY_OF_MONTH, 30)
+        }
+    return CalendarWindow(
+        from = epochMillisToIsoUtc(start.timeInMillis),
+        to = epochMillisToIsoUtc(end.timeInMillis),
+    )
+}
+
+fun calendarSourceLabel(
+    source: CalendarItemSource,
+    feedName: String?,
+): String =
+    when (source) {
+        CalendarItemSource.FEED -> feedName?.trim()?.takeIf { it.isNotEmpty() } ?: "Feed"
+        CalendarItemSource.MANUAL -> "Manual"
+    }
+
 /**
  * Material DatePicker [selectedDateMillis] is UTC midnight of the chosen calendar day.
  * Combine with local hour/minute into a single instant.

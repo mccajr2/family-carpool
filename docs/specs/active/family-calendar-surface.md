@@ -90,30 +90,30 @@ grid remains a follow-up id.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: calendar item schema + `GET /api/family/circle/calendar` with
+- [x] OpenAPI: calendar item schema + `GET /api/family/circle/calendar` with
   ```
   required `from`/`to`; 400/401/404 documented; version bumped; web + mobile
   clients updated in the same change.
   ```
-- [ ] Any circle member receives feed + manual items in `[from, to)`, ordered by
+- [x] Any circle member receives feed + manual items in `[from, to)`, ordered by
   ```
   `startsAt`; Caregiver succeeds (not Organizer-only). Empty → `[]`.
   ```
-- [ ] Feed items include `kidIds` from the feed’s kids and `feedId`/`feedName`;
+- [x] Feed items include `kidIds` from the feed’s kids and `feedId`/`feedName`;
   ```
   manual items omit feed fields and remain editable via existing events API.
   ```
-- [ ] `from ≥ to` → **400**; unauthenticated → **401**; adult with no membership
+- [x] `from ≥ to` → **400**; unauthenticated → **401**; adult with no membership
   ```
   → **404**.
   ```
-- [ ] Web, Android, and iOS: Agenda UI (default today→+30d), kid filter optional,
+- [x] Web, Android, and iOS: Agenda UI (default today→+30d), kid filter optional,
   ```
   add/edit/delete **manual** events from that surface; feed rows read-only;
   dedicated manage-events list removed as primary UX; errors surfaced near
   the agenda.
   ```
-- [ ] Unit + integration tests cover range merge, authz, ordering, empty window,
+- [x] Unit + integration tests cover range merge, authz, ordering, empty window,
   ```
   bad range; `ModularityTests` green.
   ```
@@ -132,15 +132,15 @@ grid remains a follow-up id.
   ```
   manage-events block; tests.
   ```
-- [ ] **Mobile:** sharedLogic client/models; sharedUI + iOS Agenda; same write
+- [x] **Mobile:** sharedLogic client/models; sharedUI + iOS Agenda; same write
   ```
   rules; tests.
   ```
-- [ ] **Docs:** `docs/architecture.md` calendar orchestration notes; roadmap
+- [x] **Docs:** `docs/architecture.md` calendar orchestration notes; roadmap
   ```
   Active row.
   ```
-- [ ] **Tests:** unit + integration as in AC; client tests for merge display /
+- [x] **Tests:** unit + integration as in AC; client tests for merge display /
   ```
   filter / manual edit gating.
   ```

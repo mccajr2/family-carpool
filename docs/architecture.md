@@ -49,7 +49,7 @@ look up adult by id, update `displayName`).
 
 Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 `named-places` + `place-geocoding` + `activity-feed-subscribe` +
-`activity-feed-poller` + `manual-events`:
+`activity-feed-poller` + `manual-events` + `family-calendar-surface`:
 
 | Topic | Decision |
 |--------|----------|
@@ -60,28 +60,31 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
 | Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
 | Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
-| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now. **Any member:** named places (+ retry locate), **manual events**. All members may read circle (Caregivers omit feed manage UI) |
+| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now. **Any member:** named places (+ retry locate), **manual events**, **calendar agenda read**. All members may read circle (Caregivers omit feed manage UI) |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
 | Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
-| Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD; hard delete; list all ordered by `startsAt` asc; separate from feed snapshots (`events` module). Calendar later composes feed + manual. Thin manage-list UI this slice; calendar becomes primary write UX later |
+| Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
+| Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; clients default **local today → +30d**, optional kid filter, manual writes from agenda; month grid → `family-calendar-grid` |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
 
 **Write authorization (two intentional categories):**
 
 1. **Organizer plumbing** — who is in the circle and how external calendars are
    wired: kids, invite/roles, circle rename, **activity feeds** (+ Sync now /
-   poller). Caregivers consume feeds via later calendar UI; they do not manage
-   subscribe URLs.
+   poller). Caregivers consume synced feed events via the **calendar Agenda**;
+   they do not manage subscribe URLs.
 2. **Any-member household content** — day-to-day shared facts everyone may
    contribute: **named places** (+ retry locate) and **manual events**. Same
    write policy for both; no creator-only edit rules in v1.
 
 Modulith modules: `backend/modules/family/` (circle, kids, places, membership
-API), `backend/modules/feeds/` (subscriptions + synced events), and
-`backend/modules/events/` (manual events). Contract paths under
-`/api/family/*`. Family public surface used by feeds and events:
+API), `backend/modules/feeds/` (subscriptions + synced events),
+`backend/modules/events/` (manual events), and `backend/modules/calendar/`
+(orchestrates feeds + events **public** APIs into the unified agenda read —
+no imports of either module’s `internal` packages). Contract paths under
+`/api/family/*`. Family public surface used by feeds, events, and calendar:
 `FamilyMembershipApi` (`requireOrganizerCircleId` / `requireMemberCircleId`,
 validate kids). Auth public surface used by family: `AdultSessionApi`
 (`requireCurrentAdult`, `requireAdult`, `updateDisplayName`).
@@ -96,8 +99,8 @@ validate kids). Auth public surface used by family: `AdultSessionApi`
 - **ActivityFeed** belongs to a **circle**; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
   a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
-  Synced **FeedEvent** rows are feed-scoped storage for later calendar UI
-  (`family-calendar-surface`); manage-feeds only exposes sync status + event count.
+  Synced **FeedEvent** rows are feed-scoped storage composed into the Agenda via
+  `family-calendar-surface`; manage-feeds only exposes sync status + event count.
 - **ManualEvent** belongs to a **circle** with **1+ kids**; not owned by a feed;
   not touched by Sync now / poller.
 
@@ -123,7 +126,8 @@ family-carpool/
 │       ├── auth/         # Email OTP + Bearer sessions
 │       ├── family/       # Family circle + kids + named places (+ geocode)
 │       ├── feeds/        # Activity feed subscribe + sync + background poller
-│       └── events/       # Manual (non-feed) circle events
+│       ├── events/       # Manual (non-feed) circle events
+│       └── calendar/     # Unified agenda read (orchestrates feeds + events)
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
 │   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)
