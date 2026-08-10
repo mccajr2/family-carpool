@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-08 (family-circle-and-kids done)
+Updated: 2026-08-09 (spec family-adult-invites-roles)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | family-adult-invites-roles | planned | 2026-08-07 · initial | Invite link/code to join circle; Organizer invite/remove; Caregiver role |
+| 1 | family-adult-invites-roles | active | 2026-08-07 · initial | Invite link/code to join circle; Organizer invite/remove; Caregiver role |
 | 2 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
 | 3 | place-geocoding | planned | 2026-08-07 · re-rank split | Nominatim geocode for places/venues; cache; respectful User-Agent |
 | 4 | activity-feed-sync | planned | 2026-08-07 · re-rank split | RSS/Atom + iCal URL import; poll; dedupe by UID; last-synced; kid↔feed attachment |
@@ -113,7 +113,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None — pick Next up (`family-adult-invites-roles`) with `/spec`._
+| Id | Branch | Spec |
+|----|--------|------|
+| family-adult-invites-roles | `family-adult-invites-roles` | [active](specs/active/family-adult-invites-roles.md) |
 
 ## Done
 
@@ -142,3 +144,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-08 | Re-rank: product slices first; `adult-optional-password` → rank 17 with other pre-beta auth gates; next up `family-circle-and-kids`. |
 | 2026-08-08 | Parked multi-circle, read-only calendar follows, venue-proximity alerts, and caregiver attention-balance; v1 stays one circle per adult. |
 | 2026-08-08 | `/pr family-circle-and-kids`: circle + kids CRUD shipped (web/Android/iOS); next up `family-adult-invites-roles`. |
+| 2026-08-09 | `/spec family-adult-invites-roles`: invite code, Caregiver join, promote/demote, leave rules; multi-circle stays parking. |
