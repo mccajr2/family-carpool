@@ -1,12 +1,13 @@
 # Spec: place-geocoding
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-09  
 Approved: 2026-08-09  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `place-geocoding`  
-Added: 2026-08-07 · re-rank split
+Added: 2026-08-07 · re-rank split  
+Archived: 2026-08-09
 
 ## Problem
 
@@ -63,25 +64,25 @@ unchanged aside from reflecting returned coords after save.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: `Place` includes nullable `latitude` / `longitude`;
+- [x] OpenAPI: `Place` includes nullable `latitude` / `longitude`;
       `POST .../places/{placeId}/locate` under Bearer; create/update responses
       include coords when known.
-- [ ] Creating or updating a place **geocodes** the address (cache or Nominatim);
+- [x] Creating or updating a place **geocodes** the address (cache or Nominatim);
       success persists lat/lng; Nominatim failure / no hit → place still saved
       with **null** coords (**soft-fail**, not 4xx/5xx for the write).
-- [ ] Updating **only** the name (same address) does not require a new Nominatim
+- [x] Updating **only** the name (same address) does not require a new Nominatim
       call when coords already present (or cache hit is fine).
-- [ ] Changing the address clears or refreshes coords via a new geocode attempt
+- [x] Changing the address clears or refreshes coords via a new geocode attempt
       (soft-fail allowed).
-- [ ] Any member can **Retry locate**; success fills coords; failure leaves nulls
+- [x] Any member can **Retry locate**; success fills coords; failure leaves nulls
       and UI still shows not located; unknown place / other circle → **404**;
       unauthenticated → **401**.
-- [ ] Geocode cache is used for identical normalized address queries; outbound
+- [x] Geocode cache is used for identical normalized address queries; outbound
       Nominatim calls use a respectful User-Agent; unit tests use a fake port
       (no live network required).
-- [ ] Web, Android, and iOS: place list shows Located / Not located; **Retry
+- [x] Web, Android, and iOS: place list shows Located / Not located; **Retry
       locate** when not located; errors surfaced.
-- [ ] Backend unit + integration tests cover soft-fail create, successful
+- [x] Backend unit + integration tests cover soft-fail create, successful
       geocode, locate retry, authz; client tests cover locate + types;
       `ModularityTests` green.
 
@@ -97,7 +98,7 @@ unchanged aside from reflecting returned coords after save.
 - [x] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/
       ContentView; tests.
 - [x] **Docs:** `docs/architecture.md` Place / geocode notes.
-- [ ] **Tests:** service unit (fake geocoder), integration with stubbed HTTP or
+- [x] **Tests:** service unit (fake geocoder), integration with stubbed HTTP or
       test double, OpenAPI contract paths, web + KMP client tests.
 
 ## Open questions
