@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { coerceEndsAfterStart, validateManualEventTimes } from "@/components/eventTimes"
+import { coerceEndsAfterStart, formatEventWhen, validateManualEventTimes } from "@/components/eventTimes"
 
 type Status =
   | { kind: "idle" }
@@ -54,14 +54,6 @@ function eventKidNames(event: ManualEvent, kids: Kid[]): string {
     .map((id) => namesById.get(id))
     .filter((name): name is string => Boolean(name?.trim()))
     .join(", ")
-}
-
-function formatEventWhen(event: ManualEvent): string {
-  const start = event.startsAt
-  if (event.endsAt) {
-    return `${start} → ${event.endsAt}`
-  }
-  return start
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -1294,7 +1286,7 @@ export function FamilyScreen({
                         <span className="flex-1 text-sm">
                           {event.title}
                           <span className="block text-muted-foreground">
-                            {formatEventWhen(event)}
+                            {formatEventWhen(event.startsAt, event.endsAt)}
                           </span>
                           {event.location ? (
                             <span className="block text-xs text-muted-foreground">

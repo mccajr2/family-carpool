@@ -41,3 +41,30 @@ export function coerceEndsAfterStart(startsLocal: string, endsLocal: string): st
   }
   return ""
 }
+
+/** Local-friendly label like iOS medium date + short time: "Aug 12, 2026 at 12:30 PM". */
+export function formatIsoForDisplay(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+  const day = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  const time = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  })
+  return `${day} at ${time}`
+}
+
+export function formatEventWhen(startsAt: string, endsAt: string | null | undefined): string {
+  const start = formatIsoForDisplay(startsAt)
+  if (endsAt) {
+    return `${start} → ${formatIsoForDisplay(endsAt)}`
+  }
+  return start
+}
+
