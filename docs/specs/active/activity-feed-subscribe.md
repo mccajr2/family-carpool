@@ -105,7 +105,7 @@ and validate kid ids belong to that circle — no imports of `family.internal`.
       `FamilyMembershipApi` (or equivalent) on `family`; iCal fetch/parse port +
       stub/fixtures; create/update/delete + auto-sync + Sync now; soft-fail +
       UID snapshot replace.
-- [ ] **Contract:** OpenAPI feed paths/schemas; bump version.
+- [x] **Contract:** OpenAPI feed paths/schemas; bump version.
 - [ ] **Web:** types + client; Organizer manage-feeds UI + tests.
 - [ ] **Mobile:** sharedLogic models/client; sharedUI + iOS manage-feeds; tests.
 - [ ] **Docs:** `docs/architecture.md` ActivityFeed notes (subscribe vs poller).

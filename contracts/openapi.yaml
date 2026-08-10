@@ -1,16 +1,18 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.6.0
+  version: 0.7.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
-    hold kids, named places, and memberships (ORGANIZER / CAREGIVER). Organizers
-    share a short invite code; Caregivers join via that code. Any member may
-    manage named places (label + free-text address; optional lat/lng from
-    geocoding with soft-fail and retry locate). Magic links, passwords,
-    multi-circle membership, invite deep links, email/push invite delivery, and
-    HTTP-only web cookies are out of scope for this revision.
+    hold kids, named places, activity feeds (Organizer-managed iCal/webcal
+    subscriptions with soft-fail sync), and memberships (ORGANIZER / CAREGIVER).
+    Organizers share a short invite code; Caregivers join via that code. Any
+    member may manage named places (label + free-text address; optional lat/lng
+    from geocoding with soft-fail and retry locate). Magic links, passwords,
+    multi-circle membership, invite deep links, email/push invite delivery,
+    background feed polling, and HTTP-only web cookies are out of scope for
+    this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -20,9 +22,10 @@ tags:
     description: Email OTP sign-in and Bearer sessions
   - name: family
     description: >
-      Family circle, kids, named places, invite code, and memberships (one circle
-      per adult in v1). Organizer-only writes for invite regen, roles, remove,
-      kids, and circle rename. Any member may create/update/delete places and
+      Family circle, kids, named places, activity feeds, invite code, and
+      memberships (one circle per adult in v1). Organizer-only writes for invite
+      regen, roles, remove, kids, circle rename, and activity feed
+      create/update/delete/sync. Any member may create/update/delete places and
       retry place geocoding.
 
 paths:
@@ -917,6 +920,273 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/feeds:
+    get:
+      operationId: listActivityFeeds
+      tags: [family]
+      summary: List activity feeds for the current adult's circle
+      description: >
+        Any circle member may list feeds. Caregivers see the same feed metadata
+        as Organizers (including last sync status) but cannot mutate feeds.
+        Returns an empty array when the circle has no feeds. Adults without a
+        circle receive 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Feeds for the circle (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityFeed"
+              example:
+                - id: 01900000-0000-7000-8000-000000000041
+                  name: Soccer - Crossbar
+                  sourceUrl: https://example.com/team.ics
+                  kidIds:
+                    - 01900000-0000-7000-8000-000000000021
+                  lastSyncedAt: "2026-08-10T12:00:00Z"
+                  lastSyncError: null
+                  eventCount: 12
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createActivityFeed
+      tags: [family]
+      summary: Create an activity feed and sync immediately
+      description: >
+        Organizer-only. Creates a feed subscription for an iCal or webcal URL
+        (`webcal://` is normalized to `https://`), associates zero or more kids
+        in the circle, and runs an immediate sync. Sync soft-fails: create still
+        returns 201 with lastSyncError set and eventCount 0 when fetch/parse
+        fails. Duplicate normalized source URL in the same circle returns 409.
+        Unknown kid ids return 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityFeedRequest"
+            example:
+              name: Soccer - Crossbar
+              sourceUrl: https://example.com/team.ics
+              kidIds:
+                - 01900000-0000-7000-8000-000000000021
+      responses:
+        "201":
+          description: Feed created (sync may have soft-failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityFeed"
+        "400":
+          description: Validation failed (blank fields, invalid URL, or kid not in circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not an Organizer of the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Another feed in this circle already uses this source URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/feeds/{feedId}:
+    put:
+      operationId: updateActivityFeed
+      tags: [family]
+      summary: Update an activity feed
+      description: >
+        Organizer-only. Updates name, source URL, and/or kid associations.
+        Changing the source URL triggers an immediate sync (soft-fail preserved
+        on the feed). Duplicate normalized URL returns 409. Unknown kid ids
+        return 400. Unknown feed id returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: feedId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityFeedRequest"
+            example:
+              name: Soccer - Updated
+              sourceUrl: https://example.com/team.ics
+              kidIds:
+                - 01900000-0000-7000-8000-000000000021
+      responses:
+        "200":
+          description: Feed updated (URL-change sync may have soft-failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityFeed"
+        "400":
+          description: Validation failed (blank fields, invalid URL, or kid not in circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not an Organizer of the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Feed not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Another feed in this circle already uses this source URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteActivityFeed
+      tags: [family]
+      summary: Delete an activity feed and its synced events
+      description: >
+        Organizer-only. Removes the feed, kid associations, and stored event
+        snapshot. Unknown feed id returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: feedId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Feed removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not an Organizer of the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Feed not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/feeds/{feedId}/sync:
+    post:
+      operationId: syncActivityFeed
+      tags: [family]
+      summary: Sync an activity feed now
+      description: >
+        Organizer-only. Fetches and parses the feed URL, replaces the stored
+        event snapshot on success (UID-keyed), and always returns 200 with
+        updated lastSyncedAt / lastSyncError / eventCount. Soft-fail never
+        returns 5xx for vendor/fetch/parse errors. Unknown feed id returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: feedId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Sync attempt finished (may have soft-failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityFeed"
+              example:
+                id: 01900000-0000-7000-8000-000000000041
+                name: Soccer - Crossbar
+                sourceUrl: https://example.com/team.ics
+                kidIds:
+                  - 01900000-0000-7000-8000-000000000021
+                lastSyncedAt: "2026-08-10T12:05:00Z"
+                lastSyncError: null
+                eventCount: 12
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not an Organizer of the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Feed not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
   securitySchemes:
     bearerAuth:
       type: http
@@ -1259,6 +1529,106 @@ paths:
           minLength: 1
           maxLength: 255
           example: 456 Oak Ave
+
+    ActivityFeed:
+      type: object
+      required:
+        - id
+        - name
+        - sourceUrl
+        - kidIds
+        - eventCount
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable feed identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Organizer-chosen label for the feed
+          example: Soccer - Crossbar
+        sourceUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: >
+            iCal or webcal subscription URL. Server normalizes `webcal://` to
+            `https://` for fetch and duplicate checks.
+          example: https://example.com/team.ics
+        kidIds:
+          type: array
+          description: Kids in this circle associated with the feed (may be empty)
+          items:
+            type: string
+            format: uuid
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            When the last sync attempt finished (success or soft-fail). Null
+            only if no sync has been attempted yet.
+          example: "2026-08-10T12:00:00Z"
+        lastSyncError:
+          type: string
+          nullable: true
+          description: >
+            Soft-fail message from the last sync attempt; null when the last
+            sync succeeded.
+          example: null
+        eventCount:
+          type: integer
+          minimum: 0
+          description: Number of events stored from the last successful sync snapshot
+          example: 12
+
+    CreateActivityFeedRequest:
+      type: object
+      required:
+        - name
+        - sourceUrl
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Soccer - Crossbar
+        sourceUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          example: https://example.com/team.ics
+        kidIds:
+          type: array
+          description: Optional kid associations (defaults to empty)
+          items:
+            type: string
+            format: uuid
+
+    UpdateActivityFeedRequest:
+      type: object
+      required:
+        - name
+        - sourceUrl
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Soccer - Updated
+        sourceUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          example: https://example.com/team.ics
+        kidIds:
+          type: array
+          description: Optional kid associations (defaults to empty / replace)
+          items:
+            type: string
+            format: uuid
 
     ErrorResponse:
       type: object

@@ -47,6 +47,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle/places");
         assertThat(yaml).contains("/api/family/circle/places/{placeId}");
         assertThat(yaml).contains("/api/family/circle/places/{placeId}/locate");
+        assertThat(yaml).contains("/api/family/circle/feeds");
+        assertThat(yaml).contains("/api/family/circle/feeds/{feedId}");
+        assertThat(yaml).contains("/api/family/circle/feeds/{feedId}/sync");
         assertThat(yaml).contains("/api/family/circle/invite");
         assertThat(yaml).contains("/api/family/circle/invite/regenerate");
         assertThat(yaml).contains("/api/family/circle/join");
@@ -69,6 +72,11 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: updatePlace");
         assertThat(yaml).contains("operationId: deletePlace");
         assertThat(yaml).contains("operationId: locatePlace");
+        assertThat(yaml).contains("operationId: listActivityFeeds");
+        assertThat(yaml).contains("operationId: createActivityFeed");
+        assertThat(yaml).contains("operationId: updateActivityFeed");
+        assertThat(yaml).contains("operationId: deleteActivityFeed");
+        assertThat(yaml).contains("operationId: syncActivityFeed");
 
         assertThat(yaml).contains("CreateFamilyCircleRequest:");
         assertThat(yaml).contains("UpdateFamilyCircleRequest:");
@@ -84,6 +92,13 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Place:");
         assertThat(yaml).contains("CreatePlaceRequest:");
         assertThat(yaml).contains("UpdatePlaceRequest:");
+        assertThat(yaml).contains("ActivityFeed:");
+        assertThat(yaml).contains("CreateActivityFeedRequest:");
+        assertThat(yaml).contains("UpdateActivityFeedRequest:");
+        assertThat(yaml).contains("sourceUrl:");
+        assertThat(yaml).contains("lastSyncedAt:");
+        assertThat(yaml).contains("lastSyncError:");
+        assertThat(yaml).contains("eventCount:");
         assertThat(yaml).contains("latitude:");
         assertThat(yaml).contains("longitude:");
         assertThat(yaml).contains("adultDisplayName:");
@@ -93,7 +108,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.6.0");
+        assertThat(yaml).contains("version: 0.7.0");
+        assertThat(yaml).contains("components:");
     }
 
     private static Path resolveOpenApi() {
