@@ -157,7 +157,7 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.signedInEmail = email
-                    self.hasDisplayName = hasDisplayName
+                    self.hasDisplayName = hasDisplayName.boolValue
                     self.familyPhase = .choose
                 }
             },
@@ -308,7 +308,7 @@ final class AuthViewModel: ObservableObject {
                     guard let self else { return }
                     self.isLoading = false
                     self.signedInEmail = email
-                    self.hasDisplayName = hasDisplayName
+                    self.hasDisplayName = hasDisplayName.boolValue
                     self.kids = []
                     self.members = []
                     self.inviteCode = ""
