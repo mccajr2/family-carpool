@@ -2,9 +2,18 @@ package com.yourorg.quickapp.feeds.internal;
 
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 interface ActivityFeedEventRepository extends JpaRepository<ActivityFeedEventEntity, UUID> {
-    void deleteByFeedId(UUID feedId);
+    /**
+     * Bulk delete so Hibernate does not schedule per-row {@code EntityDeleteAction}s. Derived
+     * {@code deleteBy…} loads entities and races badly with concurrent Sync now / poller.
+     */
+    @Modifying(clearAutomatically = false, flushAutomatically = true)
+    @Query("delete from ActivityFeedEventEntity e where e.feedId = :feedId")
+    int deleteByFeedId(@Param("feedId") UUID feedId);
 
     long countByFeedId(UUID feedId);
 }

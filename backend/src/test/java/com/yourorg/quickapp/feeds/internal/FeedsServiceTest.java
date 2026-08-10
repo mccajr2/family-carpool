@@ -114,7 +114,7 @@ class FeedsServiceTest {
         feed.markSyncSuccess(Instant.parse("2026-08-01T00:00:00Z"));
 
         when(familyMembershipApi.requireOrganizerCircleId(adultId)).thenReturn(circleId);
-        when(feeds.findByIdAndCircleId(feedId, circleId)).thenReturn(Optional.of(feed));
+        when(feeds.findByIdAndCircleIdForUpdate(feedId, circleId)).thenReturn(Optional.of(feed));
         when(feeds.existsByCircleIdAndSourceUrlAndIdNot(
                         circleId, "https://example.com/cal.ics", feedId))
                 .thenReturn(false);
@@ -167,7 +167,7 @@ class FeedsServiceTest {
                         feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
 
         when(familyMembershipApi.requireOrganizerCircleId(adultId)).thenReturn(circleId);
-        when(feeds.findByIdAndCircleId(feedId, circleId)).thenReturn(Optional.of(feed));
+        when(feeds.findByIdAndCircleIdForUpdate(feedId, circleId)).thenReturn(Optional.of(feed));
         when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(icalFetchPort.fetch(any())).thenReturn("ICS");
         when(icalParser.parse("ICS"))
@@ -190,6 +190,41 @@ class FeedsServiceTest {
     }
 
     @Test
+    void syncDoesNotSoftFailWhenEventDeleteThrows() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ActivityFeedEntity feed =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+
+        when(familyMembershipApi.requireOrganizerCircleId(adultId)).thenReturn(circleId);
+        when(feeds.findByIdAndCircleIdForUpdate(feedId, circleId)).thenReturn(Optional.of(feed));
+        when(icalFetchPort.fetch(any())).thenReturn("ICS");
+        when(icalParser.parse("ICS"))
+                .thenReturn(
+                        List.of(
+                                new ParsedIcalEvent(
+                                        "u1",
+                                        "A",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        null)));
+        org.mockito.Mockito.doThrow(
+                        new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                                ActivityFeedEventEntity.class, feedId))
+                .when(events)
+                .deleteByFeedId(feedId);
+
+        assertThatThrownBy(() -> feedsService.sync(adult, feedId))
+                .isInstanceOf(
+                        org.springframework.orm.ObjectOptimisticLockingFailureException.class);
+        assertThat(feed.lastSyncError()).isNull();
+        verify(events, never()).saveAll(any());
+    }
+
+    @Test
     void pollAllFeedsSyncsEachFeedAndSoftFailsIndependently() {
         UUID okId = UUID.randomUUID();
         UUID failId = UUID.randomUUID();
@@ -203,6 +238,8 @@ class FeedsServiceTest {
         fail.markSyncSuccess(Instant.parse("2026-08-01T00:00:00Z"));
 
         when(feeds.findAllByOrderByCreatedAtAsc()).thenReturn(List.of(ok, fail));
+        when(feeds.findByIdForUpdate(okId)).thenReturn(Optional.of(ok));
+        when(feeds.findByIdForUpdate(failId)).thenReturn(Optional.of(fail));
         when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(icalFetchPort.fetch("https://example.com/ok.ics")).thenReturn("ICS");
         when(icalParser.parse("ICS"))
@@ -232,7 +269,7 @@ class FeedsServiceTest {
     @Test
     void pollFeedNoopsWhenMissing() {
         UUID missing = UUID.randomUUID();
-        when(feeds.findById(missing)).thenReturn(Optional.empty());
+        when(feeds.findByIdForUpdate(missing)).thenReturn(Optional.empty());
 
         feedsService.pollFeed(missing);
 
