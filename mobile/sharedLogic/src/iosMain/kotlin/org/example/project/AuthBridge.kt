@@ -105,6 +105,7 @@ class AuthBridge {
             placeIds: List<String>,
             placeNames: List<String>,
             placeAddresses: List<String>,
+            placeLocated: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -143,6 +144,7 @@ class AuthBridge {
             placeIds: List<String>,
             placeNames: List<String>,
             placeAddresses: List<String>,
+            placeLocated: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -183,6 +185,7 @@ class AuthBridge {
             placeIds: List<String>,
             placeNames: List<String>,
             placeAddresses: List<String>,
+            placeLocated: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -251,6 +254,7 @@ class AuthBridge {
             placeIds: List<String>,
             placeNames: List<String>,
             placeAddresses: List<String>,
+            placeLocated: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -337,7 +341,7 @@ class AuthBridge {
     fun addPlace(
         name: String,
         address: String,
-        onSuccess: (id: String, name: String, address: String) -> Unit,
+        onSuccess: (id: String, name: String, address: String, located: String) -> Unit,
         onError: (String) -> Unit,
     ) {
         scope.launch {
@@ -348,7 +352,7 @@ class AuthBridge {
                         name.trim(),
                         address.trim(),
                     )
-                onSuccess(place.id, place.name, place.address)
+                onSuccess(place.id, place.name, place.address, if (place.isLocated()) "true" else "false")
             } catch (e: Throwable) {
                 onError(e.message ?: "Add place failed")
             }
@@ -359,7 +363,7 @@ class AuthBridge {
         placeId: String,
         name: String,
         address: String,
-        onSuccess: (id: String, name: String, address: String) -> Unit,
+        onSuccess: (id: String, name: String, address: String, located: String) -> Unit,
         onError: (String) -> Unit,
     ) {
         scope.launch {
@@ -371,7 +375,7 @@ class AuthBridge {
                         name.trim(),
                         address.trim(),
                     )
-                onSuccess(place.id, place.name, place.address)
+                onSuccess(place.id, place.name, place.address, if (place.isLocated()) "true" else "false")
             } catch (e: Throwable) {
                 onError(e.message ?: "Update place failed")
             }
@@ -389,6 +393,21 @@ class AuthBridge {
                 onSuccess()
             } catch (e: Throwable) {
                 onError(e.message ?: "Remove place failed")
+            }
+        }
+    }
+
+    fun locatePlace(
+        placeId: String,
+        onSuccess: (id: String, name: String, address: String, located: String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val place = familyClient.locatePlace(session.requireAccessToken(), placeId)
+                onSuccess(place.id, place.name, place.address, if (place.isLocated()) "true" else "false")
+            } catch (e: Throwable) {
+                onError(e.message ?: "Locate place failed")
             }
         }
     }
@@ -413,6 +432,7 @@ class AuthBridge {
             placeIds: List<String>,
             placeNames: List<String>,
             placeAddresses: List<String>,
+            placeLocated: List<String>,
         ) -> Unit,
     ) {
         val inviteCode =
@@ -437,6 +457,7 @@ class AuthBridge {
             circle.places.map { it.id },
             circle.places.map { it.name },
             circle.places.map { it.address },
+            circle.places.map { if (it.isLocated()) "true" else "false" },
         )
     }
 }

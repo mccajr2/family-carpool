@@ -459,6 +459,32 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun locatePlace(placeId: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated = familyClient.locatePlace(token, placeId)
+            _state =
+                current.copy(
+                    loading = false,
+                    circle =
+                        current.circle.copy(
+                            places =
+                                current.circle.places.map { place ->
+                                    if (place.id == placeId) updated else place
+                                },
+                        ),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Locate place failed",
+                )
+        }
+    }
+
     private suspend fun readyState(
         adult: Adult,
         circle: FamilyCircle,

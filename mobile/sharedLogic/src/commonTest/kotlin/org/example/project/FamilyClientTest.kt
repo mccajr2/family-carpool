@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 
@@ -80,7 +81,7 @@ class FamilyClientTest {
         }
 
     @Test
-    fun placesCrud() =
+    fun placesCrudAndLocate() =
         runTest {
             val mockEngine =
                 MockEngine { request ->
@@ -89,7 +90,7 @@ class FamilyClientTest {
                             request.method == HttpMethod.Post ->
                             respond(
                                 content =
-                                    """{"id":"p1","name":"Mom's house","address":"123 Main St"}""",
+                                    """{"id":"p1","name":"Mom's house","address":"123 Main St","latitude":40.1,"longitude":-74.2}""",
                                 status = HttpStatusCode.Created,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -97,13 +98,21 @@ class FamilyClientTest {
                             request.method == HttpMethod.Patch ->
                             respond(
                                 content =
-                                    """{"id":"p1","name":"Mom's house","address":"456 Oak Ave"}""",
+                                    """{"id":"p1","name":"Mom's house","address":"456 Oak Ave","latitude":40.2,"longitude":-74.3}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
                         request.url.encodedPath == "/api/family/circle/places/p1" &&
                             request.method == HttpMethod.Delete ->
                             respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/places/p2/locate" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"p2","name":"School","address":"1 Rd","latitude":null,"longitude":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }
@@ -112,11 +121,16 @@ class FamilyClientTest {
             val created = client.addPlace("tok", "Mom's house", "123 Main St")
             assertEquals("Mom's house", created.name)
             assertEquals("123 Main St", created.address)
+            assertEquals(40.1, created.latitude)
+            assertTrue(created.isLocated())
             assertEquals(
                 "456 Oak Ave",
                 client.updatePlace("tok", "p1", "Mom's house", "456 Oak Ave").address,
             )
             client.deletePlace("tok", "p1")
+            val located = client.locatePlace("tok", "p2")
+            assertEquals(null, located.latitude)
+            assertTrue(!located.isLocated())
         }
 
     @Test

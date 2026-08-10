@@ -226,6 +226,18 @@ class FamilyClient(
         }
     }
 
+    suspend fun locatePlace(
+        accessToken: String,
+        placeId: String,
+    ): Place {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/places/$placeId/locate") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Locate place failed")
+        return response.body()
+    }
+
     companion object {
         fun create(baseUrl: String = apiBaseUrl()): FamilyClient = FamilyClient(baseUrl)
     }

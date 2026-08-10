@@ -488,7 +488,24 @@ private fun ReadyContent(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(place.name)
                     Text(place.address, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        if (place.isLocated()) "Located" else "Not located",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!place.isLocated()) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.locatePlace(place.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Retry locate")
+                            }
+                        }
                         OutlinedButton(
                             onClick = {
                                 model.beginEditPlace(place)

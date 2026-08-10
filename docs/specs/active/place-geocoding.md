@@ -94,7 +94,7 @@ unchanged aside from reflecting returned coords after save.
 - [x] **Contract:** OpenAPI `Place` lat/lng + locate path; bump version.
 - [x] **Web:** types + `familyClient.locatePlace`; FamilyScreen Located /
       Not located + Retry locate; tests.
-- [ ] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/
+- [x] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/
       ContentView; tests.
 - [ ] **Docs:** `docs/architecture.md` Place / geocode notes.
 - [ ] **Tests:** service unit (fake geocoder), integration with stubbed HTTP or
