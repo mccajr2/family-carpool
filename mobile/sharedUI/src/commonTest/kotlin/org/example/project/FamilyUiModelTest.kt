@@ -118,7 +118,7 @@ class FamilyUiModelTest {
                             request.method == HttpMethod.Post ->
                             respond(
                                 content =
-                                    """{"id":"p1","name":"Mom's house","address":"123 Main St"}""",
+                                    """{"id":"p1","name":"Mom's house","address":"123 Main St","latitude":40.1,"longitude":-74.2}""",
                                 status = HttpStatusCode.Created,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -137,10 +137,61 @@ class FamilyUiModelTest {
             val withPlace = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(1, withPlace.circle.places.size)
             assertEquals("Mom's house", withPlace.circle.places.first().name)
+            assertTrue(withPlace.circle.places.first().isLocated())
 
             model.removePlace("p1")
             val withoutPlace = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertTrue(withoutPlace.circle.places.isEmpty())
+        }
+
+    @Test
+    fun locatePlaceUpdatesCoordinates() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[{"id":"p1","name":"School","address":"1 Rd","latitude":null,"longitude":null}]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/places/p1/locate" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"p1","name":"School","address":"1 Rd","latitude":40.5,"longitude":-74.1}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(!ready.circle.places.first().isLocated())
+
+            model.locatePlace("p1")
+            val located = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(located.circle.places.first().isLocated())
+            assertEquals(40.5, located.circle.places.first().latitude)
         }
 
     @Test

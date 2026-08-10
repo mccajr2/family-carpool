@@ -28,6 +28,13 @@ export type Place = {
   id: string
   name: string
   address: string
+  latitude: number | null
+  longitude: number | null
+}
+
+/** True when both coordinates are present (geocode succeeded). */
+export function isPlaceLocated(place: Place): boolean {
+  return place.latitude != null && place.longitude != null
 }
 
 export type FamilyMember = {

@@ -258,6 +258,20 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Delete place failed"))
     }
   }
+
+  async locatePlace(accessToken: string, placeId: string): Promise<Place> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/places/${placeId}/locate`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Locate place failed"))
+    }
+    return (await response.json()) as Place
+  }
 }
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {

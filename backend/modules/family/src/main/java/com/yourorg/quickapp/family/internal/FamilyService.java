@@ -37,18 +37,21 @@ public class FamilyService {
     private final FamilyMembershipRepository memberships;
     private final FamilyKidRepository kids;
     private final FamilyPlaceRepository places;
+    private final GeocodeService geocodeService;
 
     public FamilyService(
             AdultSessionApi adultSessionApi,
             FamilyCircleRepository circles,
             FamilyMembershipRepository memberships,
             FamilyKidRepository kids,
-            FamilyPlaceRepository places) {
+            FamilyPlaceRepository places,
+            GeocodeService geocodeService) {
         this.adultSessionApi = adultSessionApi;
         this.circles = circles;
         this.memberships = memberships;
         this.kids = kids;
         this.places = places;
+        this.geocodeService = geocodeService;
     }
 
     @Transactional
@@ -248,8 +251,9 @@ public class FamilyService {
                         nameNormalized,
                         address,
                         Instant.now());
+        applyGeocode(place, address);
         places.save(place);
-        return new PlaceResponse(place.id(), place.name(), place.address());
+        return toPlaceResponse(place);
     }
 
     @Transactional
@@ -262,10 +266,27 @@ public class FamilyService {
         String address = normalizeRequiredAddress(request.address());
         String nameNormalized = normalizePlaceNameKey(name);
         assertPlaceNameAvailable(loaded.circle().id(), nameNormalized, place.id());
+        boolean addressChanged =
+                !GeocodeService.normalizeAddress(place.address())
+                        .equals(GeocodeService.normalizeAddress(address));
         place.setName(name, nameNormalized);
         place.setAddress(address);
+        if (addressChanged || place.latitude() == null || place.longitude() == null) {
+            applyGeocode(place, address);
+        }
         places.save(place);
-        return new PlaceResponse(place.id(), place.name(), place.address());
+        return toPlaceResponse(place);
+    }
+
+    @Transactional
+    public PlaceResponse locatePlace(AdultResponse adult, UUID placeId) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        FamilyPlaceEntity place =
+                places.findByIdAndCircleId(placeId, loaded.circle().id())
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Place not found"));
+        applyGeocode(place, place.address());
+        places.save(place);
+        return toPlaceResponse(place);
     }
 
     @Transactional
@@ -333,8 +354,21 @@ public class FamilyService {
 
     private List<PlaceResponse> placesFor(UUID circleId) {
         return places.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
-                .map(place -> new PlaceResponse(place.id(), place.name(), place.address()))
+                .map(this::toPlaceResponse)
                 .toList();
+    }
+
+    private void applyGeocode(FamilyPlaceEntity place, String address) {
+        geocodeService
+                .resolve(address)
+                .ifPresentOrElse(
+                        coords -> place.setCoordinates(coords.latitude(), coords.longitude()),
+                        () -> place.setCoordinates(null, null));
+    }
+
+    private PlaceResponse toPlaceResponse(FamilyPlaceEntity place) {
+        return new PlaceResponse(
+                place.id(), place.name(), place.address(), place.latitude(), place.longitude());
     }
 
     private void assertPlaceNameAvailable(UUID circleId, String nameNormalized, UUID excludePlaceId) {

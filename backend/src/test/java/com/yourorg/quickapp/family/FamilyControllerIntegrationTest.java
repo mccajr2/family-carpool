@@ -362,8 +362,39 @@ class FamilyControllerIntegrationTest {
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.name").value("Mom's house"))
                         .andExpect(jsonPath("$.address").value("123 Main St"))
+                        .andExpect(jsonPath("$.latitude").isNumber())
+                        .andExpect(jsonPath("$.longitude").isNumber())
                         .andReturn();
         String placeId = JsonPath.read(addPlace.getResponse().getContentAsString(), "$.id");
+
+        MvcResult soft =
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"Retry me\",\"address\":\"Unlocateable Lane\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.latitude").value(org.hamcrest.Matchers.nullValue()))
+                        .andExpect(jsonPath("$.longitude").value(org.hamcrest.Matchers.nullValue()))
+                        .andReturn();
+        String softId = JsonPath.read(soft.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/places/" + softId + "/locate")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latitude").value(org.hamcrest.Matchers.nullValue()));
+
+        mockMvc.perform(
+                        patch("/api/family/circle/places/" + softId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Retry me\",\"address\":\"456 Located Ave\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latitude").isNumber())
+                .andExpect(jsonPath("$.longitude").isNumber());
 
         mockMvc.perform(
                         post("/api/family/circle/places")
@@ -380,14 +411,15 @@ class FamilyControllerIntegrationTest {
                                 .content(
                                         "{\"name\":\"Mom's house\",\"address\":\"456 Oak Ave\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.address").value("456 Oak Ave"));
+                .andExpect(jsonPath("$.address").value("456 Oak Ave"))
+                .andExpect(jsonPath("$.latitude").isNumber());
 
         mockMvc.perform(
                         get("/api/family/circle")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.places[0].name").value("Mom's house"))
-                .andExpect(jsonPath("$.places[0].address").value("456 Oak Ave"));
+                .andExpect(jsonPath("$.places[?(@.id == '" + placeId + "')].address").value("456 Oak Ave"))
+                .andExpect(jsonPath("$.places[?(@.id == '" + placeId + "')].latitude").isNotEmpty());
 
         mockMvc.perform(
                         post("/api/family/circle/places")
@@ -412,6 +444,11 @@ class FamilyControllerIntegrationTest {
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(
+                        post("/api/family/circle/places/" + placeId + "/locate")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(otherToken)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
                         delete("/api/family/circle/places/" + placeId)
                                 .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
                 .andExpect(status().isNoContent());
@@ -420,7 +457,7 @@ class FamilyControllerIntegrationTest {
                         get("/api/family/circle")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.places").isEmpty());
+                .andExpect(jsonPath("$.places[?(@.name == \"Mom's house\")]").isEmpty());
     }
 
     @Test
@@ -429,6 +466,9 @@ class FamilyControllerIntegrationTest {
                         post("/api/family/circle/places")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"name\":\"School\",\"address\":\"1 Rd\"}"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/family/circle/places/" + java.util.UUID.randomUUID() + "/locate"))
                 .andExpect(status().isUnauthorized());
     }
 

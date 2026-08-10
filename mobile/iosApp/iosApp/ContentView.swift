@@ -239,7 +239,14 @@ struct ContentView: View {
                             Text(place.address)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
+                            Text(place.isLocated ? "Located" : "Not located")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             HStack {
+                                if !place.isLocated {
+                                    Button("Retry locate") { model.locatePlace(place.id) }
+                                        .disabled(model.isLoading)
+                                }
                                 Button("Edit") { model.beginEditPlace(place) }
                                     .disabled(model.isLoading)
                                 Button("Remove place") { model.removePlace(place.id) }

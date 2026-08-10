@@ -19,7 +19,11 @@ data class Place(
     val id: String,
     val name: String,
     val address: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
+
+fun Place.isLocated(): Boolean = latitude != null && longitude != null
 
 @Serializable
 data class FamilyMember(

@@ -286,6 +286,8 @@ describe("FamilyScreen", () => {
       id: "p1",
       name: "Mom's house",
       address: "123 Main St",
+      latitude: 40.1,
+      longitude: -74.2,
     })
     const deletePlace = vi.fn().mockResolvedValue(undefined)
 
@@ -328,6 +330,8 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("Mom's house")).toBeInTheDocument()
     expect(screen.getByText("123 Main St")).toBeInTheDocument()
+    expect(screen.getByText("Located")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Retry locate" })).not.toBeInTheDocument()
     expect(addPlace).toHaveBeenCalledWith("tok", "Mom's house", "123 Main St")
 
     await user.click(screen.getByRole("button", { name: "Remove place" }))
@@ -335,6 +339,63 @@ describe("FamilyScreen", () => {
       expect(screen.queryByText("Mom's house")).not.toBeInTheDocument()
     })
     expect(deletePlace).toHaveBeenCalledWith("tok", "p1")
+  })
+
+  it("shows not located and retries locate", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const locatePlace = vi.fn().mockResolvedValue({
+      id: "p1",
+      name: "School",
+      address: "1 School Rd",
+      latitude: 40.5,
+      longitude: -74.1,
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [
+              {
+                id: "p1",
+                name: "School",
+                address: "1 School Rd",
+                latitude: null,
+                longitude: null,
+              },
+            ],
+          }),
+          locatePlace,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Not located")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Retry locate" }))
+    expect(await screen.findByText("Located")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Retry locate" })).not.toBeInTheDocument()
+    expect(locatePlace).toHaveBeenCalledWith("tok", "p1")
   })
 
   it("loads the circle only once when using the default FamilyClient", async () => {

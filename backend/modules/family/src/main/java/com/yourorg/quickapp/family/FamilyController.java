@@ -134,6 +134,13 @@ public class FamilyController {
         return familyService.updatePlace(adult, placeId, request);
     }
 
+    @PostMapping("/circle/places/{placeId}/locate")
+    public PlaceResponse locatePlace(
+            @PathVariable("placeId") UUID placeId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.locatePlace(adult, placeId);
+    }
+
     @DeleteMapping("/circle/places/{placeId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePlace(@PathVariable("placeId") UUID placeId, HttpServletRequest httpRequest) {
