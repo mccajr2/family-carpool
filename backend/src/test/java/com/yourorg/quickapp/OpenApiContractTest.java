@@ -50,6 +50,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle/feeds");
         assertThat(yaml).contains("/api/family/circle/feeds/{feedId}");
         assertThat(yaml).contains("/api/family/circle/feeds/{feedId}/sync");
+        assertThat(yaml).contains("/api/family/circle/events");
+        assertThat(yaml).contains("/api/family/circle/events/{eventId}");
         assertThat(yaml).contains("/api/family/circle/invite");
         assertThat(yaml).contains("/api/family/circle/invite/regenerate");
         assertThat(yaml).contains("/api/family/circle/join");
@@ -77,6 +79,11 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: updateActivityFeed");
         assertThat(yaml).contains("operationId: deleteActivityFeed");
         assertThat(yaml).contains("operationId: syncActivityFeed");
+        assertThat(yaml).contains("operationId: listManualEvents");
+        assertThat(yaml).contains("operationId: createManualEvent");
+        assertThat(yaml).contains("operationId: getManualEvent");
+        assertThat(yaml).contains("operationId: updateManualEvent");
+        assertThat(yaml).contains("operationId: deleteManualEvent");
 
         assertThat(yaml).contains("CreateFamilyCircleRequest:");
         assertThat(yaml).contains("UpdateFamilyCircleRequest:");
@@ -95,6 +102,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("ActivityFeed:");
         assertThat(yaml).contains("CreateActivityFeedRequest:");
         assertThat(yaml).contains("UpdateActivityFeedRequest:");
+        assertThat(yaml).contains("ManualEvent:");
+        assertThat(yaml).contains("CreateManualEventRequest:");
+        assertThat(yaml).contains("UpdateManualEventRequest:");
         assertThat(yaml).contains("sourceUrl:");
         assertThat(yaml).contains("lastSyncedAt:");
         assertThat(yaml).contains("lastSyncError:");
@@ -108,8 +118,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.7.1");
+        assertThat(yaml).contains("version: 0.8.0");
         assertThat(yaml).contains("background poller");
+        assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("components:");
     }
 

@@ -103,7 +103,7 @@ will read feed events + manual events.
 - [x] **Backend:** New `backend/modules/events/` with module conventions; Flyway
       tables for manual events + event↔kid; entity/repo/service/controller;
       `FamilyMembershipApi` for membership + kid validation; hard delete.
-- [ ] **Contract:** OpenAPI paths/schemas; bump info version; architecture note.
+- [x] **Contract:** OpenAPI paths/schemas; bump info version; architecture note.
 - [ ] **Web:** types + `familyClient` (or events client); manage-events section on
       `FamilyScreen` for all members; tests.
 - [ ] **Mobile:** sharedLogic models/client + tests; Android sharedUI; iOS

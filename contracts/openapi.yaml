@@ -1,20 +1,21 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.7.1
+  version: 0.8.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
     hold kids, named places, activity feeds (Organizer-managed iCal/webcal
-    subscriptions with soft-fail sync and server-side background polling), and
-    memberships (ORGANIZER / CAREGIVER). Organizers share a short invite code;
-    Caregivers join via that code. Any member may manage named places (label +
-    free-text address; optional lat/lng from geocoding with soft-fail and retry
-    locate). Feed last-synced / error / event count may update from Sync now or
-    from the server poller — clients re-GET the feeds list to observe changes.
-    Magic links, passwords, multi-circle membership, invite deep links,
-    email/push invite delivery, and HTTP-only web cookies are out of scope for
-    this revision.
+    subscriptions with soft-fail sync and server-side background polling),
+    manual events (any member may CRUD one-off schedule items with 1+ kids),
+    and memberships (ORGANIZER / CAREGIVER). Organizers share a short invite
+    code; Caregivers join via that code. Any member may manage named places
+    (label + free-text address; optional lat/lng from geocoding with soft-fail
+    and retry locate) and manual events. Feed last-synced / error / event count
+    may update from Sync now or from the server poller — clients re-GET the
+    feeds list to observe changes. Magic links, passwords, multi-circle
+    membership, invite deep links, email/push invite delivery, and HTTP-only
+    web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -24,11 +25,11 @@ tags:
     description: Email OTP sign-in and Bearer sessions
   - name: family
     description: >
-      Family circle, kids, named places, activity feeds, invite code, and
-      memberships (one circle per adult in v1). Organizer-only writes for invite
-      regen, roles, remove, kids, circle rename, and activity feed
+      Family circle, kids, named places, activity feeds, manual events, invite
+      code, and memberships (one circle per adult in v1). Organizer-only writes
+      for invite regen, roles, remove, kids, circle rename, and activity feed
       create/update/delete/sync. Any member may create/update/delete places and
-      retry place geocoding.
+      manual events, and retry place geocoding.
 
 paths:
   /api/auth/request-code:
@@ -1191,6 +1192,227 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/events:
+    get:
+      operationId: listManualEvents
+      tags: [family]
+      summary: List manual events for the current adult's circle
+      description: >
+        Any circle member may list manual (non-feed) events. Returns all events
+        for the circle ordered by startsAt ascending (then id). Empty array when
+        none exist. Does not include feed-imported events. Adults without a
+        circle receive 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Manual events for the circle (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ManualEvent"
+              example:
+                - id: 01900000-0000-7000-8000-000000000051
+                  title: Dentist
+                  startsAt: "2026-08-15T17:00:00Z"
+                  endsAt: "2026-08-15T18:00:00Z"
+                  location: Clinic
+                  kidIds:
+                    - 01900000-0000-7000-8000-000000000021
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createManualEvent
+      tags: [family]
+      summary: Create a manual event
+      description: >
+        Any circle member. Creates a one-off schedule item with a required title
+        and startsAt, optional endsAt and location, and one or more kids from
+        the circle. Empty kidIds, kids not in the circle, blank title, or endsAt
+        before startsAt return 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManualEventRequest"
+            example:
+              title: Dentist
+              startsAt: "2026-08-15T17:00:00Z"
+              endsAt: "2026-08-15T18:00:00Z"
+              location: Clinic
+              kidIds:
+                - 01900000-0000-7000-8000-000000000021
+      responses:
+        "201":
+          description: Manual event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualEvent"
+        "400":
+          description: >
+            Validation failed (blank title, missing startsAt, empty kidIds,
+            kid not in circle, or endsAt before startsAt)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/events/{eventId}:
+    get:
+      operationId: getManualEvent
+      tags: [family]
+      summary: Get a manual event
+      description: >
+        Any circle member. Returns one manual event by id. Unknown id or other
+        circle returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Manual event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualEvent"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Event not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      operationId: updateManualEvent
+      tags: [family]
+      summary: Update a manual event
+      description: >
+        Any circle member. Replaces title, startsAt, optional endsAt/location,
+        and kid associations (still 1+ kids required). Same 400 rules as create.
+        Unknown event id returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateManualEventRequest"
+            example:
+              title: Dentist (follow-up)
+              startsAt: "2026-08-15T17:00:00Z"
+              endsAt: null
+              location: Clinic
+              kidIds:
+                - 01900000-0000-7000-8000-000000000021
+      responses:
+        "200":
+          description: Manual event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualEvent"
+        "400":
+          description: >
+            Validation failed (blank title, missing startsAt, empty kidIds,
+            kid not in circle, or endsAt before startsAt)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Event not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteManualEvent
+      tags: [family]
+      summary: Delete a manual event
+      description: >
+        Any circle member. Hard-deletes the event and kid links. Unknown event
+        id returns 404. Does not affect feed-imported events.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Manual event removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Event not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1632,6 +1854,116 @@ components:
         kidIds:
           type: array
           description: Optional kid associations (defaults to empty / replace)
+          items:
+            type: string
+            format: uuid
+
+    ManualEvent:
+      type: object
+      required:
+        - id
+        - title
+        - startsAt
+        - kidIds
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable manual event identifier
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Event title / summary
+          example: Dentist
+        startsAt:
+          type: string
+          format: date-time
+          description: Event start instant (UTC)
+          example: "2026-08-15T17:00:00Z"
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Optional end instant (UTC). When set, must be on or after startsAt.
+          example: "2026-08-15T18:00:00Z"
+        location:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Optional free-text location
+          example: Clinic
+        kidIds:
+          type: array
+          minItems: 1
+          description: One or more kids in this circle associated with the event
+          items:
+            type: string
+            format: uuid
+
+    CreateManualEventRequest:
+      type: object
+      required:
+        - title
+        - startsAt
+        - kidIds
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Dentist
+        startsAt:
+          type: string
+          format: date-time
+          example: "2026-08-15T17:00:00Z"
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-08-15T18:00:00Z"
+        location:
+          type: string
+          nullable: true
+          maxLength: 500
+          example: Clinic
+        kidIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    UpdateManualEventRequest:
+      type: object
+      required:
+        - title
+        - startsAt
+        - kidIds
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Dentist (follow-up)
+        startsAt:
+          type: string
+          format: date-time
+          example: "2026-08-15T17:00:00Z"
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        location:
+          type: string
+          nullable: true
+          maxLength: 500
+          example: Clinic
+        kidIds:
+          type: array
+          minItems: 1
           items:
             type: string
             format: uuid

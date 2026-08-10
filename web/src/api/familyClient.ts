@@ -7,6 +7,7 @@ import type {
   FamilyRole,
   JoinFamilyCircleRequest,
   Kid,
+  ManualEvent,
   Place,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -353,6 +354,90 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Sync feed failed"))
     }
     return (await response.json()) as ActivityFeed
+  }
+
+  async listEvents(accessToken: string): Promise<ManualEvent[]> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/events"), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List events failed"))
+    }
+    return (await response.json()) as ManualEvent[]
+  }
+
+  async getEvent(accessToken: string, eventId: string): Promise<ManualEvent> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/events/${eventId}`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Get event failed"))
+    }
+    return (await response.json()) as ManualEvent
+  }
+
+  async createEvent(
+    accessToken: string,
+    title: string,
+    startsAt: string,
+    kidIds: string[],
+    endsAt: string | null = null,
+    location: string | null = null,
+  ): Promise<ManualEvent> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/events"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title, startsAt, endsAt, location, kidIds }),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Create event failed"))
+    }
+    return (await response.json()) as ManualEvent
+  }
+
+  async updateEvent(
+    accessToken: string,
+    eventId: string,
+    title: string,
+    startsAt: string,
+    kidIds: string[],
+    endsAt: string | null = null,
+    location: string | null = null,
+  ): Promise<ManualEvent> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/events/${eventId}`),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title, startsAt, endsAt, location, kidIds }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update event failed"))
+    }
+    return (await response.json()) as ManualEvent
+  }
+
+  async deleteEvent(accessToken: string, eventId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/events/${eventId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Delete event failed"))
+    }
   }
 }
 

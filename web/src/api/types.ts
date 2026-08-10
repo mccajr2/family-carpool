@@ -62,6 +62,15 @@ export function feedSyncStatusLabel(feed: ActivityFeed): string {
   return "Not synced"
 }
 
+export type ManualEvent = {
+  id: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+  location: string | null
+  kidIds: string[]
+}
+
 export type FamilyMember = {
   adultId: string
   email: string
