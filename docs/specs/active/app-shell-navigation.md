@@ -106,7 +106,7 @@ into destination screens rather than rewriting behavior.
 
 ## Tasks
 
-- [ ] **Web:** Split long `FamilyScreen` into shell + destination views; sidebar
+- [x] **Web:** Split long `FamilyScreen` into shell + destination views; sidebar
   nav; Settings/More grouping; Carpool placeholder; preserve existing behaviors
   and tests.
 - [ ] **Android (sharedUI):** Bottom tab shell; move sections into Calendar /
