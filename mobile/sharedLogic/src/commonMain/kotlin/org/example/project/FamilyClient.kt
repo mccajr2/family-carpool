@@ -180,6 +180,52 @@ class FamilyClient(
         }
     }
 
+    suspend fun addPlace(
+        accessToken: String,
+        name: String,
+        address: String,
+    ): Place {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/places") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(CreatePlaceRequest(name, address))
+            }
+        ensureSuccess(response, "Add place failed")
+        return response.body()
+    }
+
+    suspend fun updatePlace(
+        accessToken: String,
+        placeId: String,
+        name: String,
+        address: String,
+    ): Place {
+        val response =
+            httpClient.patch("$baseUrl/api/family/circle/places/$placeId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(UpdatePlaceRequest(name, address))
+            }
+        ensureSuccess(response, "Update place failed")
+        return response.body()
+    }
+
+    suspend fun deletePlace(
+        accessToken: String,
+        placeId: String,
+    ) {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/places/$placeId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Delete place failed"))
+        }
+    }
+
     companion object {
         fun create(baseUrl: String = apiBaseUrl()): FamilyClient = FamilyClient(baseUrl)
     }

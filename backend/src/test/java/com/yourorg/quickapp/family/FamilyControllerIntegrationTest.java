@@ -51,7 +51,8 @@ class FamilyControllerIntegrationTest {
                 .andExpect(jsonPath("$.role").value("ORGANIZER"))
                 .andExpect(jsonPath("$.members").isArray())
                 .andExpect(jsonPath("$.members[0].role").value("ORGANIZER"))
-                .andExpect(jsonPath("$.kids").isEmpty());
+                .andExpect(jsonPath("$.kids").isEmpty())
+                .andExpect(jsonPath("$.places").isEmpty());
 
         mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
@@ -312,6 +313,133 @@ class FamilyControllerIntegrationTest {
         mockMvc.perform(
                         delete("/api/family/circle/kids/" + kidId)
                                 .header(HttpHeaders.AUTHORIZATION, bearer(parentB)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void placesCrudAnyMemberDuplicateAndCrossCircle() throws Exception {
+        String organizerToken = signIn("places-org@example.com");
+        String caregiverToken = signIn("places-care@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.places").isEmpty());
+
+        String code =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        get("/api/family/circle/invite")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.code");
+
+        mockMvc.perform(
+                        post("/api/family/circle/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"code\":\""
+                                                + code
+                                                + "\",\"adultDisplayName\":\"Jordan\"}"))
+                .andExpect(status().isOk());
+
+        MvcResult addPlace =
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"Mom's house\",\"address\":\"123 Main St\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.name").value("Mom's house"))
+                        .andExpect(jsonPath("$.address").value("123 Main St"))
+                        .andReturn();
+        String placeId = JsonPath.read(addPlace.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"mom's house\",\"address\":\"999 Other St\"}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(
+                        patch("/api/family/circle/places/" + placeId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Mom's house\",\"address\":\"456 Oak Ave\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.address").value("456 Oak Ave"));
+
+        mockMvc.perform(
+                        get("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.places[0].name").value("Mom's house"))
+                .andExpect(jsonPath("$.places[0].address").value("456 Oak Ave"));
+
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"\",\"address\":\"1 St\"}"))
+                .andExpect(status().isBadRequest());
+
+        String otherToken = signIn("places-other@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(otherToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Pat\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(
+                        patch("/api/family/circle/places/" + placeId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(otherToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Hijack\",\"address\":\"Nope\"}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                        delete("/api/family/circle/places/" + placeId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(
+                        get("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.places").isEmpty());
+    }
+
+    @Test
+    void unauthenticatedPlaceCallsReturn401() throws Exception {
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"School\",\"address\":\"1 Rd\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void placeCallsWithoutMembershipReturn404() throws Exception {
+        String token = signIn("places-alone@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"School\",\"address\":\"1 Rd\"}"))
                 .andExpect(status().isNotFound());
     }
 

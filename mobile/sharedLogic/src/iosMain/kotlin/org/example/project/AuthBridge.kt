@@ -102,6 +102,9 @@ class AuthBridge {
             memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -137,6 +140,9 @@ class AuthBridge {
             memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -174,6 +180,9 @@ class AuthBridge {
             memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -239,6 +248,9 @@ class AuthBridge {
             memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -321,6 +333,66 @@ class AuthBridge {
         }
     }
 
+
+    fun addPlace(
+        name: String,
+        address: String,
+        onSuccess: (id: String, name: String, address: String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val place =
+                    familyClient.addPlace(
+                        session.requireAccessToken(),
+                        name.trim(),
+                        address.trim(),
+                    )
+                onSuccess(place.id, place.name, place.address)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Add place failed")
+            }
+        }
+    }
+
+    fun updatePlace(
+        placeId: String,
+        name: String,
+        address: String,
+        onSuccess: (id: String, name: String, address: String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val place =
+                    familyClient.updatePlace(
+                        session.requireAccessToken(),
+                        placeId,
+                        name.trim(),
+                        address.trim(),
+                    )
+                onSuccess(place.id, place.name, place.address)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Update place failed")
+            }
+        }
+    }
+
+    fun removePlace(
+        placeId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.deletePlace(session.requireAccessToken(), placeId)
+                onSuccess()
+            } catch (e: Throwable) {
+                onError(e.message ?: "Remove place failed")
+            }
+        }
+    }
+
     private suspend fun emitReady(
         adult: Adult,
         circle: FamilyCircle,
@@ -338,6 +410,9 @@ class AuthBridge {
             memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
         ) -> Unit,
     ) {
         val inviteCode =
@@ -359,6 +434,9 @@ class AuthBridge {
             circle.members.map { it.role.name },
             circle.kids.map { it.id },
             circle.kids.map { it.displayName },
+            circle.places.map { it.id },
+            circle.places.map { it.name },
+            circle.places.map { it.address },
         )
     }
 }

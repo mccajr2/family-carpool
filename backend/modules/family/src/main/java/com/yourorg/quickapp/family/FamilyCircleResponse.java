@@ -8,4 +8,5 @@ public record FamilyCircleResponse(
         String name,
         FamilyRole role,
         List<FamilyMemberResponse> members,
-        List<KidResponse> kids) {}
+        List<KidResponse> kids,
+        List<PlaceResponse> places) {}

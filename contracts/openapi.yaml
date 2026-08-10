@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
-    hold kids and memberships (ORGANIZER / CAREGIVER). Organizers share a short
-    invite code; Caregivers join via that code. Magic links, passwords,
-    multi-circle membership, invite deep links, email/push invite delivery, and
-    HTTP-only web cookies are out of scope for this revision.
+    hold kids, named places, and memberships (ORGANIZER / CAREGIVER). Organizers
+    share a short invite code; Caregivers join via that code. Any member may
+    manage named places (label + free-text address; no lat/lng yet). Magic links,
+    passwords, multi-circle membership, invite deep links, email/push invite
+    delivery, and HTTP-only web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -18,9 +19,9 @@ tags:
     description: Email OTP sign-in and Bearer sessions
   - name: family
     description: >
-      Family circle, kids, invite code, and memberships (one circle per adult
-      in v1). Organizer-only writes for invite regen, roles, remove, kids, and
-      circle rename.
+      Family circle, kids, named places, invite code, and memberships (one circle
+      per adult in v1). Organizer-only writes for invite regen, roles, remove,
+      kids, and circle rename. Any member may create/update/delete places.
 
 paths:
   /api/auth/request-code:
@@ -168,8 +169,8 @@ paths:
       description: >
         Creates a circle for an authenticated adult who does not yet belong to
         one. The adult becomes ORGANIZER. Requires an adult display name; circle
-        name is optional (clients show "Your family" when unset). Zero kids is
-        allowed. A second create for the same adult returns 409.
+        name is optional (clients show "Your family" when unset). Zero kids and
+        zero places are allowed. A second create for the same adult returns 409.
       security:
         - bearerAuth: []
       requestBody:
@@ -198,6 +199,7 @@ paths:
                     displayName: Alex
                     role: ORGANIZER
                 kids: []
+                places: []
         "400":
           description: Invalid request (e.g. blank adult display name)
           content:
@@ -220,15 +222,16 @@ paths:
     get:
       operationId: getFamilyCircle
       tags: [family]
-      summary: Get the current adult's family circle, members, and kids
+      summary: Get the current adult's family circle, members, kids, and places
       description: >
-        Returns the caller's membership role, member list, and kids. Does not
-        include the invite code — Organizers fetch that via getFamilyInvite.
+        Returns the caller's membership role, member list, kids, and named
+        places. Does not include the invite code — Organizers fetch that via
+        getFamilyInvite.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Circle with membership role, members, and kids
+          description: Circle with membership role, members, kids, and places
           content:
             application/json:
               schema:
@@ -249,6 +252,10 @@ paths:
                 kids:
                   - id: 01900000-0000-7000-8000-000000000021
                     displayName: Sam
+                places:
+                  - id: 01900000-0000-7000-8000-000000000031
+                    name: Mom's house
+                    address: 123 Main St
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -715,6 +722,148 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/places:
+    post:
+      operationId: addPlace
+      tags: [family]
+      summary: Add a named place to the current adult's family circle
+      description: >
+        Any circle member (ORGANIZER or CAREGIVER) may add a place. Place names
+        are unique per circle after trim, compared case-insensitively. Duplicate
+        names return 409. Address is free-text; lat/lng are out of scope for this
+        revision.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaceRequest"
+            example:
+              name: Mom's house
+              address: 123 Main St
+      responses:
+        "201":
+          description: Place created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Place"
+              example:
+                id: 01900000-0000-7000-8000-000000000031
+                name: Mom's house
+                address: 123 Main St
+        "400":
+          description: Invalid request (e.g. blank name or address)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Place name already exists in this circle (case-insensitive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/places/{placeId}:
+    parameters:
+      - name: placeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updatePlace
+      tags: [family]
+      summary: Update a named place in the current adult's family circle
+      description: >
+        Any circle member may update name and/or address. Renaming to a name
+        already used by another place in the circle returns 409. Renaming a place
+        to its own current name (same after trim + case-insensitive normalize)
+        succeeds.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlaceRequest"
+            example:
+              name: Mom's house
+              address: 456 Oak Ave
+      responses:
+        "200":
+          description: Place updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Place"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Place not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Place name already exists in this circle (case-insensitive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deletePlace
+      tags: [family]
+      summary: Remove a named place from the current adult's family circle
+      description: >
+        Any circle member may hard-delete a place. Unknown place id or place in
+        another circle returns 404 (no leak).
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Place removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Place not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -851,6 +1000,7 @@ components:
         - role
         - members
         - kids
+        - places
       properties:
         id:
           type: string
@@ -870,6 +1020,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Kid"
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/Place"
 
     FamilyMember:
       type: object
@@ -939,8 +1093,8 @@ components:
       description: >
         ORGANIZER can invite (view/regenerate code), manage members/roles, rename
         the circle, and manage kids. CAREGIVER can read the circle and leave.
-        Join always creates CAREGIVER; promote/demote adjusts roles with ≥1
-        Organizer required.
+        Any member may manage named places. Join always creates CAREGIVER;
+        promote/demote adjusts roles with ≥1 Organizer required.
 
     Kid:
       type: object
@@ -978,6 +1132,65 @@ components:
           minLength: 1
           maxLength: 80
           example: Samantha
+
+    Place:
+      type: object
+      required:
+        - id
+        - name
+        - address
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable place identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: >
+            Short label unique within the circle (trim + case-insensitive).
+          example: Mom's house
+        address:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Free-text address (no lat/lng in this revision)
+          example: 123 Main St
+
+    CreatePlaceRequest:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Mom's house
+        address:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: 123 Main St
+
+    UpdatePlaceRequest:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Mom's house
+        address:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: 456 Oak Ave
 
     ErrorResponse:
       type: object

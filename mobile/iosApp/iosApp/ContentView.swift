@@ -210,6 +210,61 @@ struct ContentView: View {
                 .disabled(model.isLoading || model.newKidName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
+            Text("Places")
+                .font(.headline)
+            if model.places.isEmpty {
+                Text("No places yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.places) { place in
+                    if model.editingPlaceId == place.id {
+                        TextField("Place name", text: $model.editingPlaceName)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Address", text: $model.editingPlaceAddress)
+                            .textFieldStyle(.roundedBorder)
+                        HStack {
+                            Button("Save") { model.savePlace() }
+                                .disabled(
+                                    model.isLoading
+                                        || model.editingPlaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        || model.editingPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                )
+                            Button("Cancel") { model.cancelEditPlace() }
+                                .disabled(model.isLoading)
+                        }
+                    } else {
+                        VStack(alignment: .leading) {
+                            Text(place.name)
+                            Text(place.address)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Button("Edit") { model.beginEditPlace(place) }
+                                    .disabled(model.isLoading)
+                                Button("Remove place") { model.removePlace(place.id) }
+                                    .disabled(model.isLoading)
+                            }
+                        }
+                    }
+                }
+            }
+
+            TextField("New place name", text: $model.newPlaceName)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            TextField("New place address", text: $model.newPlaceAddress)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            Button("Add place") {
+                model.addPlace()
+            }
+            .disabled(
+                model.isLoading
+                    || model.newPlaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)

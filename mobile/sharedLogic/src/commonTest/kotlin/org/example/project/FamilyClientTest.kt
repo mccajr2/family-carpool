@@ -80,6 +80,46 @@ class FamilyClientTest {
         }
 
     @Test
+    fun placesCrud() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/places" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"p1","name":"Mom's house","address":"123 Main St"}""",
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/places/p1" &&
+                            request.method == HttpMethod.Patch ->
+                            respond(
+                                content =
+                                    """{"id":"p1","name":"Mom's house","address":"456 Oak Ave"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/places/p1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val created = client.addPlace("tok", "Mom's house", "123 Main St")
+            assertEquals("Mom's house", created.name)
+            assertEquals("123 Main St", created.address)
+            assertEquals(
+                "456 Oak Ave",
+                client.updatePlace("tok", "p1", "Mom's house", "456 Oak Ave").address,
+            )
+            client.deletePlace("tok", "p1")
+        }
+
+    @Test
     fun inviteJoinLeaveAndMemberRole() =
         runTest {
             val mockEngine =
