@@ -341,6 +341,92 @@ describe("FamilyScreen", () => {
     expect(deletePlace).toHaveBeenCalledWith("tok", "p1")
   })
 
+  it("lets caregivers add and remove manual events", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const listEvents = vi.fn().mockResolvedValue([])
+    const createEvent = vi.fn().mockResolvedValue({
+      id: "e1",
+      title: "Dentist",
+      startsAt: "2026-08-15T17:00:00.000Z",
+      endsAt: "2026-08-15T18:00:00.000Z",
+      location: "Clinic",
+      kidIds: ["k1"],
+    })
+    const deleteEvent = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listEvents,
+          createEvent,
+          deleteEvent,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const events = await screen.findByLabelText("Manual events")
+    expect(within(events).getByText("No manual events yet.")).toBeInTheDocument()
+    expect(listEvents).toHaveBeenCalledWith("tok")
+
+    await user.type(screen.getByLabelText("New event title"), "Dentist")
+    const startInput = screen.getByLabelText("New event start")
+    const endInput = screen.getByLabelText("New event end")
+    await user.clear(startInput)
+    await user.type(startInput, "2030-08-15T13:00")
+    await user.clear(endInput)
+    await user.type(endInput, "2030-08-15T14:00")
+    await user.type(screen.getByLabelText("New event location"), "Clinic")
+    await user.click(screen.getByLabelText("Assign Sam to new event"))
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+
+    expect(await within(events).findByText("Dentist")).toBeInTheDocument()
+    expect(within(events).getByText("Sam")).toBeInTheDocument()
+    expect(createEvent).toHaveBeenCalledWith(
+      "tok",
+      "Dentist",
+      expect.stringMatching(/2030-08-15T/),
+      ["k1"],
+      expect.stringMatching(/2030-08-15T/),
+      "Clinic",
+    )
+
+    await user.click(within(events).getByRole("button", { name: "Remove event" }))
+    await waitFor(() => {
+      expect(within(events).queryByText("Dentist")).not.toBeInTheDocument()
+    })
+    expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
   it("shows not located and retries locate", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

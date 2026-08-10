@@ -272,6 +272,125 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
+            Text("Manual events")
+                .font(.headline)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+            }
+            if model.events.isEmpty {
+                Text("No manual events yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.events) { event in
+                    if model.editingEventId == event.id {
+                        TextField("Title", text: $model.editingEventTitle)
+                            .disabled(model.isLoading)
+                            .textFieldStyle(.roundedBorder)
+                        DatePicker(
+                            "Starts at",
+                            selection: $model.editingEventStartsAtDate,
+                            in: Date()...,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .disabled(model.isLoading)
+                        Toggle("Ends at", isOn: $model.editingEventHasEndsAt)
+                            .disabled(model.isLoading)
+                        if model.editingEventHasEndsAt {
+                            DatePicker(
+                                "Ends at",
+                                selection: $model.editingEventEndsAtDate,
+                                in: model.editingEventStartsAtDate...,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                            .disabled(model.isLoading)
+                        }
+                        TextField("Location (optional)", text: $model.editingEventLocation)
+                            .disabled(model.isLoading)
+                            .textFieldStyle(.roundedBorder)
+                        feedKidToggles(selectedKidIds: model.editingEventKidIds) { kidId in
+                            model.toggleEditingEventKid(kidId)
+                        }
+                        HStack {
+                            Button("Save") { model.saveEvent() }
+                                .disabled(
+                                    model.isLoading
+                                        || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        || model.editingEventKidIds.isEmpty
+                                )
+                            Button("Cancel") { model.cancelEditEvent() }
+                                .disabled(model.isLoading)
+                        }
+                    } else {
+                        VStack(alignment: .leading) {
+                            Text(event.title)
+                            Text(event.whenLabel)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            if let location = event.location, !location.isEmpty {
+                                Text(location)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            let kidsLabel = event.kidNamesLabel(kids: model.kids)
+                            if !kidsLabel.isEmpty {
+                                Text(kidsLabel)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            HStack {
+                                Button("Edit") { model.beginEditEvent(event) }
+                                    .disabled(model.isLoading)
+                                Button("Remove event") { model.removeEvent(event.id) }
+                                    .disabled(model.isLoading)
+                            }
+                        }
+                    }
+                }
+            }
+
+            TextField("New event title", text: $model.newEventTitle)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            DatePicker(
+                "Starts at",
+                selection: $model.newEventStartsAtDate,
+                in: Date()...,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .disabled(model.isLoading)
+            Toggle("Ends at", isOn: $model.newEventHasEndsAt)
+                .disabled(model.isLoading)
+            if model.newEventHasEndsAt {
+                DatePicker(
+                    "Ends at",
+                    selection: $model.newEventEndsAtDate,
+                    in: model.newEventStartsAtDate...,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .disabled(model.isLoading)
+            }
+            TextField("Location (optional)", text: $model.newEventLocation)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            if model.kids.isEmpty {
+                Text("Add a kid before creating a manual event.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                feedKidToggles(selectedKidIds: model.newEventKidIds) { kidId in
+                    model.toggleNewEventKid(kidId)
+                }
+            }
+            Button("Add event") { model.addEvent() }
+                .disabled(
+                    model.isLoading
+                        || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || model.newEventKidIds.isEmpty
+                )
+
             if model.isOrganizer {
                 HStack {
                     Text("Activity feeds")

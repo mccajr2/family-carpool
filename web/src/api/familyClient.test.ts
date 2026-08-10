@@ -325,4 +325,59 @@ describe("FamilyClient", () => {
       "http://localhost:8080/api/family/circle/feeds/f1/sync",
     )
   })
+
+  it("lists creates updates gets and deletes manual events", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const event = {
+      id: "e1",
+      title: "Dentist",
+      startsAt: "2026-08-15T17:00:00Z",
+      endsAt: "2026-08-15T18:00:00Z",
+      location: "Clinic",
+      kidIds: ["k1"],
+    }
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json([event]))
+      .mockResolvedValueOnce(json({ ...event, id: "e2" }, 201))
+      .mockResolvedValueOnce(json({ ...event, title: "Dentist 2" }))
+      .mockResolvedValueOnce(json(event))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(client.listEvents("tok")).resolves.toMatchObject([{ title: "Dentist" }])
+    await expect(
+      client.createEvent(
+        "tok",
+        "Dentist",
+        "2026-08-15T17:00:00Z",
+        ["k1"],
+        "2026-08-15T18:00:00Z",
+        "Clinic",
+      ),
+    ).resolves.toMatchObject({ id: "e2" })
+    await expect(
+      client.updateEvent("tok", "e1", "Dentist 2", "2026-08-15T17:00:00Z", ["k1"]),
+    ).resolves.toMatchObject({ title: "Dentist 2" })
+    await expect(client.getEvent("tok", "e1")).resolves.toMatchObject({ id: "e1" })
+    await client.deleteEvent("tok", "e1")
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/events")
+    expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "POST" })
+    expect(fetchFn.mock.calls[2]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/events/e1",
+    )
+    expect(fetchFn.mock.calls[2]?.[1]).toMatchObject({ method: "PUT" })
+    expect(fetchFn.mock.calls[3]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/events/e1",
+    )
+    expect(fetchFn.mock.calls[4]?.[1]).toMatchObject({ method: "DELETE" })
+  })
 })

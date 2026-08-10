@@ -28,23 +28,16 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
 
     @Override
     public UUID requireOrganizerCircleId(UUID adultId) {
-        FamilyMembershipEntity membership =
-                memberships
-                        .findByAdultId(adultId)
-                        .orElseThrow(
-                                () ->
-                                        new FamilyAccessException(
-                                                HttpStatus.NOT_FOUND, "Family circle not found"));
-        circles
-                .findById(membership.circleId())
-                .orElseThrow(
-                        () ->
-                                new FamilyAccessException(
-                                        HttpStatus.NOT_FOUND, "Family circle not found"));
+        FamilyMembershipEntity membership = requireMembership(adultId);
         if (membership.role() != FamilyRole.ORGANIZER) {
             throw new FamilyAccessException(HttpStatus.FORBIDDEN, "Organizer role required");
         }
         return membership.circleId();
+    }
+
+    @Override
+    public UUID requireMemberCircleId(UUID adultId) {
+        return requireMembership(adultId).circleId();
     }
 
     @Override
@@ -58,5 +51,22 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
                 throw new FamilyAccessException(HttpStatus.BAD_REQUEST, "Kid not found in this circle");
             }
         }
+    }
+
+    private FamilyMembershipEntity requireMembership(UUID adultId) {
+        FamilyMembershipEntity membership =
+                memberships
+                        .findByAdultId(adultId)
+                        .orElseThrow(
+                                () ->
+                                        new FamilyAccessException(
+                                                HttpStatus.NOT_FOUND, "Family circle not found"));
+        circles
+                .findById(membership.circleId())
+                .orElseThrow(
+                        () ->
+                                new FamilyAccessException(
+                                        HttpStatus.NOT_FOUND, "Family circle not found"));
+        return membership;
     }
 }

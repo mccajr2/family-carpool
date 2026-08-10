@@ -308,6 +308,79 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun listEvents(accessToken: String): List<ManualEvent> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/events") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "List events failed")
+        return response.body()
+    }
+
+    suspend fun getEvent(
+        accessToken: String,
+        eventId: String,
+    ): ManualEvent {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/events/$eventId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Get event failed")
+        return response.body()
+    }
+
+    suspend fun createEvent(
+        accessToken: String,
+        title: String,
+        startsAt: String,
+        kidIds: List<String>,
+        endsAt: String? = null,
+        location: String? = null,
+    ): ManualEvent {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/events") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(CreateManualEventRequest(title, startsAt, endsAt, location, kidIds))
+            }
+        ensureSuccess(response, "Create event failed")
+        return response.body()
+    }
+
+    suspend fun updateEvent(
+        accessToken: String,
+        eventId: String,
+        title: String,
+        startsAt: String,
+        kidIds: List<String>,
+        endsAt: String? = null,
+        location: String? = null,
+    ): ManualEvent {
+        val response =
+            httpClient.put("$baseUrl/api/family/circle/events/$eventId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(UpdateManualEventRequest(title, startsAt, endsAt, location, kidIds))
+            }
+        ensureSuccess(response, "Update event failed")
+        return response.body()
+    }
+
+    suspend fun deleteEvent(
+        accessToken: String,
+        eventId: String,
+    ) {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/events/$eventId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Delete event failed"))
+        }
+    }
+
     companion object {
         fun create(baseUrl: String = apiBaseUrl()): FamilyClient = FamilyClient(baseUrl)
     }

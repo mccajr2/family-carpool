@@ -44,6 +44,80 @@ struct FamilyFeedItem: Identifiable, Equatable {
     }
 }
 
+struct FamilyManualEventItem: Identifiable, Equatable {
+    let id: String
+    var title: String
+    var startsAt: String
+    var endsAt: String?
+    var location: String?
+    var kidIds: [String]
+
+    var whenLabel: String {
+        let start = ManualEventDateCodec.displayString(fromIso: startsAt) ?? startsAt
+        if let endsAt, !endsAt.isEmpty {
+            let end = ManualEventDateCodec.displayString(fromIso: endsAt) ?? endsAt
+            return "\(start) → \(end)"
+        }
+        return start
+    }
+
+    func kidNamesLabel(kids: [FamilyKidItem]) -> String {
+        let namesById = Dictionary(uniqueKeysWithValues: kids.map { ($0.id, $0.displayName) })
+        return kidIds.compactMap { id -> String? in
+            let name = namesById[id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (name?.isEmpty == false) ? name : nil
+        }.joined(separator: ", ")
+    }
+}
+
+enum ManualEventDateCodec {
+    private static let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let isoWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let isoPlain: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func date(fromIso value: String) -> Date? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return isoWithFractional.date(from: trimmed) ?? isoPlain.date(from: trimmed)
+    }
+
+    static func isoString(from date: Date) -> String {
+        isoPlain.string(from: date)
+    }
+
+    static func displayString(fromIso value: String) -> String? {
+        guard let date = date(fromIso: value) else { return nil }
+        return displayFormatter.string(from: date)
+    }
+
+    /// Client-side rules: start in the future; end on or after start.
+    static func validationMessage(startsAt: Date, endsAt: Date?, now: Date = Date()) -> String? {
+        if startsAt < now {
+            return "Start must be in the future"
+        }
+        guard let endsAt else { return nil }
+        if endsAt < startsAt {
+            return "End must be on or after start"
+        }
+        return nil
+    }
+}
+
 struct FamilyMemberItem: Identifiable, Equatable {
     var id: String { adultId }
     let adultId: String
@@ -95,6 +169,20 @@ final class AuthViewModel: ObservableObject {
     @Published var newFeedName: String = ""
     @Published var newFeedUrl: String = ""
     @Published var newFeedKidIds: [String] = []
+    @Published var events: [FamilyManualEventItem] = []
+    @Published var newEventTitle: String = ""
+    @Published var newEventStartsAtDate: Date = Date().addingTimeInterval(15 * 60)
+    @Published var newEventEndsAtDate: Date = Date().addingTimeInterval(75 * 60)
+    @Published var newEventHasEndsAt: Bool = false
+    @Published var newEventLocation: String = ""
+    @Published var newEventKidIds: [String] = []
+    @Published var editingEventId: String?
+    @Published var editingEventTitle: String = ""
+    @Published var editingEventStartsAtDate: Date = Date()
+    @Published var editingEventEndsAtDate: Date = Date()
+    @Published var editingEventHasEndsAt: Bool = false
+    @Published var editingEventLocation: String = ""
+    @Published var editingEventKidIds: [String] = []
     @Published var familyPhase: FamilyPhase = .loading
     @Published var editingKidId: String?
     @Published var editingKidName: String = ""
@@ -377,6 +465,7 @@ final class AuthViewModel: ObservableObject {
                     self.inviteCode = ""
                     self.places = []
                     self.feeds = []
+                    self.events = []
                     self.familyPhase = .choose
                 }
             },
@@ -851,6 +940,184 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
+    func loadEvents() {
+        isLoading = true
+        errorMessage = nil
+        bridge.listEvents(
+            onSuccess: { [weak self] ids, titles, startsAts, endsAts, locations, kidIdsJoined in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.events = (0..<ids.count).map { index in
+                        FamilyManualEventItem(
+                            id: ids[index],
+                            title: titles[index],
+                            startsAt: startsAts[index],
+                            endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
+                            location: locations[index].isEmpty ? nil : locations[index],
+                            kidIds: Self.splitJoinedIds(kidIdsJoined[index])
+                        )
+                    }
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func toggleNewEventKid(_ kidId: String) {
+        if let index = newEventKidIds.firstIndex(of: kidId) {
+            newEventKidIds.remove(at: index)
+        } else {
+            newEventKidIds.append(kidId)
+        }
+    }
+
+    func toggleEditingEventKid(_ kidId: String) {
+        if let index = editingEventKidIds.firstIndex(of: kidId) {
+            editingEventKidIds.remove(at: index)
+        } else {
+            editingEventKidIds.append(kidId)
+        }
+    }
+
+    func addEvent() {
+        let title = newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !newEventKidIds.isEmpty else { return }
+        if let message = ManualEventDateCodec.validationMessage(
+            startsAt: newEventStartsAtDate,
+            endsAt: newEventHasEndsAt ? newEventEndsAtDate : nil
+        ) {
+            errorMessage = message
+            return
+        }
+        let startsAt = ManualEventDateCodec.isoString(from: newEventStartsAtDate)
+        let endsAt = newEventHasEndsAt ? ManualEventDateCodec.isoString(from: newEventEndsAtDate) : ""
+        isLoading = true
+        errorMessage = nil
+        bridge.createEvent(
+            title: title,
+            startsAt: startsAt,
+            endsAt: endsAt,
+            location: newEventLocation.trimmingCharacters(in: .whitespacesAndNewlines),
+            kidIds: newEventKidIds,
+            onSuccess: { [weak self] id, eventTitle, starts, ends, location, kidIds in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.events.append(
+                        FamilyManualEventItem(
+                            id: id,
+                            title: eventTitle,
+                            startsAt: starts,
+                            endsAt: ends.isEmpty ? nil : ends,
+                            location: location.isEmpty ? nil : location,
+                            kidIds: kidIds
+                        )
+                    )
+                    self.events.sort {
+                        if $0.startsAt == $1.startsAt { return $0.id < $1.id }
+                        return $0.startsAt < $1.startsAt
+                    }
+                    self.newEventTitle = ""
+                    self.newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
+                    self.newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
+                    self.newEventHasEndsAt = false
+                    self.newEventLocation = ""
+                    self.newEventKidIds = []
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func beginEditEvent(_ event: FamilyManualEventItem) {
+        editingEventId = event.id
+        editingEventTitle = event.title
+        editingEventStartsAtDate = ManualEventDateCodec.date(fromIso: event.startsAt) ?? Date()
+        if let endsAt = event.endsAt, let endsDate = ManualEventDateCodec.date(fromIso: endsAt) {
+            editingEventEndsAtDate = endsDate
+            editingEventHasEndsAt = true
+        } else {
+            editingEventEndsAtDate = editingEventStartsAtDate.addingTimeInterval(3600)
+            editingEventHasEndsAt = false
+        }
+        editingEventLocation = event.location ?? ""
+        editingEventKidIds = event.kidIds
+    }
+
+    func cancelEditEvent() {
+        editingEventId = nil
+        editingEventTitle = ""
+        editingEventStartsAtDate = Date()
+        editingEventEndsAtDate = Date()
+        editingEventHasEndsAt = false
+        editingEventLocation = ""
+        editingEventKidIds = []
+    }
+
+    func saveEvent() {
+        guard let eventId = editingEventId else { return }
+        let title = editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !editingEventKidIds.isEmpty else { return }
+        if let message = ManualEventDateCodec.validationMessage(
+            startsAt: editingEventStartsAtDate,
+            endsAt: editingEventHasEndsAt ? editingEventEndsAtDate : nil
+        ) {
+            errorMessage = message
+            return
+        }
+        let startsAt = ManualEventDateCodec.isoString(from: editingEventStartsAtDate)
+        let endsAt = editingEventHasEndsAt ? ManualEventDateCodec.isoString(from: editingEventEndsAtDate) : ""
+        isLoading = true
+        errorMessage = nil
+        bridge.updateEvent(
+            eventId: eventId,
+            title: title,
+            startsAt: startsAt,
+            endsAt: endsAt,
+            location: editingEventLocation.trimmingCharacters(in: .whitespacesAndNewlines),
+            kidIds: editingEventKidIds,
+            onSuccess: { [weak self] id, eventTitle, starts, ends, location, kidIds in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    let item = FamilyManualEventItem(
+                        id: id,
+                        title: eventTitle,
+                        startsAt: starts,
+                        endsAt: ends.isEmpty ? nil : ends,
+                        location: location.isEmpty ? nil : location,
+                        kidIds: kidIds
+                    )
+                    if let index = self.events.firstIndex(where: { $0.id == id }) {
+                        self.events[index] = item
+                    }
+                    self.events.sort {
+                        if $0.startsAt == $1.startsAt { return $0.id < $1.id }
+                        return $0.startsAt < $1.startsAt
+                    }
+                    self.cancelEditEvent()
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func removeEvent(_ eventId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.removeEvent(
+            eventId: eventId,
+            onSuccess: { [weak self] in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.events.removeAll { $0.id == eventId }
+                }
+            },
+            onError: eventError
+        )
+    }
+
     private func makeFeedItem(
         id: String,
         name: String,
@@ -878,6 +1145,15 @@ final class AuthViewModel: ObservableObject {
     }
 
     private var feedError: (String) -> Void {
+        { [weak self] message in
+            Task { @MainActor in
+                self?.isLoading = false
+                self?.errorMessage = message
+            }
+        }
+    }
+
+    private var eventError: (String) -> Void {
         { [weak self] message in
             Task { @MainActor in
                 self?.isLoading = false
@@ -929,8 +1205,10 @@ final class AuthViewModel: ObservableObject {
             )
         }
         feeds = []
+        events = []
         familyPhase = .ready
         loadFeeds()
+        loadEvents()
     }
 
     private func resetFamilyFields() {
@@ -943,10 +1221,18 @@ final class AuthViewModel: ObservableObject {
         kids = []
         places = []
         feeds = []
+        events = []
         newFeedName = ""
         newFeedUrl = ""
         newFeedKidIds = []
+        newEventTitle = ""
+        newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
+        newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
+        newEventHasEndsAt = false
+        newEventLocation = ""
+        newEventKidIds = []
         cancelEditFeed()
+        cancelEditEvent()
         members = []
         familyPhase = .loading
         hasDisplayName = false

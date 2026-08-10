@@ -193,6 +193,73 @@ class FamilyClientTest {
         }
 
     @Test
+    fun manualEventsCrud() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    val event =
+                        """{"id":"e1","title":"Dentist","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Clinic","kidIds":["k1"]}"""
+                    when {
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[$event]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = event,
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = event,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content = event.replace("Dentist", "Dentist 2"),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+
+            assertEquals("Dentist", client.listEvents("tok").single().title)
+            assertEquals(
+                "Dentist",
+                client
+                    .createEvent(
+                        "tok",
+                        "Dentist",
+                        "2026-08-15T17:00:00Z",
+                        listOf("k1"),
+                        "2026-08-15T18:00:00Z",
+                        "Clinic",
+                    ).title,
+            )
+            assertEquals("Dentist", client.getEvent("tok", "e1").title)
+            assertEquals(
+                "Dentist 2",
+                client
+                    .updateEvent("tok", "e1", "Dentist 2", "2026-08-15T17:00:00Z", listOf("k1"))
+                    .title,
+            )
+            client.deleteEvent("tok", "e1")
+        }
+
+    @Test
     fun inviteJoinLeaveAndMemberRole() =
         runTest {
             val mockEngine =

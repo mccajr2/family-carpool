@@ -64,6 +64,13 @@ class FamilyUiModelTest {
                         request.url.encodedPath == "/api/family/circle/kids/k1" &&
                             request.method == HttpMethod.Delete ->
                             respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }
@@ -125,6 +132,13 @@ class FamilyUiModelTest {
                         request.url.encodedPath == "/api/family/circle/places/p1" &&
                             request.method == HttpMethod.Delete ->
                             respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }
@@ -142,6 +156,110 @@ class FamilyUiModelTest {
             model.removePlace("p1")
             val withoutPlace = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertTrue(withoutPlace.circle.places.isEmpty())
+        }
+
+    @Test
+    fun caregiverCanAddAndRemoveManualEvent() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"e1","title":"Dentist","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Clinic","kidIds":["k1"]}""",
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.updateNewEventTitle("Dentist")
+            model.updateNewEventStartsAt("2030-08-15T17:00:00Z")
+            model.updateNewEventEndsAt("2030-08-15T18:00:00Z")
+            model.updateNewEventLocation("Clinic")
+            model.toggleNewEventKid("k1")
+            model.addEvent()
+            val withEvent = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(1, withEvent.events.size)
+            assertEquals("Dentist", withEvent.events.first().title)
+
+            model.removeEvent("e1")
+            val withoutEvent = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(withoutEvent.events.isEmpty())
+        }
+
+    @Test
+    fun addEventRejectsEndBeforeStartWithoutCallingApi() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.updateNewEventTitle("Dentist")
+            model.updateNewEventStartsAt("2030-08-15T18:00:00Z")
+            model.updateNewEventEndsAt("2030-08-15T17:00:00Z")
+            model.toggleNewEventKid("k1")
+            model.addEvent()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("End must be on or after start", ready.error)
+            assertTrue(ready.events.isEmpty())
         }
 
     @Test
@@ -177,6 +295,13 @@ class FamilyUiModelTest {
                             respond(
                                 content =
                                     """{"id":"p1","name":"School","address":"1 Rd","latitude":40.5,"longitude":-74.1}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -248,6 +373,13 @@ class FamilyUiModelTest {
                         request.url.encodedPath == "/api/family/circle/feeds/f1" &&
                             request.method == HttpMethod.Delete ->
                             respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }
@@ -332,6 +464,13 @@ class FamilyUiModelTest {
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
                         }
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }
@@ -372,6 +511,13 @@ class FamilyUiModelTest {
                             respond(
                                 content =
                                     """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -450,6 +596,13 @@ class FamilyUiModelTest {
                         request.url.encodedPath == "/api/family/circle/leave" &&
                             request.method == HttpMethod.Post ->
                             respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
                         else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
                     }
                 }

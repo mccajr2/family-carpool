@@ -56,6 +56,16 @@ fun ActivityFeed.listStatusLabel(kids: List<Kid>): String {
 }
 
 @Serializable
+data class ManualEvent(
+    val id: String,
+    val title: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val location: String? = null,
+    val kidIds: List<String> = emptyList(),
+)
+
+@Serializable
 data class FamilyMember(
     val adultId: String,
     val email: String,
@@ -134,6 +144,24 @@ data class UpdateActivityFeedRequest(
     val name: String,
     val sourceUrl: String,
     val kidIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class CreateManualEventRequest(
+    val title: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val location: String? = null,
+    val kidIds: List<String>,
+)
+
+@Serializable
+data class UpdateManualEventRequest(
+    val title: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val location: String? = null,
+    val kidIds: List<String>,
 )
 
 fun FamilyCircle.displayTitle(): String {

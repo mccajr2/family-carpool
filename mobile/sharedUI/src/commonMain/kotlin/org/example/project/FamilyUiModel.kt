@@ -49,6 +49,18 @@ class FamilyUiModel(
             val editingFeedName: String = "",
             val editingFeedUrl: String = "",
             val editingFeedKidIds: List<String> = emptyList(),
+            val events: List<ManualEvent> = emptyList(),
+            val newEventTitle: String = "",
+            val newEventStartsAt: String = defaultNewEventStartsAtIso(),
+            val newEventEndsAt: String = "",
+            val newEventLocation: String = "",
+            val newEventKidIds: List<String> = emptyList(),
+            val editingEventId: String? = null,
+            val editingEventTitle: String = "",
+            val editingEventStartsAt: String = "",
+            val editingEventEndsAt: String = "",
+            val editingEventLocation: String = "",
+            val editingEventKidIds: List<String> = emptyList(),
             val loading: Boolean = false,
             val error: String? = null,
         ) : State()
@@ -241,6 +253,102 @@ class FamilyUiModel(
                 editingFeedName = "",
                 editingFeedUrl = "",
                 editingFeedKidIds = emptyList(),
+                error = null,
+            )
+    }
+
+    fun updateNewEventTitle(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newEventTitle = value, error = null)
+    }
+
+    fun updateNewEventStartsAt(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                newEventStartsAt = value,
+                newEventEndsAt = coerceEndsAt(value, current.newEventEndsAt),
+                error = null,
+            )
+    }
+
+    fun updateNewEventEndsAt(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newEventEndsAt = value, error = null)
+    }
+
+    fun updateNewEventLocation(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newEventLocation = value, error = null)
+    }
+
+    fun toggleNewEventKid(kidId: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                newEventKidIds = current.newEventKidIds.toggle(kidId),
+                error = null,
+            )
+    }
+
+    fun beginEditEvent(event: ManualEvent) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingEventId = event.id,
+                editingEventTitle = event.title,
+                editingEventStartsAt = event.startsAt,
+                editingEventEndsAt = event.endsAt.orEmpty(),
+                editingEventLocation = event.location.orEmpty(),
+                editingEventKidIds = event.kidIds,
+                error = null,
+            )
+    }
+
+    fun updateEditingEventTitle(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingEventTitle = value, error = null)
+    }
+
+    fun updateEditingEventStartsAt(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingEventStartsAt = value,
+                editingEventEndsAt = coerceEndsAt(value, current.editingEventEndsAt),
+                error = null,
+            )
+    }
+
+    fun updateEditingEventEndsAt(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingEventEndsAt = value, error = null)
+    }
+
+    fun updateEditingEventLocation(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingEventLocation = value, error = null)
+    }
+
+    fun toggleEditingEventKid(kidId: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingEventKidIds = current.editingEventKidIds.toggle(kidId),
+                error = null,
+            )
+    }
+
+    fun cancelEditEvent() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingEventId = null,
+                editingEventTitle = "",
+                editingEventStartsAt = "",
+                editingEventEndsAt = "",
+                editingEventLocation = "",
+                editingEventKidIds = emptyList(),
                 error = null,
             )
     }
@@ -651,6 +759,115 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun addEvent() {
+        val current = _state as? State.Ready ?: return
+        val validation =
+            validateManualEventTimes(current.newEventStartsAt, current.newEventEndsAt)
+        if (validation != null) {
+            _state = current.copy(error = validation)
+            return
+        }
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val endsAt = current.newEventEndsAt.trim().ifEmpty { null }
+            val location = current.newEventLocation.trim().ifEmpty { null }
+            val created =
+                familyClient.createEvent(
+                    token,
+                    current.newEventTitle.trim(),
+                    current.newEventStartsAt.trim(),
+                    current.newEventKidIds,
+                    endsAt,
+                    location,
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    newEventTitle = "",
+                    newEventStartsAt = defaultNewEventStartsAtIso(),
+                    newEventEndsAt = "",
+                    newEventLocation = "",
+                    newEventKidIds = emptyList(),
+                    events = (current.events + created).sortedWith(manualEventOrder),
+                    error = null,
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Add event failed",
+                )
+        }
+    }
+
+    suspend fun saveEvent() {
+        val current = _state as? State.Ready ?: return
+        val eventId = current.editingEventId ?: return
+        val validation =
+            validateManualEventTimes(current.editingEventStartsAt, current.editingEventEndsAt)
+        if (validation != null) {
+            _state = current.copy(error = validation)
+            return
+        }
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val endsAt = current.editingEventEndsAt.trim().ifEmpty { null }
+            val location = current.editingEventLocation.trim().ifEmpty { null }
+            val updated =
+                familyClient.updateEvent(
+                    token,
+                    eventId,
+                    current.editingEventTitle.trim(),
+                    current.editingEventStartsAt.trim(),
+                    current.editingEventKidIds,
+                    endsAt,
+                    location,
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    editingEventId = null,
+                    editingEventTitle = "",
+                    editingEventStartsAt = "",
+                    editingEventEndsAt = "",
+                    editingEventLocation = "",
+                    editingEventKidIds = emptyList(),
+                    events =
+                        current.events
+                            .map { if (it.id == eventId) updated else it }
+                            .sortedWith(manualEventOrder),
+                    error = null,
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Update event failed",
+                )
+        }
+    }
+
+    suspend fun removeEvent(eventId: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            familyClient.deleteEvent(session.requireAccessToken(), eventId)
+            _state =
+                current.copy(
+                    loading = false,
+                    events = current.events.filterNot { it.id == eventId },
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Remove event failed",
+                )
+        }
+    }
+
     private suspend fun readyState(
         adult: Adult,
         circle: FamilyCircle,
@@ -668,6 +885,7 @@ class FamilyUiModel(
             } else {
                 emptyList()
             }
+        val events = runCatching { familyClient.listEvents(token) }.getOrElse { emptyList() }
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
@@ -675,8 +893,22 @@ class FamilyUiModel(
             circle = circle,
             inviteCode = inviteCode,
             feeds = feeds,
+            events = events,
         )
     }
+}
+
+private val manualEventOrder =
+    compareBy<ManualEvent>({ it.startsAt }, { it.id })
+
+/** Clear ends when it would be before the new start (client ordering rule). */
+private fun coerceEndsAt(
+    startsAtIso: String,
+    endsAtIso: String,
+): String {
+    val starts = parseIsoToEpochMillis(startsAtIso) ?: return endsAtIso
+    val ends = parseIsoToEpochMillis(endsAtIso) ?: return endsAtIso
+    return if (ends < starts) "" else endsAtIso
 }
 
 private fun List<String>.toggle(value: String): List<String> =

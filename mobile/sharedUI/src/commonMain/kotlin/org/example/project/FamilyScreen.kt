@@ -572,6 +572,225 @@ private fun ReadyContent(
         Text("Add place")
     }
 
+    Text("Manual events", style = MaterialTheme.typography.titleSmall)
+    if (current.error != null) {
+        Text(text = current.error, color = MaterialTheme.colorScheme.error)
+    }
+    if (current.events.isEmpty()) {
+        Text("No manual events yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        current.events.forEach { event ->
+            if (current.editingEventId == event.id) {
+                OutlinedTextField(
+                    value = current.editingEventTitle,
+                    onValueChange = {
+                        model.updateEditingEventTitle(it)
+                        refresh()
+                    },
+                    label = { Text("Title") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                InstantDateTimeField(
+                    label = "Starts at",
+                    isoValue = current.editingEventStartsAt,
+                    onIsoChange = {
+                        model.updateEditingEventStartsAt(it)
+                        refresh()
+                    },
+                    enabled = !current.loading,
+                    minEpochMillis = nowEpochMillis(),
+                )
+                InstantDateTimeField(
+                    label = "Ends at (optional)",
+                    isoValue = current.editingEventEndsAt,
+                    onIsoChange = {
+                        model.updateEditingEventEndsAt(it)
+                        refresh()
+                    },
+                    enabled = !current.loading,
+                    optional = true,
+                    minEpochMillis =
+                        maxOf(
+                            nowEpochMillis(),
+                            parseIsoToEpochMillis(current.editingEventStartsAt) ?: nowEpochMillis(),
+                        ),
+                )
+                OutlinedTextField(
+                    value = current.editingEventLocation,
+                    onValueChange = {
+                        model.updateEditingEventLocation(it)
+                        refresh()
+                    },
+                    label = { Text("Location (optional)") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FeedKidCheckboxes(
+                    kids = current.circle.kids,
+                    selectedKidIds = current.editingEventKidIds,
+                    enabled = !current.loading,
+                    onToggle = {
+                        model.toggleEditingEventKid(it)
+                        refresh()
+                    },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.saveEvent()
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                current.editingEventTitle.isNotBlank() &&
+                                current.editingEventStartsAt.isNotBlank() &&
+                                current.editingEventKidIds.isNotEmpty(),
+                    ) {
+                        Text("Save")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            model.cancelEditEvent()
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(event.title)
+                    Text(
+                        if (event.endsAt.isNullOrBlank()) {
+                            formatIsoForDisplay(event.startsAt)
+                        } else {
+                            "${formatIsoForDisplay(event.startsAt)} → ${formatIsoForDisplay(event.endsAt!!)}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (!event.location.isNullOrBlank()) {
+                        Text(event.location!!, style = MaterialTheme.typography.bodySmall)
+                    }
+                    val kidNames =
+                        event.kidIds.mapNotNull { id ->
+                            current.circle.kids.find { it.id == id }?.displayName
+                        }.joinToString(", ")
+                    if (kidNames.isNotEmpty()) {
+                        Text(kidNames, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditEvent(event)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeEvent(event.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove event")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = current.newEventTitle,
+        onValueChange = {
+            model.updateNewEventTitle(it)
+            refresh()
+        },
+        label = { Text("New event title") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    InstantDateTimeField(
+        label = "Starts at",
+        isoValue = current.newEventStartsAt,
+        onIsoChange = {
+            model.updateNewEventStartsAt(it)
+            refresh()
+        },
+        enabled = !current.loading,
+        minEpochMillis = nowEpochMillis(),
+    )
+    InstantDateTimeField(
+        label = "Ends at (optional)",
+        isoValue = current.newEventEndsAt,
+        onIsoChange = {
+            model.updateNewEventEndsAt(it)
+            refresh()
+        },
+        enabled = !current.loading,
+        optional = true,
+        minEpochMillis =
+            maxOf(
+                nowEpochMillis(),
+                parseIsoToEpochMillis(current.newEventStartsAt) ?: nowEpochMillis(),
+            ),
+    )
+    OutlinedTextField(
+        value = current.newEventLocation,
+        onValueChange = {
+            model.updateNewEventLocation(it)
+            refresh()
+        },
+        label = { Text("Location (optional)") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (current.circle.kids.isEmpty()) {
+        Text(
+            "Add a kid before creating a manual event.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    } else {
+        FeedKidCheckboxes(
+            kids = current.circle.kids,
+            selectedKidIds = current.newEventKidIds,
+            enabled = !current.loading,
+            onToggle = {
+                model.toggleNewEventKid(it)
+                refresh()
+            },
+        )
+    }
+    Button(
+        onClick = {
+            scope.launch {
+                model.addEvent()
+                refresh()
+            }
+        },
+        enabled =
+            !current.loading &&
+                current.newEventTitle.isNotBlank() &&
+                current.newEventStartsAt.isNotBlank() &&
+                current.newEventKidIds.isNotEmpty(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Add event")
+    }
+
     if (isOrganizer) {
         Row(
             modifier = Modifier.fillMaxWidth(),
