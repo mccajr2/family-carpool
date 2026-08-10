@@ -492,6 +492,119 @@ class AuthBridge {
         onError,
     )
 
+    fun listEvents(
+        onSuccess: (
+            ids: List<String>,
+            titles: List<String>,
+            startsAts: List<String>,
+            endsAts: List<String>,
+            locations: List<String>,
+            kidIdsJoined: List<String>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val events = familyClient.listEvents(session.requireAccessToken())
+                onSuccess(
+                    events.map { it.id },
+                    events.map { it.title },
+                    events.map { it.startsAt },
+                    events.map { it.endsAt.orEmpty() },
+                    events.map { it.location.orEmpty() },
+                    events.map { it.kidIds.joinToString(",") },
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "List events failed")
+            }
+        }
+    }
+
+    fun createEvent(
+        title: String,
+        startsAt: String,
+        endsAt: String,
+        location: String,
+        kidIds: List<String>,
+        onSuccess: (String, String, String, String, String, List<String>) -> Unit,
+        onError: (String) -> Unit,
+    ) = eventResult(
+        {
+            familyClient.createEvent(
+                session.requireAccessToken(),
+                title.trim(),
+                startsAt.trim(),
+                kidIds,
+                endsAt.trim().ifEmpty { null },
+                location.trim().ifEmpty { null },
+            )
+        },
+        onSuccess,
+        onError,
+    )
+
+    fun updateEvent(
+        eventId: String,
+        title: String,
+        startsAt: String,
+        endsAt: String,
+        location: String,
+        kidIds: List<String>,
+        onSuccess: (String, String, String, String, String, List<String>) -> Unit,
+        onError: (String) -> Unit,
+    ) = eventResult(
+        {
+            familyClient.updateEvent(
+                session.requireAccessToken(),
+                eventId,
+                title.trim(),
+                startsAt.trim(),
+                kidIds,
+                endsAt.trim().ifEmpty { null },
+                location.trim().ifEmpty { null },
+            )
+        },
+        onSuccess,
+        onError,
+    )
+
+    fun removeEvent(
+        eventId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.deleteEvent(session.requireAccessToken(), eventId)
+                onSuccess()
+            } catch (e: Throwable) {
+                onError(e.message ?: "Delete event failed")
+            }
+        }
+    }
+
+    private fun eventResult(
+        request: suspend () -> ManualEvent,
+        onSuccess: (String, String, String, String, String, List<String>) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val event = request()
+                onSuccess(
+                    event.id,
+                    event.title,
+                    event.startsAt,
+                    event.endsAt.orEmpty(),
+                    event.location.orEmpty(),
+                    event.kidIds,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Event request failed")
+            }
+        }
+    }
+
     private fun feedResult(
         request: suspend () -> ActivityFeed,
         onSuccess: (String, String, String, List<String>, String, String, String) -> Unit,

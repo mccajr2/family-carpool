@@ -106,7 +106,7 @@ will read feed events + manual events.
 - [x] **Contract:** OpenAPI paths/schemas; bump info version; architecture note.
 - [x] **Web:** types + `familyClient` (or events client); manage-events section on
       `FamilyScreen` for all members; tests.
-- [ ] **Mobile:** sharedLogic models/client + tests; Android sharedUI; iOS
+- [x] **Mobile:** sharedLogic models/client + tests; Android sharedUI; iOS
       AuthViewModel / ContentView manage-events CRUD.
 - [ ] **Docs:** `docs/architecture.md` — events module + authz categories
       (Organizer plumbing vs any-member content).

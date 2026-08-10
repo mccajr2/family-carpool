@@ -572,6 +572,216 @@ private fun ReadyContent(
         Text("Add place")
     }
 
+    Text("Manual events", style = MaterialTheme.typography.titleSmall)
+    if (current.events.isEmpty()) {
+        Text("No manual events yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        current.events.forEach { event ->
+            if (current.editingEventId == event.id) {
+                OutlinedTextField(
+                    value = current.editingEventTitle,
+                    onValueChange = {
+                        model.updateEditingEventTitle(it)
+                        refresh()
+                    },
+                    label = { Text("Title") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = current.editingEventStartsAt,
+                    onValueChange = {
+                        model.updateEditingEventStartsAt(it)
+                        refresh()
+                    },
+                    label = { Text("Starts at (ISO-8601)") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = current.editingEventEndsAt,
+                    onValueChange = {
+                        model.updateEditingEventEndsAt(it)
+                        refresh()
+                    },
+                    label = { Text("Ends at (optional)") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = current.editingEventLocation,
+                    onValueChange = {
+                        model.updateEditingEventLocation(it)
+                        refresh()
+                    },
+                    label = { Text("Location (optional)") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FeedKidCheckboxes(
+                    kids = current.circle.kids,
+                    selectedKidIds = current.editingEventKidIds,
+                    enabled = !current.loading,
+                    onToggle = {
+                        model.toggleEditingEventKid(it)
+                        refresh()
+                    },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.saveEvent()
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                current.editingEventTitle.isNotBlank() &&
+                                current.editingEventStartsAt.isNotBlank() &&
+                                current.editingEventKidIds.isNotEmpty(),
+                    ) {
+                        Text("Save")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            model.cancelEditEvent()
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(event.title)
+                    Text(
+                        if (event.endsAt.isNullOrBlank()) {
+                            event.startsAt
+                        } else {
+                            "${event.startsAt} → ${event.endsAt}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (!event.location.isNullOrBlank()) {
+                        Text(event.location!!, style = MaterialTheme.typography.bodySmall)
+                    }
+                    val kidNames =
+                        event.kidIds.mapNotNull { id ->
+                            current.circle.kids.find { it.id == id }?.displayName
+                        }.joinToString(", ")
+                    if (kidNames.isNotEmpty()) {
+                        Text(kidNames, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditEvent(event)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeEvent(event.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove event")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = current.newEventTitle,
+        onValueChange = {
+            model.updateNewEventTitle(it)
+            refresh()
+        },
+        label = { Text("New event title") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = current.newEventStartsAt,
+        onValueChange = {
+            model.updateNewEventStartsAt(it)
+            refresh()
+        },
+        label = { Text("Starts at (ISO-8601)") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = current.newEventEndsAt,
+        onValueChange = {
+            model.updateNewEventEndsAt(it)
+            refresh()
+        },
+        label = { Text("Ends at (optional)") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = current.newEventLocation,
+        onValueChange = {
+            model.updateNewEventLocation(it)
+            refresh()
+        },
+        label = { Text("Location (optional)") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (current.circle.kids.isEmpty()) {
+        Text(
+            "Add a kid before creating a manual event.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    } else {
+        FeedKidCheckboxes(
+            kids = current.circle.kids,
+            selectedKidIds = current.newEventKidIds,
+            enabled = !current.loading,
+            onToggle = {
+                model.toggleNewEventKid(it)
+                refresh()
+            },
+        )
+    }
+    Button(
+        onClick = {
+            scope.launch {
+                model.addEvent()
+                refresh()
+            }
+        },
+        enabled =
+            !current.loading &&
+                current.newEventTitle.isNotBlank() &&
+                current.newEventStartsAt.isNotBlank() &&
+                current.newEventKidIds.isNotEmpty(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Add event")
+    }
+
     if (isOrganizer) {
         Row(
             modifier = Modifier.fillMaxWidth(),
