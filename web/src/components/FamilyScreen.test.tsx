@@ -486,7 +486,7 @@ describe("FamilyScreen", () => {
     await user.click(screen.getByRole("button", { name: "Add feed" }))
 
     expect(await screen.findByText("U12 Travel")).toBeInTheDocument()
-    expect(screen.getByText("Synced · 4 events")).toBeInTheDocument()
+    expect(screen.getByText("Sam · Synced · 4 events")).toBeInTheDocument()
     expect(createFeed).toHaveBeenCalledWith(
       "tok",
       "U12 Travel",
@@ -495,14 +495,78 @@ describe("FamilyScreen", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Sync now" }))
-    expect(await screen.findByText("Sync failed: Fetch failed")).toBeInTheDocument()
+    expect(await screen.findByText("Sam · Sync failed: Fetch failed")).toBeInTheDocument()
     expect(syncFeed).toHaveBeenCalledWith("tok", "f1")
 
-    await user.click(screen.getByRole("button", { name: "Remove feed" }))
+    await user.click(
+      within(screen.getByLabelText("Activity feeds")).getByRole("button", {
+        name: "Remove",
+      }),
+    )
     await waitFor(() => {
       expect(screen.queryByText("U12 Travel")).not.toBeInTheDocument()
     })
     expect(deleteFeed).toHaveBeenCalledWith("tok", "f1")
+  })
+
+  it("hides the source URL in the feed list until editing", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([
+            {
+              id: "f1",
+              name: "U12 Travel",
+              sourceUrl: "https://very-long.example.com/path/to/calendar/subscribe.ics",
+              kidIds: [],
+              lastSyncedAt: "2026-08-10T12:00:00Z",
+              lastSyncError: null,
+              eventCount: 4,
+            },
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const feeds = await screen.findByLabelText("Activity feeds")
+    expect(within(feeds).getByText("U12 Travel")).toBeInTheDocument()
+    expect(within(feeds).getByText("Synced · 4 events")).toBeInTheDocument()
+    expect(
+      screen.queryByText("https://very-long.example.com/path/to/calendar/subscribe.ics"),
+    ).not.toBeInTheDocument()
+
+    await user.click(within(feeds).getByRole("button", { name: "Edit" }))
+    expect(
+      within(feeds).getByDisplayValue(
+        "https://very-long.example.com/path/to/calendar/subscribe.ics",
+      ),
+    ).toBeInTheDocument()
   })
 
   it("hides activity feed management from caregivers", async () => {

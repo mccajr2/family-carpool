@@ -45,6 +45,16 @@ fun ActivityFeed.syncStatusLabel(): String =
         else -> "Not synced"
     }
 
+/** List-row subtitle: optional kid names + sync status (URL stays in edit form only). */
+fun ActivityFeed.listStatusLabel(kids: List<Kid>): String {
+    val namesById = kids.associateBy({ it.id }, { it.displayName })
+    val kidNames =
+        kidIds.mapNotNull { id -> namesById[id]?.trim()?.takeIf { it.isNotEmpty() } }
+            .joinToString(", ")
+    val status = syncStatusLabel()
+    return if (kidNames.isEmpty()) status else "$kidNames · $status"
+}
+
 @Serializable
 data class FamilyMember(
     val adultId: String,

@@ -260,6 +260,10 @@ class FamilyUiModelTest {
             organizer.syncFeed("f1")
             val synced = assertIs<FamilyUiModel.State.Ready>(organizer.state)
             assertEquals("Synced · 2 events", synced.feeds.single().syncStatusLabel())
+            assertEquals(
+                "Sam · Synced · 2 events",
+                synced.feeds.single().listStatusLabel(synced.circle.kids),
+            )
             organizer.removeFeed("f1")
             assertTrue(assertIs<FamilyUiModel.State.Ready>(organizer.state).feeds.isEmpty())
 

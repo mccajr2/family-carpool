@@ -36,6 +36,17 @@ function memberLabel(member: FamilyMember): string {
   return member.displayName?.trim() ? member.displayName : member.email
 }
 
+function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
+  if (feed.kidIds.length === 0) {
+    return ""
+  }
+  const namesById = new Map(kids.map((kid) => [kid.id, kid.displayName]))
+  return feed.kidIds
+    .map((id) => namesById.get(id))
+    .filter((name): name is string => Boolean(name?.trim()))
+    .join(", ")
+}
+
 export function FamilyScreen({
   session,
   authClient,
@@ -988,7 +999,12 @@ export function FamilyScreen({
               <p className="text-sm text-muted-foreground">No feeds yet.</p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {feeds.map((feed) => (
+                {feeds.map((feed) => {
+                  const kidsLabel = feedKidNames(feed, circle.kids)
+                  const statusLabel = kidsLabel
+                    ? `${kidsLabel} · ${feedSyncStatusLabel(feed)}`
+                    : feedSyncStatusLabel(feed)
+                  return (
                   <li key={feed.id} className="flex flex-col gap-2">
                     {editingFeedId === feed.id ? (
                       <>
@@ -1060,50 +1076,52 @@ export function FamilyScreen({
                         </div>
                       </>
                     ) : (
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <span className="flex-1 text-sm">
-                          {feed.name}
-                          <span className="block text-muted-foreground">{feed.sourceUrl}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {feedSyncStatusLabel(feed)}
+                      <div className="flex min-w-0 flex-col gap-2">
+                        <span className="min-w-0 text-sm">
+                          <span className="block truncate font-medium">{feed.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {statusLabel}
                           </span>
                         </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onSyncFeed(feed.id)}
-                          disabled={status.kind === "loading"}
-                        >
-                          Sync now
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingFeedId(feed.id)
-                            setEditingFeedName(feed.name)
-                            setEditingFeedUrl(feed.sourceUrl)
-                            setEditingFeedKidIds([...feed.kidIds])
-                          }}
-                          disabled={status.kind === "loading"}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onRemoveFeed(feed.id)}
-                          disabled={status.kind === "loading"}
-                        >
-                          Remove feed
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onSyncFeed(feed.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Sync now
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingFeedId(feed.id)
+                              setEditingFeedName(feed.name)
+                              setEditingFeedUrl(feed.sourceUrl)
+                              setEditingFeedKidIds([...feed.kidIds])
+                            }}
+                            disabled={status.kind === "loading"}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onRemoveFeed(feed.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )}
 

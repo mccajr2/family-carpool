@@ -302,23 +302,33 @@ struct ContentView: View {
                                     .disabled(model.isLoading)
                             }
                         } else {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(feed.name)
-                                Text(feed.sourceUrl)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                Text(feed.syncStatusLabel)
+                                    .lineLimit(1)
+                                Text(feed.listStatusLabel(kids: model.kids))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                HStack {
-                                    Button("Sync now") { model.syncFeed(feed.id) }
-                                        .disabled(model.isLoading)
-                                    Button("Edit") { model.beginEditFeed(feed) }
-                                        .disabled(model.isLoading)
-                                    Button("Remove") { model.removeFeed(feed.id) }
-                                        .disabled(model.isLoading)
+                                    .lineLimit(2)
+                                ViewThatFits(in: .horizontal) {
+                                    HStack {
+                                        Button("Sync now") { model.syncFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                        Button("Edit") { model.beginEditFeed(feed) }
+                                            .disabled(model.isLoading)
+                                        Button("Remove") { model.removeFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                    }
+                                    VStack(alignment: .leading) {
+                                        Button("Sync now") { model.syncFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                        Button("Edit") { model.beginEditFeed(feed) }
+                                            .disabled(model.isLoading)
+                                        Button("Remove") { model.removeFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                    }
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }

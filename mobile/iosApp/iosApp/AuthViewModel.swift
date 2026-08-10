@@ -32,6 +32,16 @@ struct FamilyFeedItem: Identifiable, Equatable {
         }
         return "Not synced"
     }
+
+    func listStatusLabel(kids: [FamilyKidItem]) -> String {
+        let namesById = Dictionary(uniqueKeysWithValues: kids.map { ($0.id, $0.displayName) })
+        let kidNames = kidIds.compactMap { id -> String? in
+            let name = namesById[id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (name?.isEmpty == false) ? name : nil
+        }.joined(separator: ", ")
+        let status = syncStatusLabel
+        return kidNames.isEmpty ? status : "\(kidNames) · \(status)"
+    }
 }
 
 struct FamilyMemberItem: Identifiable, Equatable {
