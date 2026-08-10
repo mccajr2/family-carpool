@@ -321,13 +321,39 @@ private fun ReadyContent(
         ) {
             when (current.shellTab) {
                 FamilyUiModel.ShellTab.CALENDAR -> {
-                    Text(AppShell.TAB_CALENDAR, style = MaterialTheme.typography.headlineSmall)
-                    CalendarDestination(
-                        current = current,
-                        model = model,
-                        refresh = refresh,
-                        scope = scope,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(AppShell.TAB_CALENDAR, style = MaterialTheme.typography.headlineSmall)
+                        if (!current.eventComposeOpen) {
+                            Button(
+                                onClick = {
+                                    model.openCreateEventCompose()
+                                    refresh()
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Add")
+                            }
+                        }
+                    }
+                    if (current.eventComposeOpen) {
+                        EventComposeDestination(
+                            current = current,
+                            model = model,
+                            refresh = refresh,
+                            scope = scope,
+                        )
+                    } else {
+                        CalendarDestination(
+                            current = current,
+                            model = model,
+                            refresh = refresh,
+                            scope = scope,
+                        )
+                    }
                 }
                 FamilyUiModel.ShellTab.CARPOOL -> {
                     Text(AppShell.TAB_CARPOOL, style = MaterialTheme.typography.headlineSmall)
@@ -945,132 +971,47 @@ private fun CalendarDestination(
     } else {
         visibleItems.forEach { item ->
             val isManual = item.source == CalendarItemSource.MANUAL
-            if (isManual && current.editingEventId == item.id) {
-                OutlinedTextField(
-                    value = current.editingEventTitle,
-                    onValueChange = {
-                        model.updateEditingEventTitle(it)
-                        refresh()
-                    },
-                    label = { Text("Title") },
-                    singleLine = true,
-                    enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(item.title)
+                Text(
+                    formatEventWhen(item.startsAt, item.endsAt),
+                    style = MaterialTheme.typography.bodySmall,
                 )
-                InstantDateTimeField(
-                    label = "Starts at",
-                    isoValue = current.editingEventStartsAt,
-                    onIsoChange = {
-                        model.updateEditingEventStartsAt(it)
-                        refresh()
-                    },
-                    enabled = !current.loading,
-                    minEpochMillis = nowEpochMillis(),
+                Text(
+                    calendarSourceLabel(item.source, item.feedName),
+                    style = MaterialTheme.typography.bodySmall,
                 )
-                InstantDateTimeField(
-                    label = "Ends at (optional)",
-                    isoValue = current.editingEventEndsAt,
-                    onIsoChange = {
-                        model.updateEditingEventEndsAt(it)
-                        refresh()
-                    },
-                    enabled = !current.loading,
-                    optional = true,
-                    minEpochMillis =
-                        maxOf(
-                            nowEpochMillis(),
-                            parseIsoToEpochMillis(current.editingEventStartsAt) ?: nowEpochMillis(),
-                        ),
-                )
-                OutlinedTextField(
-                    value = current.editingEventLocation,
-                    onValueChange = {
-                        model.updateEditingEventLocation(it)
-                        refresh()
-                    },
-                    label = { Text("Location (optional)") },
-                    singleLine = true,
-                    enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                FeedKidCheckboxes(
-                    kids = current.circle.kids,
-                    selectedKidIds = current.editingEventKidIds,
-                    enabled = !current.loading,
-                    onToggle = {
-                        model.toggleEditingEventKid(it)
-                        refresh()
-                    },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                model.saveEvent()
-                                refresh()
-                            }
-                        },
-                        enabled =
-                            !current.loading &&
-                                current.editingEventTitle.isNotBlank() &&
-                                current.editingEventStartsAt.isNotBlank() &&
-                                current.editingEventKidIds.isNotEmpty(),
-                    ) {
-                        Text("Save")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            model.cancelEditEvent()
-                            refresh()
-                        },
-                        enabled = !current.loading,
-                    ) {
-                        Text("Cancel")
-                    }
+                if (!item.location.isNullOrBlank()) {
+                    Text(item.location!!, style = MaterialTheme.typography.bodySmall)
                 }
-            } else {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(item.title)
-                    Text(
-                        formatEventWhen(item.startsAt, item.endsAt),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        calendarSourceLabel(item.source, item.feedName),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    if (!item.location.isNullOrBlank()) {
-                        Text(item.location!!, style = MaterialTheme.typography.bodySmall)
-                    }
-                    val kidNames =
-                        item.kidIds.mapNotNull { id ->
-                            current.circle.kids.find { it.id == id }?.displayName
-                        }.joinToString(", ")
-                    if (kidNames.isNotEmpty()) {
-                        Text(kidNames, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (isManual) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    model.beginEditEvent(item)
+                val kidNames =
+                    item.kidIds.mapNotNull { id ->
+                        current.circle.kids.find { it.id == id }?.displayName
+                    }.joinToString(", ")
+                if (kidNames.isNotEmpty()) {
+                    Text(kidNames, style = MaterialTheme.typography.bodySmall)
+                }
+                if (isManual) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditEvent(item)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeEvent(item.id)
                                     refresh()
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Edit")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        model.removeEvent(item.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Remove event")
-                            }
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove event")
                         }
                     }
                 }
@@ -1090,87 +1031,197 @@ private fun CalendarDestination(
     ) {
         Text("Load more")
     }
+}
 
-    OutlinedTextField(
-        value = current.newEventTitle,
-        onValueChange = {
-            model.updateNewEventTitle(it)
-            refresh()
-        },
-        label = { Text("New event title") },
-        singleLine = true,
-        enabled = !current.loading,
-        modifier = Modifier.fillMaxWidth(),
+@Composable
+private fun EventComposeDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    val editing = current.editingEventId != null
+    Text(
+        if (editing) "Edit event" else "Add event",
+        style = MaterialTheme.typography.titleSmall,
     )
-    InstantDateTimeField(
-        label = "Starts at",
-        isoValue = current.newEventStartsAt,
-        onIsoChange = {
-            model.updateNewEventStartsAt(it)
-            refresh()
-        },
-        enabled = !current.loading,
-        minEpochMillis = nowEpochMillis(),
-    )
-    InstantDateTimeField(
-        label = "Ends at (optional)",
-        isoValue = current.newEventEndsAt,
-        onIsoChange = {
-            model.updateNewEventEndsAt(it)
-            refresh()
-        },
-        enabled = !current.loading,
-        optional = true,
-        minEpochMillis =
-            maxOf(
-                nowEpochMillis(),
-                parseIsoToEpochMillis(current.newEventStartsAt) ?: nowEpochMillis(),
-            ),
-    )
-    OutlinedTextField(
-        value = current.newEventLocation,
-        onValueChange = {
-            model.updateNewEventLocation(it)
-            refresh()
-        },
-        label = { Text("Location (optional)") },
-        singleLine = true,
-        enabled = !current.loading,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    if (current.circle.kids.isEmpty()) {
-        Text(
-            "Add a kid before creating a manual event.",
-            style = MaterialTheme.typography.bodySmall,
+    if (current.error != null) {
+        Text(text = current.error, color = MaterialTheme.colorScheme.error)
+    }
+    if (editing) {
+        OutlinedTextField(
+            value = current.editingEventTitle,
+            onValueChange = {
+                model.updateEditingEventTitle(it)
+                refresh()
+            },
+            label = { Text("Event title") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
         )
-    } else {
+        InstantDateTimeField(
+            label = "Event start",
+            isoValue = current.editingEventStartsAt,
+            onIsoChange = {
+                model.updateEditingEventStartsAt(it)
+                refresh()
+            },
+            enabled = !current.loading,
+            minEpochMillis = nowEpochMillis(),
+        )
+        InstantDateTimeField(
+            label = "Event end (optional)",
+            isoValue = current.editingEventEndsAt,
+            onIsoChange = {
+                model.updateEditingEventEndsAt(it)
+                refresh()
+            },
+            enabled = !current.loading,
+            optional = true,
+            minEpochMillis =
+                maxOf(
+                    nowEpochMillis(),
+                    parseIsoToEpochMillis(current.editingEventStartsAt) ?: nowEpochMillis(),
+                ),
+        )
+        OutlinedTextField(
+            value = current.editingEventLocation,
+            onValueChange = {
+                model.updateEditingEventLocation(it)
+                refresh()
+            },
+            label = { Text("Event location (optional)") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
         FeedKidCheckboxes(
             kids = current.circle.kids,
-            selectedKidIds = current.newEventKidIds,
+            selectedKidIds = current.editingEventKidIds,
             enabled = !current.loading,
             onToggle = {
-                model.toggleNewEventKid(it)
+                model.toggleEditingEventKid(it)
                 refresh()
             },
         )
-    }
-    Button(
-        onClick = {
-            scope.launch {
-                model.addEvent()
-                refresh()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    scope.launch {
+                        model.saveEvent()
+                        refresh()
+                    }
+                },
+                enabled =
+                    !current.loading &&
+                        current.editingEventTitle.isNotBlank() &&
+                        current.editingEventStartsAt.isNotBlank() &&
+                        current.editingEventKidIds.isNotEmpty(),
+            ) {
+                Text("Save")
             }
-        },
-        enabled =
-            !current.loading &&
-                current.newEventTitle.isNotBlank() &&
-                current.newEventStartsAt.isNotBlank() &&
-                current.newEventKidIds.isNotEmpty(),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text("Add event")
+            OutlinedButton(
+                onClick = {
+                    model.closeEventCompose()
+                    refresh()
+                },
+                enabled = !current.loading,
+            ) {
+                Text("Cancel")
+            }
+        }
+    } else {
+        OutlinedTextField(
+            value = current.newEventTitle,
+            onValueChange = {
+                model.updateNewEventTitle(it)
+                refresh()
+            },
+            label = { Text("Event title") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        InstantDateTimeField(
+            label = "Event start",
+            isoValue = current.newEventStartsAt,
+            onIsoChange = {
+                model.updateNewEventStartsAt(it)
+                refresh()
+            },
+            enabled = !current.loading,
+            minEpochMillis = nowEpochMillis(),
+        )
+        InstantDateTimeField(
+            label = "Event end (optional)",
+            isoValue = current.newEventEndsAt,
+            onIsoChange = {
+                model.updateNewEventEndsAt(it)
+                refresh()
+            },
+            enabled = !current.loading,
+            optional = true,
+            minEpochMillis =
+                maxOf(
+                    nowEpochMillis(),
+                    parseIsoToEpochMillis(current.newEventStartsAt) ?: nowEpochMillis(),
+                ),
+        )
+        OutlinedTextField(
+            value = current.newEventLocation,
+            onValueChange = {
+                model.updateNewEventLocation(it)
+                refresh()
+            },
+            label = { Text("Event location (optional)") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (current.circle.kids.isEmpty()) {
+            Text(
+                "Add a kid before creating a manual event.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            FeedKidCheckboxes(
+                kids = current.circle.kids,
+                selectedKidIds = current.newEventKidIds,
+                enabled = !current.loading,
+                onToggle = {
+                    model.toggleNewEventKid(it)
+                    refresh()
+                },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    scope.launch {
+                        model.addEvent()
+                        refresh()
+                    }
+                },
+                enabled =
+                    !current.loading &&
+                        current.newEventTitle.isNotBlank() &&
+                        current.newEventStartsAt.isNotBlank() &&
+                        current.newEventKidIds.isNotEmpty(),
+            ) {
+                Text("Save")
+            }
+            OutlinedButton(
+                onClick = {
+                    model.closeEventCompose()
+                    refresh()
+                },
+                enabled = !current.loading,
+            ) {
+                Text("Cancel")
+            }
+        }
     }
-
 }
 
 @Composable

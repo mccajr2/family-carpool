@@ -67,7 +67,7 @@ Agenda scroll so the list is the primary content.
 
 - [x] **Web:** Calendar Add control; modal/panel compose for create + edit;
   remove inline forms from Agenda; update tests.
-- [ ] **Android (sharedUI):** Calendar Add control; sheet/push compose for
+- [x] **Android (sharedUI):** Calendar Add control; sheet/push compose for
   create + edit; remove inline forms; update `FamilyUiModel` / UI tests.
 - [ ] **iOS:** Calendar Add control; sheet/push compose for create + edit;
   remove inline forms; keep AuthViewModel write paths.
