@@ -589,27 +589,24 @@ private fun ReadyContent(
                     enabled = !current.loading,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    value = current.editingEventStartsAt,
-                    onValueChange = {
+                InstantDateTimeField(
+                    label = "Starts at",
+                    isoValue = current.editingEventStartsAt,
+                    onIsoChange = {
                         model.updateEditingEventStartsAt(it)
                         refresh()
                     },
-                    label = { Text("Starts at (ISO-8601)") },
-                    singleLine = true,
                     enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    value = current.editingEventEndsAt,
-                    onValueChange = {
+                InstantDateTimeField(
+                    label = "Ends at (optional)",
+                    isoValue = current.editingEventEndsAt,
+                    onIsoChange = {
                         model.updateEditingEventEndsAt(it)
                         refresh()
                     },
-                    label = { Text("Ends at (optional)") },
-                    singleLine = true,
                     enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
+                    optional = true,
                 )
                 OutlinedTextField(
                     value = current.editingEventLocation,
@@ -662,9 +659,9 @@ private fun ReadyContent(
                     Text(event.title)
                     Text(
                         if (event.endsAt.isNullOrBlank()) {
-                            event.startsAt
+                            formatIsoForDisplay(event.startsAt)
                         } else {
-                            "${event.startsAt} → ${event.endsAt}"
+                            "${formatIsoForDisplay(event.startsAt)} → ${formatIsoForDisplay(event.endsAt!!)}"
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -716,27 +713,24 @@ private fun ReadyContent(
         enabled = !current.loading,
         modifier = Modifier.fillMaxWidth(),
     )
-    OutlinedTextField(
-        value = current.newEventStartsAt,
-        onValueChange = {
+    InstantDateTimeField(
+        label = "Starts at",
+        isoValue = current.newEventStartsAt,
+        onIsoChange = {
             model.updateNewEventStartsAt(it)
             refresh()
         },
-        label = { Text("Starts at (ISO-8601)") },
-        singleLine = true,
         enabled = !current.loading,
-        modifier = Modifier.fillMaxWidth(),
     )
-    OutlinedTextField(
-        value = current.newEventEndsAt,
-        onValueChange = {
+    InstantDateTimeField(
+        label = "Ends at (optional)",
+        isoValue = current.newEventEndsAt,
+        onIsoChange = {
             model.updateNewEventEndsAt(it)
             refresh()
         },
-        label = { Text("Ends at (optional)") },
-        singleLine = true,
         enabled = !current.loading,
-        modifier = Modifier.fillMaxWidth(),
+        optional = true,
     )
     OutlinedTextField(
         value = current.newEventLocation,

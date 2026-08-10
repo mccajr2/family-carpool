@@ -53,10 +53,12 @@ struct FamilyManualEventItem: Identifiable, Equatable {
     var kidIds: [String]
 
     var whenLabel: String {
+        let start = ManualEventDateCodec.displayString(fromIso: startsAt) ?? startsAt
         if let endsAt, !endsAt.isEmpty {
-            return "\(startsAt) → \(endsAt)"
+            let end = ManualEventDateCodec.displayString(fromIso: endsAt) ?? endsAt
+            return "\(start) → \(end)"
         }
-        return startsAt
+        return start
     }
 
     func kidNamesLabel(kids: [FamilyKidItem]) -> String {
@@ -65,6 +67,42 @@ struct FamilyManualEventItem: Identifiable, Equatable {
             let name = namesById[id]?.trimmingCharacters(in: .whitespacesAndNewlines)
             return (name?.isEmpty == false) ? name : nil
         }.joined(separator: ", ")
+    }
+}
+
+enum ManualEventDateCodec {
+    private static let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let isoWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let isoPlain: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func date(fromIso value: String) -> Date? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return isoWithFractional.date(from: trimmed) ?? isoPlain.date(from: trimmed)
+    }
+
+    static func isoString(from date: Date) -> String {
+        isoPlain.string(from: date)
+    }
+
+    static func displayString(fromIso value: String) -> String? {
+        guard let date = date(fromIso: value) else { return nil }
+        return displayFormatter.string(from: date)
     }
 }
 
@@ -121,14 +159,16 @@ final class AuthViewModel: ObservableObject {
     @Published var newFeedKidIds: [String] = []
     @Published var events: [FamilyManualEventItem] = []
     @Published var newEventTitle: String = ""
-    @Published var newEventStartsAt: String = ""
-    @Published var newEventEndsAt: String = ""
+    @Published var newEventStartsAtDate: Date = Date()
+    @Published var newEventEndsAtDate: Date = Date().addingTimeInterval(3600)
+    @Published var newEventHasEndsAt: Bool = false
     @Published var newEventLocation: String = ""
     @Published var newEventKidIds: [String] = []
     @Published var editingEventId: String?
     @Published var editingEventTitle: String = ""
-    @Published var editingEventStartsAt: String = ""
-    @Published var editingEventEndsAt: String = ""
+    @Published var editingEventStartsAtDate: Date = Date()
+    @Published var editingEventEndsAtDate: Date = Date()
+    @Published var editingEventHasEndsAt: Bool = false
     @Published var editingEventLocation: String = ""
     @Published var editingEventKidIds: [String] = []
     @Published var familyPhase: FamilyPhase = .loading
@@ -930,14 +970,15 @@ final class AuthViewModel: ObservableObject {
 
     func addEvent() {
         let title = newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let startsAt = newEventStartsAt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !startsAt.isEmpty, !newEventKidIds.isEmpty else { return }
+        guard !title.isEmpty, !newEventKidIds.isEmpty else { return }
+        let startsAt = ManualEventDateCodec.isoString(from: newEventStartsAtDate)
+        let endsAt = newEventHasEndsAt ? ManualEventDateCodec.isoString(from: newEventEndsAtDate) : ""
         isLoading = true
         errorMessage = nil
         bridge.createEvent(
             title: title,
             startsAt: startsAt,
-            endsAt: newEventEndsAt.trimmingCharacters(in: .whitespacesAndNewlines),
+            endsAt: endsAt,
             location: newEventLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             kidIds: newEventKidIds,
             onSuccess: { [weak self] id, eventTitle, starts, ends, location, kidIds in
@@ -959,8 +1000,9 @@ final class AuthViewModel: ObservableObject {
                         return $0.startsAt < $1.startsAt
                     }
                     self.newEventTitle = ""
-                    self.newEventStartsAt = ""
-                    self.newEventEndsAt = ""
+                    self.newEventStartsAtDate = Date()
+                    self.newEventEndsAtDate = Date().addingTimeInterval(3600)
+                    self.newEventHasEndsAt = false
                     self.newEventLocation = ""
                     self.newEventKidIds = []
                 }
@@ -972,8 +1014,14 @@ final class AuthViewModel: ObservableObject {
     func beginEditEvent(_ event: FamilyManualEventItem) {
         editingEventId = event.id
         editingEventTitle = event.title
-        editingEventStartsAt = event.startsAt
-        editingEventEndsAt = event.endsAt ?? ""
+        editingEventStartsAtDate = ManualEventDateCodec.date(fromIso: event.startsAt) ?? Date()
+        if let endsAt = event.endsAt, let endsDate = ManualEventDateCodec.date(fromIso: endsAt) {
+            editingEventEndsAtDate = endsDate
+            editingEventHasEndsAt = true
+        } else {
+            editingEventEndsAtDate = editingEventStartsAtDate.addingTimeInterval(3600)
+            editingEventHasEndsAt = false
+        }
         editingEventLocation = event.location ?? ""
         editingEventKidIds = event.kidIds
     }
@@ -981,8 +1029,9 @@ final class AuthViewModel: ObservableObject {
     func cancelEditEvent() {
         editingEventId = nil
         editingEventTitle = ""
-        editingEventStartsAt = ""
-        editingEventEndsAt = ""
+        editingEventStartsAtDate = Date()
+        editingEventEndsAtDate = Date()
+        editingEventHasEndsAt = false
         editingEventLocation = ""
         editingEventKidIds = []
     }
@@ -990,15 +1039,16 @@ final class AuthViewModel: ObservableObject {
     func saveEvent() {
         guard let eventId = editingEventId else { return }
         let title = editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let startsAt = editingEventStartsAt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !startsAt.isEmpty, !editingEventKidIds.isEmpty else { return }
+        guard !title.isEmpty, !editingEventKidIds.isEmpty else { return }
+        let startsAt = ManualEventDateCodec.isoString(from: editingEventStartsAtDate)
+        let endsAt = editingEventHasEndsAt ? ManualEventDateCodec.isoString(from: editingEventEndsAtDate) : ""
         isLoading = true
         errorMessage = nil
         bridge.updateEvent(
             eventId: eventId,
             title: title,
             startsAt: startsAt,
-            endsAt: editingEventEndsAt.trimmingCharacters(in: .whitespacesAndNewlines),
+            endsAt: endsAt,
             location: editingEventLocation.trimmingCharacters(in: .whitespacesAndNewlines),
             kidIds: editingEventKidIds,
             onSuccess: { [weak self] id, eventTitle, starts, ends, location, kidIds in
@@ -1150,8 +1200,9 @@ final class AuthViewModel: ObservableObject {
         newFeedUrl = ""
         newFeedKidIds = []
         newEventTitle = ""
-        newEventStartsAt = ""
-        newEventEndsAt = ""
+        newEventStartsAtDate = Date()
+        newEventEndsAtDate = Date().addingTimeInterval(3600)
+        newEventHasEndsAt = false
         newEventLocation = ""
         newEventKidIds = []
         cancelEditFeed()

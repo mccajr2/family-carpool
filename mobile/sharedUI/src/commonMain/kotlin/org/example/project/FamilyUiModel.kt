@@ -51,7 +51,7 @@ class FamilyUiModel(
             val editingFeedKidIds: List<String> = emptyList(),
             val events: List<ManualEvent> = emptyList(),
             val newEventTitle: String = "",
-            val newEventStartsAt: String = "",
+            val newEventStartsAt: String = nowIsoUtc(),
             val newEventEndsAt: String = "",
             val newEventLocation: String = "",
             val newEventKidIds: List<String> = emptyList(),
@@ -769,7 +769,7 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     newEventTitle = "",
-                    newEventStartsAt = "",
+                    newEventStartsAt = nowIsoUtc(),
                     newEventEndsAt = "",
                     newEventLocation = "",
                     newEventKidIds = emptyList(),

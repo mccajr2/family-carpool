@@ -284,12 +284,22 @@ struct ContentView: View {
                         TextField("Title", text: $model.editingEventTitle)
                             .disabled(model.isLoading)
                             .textFieldStyle(.roundedBorder)
-                        TextField("Starts at (ISO-8601)", text: $model.editingEventStartsAt)
+                        DatePicker(
+                            "Starts at",
+                            selection: $model.editingEventStartsAtDate,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .disabled(model.isLoading)
+                        Toggle("Ends at", isOn: $model.editingEventHasEndsAt)
                             .disabled(model.isLoading)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Ends at (optional)", text: $model.editingEventEndsAt)
+                        if model.editingEventHasEndsAt {
+                            DatePicker(
+                                "Ends at",
+                                selection: $model.editingEventEndsAtDate,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
                             .disabled(model.isLoading)
-                            .textFieldStyle(.roundedBorder)
+                        }
                         TextField("Location (optional)", text: $model.editingEventLocation)
                             .disabled(model.isLoading)
                             .textFieldStyle(.roundedBorder)
@@ -301,7 +311,6 @@ struct ContentView: View {
                                 .disabled(
                                     model.isLoading
                                         || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                        || model.editingEventStartsAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                         || model.editingEventKidIds.isEmpty
                                 )
                             Button("Cancel") { model.cancelEditEvent() }
@@ -338,12 +347,22 @@ struct ContentView: View {
             TextField("New event title", text: $model.newEventTitle)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
-            TextField("Starts at (ISO-8601)", text: $model.newEventStartsAt)
+            DatePicker(
+                "Starts at",
+                selection: $model.newEventStartsAtDate,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .disabled(model.isLoading)
+            Toggle("Ends at", isOn: $model.newEventHasEndsAt)
                 .disabled(model.isLoading)
-                .textFieldStyle(.roundedBorder)
-            TextField("Ends at (optional)", text: $model.newEventEndsAt)
+            if model.newEventHasEndsAt {
+                DatePicker(
+                    "Ends at",
+                    selection: $model.newEventEndsAtDate,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
                 .disabled(model.isLoading)
-                .textFieldStyle(.roundedBorder)
+            }
             TextField("Location (optional)", text: $model.newEventLocation)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
@@ -360,7 +379,6 @@ struct ContentView: View {
                 .disabled(
                     model.isLoading
                         || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.newEventStartsAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || model.newEventKidIds.isEmpty
                 )
 
