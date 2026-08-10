@@ -1,6 +1,6 @@
 # Spec: agenda-event-compose
 
-Status: draft  
+Status: approved  
 Created: 2026-08-10  
 Updated: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -88,4 +88,4 @@ Agenda scroll so the list is the primary content.
 
 ## Approval
 
-Draft ready for approval. Do not `/implement` until approved.
+Approved 2026-08-10. Ready for `/implement`.
