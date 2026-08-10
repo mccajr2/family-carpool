@@ -48,7 +48,8 @@ look up adult by id, update `displayName`).
 ## Family circle (v1)
 
 Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
-`named-places` + `place-geocoding` + `activity-feed-subscribe`:
+`named-places` + `place-geocoding` + `activity-feed-subscribe` +
+`activity-feed-poller`:
 
 | Topic | Decision |
 |--------|----------|
@@ -63,7 +64,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
-| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit Sync now; soft-fail writes `lastSyncError` (feed row kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. Background interval polling is **`activity-feed-poller`** (not this module’s job). CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
+| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
 | Empty circle | Allowed (add kids / places / feeds later) |
 
 Modulith modules: `backend/modules/family/` (circle, kids, places, membership
@@ -106,7 +107,7 @@ family-carpool/
 │   └── modules/
 │       ├── auth/         # Email OTP + Bearer sessions
 │       ├── family/       # Family circle + kids + named places (+ geocode)
-│       └── feeds/        # Activity feed subscribe + sync (+ events snapshot)
+│       └── feeds/        # Activity feed subscribe + sync + background poller
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
 │   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)

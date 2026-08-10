@@ -90,7 +90,7 @@ list / status labels). Does **not** trigger sync. Sync now remains per feed.
       change.
 - [x] **Web:** Refresh control on manage-feeds; re-`listFeeds`; tests.
 - [x] **Mobile:** sharedUI + iOS Refresh; tests.
-- [ ] **Docs:** architecture — poller interval, enable flag, single-instance
+- [x] **Docs:** architecture — poller interval, enable flag, single-instance
       assumption, Refresh vs Sync now.
 - [ ] **Tests:** poller unit/integration + client Refresh; `ModularityTests`.
 
