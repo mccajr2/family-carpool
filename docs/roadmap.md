@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-09 (schedule import → iCal/webcal)
+Updated: 2026-08-09 (named-places active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
+| 1 | named-places | active | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
 | 2 | place-geocoding | planned | 2026-08-07 · re-rank split | Nominatim geocode for places/venues; cache; respectful User-Agent |
 | 3 | activity-feed-sync | planned | 2026-08-07 · re-rank split | iCal/webcal URL import; validate Crossbar + SportsYou + SportsEngine; poll; dedupe by UID; last-synced; kid↔feed attachment |
 | 4 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
@@ -113,7 +113,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None — pick Next up (`named-places`) with `/spec`._
+| Id | Branch | Spec |
+|----|--------|------|
+| named-places | `named-places` | [active/named-places.md](specs/active/named-places.md) |
 
 ## Done
 
@@ -146,3 +148,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-09 | `/spec family-adult-invites-roles`: invite code, Caregiver join, promote/demote, leave rules; multi-circle stays parking. |
 | 2026-08-09 | `/pr family-adult-invites-roles`: invite code + roles shipped (web/Android/iOS); next up `named-places`. |
 | 2026-08-09 | Schedule import locked to **iCal/webcal** (not RSS); v1 validate Crossbar, SportsYou, SportsEngine; RSS/Atom → parking. |
+| 2026-08-09 | `/spec named-places`: circle places (name + free-text address); any member CRUD; lat/lng → `place-geocoding`. |
