@@ -431,22 +431,25 @@ describe("FamilyScreen", () => {
     expect(
       within(agenda).getByText("No events in the loaded window."),
     ).toBeInTheDocument()
+    expect(screen.queryByLabelText("Event title")).not.toBeInTheDocument()
     expect(listCalendar).toHaveBeenCalledWith(
       "tok",
       expect.any(String),
       expect.any(String),
     )
 
-    await user.type(screen.getByLabelText("New event title"), "Dentist")
-    const startInput = screen.getByLabelText("New event start")
-    const endInput = screen.getByLabelText("New event end")
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+    const compose = await screen.findByRole("dialog", { name: "Add event" })
+    await user.type(within(compose).getByLabelText("Event title"), "Dentist")
+    const startInput = within(compose).getByLabelText("Event start")
+    const endInput = within(compose).getByLabelText("Event end")
     await user.clear(startInput)
     await user.type(startInput, "2030-08-15T13:00")
     await user.clear(endInput)
     await user.type(endInput, "2030-08-15T14:00")
-    await user.type(screen.getByLabelText("New event location"), "Clinic")
-    await user.click(screen.getByLabelText("Assign Sam to new event"))
-    await user.click(screen.getByRole("button", { name: "Add event" }))
+    await user.type(within(compose).getByLabelText("Event location"), "Clinic")
+    await user.click(within(compose).getByLabelText("Assign Sam to event"))
+    await user.click(within(compose).getByRole("button", { name: "Save" }))
 
     expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
     expect(within(agenda).getByText("Manual")).toBeInTheDocument()
@@ -459,12 +462,106 @@ describe("FamilyScreen", () => {
       expect.stringMatching(/2030-08-15T/),
       "Clinic",
     )
+    expect(screen.queryByRole("dialog", { name: "Add event" })).not.toBeInTheDocument()
 
     await user.click(within(agenda).getByRole("button", { name: "Remove event" }))
     await waitFor(() => {
       expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("opens the same compose dialog to edit a manual event", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const created = {
+      id: "e1",
+      source: "MANUAL" as const,
+      title: "Dentist",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      location: "Clinic",
+      kidIds: ["k1"],
+      feedId: null,
+      feedName: null,
+    }
+    let calendar = [created]
+    const listCalendar = vi.fn().mockImplementation(async () => [...calendar])
+    const updateEvent = vi.fn().mockImplementation(async () => {
+      calendar = [
+        {
+          ...created,
+          title: "Orthodontist",
+          location: "Ortho",
+        },
+      ]
+      return {
+        id: created.id,
+        title: "Orthodontist",
+        startsAt: created.startsAt,
+        endsAt: created.endsAt,
+        location: "Ortho",
+        kidIds: created.kidIds,
+      }
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar,
+          updateEvent,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
+    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+
+    const compose = await screen.findByRole("dialog", { name: "Edit event" })
+    const title = within(compose).getByLabelText("Event title")
+    await user.clear(title)
+    await user.type(title, "Orthodontist")
+    const location = within(compose).getByLabelText("Event location")
+    await user.clear(location)
+    await user.type(location, "Ortho")
+    await user.click(within(compose).getByRole("button", { name: "Save" }))
+
+    expect(await within(agenda).findByText("Orthodontist")).toBeInTheDocument()
+    expect(within(agenda).getByText("Ortho")).toBeInTheDocument()
+    expect(updateEvent).toHaveBeenCalledWith(
+      "tok",
+      "e1",
+      "Orthodontist",
+      expect.stringMatching(/2030-08-15T/),
+      ["k1"],
+      expect.stringMatching(/2030-08-15T/),
+      "Ortho",
+    )
+    expect(screen.queryByRole("dialog", { name: "Edit event" })).not.toBeInTheDocument()
   })
 
   it("loads the next 30 days when Load more is pressed", async () => {
