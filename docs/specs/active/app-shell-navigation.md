@@ -114,7 +114,7 @@ into destination screens rather than rewriting behavior.
   placeholder; tests on navigation/visibility where practical.
 - [x] **iOS:** Same IA via SwiftUI `TabView` (or equivalent); More grouped list;
   push Places/Feeds; Caregiver Feeds omission; Carpool placeholder.
-- [ ] **Docs:** Note signed-in shell IA in `docs/architecture.md` (brief);
+- [x] **Docs:** Note signed-in shell IA in `docs/architecture.md` (brief);
   roadmap Active row.
 - [ ] **Tests:** Client tests for tab/destination presence, Caregiver Feeds row
   omitted, Carpool placeholder visible; no contract/backend suite required.
