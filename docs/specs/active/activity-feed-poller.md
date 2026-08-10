@@ -1,8 +1,9 @@
 # Spec: activity-feed-poller
 
-Status: draft  
+Status: in-progress  
 Created: 2026-08-10  
 Updated: 2026-08-10  
+Approved: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `activity-feed-poller`  
 Added: 2026-08-10 · re-rank split
@@ -81,7 +82,7 @@ list / status labels). Does **not** trigger sync. Sync now remains per feed.
 
 ## Tasks
 
-- [ ] **Backend:** Enable scheduling; `FeedsPoller` (or equivalent) + config
+- [x] **Backend:** Enable scheduling; `FeedsPoller` (or equivalent) + config
       (`poll-enabled`, `poll-interval-ms`); sequential/soft-polite sync-all using
       existing service sync; tests with stub + disabled schedule.
 - [ ] **Contract:** No path changes; optional description-only note if needed —

@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface ActivityFeedRepository extends JpaRepository<ActivityFeedEntity, UUID> {
     List<ActivityFeedEntity> findByCircleIdOrderByCreatedAtAsc(UUID circleId);
 
+    List<ActivityFeedEntity> findAllByOrderByCreatedAtAsc();
+
     Optional<ActivityFeedEntity> findByIdAndCircleId(UUID id, UUID circleId);
 
     boolean existsByCircleIdAndSourceUrl(UUID circleId, String sourceUrl);

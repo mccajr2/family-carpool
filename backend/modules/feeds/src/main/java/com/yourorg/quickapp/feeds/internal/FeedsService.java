@@ -110,6 +110,32 @@ public class FeedsService {
         feeds.delete(feed);
     }
 
+    /**
+     * Background / test entry: sync every feed using the same path as Sync now.
+     *
+     * @return number of feeds attempted
+     */
+    @Transactional
+    public int pollAllFeeds() {
+        List<ActivityFeedEntity> all = feeds.findAllByOrderByCreatedAtAsc();
+        for (ActivityFeedEntity feed : all) {
+            syncFeed(feed);
+            feeds.save(feed);
+        }
+        return all.size();
+    }
+
+    /** Sync a single feed by id (used by the scheduled poller between delays). */
+    @Transactional
+    public void pollFeed(UUID feedId) {
+        ActivityFeedEntity feed = feeds.findById(feedId).orElse(null);
+        if (feed == null) {
+            return;
+        }
+        syncFeed(feed);
+        feeds.save(feed);
+    }
+
     static String normalizeSourceUrl(String raw) {
         String trimmed = normalizeRequired(raw, "sourceUrl");
         String lower = trimmed.toLowerCase(Locale.ROOT);
