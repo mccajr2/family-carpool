@@ -101,7 +101,7 @@ and validate kid ids belong to that circle — no imports of `family.internal`.
 
 ## Tasks
 
-- [ ] **Backend:** New `feeds` module + Flyway (feeds, feed_kids, events);
+- [x] **Backend:** New `feeds` module + Flyway (feeds, feed_kids, events);
       `FamilyMembershipApi` (or equivalent) on `family`; iCal fetch/parse port +
       stub/fixtures; create/update/delete + auto-sync + Sync now; soft-fail +
       UID snapshot replace.

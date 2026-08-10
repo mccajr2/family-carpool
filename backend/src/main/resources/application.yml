@@ -28,6 +28,10 @@ app:
     verify-code-window-seconds: 900
     # Local smoke: echo OTP in request-code response + log it. Never enable in prod.
     dev-code-echo: ${AUTH_DEV_CODE_ECHO:true}
+  feeds:
+    # http (default) or stub (CI / offline soft-fail demos)
+    fetch-provider: ${FEEDS_FETCH_PROVIDER:http}
+    user-agent: ${FEEDS_USER_AGENT:family-carpool/0.1 (https://github.com/mccajr2/family-carpool)}
   geocode:
     # nominatim (default) or stub (CI / offline soft-fail demos)
     provider: ${GEOCODE_PROVIDER:nominatim}

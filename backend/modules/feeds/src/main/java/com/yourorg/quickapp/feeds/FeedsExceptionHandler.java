@@ -1,21 +1,16 @@
-package com.yourorg.quickapp.family;
+package com.yourorg.quickapp.feeds;
 
-import com.yourorg.quickapp.family.internal.FamilyException;
+import com.yourorg.quickapp.feeds.internal.FeedsException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
-public class FamilyExceptionHandler {
+public class FeedsExceptionHandler {
 
-    @ExceptionHandler(FamilyException.class)
-    ResponseEntity<ErrorResponse> handleFamily(FamilyException ex) {
-        return ResponseEntity.status(ex.status()).body(new ErrorResponse(ex.getMessage()));
-    }
-
-    @ExceptionHandler(FamilyAccessException.class)
-    ResponseEntity<ErrorResponse> handleFamilyAccess(FamilyAccessException ex) {
+    @ExceptionHandler(FeedsException.class)
+    ResponseEntity<ErrorResponse> handleFeeds(FeedsException ex) {
         return ResponseEntity.status(ex.status()).body(new ErrorResponse(ex.getMessage()));
     }
 

@@ -14,6 +14,7 @@ class ModularityTests {
 
         assertThat(modules.getModuleByName("auth")).isPresent();
         assertThat(modules.getModuleByName("family")).isPresent();
+        assertThat(modules.getModuleByName("feeds")).isPresent();
         assertThat(modules.getModuleByName("greeting")).isEmpty();
     }
 }
