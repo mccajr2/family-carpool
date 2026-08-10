@@ -88,12 +88,18 @@ class AuthBridge {
     fun isSignedIn(): Boolean = session.isSignedIn()
 
     fun loadFamily(
-        onNeedsCreate: (email: String) -> Unit,
+        onNeedsCreate: (email: String, hasDisplayName: Boolean) -> Unit,
         onReady: (
             title: String,
             email: String,
+            adultId: String,
             displayName: String?,
             role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
             kidIds: List<String>,
             kidNames: List<String>,
         ) -> Unit,
@@ -102,18 +108,12 @@ class AuthBridge {
         scope.launch {
             try {
                 val adult = session.currentAdult()
-                val circle = familyClient.getCircle(session.requireAccessToken())
+                val token = session.requireAccessToken()
+                val circle = familyClient.getCircle(token)
                 if (circle == null) {
-                    onNeedsCreate(adult.email)
+                    onNeedsCreate(adult.email, !adult.displayName.isNullOrBlank())
                 } else {
-                    onReady(
-                        circle.displayTitle(),
-                        adult.email,
-                        adult.displayName,
-                        circle.role.name,
-                        circle.kids.map { it.id },
-                        circle.kids.map { it.displayName },
-                    )
+                    emitReady(adult, circle, token, onReady)
                 }
             } catch (e: Throwable) {
                 onError(e.message ?: "Failed to load family")
@@ -124,7 +124,20 @@ class AuthBridge {
     fun createFamilyCircle(
         adultDisplayName: String,
         circleName: String?,
-        onSuccess: (title: String, email: String, displayName: String?, role: String) -> Unit,
+        onSuccess: (
+            title: String,
+            email: String,
+            adultId: String,
+            displayName: String?,
+            role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
+            kidIds: List<String>,
+            kidNames: List<String>,
+        ) -> Unit,
         onError: (String) -> Unit,
     ) {
         scope.launch {
@@ -138,9 +151,121 @@ class AuthBridge {
                         name = name,
                     )
                 val adult = session.currentAdult()
-                onSuccess(circle.displayTitle(), adult.email, adult.displayName, circle.role.name)
+                emitReady(adult, circle, token, onSuccess)
             } catch (e: Throwable) {
                 onError(e.message ?: "Create failed")
+            }
+        }
+    }
+
+    fun joinFamilyCircle(
+        code: String,
+        adultDisplayName: String?,
+        onSuccess: (
+            title: String,
+            email: String,
+            adultId: String,
+            displayName: String?,
+            role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
+            kidIds: List<String>,
+            kidNames: List<String>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val token = session.requireAccessToken()
+                val circle =
+                    familyClient.joinCircle(
+                        accessToken = token,
+                        code = code.trim(),
+                        adultDisplayName = adultDisplayName?.trim()?.ifEmpty { null },
+                    )
+                val adult = session.currentAdult()
+                emitReady(adult, circle, token, onSuccess)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Join failed")
+            }
+        }
+    }
+
+    fun regenerateInvite(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val invite = familyClient.regenerateInvite(session.requireAccessToken())
+                onSuccess(invite.code)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Regenerate failed")
+            }
+        }
+    }
+
+    fun leaveFamily(
+        onSuccess: (email: String, hasDisplayName: Boolean) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.leaveCircle(session.requireAccessToken())
+                val adult = session.currentAdult()
+                onSuccess(adult.email, !adult.displayName.isNullOrBlank())
+            } catch (e: Throwable) {
+                onError(e.message ?: "Leave failed")
+            }
+        }
+    }
+
+    fun updateMemberRole(
+        adultId: String,
+        role: String,
+        onSuccess: (
+            title: String,
+            email: String,
+            adultId: String,
+            displayName: String?,
+            role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
+            kidIds: List<String>,
+            kidNames: List<String>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val familyRole = FamilyRole.valueOf(role)
+                val token = session.requireAccessToken()
+                val circle = familyClient.updateMemberRole(token, adultId, familyRole)
+                val adult = session.currentAdult()
+                emitReady(adult, circle, token, onSuccess)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Update role failed")
+            }
+        }
+    }
+
+    fun removeMember(
+        adultId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.removeMember(session.requireAccessToken(), adultId)
+                onSuccess()
+            } catch (e: Throwable) {
+                onError(e.message ?: "Remove member failed")
             }
         }
     }
@@ -194,5 +319,46 @@ class AuthBridge {
                 onError(e.message ?: "Remove failed")
             }
         }
+    }
+
+    private suspend fun emitReady(
+        adult: Adult,
+        circle: FamilyCircle,
+        token: String,
+        onReady: (
+            title: String,
+            email: String,
+            adultId: String,
+            displayName: String?,
+            role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
+            kidIds: List<String>,
+            kidNames: List<String>,
+        ) -> Unit,
+    ) {
+        val inviteCode =
+            if (circle.role == FamilyRole.ORGANIZER) {
+                runCatching { familyClient.getInvite(token).code }.getOrNull()
+            } else {
+                null
+            }
+        onReady(
+            circle.displayTitle(),
+            adult.email,
+            adult.id,
+            adult.displayName,
+            circle.role.name,
+            inviteCode,
+            circle.members.map { it.adultId },
+            circle.members.map { it.email },
+            circle.members.map { it.displayName ?: "" },
+            circle.members.map { it.role.name },
+            circle.kids.map { it.id },
+            circle.kids.map { it.displayName },
+        )
     }
 }

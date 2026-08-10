@@ -12,6 +12,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -42,8 +43,15 @@ class FamilyUiModelTest {
                             request.method == HttpMethod.Post ->
                             respond(
                                 content =
-                                    """{"id":"c1","name":null,"role":"ORGANIZER","kids":[]}""",
+                                    """{"id":"c1","name":null,"role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[]}""",
                                 status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
                         request.url.encodedPath == "/api/family/circle/kids" &&
@@ -62,14 +70,17 @@ class FamilyUiModelTest {
             val model = familyUiModel(mockEngine, token = "tok")
 
             model.load()
-            val needsCreate = assertIs<FamilyUiModel.State.NeedsCreate>(model.state)
-            assertEquals("parent@example.com", needsCreate.email)
+            val needs = assertIs<FamilyUiModel.State.NeedsMembership>(model.state)
+            assertEquals("parent@example.com", needs.email)
+            assertEquals(FamilyUiModel.EmptyMode.CHOOSE, needs.mode)
 
+            model.showCreate()
             model.updateAdultDisplayName("Alex")
             model.createCircle()
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals("Your family", ready.circle.displayTitle())
             assertEquals("Alex", ready.adultDisplayName)
+            assertEquals("AB12CD34", ready.inviteCode)
 
             model.updateNewKidName("Sam")
             model.addKid()
@@ -80,6 +91,50 @@ class FamilyUiModelTest {
             model.removeKid("k1")
             val withoutKid = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertTrue(withoutKid.circle.kids.isEmpty())
+        }
+
+    @Test
+    fun joinCircleAsCaregiver() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = """{"message":"Family circle not found"}""",
+                                status = HttpStatusCode.NotFound,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/join" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            model.showJoin()
+            model.updateInviteCodeInput("AB12CD34")
+            model.updateAdultDisplayName("Jordan")
+            model.joinCircle()
+
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyRole.CAREGIVER, ready.circle.role)
+            assertEquals("House", ready.circle.displayTitle())
+            assertNull(ready.inviteCode)
         }
 
     @Test
@@ -98,7 +153,13 @@ class FamilyUiModelTest {
                         "/api/family/circle" ->
                             respond(
                                 content =
-                                    """{"id":"c1","name":"McCarthy house","role":"ORGANIZER","kids":[]}""",
+                                    """{"id":"c1","name":"McCarthy house","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"ZZ99YY88"}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -109,6 +170,42 @@ class FamilyUiModelTest {
             model.load()
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals("McCarthy house", ready.circle.displayTitle())
+            assertEquals("ZZ99YY88", ready.inviteCode)
+        }
+    @Test
+    fun leaveReturnsToChooseMembership() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/leave" &&
+                            request.method == HttpMethod.Post ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.leaveCircle()
+            val needs = assertIs<FamilyUiModel.State.NeedsMembership>(model.state)
+            assertEquals(FamilyUiModel.EmptyMode.CHOOSE, needs.mode)
+            assertEquals("other@example.com", needs.email)
         }
 }
 

@@ -24,16 +24,33 @@ export type Kid = {
   displayName: string
 }
 
+export type FamilyMember = {
+  adultId: string
+  email: string
+  displayName: string | null
+  role: FamilyRole
+}
+
 export type FamilyCircle = {
   id: string
   name: string | null
   role: FamilyRole
+  members: FamilyMember[]
   kids: Kid[]
+}
+
+export type FamilyInvite = {
+  code: string
 }
 
 export type CreateFamilyCircleRequest = {
   adultDisplayName: string
   name?: string | null
+}
+
+export type JoinFamilyCircleRequest = {
+  code: string
+  adultDisplayName?: string | null
 }
 
 export type ErrorResponse = {

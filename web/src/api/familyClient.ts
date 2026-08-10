@@ -2,6 +2,9 @@ import { authUrl } from "@/api/authClient"
 import type {
   CreateFamilyCircleRequest,
   FamilyCircle,
+  FamilyInvite,
+  FamilyRole,
+  JoinFamilyCircleRequest,
   Kid,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -65,6 +68,93 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Update family circle failed"))
     }
     return (await response.json()) as FamilyCircle
+  }
+
+  async getInvite(accessToken: string): Promise<FamilyInvite> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/invite"), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Get invite failed"))
+    }
+    return (await response.json()) as FamilyInvite
+  }
+
+  async regenerateInvite(accessToken: string): Promise<FamilyInvite> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/invite/regenerate"),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Regenerate invite failed"))
+    }
+    return (await response.json()) as FamilyInvite
+  }
+
+  async joinCircle(
+    accessToken: string,
+    body: JoinFamilyCircleRequest,
+  ): Promise<FamilyCircle> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/join"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Join family circle failed"))
+    }
+    return (await response.json()) as FamilyCircle
+  }
+
+  async leaveCircle(accessToken: string): Promise<void> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/leave"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Leave family circle failed"))
+    }
+  }
+
+  async updateMemberRole(
+    accessToken: string,
+    adultId: string,
+    role: FamilyRole,
+  ): Promise<FamilyCircle> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/members/${adultId}`),
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update member role failed"))
+    }
+    return (await response.json()) as FamilyCircle
+  }
+
+  async removeMember(accessToken: string, adultId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/members/${adultId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Remove member failed"))
+    }
   }
 
   async addKid(accessToken: string, displayName: string): Promise<Kid> {

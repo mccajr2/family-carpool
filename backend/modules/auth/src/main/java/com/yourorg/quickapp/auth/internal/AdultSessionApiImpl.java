@@ -27,6 +27,11 @@ class AdultSessionApiImpl implements AdultSessionApi {
     }
 
     @Override
+    public AdultResponse requireAdult(UUID adultId) {
+        return authService.requireAdult(adultId);
+    }
+
+    @Override
     public AdultResponse updateDisplayName(UUID adultId, String displayName) {
         return authService.updateDisplayName(adultId, displayName);
     }

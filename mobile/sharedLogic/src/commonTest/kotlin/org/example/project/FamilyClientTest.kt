@@ -29,7 +29,7 @@ class FamilyClientTest {
                             assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
                             respond(
                                 content =
-                                    """{"id":"c1","name":"Our house","role":"ORGANIZER","kids":[]}""",
+                                    """{"id":"c1","name":"Our house","role":"ORGANIZER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[]}""",
                                 status = HttpStatusCode.Created,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -38,7 +38,7 @@ class FamilyClientTest {
                             request.method == HttpMethod.Get ->
                             respond(
                                 content =
-                                    """{"id":"c1","name":null,"role":"ORGANIZER","kids":[{"id":"k1","displayName":"Sam"}]}""",
+                                    """{"id":"c1","name":null,"role":"ORGANIZER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}]}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -68,6 +68,7 @@ class FamilyClientTest {
             val created = client.createCircle("tok", "Alex", "Our house")
             assertEquals(FamilyRole.ORGANIZER, created.role)
             assertEquals("Our house", created.displayTitle())
+            assertEquals(1, created.members.size)
 
             assertEquals("Sam", client.addKid("tok", "Sam").displayName)
             assertEquals("Samantha", client.updateKid("tok", "k1", "Samantha").displayName)
@@ -76,6 +77,67 @@ class FamilyClientTest {
             val loaded = client.getCircle("tok")
             assertEquals("Your family", loaded?.displayTitle())
             assertEquals("Sam", loaded?.kids?.first()?.displayName)
+        }
+
+    @Test
+    fun inviteJoinLeaveAndMemberRole() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/invite" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite/regenerate" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = """{"code":"XY98ZW76"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/join" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"b@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/members/2" &&
+                            request.method == HttpMethod.Patch ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"a@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"b@example.com","displayName":"Jordan","role":"ORGANIZER"}],"kids":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/members/2" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/leave" &&
+                            request.method == HttpMethod.Post ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            assertEquals("AB12CD34", client.getInvite("tok").code)
+            assertEquals("XY98ZW76", client.regenerateInvite("tok").code)
+
+            val joined = client.joinCircle("tok", "AB12CD34", "Jordan")
+            assertEquals(FamilyRole.CAREGIVER, joined.role)
+            assertEquals(2, joined.members.size)
+
+            val promoted = client.updateMemberRole("tok", "2", FamilyRole.ORGANIZER)
+            assertEquals(FamilyRole.ORGANIZER, promoted.members.first { it.adultId == "2" }.role)
+
+            client.removeMember("tok", "2")
+            client.leaveCircle("tok")
         }
 
     @Test
@@ -118,11 +180,11 @@ class FamilyModelsTest {
     @Test
     fun displayTitleUsesPlaceholderWhenNameMissing() {
         val unnamed =
-            FamilyCircle(id = "c1", name = null, role = FamilyRole.ORGANIZER, kids = emptyList())
+            FamilyCircle(id = "c1", name = null, role = FamilyRole.ORGANIZER)
         assertEquals("Your family", unnamed.displayTitle())
 
         val blank =
-            FamilyCircle(id = "c1", name = "  ", role = FamilyRole.ORGANIZER, kids = emptyList())
+            FamilyCircle(id = "c1", name = "  ", role = FamilyRole.ORGANIZER)
         assertEquals("Your family", blank.displayTitle())
 
         val named =
@@ -130,9 +192,29 @@ class FamilyModelsTest {
                 id = "c1",
                 name = "McCarthy house",
                 role = FamilyRole.ORGANIZER,
-                kids = emptyList(),
             )
         assertEquals("McCarthy house", named.displayTitle())
+    }
+
+    @Test
+    fun memberDisplayLabelFallsBackToEmail() {
+        val named =
+            FamilyMember(
+                adultId = "1",
+                email = "a@example.com",
+                displayName = "Alex",
+                role = FamilyRole.ORGANIZER,
+            )
+        assertEquals("Alex", named.displayLabel())
+
+        val unnamed =
+            FamilyMember(
+                adultId = "2",
+                email = "b@example.com",
+                displayName = null,
+                role = FamilyRole.CAREGIVER,
+            )
+        assertEquals("b@example.com", unnamed.displayLabel())
     }
 }
 

@@ -40,7 +40,21 @@ curl -s -X POST http://localhost:8080/api/family/circle \
   -H 'Content-Type: application/json' \
   -d '{"adultDisplayName":"Alex","name":"McCarthy house"}'
 
-# Add a kid
+# Organizer: copy invite code to share out of band
+CODE=$(curl -s http://localhost:8080/api/family/circle/invite \
+  -H "Authorization: Bearer $TOKEN" | jq -r .code)
+
+# Second adult signs in, then joins as Caregiver
+TOKEN2=$(curl -s -X POST http://localhost:8080/api/auth/verify-code \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"other@example.com","code":"123456"}' | jq -r .accessToken)
+# (request-code for other@example.com first, same as above)
+curl -s -X POST http://localhost:8080/api/family/circle/join \
+  -H "Authorization: Bearer $TOKEN2" \
+  -H 'Content-Type: application/json' \
+  -d "{\"code\":\"$CODE\",\"adultDisplayName\":\"Jordan\"}"
+
+# Add a kid (Organizer only)
 curl -s -X POST http://localhost:8080/api/family/circle/kids \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
@@ -55,8 +69,9 @@ npm ci                 # Node ^22.22.2 || ^24.15 || >=26; CI uses web/.nvmrc + p
 npm run dev
 ```
 
-Open the app → email OTP → create family (display name) → add/rename/remove kids
-→ Sign out. Unnamed circles show as **Your family**.
+Open the app → email OTP → **Create family** or **Have an invite code?** →
+members / invite code (Organizer) → add/rename/remove kids (Organizer) →
+Leave family or Sign out. Unnamed circles show as **Your family**.
 
 **Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator
 or USB device. With the backend on the host, forward the port once per device:

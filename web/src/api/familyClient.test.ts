@@ -2,18 +2,28 @@ import { describe, expect, it, vi } from "vitest"
 
 import { FamilyClient } from "@/api/familyClient"
 
+const sampleCircle = {
+  id: "c1",
+  name: "Our house",
+  role: "ORGANIZER" as const,
+  members: [
+    {
+      adultId: "1",
+      email: "a@example.com",
+      displayName: "Alex",
+      role: "ORGANIZER" as const,
+    },
+  ],
+  kids: [],
+}
+
 describe("FamilyClient", () => {
   it("creates a circle with Bearer auth", async () => {
     const fetchFn = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          id: "c1",
-          name: "Our house",
-          role: "ORGANIZER",
-          kids: [],
-        }),
-        { status: 201, headers: { "Content-Type": "application/json" } },
-      ),
+      new Response(JSON.stringify(sampleCircle), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
     )
 
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -23,6 +33,7 @@ describe("FamilyClient", () => {
     })
 
     expect(circle.role).toBe("ORGANIZER")
+    expect(circle.members).toHaveLength(1)
     const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("http://localhost:8080/api/family/circle")
     expect(init.method).toBe("POST")
@@ -34,6 +45,86 @@ describe("FamilyClient", () => {
     const client = new FamilyClient("http://localhost:8080", fetchFn)
 
     await expect(client.getCircle("tok")).resolves.toBeNull()
+  })
+
+  it("joins with invite code and leaves", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...sampleCircle,
+            role: "CAREGIVER",
+            members: [
+              ...sampleCircle.members,
+              {
+                adultId: "2",
+                email: "b@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    const joined = await client.joinCircle("tok", {
+      code: "AB12CD34",
+      adultDisplayName: "Jordan",
+    })
+    expect(joined.role).toBe("CAREGIVER")
+    await client.leaveCircle("tok")
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/join")
+    expect(fetchFn.mock.calls[1]?.[0]).toBe("http://localhost:8080/api/family/circle/leave")
+  })
+
+  it("gets and regenerates invite code", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: "AB12CD34" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: "XY98ZW76" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await expect(client.getInvite("tok")).resolves.toEqual({ code: "AB12CD34" })
+    await expect(client.regenerateInvite("tok")).resolves.toEqual({ code: "XY98ZW76" })
+  })
+
+  it("updates member role and removes a member", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(sampleCircle), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await client.updateMemberRole("tok", "2", "ORGANIZER")
+    await client.removeMember("tok", "2")
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/members/2",
+    )
+    expect((fetchFn.mock.calls[0]?.[1] as RequestInit).method).toBe("PATCH")
+    expect(fetchFn.mock.calls[1]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/members/2",
+    )
   })
 
   it("adds renames and deletes kids", async () => {

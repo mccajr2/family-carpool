@@ -17,14 +17,18 @@ class FamilyCircleEntity {
     @Column(length = 80)
     private String name;
 
+    @Column(name = "invite_code", nullable = false, length = 16)
+    private String inviteCode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     protected FamilyCircleEntity() {}
 
-    FamilyCircleEntity(UUID id, String name, Instant createdAt) {
+    FamilyCircleEntity(UUID id, String name, String inviteCode, Instant createdAt) {
         this.id = id;
         this.name = name;
+        this.inviteCode = inviteCode;
         this.createdAt = createdAt;
     }
 
@@ -38,5 +42,13 @@ class FamilyCircleEntity {
 
     void setName(String name) {
         this.name = name;
+    }
+
+    String inviteCode() {
+        return inviteCode;
+    }
+
+    void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
     }
 }

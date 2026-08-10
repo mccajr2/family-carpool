@@ -50,6 +50,49 @@ public class FamilyController {
         return familyService.update(adult, request);
     }
 
+    @GetMapping("/circle/invite")
+    public FamilyInviteResponse getInvite(HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.getInvite(adult);
+    }
+
+    @PostMapping("/circle/invite/regenerate")
+    public FamilyInviteResponse regenerateInvite(HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.regenerateInvite(adult);
+    }
+
+    @PostMapping("/circle/join")
+    public FamilyCircleResponse join(
+            @Valid @RequestBody JoinFamilyCircleRequest request, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.join(adult, request);
+    }
+
+    @PostMapping("/circle/leave")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leave(HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        familyService.leave(adult);
+    }
+
+    @PatchMapping("/circle/members/{adultId}")
+    public FamilyCircleResponse updateMemberRole(
+            @PathVariable("adultId") UUID adultId,
+            @Valid @RequestBody UpdateFamilyMemberRoleRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.updateMemberRole(adult, adultId, request);
+    }
+
+    @DeleteMapping("/circle/members/{adultId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(
+            @PathVariable("adultId") UUID adultId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        familyService.removeMember(adult, adultId);
+    }
+
     @PostMapping("/circle/kids")
     @ResponseStatus(HttpStatus.CREATED)
     public KidResponse addKid(
