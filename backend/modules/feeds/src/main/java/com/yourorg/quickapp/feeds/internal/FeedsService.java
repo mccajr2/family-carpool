@@ -69,7 +69,7 @@ public class FeedsService {
     public FeedResponse update(AdultResponse adult, UUID feedId, UpdateFeedRequest request) {
         UUID circleId = familyMembershipApi.requireOrganizerCircleId(adult.id());
         ActivityFeedEntity feed =
-                feeds.findByIdAndCircleId(feedId, circleId)
+                feeds.findByIdAndCircleIdForUpdate(feedId, circleId)
                         .orElseThrow(() -> new FeedsException(HttpStatus.NOT_FOUND, "Feed not found"));
         String name = normalizeRequired(request.name(), "name");
         String sourceUrl = normalizeSourceUrl(request.sourceUrl());
@@ -93,7 +93,7 @@ public class FeedsService {
     public FeedResponse sync(AdultResponse adult, UUID feedId) {
         UUID circleId = familyMembershipApi.requireOrganizerCircleId(adult.id());
         ActivityFeedEntity feed =
-                feeds.findByIdAndCircleId(feedId, circleId)
+                feeds.findByIdAndCircleIdForUpdate(feedId, circleId)
                         .orElseThrow(() -> new FeedsException(HttpStatus.NOT_FOUND, "Feed not found"));
         syncFeed(feed);
         feeds.save(feed);
@@ -117,18 +117,18 @@ public class FeedsService {
      */
     @Transactional
     public int pollAllFeeds() {
-        List<ActivityFeedEntity> all = feeds.findAllByOrderByCreatedAtAsc();
-        for (ActivityFeedEntity feed : all) {
-            syncFeed(feed);
-            feeds.save(feed);
+        List<UUID> ids =
+                feeds.findAllByOrderByCreatedAtAsc().stream().map(ActivityFeedEntity::id).toList();
+        for (UUID id : ids) {
+            pollFeed(id);
         }
-        return all.size();
+        return ids.size();
     }
 
     /** Sync a single feed by id (used by the scheduled poller between delays). */
     @Transactional
     public void pollFeed(UUID feedId) {
-        ActivityFeedEntity feed = feeds.findById(feedId).orElse(null);
+        ActivityFeedEntity feed = feeds.findByIdForUpdate(feedId).orElse(null);
         if (feed == null) {
             return;
         }
@@ -149,35 +149,39 @@ public class FeedsService {
     }
 
     private void syncFeed(ActivityFeedEntity feed) {
+        final String body;
+        final List<ParsedIcalEvent> parsed;
         try {
-            String body = icalFetchPort.fetch(feed.sourceUrl());
-            List<ParsedIcalEvent> parsed = icalParser.parse(body);
-            events.deleteByFeedId(feed.id());
-            events.flush();
-            List<ActivityFeedEventEntity> rows = new ArrayList<>();
-            Set<String> seenUids = new HashSet<>();
-            for (ParsedIcalEvent event : parsed) {
-                String uid = event.uid();
-                if (uid != null) {
-                    if (!seenUids.add(uid)) {
-                        continue;
-                    }
-                }
-                rows.add(
-                        new ActivityFeedEventEntity(
-                                UUID.randomUUID(),
-                                feed.id(),
-                                uid,
-                                event.summary(),
-                                event.startsAt(),
-                                event.endsAt(),
-                                event.location()));
-            }
-            events.saveAll(rows);
-            feed.markSyncSuccess(Instant.now());
+            body = icalFetchPort.fetch(feed.sourceUrl());
+            parsed = icalParser.parse(body);
         } catch (Exception ex) {
+            // Soft-fail only fetch/parse — never swallow persistence errors (stale deletes leave
+            // a dirty session and blow up later on countByFeedId).
             feed.markSyncFailure(ex.getMessage() == null ? ex.toString() : ex.getMessage());
+            return;
         }
+        events.deleteByFeedId(feed.id());
+        List<ActivityFeedEventEntity> rows = new ArrayList<>();
+        Set<String> seenUids = new HashSet<>();
+        for (ParsedIcalEvent event : parsed) {
+            String uid = event.uid();
+            if (uid != null) {
+                if (!seenUids.add(uid)) {
+                    continue;
+                }
+            }
+            rows.add(
+                    new ActivityFeedEventEntity(
+                            UUID.randomUUID(),
+                            feed.id(),
+                            uid,
+                            event.summary(),
+                            event.startsAt(),
+                            event.endsAt(),
+                            event.location()));
+        }
+        events.saveAll(rows);
+        feed.markSyncSuccess(Instant.now());
     }
 
     private FeedResponse toResponse(ActivityFeedEntity feed) {

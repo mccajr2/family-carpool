@@ -73,6 +73,44 @@ class FeedsPollerIntegrationTest {
         assertThat(attempted).isEqualTo(before + 2);
     }
 
+    @Test
+    void concurrentPollFeedOnSameFeedDoesNotThrow() throws Exception {
+        String token = signIn("feeds-race@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult created =
+                mockMvc.perform(
+                                post("/api/family/circle/feeds")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"U12\",\"sourceUrl\":\"https://example.com/team.ics\",\"kidIds\":[]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        java.util.UUID feedId =
+                java.util.UUID.fromString(
+                        JsonPath.read(created.getResponse().getContentAsString(), "$.id"));
+
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(() -> feedsService.pollFeed(feedId));
+            var second = pool.submit(() -> feedsService.pollFeed(feedId));
+            first.get(30, java.util.concurrent.TimeUnit.SECONDS);
+            second.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        ActivityFeedEntity feed = feeds.findById(feedId).orElseThrow();
+        assertThat(feed.lastSyncError()).isNull();
+        assertThat(feed.lastSyncedAt()).isNotNull();
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(
