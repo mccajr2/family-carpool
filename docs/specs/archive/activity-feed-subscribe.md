@@ -1,6 +1,6 @@
 # Spec: activity-feed-subscribe
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-10  
 Approved: 2026-08-10  
@@ -44,7 +44,7 @@ and validate kid ids belong to that circle — no imports of `family.internal`.
 |-------|--------|
 | id | UUID |
 | name | Required short label (e.g. “U12 Travel”) |
-| sourceUrl | Required; trim; accept `webcal://` by normalizing to `https://` for fetch; store the normalized URL used for fetch (or store original + normalized — pick one in implement and document) |
+| sourceUrl | Required; trim; accept `webcal://` by normalizing to `https://` for fetch; store the normalized URL used for fetch |
 | kidIds | 0+ kids from the same circle (many-to-many) |
 | lastSyncedAt | Nullable timestamptz |
 | lastSyncError | Nullable short message; cleared on successful sync |
@@ -58,45 +58,42 @@ and validate kid ids belong to that circle — no imports of `family.internal`.
 | feedId | FK |
 | uid | Nullable iCal `UID`; unique per feed when present (dedupe key) |
 | summary | Title/text |
-| startsAt / endsAt | Instant (UTC); all-day handling: store as date-only → midnight UTC or document a simple rule |
+| startsAt / endsAt | Instant (UTC); all-day → midnight UTC |
 | location | Nullable free-text from iCal |
 
 **Sync behavior:**
 
 1. **Create feed** and **update URL** → persist, then **auto-run sync** (same path as Sync now). Soft-fail: feed row remains; `lastSyncError` set; `lastSyncedAt` unchanged on failure (null if never succeeded).
-2. **Sync now** (Organizer) → fetch `.ics`, parse, upsert by `UID` when present; events missing from feed with a UID may be removed or left (prefer **replace snapshot for that feed** on each successful sync — simpler).
-3. Fetch uses identifying User-Agent (app name + contact URL/email, same spirit as Nominatim); timeouts; no live third-party hosts required in CI (fixture `.ics` files).
+2. **Sync now** (Organizer) → fetch `.ics`, parse, upsert by `UID` when present; prefer **replace snapshot for that feed** on each successful sync.
+3. Fetch uses identifying User-Agent; timeouts; no live third-party hosts required in CI (fixture `.ics` files).
 4. Duplicate **normalized URL** in the same circle → **409**.
 
-**Authz:** Organizer for all feed writes + Sync now + list management. Unauthenticated → **401**. Non-member / wrong circle → **404**. Caregiver → **403** on feed management endpoints (or omit from Caregiver UI and still enforce 403).
+**Authz:** Organizer for all feed writes + Sync now + list management. Unauthenticated → **401**. Non-member / wrong circle → **404**. Caregiver → **403** on feed management endpoints (list allowed in contract; manage UI omitted for Caregivers).
 
-**Contract:** `/api/family/circle/feeds` (or `/api/feeds` under Bearer — prefer under family circle path for consistency) CRUD + `POST .../feeds/{feedId}/sync`. Responses include kids, last-synced, last error, event count. Bump OpenAPI version. No calendar event listing endpoint in this PR (unless needed for a tiny debug count — prefer count on Feed only).
+**Contract:** `/api/family/circle/feeds` CRUD + `POST .../feeds/{feedId}/sync`. Responses include kids, last-synced, last error, event count. Invalid kid → **400**.
 
 **Clients:** web + Android + iOS Organizer **manage feeds** UI: list, add (name + URL + kid multi-select), edit, delete, Sync now, show last-synced / error / event count. No calendar grid.
 
-**Platform validation:** parser/integration tests use fixture `.ics` samples representative of Crossbar / SportsYou / SportsEngine-style feeds; README or architecture note for optional manual live-URL smoke. CI must not call live vendor hosts.
-
 ## Acceptance criteria
 
-- [ ] OpenAPI: feed schemas + Organizer Bearer paths for list/create/update/delete +
+- [x] OpenAPI: feed schemas + Organizer Bearer paths for list/create/update/delete +
       Sync now; 401/403/404/409 documented; version bumped; web + mobile clients
       updated in the same change.
-- [ ] Organizer can create a feed (name, URL, 0+ kid ids); `webcal://` URLs fetch
+- [x] Organizer can create a feed (name, URL, 0+ kid ids); `webcal://` URLs fetch
       as `https://`; create **auto-syncs**; success sets `lastSyncedAt` and event
       count; fetch/parse failure **soft-fails** (feed saved, `lastSyncError` set,
       not 5xx for the write).
-- [ ] Organizer can update name/kids/URL; **URL change auto-syncs**; Sync now
+- [x] Organizer can update name/kids/URL; **URL change auto-syncs**; Sync now
       re-runs sync for current URL.
-- [ ] Successful sync **dedupes by `UID`** within a feed (upsert/replace snapshot);
+- [x] Successful sync **dedupes by `UID`** within a feed (upsert/replace snapshot);
       events are persisted for later calendar use.
-- [ ] Duplicate normalized URL in the same circle → **409**; unknown feed /
+- [x] Duplicate normalized URL in the same circle → **409**; unknown feed /
       other circle → **404**; Caregiver feed mutations → **403**; unauthenticated
       → **401**.
-- [ ] Kid ids must belong to the Organizer’s circle (invalid kid → **400** or
-      **404** — pick one and document).
-- [ ] Web, Android, and iOS: Organizer manage-feeds UI with Located-style sync
+- [x] Kid ids must belong to the Organizer’s circle (invalid kid → **400**).
+- [x] Web, Android, and iOS: Organizer manage-feeds UI with Located-style sync
       status (last-synced / error / event count) + Sync now; errors surfaced.
-- [ ] Unit + integration tests cover create+auto-sync, soft-fail, Sync now, authz,
+- [x] Unit + integration tests cover create+auto-sync, soft-fail, Sync now, authz,
       UID dedupe with fixtures; `ModularityTests` green; no live vendor HTTP in CI.
 
 ## Tasks
@@ -106,10 +103,10 @@ and validate kid ids belong to that circle — no imports of `family.internal`.
       stub/fixtures; create/update/delete + auto-sync + Sync now; soft-fail +
       UID snapshot replace.
 - [x] **Contract:** OpenAPI feed paths/schemas; bump version.
-- [ ] **Web:** types + client; Organizer manage-feeds UI + tests.
-- [ ] **Mobile:** sharedLogic models/client; sharedUI + iOS manage-feeds; tests.
-- [ ] **Docs:** `docs/architecture.md` ActivityFeed notes (subscribe vs poller).
-- [ ] **Tests:** fixtures for Crossbar/SportsYou/SportsEngine-like `.ics`;
+- [x] **Web:** types + client; Organizer manage-feeds UI + tests.
+- [x] **Mobile:** sharedLogic models/client; sharedUI + iOS manage-feeds; tests.
+- [x] **Docs:** `docs/architecture.md` ActivityFeed notes (subscribe vs poller).
+- [x] **Tests:** fixtures for Crossbar/SportsYou/SportsEngine-like `.ics`;
       service + integration + client tests; `ModularityTests`.
 
 ## Open questions
@@ -130,3 +127,4 @@ management deferred to calendar consumption; poller is a follow-up id._
 | UI | Manage feeds only (no calendar grid) |
 | Vendors | Fixture validation only in CI; no vendor SDKs |
 | Polling | Out → `activity-feed-poller` |
+| Invalid kid | **400** |

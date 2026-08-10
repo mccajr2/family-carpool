@@ -26,6 +26,26 @@ data class Place(
 fun Place.isLocated(): Boolean = latitude != null && longitude != null
 
 @Serializable
+data class ActivityFeed(
+    val id: String,
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
+    val lastSyncedAt: String? = null,
+    val lastSyncError: String? = null,
+    val eventCount: Int,
+)
+
+fun ActivityFeed.isSynced(): Boolean = lastSyncError.isNullOrBlank() && lastSyncedAt != null
+
+fun ActivityFeed.syncStatusLabel(): String =
+    when {
+        !lastSyncError.isNullOrBlank() -> "Sync failed: $lastSyncError"
+        lastSyncedAt != null -> "Synced · $eventCount events"
+        else -> "Not synced"
+    }
+
+@Serializable
 data class FamilyMember(
     val adultId: String,
     val email: String,
@@ -90,6 +110,20 @@ data class CreatePlaceRequest(
 data class UpdatePlaceRequest(
     val name: String,
     val address: String,
+)
+
+@Serializable
+data class CreateActivityFeedRequest(
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class UpdateActivityFeedRequest(
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
 )
 
 fun FamilyCircle.displayTitle(): String {

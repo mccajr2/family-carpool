@@ -1,5 +1,6 @@
 import { authUrl } from "@/api/authClient"
 import type {
+  ActivityFeed,
   CreateFamilyCircleRequest,
   FamilyCircle,
   FamilyInvite,
@@ -271,6 +272,87 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Locate place failed"))
     }
     return (await response.json()) as Place
+  }
+
+  async listFeeds(accessToken: string): Promise<ActivityFeed[]> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/feeds"), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List feeds failed"))
+    }
+    return (await response.json()) as ActivityFeed[]
+  }
+
+  async createFeed(
+    accessToken: string,
+    name: string,
+    sourceUrl: string,
+    kidIds: string[] = [],
+  ): Promise<ActivityFeed> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/feeds"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, sourceUrl, kidIds }),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Create feed failed"))
+    }
+    return (await response.json()) as ActivityFeed
+  }
+
+  async updateFeed(
+    accessToken: string,
+    feedId: string,
+    name: string,
+    sourceUrl: string,
+    kidIds: string[] = [],
+  ): Promise<ActivityFeed> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/feeds/${feedId}`),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, sourceUrl, kidIds }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update feed failed"))
+    }
+    return (await response.json()) as ActivityFeed
+  }
+
+  async deleteFeed(accessToken: string, feedId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/feeds/${feedId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Delete feed failed"))
+    }
+  }
+
+  async syncFeed(accessToken: string, feedId: string): Promise<ActivityFeed> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/feeds/${feedId}/sync`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Sync feed failed"))
+    }
+    return (await response.json()) as ActivityFeed
   }
 }
 

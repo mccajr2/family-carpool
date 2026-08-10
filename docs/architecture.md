@@ -48,7 +48,7 @@ look up adult by id, update `displayName`).
 ## Family circle (v1)
 
 Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
-`named-places` + `place-geocoding`:
+`named-places` + `place-geocoding` + `activity-feed-subscribe`:
 
 | Topic | Decision |
 |--------|----------|
@@ -59,15 +59,19 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
 | Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
 | Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
-| Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD; **any member** may manage named places and retry locate; all members may read |
+| Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now; **any member** may manage named places and retry locate; all members may read circle (Caregivers omit feed manage UI) |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
-| Empty circle | Allowed (add kids / places later) |
+| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit Sync now; soft-fail writes `lastSyncError` (feed row kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. Background interval polling is **`activity-feed-poller`** (not this module’s job). CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
+| Empty circle | Allowed (add kids / places / feeds later) |
 
-Modulith module: `backend/modules/family/`. Contract paths under `/api/family/*`.
-Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
-`requireAdult`, `updateDisplayName`).
+Modulith modules: `backend/modules/family/` (circle, kids, places, membership
+API) and `backend/modules/feeds/` (subscriptions + synced events). Contract
+paths under `/api/family/*`. Family public surface used by feeds:
+`FamilyMembershipApi` (require Organizer / member, resolve circle, validate
+kids). Auth public surface used by family: `AdultSessionApi`
+(`requireCurrentAdult`, `requireAdult`, `updateDisplayName`).
 
 **How objects link (extensible):**
 
@@ -76,9 +80,12 @@ Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
 - **Kid** belongs to a **circle**
 - **Place** belongs to a **circle** (shared origins for leave-by / coverage later);
   coords come from geocoding the address, not manual entry
-- Later **activity feeds** attach to a circle; **feed↔kid** links mean “on this
+- **ActivityFeed** belongs to a **circle**; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
   a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
+  Synced **events** are feed-scoped storage for later calendar UI
+  (`family-calendar-surface`); this slice only exposes sync status + event count
+  on the feed.
 
 ```
 Adult --membership(+role)--> FamilyCircle <-- Kid
@@ -86,9 +93,10 @@ Adult --membership(+role)--> FamilyCircle <-- Kid
                              invite_code
                                   |
                                Place (+ optional lat/lng)
-                                  ^
-                                  | (later)
+                                  |
                              ActivityFeed --feed↔kid--> Kid
+                                  |
+                            FeedEvent (UID snapshot)
 ```
 ## Repository layout
 
@@ -97,7 +105,8 @@ family-carpool/
 ├── backend/              # Spring Boot app + Modulith modules (root Gradle build)
 │   └── modules/
 │       ├── auth/         # Email OTP + Bearer sessions
-│       └── family/       # Family circle + kids + named places (+ geocode)
+│       ├── family/       # Family circle + kids + named places (+ geocode)
+│       └── feeds/        # Activity feed subscribe + sync (+ events snapshot)
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
 │   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)

@@ -41,6 +41,14 @@ class FamilyUiModel(
             val editingPlaceId: String? = null,
             val editingPlaceName: String = "",
             val editingPlaceAddress: String = "",
+            val feeds: List<ActivityFeed> = emptyList(),
+            val newFeedName: String = "",
+            val newFeedUrl: String = "",
+            val newFeedKidIds: List<String> = emptyList(),
+            val editingFeedId: String? = null,
+            val editingFeedName: String = "",
+            val editingFeedUrl: String = "",
+            val editingFeedKidIds: List<String> = emptyList(),
             val loading: Boolean = false,
             val error: String? = null,
         ) : State()
@@ -169,6 +177,70 @@ class FamilyUiModel(
                 editingPlaceId = null,
                 editingPlaceName = "",
                 editingPlaceAddress = "",
+                error = null,
+            )
+    }
+
+    fun updateNewFeedName(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newFeedName = value, error = null)
+    }
+
+    fun updateNewFeedUrl(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newFeedUrl = value, error = null)
+    }
+
+    fun toggleNewFeedKid(kidId: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                newFeedKidIds =
+                    current.newFeedKidIds.toggle(kidId),
+                error = null,
+            )
+    }
+
+    fun beginEditFeed(feed: ActivityFeed) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingFeedId = feed.id,
+                editingFeedName = feed.name,
+                editingFeedUrl = feed.sourceUrl,
+                editingFeedKidIds = feed.kidIds,
+                error = null,
+            )
+    }
+
+    fun updateEditingFeedName(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingFeedName = value, error = null)
+    }
+
+    fun updateEditingFeedUrl(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingFeedUrl = value, error = null)
+    }
+
+    fun toggleEditingFeedKid(kidId: String) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingFeedKidIds =
+                    current.editingFeedKidIds.toggle(kidId),
+                error = null,
+            )
+    }
+
+    fun cancelEditFeed() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingFeedId = null,
+                editingFeedName = "",
+                editingFeedUrl = "",
+                editingFeedKidIds = emptyList(),
                 error = null,
             )
     }
@@ -485,6 +557,87 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun addFeed() {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val feed =
+                familyClient.createFeed(
+                    session.requireAccessToken(),
+                    current.newFeedName.trim(),
+                    current.newFeedUrl.trim(),
+                    current.newFeedKidIds,
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    feeds = current.feeds + feed,
+                    newFeedName = "",
+                    newFeedUrl = "",
+                    newFeedKidIds = emptyList(),
+                )
+        } catch (e: Throwable) {
+            _state = current.copy(loading = false, error = e.message ?: "Add feed failed")
+        }
+    }
+
+    suspend fun saveFeed() {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        val feedId = current.editingFeedId ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val updated =
+                familyClient.updateFeed(
+                    session.requireAccessToken(),
+                    feedId,
+                    current.editingFeedName.trim(),
+                    current.editingFeedUrl.trim(),
+                    current.editingFeedKidIds,
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    feeds = current.feeds.map { if (it.id == feedId) updated else it },
+                    editingFeedId = null,
+                    editingFeedName = "",
+                    editingFeedUrl = "",
+                    editingFeedKidIds = emptyList(),
+                )
+        } catch (e: Throwable) {
+            _state = current.copy(loading = false, error = e.message ?: "Update feed failed")
+        }
+    }
+
+    suspend fun removeFeed(feedId: String) {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        _state = current.copy(loading = true, error = null)
+        try {
+            familyClient.deleteFeed(session.requireAccessToken(), feedId)
+            _state = current.copy(loading = false, feeds = current.feeds.filterNot { it.id == feedId })
+        } catch (e: Throwable) {
+            _state = current.copy(loading = false, error = e.message ?: "Remove feed failed")
+        }
+    }
+
+    suspend fun syncFeed(feedId: String) {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val updated = familyClient.syncFeed(session.requireAccessToken(), feedId)
+            _state =
+                current.copy(
+                    loading = false,
+                    feeds = current.feeds.map { if (it.id == feedId) updated else it },
+                )
+        } catch (e: Throwable) {
+            _state = current.copy(loading = false, error = e.message ?: "Sync feed failed")
+        }
+    }
+
     private suspend fun readyState(
         adult: Adult,
         circle: FamilyCircle,
@@ -496,12 +649,22 @@ class FamilyUiModel(
             } else {
                 null
             }
+        val feeds =
+            if (circle.role == FamilyRole.ORGANIZER) {
+                runCatching { familyClient.listFeeds(token) }.getOrElse { emptyList() }
+            } else {
+                emptyList()
+            }
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
             adultDisplayName = adult.displayName,
             circle = circle,
             inviteCode = inviteCode,
+            feeds = feeds,
         )
     }
 }
+
+private fun List<String>.toggle(value: String): List<String> =
+    if (value in this) filterNot { it == value } else this + value

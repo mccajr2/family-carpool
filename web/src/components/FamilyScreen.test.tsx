@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -86,7 +86,7 @@ describe("FamilyScreen", () => {
 
     await user.type(screen.getByLabelText("New kid name"), "Sam")
     await user.click(screen.getByRole("button", { name: "Add kid" }))
-    expect(await screen.findByText("Sam")).toBeInTheDocument()
+    expect(await within(screen.getByLabelText("Kids")).findByText("Sam")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Remove" }))
     await waitFor(() => {
@@ -419,5 +419,132 @@ describe("FamilyScreen", () => {
     expect(getCircle).toHaveBeenCalledTimes(1)
 
     getCircle.mockRestore()
+  })
+
+  it("lets organizers add sync and remove activity feeds", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const createFeed = vi.fn().mockResolvedValue({
+      id: "f1",
+      name: "U12 Travel",
+      sourceUrl: "https://example.com/team.ics",
+      kidIds: ["k1"],
+      lastSyncedAt: "2026-08-10T12:00:00Z",
+      lastSyncError: null,
+      eventCount: 4,
+    })
+    const syncFeed = vi.fn().mockResolvedValue({
+      id: "f1",
+      name: "U12 Travel",
+      sourceUrl: "https://example.com/team.ics",
+      kidIds: ["k1"],
+      lastSyncedAt: "2026-08-10T12:05:00Z",
+      lastSyncError: "Fetch failed",
+      eventCount: 4,
+    })
+    const deleteFeed = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          createFeed,
+          syncFeed,
+          deleteFeed,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("No feeds yet.")).toBeInTheDocument()
+    await user.type(screen.getByLabelText("New feed name"), "U12 Travel")
+    await user.type(screen.getByLabelText("New feed URL"), "https://example.com/team.ics")
+    await user.click(screen.getByLabelText("Assign Sam to new feed"))
+    await user.click(screen.getByRole("button", { name: "Add feed" }))
+
+    expect(await screen.findByText("U12 Travel")).toBeInTheDocument()
+    expect(screen.getByText("Synced · 4 events")).toBeInTheDocument()
+    expect(createFeed).toHaveBeenCalledWith(
+      "tok",
+      "U12 Travel",
+      "https://example.com/team.ics",
+      ["k1"],
+    )
+
+    await user.click(screen.getByRole("button", { name: "Sync now" }))
+    expect(await screen.findByText("Sync failed: Fetch failed")).toBeInTheDocument()
+    expect(syncFeed).toHaveBeenCalledWith("tok", "f1")
+
+    await user.click(screen.getByRole("button", { name: "Remove feed" }))
+    await waitFor(() => {
+      expect(screen.queryByText("U12 Travel")).not.toBeInTheDocument()
+    })
+    expect(deleteFeed).toHaveBeenCalledWith("tok", "f1")
+  })
+
+  it("hides activity feed management from caregivers", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("No places yet.")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Activity feeds")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Add feed" })).not.toBeInTheDocument()
   })
 })

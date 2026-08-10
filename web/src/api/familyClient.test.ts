@@ -237,4 +237,92 @@ describe("FamilyClient", () => {
     )
     expect(fetchFn.mock.calls[3]?.[1]).toMatchObject({ method: "POST" })
   })
+
+  it("lists creates updates deletes and syncs activity feeds", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json([
+          {
+            id: "f1",
+            name: "Soccer",
+            sourceUrl: "https://example.com/team.ics",
+            kidIds: ["k1"],
+            lastSyncedAt: "2026-08-10T12:00:00Z",
+            lastSyncError: null,
+            eventCount: 2,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        json(
+          {
+            id: "f2",
+            name: "U12",
+            sourceUrl: "https://example.com/u12.ics",
+            kidIds: [],
+            lastSyncedAt: "2026-08-10T12:01:00Z",
+            lastSyncError: null,
+            eventCount: 5,
+          },
+          201,
+        ),
+      )
+      .mockResolvedValueOnce(
+        json({
+          id: "f2",
+          name: "U12 Travel",
+          sourceUrl: "https://example.com/u12.ics",
+          kidIds: ["k1"],
+          lastSyncedAt: "2026-08-10T12:02:00Z",
+          lastSyncError: null,
+          eventCount: 5,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        json({
+          id: "f1",
+          name: "Soccer",
+          sourceUrl: "https://example.com/team.ics",
+          kidIds: ["k1"],
+          lastSyncedAt: "2026-08-10T12:05:00Z",
+          lastSyncError: "Fetch failed",
+          eventCount: 2,
+        }),
+      )
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await expect(client.listFeeds("tok")).resolves.toMatchObject([
+      { id: "f1", eventCount: 2 },
+    ])
+    await expect(
+      client.createFeed("tok", "U12", "https://example.com/u12.ics", []),
+    ).resolves.toMatchObject({ name: "U12", eventCount: 5 })
+    await expect(
+      client.updateFeed("tok", "f2", "U12 Travel", "https://example.com/u12.ics", [
+        "k1",
+      ]),
+    ).resolves.toMatchObject({ name: "U12 Travel" })
+    await client.deleteFeed("tok", "f2")
+    await expect(client.syncFeed("tok", "f1")).resolves.toMatchObject({
+      lastSyncError: "Fetch failed",
+    })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/feeds")
+    expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "POST" })
+    expect(fetchFn.mock.calls[2]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/feeds/f2",
+    )
+    expect(fetchFn.mock.calls[2]?.[1]).toMatchObject({ method: "PUT" })
+    expect(fetchFn.mock.calls[4]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/feeds/f1/sync",
+    )
+  })
 })

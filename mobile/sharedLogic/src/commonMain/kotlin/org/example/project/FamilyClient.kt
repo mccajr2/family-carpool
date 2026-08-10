@@ -7,6 +7,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -235,6 +236,75 @@ class FamilyClient(
                 header(HttpHeaders.Authorization, "Bearer $accessToken")
             }
         ensureSuccess(response, "Locate place failed")
+        return response.body()
+    }
+
+    suspend fun listFeeds(accessToken: String): List<ActivityFeed> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/feeds") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "List feeds failed")
+        return response.body()
+    }
+
+    suspend fun createFeed(
+        accessToken: String,
+        name: String,
+        sourceUrl: String,
+        kidIds: List<String> = emptyList(),
+    ): ActivityFeed {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/feeds") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(CreateActivityFeedRequest(name, sourceUrl, kidIds))
+            }
+        ensureSuccess(response, "Create feed failed")
+        return response.body()
+    }
+
+    suspend fun updateFeed(
+        accessToken: String,
+        feedId: String,
+        name: String,
+        sourceUrl: String,
+        kidIds: List<String> = emptyList(),
+    ): ActivityFeed {
+        val response =
+            httpClient.put("$baseUrl/api/family/circle/feeds/$feedId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(UpdateActivityFeedRequest(name, sourceUrl, kidIds))
+            }
+        ensureSuccess(response, "Update feed failed")
+        return response.body()
+    }
+
+    suspend fun deleteFeed(
+        accessToken: String,
+        feedId: String,
+    ) {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/feeds/$feedId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Delete feed failed"))
+        }
+    }
+
+    suspend fun syncFeed(
+        accessToken: String,
+        feedId: String,
+    ): ActivityFeed {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/feeds/$feedId/sync") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Sync feed failed")
         return response.body()
     }
 

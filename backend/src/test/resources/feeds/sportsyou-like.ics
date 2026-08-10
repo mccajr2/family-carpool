@@ -1,0 +1,19 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SportsYou-like Fixture//EN
+BEGIN:VEVENT
+UID:sportsyou-evt-55@fixture.local
+DTSTART;TZID=America/New_York:20260920T090000
+DTEND;TZID=America/New_York:20260920T103000
+SUMMARY:Away Game — Travel
+LOCATION:Memorial Park
+DESCRIPTION:Carpool meetup in lot A. Bring
+  snacks for the ride.
+END:VEVENT
+BEGIN:VEVENT
+UID:sportsyou-evt-56@fixture.local
+DTSTART;VALUE=DATE:20260921
+SUMMARY:Picture Day
+LOCATION:Clubhouse
+END:VEVENT
+END:VCALENDAR

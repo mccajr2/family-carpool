@@ -412,6 +412,109 @@ class AuthBridge {
         }
     }
 
+    fun listFeeds(
+        onSuccess: (
+            ids: List<String>,
+            names: List<String>,
+            sourceUrls: List<String>,
+            kidIds: List<List<String>>,
+            lastSyncedAts: List<String?>,
+            lastSyncErrors: List<String?>,
+            eventCounts: List<Int>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val feeds = familyClient.listFeeds(session.requireAccessToken())
+                onSuccess(
+                    feeds.map { it.id },
+                    feeds.map { it.name },
+                    feeds.map { it.sourceUrl },
+                    feeds.map { it.kidIds },
+                    feeds.map { it.lastSyncedAt },
+                    feeds.map { it.lastSyncError },
+                    feeds.map { it.eventCount },
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "List feeds failed")
+            }
+        }
+    }
+
+    fun createFeed(
+        name: String,
+        sourceUrl: String,
+        kidIds: List<String>,
+        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onError: (String) -> Unit,
+    ) = feedResult(
+        { familyClient.createFeed(session.requireAccessToken(), name.trim(), sourceUrl.trim(), kidIds) },
+        onSuccess,
+        onError,
+    )
+
+    fun updateFeed(
+        feedId: String,
+        name: String,
+        sourceUrl: String,
+        kidIds: List<String>,
+        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onError: (String) -> Unit,
+    ) = feedResult(
+        { familyClient.updateFeed(session.requireAccessToken(), feedId, name.trim(), sourceUrl.trim(), kidIds) },
+        onSuccess,
+        onError,
+    )
+
+    fun deleteFeed(
+        feedId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.deleteFeed(session.requireAccessToken(), feedId)
+                onSuccess()
+            } catch (e: Throwable) {
+                onError(e.message ?: "Delete feed failed")
+            }
+        }
+    }
+
+    fun syncFeed(
+        feedId: String,
+        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onError: (String) -> Unit,
+    ) = feedResult(
+        { familyClient.syncFeed(session.requireAccessToken(), feedId) },
+        onSuccess,
+        onError,
+    )
+
+    private fun feedResult(
+        request: suspend () -> ActivityFeed,
+        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val feed = request()
+                onSuccess(
+                    feed.id,
+                    feed.name,
+                    feed.sourceUrl,
+                    feed.kidIds,
+                    feed.lastSyncedAt,
+                    feed.lastSyncError,
+                    feed.eventCount,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Feed request failed")
+            }
+        }
+    }
+
     private suspend fun emitReady(
         adult: Adult,
         circle: FamilyCircle,

@@ -134,6 +134,65 @@ class FamilyClientTest {
         }
 
     @Test
+    fun feedsCrudAndSync() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    val feed =
+                        """{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":["k1"],"lastSyncedAt":"2026-08-10T12:00:00Z","lastSyncError":null,"eventCount":3}"""
+                    when {
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[$feed]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = feed,
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds/f1" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content = feed.replace("Soccer", "Soccer updated"),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds/f1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath == "/api/family/circle/feeds/f1/sync" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    feed.replace(
+                                        "\"lastSyncError\":null",
+                                        "\"lastSyncError\":\"Timed out\"",
+                                    ),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+
+            assertEquals("Soccer", client.listFeeds("tok").single().name)
+            assertEquals("Soccer", client.createFeed("tok", "Soccer", "https://example.com/team.ics", listOf("k1")).name)
+            assertEquals(
+                "Soccer updated",
+                client.updateFeed("tok", "f1", "Soccer updated", "https://example.com/team.ics", listOf("k1")).name,
+            )
+            client.deleteFeed("tok", "f1")
+            val softFailed = client.syncFeed("tok", "f1")
+            assertEquals("Sync failed: Timed out", softFailed.syncStatusLabel())
+        }
+
+    @Test
     fun inviteJoinLeaveAndMemberRole() =
         runTest {
             val mockEngine =
