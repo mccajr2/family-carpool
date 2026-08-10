@@ -63,7 +63,7 @@ class IcalParser {
             return null;
         }
         Instant end = parseDateTime(props.get("DTEND_RAW"), props.get("DTEND"));
-        String summary = props.getOrDefault("SUMMARY", "(no title)");
+        String summary = unescapeText(props.getOrDefault("SUMMARY", "(no title)"));
         if (summary.length() > 500) {
             summary = summary.substring(0, 500);
         }
@@ -71,11 +71,39 @@ class IcalParser {
         if (uid != null && uid.length() > 255) {
             uid = uid.substring(0, 255);
         }
-        String location = blankToNull(props.get("LOCATION"));
+        String location = blankToNull(unescapeText(props.get("LOCATION")));
         if (location != null && location.length() > 500) {
             location = location.substring(0, 500);
         }
         return new ParsedIcalEvent(uid, summary, start, end, location);
+    }
+
+    /**
+     * RFC 5545 TEXT unescaping: {@code \\} {@code \,} {@code \;} {@code \n}/{@code \N}.
+     * SportsEngine (and many iCal exporters) escape commas in LOCATION this way.
+     */
+    static String unescapeText(String value) {
+        if (value == null || value.isEmpty() || value.indexOf('\\') < 0) {
+            return value;
+        }
+        StringBuilder out = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '\\' && i + 1 < value.length()) {
+                char next = value.charAt(++i);
+                switch (next) {
+                    case 'n', 'N' -> out.append('\n');
+                    case ',', ';', '\\' -> out.append(next);
+                    default -> {
+                        out.append('\\');
+                        out.append(next);
+                    }
+                }
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     private static Instant parseDateTime(String rawWithParams, String value) {

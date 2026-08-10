@@ -70,9 +70,20 @@ class IcalParserTest {
         List<ParsedIcalEvent> events = parser.parse(readFixture("feeds/sportsengine-like.ics"));
         assertThat(events).hasSize(3);
         assertThat(events.get(0).uid()).isEqualTo("se-2026-game-88@fixture.local");
-        assertThat(events.get(0).location()).isEqualTo("SportsEngine Complex\\, Field 4");
+        assertThat(events.get(0).location())
+                .isEqualTo("155 Gore St, Cambridge, MA 02141, US");
         assertThat(events.get(2).uid()).isNull();
         assertThat(events.get(2).summary()).isEqualTo("Optional Scrimmage (no UID)");
+    }
+
+    @Test
+    void unescapesIcalTextEscapes() {
+        assertThat(IcalParser.unescapeText("155 Gore St\\, Cambridge\\, MA 02141\\, US"))
+                .isEqualTo("155 Gore St, Cambridge, MA 02141, US");
+        assertThat(IcalParser.unescapeText("Line1\\nLine2")).isEqualTo("Line1\nLine2");
+        assertThat(IcalParser.unescapeText("a\\\\b\\;c")).isEqualTo("a\\b;c");
+        assertThat(IcalParser.unescapeText(null)).isNull();
+        assertThat(IcalParser.unescapeText("plain")).isEqualTo("plain");
     }
 
     private static String readFixture(String classpathPath) throws IOException {

@@ -47,7 +47,7 @@ class FeedCalendarApiImpl implements FeedCalendarApi {
                                     event.summary(),
                                     event.startsAt(),
                                     event.endsAt(),
-                                    event.location(),
+                                    IcalParser.unescapeText(event.location()),
                                     List.copyOf(feed.kidIds()));
                         })
                 .toList();
