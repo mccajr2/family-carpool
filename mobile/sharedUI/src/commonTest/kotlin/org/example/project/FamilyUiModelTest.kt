@@ -11,6 +11,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -841,6 +842,8 @@ class FamilyUiModelTest {
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
+            assertEquals(AppShell.primaryTabs, listOf("Calendar", "Carpool", "Family", "More"))
+            assertEquals(AppShell.CARPOOL_PLACEHOLDER, "Coming soon")
 
             model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
             assertEquals(
@@ -852,6 +855,7 @@ class FamilyUiModelTest {
             val places = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(FamilyUiModel.ShellTab.MORE, places.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.PLACES, places.moreScreen)
+            assertEquals(listOf("Places", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
 
             model.openMoreFeeds()
             val feeds = assertIs<FamilyUiModel.State.Ready>(model.state)
@@ -901,6 +905,13 @@ class FamilyUiModelTest {
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
+            assertEquals(listOf("Places"), AppShell.moreGeneralRows(isOrganizer = false))
+            assertFalse(AppShell.showsFeedsRow(isOrganizer = false))
+            model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
+            assertEquals(
+                FamilyUiModel.ShellTab.CARPOOL,
+                assertIs<FamilyUiModel.State.Ready>(model.state).shellTab,
+            )
             model.openMorePlaces()
             assertEquals(
                 FamilyUiModel.MoreScreen.PLACES,

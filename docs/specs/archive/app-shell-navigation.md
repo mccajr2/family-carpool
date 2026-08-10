@@ -1,8 +1,9 @@
 # Spec: app-shell-navigation
 
-Status: approved  
+Status: done  
 Created: 2026-08-10  
 Updated: 2026-08-10  
+Approved: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `app-shell-navigation`  
 Added: 2026-08-10 · enhancement
@@ -78,30 +79,30 @@ into destination screens rather than rewriting behavior.
 
 ## Acceptance criteria
 
-- [ ] Web, Android, and iOS signed-in members see the same four destinations in
+- [x] Web, Android, and iOS signed-in members see the same four destinations in
   the same order and grouping — **Calendar**, **Carpool**, **Family**, then
   **More** (mobile) / **Settings** (web) — using platform-conventional naming
   for the fourth destination, not identical labels.
-- [ ] **Calendar** hosts the existing Agenda surface (list, kid filter, Load more,
+- [x] **Calendar** hosts the existing Agenda surface (list, kid filter, Load more,
   manual add/edit/delete; feed rows read-only) — no dedicated manage-events list
   reintroduced.
-- [ ] **Carpool** is always visible for members and shows only an empty /
+- [x] **Carpool** is always visible for members and shows only an empty /
   “Coming soon” placeholder (no carpool APIs or flows).
-- [ ] **Family** hosts circle name, invite (Organizer-only controls as today),
+- [x] **Family** hosts circle name, invite (Organizer-only controls as today),
   members/roles, kids CRUD (Organizer rules unchanged), and leave.
-- [ ] **More / Settings — General:** Places navigates to named-places CRUD;
+- [x] **More / Settings — General:** Places navigates to named-places CRUD;
   Feeds navigates to Organizer feed manage; **Caregivers do not see a Feeds row**.
-- [ ] **More / Settings — Account:** shows email + role; **Sign out** has no
+- [x] **More / Settings — Account:** shows email + role; **Sign out** has no
   chevron and uses danger text/icon styling only (not a solid red row).
-- [ ] Mobile uses a **bottom tab bar** (4 tabs); More opens the grouped list;
+- [x] Mobile uses a **bottom tab bar** (4 tabs); More opens the grouped list;
   Places/Feeds are push destinations from More.
-- [ ] Web uses a **persistent sidebar** (Calendar / Carpool / Family + Settings
+- [x] Web uses a **persistent sidebar** (Calendar / Carpool / Family + Settings
   section or account menu) — not a cloned bottom tab bar — with the same groups
   and row content as mobile More.
-- [ ] Shell appears only in the signed-in **Ready** (has circle) state; auth and
+- [x] Shell appears only in the signed-in **Ready** (has circle) state; auth and
   create/join empty states remain outside it; first landing after ready is
   **Calendar**.
-- [ ] No OpenAPI / backend changes; existing client tests updated or added for
+- [x] No OpenAPI / backend changes; existing client tests updated or added for
   destination presence, Caregiver Feeds omission, and Carpool placeholder.
 
 ## Tasks
@@ -116,7 +117,7 @@ into destination screens rather than rewriting behavior.
   push Places/Feeds; Caregiver Feeds omission; Carpool placeholder.
 - [x] **Docs:** Note signed-in shell IA in `docs/architecture.md` (brief);
   roadmap Active row.
-- [ ] **Tests:** Client tests for tab/destination presence, Caregiver Feeds row
+- [x] **Tests:** Client tests for tab/destination presence, Caregiver Feeds row
   omitted, Carpool placeholder visible; no contract/backend suite required.
 
 ## Open questions
@@ -135,4 +136,4 @@ into destination screens rather than rewriting behavior.
 
 ## Approval
 
-Approved 2026-08-10 (AC #1 wording: More vs Settings allowed). Ready for `/implement`.
+Approved 2026-08-10 (AC #1 wording: More vs Settings allowed). Shipped `/pr` 2026-08-10.

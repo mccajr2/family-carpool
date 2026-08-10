@@ -165,7 +165,7 @@ class FamilyUiModel(
 
     fun openMoreFeeds() {
         val current = _state as? State.Ready ?: return
-        if (current.circle.role != FamilyRole.ORGANIZER) {
+        if (!AppShell.showsFeedsRow(current.circle.role == FamilyRole.ORGANIZER)) {
             return
         }
         _state =

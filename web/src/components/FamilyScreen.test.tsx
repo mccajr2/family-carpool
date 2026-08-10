@@ -852,6 +852,7 @@ describe("FamilyScreen", () => {
   })
 
   it("hides activity feed management from caregivers", async () => {
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "2",
@@ -890,10 +891,15 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Feeds" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Activity feeds")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Add feed" })).not.toBeInTheDocument()
+
+    await goTo(user, "Carpool")
+    expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Carpool")).toHaveTextContent("Coming soon")
   })
 
   it("refreshes feeds from the list endpoint without syncing", async () => {

@@ -13,9 +13,14 @@ struct AppShellNavigationTestMain {
         var state = AppShellNavigationState()
         expect(state.tab == .calendar, "defaults to calendar")
         expect(state.morePath.isEmpty, "defaults to empty more path")
+        expect(
+            AppShellTab.allCases.map(\.title) == ["Calendar", "Carpool", "Family", "More"],
+            "primary tabs match IA order"
+        )
 
         state.selectTab(.carpool)
         expect(state.tab == .carpool, "selects carpool")
+        expect(AppShellTab.carpool.title == "Carpool", "carpool destination label")
 
         state.openPlaces()
         expect(state.tab == .more && state.morePath == [.places], "opens places under more")

@@ -264,7 +264,9 @@ private fun ReadyContent(
 ) {
     val isOrganizer = current.circle.role == FamilyRole.ORGANIZER
     val moreScreen =
-        if (current.moreScreen == FamilyUiModel.MoreScreen.FEEDS && !isOrganizer) {
+        if (current.moreScreen == FamilyUiModel.MoreScreen.FEEDS &&
+            !AppShell.showsFeedsRow(isOrganizer)
+        ) {
             FamilyUiModel.MoreScreen.LIST
         } else {
             current.moreScreen
@@ -274,7 +276,7 @@ private fun ReadyContent(
         bottomBar = {
             NavigationBar {
                 ShellTabItem(
-                    label = "Calendar",
+                    label = AppShell.TAB_CALENDAR,
                     selected = current.shellTab == FamilyUiModel.ShellTab.CALENDAR,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CALENDAR)
@@ -282,7 +284,7 @@ private fun ReadyContent(
                     },
                 )
                 ShellTabItem(
-                    label = "Carpool",
+                    label = AppShell.TAB_CARPOOL,
                     selected = current.shellTab == FamilyUiModel.ShellTab.CARPOOL,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
@@ -290,7 +292,7 @@ private fun ReadyContent(
                     },
                 )
                 ShellTabItem(
-                    label = "Family",
+                    label = AppShell.TAB_FAMILY,
                     selected = current.shellTab == FamilyUiModel.ShellTab.FAMILY,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
@@ -298,7 +300,7 @@ private fun ReadyContent(
                     },
                 )
                 ShellTabItem(
-                    label = "More",
+                    label = AppShell.TAB_MORE,
                     selected = current.shellTab == FamilyUiModel.ShellTab.MORE,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.MORE)
@@ -319,7 +321,7 @@ private fun ReadyContent(
         ) {
             when (current.shellTab) {
                 FamilyUiModel.ShellTab.CALENDAR -> {
-                    Text("Calendar", style = MaterialTheme.typography.headlineSmall)
+                    Text(AppShell.TAB_CALENDAR, style = MaterialTheme.typography.headlineSmall)
                     CalendarDestination(
                         current = current,
                         model = model,
@@ -328,8 +330,8 @@ private fun ReadyContent(
                     )
                 }
                 FamilyUiModel.ShellTab.CARPOOL -> {
-                    Text("Carpool", style = MaterialTheme.typography.headlineSmall)
-                    Text("Coming soon", style = MaterialTheme.typography.bodyMedium)
+                    Text(AppShell.TAB_CARPOOL, style = MaterialTheme.typography.headlineSmall)
+                    Text(AppShell.CARPOOL_PLACEHOLDER, style = MaterialTheme.typography.bodyMedium)
                 }
                 FamilyUiModel.ShellTab.FAMILY -> {
                     Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
@@ -354,7 +356,7 @@ private fun ReadyContent(
                 FamilyUiModel.ShellTab.MORE -> {
                     when (moreScreen) {
                         FamilyUiModel.MoreScreen.LIST -> {
-                            Text("More", style = MaterialTheme.typography.headlineSmall)
+                            Text(AppShell.TAB_MORE, style = MaterialTheme.typography.headlineSmall)
                             MoreListDestination(
                                 current = current,
                                 model = model,
@@ -373,7 +375,7 @@ private fun ReadyContent(
                             ) {
                                 Text("Back")
                             }
-                            Text("Places", style = MaterialTheme.typography.headlineSmall)
+                            Text(AppShell.ROW_PLACES, style = MaterialTheme.typography.headlineSmall)
                             PlacesDestination(
                                 current = current,
                                 model = model,
@@ -391,7 +393,7 @@ private fun ReadyContent(
                             ) {
                                 Text("Back")
                             }
-                            Text("Feeds", style = MaterialTheme.typography.headlineSmall)
+                            Text(AppShell.ROW_FEEDS, style = MaterialTheme.typography.headlineSmall)
                             FeedsDestination(
                                 current = current,
                                 model = model,
@@ -434,9 +436,9 @@ private fun MoreListDestination(
     onSignOut: () -> Unit,
     isOrganizer: Boolean,
 ) {
-    Text("General", style = MaterialTheme.typography.titleSmall)
+    Text(AppShell.MORE_GROUP_GENERAL, style = MaterialTheme.typography.titleSmall)
     MoreSettingsRow(
-        label = "Places",
+        label = AppShell.ROW_PLACES,
         glyph = "P",
         showChevron = true,
         onClick = {
@@ -444,9 +446,9 @@ private fun MoreListDestination(
             refresh()
         },
     )
-    if (isOrganizer) {
+    if (AppShell.showsFeedsRow(isOrganizer)) {
         MoreSettingsRow(
-            label = "Feeds",
+            label = AppShell.ROW_FEEDS,
             glyph = "F",
             showChevron = true,
             onClick = {
@@ -455,7 +457,7 @@ private fun MoreListDestination(
             },
         )
     }
-    Text("Account", style = MaterialTheme.typography.titleSmall)
+    Text(AppShell.MORE_GROUP_ACCOUNT, style = MaterialTheme.typography.titleSmall)
     MoreSettingsRow(
         label = "${current.email} · ${current.circle.role.name}",
         glyph = "A",
@@ -463,7 +465,7 @@ private fun MoreListDestination(
         onClick = null,
     )
     MoreSettingsRow(
-        label = if (current.loading) "Working…" else "Sign out",
+        label = if (current.loading) "Working…" else AppShell.ROW_SIGN_OUT,
         glyph = "X",
         showChevron = false,
         danger = true,
