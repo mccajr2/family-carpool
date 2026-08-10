@@ -1,12 +1,14 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
-    hold kids and Organizer membership. Magic links, passwords, multi-circle
-    membership, and HTTP-only web cookies are out of scope for this revision.
+    hold kids and memberships (ORGANIZER / CAREGIVER). Organizers share a short
+    invite code; Caregivers join via that code. Magic links, passwords,
+    multi-circle membership, invite deep links, email/push invite delivery, and
+    HTTP-only web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -15,7 +17,10 @@ tags:
   - name: auth
     description: Email OTP sign-in and Bearer sessions
   - name: family
-    description: Family circle and kids (one circle per adult in v1)
+    description: >
+      Family circle, kids, invite code, and memberships (one circle per adult
+      in v1). Organizer-only writes for invite regen, roles, remove, kids, and
+      circle rename.
 
 paths:
   /api/auth/request-code:
@@ -187,6 +192,11 @@ paths:
                 id: 01900000-0000-7000-8000-000000000010
                 name: McCarthy house
                 role: ORGANIZER
+                members:
+                  - adultId: 01900000-0000-7000-8000-000000000001
+                    email: parent@example.com
+                    displayName: Alex
+                    role: ORGANIZER
                 kids: []
         "400":
           description: Invalid request (e.g. blank adult display name)
@@ -210,12 +220,15 @@ paths:
     get:
       operationId: getFamilyCircle
       tags: [family]
-      summary: Get the current adult's family circle and kids
+      summary: Get the current adult's family circle, members, and kids
+      description: >
+        Returns the caller's membership role, member list, and kids. Does not
+        include the invite code — Organizers fetch that via getFamilyInvite.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Circle with membership role and kids
+          description: Circle with membership role, members, and kids
           content:
             application/json:
               schema:
@@ -224,6 +237,15 @@ paths:
                 id: 01900000-0000-7000-8000-000000000010
                 name: McCarthy house
                 role: ORGANIZER
+                members:
+                  - adultId: 01900000-0000-7000-8000-000000000001
+                    email: parent@example.com
+                    displayName: Alex
+                    role: ORGANIZER
+                  - adultId: 01900000-0000-7000-8000-000000000002
+                    email: other@example.com
+                    displayName: Sam
+                    role: CAREGIVER
                 kids:
                   - id: 01900000-0000-7000-8000-000000000021
                     displayName: Sam
@@ -246,7 +268,7 @@ paths:
       summary: Update the current adult's family circle
       description: >
         Updates the optional circle name. Pass null to clear the name (UI falls
-        back to "Your family"). Only members of the circle may update it.
+        back to "Your family"). ORGANIZER only; Caregivers receive 403.
       security:
         - bearerAuth: []
       requestBody:
@@ -276,8 +298,281 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/invite:
+    get:
+      operationId: getFamilyInvite
+      tags: [family]
+      summary: Get the circle's current invite code
+      description: >
+        ORGANIZER only. Returns the single active invite code for the circle.
+        Caregivers receive 403. Code has no TTL; regenerate to invalidate.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current invite code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyInvite"
+              example:
+                code: AB12CD34
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/invite/regenerate:
+    post:
+      operationId: regenerateFamilyInvite
+      tags: [family]
+      summary: Regenerate the circle's invite code
+      description: >
+        ORGANIZER only. Replaces the active invite code; the previous code no
+        longer accepts joins.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: New invite code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyInvite"
+              example:
+                code: XY98ZW76
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/join:
+    post:
+      operationId: joinFamilyCircle
+      tags: [family]
+      summary: Join a family circle with an invite code
+      description: >
+        Authenticated adult with no existing membership joins as CAREGIVER.
+        Requires adultDisplayName when the adult's displayName is still null.
+        Invalid or regenerated-away codes return 404 (no enumeration of circles).
+        Already belonging to any circle returns 409.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinFamilyCircleRequest"
+            example:
+              code: AB12CD34
+              adultDisplayName: Jordan
+      responses:
+        "200":
+          description: Joined as Caregiver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+        "400":
+          description: Invalid request (e.g. blank code or missing display name when required)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invite code unknown or no longer valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Adult already belongs to a family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/leave:
+    post:
+      operationId: leaveFamilyCircle
+      tags: [family]
+      summary: Leave the current adult's family circle
+      description: >
+        Caregiver may leave anytime. Organizer may leave only if another
+        Organizer remains. Sole Organizer may leave only when they are the only
+        member and the circle has zero kids; otherwise 409.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Left the circle (sole Organizer leaving an empty circle also deletes it)
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Leave would leave zero Organizers, or sole Organizer still has kids
+            or other members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/members/{adultId}:
+    parameters:
+      - name: adultId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Member adult id (not the caller's own id for remove)
+    patch:
+      operationId: updateFamilyMemberRole
+      tags: [family]
+      summary: Promote or demote a circle member
+      description: >
+        ORGANIZER only. Sets the member's role to ORGANIZER or CAREGIVER.
+        Demoting (or any change) that would leave zero Organizers returns 409.
+        Cannot change your own role via this endpoint (use promote of others /
+        leave rules).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFamilyMemberRoleRequest"
+            example:
+              role: ORGANIZER
+      responses:
+        "200":
+          description: Member role updated; returns the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Member not in the caller's circle (or caller has no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Change would leave the circle with zero Organizers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: removeFamilyMember
+      tags: [family]
+      summary: Remove a member from the circle
+      description: >
+        ORGANIZER only. Removes another adult's membership. Cannot remove
+        yourself (use leave). Removing the last Organizer returns 409.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Member removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Member not in the caller's circle (or caller has no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Remove would leave the circle with zero Organizers, or attempted self-remove
           content:
             application/json:
               schema:
@@ -288,6 +583,7 @@ paths:
       operationId: addKid
       tags: [family]
       summary: Add a kid to the current adult's family circle
+      description: ORGANIZER only. Caregivers receive 403.
       security:
         - bearerAuth: []
       requestBody:
@@ -320,6 +616,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Adult has no family circle yet
           content:
@@ -339,6 +641,7 @@ paths:
       operationId: updateKid
       tags: [family]
       summary: Rename a kid in the current adult's family circle
+      description: ORGANIZER only. Caregivers receive 403.
       security:
         - bearerAuth: []
       requestBody:
@@ -368,6 +671,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Kid not found in the current adult's circle (or no circle)
           content:
@@ -379,7 +688,9 @@ paths:
       operationId: deleteKid
       tags: [family]
       summary: Remove a kid from the current adult's family circle
-      description: Hard-deletes the kid row (acceptable until feeds/events exist).
+      description: >
+        ORGANIZER only. Hard-deletes the kid row (acceptable until feeds/events
+        exist). Caregivers receive 403.
       security:
         - bearerAuth: []
       responses:
@@ -387,6 +698,12 @@ paths:
           description: Kid removed
         "401":
           description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
           content:
             application/json:
               schema:
@@ -493,8 +810,9 @@ components:
           type: string
           nullable: true
           description: >
-            Null until set when creating a family circle (or later profile
-            flows). May be non-null after createFamilyCircle.
+            Null until set when creating or joining a family circle (or later
+            profile flows). May be non-null after createFamilyCircle or
+            joinFamilyCircle.
 
     CreateFamilyCircleRequest:
       type: object
@@ -531,6 +849,7 @@ components:
       required:
         - id
         - role
+        - members
         - kids
       properties:
         id:
@@ -542,17 +861,86 @@ components:
           description: Null when unnamed; clients should show "Your family"
         role:
           $ref: "#/components/schemas/FamilyRole"
+          description: Caller's role in this circle
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/FamilyMember"
         kids:
           type: array
           items:
             $ref: "#/components/schemas/Kid"
 
+    FamilyMember:
+      type: object
+      required:
+        - adultId
+        - email
+        - role
+      properties:
+        adultId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        role:
+          $ref: "#/components/schemas/FamilyRole"
+
+    FamilyInvite:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 16
+          description: >
+            Human-shareable invite code for the circle. Case-insensitive on
+            accept; one active code per circle until regenerated.
+          example: AB12CD34
+
+    JoinFamilyCircleRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+          description: Invite code from an Organizer
+          example: AB12CD34
+        adultDisplayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: >
+            Required when the joining adult's displayName is still null;
+            ignored or may refresh when already set (server may require it only
+            when null).
+          example: Jordan
+
+    UpdateFamilyMemberRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: "#/components/schemas/FamilyRole"
+
     FamilyRole:
       type: string
       enum: [ORGANIZER, CAREGIVER]
       description: >
-        ORGANIZER on create in this revision. CAREGIVER is reserved for the
-        invites slice.
+        ORGANIZER can invite (view/regenerate code), manage members/roles, rename
+        the circle, and manage kids. CAREGIVER can read the circle and leave.
+        Join always creates CAREGIVER; promote/demote adjusts roles with ≥1
+        Organizer required.
 
     Kid:
       type: object

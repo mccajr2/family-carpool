@@ -51,4 +51,8 @@ class FamilyMembershipEntity {
     FamilyRole role() {
         return role;
     }
+
+    void setRole(FamilyRole role) {
+        this.role = role;
+    }
 }

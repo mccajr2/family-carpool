@@ -56,12 +56,134 @@ fun FamilyScreen(
                 CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
             }
 
-            is FamilyUiModel.State.NeedsCreate -> {
-                Text("Create your family", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    text = "Signed in as ${current.email.ifBlank { "…" }}. Your name is required; family name is optional.",
-                    style = MaterialTheme.typography.bodyMedium,
+            is FamilyUiModel.State.NeedsMembership -> {
+                NeedsMembershipContent(
+                    current = current,
+                    model = model,
+                    refresh = ::refresh,
+                    onSignOut = onSignOut,
+                    scope = scope,
                 )
+            }
+
+            is FamilyUiModel.State.Ready -> {
+                ReadyContent(
+                    current = current,
+                    model = model,
+                    refresh = ::refresh,
+                    onSignOut = onSignOut,
+                    scope = scope,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NeedsMembershipContent(
+    current: FamilyUiModel.State.NeedsMembership,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    onSignOut: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    val title =
+        when (current.mode) {
+            FamilyUiModel.EmptyMode.JOIN -> "Join a family"
+            FamilyUiModel.EmptyMode.CREATE -> "Create your family"
+            FamilyUiModel.EmptyMode.CHOOSE -> "Your family"
+        }
+    Text(title, style = MaterialTheme.typography.headlineSmall)
+    Text(
+        text = "Signed in as ${current.email.ifBlank { "…" }}. Create a circle or join with an invite code.",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+
+    when (current.mode) {
+        FamilyUiModel.EmptyMode.CHOOSE -> {
+            Button(
+                onClick = {
+                    model.showCreate()
+                    refresh()
+                },
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Create family")
+            }
+            OutlinedButton(
+                onClick = {
+                    model.showJoin()
+                    refresh()
+                },
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Have an invite code?")
+            }
+        }
+
+        FamilyUiModel.EmptyMode.CREATE -> {
+            OutlinedTextField(
+                value = current.adultDisplayName,
+                onValueChange = {
+                    model.updateAdultDisplayName(it)
+                    refresh()
+                },
+                label = { Text("Your name") },
+                singleLine = true,
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = current.circleName,
+                onValueChange = {
+                    model.updateCircleName(it)
+                    refresh()
+                },
+                label = { Text("Your family (optional)") },
+                placeholder = { Text("Your family") },
+                singleLine = true,
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = {
+                    scope.launch {
+                        model.createCircle()
+                        refresh()
+                    }
+                },
+                enabled = !current.loading && current.adultDisplayName.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (current.loading) "Creating…" else "Create family")
+            }
+            OutlinedButton(
+                onClick = {
+                    model.showChoose()
+                    refresh()
+                },
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Back")
+            }
+        }
+
+        FamilyUiModel.EmptyMode.JOIN -> {
+            OutlinedTextField(
+                value = current.inviteCodeInput,
+                onValueChange = {
+                    model.updateInviteCodeInput(it)
+                    refresh()
+                },
+                label = { Text("Invite code") },
+                singleLine = true,
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (!current.hasDisplayName) {
                 OutlinedTextField(
                     value = current.adultDisplayName,
                     onValueChange = {
@@ -73,159 +195,265 @@ fun FamilyScreen(
                     enabled = !current.loading,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    value = current.circleName,
-                    onValueChange = {
-                        model.updateCircleName(it)
-                        refresh()
-                    },
-                    label = { Text("Your family (optional)") },
-                    placeholder = { Text("Your family") },
-                    singleLine = true,
-                    enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (current.error != null) {
-                    Text(text = current.error, color = MaterialTheme.colorScheme.error)
-                }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            model.createCircle()
-                            refresh()
-                        }
-                    },
-                    enabled = !current.loading && current.adultDisplayName.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (current.loading) "Creating…" else "Create family")
-                }
-                OutlinedButton(
-                    onClick = onSignOut,
-                    enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Sign out")
-                }
             }
+            Button(
+                onClick = {
+                    scope.launch {
+                        model.joinCircle()
+                        refresh()
+                    }
+                },
+                enabled =
+                    !current.loading &&
+                        current.inviteCodeInput.isNotBlank() &&
+                        (current.hasDisplayName || current.adultDisplayName.isNotBlank()),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (current.loading) "Joining…" else "Join family")
+            }
+            OutlinedButton(
+                onClick = {
+                    model.showChoose()
+                    refresh()
+                },
+                enabled = !current.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Back")
+            }
+        }
+    }
 
-            is FamilyUiModel.State.Ready -> {
-                Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    text =
-                        buildString {
-                            current.adultDisplayName?.let { append("$it · ") }
-                            append(current.email)
-                            append(" · ")
-                            append(current.circle.role.name)
+    if (current.error != null) {
+        Text(text = current.error, color = MaterialTheme.colorScheme.error)
+    }
+    OutlinedButton(
+        onClick = onSignOut,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Sign out")
+    }
+}
+
+@Composable
+private fun ReadyContent(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    onSignOut: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    val isOrganizer = current.circle.role == FamilyRole.ORGANIZER
+
+    Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
+    Text(
+        text =
+            buildString {
+                current.adultDisplayName?.let { append("$it · ") }
+                append(current.email)
+                append(" · ")
+                append(current.circle.role.name)
+            },
+        style = MaterialTheme.typography.bodyMedium,
+    )
+
+    if (isOrganizer && current.inviteCode != null) {
+        Text("Invite code: ${current.inviteCode}", style = MaterialTheme.typography.bodyMedium)
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    model.regenerateInvite()
+                    refresh()
+                }
+            },
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Regenerate code")
+        }
+    }
+
+    Text("Members", style = MaterialTheme.typography.titleSmall)
+    current.circle.members.forEach { member ->
+        val isSelf = member.adultId == current.adultId
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text =
+                    buildString {
+                        append(member.displayLabel())
+                        append(" · ")
+                        append(member.role.name)
+                        if (isSelf) append(" (you)")
+                    },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (isOrganizer && !isSelf) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (member.role == FamilyRole.CAREGIVER) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                model.updateMemberRole(member.adultId, FamilyRole.ORGANIZER)
+                                refresh()
+                            }
                         },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (current.circle.kids.isEmpty()) {
-                    Text("No kids yet.", style = MaterialTheme.typography.bodySmall)
+                        enabled = !current.loading,
+                    ) {
+                        Text("Promote")
+                    }
                 } else {
-                    current.circle.kids.forEach { kid ->
-                        if (current.editingKidId == kid.id) {
-                            OutlinedTextField(
-                                value = current.editingKidName,
-                                onValueChange = {
-                                    model.updateEditingKidName(it)
-                                    refresh()
-                                },
-                                label = { Text("Rename ${kid.displayName}") },
-                                singleLine = true,
-                                enabled = !current.loading,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        scope.launch {
-                                            model.saveRename()
-                                            refresh()
-                                        }
-                                    },
-                                    enabled = !current.loading && current.editingKidName.isNotBlank(),
-                                ) {
-                                    Text("Save")
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        model.cancelRename()
-                                        refresh()
-                                    },
-                                    enabled = !current.loading,
-                                ) {
-                                    Text("Cancel")
-                                }
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                model.updateMemberRole(member.adultId, FamilyRole.CAREGIVER)
+                                refresh()
                             }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(kid.displayName, modifier = Modifier.weight(1f))
-                                OutlinedButton(
-                                    onClick = {
-                                        model.beginRename(kid)
-                                        refresh()
-                                    },
-                                    enabled = !current.loading,
-                                ) {
-                                    Text("Rename")
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        scope.launch {
-                                            model.removeKid(kid.id)
-                                            refresh()
-                                        }
-                                    },
-                                    enabled = !current.loading,
-                                ) {
-                                    Text("Remove")
-                                }
-                            }
-                        }
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text("Demote")
                     }
                 }
-                OutlinedTextField(
-                    value = current.newKidName,
-                    onValueChange = {
-                        model.updateNewKidName(it)
-                        refresh()
-                    },
-                    label = { Text("New kid name") },
-                    singleLine = true,
-                    enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Button(
+                OutlinedButton(
                     onClick = {
                         scope.launch {
-                            model.addKid()
+                            model.removeMember(member.adultId)
                             refresh()
                         }
                     },
-                    enabled = !current.loading && current.newKidName.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Add kid")
-                }
-                if (current.error != null) {
-                    Text(text = current.error, color = MaterialTheme.colorScheme.error)
-                }
-                if (current.loading) {
-                    CircularProgressIndicator()
-                }
-                OutlinedButton(
-                    onClick = onSignOut,
                     enabled = !current.loading,
-                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Sign out")
+                    Text("Remove")
                 }
             }
         }
+    }
+
+    if (current.circle.kids.isEmpty()) {
+        Text("No kids yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        current.circle.kids.forEach { kid ->
+            if (isOrganizer && current.editingKidId == kid.id) {
+                OutlinedTextField(
+                    value = current.editingKidName,
+                    onValueChange = {
+                        model.updateEditingKidName(it)
+                        refresh()
+                    },
+                    label = { Text("Rename ${kid.displayName}") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.saveRename()
+                                refresh()
+                            }
+                        },
+                        enabled = !current.loading && current.editingKidName.isNotBlank(),
+                    ) {
+                        Text("Save")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            model.cancelRename()
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(kid.displayName, modifier = Modifier.weight(1f))
+                    if (isOrganizer) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginRename(kid)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Rename")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeKid(kid.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (isOrganizer) {
+        OutlinedTextField(
+            value = current.newKidName,
+            onValueChange = {
+                model.updateNewKidName(it)
+                refresh()
+            },
+            label = { Text("New kid name") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = {
+                scope.launch {
+                    model.addKid()
+                    refresh()
+                }
+            },
+            enabled = !current.loading && current.newKidName.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Add kid")
+        }
+    }
+
+    if (current.error != null) {
+        Text(text = current.error, color = MaterialTheme.colorScheme.error)
+    }
+    if (current.loading) {
+        CircularProgressIndicator()
+    }
+    OutlinedButton(
+        onClick = {
+            scope.launch {
+                model.leaveCircle()
+                refresh()
+            }
+        },
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Leave family")
+    }
+    OutlinedButton(
+        onClick = onSignOut,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Sign out")
     }
 }

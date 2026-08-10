@@ -9,4 +9,6 @@ interface FamilyKidRepository extends JpaRepository<FamilyKidEntity, UUID> {
     List<FamilyKidEntity> findByCircleIdOrderByCreatedAtAsc(UUID circleId);
 
     Optional<FamilyKidEntity> findByIdAndCircleId(UUID id, UUID circleId);
+
+    long countByCircleId(UUID circleId);
 }

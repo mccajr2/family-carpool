@@ -5,10 +5,15 @@ import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.family.CreateFamilyCircleRequest;
 import com.yourorg.quickapp.family.CreateKidRequest;
 import com.yourorg.quickapp.family.FamilyCircleResponse;
+import com.yourorg.quickapp.family.FamilyInviteResponse;
+import com.yourorg.quickapp.family.FamilyMemberResponse;
 import com.yourorg.quickapp.family.FamilyRole;
+import com.yourorg.quickapp.family.JoinFamilyCircleRequest;
 import com.yourorg.quickapp.family.KidResponse;
 import com.yourorg.quickapp.family.UpdateFamilyCircleRequest;
+import com.yourorg.quickapp.family.UpdateFamilyMemberRoleRequest;
 import com.yourorg.quickapp.family.UpdateKidRequest;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FamilyService {
+
+    private static final String INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int INVITE_CODE_LENGTH = 8;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final AdultSessionApi adultSessionApi;
     private final FamilyCircleRepository circles;
@@ -45,7 +54,8 @@ public class FamilyService {
 
         Instant now = Instant.now();
         String circleName = normalizeOptionalName(request.name());
-        FamilyCircleEntity circle = new FamilyCircleEntity(UUID.randomUUID(), circleName, now);
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(UUID.randomUUID(), circleName, generateUniqueInviteCode(), now);
         circles.save(circle);
 
         FamilyMembershipEntity membership =
@@ -53,7 +63,7 @@ public class FamilyService {
                         UUID.randomUUID(), circle.id(), adult.id(), FamilyRole.ORGANIZER, now);
         memberships.save(membership);
 
-        return toResponse(circle, membership.role(), List.of());
+        return toResponse(circle, membership.role());
     }
 
     @Transactional(readOnly = true)
@@ -63,15 +73,131 @@ public class FamilyService {
 
     @Transactional
     public FamilyCircleResponse update(AdultResponse adult, UpdateFamilyCircleRequest request) {
-        MembershipCircle loaded = requireMembership(adult.id());
+        MembershipCircle loaded = requireOrganizer(adult.id());
         loaded.circle().setName(normalizeOptionalName(request.name()));
         circles.save(loaded.circle());
-        return toResponse(loaded.circle(), loaded.membership().role(), kidsFor(loaded.circle().id()));
+        return toResponse(loaded.circle(), loaded.membership().role());
+    }
+
+    @Transactional(readOnly = true)
+    public FamilyInviteResponse getInvite(AdultResponse adult) {
+        MembershipCircle loaded = requireOrganizer(adult.id());
+        return new FamilyInviteResponse(loaded.circle().inviteCode());
+    }
+
+    @Transactional
+    public FamilyInviteResponse regenerateInvite(AdultResponse adult) {
+        MembershipCircle loaded = requireOrganizer(adult.id());
+        loaded.circle().setInviteCode(generateUniqueInviteCode());
+        circles.save(loaded.circle());
+        return new FamilyInviteResponse(loaded.circle().inviteCode());
+    }
+
+    @Transactional
+    public FamilyCircleResponse join(AdultResponse adult, JoinFamilyCircleRequest request) {
+        if (memberships.existsByAdultId(adult.id())) {
+            throw new FamilyException(HttpStatus.CONFLICT, "Adult already belongs to a family circle");
+        }
+
+        String code = normalizeInviteCode(request.code());
+        FamilyCircleEntity circle =
+                circles
+                        .findByInviteCode(code)
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Invite code not found"));
+
+        if (adult.displayName() == null || adult.displayName().isBlank()) {
+            if (request.adultDisplayName() == null || request.adultDisplayName().isBlank()) {
+                throw new FamilyException(HttpStatus.BAD_REQUEST, "adultDisplayName must not be blank");
+            }
+            adultSessionApi.updateDisplayName(adult.id(), request.adultDisplayName());
+        }
+
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(),
+                        circle.id(),
+                        adult.id(),
+                        FamilyRole.CAREGIVER,
+                        Instant.now());
+        memberships.save(membership);
+
+        return toResponse(circle, FamilyRole.CAREGIVER);
+    }
+
+    @Transactional
+    public void leave(AdultResponse adult) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        UUID circleId = loaded.circle().id();
+        long memberCount = memberships.countByCircleId(circleId);
+        long organizerCount = memberships.countByCircleIdAndRole(circleId, FamilyRole.ORGANIZER);
+        long kidCount = kids.countByCircleId(circleId);
+
+        if (loaded.membership().role() == FamilyRole.ORGANIZER) {
+            if (organizerCount <= 1) {
+                if (memberCount > 1 || kidCount > 0) {
+                    throw new FamilyException(
+                            HttpStatus.CONFLICT,
+                            "Sole Organizer cannot leave while other members or kids remain");
+                }
+                memberships.delete(loaded.membership());
+                circles.delete(loaded.circle());
+                return;
+            }
+        }
+
+        memberships.delete(loaded.membership());
+    }
+
+    @Transactional
+    public FamilyCircleResponse updateMemberRole(
+            AdultResponse adult, UUID memberAdultId, UpdateFamilyMemberRoleRequest request) {
+        MembershipCircle loaded = requireOrganizer(adult.id());
+        if (adult.id().equals(memberAdultId)) {
+            throw new FamilyException(HttpStatus.CONFLICT, "Cannot change your own role");
+        }
+
+        FamilyMembershipEntity member =
+                memberships
+                        .findByCircleIdAndAdultId(loaded.circle().id(), memberAdultId)
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        FamilyRole newRole = request.role();
+        if (member.role() == FamilyRole.ORGANIZER
+                && newRole == FamilyRole.CAREGIVER
+                && memberships.countByCircleIdAndRole(loaded.circle().id(), FamilyRole.ORGANIZER) <= 1) {
+            throw new FamilyException(
+                    HttpStatus.CONFLICT, "Circle must keep at least one Organizer");
+        }
+
+        member.setRole(newRole);
+        memberships.save(member);
+        return toResponse(loaded.circle(), loaded.membership().role());
+    }
+
+    @Transactional
+    public void removeMember(AdultResponse adult, UUID memberAdultId) {
+        MembershipCircle loaded = requireOrganizer(adult.id());
+        if (adult.id().equals(memberAdultId)) {
+            throw new FamilyException(HttpStatus.CONFLICT, "Cannot remove yourself; use leave");
+        }
+
+        FamilyMembershipEntity member =
+                memberships
+                        .findByCircleIdAndAdultId(loaded.circle().id(), memberAdultId)
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        if (member.role() == FamilyRole.ORGANIZER
+                && memberships.countByCircleIdAndRole(loaded.circle().id(), FamilyRole.ORGANIZER) <= 1) {
+            throw new FamilyException(
+                    HttpStatus.CONFLICT, "Circle must keep at least one Organizer");
+        }
+
+        memberships.delete(member);
     }
 
     @Transactional
     public KidResponse addKid(AdultResponse adult, CreateKidRequest request) {
-        MembershipCircle loaded = requireMembership(adult.id());
+        MembershipCircle loaded = requireOrganizer(adult.id());
         String displayName = normalizeRequiredName(request.displayName(), "displayName");
         FamilyKidEntity kid =
                 new FamilyKidEntity(
@@ -82,7 +208,7 @@ public class FamilyService {
 
     @Transactional
     public KidResponse updateKid(AdultResponse adult, UUID kidId, UpdateKidRequest request) {
-        MembershipCircle loaded = requireMembership(adult.id());
+        MembershipCircle loaded = requireOrganizer(adult.id());
         FamilyKidEntity kid =
                 kids.findByIdAndCircleId(kidId, loaded.circle().id())
                         .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Kid not found"));
@@ -93,7 +219,7 @@ public class FamilyService {
 
     @Transactional
     public void deleteKid(AdultResponse adult, UUID kidId) {
-        MembershipCircle loaded = requireMembership(adult.id());
+        MembershipCircle loaded = requireOrganizer(adult.id());
         FamilyKidEntity kid =
                 kids.findByIdAndCircleId(kidId, loaded.circle().id())
                         .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Kid not found"));
@@ -102,7 +228,15 @@ public class FamilyService {
 
     private FamilyCircleResponse loadCircle(UUID adultId) {
         MembershipCircle loaded = requireMembership(adultId);
-        return toResponse(loaded.circle(), loaded.membership().role(), kidsFor(loaded.circle().id()));
+        return toResponse(loaded.circle(), loaded.membership().role());
+    }
+
+    private MembershipCircle requireOrganizer(UUID adultId) {
+        MembershipCircle loaded = requireMembership(adultId);
+        if (loaded.membership().role() != FamilyRole.ORGANIZER) {
+            throw new FamilyException(HttpStatus.FORBIDDEN, "Organizer role required");
+        }
+        return loaded;
     }
 
     private MembershipCircle requireMembership(UUID adultId) {
@@ -119,15 +253,55 @@ public class FamilyService {
         return new MembershipCircle(membership, circle);
     }
 
+    private FamilyCircleResponse toResponse(FamilyCircleEntity circle, FamilyRole role) {
+        return new FamilyCircleResponse(
+                circle.id(), circle.name(), role, membersFor(circle.id()), kidsFor(circle.id()));
+    }
+
+    private List<FamilyMemberResponse> membersFor(UUID circleId) {
+        return memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                .map(
+                        membership -> {
+                            AdultResponse member = adultSessionApi.requireAdult(membership.adultId());
+                            return new FamilyMemberResponse(
+                                    member.id(), member.email(), member.displayName(), membership.role());
+                        })
+                .toList();
+    }
+
     private List<KidResponse> kidsFor(UUID circleId) {
         return kids.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                 .map(kid -> new KidResponse(kid.id(), kid.displayName()))
                 .toList();
     }
 
-    private static FamilyCircleResponse toResponse(
-            FamilyCircleEntity circle, FamilyRole role, List<KidResponse> kids) {
-        return new FamilyCircleResponse(circle.id(), circle.name(), role, kids);
+    private String generateUniqueInviteCode() {
+        for (int attempt = 0; attempt < 32; attempt++) {
+            String code = randomInviteCode();
+            if (!circles.existsByInviteCode(code)) {
+                return code;
+            }
+        }
+        throw new FamilyException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not allocate invite code");
+    }
+
+    private static String randomInviteCode() {
+        StringBuilder builder = new StringBuilder(INVITE_CODE_LENGTH);
+        for (int i = 0; i < INVITE_CODE_LENGTH; i++) {
+            builder.append(INVITE_ALPHABET.charAt(RANDOM.nextInt(INVITE_ALPHABET.length())));
+        }
+        return builder.toString();
+    }
+
+    private static String normalizeInviteCode(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new FamilyException(HttpStatus.BAD_REQUEST, "code must not be blank");
+        }
+        String normalized = raw.trim().toUpperCase();
+        if (normalized.length() > 16) {
+            throw new FamilyException(HttpStatus.BAD_REQUEST, "code is too long");
+        }
+        return normalized;
     }
 
     private static String normalizeOptionalName(String raw) {

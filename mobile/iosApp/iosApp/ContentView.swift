@@ -74,12 +74,24 @@ struct ContentView: View {
             Text("Your family")
                 .font(.title2.bold())
             ProgressView()
-        case .needsCreate:
-            Text("Create your family")
+        case .choose:
+            Text("Your family")
                 .font(.title2.bold())
-            Text("Signed in as \(model.signedInEmail.isEmpty ? "…" : model.signedInEmail). Your name is required; family name is optional.")
+            Text("Signed in as \(model.signedInEmail.isEmpty ? "…" : model.signedInEmail). Create a circle or join with an invite code.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            Button("Create family") { model.showCreate() }
+                .disabled(model.isLoading)
+            Button("Have an invite code?") { model.showJoin() }
+                .disabled(model.isLoading)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.footnote)
+            }
+            Button("Sign out") { model.signOut() }
+                .disabled(model.isLoading)
+        case .create:
+            Text("Create your family")
+                .font(.title2.bold())
             TextField("Your name", text: $model.adultDisplayName)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
@@ -87,18 +99,43 @@ struct ContentView: View {
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
             if let errorMessage = model.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
+                Text(errorMessage).foregroundStyle(.red).font(.footnote)
             }
             Button(model.isLoading ? "Creating…" : "Create family") {
                 model.createFamily()
             }
             .disabled(model.isLoading || model.adultDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            Button("Sign out") {
-                model.signOut()
+            Button("Back") { model.showChoose() }
+                .disabled(model.isLoading)
+            Button("Sign out") { model.signOut() }
+                .disabled(model.isLoading)
+        case .join:
+            Text("Join a family")
+                .font(.title2.bold())
+            TextField("Invite code", text: $model.inviteCodeInput)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            if !model.hasDisplayName {
+                TextField("Your name", text: $model.adultDisplayName)
+                    .disabled(model.isLoading)
+                    .textFieldStyle(.roundedBorder)
             }
-            .disabled(model.isLoading)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.footnote)
+            }
+            Button(model.isLoading ? "Joining…" : "Join family") {
+                model.joinFamily()
+            }
+            .disabled(
+                model.isLoading
+                    || model.inviteCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || (!model.hasDisplayName
+                        && model.adultDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            )
+            Button("Back") { model.showChoose() }
+                .disabled(model.isLoading)
+            Button("Sign out") { model.signOut() }
+                .disabled(model.isLoading)
         case .ready:
             Text(model.familyTitle)
                 .font(.title2.bold())
@@ -106,13 +143,40 @@ struct ContentView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
+            if model.isOrganizer, !model.inviteCode.isEmpty {
+                Text("Invite code: \(model.inviteCode)")
+                    .font(.body.monospaced())
+                Button("Regenerate code") { model.regenerateInvite() }
+                    .disabled(model.isLoading)
+            }
+
+            Text("Members")
+                .font(.headline)
+            ForEach(model.members) { member in
+                let isSelf = member.adultId == model.currentAdultId
+                Text("\(member.label) · \(member.role)\(isSelf ? " (you)" : "")")
+                if model.isOrganizer, !isSelf {
+                    HStack {
+                        if member.role == "CAREGIVER" {
+                            Button("Promote") { model.promote(member) }
+                                .disabled(model.isLoading)
+                        } else {
+                            Button("Demote") { model.demote(member) }
+                                .disabled(model.isLoading)
+                        }
+                        Button("Remove") { model.removeMember(member) }
+                            .disabled(model.isLoading)
+                    }
+                }
+            }
+
             if model.kids.isEmpty {
                 Text("No kids yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.kids) { kid in
-                    if model.editingKidId == kid.id {
+                    if model.isOrganizer, model.editingKidId == kid.id {
                         TextField("Rename", text: $model.editingKidName)
                             .textFieldStyle(.roundedBorder)
                         HStack {
@@ -125,22 +189,26 @@ struct ContentView: View {
                         HStack {
                             Text(kid.displayName)
                             Spacer()
-                            Button("Rename") { model.beginRename(kid) }
-                                .disabled(model.isLoading)
-                            Button("Remove") { model.removeKid(kid.id) }
-                                .disabled(model.isLoading)
+                            if model.isOrganizer {
+                                Button("Rename") { model.beginRename(kid) }
+                                    .disabled(model.isLoading)
+                                Button("Remove") { model.removeKid(kid.id) }
+                                    .disabled(model.isLoading)
+                            }
                         }
                     }
                 }
             }
 
-            TextField("New kid name", text: $model.newKidName)
-                .disabled(model.isLoading)
-                .textFieldStyle(.roundedBorder)
-            Button("Add kid") {
-                model.addKid()
+            if model.isOrganizer {
+                TextField("New kid name", text: $model.newKidName)
+                    .disabled(model.isLoading)
+                    .textFieldStyle(.roundedBorder)
+                Button("Add kid") {
+                    model.addKid()
+                }
+                .disabled(model.isLoading || model.newKidName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .disabled(model.isLoading || model.newKidName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
@@ -150,6 +218,10 @@ struct ContentView: View {
             if model.isLoading {
                 ProgressView()
             }
+            Button("Leave family") {
+                model.leaveFamily()
+            }
+            .disabled(model.isLoading)
             Button(model.isLoading ? "Working…" : "Sign out") {
                 model.signOut()
             }

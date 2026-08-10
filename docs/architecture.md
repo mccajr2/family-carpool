@@ -43,37 +43,46 @@ Locked for `adult-auth-magic-link` (see archive spec):
 
 Modulith module: `backend/modules/auth/`. Contract paths under `/api/auth/*`.
 Public surface for other modules: `AdultSessionApi` (resolve Bearer adult,
-update `displayName`).
+look up adult by id, update `displayName`).
 
 ## Family circle (v1)
 
-Locked for `family-circle-and-kids`:
+Locked for `family-circle-and-kids` + `family-adult-invites-roles`:
 
 | Topic | Decision |
 |--------|----------|
 | Cardinality | **At most one** circle membership per adult (multi-circle → parking) |
 | Create | Required adult display name; optional circle name (UI: “Your family”) |
-| Role on create | `ORGANIZER` (Caregiver arrives with invites) |
+| Role on create | `ORGANIZER` |
+| Invite | One active **short code** per circle; Organizer views/regenerates (no TTL); share out of band |
+| Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
+| Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
+| Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
+| Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD; all members may read |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Empty circle | Allowed (add kids later) |
 
 Modulith module: `backend/modules/family/`. Contract paths under `/api/family/*`.
+Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
+`requireAdult`, `updateDisplayName`).
 
 **How objects link (extensible):**
 
-- **Adult** ↔ **circle** via membership (+ role)
+- **Adult** ↔ **circle** via membership (+ role `ORGANIZER` | `CAREGIVER`)
+- **Invite code** lives on the circle (not per-member)
 - **Kid** belongs to a **circle**
 - Later **activity feeds** attach to a circle; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
   a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
 
 ```
-Adult --membership--> FamilyCircle <-- Kid
-                           ^
-                           | (later)
-                      ActivityFeed --feed↔kid--> Kid
+Adult --membership(+role)--> FamilyCircle <-- Kid
+                                  |
+                             invite_code
+                                  ^
+                                  | (later)
+                             ActivityFeed --feed↔kid--> Kid
 ```
-
 ## Repository layout
 
 ```

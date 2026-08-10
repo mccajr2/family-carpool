@@ -1,8 +1,10 @@
 # Spec: family-adult-invites-roles
 
-Status: draft  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-09  
+Approved: 2026-08-09  
+Completed: 2026-08-09  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `family-adult-invites-roles`
 
@@ -67,49 +69,49 @@ code on empty state; member list; Organizer controls; leave.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents invite get/regenerate, accept invite, list/remove
+- [x] OpenAPI documents invite get/regenerate, accept invite, list/remove
       members, promote/demote, leave; Bearer on all; Caregiver vs Organizer
       authorization called out.
-- [ ] Organizer can retrieve the circle’s **current invite code** and
+- [x] Organizer can retrieve the circle’s **current invite code** and
       **regenerate** it (previous code no longer accepts).
-- [ ] Signed-in adult with **no** membership accepts a valid code → membership
+- [x] Signed-in adult with **no** membership accepts a valid code → membership
       **CAREGIVER**; optional/required display name filled when null; GET circle
       shows them in members.
-- [ ] Accept with invalid/unknown/regenerated-away code → **404** (no leak of
+- [x] Accept with invalid/unknown/regenerated-away code → **404** (no leak of
       other circles). Accept while already a member of any circle → **409**.
-- [ ] Unauthenticated invite/member calls → **401**. Caregiver calling
+- [x] Unauthenticated invite/member calls → **401**. Caregiver calling
       Organizer-only endpoints → **403**. Non-member → **404** where
       appropriate (no cross-circle leak).
-- [ ] Organizer can **remove** a member (not themselves via remove — use leave);
+- [x] Organizer can **remove** a member (not themselves via remove — use leave);
       cannot remove/demote/leave into **zero Organizers** → **409**.
-- [ ] Organizer can **promote** / **demote** roles subject to the ≥1 Organizer
+- [x] Organizer can **promote** / **demote** roles subject to the ≥1 Organizer
       rule.
-- [ ] Caregiver can **leave**; sole Organizer can leave only if alone and
+- [x] Caregiver can **leave**; sole Organizer can leave only if alone and
       **zero kids**; otherwise leave → **409**.
-- [ ] Kids create/update/delete and circle rename remain **Organizer-only**
+- [x] Kids create/update/delete and circle rename remain **Organizer-only**
       (Caregiver read-only for those); regression-tested.
-- [ ] Empty-state UI (web + Android + iOS): **Create family** and **Have an
+- [x] Empty-state UI (web + Android + iOS): **Create family** and **Have an
       invite code?**; after join/create, members list; Organizer sees code +
       regenerate, promote/demote/remove; any member can leave (subject to
       rules); errors surfaced.
-- [ ] Backend unit + integration tests cover invite, join conflict, roles,
+- [x] Backend unit + integration tests cover invite, join conflict, roles,
       leave, and authz; client tests cover new API paths; `ModularityTests`
       still green.
 
 ## Tasks
 
-- [ ] **Contract:** Invite + members (+ leave/role) paths and schemas in
+- [x] **Contract:** Invite + members (+ leave/role) paths and schemas in
       `contracts/openapi.yaml`; update circle response with members; authz notes.
-- [ ] **Backend (`family`):** Flyway for invite code (+ unique); generate /
+- [x] **Backend (`family`):** Flyway for invite code (+ unique); generate /
       regenerate; accept; member list; remove; promote/demote; leave; enforce
       one-circle, ≥1 Organizer, Organizer-only writes on kids/circle.
-- [ ] **Web:** Family client + empty-state join; members UI; Organizer controls;
+- [x] **Web:** Family client + empty-state join; members UI; Organizer controls;
       leave.
-- [ ] **Mobile (`sharedLogic`):** Client methods + models for invite/members.
-- [ ] **Android / iOS:** Same flows as web via sharedUI / SwiftUI.
-- [ ] **Tests:** Backend unit + Testcontainers integration; web + sharedLogic
+- [x] **Mobile (`sharedLogic`):** Client methods + models for invite/members.
+- [x] **Android / iOS:** Same flows as web via sharedUI / SwiftUI.
+- [x] **Tests:** Backend unit + Testcontainers integration; web + sharedLogic
       tests; authz regressions for Caregiver vs Organizer.
-- [ ] **Docs:** Architecture family section — invites, roles, leave rules;
+- [x] **Docs:** Architecture family section — invites, roles, leave rules;
       README smoke: invite second adult.
 
 ## Open questions
