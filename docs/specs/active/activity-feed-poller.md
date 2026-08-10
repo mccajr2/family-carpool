@@ -89,7 +89,7 @@ list / status labels). Does **not** trigger sync. Sync now remains per feed.
       prefer `docs/architecture.md` over version bump unless OpenAPI text must
       change.
 - [x] **Web:** Refresh control on manage-feeds; re-`listFeeds`; tests.
-- [ ] **Mobile:** sharedUI + iOS Refresh; tests.
+- [x] **Mobile:** sharedUI + iOS Refresh; tests.
 - [ ] **Docs:** architecture — poller interval, enable flag, single-instance
       assumption, Refresh vs Sync now.
 - [ ] **Tests:** poller unit/integration + client Refresh; `ModularityTests`.

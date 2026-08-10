@@ -573,7 +573,23 @@ private fun ReadyContent(
     }
 
     if (isOrganizer) {
-        Text("Activity feeds", style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Activity feeds", style = MaterialTheme.typography.titleSmall)
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        model.refreshFeeds()
+                        refresh()
+                    }
+                },
+                enabled = !current.loading,
+            ) {
+                Text("Refresh")
+            }
+        }
         if (current.feeds.isEmpty()) {
             Text("No feeds yet.", style = MaterialTheme.typography.bodySmall)
         } else {

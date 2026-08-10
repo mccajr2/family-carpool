@@ -691,12 +691,24 @@ final class AuthViewModel: ObservableObject {
                         )
                     }
                     self.feeds = next
+                    self.isLoading = false
                 }
             },
             onError: { [weak self] message in
-                Task { @MainActor in self?.errorMessage = message }
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
             }
         )
+    }
+
+    /// Re-GET feeds list only — does not trigger Sync now.
+    func refreshFeeds() {
+        guard isOrganizer else { return }
+        isLoading = true
+        errorMessage = nil
+        loadFeeds()
     }
 
     func toggleNewFeedKid(_ kidId: String) {
