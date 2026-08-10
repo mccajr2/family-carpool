@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-09 (family-adult-invites-roles done)
+Updated: 2026-08-09 (schedule import → iCal/webcal)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -50,7 +50,7 @@ share the ride.
 
 | Topic | Decision |
 |--------|----------|
-| Schedule import | **RSS/Atom + iCal/`.ics` URL** first; **manual add/edit** escape hatch; dedupe by feed item UID when present; poll on a sensible interval; show **last-synced** time |
+| Schedule import | **iCal / webcal / `.ics` URL** subscribe feeds (not RSS); **manual add/edit** escape hatch; dedupe by `UID` when present; poll on a sensible interval; show **last-synced** time. **v1 target platforms to validate against:** [Crossbar](https://www.crossbar.org), [SportsYou](https://sportsyou.com), [SportsEngine](https://www.sportsengine.com) — still generic URL import, not vendor APIs |
 | Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join; **v1 = at most one circle per adult** (multi-circle / blended / multi-grandkid households → parking) |
 | Places | **Named places** (Mom’s house, Dad’s house, Grandma’s, School) — not one address for the whole circle |
 | Roles | **Organizer** (invite/remove, manage feeds/kids) + **Caregiver** (calendar, coverage, carpool, garage). Driver-only later |
@@ -70,7 +70,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 |------|-----|--------|-------|---------|
 | 1 | named-places | planned | 2026-08-07 · initial | Named places (homes, school, etc.) with addresses — not one address for the circle |
 | 2 | place-geocoding | planned | 2026-08-07 · re-rank split | Nominatim geocode for places/venues; cache; respectful User-Agent |
-| 3 | activity-feed-sync | planned | 2026-08-07 · re-rank split | RSS/Atom + iCal URL import; poll; dedupe by UID; last-synced; kid↔feed attachment |
+| 3 | activity-feed-sync | planned | 2026-08-07 · re-rank split | iCal/webcal URL import; validate Crossbar + SportsYou + SportsEngine; poll; dedupe by UID; last-synced; kid↔feed attachment |
 | 4 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
 | 5 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
 | 6 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
@@ -101,6 +101,7 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 | push-notifications | 2026-08-07 · initial | Push for coverage asks, ride request/accept, conflict alerts |
 | sign-in-apple-google | 2026-08-07 · initial | Sign in with Apple / Google (deferred from auth v1) |
 | driver-only-role | 2026-08-07 · initial | Narrow Driver-only role (orthogonal driving stays in garage for now) |
+| rss-atom-schedule-feeds | 2026-08-09 · enhancement | RSS/Atom schedule import (superseded for v1 by iCal/webcal) |
 | rescue-broadcast | 2026-08-07 · initial | Emergency / rescue broadcast mode |
 | paid-live-traffic | 2026-08-07 · initial | Paid live-traffic providers for leave-by |
 | coach-league-admin | 2026-08-07 · initial | Coach/league admin consoles, fees, club OS |
@@ -144,3 +145,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-08 | `/pr family-circle-and-kids`: circle + kids CRUD shipped (web/Android/iOS); next up `family-adult-invites-roles`. |
 | 2026-08-09 | `/spec family-adult-invites-roles`: invite code, Caregiver join, promote/demote, leave rules; multi-circle stays parking. |
 | 2026-08-09 | `/pr family-adult-invites-roles`: invite code + roles shipped (web/Android/iOS); next up `named-places`. |
+| 2026-08-09 | Schedule import locked to **iCal/webcal** (not RSS); v1 validate Crossbar, SportsYou, SportsEngine; RSS/Atom → parking. |
