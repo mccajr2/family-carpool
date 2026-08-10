@@ -1,18 +1,27 @@
 package org.example.project
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,20 +55,26 @@ fun FamilyScreen(
         refresh()
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        when (val current = state) {
-            is FamilyUiModel.State.Loading -> {
+    when (val current = state) {
+        is FamilyUiModel.State.Loading -> {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text("Your family", style = MaterialTheme.typography.headlineSmall)
                 CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
             }
+        }
 
-            is FamilyUiModel.State.NeedsMembership -> {
+        is FamilyUiModel.State.NeedsMembership -> {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 NeedsMembershipContent(
                     current = current,
                     model = model,
@@ -67,16 +83,16 @@ fun FamilyScreen(
                     scope = scope,
                 )
             }
+        }
 
-            is FamilyUiModel.State.Ready -> {
-                ReadyContent(
-                    current = current,
-                    model = model,
-                    refresh = ::refresh,
-                    onSignOut = onSignOut,
-                    scope = scope,
-                )
-            }
+        is FamilyUiModel.State.Ready -> {
+            ReadyContent(
+                current = current,
+                model = model,
+                refresh = ::refresh,
+                onSignOut = onSignOut,
+                scope = scope,
+            )
         }
     }
 }
@@ -247,19 +263,274 @@ private fun ReadyContent(
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
     val isOrganizer = current.circle.role == FamilyRole.ORGANIZER
+    val moreScreen =
+        if (current.moreScreen == FamilyUiModel.MoreScreen.FEEDS && !isOrganizer) {
+            FamilyUiModel.MoreScreen.LIST
+        } else {
+            current.moreScreen
+        }
 
-    Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
-    Text(
-        text =
-            buildString {
-                current.adultDisplayName?.let { append("$it · ") }
-                append(current.email)
-                append(" · ")
-                append(current.circle.role.name)
-            },
-        style = MaterialTheme.typography.bodyMedium,
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                ShellTabItem(
+                    label = "Calendar",
+                    selected = current.shellTab == FamilyUiModel.ShellTab.CALENDAR,
+                    onClick = {
+                        model.selectShellTab(FamilyUiModel.ShellTab.CALENDAR)
+                        refresh()
+                    },
+                )
+                ShellTabItem(
+                    label = "Carpool",
+                    selected = current.shellTab == FamilyUiModel.ShellTab.CARPOOL,
+                    onClick = {
+                        model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
+                        refresh()
+                    },
+                )
+                ShellTabItem(
+                    label = "Family",
+                    selected = current.shellTab == FamilyUiModel.ShellTab.FAMILY,
+                    onClick = {
+                        model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
+                        refresh()
+                    },
+                )
+                ShellTabItem(
+                    label = "More",
+                    selected = current.shellTab == FamilyUiModel.ShellTab.MORE,
+                    onClick = {
+                        model.selectShellTab(FamilyUiModel.ShellTab.MORE)
+                        refresh()
+                    },
+                )
+            }
+        },
+    ) { padding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(padding)
+                    .padding(8.dp)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when (current.shellTab) {
+                FamilyUiModel.ShellTab.CALENDAR -> {
+                    Text("Calendar", style = MaterialTheme.typography.headlineSmall)
+                    CalendarDestination(
+                        current = current,
+                        model = model,
+                        refresh = refresh,
+                        scope = scope,
+                    )
+                }
+                FamilyUiModel.ShellTab.CARPOOL -> {
+                    Text("Carpool", style = MaterialTheme.typography.headlineSmall)
+                    Text("Coming soon", style = MaterialTheme.typography.bodyMedium)
+                }
+                FamilyUiModel.ShellTab.FAMILY -> {
+                    Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        text =
+                            buildString {
+                                current.adultDisplayName?.let { append("$it · ") }
+                                append(current.email)
+                                append(" · ")
+                                append(current.circle.role.name)
+                            },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    FamilyDestination(
+                        current = current,
+                        model = model,
+                        refresh = refresh,
+                        scope = scope,
+                        isOrganizer = isOrganizer,
+                    )
+                }
+                FamilyUiModel.ShellTab.MORE -> {
+                    when (moreScreen) {
+                        FamilyUiModel.MoreScreen.LIST -> {
+                            Text("More", style = MaterialTheme.typography.headlineSmall)
+                            MoreListDestination(
+                                current = current,
+                                model = model,
+                                refresh = refresh,
+                                onSignOut = onSignOut,
+                                isOrganizer = isOrganizer,
+                            )
+                        }
+                        FamilyUiModel.MoreScreen.PLACES -> {
+                            OutlinedButton(
+                                onClick = {
+                                    model.openMoreList()
+                                    refresh()
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Back")
+                            }
+                            Text("Places", style = MaterialTheme.typography.headlineSmall)
+                            PlacesDestination(
+                                current = current,
+                                model = model,
+                                refresh = refresh,
+                                scope = scope,
+                            )
+                        }
+                        FamilyUiModel.MoreScreen.FEEDS -> {
+                            OutlinedButton(
+                                onClick = {
+                                    model.openMoreList()
+                                    refresh()
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Back")
+                            }
+                            Text("Feeds", style = MaterialTheme.typography.headlineSmall)
+                            FeedsDestination(
+                                current = current,
+                                model = model,
+                                refresh = refresh,
+                                scope = scope,
+                            )
+                        }
+                    }
+                }
+            }
+            if (current.error != null && current.shellTab != FamilyUiModel.ShellTab.CALENDAR) {
+                Text(text = current.error, color = MaterialTheme.colorScheme.error)
+            }
+            if (current.loading) {
+                CircularProgressIndicator()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ShellTabItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = { Text(label.take(1)) },
+        label = { Text(label) },
     )
+}
 
+@Composable
+private fun MoreListDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    onSignOut: () -> Unit,
+    isOrganizer: Boolean,
+) {
+    Text("General", style = MaterialTheme.typography.titleSmall)
+    MoreSettingsRow(
+        label = "Places",
+        glyph = "P",
+        showChevron = true,
+        onClick = {
+            model.openMorePlaces()
+            refresh()
+        },
+    )
+    if (isOrganizer) {
+        MoreSettingsRow(
+            label = "Feeds",
+            glyph = "F",
+            showChevron = true,
+            onClick = {
+                model.openMoreFeeds()
+                refresh()
+            },
+        )
+    }
+    Text("Account", style = MaterialTheme.typography.titleSmall)
+    MoreSettingsRow(
+        label = "${current.email} · ${current.circle.role.name}",
+        glyph = "A",
+        showChevron = false,
+        onClick = null,
+    )
+    MoreSettingsRow(
+        label = if (current.loading) "Working…" else "Sign out",
+        glyph = "X",
+        showChevron = false,
+        danger = true,
+        onClick = onSignOut,
+    )
+}
+
+@Composable
+private fun MoreSettingsRow(
+    label: String,
+    glyph: String,
+    showChevron: Boolean,
+    onClick: (() -> Unit)?,
+    danger: Boolean = false,
+) {
+    val contentColor =
+        if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val chipColor =
+        if (danger) {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+        } else {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .background(chipColor, shape = RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(glyph, color = contentColor, style = MaterialTheme.typography.titleMedium)
+        }
+        Text(
+            text = label,
+            color = contentColor,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (showChevron) {
+            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun FamilyDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+    isOrganizer: Boolean,
+) {
     if (isOrganizer && current.inviteCode != null) {
         Text("Invite code: ${current.inviteCode}", style = MaterialTheme.typography.bodyMedium)
         OutlinedButton(
@@ -433,7 +704,27 @@ private fun ReadyContent(
         }
     }
 
-    Text("Places", style = MaterialTheme.typography.titleSmall)
+    OutlinedButton(
+        onClick = {
+            scope.launch {
+                model.leaveCircle()
+                refresh()
+            }
+        },
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Leave family")
+    }
+}
+
+@Composable
+private fun PlacesDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
     if (current.circle.places.isEmpty()) {
         Text("No places yet.", style = MaterialTheme.typography.bodySmall)
     } else {
@@ -572,6 +863,15 @@ private fun ReadyContent(
         Text("Add place")
     }
 
+}
+
+@Composable
+private fun CalendarDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
     Text("Agenda", style = MaterialTheme.typography.titleSmall)
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
@@ -869,213 +1169,194 @@ private fun ReadyContent(
         Text("Add event")
     }
 
-    if (isOrganizer) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+}
+
+@Composable
+private fun FeedsDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("Activity feeds", style = MaterialTheme.typography.titleSmall)
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    model.refreshFeeds()
+                    refresh()
+                }
+            },
+            enabled = !current.loading,
         ) {
-            Text("Activity feeds", style = MaterialTheme.typography.titleSmall)
-            OutlinedButton(
-                onClick = {
-                    scope.launch {
-                        model.refreshFeeds()
-                        refresh()
-                    }
-                },
-                enabled = !current.loading,
-            ) {
-                Text("Refresh")
-            }
+            Text("Refresh")
         }
-        if (current.feeds.isEmpty()) {
-            Text("No feeds yet.", style = MaterialTheme.typography.bodySmall)
-        } else {
-            current.feeds.forEach { feed ->
-                if (current.editingFeedId == feed.id) {
-                    OutlinedTextField(
-                        value = current.editingFeedName,
-                        onValueChange = {
-                            model.updateEditingFeedName(it)
+    }
+    if (current.feeds.isEmpty()) {
+        Text("No feeds yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        current.feeds.forEach { feed ->
+            if (current.editingFeedId == feed.id) {
+                OutlinedTextField(
+                    value = current.editingFeedName,
+                    onValueChange = {
+                        model.updateEditingFeedName(it)
+                        refresh()
+                    },
+                    label = { Text("Feed name") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = current.editingFeedUrl,
+                    onValueChange = {
+                        model.updateEditingFeedUrl(it)
+                        refresh()
+                    },
+                    label = { Text("Feed URL") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FeedKidCheckboxes(
+                    kids = current.circle.kids,
+                    selectedKidIds = current.editingFeedKidIds,
+                    enabled = !current.loading,
+                    onToggle = {
+                        model.toggleEditingFeedKid(it)
+                        refresh()
+                    },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.saveFeed()
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                current.editingFeedName.isNotBlank() &&
+                                current.editingFeedUrl.isNotBlank(),
+                    ) {
+                        Text("Save")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            model.cancelEditFeed()
                             refresh()
                         },
-                        label = { Text("Feed name") },
-                        singleLine = true,
                         enabled = !current.loading,
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        feed.name,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        feed.listStatusLabel(current.circle.kids),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = current.editingFeedUrl,
-                        onValueChange = {
-                            model.updateEditingFeedUrl(it)
-                            refresh()
-                        },
-                        label = { Text("Feed URL") },
-                        singleLine = true,
-                        enabled = !current.loading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    FeedKidCheckboxes(
-                        kids = current.circle.kids,
-                        selectedKidIds = current.editingFeedKidIds,
-                        enabled = !current.loading,
-                        onToggle = {
-                            model.toggleEditingFeedKid(it)
-                            refresh()
-                        },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(
                             onClick = {
                                 scope.launch {
-                                    model.saveFeed()
+                                    model.syncFeed(feed.id)
                                     refresh()
                                 }
                             },
-                            enabled =
-                                !current.loading &&
-                                    current.editingFeedName.isNotBlank() &&
-                                    current.editingFeedUrl.isNotBlank(),
+                            enabled = !current.loading,
                         ) {
-                            Text("Save")
+                            Text("Sync now")
                         }
                         OutlinedButton(
                             onClick = {
-                                model.cancelEditFeed()
+                                model.beginEditFeed(feed)
                                 refresh()
                             },
                             enabled = !current.loading,
                         ) {
-                            Text("Cancel")
+                            Text("Edit")
                         }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            feed.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            feed.listStatusLabel(current.circle.kids),
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        model.syncFeed(feed.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Sync now")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    model.beginEditFeed(feed)
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeFeed(feed.id)
                                     refresh()
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Edit")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        model.removeFeed(feed.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Remove")
-                            }
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove")
                         }
                     }
                 }
             }
         }
-        OutlinedTextField(
-            value = current.newFeedName,
-            onValueChange = {
-                model.updateNewFeedName(it)
-                refresh()
-            },
-            label = { Text("New feed name") },
-            singleLine = true,
-            enabled = !current.loading,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = current.newFeedUrl,
-            onValueChange = {
-                model.updateNewFeedUrl(it)
-                refresh()
-            },
-            label = { Text("Feed URL") },
-            singleLine = true,
-            enabled = !current.loading,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        FeedKidCheckboxes(
-            kids = current.circle.kids,
-            selectedKidIds = current.newFeedKidIds,
-            enabled = !current.loading,
-            onToggle = {
-                model.toggleNewFeedKid(it)
-                refresh()
-            },
-        )
-        Button(
-            onClick = {
-                scope.launch {
-                    model.addFeed()
-                    refresh()
-                }
-            },
-            enabled =
-                !current.loading &&
-                    current.newFeedName.isNotBlank() &&
-                    current.newFeedUrl.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Add feed")
-        }
     }
-
-    if (current.error != null) {
-        Text(text = current.error, color = MaterialTheme.colorScheme.error)
-    }
-    if (current.loading) {
-        CircularProgressIndicator()
-    }
-    OutlinedButton(
+    OutlinedTextField(
+        value = current.newFeedName,
+        onValueChange = {
+            model.updateNewFeedName(it)
+            refresh()
+        },
+        label = { Text("New feed name") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = current.newFeedUrl,
+        onValueChange = {
+            model.updateNewFeedUrl(it)
+            refresh()
+        },
+        label = { Text("Feed URL") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    FeedKidCheckboxes(
+        kids = current.circle.kids,
+        selectedKidIds = current.newFeedKidIds,
+        enabled = !current.loading,
+        onToggle = {
+            model.toggleNewFeedKid(it)
+            refresh()
+        },
+    )
+    Button(
         onClick = {
             scope.launch {
-                model.leaveCircle()
+                model.addFeed()
                 refresh()
             }
         },
-        enabled = !current.loading,
+        enabled =
+            !current.loading &&
+                current.newFeedName.isNotBlank() &&
+                current.newFeedUrl.isNotBlank(),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Leave family")
-    }
-    OutlinedButton(
-        onClick = onSignOut,
-        enabled = !current.loading,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text("Sign out")
+        Text("Add feed")
     }
 }
 

@@ -109,7 +109,7 @@ into destination screens rather than rewriting behavior.
 - [x] **Web:** Split long `FamilyScreen` into shell + destination views; sidebar
   nav; Settings/More grouping; Carpool placeholder; preserve existing behaviors
   and tests.
-- [ ] **Android (sharedUI):** Bottom tab shell; move sections into Calendar /
+- [x] **Android (sharedUI):** Bottom tab shell; move sections into Calendar /
   Family / More→Places|Feeds|Account; Caregiver Feeds omission; Carpool
   placeholder; tests on navigation/visibility where practical.
 - [ ] **iOS:** Same IA via SwiftUI `TabView` (or equivalent); More grouped list;
