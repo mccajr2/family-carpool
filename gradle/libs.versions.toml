@@ -1,7 +1,7 @@
 [versions]
 springBoot = "4.1.0"
 springModulith = "2.1.0"
-testcontainers = "1.21.3"
+testcontainers = "1.21.4"
 
 [libraries]
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
