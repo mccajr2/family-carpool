@@ -524,6 +524,21 @@ export function FamilyScreen({
     }
   }
 
+  async function onRefreshFeeds() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const loadedFeeds = await familyClient.listFeeds(token)
+      setFeeds(loadedFeeds)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onSignOut() {
     setStatus({ kind: "loading" })
     const token = session.getAccessToken()
@@ -994,7 +1009,18 @@ export function FamilyScreen({
 
         {isOrganizer ? (
           <section aria-label="Activity feeds" className="flex flex-col gap-3">
-            <p className="text-sm font-medium">Activity feeds</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Activity feeds</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void onRefreshFeeds()}
+                disabled={status.kind === "loading"}
+              >
+                Refresh
+              </Button>
+            </div>
             {feeds.length === 0 ? (
               <p className="text-sm text-muted-foreground">No feeds yet.</p>
             ) : (
