@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (activity-feed-subscribe done)
+Updated: 2026-08-10 (activity-feed-poller active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | activity-feed-poller | planned | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
+| 1 | activity-feed-poller | active | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
 | 2 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
 | 3 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
 | 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
@@ -111,7 +111,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None._
+| Id | Branch | Spec |
+|----|--------|------|
+| activity-feed-poller | `activity-feed-poller` | [active/activity-feed-poller.md](specs/active/activity-feed-poller.md) |
 
 ## Done
 
@@ -154,3 +156,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | Re-rank split: `activity-feed-sync` → `activity-feed-subscribe` (Sync now + manage UI) then `activity-feed-poller`; next up `activity-feed-subscribe`. |
 | 2026-08-10 | `/spec activity-feed-subscribe`: Organizer feed CRUD; auto-sync on create/URL change; Sync now; soft-fail; UID snapshot; manage-feeds UI (web/Android/iOS). |
 | 2026-08-10 | `/pr activity-feed-subscribe`: iCal subscribe + Sync now shipped (web/Android/iOS); next up `activity-feed-poller`. |
+| 2026-08-10 | `/spec activity-feed-poller`: 30m scheduled poll reusing sync path; client Refresh (list only); no sync-all. |
