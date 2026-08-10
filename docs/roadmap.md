@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (activity-feed-sync → subscribe + poller)
+Updated: 2026-08-10 (activity-feed-subscribe active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | activity-feed-subscribe | planned | 2026-08-07 · re-rank split | iCal/webcal URL CRUD; kid↔feed; Sync now; UID dedupe; last-synced; validate Crossbar + SportsYou + SportsEngine; manage-feeds UI (no calendar grid) |
+| 1 | activity-feed-subscribe | active | 2026-08-07 · re-rank split | iCal/webcal URL CRUD; kid↔feed; Sync now; UID dedupe; last-synced; validate Crossbar + SportsYou + SportsEngine; manage-feeds UI (no calendar grid) |
 | 2 | activity-feed-poller | planned | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
 | 3 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
 | 4 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
@@ -114,7 +114,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| — | — | _none_ |
+| activity-feed-subscribe | `activity-feed-subscribe` | [active/activity-feed-subscribe.md](specs/active/activity-feed-subscribe.md) |
 
 ## Done
 
@@ -154,3 +154,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-09 | `/spec place-geocoding`: Nominatim + cache; soft-fail; Located/Not located + Retry locate (places only). |
 | 2026-08-09 | `/pr place-geocoding`: place lat/lng + locate shipped (web/Android/iOS); next up `activity-feed-sync`. |
 | 2026-08-10 | Re-rank split: `activity-feed-sync` → `activity-feed-subscribe` (Sync now + manage UI) then `activity-feed-poller`; next up `activity-feed-subscribe`. |
+| 2026-08-10 | `/spec activity-feed-subscribe`: Organizer feed CRUD; auto-sync on create/URL change; Sync now; soft-fail; UID snapshot; manage-feeds UI (web/Android/iOS). |
