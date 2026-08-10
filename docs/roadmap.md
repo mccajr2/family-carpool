@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-09 (place-geocoding done)
+Updated: 2026-08-10 (activity-feed-sync → subscribe + poller)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -50,7 +50,7 @@ share the ride.
 
 | Topic | Decision |
 |--------|----------|
-| Schedule import | **iCal / webcal / `.ics` URL** subscribe feeds (not RSS); **manual add/edit** escape hatch; dedupe by `UID` when present; poll on a sensible interval; show **last-synced** time. **v1 target platforms to validate against:** [Crossbar](https://www.crossbar.org), [SportsYou](https://sportsyou.com), [SportsEngine](https://www.sportsengine.com) — still generic URL import, not vendor APIs |
+| Schedule import | **iCal / webcal / `.ics` URL** subscribe feeds (not RSS); **manual add/edit** escape hatch; dedupe by `UID` when present; **Sync now** then background poll; show **last-synced** time. **v1 target platforms to validate against:** [Crossbar](https://www.crossbar.org), [SportsYou](https://sportsyou.com), [SportsEngine](https://www.sportsengine.com) — still generic URL import, not vendor APIs |
 | Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join; **v1 = at most one circle per adult** (multi-circle / blended / multi-grandkid households → parking) |
 | Places | **Named places** (Mom’s house, Dad’s house, Grandma’s, School) — not one address for the whole circle; **unique name per circle** (case-insensitive); free-text address; **lat/lng via Nominatim** (soft-fail + retry locate) |
 | Roles | **Organizer** (invite/remove, manage feeds/kids) + **Caregiver** (calendar, coverage, carpool, garage). Driver-only later |
@@ -68,19 +68,20 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | activity-feed-sync | planned | 2026-08-07 · re-rank split | iCal/webcal URL import; validate Crossbar + SportsYou + SportsEngine; poll; dedupe by UID; last-synced; kid↔feed attachment |
-| 2 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
-| 3 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
-| 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
-| 5 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
-| 6 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
-| 7 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
-| 8 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
-| 9 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
-| 10 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 1 | activity-feed-subscribe | planned | 2026-08-07 · re-rank split | iCal/webcal URL CRUD; kid↔feed; Sync now; UID dedupe; last-synced; validate Crossbar + SportsYou + SportsEngine; manage-feeds UI (no calendar grid) |
+| 2 | activity-feed-poller | planned | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
+| 3 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
+| 4 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
+| 5 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
+| 6 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
+| 7 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
+| 8 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 9 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 10 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 11 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 12 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 13 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 14 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -152,3 +153,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-09 | `/pr named-places`: named places CRUD shipped (web/Android/iOS); next up `place-geocoding`. |
 | 2026-08-09 | `/spec place-geocoding`: Nominatim + cache; soft-fail; Located/Not located + Retry locate (places only). |
 | 2026-08-09 | `/pr place-geocoding`: place lat/lng + locate shipped (web/Android/iOS); next up `activity-feed-sync`. |
+| 2026-08-10 | Re-rank split: `activity-feed-sync` → `activity-feed-subscribe` (Sync now + manage UI) then `activity-feed-poller`; next up `activity-feed-subscribe`. |
