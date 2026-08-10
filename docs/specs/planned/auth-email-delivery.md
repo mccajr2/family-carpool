@@ -29,3 +29,5 @@ and production need real email so adults can sign in without reading server logs
   product work; keep dev log delivery until then.
 - Wire provider (Resend/Postmark/SES/etc.), secrets, From-address, template;
   disable code-echo outside dev.
+- Same pass: set production `GEOCODE_USER_AGENT` (real email or app URL) so
+  Nominatim does not 403 — see Geocoding in `docs/architecture.md`.

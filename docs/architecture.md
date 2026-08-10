@@ -62,7 +62,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD; **any member** may manage named places and retry locate; all members may read |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
-| Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate |
+| Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
 | Empty circle | Allowed (add kids / places later) |
 
 Modulith module: `backend/modules/family/`. Contract paths under `/api/family/*`.
