@@ -661,19 +661,26 @@ final class AuthViewModel: ObservableObject {
             return
         }
         bridge.listFeeds(
-            onSuccess: { [weak self] ids, names, sourceUrls, kidIds, lastSyncedAts, lastSyncErrors, eventCounts in
+            onSuccess: { [weak self] ids, names, sourceUrls, kidIdsJoined, lastSyncedAts, lastSyncErrors, eventCounts in
                 Task { @MainActor in
-                    self?.feeds = (0..<ids.count).map { index in
-                        FamilyFeedItem(
-                            id: ids[index],
-                            name: names[index],
-                            sourceUrl: sourceUrls[index],
-                            kidIds: kidIds[index],
-                            lastSyncedAt: lastSyncedAts[index],
-                            lastSyncError: lastSyncErrors[index],
-                            eventCount: eventCounts[index]
+                    guard let self else { return }
+                    var next: [FamilyFeedItem] = []
+                    next.reserveCapacity(ids.count)
+                    for index in 0..<ids.count {
+                        let kids = Self.splitJoinedIds(kidIdsJoined[index])
+                        next.append(
+                            self.makeFeedItem(
+                                id: ids[index],
+                                name: names[index],
+                                sourceUrl: sourceUrls[index],
+                                kidIds: kids,
+                                lastSyncedAt: lastSyncedAts[index],
+                                lastSyncError: lastSyncErrors[index],
+                                eventCount: eventCounts[index]
+                            )
                         )
                     }
+                    self.feeds = next
                 }
             },
             onError: { [weak self] message in
@@ -712,7 +719,17 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
-                    self.feeds.append(FamilyFeedItem(id: id, name: name, sourceUrl: sourceUrl, kidIds: kidIds, lastSyncedAt: lastSyncedAt, lastSyncError: lastSyncError, eventCount: eventCount))
+                    self.feeds.append(
+                        self.makeFeedItem(
+                            id: id,
+                            name: name,
+                            sourceUrl: sourceUrl,
+                            kidIds: kidIds,
+                            lastSyncedAt: lastSyncedAt,
+                            lastSyncError: lastSyncError,
+                            eventCount: eventCount
+                        )
+                    )
                     self.newFeedName = ""
                     self.newFeedUrl = ""
                     self.newFeedKidIds = []
@@ -749,8 +766,17 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
+                    let item = self.makeFeedItem(
+                        id: id,
+                        name: name,
+                        sourceUrl: sourceUrl,
+                        kidIds: kidIds,
+                        lastSyncedAt: lastSyncedAt,
+                        lastSyncError: lastSyncError,
+                        eventCount: eventCount
+                    )
                     if let index = self.feeds.firstIndex(where: { $0.id == id }) {
-                        self.feeds[index] = FamilyFeedItem(id: id, name: name, sourceUrl: sourceUrl, kidIds: kidIds, lastSyncedAt: lastSyncedAt, lastSyncError: lastSyncError, eventCount: eventCount)
+                        self.feeds[index] = item
                     }
                     self.cancelEditFeed()
                 }
@@ -785,13 +811,48 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
+                    let item = self.makeFeedItem(
+                        id: id,
+                        name: name,
+                        sourceUrl: sourceUrl,
+                        kidIds: kidIds,
+                        lastSyncedAt: lastSyncedAt,
+                        lastSyncError: lastSyncError,
+                        eventCount: eventCount
+                    )
                     if let index = self.feeds.firstIndex(where: { $0.id == id }) {
-                        self.feeds[index] = FamilyFeedItem(id: id, name: name, sourceUrl: sourceUrl, kidIds: kidIds, lastSyncedAt: lastSyncedAt, lastSyncError: lastSyncError, eventCount: eventCount)
+                        self.feeds[index] = item
                     }
                 }
             },
             onError: feedError
         )
+    }
+
+    private func makeFeedItem(
+        id: String,
+        name: String,
+        sourceUrl: String,
+        kidIds: [String],
+        lastSyncedAt: String,
+        lastSyncError: String,
+        eventCount: String
+    ) -> FamilyFeedItem {
+        FamilyFeedItem(
+            id: id,
+            name: name,
+            sourceUrl: sourceUrl,
+            kidIds: kidIds,
+            lastSyncedAt: lastSyncedAt.isEmpty ? nil : lastSyncedAt,
+            lastSyncError: lastSyncError.isEmpty ? nil : lastSyncError,
+            eventCount: Int(eventCount) ?? 0
+        )
+    }
+
+    private static func splitJoinedIds(_ joined: String) -> [String] {
+        joined
+            .split(separator: ",", omittingEmptySubsequences: true)
+            .map(String.init)
     }
 
     private var feedError: (String) -> Void {

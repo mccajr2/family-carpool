@@ -417,10 +417,10 @@ class AuthBridge {
             ids: List<String>,
             names: List<String>,
             sourceUrls: List<String>,
-            kidIds: List<List<String>>,
-            lastSyncedAts: List<String?>,
-            lastSyncErrors: List<String?>,
-            eventCounts: List<Int>,
+            kidIdsJoined: List<String>,
+            lastSyncedAts: List<String>,
+            lastSyncErrors: List<String>,
+            eventCounts: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -431,10 +431,10 @@ class AuthBridge {
                     feeds.map { it.id },
                     feeds.map { it.name },
                     feeds.map { it.sourceUrl },
-                    feeds.map { it.kidIds },
-                    feeds.map { it.lastSyncedAt },
-                    feeds.map { it.lastSyncError },
-                    feeds.map { it.eventCount },
+                    feeds.map { it.kidIds.joinToString(",") },
+                    feeds.map { it.lastSyncedAt.orEmpty() },
+                    feeds.map { it.lastSyncError.orEmpty() },
+                    feeds.map { it.eventCount.toString() },
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "List feeds failed")
@@ -446,7 +446,7 @@ class AuthBridge {
         name: String,
         sourceUrl: String,
         kidIds: List<String>,
-        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onSuccess: (String, String, String, List<String>, String, String, String) -> Unit,
         onError: (String) -> Unit,
     ) = feedResult(
         { familyClient.createFeed(session.requireAccessToken(), name.trim(), sourceUrl.trim(), kidIds) },
@@ -459,7 +459,7 @@ class AuthBridge {
         name: String,
         sourceUrl: String,
         kidIds: List<String>,
-        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onSuccess: (String, String, String, List<String>, String, String, String) -> Unit,
         onError: (String) -> Unit,
     ) = feedResult(
         { familyClient.updateFeed(session.requireAccessToken(), feedId, name.trim(), sourceUrl.trim(), kidIds) },
@@ -484,7 +484,7 @@ class AuthBridge {
 
     fun syncFeed(
         feedId: String,
-        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onSuccess: (String, String, String, List<String>, String, String, String) -> Unit,
         onError: (String) -> Unit,
     ) = feedResult(
         { familyClient.syncFeed(session.requireAccessToken(), feedId) },
@@ -494,7 +494,7 @@ class AuthBridge {
 
     private fun feedResult(
         request: suspend () -> ActivityFeed,
-        onSuccess: (String, String, String, List<String>, String?, String?, Int) -> Unit,
+        onSuccess: (String, String, String, List<String>, String, String, String) -> Unit,
         onError: (String) -> Unit,
     ) {
         scope.launch {
@@ -505,9 +505,9 @@ class AuthBridge {
                     feed.name,
                     feed.sourceUrl,
                     feed.kidIds,
-                    feed.lastSyncedAt,
-                    feed.lastSyncError,
-                    feed.eventCount,
+                    feed.lastSyncedAt.orEmpty(),
+                    feed.lastSyncError.orEmpty(),
+                    feed.eventCount.toString(),
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Feed request failed")
