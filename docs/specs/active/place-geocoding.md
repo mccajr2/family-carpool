@@ -96,7 +96,7 @@ unchanged aside from reflecting returned coords after save.
       Not located + Retry locate; tests.
 - [x] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/
       ContentView; tests.
-- [ ] **Docs:** `docs/architecture.md` Place / geocode notes.
+- [x] **Docs:** `docs/architecture.md` Place / geocode notes.
 - [ ] **Tests:** service unit (fake geocoder), integration with stubbed HTTP or
       test double, OpenAPI contract paths, web + KMP client tests.
 
