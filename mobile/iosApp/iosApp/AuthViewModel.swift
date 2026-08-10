@@ -104,6 +104,18 @@ enum ManualEventDateCodec {
         guard let date = date(fromIso: value) else { return nil }
         return displayFormatter.string(from: date)
     }
+
+    /// Client-side rules: start in the future; end on or after start.
+    static func validationMessage(startsAt: Date, endsAt: Date?, now: Date = Date()) -> String? {
+        if startsAt < now {
+            return "Start must be in the future"
+        }
+        guard let endsAt else { return nil }
+        if endsAt < startsAt {
+            return "End must be on or after start"
+        }
+        return nil
+    }
 }
 
 struct FamilyMemberItem: Identifiable, Equatable {
@@ -159,8 +171,8 @@ final class AuthViewModel: ObservableObject {
     @Published var newFeedKidIds: [String] = []
     @Published var events: [FamilyManualEventItem] = []
     @Published var newEventTitle: String = ""
-    @Published var newEventStartsAtDate: Date = Date()
-    @Published var newEventEndsAtDate: Date = Date().addingTimeInterval(3600)
+    @Published var newEventStartsAtDate: Date = Date().addingTimeInterval(15 * 60)
+    @Published var newEventEndsAtDate: Date = Date().addingTimeInterval(75 * 60)
     @Published var newEventHasEndsAt: Bool = false
     @Published var newEventLocation: String = ""
     @Published var newEventKidIds: [String] = []
@@ -971,6 +983,13 @@ final class AuthViewModel: ObservableObject {
     func addEvent() {
         let title = newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, !newEventKidIds.isEmpty else { return }
+        if let message = ManualEventDateCodec.validationMessage(
+            startsAt: newEventStartsAtDate,
+            endsAt: newEventHasEndsAt ? newEventEndsAtDate : nil
+        ) {
+            errorMessage = message
+            return
+        }
         let startsAt = ManualEventDateCodec.isoString(from: newEventStartsAtDate)
         let endsAt = newEventHasEndsAt ? ManualEventDateCodec.isoString(from: newEventEndsAtDate) : ""
         isLoading = true
@@ -1000,8 +1019,8 @@ final class AuthViewModel: ObservableObject {
                         return $0.startsAt < $1.startsAt
                     }
                     self.newEventTitle = ""
-                    self.newEventStartsAtDate = Date()
-                    self.newEventEndsAtDate = Date().addingTimeInterval(3600)
+                    self.newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
+                    self.newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
                     self.newEventHasEndsAt = false
                     self.newEventLocation = ""
                     self.newEventKidIds = []
@@ -1040,6 +1059,13 @@ final class AuthViewModel: ObservableObject {
         guard let eventId = editingEventId else { return }
         let title = editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, !editingEventKidIds.isEmpty else { return }
+        if let message = ManualEventDateCodec.validationMessage(
+            startsAt: editingEventStartsAtDate,
+            endsAt: editingEventHasEndsAt ? editingEventEndsAtDate : nil
+        ) {
+            errorMessage = message
+            return
+        }
         let startsAt = ManualEventDateCodec.isoString(from: editingEventStartsAtDate)
         let endsAt = editingEventHasEndsAt ? ManualEventDateCodec.isoString(from: editingEventEndsAtDate) : ""
         isLoading = true
@@ -1200,8 +1226,8 @@ final class AuthViewModel: ObservableObject {
         newFeedUrl = ""
         newFeedKidIds = []
         newEventTitle = ""
-        newEventStartsAtDate = Date()
-        newEventEndsAtDate = Date().addingTimeInterval(3600)
+        newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
+        newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
         newEventHasEndsAt = false
         newEventLocation = ""
         newEventKidIds = []

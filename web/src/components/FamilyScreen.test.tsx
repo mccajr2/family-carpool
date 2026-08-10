@@ -399,8 +399,12 @@ describe("FamilyScreen", () => {
     expect(listEvents).toHaveBeenCalledWith("tok")
 
     await user.type(screen.getByLabelText("New event title"), "Dentist")
-    await user.type(screen.getByLabelText("New event start"), "2026-08-15T13:00")
-    await user.type(screen.getByLabelText("New event end"), "2026-08-15T14:00")
+    const startInput = screen.getByLabelText("New event start")
+    const endInput = screen.getByLabelText("New event end")
+    await user.clear(startInput)
+    await user.type(startInput, "2030-08-15T13:00")
+    await user.clear(endInput)
+    await user.type(endInput, "2030-08-15T14:00")
     await user.type(screen.getByLabelText("New event location"), "Clinic")
     await user.click(screen.getByLabelText("Assign Sam to new event"))
     await user.click(screen.getByRole("button", { name: "Add event" }))
@@ -410,9 +414,9 @@ describe("FamilyScreen", () => {
     expect(createEvent).toHaveBeenCalledWith(
       "tok",
       "Dentist",
-      expect.stringMatching(/2026-08-15T/),
+      expect.stringMatching(/2030-08-15T/),
       ["k1"],
-      expect.stringMatching(/2026-08-15T/),
+      expect.stringMatching(/2030-08-15T/),
       "Clinic",
     )
 

@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { coerceEndsAfterStart, validateManualEventTimes } from "@/components/eventTimes"
 
 type Status =
   | { kind: "idle" }
@@ -76,6 +77,10 @@ function fromDatetimeLocalValue(local: string): string {
   return new Date(local).toISOString()
 }
 
+function defaultNewEventStartsLocal(): string {
+  return toDatetimeLocalValue(new Date(Date.now() + 15 * 60 * 1000).toISOString())
+}
+
 export function FamilyScreen({
   session,
   authClient,
@@ -111,7 +116,7 @@ export function FamilyScreen({
   const [editingFeedKidIds, setEditingFeedKidIds] = useState<string[]>([])
   const [events, setEvents] = useState<ManualEvent[]>([])
   const [newEventTitle, setNewEventTitle] = useState("")
-  const [newEventStartsAt, setNewEventStartsAt] = useState("")
+  const [newEventStartsAt, setNewEventStartsAt] = useState(defaultNewEventStartsLocal)
   const [newEventEndsAt, setNewEventEndsAt] = useState("")
   const [newEventLocation, setNewEventLocation] = useState("")
   const [newEventKidIds, setNewEventKidIds] = useState<string[]>([])
@@ -597,6 +602,11 @@ export function FamilyScreen({
   }
 
   async function onAddEvent() {
+    const validation = validateManualEventTimes(newEventStartsAt, newEventEndsAt)
+    if (validation) {
+      setStatus({ kind: "error", message: validation })
+      return
+    }
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -619,7 +629,7 @@ export function FamilyScreen({
         ),
       )
       setNewEventTitle("")
-      setNewEventStartsAt("")
+      setNewEventStartsAt(defaultNewEventStartsLocal())
       setNewEventEndsAt("")
       setNewEventLocation("")
       setNewEventKidIds([])
@@ -633,6 +643,11 @@ export function FamilyScreen({
   }
 
   async function onSaveEvent(event: ManualEvent) {
+    const validation = validateManualEventTimes(editingEventStartsAt, editingEventEndsAt)
+    if (validation) {
+      setStatus({ kind: "error", message: validation })
+      return
+    }
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -854,6 +869,15 @@ export function FamilyScreen({
   }
 
   const isOrganizer = circle.role === "ORGANIZER"
+  const datetimeMin = toDatetimeLocalValue(new Date().toISOString())
+  const newEventEndsMin =
+    newEventStartsAt.trim() && newEventStartsAt > datetimeMin
+      ? newEventStartsAt
+      : datetimeMin
+  const editingEventEndsMin =
+    editingEventStartsAt.trim() && editingEventStartsAt > datetimeMin
+      ? editingEventStartsAt
+      : datetimeMin
 
   return (
     <Card>
@@ -1157,6 +1181,11 @@ export function FamilyScreen({
 
         <section aria-label="Manual events" className="flex flex-col gap-3">
           <p className="text-sm font-medium">Manual events</p>
+          {status.kind === "error" ? (
+            <p role="alert" className="text-sm text-destructive">
+              {status.message}
+            </p>
+          ) : null}
           {events.length === 0 ? (
             <p className="text-sm text-muted-foreground">No manual events yet.</p>
           ) : (
@@ -1177,13 +1206,21 @@ export function FamilyScreen({
                           type="datetime-local"
                           aria-label={`Edit start for ${event.title}`}
                           value={editingEventStartsAt}
-                          onChange={(e) => setEditingEventStartsAt(e.target.value)}
+                          min={datetimeMin}
+                          onChange={(e) => {
+                            const next = e.target.value
+                            setEditingEventStartsAt(next)
+                            setEditingEventEndsAt((ends) =>
+                              coerceEndsAfterStart(next, ends),
+                            )
+                          }}
                           disabled={status.kind === "loading"}
                         />
                         <Input
                           type="datetime-local"
                           aria-label={`Edit end for ${event.title}`}
                           value={editingEventEndsAt}
+                          min={editingEventEndsMin}
                           onChange={(e) => setEditingEventEndsAt(e.target.value)}
                           disabled={status.kind === "loading"}
                         />
@@ -1318,13 +1355,19 @@ export function FamilyScreen({
             type="datetime-local"
             aria-label="New event start"
             value={newEventStartsAt}
-            onChange={(e) => setNewEventStartsAt(e.target.value)}
+            min={datetimeMin}
+            onChange={(e) => {
+              const next = e.target.value
+              setNewEventStartsAt(next)
+              setNewEventEndsAt((ends) => coerceEndsAfterStart(next, ends))
+            }}
             disabled={status.kind === "loading"}
           />
           <Input
             type="datetime-local"
             aria-label="New event end"
             value={newEventEndsAt}
+            min={newEventEndsMin}
             onChange={(e) => setNewEventEndsAt(e.target.value)}
             disabled={status.kind === "loading"}
           />

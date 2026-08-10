@@ -204,8 +204,8 @@ class FamilyUiModelTest {
             model.load()
             assertIs<FamilyUiModel.State.Ready>(model.state)
             model.updateNewEventTitle("Dentist")
-            model.updateNewEventStartsAt("2026-08-15T17:00:00Z")
-            model.updateNewEventEndsAt("2026-08-15T18:00:00Z")
+            model.updateNewEventStartsAt("2030-08-15T17:00:00Z")
+            model.updateNewEventEndsAt("2030-08-15T18:00:00Z")
             model.updateNewEventLocation("Clinic")
             model.toggleNewEventKid("k1")
             model.addEvent()
@@ -216,6 +216,50 @@ class FamilyUiModelTest {
             model.removeEvent("e1")
             val withoutEvent = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertTrue(withoutEvent.events.isEmpty())
+        }
+
+    @Test
+    fun addEventRejectsEndBeforeStartWithoutCallingApi() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.updateNewEventTitle("Dentist")
+            model.updateNewEventStartsAt("2030-08-15T18:00:00Z")
+            model.updateNewEventEndsAt("2030-08-15T17:00:00Z")
+            model.toggleNewEventKid("k1")
+            model.addEvent()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("End must be on or after start", ready.error)
+            assertTrue(ready.events.isEmpty())
         }
 
     @Test

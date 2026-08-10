@@ -50,6 +50,31 @@ class InstantIsoTest {
     }
 
     @Test
+    fun validateManualEventTimes_rejectsPastStartAndEndsBeforeStart() {
+        val now = Instant.parse("2026-08-15T12:00:00Z").toEpochMilliseconds()
+        assertEquals(
+            "Start must be in the future",
+            validateManualEventTimes("2026-08-15T11:00:00Z", null, now),
+        )
+        assertEquals(
+            "End must be on or after start",
+            validateManualEventTimes(
+                "2026-08-15T13:00:00Z",
+                "2026-08-15T12:30:00Z",
+                now,
+            ),
+        )
+        assertEquals(
+            null,
+            validateManualEventTimes(
+                "2026-08-15T13:00:00Z",
+                "2026-08-15T14:00:00Z",
+                now,
+            ),
+        )
+    }
+
+    @Test
     fun nowIsoUtc_isParseableInstant() {
         assertNotNull(parseIsoToEpochMillis(nowIsoUtc()))
     }

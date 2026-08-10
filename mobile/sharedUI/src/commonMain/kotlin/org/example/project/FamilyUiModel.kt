@@ -51,7 +51,7 @@ class FamilyUiModel(
             val editingFeedKidIds: List<String> = emptyList(),
             val events: List<ManualEvent> = emptyList(),
             val newEventTitle: String = "",
-            val newEventStartsAt: String = nowIsoUtc(),
+            val newEventStartsAt: String = defaultNewEventStartsAtIso(),
             val newEventEndsAt: String = "",
             val newEventLocation: String = "",
             val newEventKidIds: List<String> = emptyList(),
@@ -264,7 +264,12 @@ class FamilyUiModel(
 
     fun updateNewEventStartsAt(value: String) {
         val current = _state as? State.Ready ?: return
-        _state = current.copy(newEventStartsAt = value, error = null)
+        _state =
+            current.copy(
+                newEventStartsAt = value,
+                newEventEndsAt = coerceEndsAt(value, current.newEventEndsAt),
+                error = null,
+            )
     }
 
     fun updateNewEventEndsAt(value: String) {
@@ -307,7 +312,12 @@ class FamilyUiModel(
 
     fun updateEditingEventStartsAt(value: String) {
         val current = _state as? State.Ready ?: return
-        _state = current.copy(editingEventStartsAt = value, error = null)
+        _state =
+            current.copy(
+                editingEventStartsAt = value,
+                editingEventEndsAt = coerceEndsAt(value, current.editingEventEndsAt),
+                error = null,
+            )
     }
 
     fun updateEditingEventEndsAt(value: String) {
@@ -751,6 +761,12 @@ class FamilyUiModel(
 
     suspend fun addEvent() {
         val current = _state as? State.Ready ?: return
+        val validation =
+            validateManualEventTimes(current.newEventStartsAt, current.newEventEndsAt)
+        if (validation != null) {
+            _state = current.copy(error = validation)
+            return
+        }
         _state = current.copy(loading = true, error = null)
         try {
             val token = session.requireAccessToken()
@@ -769,11 +785,12 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     newEventTitle = "",
-                    newEventStartsAt = nowIsoUtc(),
+                    newEventStartsAt = defaultNewEventStartsAtIso(),
                     newEventEndsAt = "",
                     newEventLocation = "",
                     newEventKidIds = emptyList(),
                     events = (current.events + created).sortedWith(manualEventOrder),
+                    error = null,
                 )
         } catch (e: Throwable) {
             _state =
@@ -787,6 +804,12 @@ class FamilyUiModel(
     suspend fun saveEvent() {
         val current = _state as? State.Ready ?: return
         val eventId = current.editingEventId ?: return
+        val validation =
+            validateManualEventTimes(current.editingEventStartsAt, current.editingEventEndsAt)
+        if (validation != null) {
+            _state = current.copy(error = validation)
+            return
+        }
         _state = current.copy(loading = true, error = null)
         try {
             val token = session.requireAccessToken()
@@ -815,6 +838,7 @@ class FamilyUiModel(
                         current.events
                             .map { if (it.id == eventId) updated else it }
                             .sortedWith(manualEventOrder),
+                    error = null,
                 )
         } catch (e: Throwable) {
             _state =
@@ -876,6 +900,16 @@ class FamilyUiModel(
 
 private val manualEventOrder =
     compareBy<ManualEvent>({ it.startsAt }, { it.id })
+
+/** Clear ends when it would be before the new start (client ordering rule). */
+private fun coerceEndsAt(
+    startsAtIso: String,
+    endsAtIso: String,
+): String {
+    val starts = parseIsoToEpochMillis(startsAtIso) ?: return endsAtIso
+    val ends = parseIsoToEpochMillis(endsAtIso) ?: return endsAtIso
+    return if (ends < starts) "" else endsAtIso
+}
 
 private fun List<String>.toggle(value: String): List<String> =
     if (value in this) filterNot { it == value } else this + value

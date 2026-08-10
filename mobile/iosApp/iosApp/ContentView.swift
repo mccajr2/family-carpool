@@ -274,6 +274,11 @@ struct ContentView: View {
 
             Text("Manual events")
                 .font(.headline)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+            }
             if model.events.isEmpty {
                 Text("No manual events yet.")
                     .font(.footnote)
@@ -287,6 +292,7 @@ struct ContentView: View {
                         DatePicker(
                             "Starts at",
                             selection: $model.editingEventStartsAtDate,
+                            in: Date()...,
                             displayedComponents: [.date, .hourAndMinute]
                         )
                         .disabled(model.isLoading)
@@ -296,6 +302,7 @@ struct ContentView: View {
                             DatePicker(
                                 "Ends at",
                                 selection: $model.editingEventEndsAtDate,
+                                in: model.editingEventStartsAtDate...,
                                 displayedComponents: [.date, .hourAndMinute]
                             )
                             .disabled(model.isLoading)
@@ -350,6 +357,7 @@ struct ContentView: View {
             DatePicker(
                 "Starts at",
                 selection: $model.newEventStartsAtDate,
+                in: Date()...,
                 displayedComponents: [.date, .hourAndMinute]
             )
             .disabled(model.isLoading)
@@ -359,6 +367,7 @@ struct ContentView: View {
                 DatePicker(
                     "Ends at",
                     selection: $model.newEventEndsAtDate,
+                    in: model.newEventStartsAtDate...,
                     displayedComponents: [.date, .hourAndMinute]
                 )
                 .disabled(model.isLoading)

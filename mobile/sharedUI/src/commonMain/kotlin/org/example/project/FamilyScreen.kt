@@ -573,6 +573,9 @@ private fun ReadyContent(
     }
 
     Text("Manual events", style = MaterialTheme.typography.titleSmall)
+    if (current.error != null) {
+        Text(text = current.error, color = MaterialTheme.colorScheme.error)
+    }
     if (current.events.isEmpty()) {
         Text("No manual events yet.", style = MaterialTheme.typography.bodySmall)
     } else {
@@ -597,6 +600,7 @@ private fun ReadyContent(
                         refresh()
                     },
                     enabled = !current.loading,
+                    minEpochMillis = nowEpochMillis(),
                 )
                 InstantDateTimeField(
                     label = "Ends at (optional)",
@@ -607,6 +611,11 @@ private fun ReadyContent(
                     },
                     enabled = !current.loading,
                     optional = true,
+                    minEpochMillis =
+                        maxOf(
+                            nowEpochMillis(),
+                            parseIsoToEpochMillis(current.editingEventStartsAt) ?: nowEpochMillis(),
+                        ),
                 )
                 OutlinedTextField(
                     value = current.editingEventLocation,
@@ -721,6 +730,7 @@ private fun ReadyContent(
             refresh()
         },
         enabled = !current.loading,
+        minEpochMillis = nowEpochMillis(),
     )
     InstantDateTimeField(
         label = "Ends at (optional)",
@@ -731,6 +741,11 @@ private fun ReadyContent(
         },
         enabled = !current.loading,
         optional = true,
+        minEpochMillis =
+            maxOf(
+                nowEpochMillis(),
+                parseIsoToEpochMillis(current.newEventStartsAt) ?: nowEpochMillis(),
+            ),
     )
     OutlinedTextField(
         value = current.newEventLocation,
