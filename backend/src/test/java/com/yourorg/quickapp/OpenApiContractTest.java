@@ -108,7 +108,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.7.0");
+        assertThat(yaml).contains("version: 0.7.1");
+        assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("components:");
     }
 

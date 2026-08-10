@@ -85,7 +85,7 @@ list / status labels). Does **not** trigger sync. Sync now remains per feed.
 - [x] **Backend:** Enable scheduling; `FeedsPoller` (or equivalent) + config
       (`poll-enabled`, `poll-interval-ms`); sequential/soft-polite sync-all using
       existing service sync; tests with stub + disabled schedule.
-- [ ] **Contract:** No path changes; optional description-only note if needed —
+- [x] **Contract:** No path changes; optional description-only note if needed —
       prefer `docs/architecture.md` over version bump unless OpenAPI text must
       change.
 - [ ] **Web:** Refresh control on manage-feeds; re-`listFeeds`; tests.
