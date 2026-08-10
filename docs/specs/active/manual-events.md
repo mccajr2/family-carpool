@@ -104,7 +104,7 @@ will read feed events + manual events.
       tables for manual events + event↔kid; entity/repo/service/controller;
       `FamilyMembershipApi` for membership + kid validation; hard delete.
 - [x] **Contract:** OpenAPI paths/schemas; bump info version; architecture note.
-- [ ] **Web:** types + `familyClient` (or events client); manage-events section on
+- [x] **Web:** types + `familyClient` (or events client); manage-events section on
       `FamilyScreen` for all members; tests.
 - [ ] **Mobile:** sharedLogic models/client + tests; Android sharedUI; iOS
       AuthViewModel / ContentView manage-events CRUD.
