@@ -15,6 +15,13 @@ function mockAuthClient(partial: Partial<AuthClient>): AuthClient {
   return partial as AuthClient
 }
 
+async function goTo(
+  user: ReturnType<typeof userEvent.setup>,
+  destination: "Calendar" | "Carpool" | "Family" | "Places" | "Feeds",
+) {
+  await user.click(await screen.findByRole("button", { name: destination }))
+}
+
 describe("FamilyScreen", () => {
   it("creates a circle then adds and removes a kid", async () => {
     const user = userEvent.setup()
@@ -76,6 +83,8 @@ describe("FamilyScreen", () => {
     await user.type(screen.getByLabelText("Your name"), "Alex")
     await user.click(screen.getByRole("button", { name: "Create family" }))
 
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
     expect(await screen.findByText(/Invite code:/)).toHaveTextContent("AB12CD34")
     expect(createCircle).toHaveBeenCalledWith("tok", {
@@ -148,6 +157,8 @@ describe("FamilyScreen", () => {
     await user.type(screen.getByLabelText("Your name"), "Jordan")
     await user.click(screen.getByRole("button", { name: "Join family" }))
 
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "House" })).toBeInTheDocument()
     expect(screen.getByText(/other@example.com · CAREGIVER/)).toBeInTheDocument()
     expect(joinCircle).toHaveBeenCalledWith("tok", {
@@ -155,6 +166,7 @@ describe("FamilyScreen", () => {
       adultDisplayName: "Jordan",
     })
     expect(screen.queryByLabelText("New kid name")).not.toBeInTheDocument()
+    await goTo(user, "Places")
     expect(screen.getByLabelText("New place name")).toBeInTheDocument()
   })
 
@@ -225,6 +237,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Family")
     expect(await screen.findByText(/Jordan · CAREGIVER/)).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Promote" }))
     expect(updateMemberRole).toHaveBeenCalledWith("tok", "2", "ORGANIZER")
@@ -238,6 +251,7 @@ describe("FamilyScreen", () => {
   })
 
   it("shows named circle title when name is set", async () => {
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -270,6 +284,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "McCarthy house" })).toBeInTheDocument()
   })
 
@@ -323,6 +338,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Places")
     expect(await screen.findByText("No places yet.")).toBeInTheDocument()
     await user.type(screen.getByLabelText("New place name"), "Mom's house")
     await user.type(screen.getByLabelText("New place address"), "123 Main St")
@@ -647,6 +663,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Places")
     expect(await screen.findByText("Not located")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Retry locate" }))
     expect(await screen.findByText("Located")).toBeInTheDocument()
@@ -737,6 +754,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Feeds")
     expect(await screen.findByText("No feeds yet.")).toBeInTheDocument()
     await user.type(screen.getByLabelText("New feed name"), "U12 Travel")
     await user.type(screen.getByLabelText("New feed URL"), "https://example.com/team.ics")
@@ -817,6 +835,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Feeds")
     const feeds = await screen.findByLabelText("Activity feeds")
     expect(within(feeds).getByText("U12 Travel")).toBeInTheDocument()
     expect(within(feeds).getByText("Synced · 4 events")).toBeInTheDocument()
@@ -833,6 +852,7 @@ describe("FamilyScreen", () => {
   })
 
   it("hides activity feed management from caregivers", async () => {
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "2",
@@ -870,9 +890,16 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    expect(await screen.findByText("No places yet.")).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Feeds" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Activity feeds")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Add feed" })).not.toBeInTheDocument()
+
+    await goTo(user, "Carpool")
+    expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Carpool")).toHaveTextContent("Coming soon")
   })
 
   it("refreshes feeds from the list endpoint without syncing", async () => {
@@ -937,6 +964,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
+    await goTo(user, "Feeds")
     const feeds = await screen.findByLabelText("Activity feeds")
     expect(within(feeds).getByText("Synced · 2 events")).toBeInTheDocument()
 
@@ -945,5 +973,70 @@ describe("FamilyScreen", () => {
     expect(await within(feeds).findByText("Synced · 5 events")).toBeInTheDocument()
     expect(listFeeds).toHaveBeenCalledTimes(2)
     expect(syncFeed).not.toHaveBeenCalled()
+  })
+
+  it("shows sidebar destinations with Settings groups and carpool placeholder", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const logout = vi.fn().mockResolvedValue(undefined)
+    const onSignedOut = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        authClient={mockAuthClient({ logout })}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        onSignedOut={onSignedOut}
+      />,
+    )
+
+    const nav = await screen.findByLabelText("App navigation")
+    expect(within(nav).getByRole("button", { name: "Calendar" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    )
+    expect(within(nav).getByRole("button", { name: "Carpool" })).toBeInTheDocument()
+    expect(within(nav).getByRole("button", { name: "Family" })).toBeInTheDocument()
+    expect(within(nav).getByLabelText("Settings")).toBeInTheDocument()
+    expect(within(nav).getByLabelText("General")).toBeInTheDocument()
+    expect(within(nav).getByRole("button", { name: "Places" })).toBeInTheDocument()
+    expect(within(nav).getByRole("button", { name: "Feeds" })).toBeInTheDocument()
+    expect(within(nav).getByLabelText("Account")).toBeInTheDocument()
+    expect(within(nav).getByText("parent@example.com")).toBeInTheDocument()
+    expect(within(nav).getByText("ORGANIZER")).toBeInTheDocument()
+
+    await goTo(user, "Carpool")
+    expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Carpool")).toHaveTextContent("Coming soon")
+
+    await user.click(within(nav).getByRole("button", { name: "Sign out" }))
+    await waitFor(() => {
+      expect(logout).toHaveBeenCalled()
+      expect(onSignedOut).toHaveBeenCalled()
+    })
   })
 })

@@ -13,6 +13,19 @@ class FamilyUiModel(
         JOIN,
     }
 
+    enum class ShellTab {
+        CALENDAR,
+        CARPOOL,
+        FAMILY,
+        MORE,
+    }
+
+    enum class MoreScreen {
+        LIST,
+        PLACES,
+        FEEDS,
+    }
+
     sealed class State {
         data object Loading : State()
 
@@ -63,6 +76,8 @@ class FamilyUiModel(
             val editingEventEndsAt: String = "",
             val editingEventLocation: String = "",
             val editingEventKidIds: List<String> = emptyList(),
+            val shellTab: ShellTab = ShellTab.CALENDAR,
+            val moreScreen: MoreScreen = MoreScreen.LIST,
             val loading: Boolean = false,
             val error: String? = null,
         ) : State()
@@ -126,6 +141,49 @@ class FamilyUiModel(
     fun updateInviteCodeInput(value: String) {
         val current = _state as? State.NeedsMembership ?: return
         _state = current.copy(inviteCodeInput = value, error = null)
+    }
+
+    fun selectShellTab(tab: ShellTab) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                shellTab = tab,
+                moreScreen = MoreScreen.LIST,
+                error = null,
+            )
+    }
+
+    fun openMorePlaces() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                shellTab = ShellTab.MORE,
+                moreScreen = MoreScreen.PLACES,
+                error = null,
+            )
+    }
+
+    fun openMoreFeeds() {
+        val current = _state as? State.Ready ?: return
+        if (!AppShell.showsFeedsRow(current.circle.role == FamilyRole.ORGANIZER)) {
+            return
+        }
+        _state =
+            current.copy(
+                shellTab = ShellTab.MORE,
+                moreScreen = MoreScreen.FEEDS,
+                error = null,
+            )
+    }
+
+    fun openMoreList() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                shellTab = ShellTab.MORE,
+                moreScreen = MoreScreen.LIST,
+                error = null,
+            )
     }
 
     fun updateNewKidName(value: String) {

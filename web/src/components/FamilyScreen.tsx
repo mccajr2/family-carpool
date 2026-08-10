@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react"
+import { LogOut, MapPin, Rss, UserRound } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
 import { isPlaceLocated, type ActivityFeed, type Adult, type CalendarItem, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
+import {
+  AccountSummaryRow,
+  SettingsRow,
+  ShellNavButton,
+} from "@/components/shellNav"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,6 +30,8 @@ import {
   mergeCalendarItems,
   validateManualEventTimes,
 } from "@/components/eventTimes"
+
+type ShellDestination = "calendar" | "carpool" | "family" | "places" | "feeds"
 
 type Status =
   | { kind: "idle" }
@@ -132,6 +140,19 @@ export function FamilyScreen({
   const [editingEventEndsAt, setEditingEventEndsAt] = useState("")
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
+  const [destination, setDestination] = useState<ShellDestination>("calendar")
+
+  useEffect(() => {
+    if (circle?.id) {
+      setDestination("calendar")
+    }
+  }, [circle?.id])
+
+  useEffect(() => {
+    if (destination === "feeds" && circle?.role !== "ORGANIZER") {
+      setDestination("calendar")
+    }
+  }, [destination, circle?.role])
 
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
     const window = calendarWindowThrough(loadedTo)
@@ -912,17 +933,94 @@ export function FamilyScreen({
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
 
+  const contentTitle =
+    destination === "calendar"
+      ? "Calendar"
+      : destination === "carpool"
+        ? "Carpool"
+        : destination === "family"
+          ? circleTitle(circle)
+          : destination === "places"
+            ? "Places"
+            : "Feeds"
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{circleTitle(circle)}</CardTitle>
-        <CardDescription>
-          {adult?.displayName ? `${adult.displayName} · ` : null}
-          {adult?.email} · {circle.role}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {isOrganizer && inviteCode ? (
+    <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
+      <aside
+        aria-label="App navigation"
+        className="flex w-full shrink-0 flex-col gap-4 rounded-lg border border-border bg-card p-3 md:w-56"
+      >
+        <nav aria-label="Primary" className="flex flex-col gap-1">
+          <ShellNavButton
+            label="Calendar"
+            active={destination === "calendar"}
+            onClick={() => setDestination("calendar")}
+          />
+          <ShellNavButton
+            label="Carpool"
+            active={destination === "carpool"}
+            onClick={() => setDestination("carpool")}
+          />
+          <ShellNavButton
+            label="Family"
+            active={destination === "family"}
+            onClick={() => setDestination("family")}
+          />
+        </nav>
+
+        <section aria-label="Settings" className="flex flex-col gap-3 border-t border-border pt-3">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Settings
+          </p>
+          <div aria-label="General" className="flex flex-col gap-1">
+            <p className="px-2 text-xs text-muted-foreground">General</p>
+            <SettingsRow
+              label="Places"
+              icon={MapPin}
+              active={destination === "places"}
+              onClick={() => setDestination("places")}
+            />
+            {isOrganizer ? (
+              <SettingsRow
+                label="Feeds"
+                icon={Rss}
+                active={destination === "feeds"}
+                onClick={() => setDestination("feeds")}
+              />
+            ) : null}
+          </div>
+          <div aria-label="Account" className="flex flex-col gap-1">
+            <p className="px-2 text-xs text-muted-foreground">Account</p>
+            <AccountSummaryRow
+              email={adult?.email ?? ""}
+              role={circle.role}
+              icon={UserRound}
+            />
+            <SettingsRow
+              label={status.kind === "loading" ? "Working…" : "Sign out"}
+              icon={LogOut}
+              onClick={() => void onSignOut()}
+              chevron={false}
+              danger
+            />
+          </div>
+        </section>
+      </aside>
+
+      <Card className="min-w-0 flex-1">
+        <CardHeader>
+          <CardTitle>{contentTitle}</CardTitle>
+          {destination === "family" ? (
+            <CardDescription>
+              {adult?.displayName ? `${adult.displayName} · ` : null}
+              {adult?.email} · {circle.role}
+            </CardDescription>
+          ) : null}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {destination === "family" ? (
+            <>
+{isOrganizer && inviteCode ? (
           <section aria-label="Invite code" className="flex flex-col gap-2">
             <p className="text-sm">
               Invite code: <span className="font-mono">{inviteCode}</span>
@@ -1084,7 +1182,20 @@ export function FamilyScreen({
           </div>
         ) : null}
 
-        <section aria-label="Places" className="flex flex-col gap-3">
+                      <Button
+                type="button"
+                variant="outline"
+                onClick={() => void onLeaveCircle()}
+                disabled={status.kind === "loading"}
+              >
+                Leave family
+              </Button>
+            </>
+          ) : null}
+
+          {destination === "places" ? (
+            <>
+<section aria-label="Places" className="flex flex-col gap-3">
           <p className="text-sm font-medium">Places</p>
           {circle.places.length === 0 ? (
             <p className="text-sm text-muted-foreground">No places yet.</p>
@@ -1212,7 +1323,12 @@ export function FamilyScreen({
           </Button>
         </div>
 
-        <section aria-label="Agenda" className="flex flex-col gap-3">
+                    </>
+          ) : null}
+
+          {destination === "calendar" ? (
+            <>
+<section aria-label="Agenda" className="flex flex-col gap-3">
           <p className="text-sm font-medium">Agenda</p>
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
@@ -1490,7 +1606,18 @@ export function FamilyScreen({
           </Button>
         </div>
 
-        {isOrganizer ? (
+                    </>
+          ) : null}
+
+          {destination === "carpool" ? (
+            <section aria-label="Carpool" className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">Coming soon</p>
+            </section>
+          ) : null}
+
+          {destination === "feeds" ? (
+            <>
+{isOrganizer ? (
           <section aria-label="Activity feeds" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium">Activity feeds</p>
@@ -1682,31 +1809,16 @@ export function FamilyScreen({
             </div>
           </section>
         ) : null}
+            </>
+          ) : null}
 
-        {status.kind === "error" ? (
-          <p role="alert" className="text-sm text-destructive">
-            {status.message}
-          </p>
-        ) : null}
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void onLeaveCircle()}
-          disabled={status.kind === "loading"}
-        >
-          Leave family
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void onSignOut()}
-          disabled={status.kind === "loading"}
-        >
-          {status.kind === "loading" ? "Working…" : "Sign out"}
-        </Button>
-      </CardContent>
-    </Card>
+          {status.kind === "error" ? (
+            <p role="alert" className="text-sm text-destructive">
+              {status.message}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

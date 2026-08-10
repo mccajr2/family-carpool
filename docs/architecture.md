@@ -49,7 +49,8 @@ look up adult by id, update `displayName`).
 
 Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 `named-places` + `place-geocoding` + `activity-feed-subscribe` +
-`activity-feed-poller` + `manual-events` + `family-calendar-surface`:
+`activity-feed-poller` + `manual-events` + `family-calendar-surface` +
+`app-shell-navigation` (client shell IA):
 
 | Topic | Decision |
 |--------|----------|
@@ -68,6 +69,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
 | Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
+| Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; Carpool = reserved “Coming soon” placeholder (no flows yet); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places; Feeds for Organizers only — Caregiver row omitted) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
 
 **Write authorization (two intentional categories):**
 
@@ -130,9 +132,9 @@ family-carpool/
 │       └── calendar/     # Unified agenda read (orchestrates feeds + events)
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
-│   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)
-│   ├── androidApp/       # Jetpack Compose shell
-│   └── iosApp/           # Native SwiftUI shell (Xcode project)
+│   ├── sharedUI/         # Compose Multiplatform (Android signed-in shell + destinations)
+│   ├── androidApp/       # Jetpack Compose entry
+│   └── iosApp/           # Native SwiftUI TabView shell (Xcode project)
 ├── contracts/
 │   └── openapi.yaml      # API source of truth
 ├── build-logic/          # Backend convention plugins

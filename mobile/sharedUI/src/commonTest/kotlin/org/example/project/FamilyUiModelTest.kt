@@ -11,6 +11,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -792,6 +793,130 @@ class FamilyUiModelTest {
             val needs = assertIs<FamilyUiModel.State.NeedsMembership>(model.state)
             assertEquals(FamilyUiModel.EmptyMode.CHOOSE, needs.mode)
             assertEquals("other@example.com", needs.email)
+        }
+
+    @Test
+    fun readyShellDefaultsToCalendarAndNavigatesTabs() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
+            assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
+            assertEquals(AppShell.primaryTabs, listOf("Calendar", "Carpool", "Family", "More"))
+            assertEquals(AppShell.CARPOOL_PLACEHOLDER, "Coming soon")
+
+            model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
+            assertEquals(
+                FamilyUiModel.ShellTab.CARPOOL,
+                assertIs<FamilyUiModel.State.Ready>(model.state).shellTab,
+            )
+
+            model.openMorePlaces()
+            val places = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyUiModel.ShellTab.MORE, places.shellTab)
+            assertEquals(FamilyUiModel.MoreScreen.PLACES, places.moreScreen)
+            assertEquals(listOf("Places", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
+
+            model.openMoreFeeds()
+            val feeds = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyUiModel.MoreScreen.FEEDS, feeds.moreScreen)
+
+            model.selectShellTab(FamilyUiModel.ShellTab.MORE)
+            assertEquals(
+                FamilyUiModel.MoreScreen.LIST,
+                assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
+            )
+        }
+
+    @Test
+    fun caregiverCannotOpenMoreFeeds() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.openMoreFeeds()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
+            assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
+            assertEquals(listOf("Places"), AppShell.moreGeneralRows(isOrganizer = false))
+            assertFalse(AppShell.showsFeedsRow(isOrganizer = false))
+            model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
+            assertEquals(
+                FamilyUiModel.ShellTab.CARPOOL,
+                assertIs<FamilyUiModel.State.Ready>(model.state).shellTab,
+            )
+            model.openMorePlaces()
+            assertEquals(
+                FamilyUiModel.MoreScreen.PLACES,
+                assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
+            )
         }
 }
 
