@@ -30,6 +30,8 @@ public final class PostgresTestcontainers {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("app.auth.dev-code-echo", () -> "true");
         registry.add("app.auth.code-pepper", () -> "test-pepper");
+        // Never hit live Nominatim from CI / local SpringBootTests.
+        registry.add("app.geocode.provider", () -> "stub");
     }
 
     public static boolean dockerAvailable() {

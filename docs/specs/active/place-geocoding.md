@@ -87,7 +87,7 @@ unchanged aside from reflecting returned coords after save.
 
 ## Tasks
 
-- [ ] **Backend:** Flyway columns `latitude`/`longitude` (nullable) on
+- [x] **Backend:** Flyway columns `latitude`/`longitude` (nullable) on
       `family_places`; geocode cache table; `GeocoderPort` + Nominatim adapter +
       rate/cache; wire create/update place; `locatePlace` service + controller;
       fake port for tests.

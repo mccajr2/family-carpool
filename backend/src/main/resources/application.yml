@@ -28,6 +28,12 @@ app:
     verify-code-window-seconds: 900
     # Local smoke: echo OTP in request-code response + log it. Never enable in prod.
     dev-code-echo: ${AUTH_DEV_CODE_ECHO:true}
+  geocode:
+    # nominatim (default) or stub (CI / offline soft-fail demos)
+    provider: ${GEOCODE_PROVIDER:nominatim}
+    nominatim-base-url: ${GEOCODE_NOMINATIM_BASE_URL:https://nominatim.openstreetmap.org}
+    user-agent: ${GEOCODE_USER_AGENT:family-carpool/0.1 (dev; contact@example.com)}
+    min-interval-ms: ${GEOCODE_MIN_INTERVAL_MS:1000}
 
 logging:
   level:

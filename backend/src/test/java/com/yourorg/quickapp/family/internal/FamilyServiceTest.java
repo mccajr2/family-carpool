@@ -43,6 +43,9 @@ class FamilyServiceTest {
     @Mock
     private FamilyPlaceRepository places;
 
+    @Mock
+    private GeocodeService geocodeService;
+
     @InjectMocks
     private FamilyService familyService;
 
@@ -324,6 +327,8 @@ class FamilyServiceTest {
         when(circles.findById(circleId)).thenReturn(Optional.of(circle));
         when(places.existsByCircleIdAndNameNormalized(circleId, "mom's house")).thenReturn(false);
         when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(geocodeService.resolve("123 Main St"))
+                .thenReturn(Optional.of(new GeoCoordinates(40.1, -74.2)));
 
         var response =
                 familyService.addPlace(
@@ -333,10 +338,105 @@ class FamilyServiceTest {
 
         assertThat(response.name()).isEqualTo("Mom's house");
         assertThat(response.address()).isEqualTo("123 Main St");
+        assertThat(response.latitude()).isEqualTo(40.1);
+        assertThat(response.longitude()).isEqualTo(-74.2);
         ArgumentCaptor<FamilyPlaceEntity> place = ArgumentCaptor.forClass(FamilyPlaceEntity.class);
         verify(places).save(place.capture());
         assertThat(place.getValue().nameNormalized()).isEqualTo("mom's house");
         assertThat(place.getValue().circleId()).isEqualTo(circleId);
+        assertThat(place.getValue().latitude()).isEqualTo(40.1);
+    }
+
+    @Test
+    void addPlaceSoftFailsWhenGeocodeMisses() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.existsByCircleIdAndNameNormalized(circleId, "mystery")).thenReturn(false);
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(geocodeService.resolve("Unlocateable Rd")).thenReturn(Optional.empty());
+
+        var response =
+                familyService.addPlace(
+                        adult,
+                        new com.yourorg.quickapp.family.CreatePlaceRequest(
+                                "Mystery", "Unlocateable Rd"));
+
+        assertThat(response.latitude()).isNull();
+        assertThat(response.longitude()).isNull();
+        verify(places).save(any());
+    }
+
+    @Test
+    void updatePlaceNameOnlySkipsGeocodeWhenCoordsPresent() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        placeId, circleId, "School", "school", "1 School Rd", Instant.now());
+        place.setCoordinates(41.0, -73.5);
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.findByIdAndCircleId(placeId, circleId)).thenReturn(Optional.of(place));
+        when(places.existsByCircleIdAndNameNormalizedAndIdNot(circleId, "elementary", placeId))
+                .thenReturn(false);
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                familyService.updatePlace(
+                        adult,
+                        placeId,
+                        new com.yourorg.quickapp.family.UpdatePlaceRequest(
+                                "Elementary", "1 School Rd"));
+
+        assertThat(response.name()).isEqualTo("Elementary");
+        assertThat(response.latitude()).isEqualTo(41.0);
+        assertThat(response.longitude()).isEqualTo(-73.5);
+        verify(geocodeService, never()).resolve(any());
+    }
+
+    @Test
+    void locatePlaceAppliesGeocode() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        placeId, circleId, "School", "school", "1 School Rd", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.findByIdAndCircleId(placeId, circleId)).thenReturn(Optional.of(place));
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(geocodeService.resolve("1 School Rd"))
+                .thenReturn(Optional.of(new GeoCoordinates(40.5, -74.1)));
+
+        var response = familyService.locatePlace(adult, placeId);
+
+        assertThat(response.latitude()).isEqualTo(40.5);
+        assertThat(response.longitude()).isEqualTo(-74.1);
     }
 
     @Test
@@ -387,6 +487,8 @@ class FamilyServiceTest {
         when(places.existsByCircleIdAndNameNormalizedAndIdNot(circleId, "school", placeId))
                 .thenReturn(false);
         when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(geocodeService.resolve("2 School Rd"))
+                .thenReturn(Optional.of(new GeoCoordinates(40.2, -74.3)));
 
         var response =
                 familyService.updatePlace(
@@ -397,6 +499,8 @@ class FamilyServiceTest {
 
         assertThat(response.name()).isEqualTo("school");
         assertThat(response.address()).isEqualTo("2 School Rd");
+        assertThat(response.latitude()).isEqualTo(40.2);
+        assertThat(response.longitude()).isEqualTo(-74.3);
     }
 
     @Test

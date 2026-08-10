@@ -26,6 +26,12 @@ class FamilyPlaceEntity {
     @Column(name = "address", nullable = false, length = 255)
     private String address;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -66,6 +72,14 @@ class FamilyPlaceEntity {
         return address;
     }
 
+    Double latitude() {
+        return latitude;
+    }
+
+    Double longitude() {
+        return longitude;
+    }
+
     void setName(String name, String nameNormalized) {
         this.name = name;
         this.nameNormalized = nameNormalized;
@@ -73,5 +87,10 @@ class FamilyPlaceEntity {
 
     void setAddress(String address) {
         this.address = address;
+    }
+
+    void setCoordinates(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 }
