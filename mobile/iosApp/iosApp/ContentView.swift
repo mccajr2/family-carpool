@@ -294,7 +294,7 @@ struct ContentView: View {
                 }
             }
             if model.visibleCalendarItems.isEmpty {
-                Text("Nothing coming up in the next 30 days.")
+                Text("No events in the loaded window.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -369,6 +369,8 @@ struct ContentView: View {
                     }
                 }
             }
+            Button("Load more") { model.loadMoreCalendar() }
+                .disabled(model.isLoading)
 
             TextField("New event title", text: $model.newEventTitle)
                 .disabled(model.isLoading)

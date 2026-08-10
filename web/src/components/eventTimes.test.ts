@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest"
 import {
+  advanceCalendarWindow,
   coerceEndsAfterStart,
   calendarSourceLabel,
+  calendarWindowThrough,
   defaultCalendarWindow,
+  ensureCalendarWindowCovers,
   formatEventWhen,
   formatIsoForDisplay,
+  mergeCalendarItems,
   validateManualEventTimes,
 } from "./eventTimes"
 
@@ -56,6 +60,52 @@ describe("defaultCalendarWindow", () => {
     expect(fromDate.getHours()).toBe(0)
     expect(fromDate.getMinutes()).toBe(0)
     expect((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)).toBe(30)
+  })
+})
+
+describe("advanceCalendarWindow", () => {
+  it("pages forward from the previous exclusive end", () => {
+    const first = defaultCalendarWindow(new Date("2026-08-10T15:30:00"))
+    const second = advanceCalendarWindow(first.to)
+    expect(second.from).toBe(first.to)
+    expect(
+      (new Date(second.to).getTime() - new Date(second.from).getTime()) / (24 * 60 * 60 * 1000),
+    ).toBe(30)
+  })
+})
+
+describe("calendarWindowThrough", () => {
+  it("keeps loaded to and resets from to local today", () => {
+    const loadedTo = defaultCalendarWindow(new Date("2026-08-10T15:30:00")).to
+    const window = calendarWindowThrough(loadedTo, new Date("2026-08-12T18:00:00"))
+    expect(window.to).toBe(loadedTo)
+    expect(new Date(window.from).getHours()).toBe(0)
+  })
+})
+
+describe("ensureCalendarWindowCovers", () => {
+  it("extends loaded to until the instant is inside the window", () => {
+    const first = defaultCalendarWindow(new Date("2026-08-10T12:00:00"))
+    const far = "2026-11-01T17:00:00.000Z"
+    const covered = ensureCalendarWindowCovers(first.to, far)
+    expect(far < covered).toBe(true)
+    expect(covered > first.to).toBe(true)
+  })
+})
+
+describe("mergeCalendarItems", () => {
+  it("appends and sorts without duplicating ids", () => {
+    const merged = mergeCalendarItems(
+      [
+        { id: "a", source: "MANUAL", startsAt: "2026-08-15T12:00:00Z" },
+        { id: "b", source: "FEED", startsAt: "2026-08-16T12:00:00Z" },
+      ],
+      [
+        { id: "b", source: "FEED", startsAt: "2026-08-16T12:00:00Z" },
+        { id: "c", source: "MANUAL", startsAt: "2026-08-14T12:00:00Z" },
+      ],
+    )
+    expect(merged.map((item) => item.id)).toEqual(["c", "a", "b"])
   })
 })
 

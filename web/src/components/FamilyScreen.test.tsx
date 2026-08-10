@@ -413,7 +413,7 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     expect(
-      within(agenda).getByText("Nothing coming up in the next 30 days."),
+      within(agenda).getByText("No events in the loaded window."),
     ).toBeInTheDocument()
     expect(listCalendar).toHaveBeenCalledWith(
       "tok",
@@ -449,6 +449,79 @@ describe("FamilyScreen", () => {
       expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("loads the next 30 days when Load more is pressed", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const listCalendar = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          location: null,
+          kidIds: ["k1"],
+          feedId: null,
+          feedName: null,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: "2030-09-20T17:00:00.000Z",
+          endsAt: null,
+          location: null,
+          kidIds: ["k1"],
+          feedId: null,
+          feedName: null,
+        },
+      ])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Near")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Load more" }))
+    expect(await within(agenda).findByText("Later")).toBeInTheDocument()
+    expect(within(agenda).getByText("Near")).toBeInTheDocument()
+    expect(listCalendar).toHaveBeenCalledTimes(2)
+    const secondCall = listCalendar.mock.calls[1]
+    expect(secondCall[1]).toBe(listCalendar.mock.calls[0][2])
   })
 
   it("filters agenda by kid and keeps feed rows read-only", async () => {

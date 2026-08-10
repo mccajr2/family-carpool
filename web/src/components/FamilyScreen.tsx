@@ -14,10 +14,14 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
+  advanceCalendarWindow,
   calendarSourceLabel,
+  calendarWindowThrough,
   coerceEndsAfterStart,
   defaultCalendarWindow,
+  ensureCalendarWindowCovers,
   formatEventWhen,
+  mergeCalendarItems,
   validateManualEventTimes,
 } from "@/components/eventTimes"
 
@@ -113,6 +117,9 @@ export function FamilyScreen({
   const [editingFeedUrl, setEditingFeedUrl] = useState("")
   const [editingFeedKidIds, setEditingFeedKidIds] = useState<string[]>([])
   const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([])
+  const [calendarLoadedTo, setCalendarLoadedTo] = useState(
+    () => defaultCalendarWindow().to,
+  )
   const [agendaKidFilter, setAgendaKidFilter] = useState<string | null>(null)
   const [newEventTitle, setNewEventTitle] = useState("")
   const [newEventStartsAt, setNewEventStartsAt] = useState(defaultNewEventStartsLocal)
@@ -126,9 +133,26 @@ export function FamilyScreen({
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
 
-  async function reloadCalendar(token: string) {
-    const window = defaultCalendarWindow()
+  async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
+    const window = calendarWindowThrough(loadedTo)
     setCalendarItems(await familyClient.listCalendar(token, window.from, window.to))
+  }
+
+  async function loadMoreCalendar() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const page = advanceCalendarWindow(calendarLoadedTo)
+      const more = await familyClient.listCalendar(token, page.from, page.to)
+      setCalendarItems((current) => mergeCalendarItems(current, more))
+      setCalendarLoadedTo(page.to)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
   }
 
   useEffect(() => {
@@ -152,10 +176,12 @@ export function FamilyScreen({
             const items = await familyClient.listCalendar(token, window.from, window.to)
             if (!cancelled) {
               setCalendarItems(items)
+              setCalendarLoadedTo(window.to)
             }
           } catch {
             if (!cancelled) {
               setCalendarItems([])
+              setCalendarLoadedTo(defaultCalendarWindow().to)
             }
           }
         } else {
@@ -231,6 +257,7 @@ export function FamilyScreen({
       setCircle(created)
       setFeeds([])
       setCalendarItems([])
+      setCalendarLoadedTo(defaultCalendarWindow().to)
       const invite = await familyClient.getInvite(token)
       setInviteCode(invite.code)
       await refreshAdult(token)
@@ -255,6 +282,7 @@ export function FamilyScreen({
       setInviteCode(null)
       setFeeds([])
       setCalendarItems([])
+      setCalendarLoadedTo(defaultCalendarWindow().to)
       await refreshAdult(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -619,18 +647,21 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
+      const startsAt = fromDatetimeLocalValue(newEventStartsAt.trim())
       const endsAt = newEventEndsAt.trim()
         ? fromDatetimeLocalValue(newEventEndsAt.trim())
         : null
       await familyClient.createEvent(
         token,
         newEventTitle.trim(),
-        fromDatetimeLocalValue(newEventStartsAt.trim()),
+        startsAt,
         newEventKidIds,
         endsAt,
         newEventLocation.trim() ? newEventLocation.trim() : null,
       )
-      await reloadCalendar(token)
+      const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
+      setCalendarLoadedTo(nextTo)
+      await reloadCalendar(token, nextTo)
       setNewEventTitle("")
       setNewEventStartsAt(defaultNewEventStartsLocal())
       setNewEventEndsAt("")
@@ -654,6 +685,7 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
+      const startsAt = fromDatetimeLocalValue(editingEventStartsAt.trim())
       const endsAt = editingEventEndsAt.trim()
         ? fromDatetimeLocalValue(editingEventEndsAt.trim())
         : null
@@ -661,12 +693,14 @@ export function FamilyScreen({
         token,
         eventId,
         editingEventTitle.trim(),
-        fromDatetimeLocalValue(editingEventStartsAt.trim()),
+        startsAt,
         editingEventKidIds,
         endsAt,
         editingEventLocation.trim() ? editingEventLocation.trim() : null,
       )
-      await reloadCalendar(token)
+      const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
+      setCalendarLoadedTo(nextTo)
+      await reloadCalendar(token, nextTo)
       setEditingEventId(null)
       setEditingEventTitle("")
       setEditingEventStartsAt("")
@@ -1211,7 +1245,7 @@ export function FamilyScreen({
             </div>
           ) : null}
           {visibleCalendarItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing coming up in the next 30 days.</p>
+            <p className="text-sm text-muted-foreground">No events in the loaded window.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {visibleCalendarItems.map((item) => {
@@ -1374,6 +1408,14 @@ export function FamilyScreen({
               })}
             </ul>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void loadMoreCalendar()}
+            disabled={status.kind === "loading"}
+          >
+            Load more
+          </Button>
         </section>
 
         <div className="flex flex-col gap-2">

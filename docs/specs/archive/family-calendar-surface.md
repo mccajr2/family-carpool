@@ -73,7 +73,8 @@ extend existing service with a range query used only via that public API.
 **Clients (web + Android + iOS):**
 
 - Primary **Agenda** surface for every member: load a default window of **local
-start-of-today → +30 days** (send as UTC instants); show readable local times
+start-of-today → +30 days** (send as UTC instants); **Load more** appends the
+next +30 days via the same range API; show readable local times
 (same spirit as current web/iOS formatters).
 - Each row: title, when, location, kid labels, and a feed vs manual cue
 (`feedName` or “Manual”).
@@ -159,7 +160,8 @@ grid remains a follow-up id.
 | Writes             | Manual add/edit/delete from agenda; feed rows read-only          |
 | Data API           | Unified `GET .../calendar?from&to`                               |
 | Default window     | Local start-of-today → +30 days                                  |
-| Kid filter         | Client-side chips on loaded window                               |
+| Load more          | Append next +30d page via same `from`/`to` API (web/Android/iOS) |
+| Kid filter         | Client-side chips on the loaded window                           |
 | Module             | New Modulith `calendar` orchestrating feeds + events public APIs |
 
 

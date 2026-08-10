@@ -130,11 +130,40 @@ enum ManualEventDateCodec {
         return nil
     }
 
+    static let calendarPageDays = 30
+
     static func defaultCalendarWindow(now: Date = Date()) -> (from: String, to: String) {
+        advanceCalendarWindow(from: startOfLocalDay(now), days: calendarPageDays)
+    }
+
+    static func startOfLocalDay(_ now: Date = Date()) -> Date {
+        Calendar.current.startOfDay(for: now)
+    }
+
+    static func advanceCalendarWindow(from: Date, days: Int = calendarPageDays) -> (from: String, to: String) {
         let calendar = Calendar.current
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 30, to: start) ?? start
-        return (isoString(from: start), isoString(from: end))
+        let end = calendar.date(byAdding: .day, value: days, to: from) ?? from
+        return (isoString(from: from), isoString(from: end))
+    }
+
+    static func advanceCalendarWindow(fromIso: String, days: Int = calendarPageDays) -> (from: String, to: String) {
+        let from = date(fromIso: fromIso) ?? Date()
+        return advanceCalendarWindow(from: from, days: days)
+    }
+
+    static func calendarWindowThrough(loadedToIso: String, now: Date = Date()) -> (from: String, to: String) {
+        (isoString(from: startOfLocalDay(now)), loadedToIso)
+    }
+
+    static func ensureCalendarWindowCovers(loadedToIso: String, instant: Date) -> String {
+        let instantIso = isoString(from: instant)
+        var to = loadedToIso
+        var guardCount = 0
+        while instantIso >= to && guardCount < 120 {
+            to = advanceCalendarWindow(fromIso: to).to
+            guardCount += 1
+        }
+        return to
     }
 }
 
@@ -190,6 +219,7 @@ final class AuthViewModel: ObservableObject {
     @Published var newFeedUrl: String = ""
     @Published var newFeedKidIds: [String] = []
     @Published var calendarItems: [FamilyCalendarItem] = []
+    @Published var calendarLoadedTo: String = ManualEventDateCodec.defaultCalendarWindow().to
     @Published var agendaKidFilter: String?
     @Published var newEventTitle: String = ""
     @Published var newEventStartsAtDate: Date = Date().addingTimeInterval(15 * 60)
@@ -492,6 +522,7 @@ final class AuthViewModel: ObservableObject {
                     self.places = []
                     self.feeds = []
                     self.calendarItems = []
+                    self.calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
                     self.agendaKidFilter = nil
                     self.familyPhase = .choose
                 }
@@ -970,10 +1001,11 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
-    func loadCalendar() {
+    func loadCalendar(through loadedTo: String? = nil) {
         isLoading = true
         errorMessage = nil
-        let window = ManualEventDateCodec.defaultCalendarWindow()
+        let end = loadedTo ?? calendarLoadedTo
+        let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: end)
         bridge.listCalendar(
             from: window.from,
             to: window.to,
@@ -981,6 +1013,7 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
+                    self.calendarLoadedTo = end
                     self.calendarItems = (0..<ids.count).map { index in
                         FamilyCalendarItem(
                             id: ids[index],
@@ -994,6 +1027,48 @@ final class AuthViewModel: ObservableObject {
                             feedName: feedNames[index].isEmpty ? nil : feedNames[index]
                         )
                     }
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func loadMoreCalendar() {
+        isLoading = true
+        errorMessage = nil
+        let page = ManualEventDateCodec.advanceCalendarWindow(fromIso: calendarLoadedTo)
+        bridge.listCalendar(
+            from: page.from,
+            to: page.to,
+            onSuccess: { [weak self] ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    let more = (0..<ids.count).map { index in
+                        FamilyCalendarItem(
+                            id: ids[index],
+                            source: sources[index],
+                            title: titles[index],
+                            startsAt: startsAts[index],
+                            endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
+                            location: locations[index].isEmpty ? nil : locations[index],
+                            kidIds: Self.splitJoinedIds(kidIdsJoined[index]),
+                            feedId: feedIds[index].isEmpty ? nil : feedIds[index],
+                            feedName: feedNames[index].isEmpty ? nil : feedNames[index]
+                        )
+                    }
+                    var seen = Set(self.calendarItems.map { "\($0.source):\($0.id)" })
+                    for item in more where !seen.contains("\(item.source):\(item.id)") {
+                        seen.insert("\(item.source):\(item.id)")
+                        self.calendarItems.append(item)
+                    }
+                    self.calendarItems.sort {
+                        if $0.startsAt == $1.startsAt {
+                            return "\($0.source):\($0.id)" < "\($1.source):\($1.id)"
+                        }
+                        return $0.startsAt < $1.startsAt
+                    }
+                    self.calendarLoadedTo = page.to
                 }
             },
             onError: eventError
@@ -1027,6 +1102,7 @@ final class AuthViewModel: ObservableObject {
             return
         }
         let startsAt = ManualEventDateCodec.isoString(from: newEventStartsAtDate)
+        let startsDate = newEventStartsAtDate
         let endsAt = newEventHasEndsAt ? ManualEventDateCodec.isoString(from: newEventEndsAtDate) : ""
         isLoading = true
         errorMessage = nil
@@ -1045,7 +1121,11 @@ final class AuthViewModel: ObservableObject {
                     self.newEventHasEndsAt = false
                     self.newEventLocation = ""
                     self.newEventKidIds = []
-                    self.loadCalendar()
+                    let nextTo = ManualEventDateCodec.ensureCalendarWindowCovers(
+                        loadedToIso: self.calendarLoadedTo,
+                        instant: startsDate
+                    )
+                    self.loadCalendar(through: nextTo)
                 }
             },
             onError: eventError
@@ -1090,6 +1170,7 @@ final class AuthViewModel: ObservableObject {
             return
         }
         let startsAt = ManualEventDateCodec.isoString(from: editingEventStartsAtDate)
+        let startsDate = editingEventStartsAtDate
         let endsAt = editingEventHasEndsAt ? ManualEventDateCodec.isoString(from: editingEventEndsAtDate) : ""
         isLoading = true
         errorMessage = nil
@@ -1104,7 +1185,11 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.cancelEditEvent()
-                    self.loadCalendar()
+                    let nextTo = ManualEventDateCodec.ensureCalendarWindowCovers(
+                        loadedToIso: self.calendarLoadedTo,
+                        instant: startsDate
+                    )
+                    self.loadCalendar(through: nextTo)
                 }
             },
             onError: eventError
@@ -1213,6 +1298,7 @@ final class AuthViewModel: ObservableObject {
         }
         feeds = []
         calendarItems = []
+        calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         agendaKidFilter = nil
         familyPhase = .ready
         loadFeeds()
@@ -1230,6 +1316,7 @@ final class AuthViewModel: ObservableObject {
         places = []
         feeds = []
         calendarItems = []
+        calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         agendaKidFilter = nil
         newFeedName = ""
         newFeedUrl = ""

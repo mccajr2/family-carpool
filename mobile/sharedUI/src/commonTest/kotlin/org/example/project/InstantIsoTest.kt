@@ -55,6 +55,26 @@ class InstantIsoTest {
     }
 
     @Test
+    fun advanceCalendarWindow_pagesFromPreviousEnd() {
+        val first = defaultCalendarWindow(Instant.parse("2026-08-15T17:30:00Z").toEpochMilliseconds())
+        val second = advanceCalendarWindow(first.to)
+        assertEquals(first.to, second.from)
+        val span =
+            Instant.parse(second.to).toEpochMilliseconds() -
+                Instant.parse(second.from).toEpochMilliseconds()
+        assertEquals(30L * 24 * 60 * 60 * 1000, span)
+    }
+
+    @Test
+    fun ensureCalendarWindowCovers_extendsUntilInstantFits() {
+        val first = defaultCalendarWindow(Instant.parse("2026-08-15T12:00:00Z").toEpochMilliseconds())
+        val far = "2026-11-01T17:00:00Z"
+        val covered = ensureCalendarWindowCovers(first.to, far)
+        assertTrue(far < covered)
+        assertTrue(covered > first.to)
+    }
+
+    @Test
     fun calendarSourceLabel_prefersFeedName() {
         assertEquals("Manual", calendarSourceLabel(CalendarItemSource.MANUAL, null))
         assertEquals("Soccer", calendarSourceLabel(CalendarItemSource.FEED, "Soccer"))

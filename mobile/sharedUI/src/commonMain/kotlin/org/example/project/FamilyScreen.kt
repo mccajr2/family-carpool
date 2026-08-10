@@ -637,7 +637,7 @@ private fun ReadyContent(
         }
     if (visibleItems.isEmpty()) {
         Text(
-            "Nothing coming up in the next 30 days.",
+            "No events in the loaded window.",
             style = MaterialTheme.typography.bodySmall,
         )
     } else {
@@ -774,6 +774,19 @@ private fun ReadyContent(
                 }
             }
         }
+    }
+
+    OutlinedButton(
+        onClick = {
+            scope.launch {
+                model.loadMoreCalendar()
+                refresh()
+            }
+        },
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Load more")
     }
 
     OutlinedTextField(

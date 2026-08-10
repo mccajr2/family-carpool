@@ -170,3 +170,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | Added `cross-platform-ui-system` (rank 3): shared custom UI language across web/Android/iOS; grid → rank 4. |
 | 2026-08-10 | `/implement family-calendar-surface`: calendar module + Agenda UI (web/Android/iOS); docs updated. |
 | 2026-08-10 | `/pr family-calendar-surface`: unified calendar Agenda shipped; next up `app-shell-navigation`. |
+| 2026-08-10 | Agenda **Load more**: clients append +30d pages beyond the initial window (web/Android/iOS). |

@@ -50,6 +50,7 @@ class FamilyUiModel(
             val editingFeedUrl: String = "",
             val editingFeedKidIds: List<String> = emptyList(),
             val calendarItems: List<CalendarItem> = emptyList(),
+            val calendarLoadedTo: String = defaultCalendarWindow().to,
             val agendaKidFilter: String? = null,
             val newEventTitle: String = "",
             val newEventStartsAt: String = defaultNewEventStartsAtIso(),
@@ -692,7 +693,7 @@ class FamilyUiModel(
                     newFeedName = "",
                     newFeedUrl = "",
                     newFeedKidIds = emptyList(),
-                    calendarItems = loadCalendarItems(token),
+                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Add feed failed")
@@ -722,7 +723,7 @@ class FamilyUiModel(
                     editingFeedName = "",
                     editingFeedUrl = "",
                     editingFeedKidIds = emptyList(),
-                    calendarItems = loadCalendarItems(token),
+                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Update feed failed")
@@ -740,7 +741,7 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     feeds = current.feeds.filterNot { it.id == feedId },
-                    calendarItems = loadCalendarItems(token),
+                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Remove feed failed")
@@ -758,7 +759,7 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     feeds = current.feeds.map { if (it.id == feedId) updated else it },
-                    calendarItems = loadCalendarItems(token),
+                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Sync feed failed")
@@ -778,6 +779,31 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun loadMoreCalendar() {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val page = advanceCalendarWindow(current.calendarLoadedTo)
+            val more =
+                runCatching {
+                    familyClient.listCalendar(token, page.from, page.to)
+                }.getOrElse { emptyList() }
+            _state =
+                current.copy(
+                    loading = false,
+                    calendarItems = mergeCalendarItems(current.calendarItems, more),
+                    calendarLoadedTo = page.to,
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Load more failed",
+                )
+        }
+    }
+
     suspend fun addEvent() {
         val current = _state as? State.Ready ?: return
         val validation =
@@ -789,17 +815,18 @@ class FamilyUiModel(
         _state = current.copy(loading = true, error = null)
         try {
             val token = session.requireAccessToken()
+            val startsAt = current.newEventStartsAt.trim()
             val endsAt = current.newEventEndsAt.trim().ifEmpty { null }
             val location = current.newEventLocation.trim().ifEmpty { null }
             familyClient.createEvent(
                 token,
                 current.newEventTitle.trim(),
-                current.newEventStartsAt.trim(),
+                startsAt,
                 current.newEventKidIds,
                 endsAt,
                 location,
             )
-            val calendarItems = loadCalendarItems(token)
+            val loadedTo = ensureCalendarWindowCovers(current.calendarLoadedTo, startsAt)
             _state =
                 current.copy(
                     loading = false,
@@ -808,7 +835,8 @@ class FamilyUiModel(
                     newEventEndsAt = "",
                     newEventLocation = "",
                     newEventKidIds = emptyList(),
-                    calendarItems = calendarItems,
+                    calendarLoadedTo = loadedTo,
+                    calendarItems = loadCalendarItems(token, loadedTo),
                     error = null,
                 )
         } catch (e: Throwable) {
@@ -832,18 +860,19 @@ class FamilyUiModel(
         _state = current.copy(loading = true, error = null)
         try {
             val token = session.requireAccessToken()
+            val startsAt = current.editingEventStartsAt.trim()
             val endsAt = current.editingEventEndsAt.trim().ifEmpty { null }
             val location = current.editingEventLocation.trim().ifEmpty { null }
             familyClient.updateEvent(
                 token,
                 eventId,
                 current.editingEventTitle.trim(),
-                current.editingEventStartsAt.trim(),
+                startsAt,
                 current.editingEventKidIds,
                 endsAt,
                 location,
             )
-            val calendarItems = loadCalendarItems(token)
+            val loadedTo = ensureCalendarWindowCovers(current.calendarLoadedTo, startsAt)
             _state =
                 current.copy(
                     loading = false,
@@ -853,7 +882,8 @@ class FamilyUiModel(
                     editingEventEndsAt = "",
                     editingEventLocation = "",
                     editingEventKidIds = emptyList(),
-                    calendarItems = calendarItems,
+                    calendarLoadedTo = loadedTo,
+                    calendarItems = loadCalendarItems(token, loadedTo),
                     error = null,
                 )
         } catch (e: Throwable) {
@@ -874,7 +904,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = loadCalendarItems(token),
+                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
                 )
         } catch (e: Throwable) {
             _state =
@@ -885,8 +915,11 @@ class FamilyUiModel(
         }
     }
 
-    private suspend fun loadCalendarItems(token: String): List<CalendarItem> {
-        val window = defaultCalendarWindow()
+    private suspend fun loadCalendarItems(
+        token: String,
+        loadedTo: String = defaultCalendarWindow().to,
+    ): List<CalendarItem> {
+        val window = calendarWindowThrough(loadedTo)
         return runCatching {
             familyClient.listCalendar(token, window.from, window.to)
         }.getOrElse { emptyList() }
@@ -909,6 +942,7 @@ class FamilyUiModel(
             } else {
                 emptyList()
             }
+        val initialWindow = defaultCalendarWindow()
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
@@ -916,7 +950,8 @@ class FamilyUiModel(
             circle = circle,
             inviteCode = inviteCode,
             feeds = feeds,
-            calendarItems = loadCalendarItems(token),
+            calendarItems = loadCalendarItems(token, initialWindow.to),
+            calendarLoadedTo = initialWindow.to,
         )
     }
 }
