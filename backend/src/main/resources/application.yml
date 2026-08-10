@@ -32,7 +32,9 @@ app:
     # nominatim (default) or stub (CI / offline soft-fail demos)
     provider: ${GEOCODE_PROVIDER:nominatim}
     nominatim-base-url: ${GEOCODE_NOMINATIM_BASE_URL:https://nominatim.openstreetmap.org}
-    user-agent: ${GEOCODE_USER_AGENT:family-carpool/0.1 (dev; contact@example.com)}
+    # Must identify the app + contact (URL or email). example.com contacts get 403.
+    # Override with GEOCODE_USER_AGENT for your deploy / personal contact.
+    user-agent: ${GEOCODE_USER_AGENT:family-carpool/0.1 (https://github.com/mccajr2/family-carpool)}
     min-interval-ms: ${GEOCODE_MIN_INTERVAL_MS:1000}
 
 logging:

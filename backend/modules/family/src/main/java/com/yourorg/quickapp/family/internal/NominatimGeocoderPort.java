@@ -24,12 +24,17 @@ class NominatimGeocoderPort implements GeocoderPort {
     NominatimGeocoderPort(
             @Value("${app.geocode.nominatim-base-url:https://nominatim.openstreetmap.org}")
                     String baseUrl,
-            @Value("${app.geocode.user-agent:family-carpool/0.1 (dev; contact@example.com)}")
+            @Value(
+                            "${app.geocode.user-agent:family-carpool/0.1 (https://github.com/mccajr2/family-carpool)}")
                     String userAgent,
             @Value("${app.geocode.min-interval-ms:1000}") long minIntervalMs) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
         this.userAgent = userAgent;
         this.minIntervalMs = Math.max(0, minIntervalMs);
+        this.restClient =
+                RestClient.builder()
+                        .baseUrl(baseUrl)
+                        .defaultHeader("User-Agent", userAgent)
+                        .build();
     }
 
     @Override
@@ -50,7 +55,6 @@ class NominatimGeocoderPort implements GeocoderPort {
                                                     .queryParam("format", "json")
                                                     .queryParam("limit", "1")
                                                     .build())
-                            .header("User-Agent", userAgent)
                             .retrieve()
                             .body(NominatimHit[].class);
             if (hits == null || hits.length == 0) {
@@ -63,7 +67,9 @@ class NominatimGeocoderPort implements GeocoderPort {
             return Optional.of(
                     new GeoCoordinates(Double.parseDouble(hit.lat()), Double.parseDouble(hit.lon())));
         } catch (Exception ex) {
-            log.warn("Nominatim geocode failed for address: {}", ex.toString());
+            log.warn(
+                    "Nominatim geocode failed (check User-Agent / usage policy): {}",
+                    ex.toString());
             return Optional.empty();
         }
     }
