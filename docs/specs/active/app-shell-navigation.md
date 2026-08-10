@@ -1,6 +1,6 @@
 # Spec: app-shell-navigation
 
-Status: draft  
+Status: approved  
 Created: 2026-08-10  
 Updated: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -79,8 +79,9 @@ into destination screens rather than rewriting behavior.
 ## Acceptance criteria
 
 - [ ] Web, Android, and iOS signed-in members see the same four destinations in
-  order: **Calendar**, **Carpool**, **Family**, then More (mobile) / Settings
-  grouping (web) — labels match across platforms.
+  the same order and grouping — **Calendar**, **Carpool**, **Family**, then
+  **More** (mobile) / **Settings** (web) — using platform-conventional naming
+  for the fourth destination, not identical labels.
 - [ ] **Calendar** hosts the existing Agenda surface (list, kid filter, Load more,
   manual add/edit/delete; feed rows read-only) — no dedicated manage-events list
   reintroduced.
@@ -134,4 +135,4 @@ into destination screens rather than rewriting behavior.
 
 ## Approval
 
-Draft ready for approval. Do not `/implement` until approved.
+Approved 2026-08-10 (AC #1 wording: More vs Settings allowed). Ready for `/implement`.
