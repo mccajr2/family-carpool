@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-09 (place-geocoding done)
+Updated: 2026-08-10 (activity-feed-subscribe done)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -50,7 +50,7 @@ share the ride.
 
 | Topic | Decision |
 |--------|----------|
-| Schedule import | **iCal / webcal / `.ics` URL** subscribe feeds (not RSS); **manual add/edit** escape hatch; dedupe by `UID` when present; poll on a sensible interval; show **last-synced** time. **v1 target platforms to validate against:** [Crossbar](https://www.crossbar.org), [SportsYou](https://sportsyou.com), [SportsEngine](https://www.sportsengine.com) — still generic URL import, not vendor APIs |
+| Schedule import | **iCal / webcal / `.ics` URL** subscribe feeds (not RSS); **manual add/edit** escape hatch; dedupe by `UID` when present; **Sync now** then background poll; show **last-synced** time. **v1 target platforms to validate against:** [Crossbar](https://www.crossbar.org), [SportsYou](https://sportsyou.com), [SportsEngine](https://www.sportsengine.com) — still generic URL import, not vendor APIs |
 | Identity | **Per-adult accounts**; **family circle** around kids; **invite link/code** to join; **v1 = at most one circle per adult** (multi-circle / blended / multi-grandkid households → parking) |
 | Places | **Named places** (Mom’s house, Dad’s house, Grandma’s, School) — not one address for the whole circle; **unique name per circle** (case-insensitive); free-text address; **lat/lng via Nominatim** (soft-fail + retry locate) |
 | Roles | **Organizer** (invite/remove, manage feeds/kids) + **Caregiver** (calendar, coverage, carpool, garage). Driver-only later |
@@ -68,7 +68,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | activity-feed-sync | planned | 2026-08-07 · re-rank split | iCal/webcal URL import; validate Crossbar + SportsYou + SportsEngine; poll; dedupe by UID; last-synced; kid↔feed attachment |
+| 1 | activity-feed-poller | planned | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
 | 2 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
 | 3 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
 | 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
@@ -111,14 +111,13 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-| Id | Branch | Spec |
-|----|--------|------|
-| — | — | _none_ |
+_None._
 
 ## Done
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| activity-feed-subscribe | 2026-08-10 | [archive](specs/archive/activity-feed-subscribe.md) |
 | place-geocoding | 2026-08-09 | [archive](specs/archive/place-geocoding.md) |
 | named-places | 2026-08-09 | [archive](specs/archive/named-places.md) |
 | family-adult-invites-roles | 2026-08-09 | [archive](specs/archive/family-adult-invites-roles.md) |
@@ -152,3 +151,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-09 | `/pr named-places`: named places CRUD shipped (web/Android/iOS); next up `place-geocoding`. |
 | 2026-08-09 | `/spec place-geocoding`: Nominatim + cache; soft-fail; Located/Not located + Retry locate (places only). |
 | 2026-08-09 | `/pr place-geocoding`: place lat/lng + locate shipped (web/Android/iOS); next up `activity-feed-sync`. |
+| 2026-08-10 | Re-rank split: `activity-feed-sync` → `activity-feed-subscribe` (Sync now + manage UI) then `activity-feed-poller`; next up `activity-feed-subscribe`. |
+| 2026-08-10 | `/spec activity-feed-subscribe`: Organizer feed CRUD; auto-sync on create/URL change; Sync now; soft-fail; UID snapshot; manage-feeds UI (web/Android/iOS). |
+| 2026-08-10 | `/pr activity-feed-subscribe`: iCal subscribe + Sync now shipped (web/Android/iOS); next up `activity-feed-poller`. |

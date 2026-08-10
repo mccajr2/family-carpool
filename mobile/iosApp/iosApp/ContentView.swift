@@ -272,6 +272,83 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
+            if model.isOrganizer {
+                Text("Activity feeds")
+                    .font(.headline)
+                if model.feeds.isEmpty {
+                    Text("No feeds yet.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(model.feeds) { feed in
+                        if model.editingFeedId == feed.id {
+                            TextField("Feed name", text: $model.editingFeedName)
+                                .disabled(model.isLoading)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("Feed URL", text: $model.editingFeedUrl)
+                                .disabled(model.isLoading)
+                                .textFieldStyle(.roundedBorder)
+                            feedKidToggles(selectedKidIds: model.editingFeedKidIds) { kidId in
+                                model.toggleEditingFeedKid(kidId)
+                            }
+                            HStack {
+                                Button("Save") { model.saveFeed() }
+                                    .disabled(
+                                        model.isLoading
+                                            || model.editingFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                            || model.editingFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    )
+                                Button("Cancel") { model.cancelEditFeed() }
+                                    .disabled(model.isLoading)
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(feed.name)
+                                    .lineLimit(1)
+                                Text(feed.listStatusLabel(kids: model.kids))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                ViewThatFits(in: .horizontal) {
+                                    HStack {
+                                        Button("Sync now") { model.syncFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                        Button("Edit") { model.beginEditFeed(feed) }
+                                            .disabled(model.isLoading)
+                                        Button("Remove") { model.removeFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                    }
+                                    VStack(alignment: .leading) {
+                                        Button("Sync now") { model.syncFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                        Button("Edit") { model.beginEditFeed(feed) }
+                                            .disabled(model.isLoading)
+                                        Button("Remove") { model.removeFeed(feed.id) }
+                                            .disabled(model.isLoading)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                TextField("New feed name", text: $model.newFeedName)
+                    .disabled(model.isLoading)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Feed URL", text: $model.newFeedUrl)
+                    .disabled(model.isLoading)
+                    .textFieldStyle(.roundedBorder)
+                feedKidToggles(selectedKidIds: model.newFeedKidIds) { kidId in
+                    model.toggleNewFeedKid(kidId)
+                }
+                Button("Add feed") { model.addFeed() }
+                    .disabled(
+                        model.isLoading
+                            || model.newFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || model.newFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+            }
+
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
@@ -303,6 +380,23 @@ struct ContentView: View {
             parts.append(model.familyRole)
         }
         return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private func feedKidToggles(
+        selectedKidIds: [String],
+        onToggle: @escaping (String) -> Void
+    ) -> some View {
+        ForEach(model.kids) { kid in
+            Toggle(
+                kid.displayName,
+                isOn: Binding(
+                    get: { selectedKidIds.contains(kid.id) },
+                    set: { _ in onToggle(kid.id) }
+                )
+            )
+            .disabled(model.isLoading)
+        }
     }
 }
 

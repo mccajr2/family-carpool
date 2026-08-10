@@ -32,6 +32,8 @@ public final class PostgresTestcontainers {
         registry.add("app.auth.code-pepper", () -> "test-pepper");
         // Never hit live Nominatim from CI / local SpringBootTests.
         registry.add("app.geocode.provider", () -> "stub");
+        // Never hit live iCal hosts from CI / local SpringBootTests.
+        registry.add("app.feeds.fetch-provider", () -> "stub");
     }
 
     public static boolean dockerAvailable() {

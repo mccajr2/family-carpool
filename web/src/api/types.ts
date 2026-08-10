@@ -37,6 +37,31 @@ export function isPlaceLocated(place: Place): boolean {
   return place.latitude != null && place.longitude != null
 }
 
+export type ActivityFeed = {
+  id: string
+  name: string
+  sourceUrl: string
+  kidIds: string[]
+  lastSyncedAt: string | null
+  lastSyncError: string | null
+  eventCount: number
+}
+
+/** True when the last sync succeeded (no error and a sync timestamp). */
+export function isFeedSynced(feed: ActivityFeed): boolean {
+  return feed.lastSyncError == null && feed.lastSyncedAt != null
+}
+
+export function feedSyncStatusLabel(feed: ActivityFeed): string {
+  if (feed.lastSyncError) {
+    return `Sync failed: ${feed.lastSyncError}`
+  }
+  if (feed.lastSyncedAt) {
+    return `Synced · ${feed.eventCount} events`
+  }
+  return "Not synced"
+}
+
 export type FamilyMember = {
   adultId: string
   email: string

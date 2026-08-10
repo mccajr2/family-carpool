@@ -14,6 +14,11 @@ public class FamilyExceptionHandler {
         return ResponseEntity.status(ex.status()).body(new ErrorResponse(ex.getMessage()));
     }
 
+    @ExceptionHandler(FamilyAccessException.class)
+    ResponseEntity<ErrorResponse> handleFamilyAccess(FamilyAccessException ex) {
+        return ResponseEntity.status(ex.status()).body(new ErrorResponse(ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         String message =

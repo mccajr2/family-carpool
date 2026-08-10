@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import { isPlaceLocated, type Adult, type FamilyCircle, type FamilyMember, type Kid, type Place } from "@/api/types"
+import { isPlaceLocated, type ActivityFeed, type Adult, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,6 +36,17 @@ function memberLabel(member: FamilyMember): string {
   return member.displayName?.trim() ? member.displayName : member.email
 }
 
+function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
+  if (feed.kidIds.length === 0) {
+    return ""
+  }
+  const namesById = new Map(kids.map((kid) => [kid.id, kid.displayName]))
+  return feed.kidIds
+    .map((id) => namesById.get(id))
+    .filter((name): name is string => Boolean(name?.trim()))
+    .join(", ")
+}
+
 export function FamilyScreen({
   session,
   authClient,
@@ -61,6 +72,14 @@ export function FamilyScreen({
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
   const [editingPlaceName, setEditingPlaceName] = useState("")
   const [editingPlaceAddress, setEditingPlaceAddress] = useState("")
+  const [feeds, setFeeds] = useState<ActivityFeed[]>([])
+  const [newFeedName, setNewFeedName] = useState("")
+  const [newFeedUrl, setNewFeedUrl] = useState("")
+  const [newFeedKidIds, setNewFeedKidIds] = useState<string[]>([])
+  const [editingFeedId, setEditingFeedId] = useState<string | null>(null)
+  const [editingFeedName, setEditingFeedName] = useState("")
+  const [editingFeedUrl, setEditingFeedUrl] = useState("")
+  const [editingFeedKidIds, setEditingFeedKidIds] = useState<string[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -88,8 +107,19 @@ export function FamilyScreen({
               setInviteCode(null)
             }
           }
+          try {
+            const loadedFeeds = await familyClient.listFeeds(token)
+            if (!cancelled) {
+              setFeeds(loadedFeeds)
+            }
+          } catch {
+            if (!cancelled) {
+              setFeeds([])
+            }
+          }
         } else {
           setInviteCode(null)
+          setFeeds([])
         }
         setStatus({ kind: "idle" })
       } catch (error) {
@@ -134,6 +164,7 @@ export function FamilyScreen({
         name: circleName.trim() ? circleName.trim() : null,
       })
       setCircle(created)
+      setFeeds([])
       const invite = await familyClient.getInvite(token)
       setInviteCode(invite.code)
       await refreshAdult(token)
@@ -156,6 +187,7 @@ export function FamilyScreen({
       })
       setCircle(joined)
       setInviteCode(null)
+      setFeeds([])
       await refreshAdult(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -188,6 +220,7 @@ export function FamilyScreen({
       await familyClient.leaveCircle(token)
       setCircle(null)
       setInviteCode(null)
+      setFeeds([])
       setEmptyMode("choose")
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -387,6 +420,100 @@ export function FamilyScreen({
               ),
             }
           : current,
+      )
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  function toggleKidId(
+    kidId: string,
+    selected: string[],
+    setSelected: (next: string[]) => void,
+  ) {
+    setSelected(
+      selected.includes(kidId)
+        ? selected.filter((id) => id !== kidId)
+        : [...selected, kidId],
+    )
+  }
+
+  async function onAddFeed() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const feed = await familyClient.createFeed(
+        token,
+        newFeedName.trim(),
+        newFeedUrl.trim(),
+        newFeedKidIds,
+      )
+      setFeeds((current) => [...current, feed])
+      setNewFeedName("")
+      setNewFeedUrl("")
+      setNewFeedKidIds([])
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onSaveFeed(feed: ActivityFeed) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.updateFeed(
+        token,
+        feed.id,
+        editingFeedName.trim(),
+        editingFeedUrl.trim(),
+        editingFeedKidIds,
+      )
+      setFeeds((current) =>
+        current.map((item) => (item.id === feed.id ? updated : item)),
+      )
+      setEditingFeedId(null)
+      setEditingFeedName("")
+      setEditingFeedUrl("")
+      setEditingFeedKidIds([])
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemoveFeed(feedId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.deleteFeed(token, feedId)
+      setFeeds((current) => current.filter((feed) => feed.id !== feedId))
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onSyncFeed(feedId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.syncFeed(token, feedId)
+      setFeeds((current) =>
+        current.map((feed) => (feed.id === feedId ? updated : feed)),
       )
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -864,6 +991,188 @@ export function FamilyScreen({
             Add place
           </Button>
         </div>
+
+        {isOrganizer ? (
+          <section aria-label="Activity feeds" className="flex flex-col gap-3">
+            <p className="text-sm font-medium">Activity feeds</p>
+            {feeds.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No feeds yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {feeds.map((feed) => {
+                  const kidsLabel = feedKidNames(feed, circle.kids)
+                  const statusLabel = kidsLabel
+                    ? `${kidsLabel} · ${feedSyncStatusLabel(feed)}`
+                    : feedSyncStatusLabel(feed)
+                  return (
+                  <li key={feed.id} className="flex flex-col gap-2">
+                    {editingFeedId === feed.id ? (
+                      <>
+                        <Input
+                          aria-label={`Rename feed ${feed.name}`}
+                          value={editingFeedName}
+                          onChange={(event) => setEditingFeedName(event.target.value)}
+                          disabled={status.kind === "loading"}
+                        />
+                        <Input
+                          aria-label={`Edit URL for ${feed.name}`}
+                          value={editingFeedUrl}
+                          onChange={(event) => setEditingFeedUrl(event.target.value)}
+                          disabled={status.kind === "loading"}
+                        />
+                        {circle.kids.length > 0 ? (
+                          <fieldset className="flex flex-col gap-1">
+                            <legend className="text-xs text-muted-foreground">Kids on feed</legend>
+                            {circle.kids.map((kid) => (
+                              <label
+                                key={kid.id}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Assign ${kid.displayName} to ${feed.name}`}
+                                  checked={editingFeedKidIds.includes(kid.id)}
+                                  onChange={() =>
+                                    toggleKidId(
+                                      kid.id,
+                                      editingFeedKidIds,
+                                      setEditingFeedKidIds,
+                                    )
+                                  }
+                                  disabled={status.kind === "loading"}
+                                />
+                                {kid.displayName}
+                              </label>
+                            ))}
+                          </fieldset>
+                        ) : null}
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void onSaveFeed(feed)}
+                            disabled={
+                              status.kind === "loading" ||
+                              !editingFeedName.trim() ||
+                              !editingFeedUrl.trim()
+                            }
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingFeedId(null)
+                              setEditingFeedName("")
+                              setEditingFeedUrl("")
+                              setEditingFeedKidIds([])
+                            }}
+                            disabled={status.kind === "loading"}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex min-w-0 flex-col gap-2">
+                        <span className="min-w-0 text-sm">
+                          <span className="block truncate font-medium">{feed.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {statusLabel}
+                          </span>
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onSyncFeed(feed.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Sync now
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingFeedId(feed.id)
+                              setEditingFeedName(feed.name)
+                              setEditingFeedUrl(feed.sourceUrl)
+                              setEditingFeedKidIds([...feed.kidIds])
+                            }}
+                            disabled={status.kind === "loading"}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onRemoveFeed(feed.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Input
+                aria-label="New feed name"
+                value={newFeedName}
+                onChange={(event) => setNewFeedName(event.target.value)}
+                placeholder="Feed name (e.g. U12 Travel)"
+                disabled={status.kind === "loading"}
+              />
+              <Input
+                aria-label="New feed URL"
+                value={newFeedUrl}
+                onChange={(event) => setNewFeedUrl(event.target.value)}
+                placeholder="iCal or webcal URL"
+                disabled={status.kind === "loading"}
+              />
+              {circle.kids.length > 0 ? (
+                <fieldset className="flex flex-col gap-1">
+                  <legend className="text-xs text-muted-foreground">Kids on feed</legend>
+                  {circle.kids.map((kid) => (
+                    <label key={kid.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        aria-label={`Assign ${kid.displayName} to new feed`}
+                        checked={newFeedKidIds.includes(kid.id)}
+                        onChange={() =>
+                          toggleKidId(kid.id, newFeedKidIds, setNewFeedKidIds)
+                        }
+                        disabled={status.kind === "loading"}
+                      />
+                      {kid.displayName}
+                    </label>
+                  ))}
+                </fieldset>
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => void onAddFeed()}
+                disabled={
+                  status.kind === "loading" ||
+                  !newFeedName.trim() ||
+                  !newFeedUrl.trim()
+                }
+              >
+                Add feed
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
         {status.kind === "error" ? (
           <p role="alert" className="text-sm text-destructive">

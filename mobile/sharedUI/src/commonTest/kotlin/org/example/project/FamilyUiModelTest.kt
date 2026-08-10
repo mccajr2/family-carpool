@@ -195,6 +195,103 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun organizerCanAddSyncAndRemoveFeedWhileCaregiverDoesNotLoadFeeds() =
+        runTest {
+            val organizerEngine =
+                MockEngine { request ->
+                    val feed =
+                        """{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":["k1"],"lastSyncedAt":null,"lastSyncError":null,"eventCount":0}"""
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content = """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = feed,
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds/f1/sync" ->
+                            respond(
+                                content =
+                                    feed.replace(
+                                        "\"lastSyncedAt\":null",
+                                        "\"lastSyncedAt\":\"2026-08-10T12:00:00Z\"",
+                                    ).replace("\"eventCount\":0", "\"eventCount\":2"),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds/f1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val organizer = familyUiModel(organizerEngine, token = "tok")
+            organizer.load()
+            organizer.updateNewFeedName("Soccer")
+            organizer.updateNewFeedUrl("https://example.com/team.ics")
+            organizer.toggleNewFeedKid("k1")
+            organizer.addFeed()
+            organizer.syncFeed("f1")
+            val synced = assertIs<FamilyUiModel.State.Ready>(organizer.state)
+            assertEquals("Synced · 2 events", synced.feeds.single().syncStatusLabel())
+            assertEquals(
+                "Sam · Synced · 2 events",
+                synced.feeds.single().listStatusLabel(synced.circle.kids),
+            )
+            organizer.removeFeed("f1")
+            assertTrue(assertIs<FamilyUiModel.State.Ready>(organizer.state).feeds.isEmpty())
+
+            val caregiverEngine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/api/auth/me" ->
+                            respond(
+                                content = """{"id":"2","email":"caregiver@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/family/circle" ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Caregiver must not request ${request.url.encodedPath}")
+                    }
+                }
+            val caregiver = familyUiModel(caregiverEngine, token = "tok")
+            caregiver.load()
+            assertTrue(assertIs<FamilyUiModel.State.Ready>(caregiver.state).feeds.isEmpty())
+        }
+
+    @Test
     fun joinCircleAsCaregiver() =
         runTest {
             val mockEngine =

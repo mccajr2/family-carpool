@@ -24,5 +24,5 @@ events still land on the family calendar and can attach kids.
 
 ## Notes
 
-- Depends on kids; can land before or after `activity-feed-sync` — ranked after sync so import is the primary path.
+- Depends on kids; can land before or after `activity-feed-subscribe` — ranked after subscribe so import is the primary path.
 - Split from former `feed-import-calendar`.

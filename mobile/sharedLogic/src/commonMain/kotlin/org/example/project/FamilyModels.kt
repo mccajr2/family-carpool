@@ -26,6 +26,36 @@ data class Place(
 fun Place.isLocated(): Boolean = latitude != null && longitude != null
 
 @Serializable
+data class ActivityFeed(
+    val id: String,
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
+    val lastSyncedAt: String? = null,
+    val lastSyncError: String? = null,
+    val eventCount: Int,
+)
+
+fun ActivityFeed.isSynced(): Boolean = lastSyncError.isNullOrBlank() && lastSyncedAt != null
+
+fun ActivityFeed.syncStatusLabel(): String =
+    when {
+        !lastSyncError.isNullOrBlank() -> "Sync failed: $lastSyncError"
+        lastSyncedAt != null -> "Synced · $eventCount events"
+        else -> "Not synced"
+    }
+
+/** List-row subtitle: optional kid names + sync status (URL stays in edit form only). */
+fun ActivityFeed.listStatusLabel(kids: List<Kid>): String {
+    val namesById = kids.associateBy({ it.id }, { it.displayName })
+    val kidNames =
+        kidIds.mapNotNull { id -> namesById[id]?.trim()?.takeIf { it.isNotEmpty() } }
+            .joinToString(", ")
+    val status = syncStatusLabel()
+    return if (kidNames.isEmpty()) status else "$kidNames · $status"
+}
+
+@Serializable
 data class FamilyMember(
     val adultId: String,
     val email: String,
@@ -90,6 +120,20 @@ data class CreatePlaceRequest(
 data class UpdatePlaceRequest(
     val name: String,
     val address: String,
+)
+
+@Serializable
+data class CreateActivityFeedRequest(
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class UpdateActivityFeedRequest(
+    val name: String,
+    val sourceUrl: String,
+    val kidIds: List<String> = emptyList(),
 )
 
 fun FamilyCircle.displayTitle(): String {

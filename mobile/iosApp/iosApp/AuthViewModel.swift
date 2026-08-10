@@ -14,6 +14,36 @@ struct FamilyPlaceItem: Identifiable, Equatable {
     var isLocated: Bool
 }
 
+struct FamilyFeedItem: Identifiable, Equatable {
+    let id: String
+    var name: String
+    var sourceUrl: String
+    var kidIds: [String]
+    var lastSyncedAt: String?
+    var lastSyncError: String?
+    var eventCount: Int
+
+    var syncStatusLabel: String {
+        if let lastSyncError, !lastSyncError.isEmpty {
+            return "Sync failed: \(lastSyncError)"
+        }
+        if lastSyncedAt != nil {
+            return "Synced · \(eventCount) events"
+        }
+        return "Not synced"
+    }
+
+    func listStatusLabel(kids: [FamilyKidItem]) -> String {
+        let namesById = Dictionary(uniqueKeysWithValues: kids.map { ($0.id, $0.displayName) })
+        let kidNames = kidIds.compactMap { id -> String? in
+            let name = namesById[id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (name?.isEmpty == false) ? name : nil
+        }.joined(separator: ", ")
+        let status = syncStatusLabel
+        return kidNames.isEmpty ? status : "\(kidNames) · \(status)"
+    }
+}
+
 struct FamilyMemberItem: Identifiable, Equatable {
     var id: String { adultId }
     let adultId: String
@@ -61,12 +91,20 @@ final class AuthViewModel: ObservableObject {
     @Published var places: [FamilyPlaceItem] = []
     @Published var newPlaceName: String = ""
     @Published var newPlaceAddress: String = ""
+    @Published var feeds: [FamilyFeedItem] = []
+    @Published var newFeedName: String = ""
+    @Published var newFeedUrl: String = ""
+    @Published var newFeedKidIds: [String] = []
     @Published var familyPhase: FamilyPhase = .loading
     @Published var editingKidId: String?
     @Published var editingKidName: String = ""
     @Published var editingPlaceId: String?
     @Published var editingPlaceName: String = ""
     @Published var editingPlaceAddress: String = ""
+    @Published var editingFeedId: String?
+    @Published var editingFeedName: String = ""
+    @Published var editingFeedUrl: String = ""
+    @Published var editingFeedKidIds: [String] = []
     @Published var devHint: String?
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
@@ -337,6 +375,8 @@ final class AuthViewModel: ObservableObject {
                     self.kids = []
                     self.members = []
                     self.inviteCode = ""
+                    self.places = []
+                    self.feeds = []
                     self.familyPhase = .choose
                 }
             },
@@ -625,6 +665,215 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
+    func loadFeeds() {
+        guard isOrganizer else {
+            feeds = []
+            return
+        }
+        bridge.listFeeds(
+            onSuccess: { [weak self] ids, names, sourceUrls, kidIdsJoined, lastSyncedAts, lastSyncErrors, eventCounts in
+                Task { @MainActor in
+                    guard let self else { return }
+                    var next: [FamilyFeedItem] = []
+                    next.reserveCapacity(ids.count)
+                    for index in 0..<ids.count {
+                        let kids = Self.splitJoinedIds(kidIdsJoined[index])
+                        next.append(
+                            self.makeFeedItem(
+                                id: ids[index],
+                                name: names[index],
+                                sourceUrl: sourceUrls[index],
+                                kidIds: kids,
+                                lastSyncedAt: lastSyncedAts[index],
+                                lastSyncError: lastSyncErrors[index],
+                                eventCount: eventCounts[index]
+                            )
+                        )
+                    }
+                    self.feeds = next
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in self?.errorMessage = message }
+            }
+        )
+    }
+
+    func toggleNewFeedKid(_ kidId: String) {
+        if let index = newFeedKidIds.firstIndex(of: kidId) {
+            newFeedKidIds.remove(at: index)
+        } else {
+            newFeedKidIds.append(kidId)
+        }
+    }
+
+    func toggleEditingFeedKid(_ kidId: String) {
+        if let index = editingFeedKidIds.firstIndex(of: kidId) {
+            editingFeedKidIds.remove(at: index)
+        } else {
+            editingFeedKidIds.append(kidId)
+        }
+    }
+
+    func addFeed() {
+        let name = newFeedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceUrl = newFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isOrganizer, !name.isEmpty, !sourceUrl.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.createFeed(
+            name: name,
+            sourceUrl: sourceUrl,
+            kidIds: newFeedKidIds,
+            onSuccess: { [weak self] id, name, sourceUrl, kidIds, lastSyncedAt, lastSyncError, eventCount in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.feeds.append(
+                        self.makeFeedItem(
+                            id: id,
+                            name: name,
+                            sourceUrl: sourceUrl,
+                            kidIds: kidIds,
+                            lastSyncedAt: lastSyncedAt,
+                            lastSyncError: lastSyncError,
+                            eventCount: eventCount
+                        )
+                    )
+                    self.newFeedName = ""
+                    self.newFeedUrl = ""
+                    self.newFeedKidIds = []
+                }
+            },
+            onError: feedError
+        )
+    }
+
+    func beginEditFeed(_ feed: FamilyFeedItem) {
+        editingFeedId = feed.id
+        editingFeedName = feed.name
+        editingFeedUrl = feed.sourceUrl
+        editingFeedKidIds = feed.kidIds
+    }
+
+    func cancelEditFeed() {
+        editingFeedId = nil
+        editingFeedName = ""
+        editingFeedUrl = ""
+        editingFeedKidIds = []
+    }
+
+    func saveFeed() {
+        guard let feedId = editingFeedId else { return }
+        let name = editingFeedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceUrl = editingFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isOrganizer, !name.isEmpty, !sourceUrl.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.updateFeed(
+            feedId: feedId, name: name, sourceUrl: sourceUrl, kidIds: editingFeedKidIds,
+            onSuccess: { [weak self] id, name, sourceUrl, kidIds, lastSyncedAt, lastSyncError, eventCount in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    let item = self.makeFeedItem(
+                        id: id,
+                        name: name,
+                        sourceUrl: sourceUrl,
+                        kidIds: kidIds,
+                        lastSyncedAt: lastSyncedAt,
+                        lastSyncError: lastSyncError,
+                        eventCount: eventCount
+                    )
+                    if let index = self.feeds.firstIndex(where: { $0.id == id }) {
+                        self.feeds[index] = item
+                    }
+                    self.cancelEditFeed()
+                }
+            },
+            onError: feedError
+        )
+    }
+
+    func removeFeed(_ feedId: String) {
+        guard isOrganizer else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.deleteFeed(
+            feedId: feedId,
+            onSuccess: { [weak self] in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.feeds.removeAll { $0.id == feedId }
+                }
+            },
+            onError: feedError
+        )
+    }
+
+    func syncFeed(_ feedId: String) {
+        guard isOrganizer else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.syncFeed(
+            feedId: feedId,
+            onSuccess: { [weak self] id, name, sourceUrl, kidIds, lastSyncedAt, lastSyncError, eventCount in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    let item = self.makeFeedItem(
+                        id: id,
+                        name: name,
+                        sourceUrl: sourceUrl,
+                        kidIds: kidIds,
+                        lastSyncedAt: lastSyncedAt,
+                        lastSyncError: lastSyncError,
+                        eventCount: eventCount
+                    )
+                    if let index = self.feeds.firstIndex(where: { $0.id == id }) {
+                        self.feeds[index] = item
+                    }
+                }
+            },
+            onError: feedError
+        )
+    }
+
+    private func makeFeedItem(
+        id: String,
+        name: String,
+        sourceUrl: String,
+        kidIds: [String],
+        lastSyncedAt: String,
+        lastSyncError: String,
+        eventCount: String
+    ) -> FamilyFeedItem {
+        FamilyFeedItem(
+            id: id,
+            name: name,
+            sourceUrl: sourceUrl,
+            kidIds: kidIds,
+            lastSyncedAt: lastSyncedAt.isEmpty ? nil : lastSyncedAt,
+            lastSyncError: lastSyncError.isEmpty ? nil : lastSyncError,
+            eventCount: Int(eventCount) ?? 0
+        )
+    }
+
+    private static func splitJoinedIds(_ joined: String) -> [String] {
+        joined
+            .split(separator: ",", omittingEmptySubsequences: true)
+            .map(String.init)
+    }
+
+    private var feedError: (String) -> Void {
+        { [weak self] message in
+            Task { @MainActor in
+                self?.isLoading = false
+                self?.errorMessage = message
+            }
+        }
+    }
+
     private func applyReady(
         title: String,
         email: String,
@@ -667,7 +916,9 @@ final class AuthViewModel: ObservableObject {
                 isLocated: placeLocated[index] == "true"
             )
         }
+        feeds = []
         familyPhase = .ready
+        loadFeeds()
     }
 
     private func resetFamilyFields() {
@@ -679,6 +930,11 @@ final class AuthViewModel: ObservableObject {
         inviteCode = ""
         kids = []
         places = []
+        feeds = []
+        newFeedName = ""
+        newFeedUrl = ""
+        newFeedKidIds = []
+        cancelEditFeed()
         members = []
         familyPhase = .loading
         hasDisplayName = false

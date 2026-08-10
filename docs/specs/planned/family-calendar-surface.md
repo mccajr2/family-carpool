@@ -25,6 +25,6 @@ activities (when/where), without leave-by or coverage yet.
 
 ## Notes
 
-- Depends on `activity-feed-sync` and/or `manual-events` so there is something to show.
+- Depends on `activity-feed-subscribe` and/or `manual-events` so there is something to show.
 - Split from former `feed-import-calendar`.
 - Primary IA: Calendar pillar surface.
