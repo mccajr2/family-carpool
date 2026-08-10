@@ -1,6 +1,6 @@
 # Spec: manual-events
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-10  
 Approved: 2026-08-10  
@@ -78,24 +78,24 @@ will read feed events + manual events.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: manual event schemas + Bearer paths for list/create/get/update/delete;
+- [x] OpenAPI: manual event schemas + Bearer paths for list/create/get/update/delete;
       401/404/400 documented; version bumped; web + mobile clients updated in the
       same change.
-- [ ] Authenticated **Organizer or Caregiver** can **create** a manual event
+- [x] Authenticated **Organizer or Caregiver** can **create** a manual event
       (`title`, `startsAt`, 1+ `kidIds`; optional `endsAt`, `location`); **update**
       any field; **delete**; **list** all circle manual events ordered by
       `startsAt` ascending.
-- [ ] Missing/blank `title`, missing `startsAt`, empty `kidIds`, kid not in
+- [x] Missing/blank `title`, missing `startsAt`, empty `kidIds`, kid not in
       circle, or `endsAt` &lt; `startsAt` → **400**.
-- [ ] Unknown `eventId` / other circle → **404** (no leak). Unauthenticated →
+- [x] Unknown `eventId` / other circle → **404** (no leak). Unauthenticated →
       **401**. Adult with no membership → **404**.
-- [ ] Caregiver manual-event writes succeed (regression: Caregiver feed mutations
+- [x] Caregiver manual-event writes succeed (regression: Caregiver feed mutations
       still **403**; kids writes still Organizer-only).
-- [ ] Manual events are **not** modified by feed Sync now / poller; feed event
+- [x] Manual events are **not** modified by feed Sync now / poller; feed event
       tables remain feed-scoped.
-- [ ] Web, Android, and iOS: signed-in members see manage-events UI (list / add /
+- [x] Web, Android, and iOS: signed-in members see manage-events UI (list / add /
       edit / delete); errors surfaced. No calendar grid in this PR.
-- [ ] Unit + integration tests cover CRUD, 1+ kids validation, Caregiver write,
+- [x] Unit + integration tests cover CRUD, 1+ kids validation, Caregiver write,
       authz, endsAt ordering; `ModularityTests` green.
 
 ## Tasks
@@ -110,7 +110,7 @@ will read feed events + manual events.
       AuthViewModel / ContentView manage-events CRUD.
 - [x] **Docs:** `docs/architecture.md` — events module + authz categories
       (Organizer plumbing vs any-member content).
-- [ ] **Tests:** service unit + controller integration (Caregiver write, 400/401/404,
+- [x] **Tests:** service unit + controller integration (Caregiver write, 400/401/404,
       endsAt validation); `OpenApiContractTest`; web + KMP client tests;
       `ModularityTests`.
 
