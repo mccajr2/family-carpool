@@ -638,6 +638,19 @@ class FamilyUiModel(
         }
     }
 
+    /** Re-GET feeds list only — does not trigger Sync now. */
+    suspend fun refreshFeeds() {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val feeds = familyClient.listFeeds(session.requireAccessToken())
+            _state = current.copy(loading = false, feeds = feeds)
+        } catch (e: Throwable) {
+            _state = current.copy(loading = false, error = e.message ?: "Refresh feeds failed")
+        }
+    }
+
     private suspend fun readyState(
         adult: Adult,
         circle: FamilyCircle,

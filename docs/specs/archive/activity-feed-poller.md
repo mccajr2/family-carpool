@@ -1,8 +1,9 @@
 # Spec: activity-feed-poller
 
-Status: draft  
+Status: done  
 Created: 2026-08-10  
 Updated: 2026-08-10  
+Approved: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `activity-feed-poller`  
 Added: 2026-08-10 · re-rank split
@@ -58,40 +59,40 @@ list / status labels). Does **not** trigger sync. Sync now remains per feed.
 
 ## Acceptance criteria
 
-- [ ] Backend scheduled job runs on the configured interval (default 30m) when
+- [x] Backend scheduled job runs on the configured interval (default 30m) when
       `poll-enabled` is true; each feed uses the **same sync path** as Sync now
       (UID snapshot replace on success; soft-fail on fetch/parse).
-- [ ] Soft-fail from poll updates `lastSyncError` without wiping a prior good
+- [x] Soft-fail from poll updates `lastSyncError` without wiping a prior good
       event snapshot; successful poll clears error and updates `lastSyncedAt` +
       event count.
-- [ ] Polling is **off in tests/CI** (`poll-enabled=false` or equivalent) so
+- [x] Polling is **off in tests/CI** (`poll-enabled=false` or equivalent) so
       suites do not wait on timers or hit live HTTP; unit/integration tests
       invoke the poller/service method directly with stub fetch.
-- [ ] Config documents `FEEDS_POLL_INTERVAL_MS` (default 30m) and
+- [x] Config documents `FEEDS_POLL_INTERVAL_MS` (default 30m) and
       `FEEDS_POLL_ENABLED`; `FEEDS_USER_AGENT` remains required for polite
       outbound fetch in prod.
-- [ ] **No new OpenAPI paths**; Sync now and list unchanged. Architecture notes
+- [x] **No new OpenAPI paths**; Sync now and list unchanged. Architecture notes
       subscribe vs poller (poller fills last-synced between Sync nows).
-- [ ] Web, Android, and iOS: Organizer feeds UI has **Refresh** that reloads the
+- [x] Web, Android, and iOS: Organizer feeds UI has **Refresh** that reloads the
       feeds list from GET (status / kid labels / event counts update); does not
       call Sync now for every feed.
-- [ ] Tests cover: poller syncs eligible feeds via stub; soft-fail path; disabled
+- [x] Tests cover: poller syncs eligible feeds via stub; soft-fail path; disabled
       when `poll-enabled=false`; client Refresh reloads list. `ModularityTests`
       green; no live vendor HTTP in CI.
 
 ## Tasks
 
-- [ ] **Backend:** Enable scheduling; `FeedsPoller` (or equivalent) + config
+- [x] **Backend:** Enable scheduling; `FeedsPoller` (or equivalent) + config
       (`poll-enabled`, `poll-interval-ms`); sequential/soft-polite sync-all using
       existing service sync; tests with stub + disabled schedule.
-- [ ] **Contract:** No path changes; optional description-only note if needed —
+- [x] **Contract:** No path changes; optional description-only note if needed —
       prefer `docs/architecture.md` over version bump unless OpenAPI text must
       change.
-- [ ] **Web:** Refresh control on manage-feeds; re-`listFeeds`; tests.
-- [ ] **Mobile:** sharedUI + iOS Refresh; tests.
-- [ ] **Docs:** architecture — poller interval, enable flag, single-instance
+- [x] **Web:** Refresh control on manage-feeds; re-`listFeeds`; tests.
+- [x] **Mobile:** sharedUI + iOS Refresh; tests.
+- [x] **Docs:** architecture — poller interval, enable flag, single-instance
       assumption, Refresh vs Sync now.
-- [ ] **Tests:** poller unit/integration + client Refresh; `ModularityTests`.
+- [x] **Tests:** poller unit/integration + client Refresh; `ModularityTests`.
 
 ## Open questions
 

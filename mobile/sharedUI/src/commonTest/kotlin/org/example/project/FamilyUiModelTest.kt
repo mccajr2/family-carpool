@@ -292,6 +292,62 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun refreshFeedsReloadsListWithoutSync() =
+        runTest {
+            var listCalls = 0
+            val engine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content = """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Get -> {
+                            listCalls++
+                            val body =
+                                if (listCalls == 1) {
+                                    """[{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":[],"lastSyncedAt":"2026-08-10T12:00:00Z","lastSyncError":null,"eventCount":2}]"""
+                                } else {
+                                    """[{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":[],"lastSyncedAt":"2026-08-10T12:30:00Z","lastSyncError":null,"eventCount":5}]"""
+                                }
+                            respond(
+                                content = body,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(engine, token = "tok")
+            model.load()
+            val loaded = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(2, loaded.feeds.single().eventCount)
+
+            model.refreshFeeds()
+            val refreshed = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(5, refreshed.feeds.single().eventCount)
+            assertEquals("Synced · 5 events", refreshed.feeds.single().syncStatusLabel())
+            assertEquals(2, listCalls)
+        }
+
+    @Test
     fun joinCircleAsCaregiver() =
         runTest {
             val mockEngine =

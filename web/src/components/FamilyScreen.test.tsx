@@ -611,4 +611,76 @@ describe("FamilyScreen", () => {
     expect(screen.queryByLabelText("Activity feeds")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Add feed" })).not.toBeInTheDocument()
   })
+
+  it("refreshes feeds from the list endpoint without syncing", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const listFeeds = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "f1",
+          name: "U12 Travel",
+          sourceUrl: "https://example.com/team.ics",
+          kidIds: [],
+          lastSyncedAt: "2026-08-10T12:00:00Z",
+          lastSyncError: null,
+          eventCount: 2,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "f1",
+          name: "U12 Travel",
+          sourceUrl: "https://example.com/team.ics",
+          kidIds: [],
+          lastSyncedAt: "2026-08-10T12:30:00Z",
+          lastSyncError: null,
+          eventCount: 5,
+        },
+      ])
+    const syncFeed = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds,
+          syncFeed,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const feeds = await screen.findByLabelText("Activity feeds")
+    expect(within(feeds).getByText("Synced · 2 events")).toBeInTheDocument()
+
+    await user.click(within(feeds).getByRole("button", { name: "Refresh" }))
+
+    expect(await within(feeds).findByText("Synced · 5 events")).toBeInTheDocument()
+    expect(listFeeds).toHaveBeenCalledTimes(2)
+    expect(syncFeed).not.toHaveBeenCalled()
+  })
 })

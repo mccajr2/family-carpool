@@ -34,6 +34,8 @@ public final class PostgresTestcontainers {
         registry.add("app.geocode.provider", () -> "stub");
         // Never hit live iCal hosts from CI / local SpringBootTests.
         registry.add("app.feeds.fetch-provider", () -> "stub");
+        // Do not run the background feed poller in SpringBootTests.
+        registry.add("app.feeds.poll-enabled", () -> "false");
     }
 
     public static boolean dockerAvailable() {

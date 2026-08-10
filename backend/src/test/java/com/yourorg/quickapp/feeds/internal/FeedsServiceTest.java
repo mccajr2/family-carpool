@@ -188,4 +188,55 @@ class FeedsServiceTest {
         assertThat(feed.lastSyncError()).isNull();
         assertThat(feed.kidIds()).isEqualTo(Set.of());
     }
+
+    @Test
+    void pollAllFeedsSyncsEachFeedAndSoftFailsIndependently() {
+        UUID okId = UUID.randomUUID();
+        UUID failId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        ActivityFeedEntity ok =
+                new ActivityFeedEntity(
+                        okId, circleId, "Ok", "https://example.com/ok.ics", Instant.now());
+        ActivityFeedEntity fail =
+                new ActivityFeedEntity(
+                        failId, circleId, "Fail", "https://example.com/fail.ics", Instant.now());
+        fail.markSyncSuccess(Instant.parse("2026-08-01T00:00:00Z"));
+
+        when(feeds.findAllByOrderByCreatedAtAsc()).thenReturn(List.of(ok, fail));
+        when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(icalFetchPort.fetch("https://example.com/ok.ics")).thenReturn("ICS");
+        when(icalParser.parse("ICS"))
+                .thenReturn(
+                        List.of(
+                                new ParsedIcalEvent(
+                                        "u1",
+                                        "Game",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        null)));
+        when(icalFetchPort.fetch("https://example.com/fail.ics"))
+                .thenThrow(new IllegalStateException("timeout"));
+
+        int attempted = feedsService.pollAllFeeds();
+
+        assertThat(attempted).isEqualTo(2);
+        assertThat(ok.lastSyncedAt()).isNotNull();
+        assertThat(ok.lastSyncError()).isNull();
+        assertThat(fail.lastSyncedAt()).isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
+        assertThat(fail.lastSyncError()).contains("timeout");
+        verify(events).deleteByFeedId(okId);
+        verify(events, never()).deleteByFeedId(failId);
+        verify(feeds, org.mockito.Mockito.times(2)).save(any());
+    }
+
+    @Test
+    void pollFeedNoopsWhenMissing() {
+        UUID missing = UUID.randomUUID();
+        when(feeds.findById(missing)).thenReturn(Optional.empty());
+
+        feedsService.pollFeed(missing);
+
+        verify(icalFetchPort, never()).fetch(any());
+        verify(feeds, never()).save(any());
+    }
 }

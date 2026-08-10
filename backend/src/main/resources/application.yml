@@ -32,6 +32,11 @@ app:
     # http (default) or stub (CI / offline soft-fail demos)
     fetch-provider: ${FEEDS_FETCH_PROVIDER:http}
     user-agent: ${FEEDS_USER_AGENT:family-carpool/0.1 (https://github.com/mccajr2/family-carpool)}
+    # Background poll of all feeds (single-instance assumption for v1).
+    poll-enabled: ${FEEDS_POLL_ENABLED:true}
+    poll-interval-ms: ${FEEDS_POLL_INTERVAL_MS:1800000}
+    poll-initial-delay-ms: ${FEEDS_POLL_INITIAL_DELAY_MS:60000}
+    poll-inter-feed-delay-ms: ${FEEDS_POLL_INTER_FEED_DELAY_MS:250}
   geocode:
     # nominatim (default) or stub (CI / offline soft-fail demos)
     provider: ${GEOCODE_PROVIDER:nominatim}

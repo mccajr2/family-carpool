@@ -273,8 +273,13 @@ struct ContentView: View {
             )
 
             if model.isOrganizer {
-                Text("Activity feeds")
-                    .font(.headline)
+                HStack {
+                    Text("Activity feeds")
+                        .font(.headline)
+                    Spacer()
+                    Button("Refresh") { model.refreshFeeds() }
+                        .disabled(model.isLoading)
+                }
                 if model.feeds.isEmpty {
                     Text("No feeds yet.")
                         .font(.footnote)

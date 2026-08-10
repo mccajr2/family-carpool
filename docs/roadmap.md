@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (activity-feed-poller active)
+Updated: 2026-08-10 (activity-feed-poller done)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -68,19 +68,18 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | activity-feed-poller | active | 2026-08-10 · re-rank split | Background poll interval; reuse sync path; soft-fail + last-synced |
-| 2 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
-| 3 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
-| 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
-| 5 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
-| 6 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
-| 7 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
-| 8 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
-| 9 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
-| 10 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 1 | manual-events | planned | 2026-08-07 · re-rank split | Manual add/edit escape hatch for events not on a feed |
+| 2 | family-calendar-surface | planned | 2026-08-07 · re-rank split | Unified family calendar UI across kids and imported/manual activities |
+| 3 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
+| 4 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
+| 5 | coverage-confirm-decline | planned | 2026-08-07 · re-rank split | Assign adult↔kid coverage + leave-from; explicit confirm/decline |
+| 6 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 7 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 8 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 9 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 10 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 11 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 12 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -113,12 +112,13 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| activity-feed-poller | `activity-feed-poller` | [active/activity-feed-poller.md](specs/active/activity-feed-poller.md) |
+| — | — | — |
 
 ## Done
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| activity-feed-poller | 2026-08-10 | [archive](specs/archive/activity-feed-poller.md) |
 | activity-feed-subscribe | 2026-08-10 | [archive](specs/archive/activity-feed-subscribe.md) |
 | place-geocoding | 2026-08-09 | [archive](specs/archive/place-geocoding.md) |
 | named-places | 2026-08-09 | [archive](specs/archive/named-places.md) |
@@ -157,3 +157,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/spec activity-feed-subscribe`: Organizer feed CRUD; auto-sync on create/URL change; Sync now; soft-fail; UID snapshot; manage-feeds UI (web/Android/iOS). |
 | 2026-08-10 | `/pr activity-feed-subscribe`: iCal subscribe + Sync now shipped (web/Android/iOS); next up `activity-feed-poller`. |
 | 2026-08-10 | `/spec activity-feed-poller`: 30m scheduled poll reusing sync path; client Refresh (list only); no sync-all. |
+| 2026-08-10 | `/pr activity-feed-poller`: background poll + list Refresh shipped (web/Android/iOS); next up `manual-events`. |
