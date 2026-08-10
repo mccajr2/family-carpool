@@ -1,5 +1,8 @@
 package com.yourorg.quickapp.feeds.internal;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,4 +19,8 @@ interface ActivityFeedEventRepository extends JpaRepository<ActivityFeedEventEnt
     int deleteByFeedId(@Param("feedId") UUID feedId);
 
     long countByFeedId(UUID feedId);
+
+    List<ActivityFeedEventEntity>
+            findByFeedIdInAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAscIdAsc(
+                    Collection<UUID> feedIds, Instant from, Instant to);
 }

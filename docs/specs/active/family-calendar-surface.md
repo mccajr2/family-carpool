@@ -122,7 +122,7 @@ grid remains a follow-up id.
 
 ## Tasks
 
-- [ ] **Backend:** New `calendar` module + controller; `FeedCalendarApi` /
+- [x] **Backend:** New `calendar` module + controller; `FeedCalendarApi` /
   ```
   `ManualEventCalendarApi` (names flexible) on feeds/events; range queries;
   Caregiver-readable feed events for calendar only.
