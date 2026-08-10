@@ -244,6 +244,7 @@ final class AuthViewModel: ObservableObject {
     @Published var editingFeedName: String = ""
     @Published var editingFeedUrl: String = ""
     @Published var editingFeedKidIds: [String] = []
+    @Published var shell = AppShellNavigationState()
     @Published var devHint: String?
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
@@ -255,6 +256,24 @@ final class AuthViewModel: ObservableObject {
     var visibleCalendarItems: [FamilyCalendarItem] {
         guard let agendaKidFilter else { return calendarItems }
         return calendarItems.filter { $0.kidIds.contains(agendaKidFilter) }
+    }
+
+    func selectShellTab(_ tab: AppShellTab) {
+        var next = shell
+        next.selectTab(tab)
+        shell = next
+    }
+
+    func openMorePlaces() {
+        var next = shell
+        next.openPlaces()
+        shell = next
+    }
+
+    func openMoreFeeds() {
+        var next = shell
+        next.openFeeds(isOrganizer: isOrganizer)
+        shell = next
     }
 
     init(bridge: AuthBridge = AuthBridge()) {
@@ -524,6 +543,7 @@ final class AuthViewModel: ObservableObject {
                     self.calendarItems = []
                     self.calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
                     self.agendaKidFilter = nil
+                    self.shell.resetToCalendar()
                     self.familyPhase = .choose
                 }
             },
@@ -1301,6 +1321,7 @@ final class AuthViewModel: ObservableObject {
         calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         agendaKidFilter = nil
         familyPhase = .ready
+        shell.resetToCalendar()
         loadFeeds()
         loadCalendar()
     }
@@ -1332,6 +1353,7 @@ final class AuthViewModel: ObservableObject {
         members = []
         familyPhase = .loading
         hasDisplayName = false
+        shell.resetToCalendar()
     }
 
     private func refreshCurrentEmail() {

@@ -5,17 +5,19 @@ struct ContentView: View {
     @StateObject private var model = AuthViewModel()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                switch model.phase {
-                case .signedIn:
-                    familyContent
-                case .signedOut, .codeSent:
-                    signInContent
+        Group {
+            switch model.phase {
+            case .signedIn:
+                familyContent
+            case .signedOut, .codeSent:
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        signInContent
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -69,6 +71,22 @@ struct ContentView: View {
 
     @ViewBuilder
     private var familyContent: some View {
+        switch model.familyPhase {
+        case .ready:
+            readyShell
+        case .loading, .choose, .create, .join:
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    membershipContent
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var membershipContent: some View {
         switch model.familyPhase {
         case .loading:
             Text("Your family")
@@ -137,12 +155,104 @@ struct ContentView: View {
             Button("Sign out") { model.signOut() }
                 .disabled(model.isLoading)
         case .ready:
-            Text(model.familyTitle)
-                .font(.title2.bold())
-            Text(familySubtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            EmptyView()
+        }
+    }
 
+    private var readyShell: some View {
+        TabView(selection: Binding(
+            get: { model.shell.tab },
+            set: { model.selectShellTab($0) }
+        )) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Calendar")
+                            .font(.title2.bold())
+                        calendarDestination
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .tabItem { Label(AppShellTab.calendar.title, systemImage: AppShellTab.calendar.systemImage) }
+            .tag(AppShellTab.calendar)
+
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Carpool")
+                        .font(.title2.bold())
+                    Text("Coming soon")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .tabItem { Label(AppShellTab.carpool.title, systemImage: AppShellTab.carpool.systemImage) }
+            .tag(AppShellTab.carpool)
+
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        familyDestination
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .tabItem { Label(AppShellTab.family.title, systemImage: AppShellTab.family.systemImage) }
+            .tag(AppShellTab.family)
+
+            NavigationStack(path: Binding(
+                get: { model.shell.morePath },
+                set: { newPath in
+                    var next = model.shell
+                    next.morePath = newPath
+                    model.shell = next
+                }
+            )) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        moreListDestination
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .navigationTitle("More")
+                .navigationDestination(for: MoreDestination.self) { destination in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            switch destination {
+                            case .places:
+                                Text("Places")
+                                    .font(.title2.bold())
+                                placesDestination
+                            case .feeds:
+                                Text("Feeds")
+                                    .font(.title2.bold())
+                                feedsDestination
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .navigationTitle(destination.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+            .tabItem { Label(AppShellTab.more.title, systemImage: AppShellTab.more.systemImage) }
+            .tag(AppShellTab.more)
+        }
+    }
+
+    @ViewBuilder
+    private var familyDestination: some View {
+        Text(model.familyTitle)
+            .font(.title2.bold())
+        Text(familySubtitle)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
             if model.isOrganizer, !model.inviteCode.isEmpty {
                 Text("Invite code: \(model.inviteCode)")
                     .font(.body.monospaced())
@@ -210,8 +320,23 @@ struct ContentView: View {
                 .disabled(model.isLoading || model.newKidName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            Text("Places")
-                .font(.headline)
+
+            Button("Leave family") {
+                model.leaveFamily()
+            }
+            .disabled(model.isLoading)
+        if let errorMessage = model.errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+        if model.isLoading {
+            ProgressView()
+        }
+    }
+
+    @ViewBuilder
+    private var placesDestination: some View {
             if model.places.isEmpty {
                 Text("No places yet.")
                     .font(.footnote)
@@ -272,6 +397,10 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
+    }
+
+    @ViewBuilder
+    private var calendarDestination: some View {
             Text("Agenda")
                 .font(.headline)
             if let errorMessage = model.errorMessage {
@@ -412,105 +541,169 @@ struct ContentView: View {
                         || model.newEventKidIds.isEmpty
                 )
 
-            if model.isOrganizer {
-                HStack {
-                    Text("Activity feeds")
-                        .font(.headline)
-                    Spacer()
-                    Button("Refresh") { model.refreshFeeds() }
-                        .disabled(model.isLoading)
-                }
-                if model.feeds.isEmpty {
-                    Text("No feeds yet.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.feeds) { feed in
-                        if model.editingFeedId == feed.id {
-                            TextField("Feed name", text: $model.editingFeedName)
+        if let errorMessage = model.errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+        if model.isLoading {
+            ProgressView()
+        }
+    }
+
+    @ViewBuilder
+    private var feedsDestination: some View {
+
+            HStack {
+                Text("Activity feeds")
+                    .font(.headline)
+                Spacer()
+                Button("Refresh") { model.refreshFeeds() }
+                    .disabled(model.isLoading)
+            }
+            if model.feeds.isEmpty {
+                Text("No feeds yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.feeds) { feed in
+                    if model.editingFeedId == feed.id {
+                        TextField("Feed name", text: $model.editingFeedName)
+                            .disabled(model.isLoading)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Feed URL", text: $model.editingFeedUrl)
+                            .disabled(model.isLoading)
+                            .textFieldStyle(.roundedBorder)
+                        feedKidToggles(selectedKidIds: model.editingFeedKidIds) { kidId in
+                            model.toggleEditingFeedKid(kidId)
+                        }
+                        HStack {
+                            Button("Save") { model.saveFeed() }
+                                .disabled(
+                                    model.isLoading
+                                        || model.editingFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        || model.editingFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                )
+                            Button("Cancel") { model.cancelEditFeed() }
                                 .disabled(model.isLoading)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Feed URL", text: $model.editingFeedUrl)
-                                .disabled(model.isLoading)
-                                .textFieldStyle(.roundedBorder)
-                            feedKidToggles(selectedKidIds: model.editingFeedKidIds) { kidId in
-                                model.toggleEditingFeedKid(kidId)
-                            }
-                            HStack {
-                                Button("Save") { model.saveFeed() }
-                                    .disabled(
-                                        model.isLoading
-                                            || model.editingFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                            || model.editingFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    )
-                                Button("Cancel") { model.cancelEditFeed() }
-                                    .disabled(model.isLoading)
-                            }
-                        } else {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(feed.name)
-                                    .lineLimit(1)
-                                Text(feed.listStatusLabel(kids: model.kids))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                                ViewThatFits(in: .horizontal) {
-                                    HStack {
-                                        Button("Sync now") { model.syncFeed(feed.id) }
-                                            .disabled(model.isLoading)
-                                        Button("Edit") { model.beginEditFeed(feed) }
-                                            .disabled(model.isLoading)
-                                        Button("Remove") { model.removeFeed(feed.id) }
-                                            .disabled(model.isLoading)
-                                    }
-                                    VStack(alignment: .leading) {
-                                        Button("Sync now") { model.syncFeed(feed.id) }
-                                            .disabled(model.isLoading)
-                                        Button("Edit") { model.beginEditFeed(feed) }
-                                            .disabled(model.isLoading)
-                                        Button("Remove") { model.removeFeed(feed.id) }
-                                            .disabled(model.isLoading)
-                                    }
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(feed.name)
+                                .lineLimit(1)
+                            Text(feed.listStatusLabel(kids: model.kids))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                            ViewThatFits(in: .horizontal) {
+                                HStack {
+                                    Button("Sync now") { model.syncFeed(feed.id) }
+                                        .disabled(model.isLoading)
+                                    Button("Edit") { model.beginEditFeed(feed) }
+                                        .disabled(model.isLoading)
+                                    Button("Remove") { model.removeFeed(feed.id) }
+                                        .disabled(model.isLoading)
+                                }
+                                VStack(alignment: .leading) {
+                                    Button("Sync now") { model.syncFeed(feed.id) }
+                                        .disabled(model.isLoading)
+                                    Button("Edit") { model.beginEditFeed(feed) }
+                                        .disabled(model.isLoading)
+                                    Button("Remove") { model.removeFeed(feed.id) }
+                                        .disabled(model.isLoading)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                TextField("New feed name", text: $model.newFeedName)
-                    .disabled(model.isLoading)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Feed URL", text: $model.newFeedUrl)
-                    .disabled(model.isLoading)
-                    .textFieldStyle(.roundedBorder)
-                feedKidToggles(selectedKidIds: model.newFeedKidIds) { kidId in
-                    model.toggleNewFeedKid(kidId)
-                }
-                Button("Add feed") { model.addFeed() }
-                    .disabled(
-                        model.isLoading
-                            || model.newFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || model.newFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
             }
+            TextField("New feed name", text: $model.newFeedName)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            TextField("Feed URL", text: $model.newFeedUrl)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            feedKidToggles(selectedKidIds: model.newFeedKidIds) { kidId in
+                model.toggleNewFeedKid(kidId)
+            }
+            Button("Add feed") { model.addFeed() }
+                .disabled(
+                    model.isLoading
+                        || model.newFeedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || model.newFeedUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+    }
 
-            if let errorMessage = model.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-            if model.isLoading {
-                ProgressView()
-            }
-            Button("Leave family") {
-                model.leaveFamily()
-            }
-            .disabled(model.isLoading)
-            Button(model.isLoading ? "Working…" : "Sign out") {
-                model.signOut()
-            }
-            .disabled(model.isLoading)
+    @ViewBuilder
+    private var moreListDestination: some View {
+        Text("General")
+            .font(.headline)
+        moreRow(title: "Places", systemImage: "mappin.and.ellipse", showChevron: true) {
+            model.openMorePlaces()
         }
+        if AppShellNavigationState.showsFeedsRow(isOrganizer: model.isOrganizer) {
+            moreRow(title: "Feeds", systemImage: "dot.radiowaves.up.forward", showChevron: true) {
+                model.openMoreFeeds()
+            }
+        }
+        Text("Account")
+            .font(.headline)
+        moreRow(
+            title: accountSummaryLabel,
+            systemImage: "person.crop.circle",
+            showChevron: false,
+            action: nil
+        )
+        moreRow(
+            title: model.isLoading ? "Working…" : "Sign out",
+            systemImage: "rectangle.portrait.and.arrow.right",
+            showChevron: false,
+            danger: true
+        ) {
+            model.signOut()
+        }
+    }
+
+    private var accountSummaryLabel: String {
+        let email = model.signedInEmail.isEmpty ? "…" : model.signedInEmail
+        let role = model.familyRole.isEmpty ? "…" : model.familyRole
+        return "\(email) · \(role)"
+    }
+
+    @ViewBuilder
+    private func moreRow(
+        title: String,
+        systemImage: String,
+        showChevron: Bool,
+        danger: Bool = false,
+        action: (() -> Void)?
+    ) -> some View {
+        let contentColor: Color = danger ? .red : .primary
+        Button {
+            action?()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(contentColor)
+                    .background(
+                        (danger ? Color.red : Color.accentColor).opacity(0.15),
+                        in: RoundedRectangle(cornerRadius: 8)
+                    )
+                Text(title)
+                    .foregroundStyle(contentColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if showChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(action == nil)
     }
 
     private var familySubtitle: String {
