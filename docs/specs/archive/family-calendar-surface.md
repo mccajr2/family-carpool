@@ -1,6 +1,6 @@
 # Spec: family-calendar-surface
 
-Status: Approved  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-10  
 Approved: 2026-08-10  
