@@ -6,6 +6,7 @@ import type {
   FamilyRole,
   JoinFamilyCircleRequest,
   Kid,
+  Place,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -204,6 +205,57 @@ export class FamilyClient {
     )
     if (!response.ok && response.status !== 204) {
       throw new Error(await readErrorMessage(response, "Delete kid failed"))
+    }
+  }
+
+  async addPlace(accessToken: string, name: string, address: string): Promise<Place> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/places"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, address }),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Add place failed"))
+    }
+    return (await response.json()) as Place
+  }
+
+  async updatePlace(
+    accessToken: string,
+    placeId: string,
+    name: string,
+    address: string,
+  ): Promise<Place> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/places/${placeId}`),
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, address }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update place failed"))
+    }
+    return (await response.json()) as Place
+  }
+
+  async deletePlace(accessToken: string, placeId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/places/${placeId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Delete place failed"))
     }
   }
 }

@@ -15,6 +15,13 @@ data class Kid(
 )
 
 @Serializable
+data class Place(
+    val id: String,
+    val name: String,
+    val address: String,
+)
+
+@Serializable
 data class FamilyMember(
     val adultId: String,
     val email: String,
@@ -29,6 +36,7 @@ data class FamilyCircle(
     val role: FamilyRole,
     val members: List<FamilyMember> = emptyList(),
     val kids: List<Kid> = emptyList(),
+    val places: List<Place> = emptyList(),
 )
 
 @Serializable
@@ -66,6 +74,18 @@ data class CreateKidRequest(
 @Serializable
 data class UpdateKidRequest(
     val displayName: String,
+)
+
+@Serializable
+data class CreatePlaceRequest(
+    val name: String,
+    val address: String,
+)
+
+@Serializable
+data class UpdatePlaceRequest(
+    val name: String,
+    val address: String,
 )
 
 fun FamilyCircle.displayTitle(): String {

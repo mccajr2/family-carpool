@@ -431,6 +431,128 @@ private fun ReadyContent(
         }
     }
 
+    Text("Places", style = MaterialTheme.typography.titleSmall)
+    if (current.circle.places.isEmpty()) {
+        Text("No places yet.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        current.circle.places.forEach { place ->
+            if (current.editingPlaceId == place.id) {
+                OutlinedTextField(
+                    value = current.editingPlaceName,
+                    onValueChange = {
+                        model.updateEditingPlaceName(it)
+                        refresh()
+                    },
+                    label = { Text("Place name") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = current.editingPlaceAddress,
+                    onValueChange = {
+                        model.updateEditingPlaceAddress(it)
+                        refresh()
+                    },
+                    label = { Text("Address") },
+                    singleLine = true,
+                    enabled = !current.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.savePlace()
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                current.editingPlaceName.isNotBlank() &&
+                                current.editingPlaceAddress.isNotBlank(),
+                    ) {
+                        Text("Save")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            model.cancelEditPlace()
+                            refresh()
+                        },
+                        enabled = !current.loading,
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(place.name)
+                    Text(place.address, style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditPlace(place)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removePlace(place.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove place")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = current.newPlaceName,
+        onValueChange = {
+            model.updateNewPlaceName(it)
+            refresh()
+        },
+        label = { Text("New place name") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = current.newPlaceAddress,
+        onValueChange = {
+            model.updateNewPlaceAddress(it)
+            refresh()
+        },
+        label = { Text("New place address") },
+        singleLine = true,
+        enabled = !current.loading,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Button(
+        onClick = {
+            scope.launch {
+                model.addPlace()
+                refresh()
+            }
+        },
+        enabled =
+            !current.loading &&
+                current.newPlaceName.isNotBlank() &&
+                current.newPlaceAddress.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Add place")
+    }
+
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
     }

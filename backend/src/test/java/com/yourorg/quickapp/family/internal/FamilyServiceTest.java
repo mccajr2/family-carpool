@@ -40,6 +40,9 @@ class FamilyServiceTest {
     @Mock
     private FamilyKidRepository kids;
 
+    @Mock
+    private FamilyPlaceRepository places;
+
     @InjectMocks
     private FamilyService familyService;
 
@@ -64,6 +67,7 @@ class FamilyServiceTest {
                                             Instant.now()));
                         });
         when(kids.findByCircleIdOrderByCreatedAtAsc(any())).thenReturn(List.of());
+        when(places.findByCircleIdOrderByCreatedAtAsc(any())).thenReturn(List.of());
         when(adultSessionApi.requireAdult(adultId))
                 .thenReturn(new AdultResponse(adultId, "a@example.com", "Alex"));
 
@@ -73,6 +77,7 @@ class FamilyServiceTest {
         assertThat(response.role()).isEqualTo(FamilyRole.ORGANIZER);
         assertThat(response.name()).isEqualTo("Our house");
         assertThat(response.kids()).isEmpty();
+        assertThat(response.places()).isEmpty();
         assertThat(response.members()).hasSize(1);
         assertThat(response.members().getFirst().role()).isEqualTo(FamilyRole.ORGANIZER);
         verify(adultSessionApi).updateDisplayName(adultId, "Alex");
@@ -143,6 +148,7 @@ class FamilyServiceTest {
                                         FamilyRole.CAREGIVER,
                                         Instant.now())));
         when(kids.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
         when(adultSessionApi.requireAdult(organizerId))
                 .thenReturn(new AdultResponse(organizerId, "a@example.com", "Alex"));
         when(adultSessionApi.requireAdult(joinerId))
@@ -153,6 +159,7 @@ class FamilyServiceTest {
 
         assertThat(response.role()).isEqualTo(FamilyRole.CAREGIVER);
         assertThat(response.members()).hasSize(2);
+        assertThat(response.places()).isEmpty();
         verify(adultSessionApi).updateDisplayName(joinerId, "Jordan");
         ArgumentCaptor<FamilyMembershipEntity> membership =
                 ArgumentCaptor.forClass(FamilyMembershipEntity.class);
@@ -300,5 +307,120 @@ class FamilyServiceTest {
 
         verify(memberships).delete(membership);
         verify(circles).delete(circle);
+    }
+
+    @Test
+    void caregiverCanAddPlace() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "b@example.com", "Jordan");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.CAREGIVER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.existsByCircleIdAndNameNormalized(circleId, "mom's house")).thenReturn(false);
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                familyService.addPlace(
+                        adult,
+                        new com.yourorg.quickapp.family.CreatePlaceRequest(
+                                "Mom's house", "123 Main St"));
+
+        assertThat(response.name()).isEqualTo("Mom's house");
+        assertThat(response.address()).isEqualTo("123 Main St");
+        ArgumentCaptor<FamilyPlaceEntity> place = ArgumentCaptor.forClass(FamilyPlaceEntity.class);
+        verify(places).save(place.capture());
+        assertThat(place.getValue().nameNormalized()).isEqualTo("mom's house");
+        assertThat(place.getValue().circleId()).isEqualTo(circleId);
+    }
+
+    @Test
+    void duplicatePlaceNameConflictsCaseInsensitive() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.existsByCircleIdAndNameNormalized(circleId, "school")).thenReturn(true);
+
+        assertThatThrownBy(
+                        () ->
+                                familyService.addPlace(
+                                        adult,
+                                        new com.yourorg.quickapp.family.CreatePlaceRequest(
+                                                "School", "1 School Rd")))
+                .isInstanceOf(FamilyException.class)
+                .extracting(ex -> ((FamilyException) ex).status())
+                .isEqualTo(HttpStatus.CONFLICT);
+        verify(places, never()).save(any());
+    }
+
+    @Test
+    void updatePlaceAllowsSameNormalizedNameForSelf() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        placeId, circleId, "School", "school", "1 School Rd", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.findByIdAndCircleId(placeId, circleId)).thenReturn(Optional.of(place));
+        when(places.existsByCircleIdAndNameNormalizedAndIdNot(circleId, "school", placeId))
+                .thenReturn(false);
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                familyService.updatePlace(
+                        adult,
+                        placeId,
+                        new com.yourorg.quickapp.family.UpdatePlaceRequest(
+                                "school", "2 School Rd"));
+
+        assertThat(response.name()).isEqualTo("school");
+        assertThat(response.address()).isEqualTo("2 School Rd");
+    }
+
+    @Test
+    void blankPlaceAddressRejected() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+
+        assertThatThrownBy(
+                        () ->
+                                familyService.addPlace(
+                                        adult,
+                                        new com.yourorg.quickapp.family.CreatePlaceRequest(
+                                                "School", "   ")))
+                .isInstanceOf(FamilyException.class)
+                .extracting(ex -> ((FamilyException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

@@ -44,6 +44,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle");
         assertThat(yaml).contains("/api/family/circle/kids");
         assertThat(yaml).contains("/api/family/circle/kids/{kidId}");
+        assertThat(yaml).contains("/api/family/circle/places");
+        assertThat(yaml).contains("/api/family/circle/places/{placeId}");
         assertThat(yaml).contains("/api/family/circle/invite");
         assertThat(yaml).contains("/api/family/circle/invite/regenerate");
         assertThat(yaml).contains("/api/family/circle/join");
@@ -62,6 +64,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: addKid");
         assertThat(yaml).contains("operationId: updateKid");
         assertThat(yaml).contains("operationId: deleteKid");
+        assertThat(yaml).contains("operationId: addPlace");
+        assertThat(yaml).contains("operationId: updatePlace");
+        assertThat(yaml).contains("operationId: deletePlace");
 
         assertThat(yaml).contains("CreateFamilyCircleRequest:");
         assertThat(yaml).contains("UpdateFamilyCircleRequest:");
@@ -74,12 +79,17 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Kid:");
         assertThat(yaml).contains("CreateKidRequest:");
         assertThat(yaml).contains("UpdateKidRequest:");
+        assertThat(yaml).contains("Place:");
+        assertThat(yaml).contains("CreatePlaceRequest:");
+        assertThat(yaml).contains("UpdatePlaceRequest:");
         assertThat(yaml).contains("adultDisplayName:");
         assertThat(yaml).contains("members:");
+        assertThat(yaml).contains("places:");
         assertThat(yaml).contains("ORGANIZER");
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
+        assertThat(yaml).contains("version: 0.5.0");
     }
 
     private static Path resolveOpenApi() {

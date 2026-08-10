@@ -12,7 +12,7 @@ roadmap → spec → contract → backend module → mobile/web clients → UI.
 
 The disposable **greeting** harness was removed with the first product feature
 (`adult-auth-magic-link`). Cross-stack smoke is **email OTP auth** plus
-**family circle + kids**.
+**family circle + kids + named places**.
 
 Proven toolchain checkpoints (from the starter) remain valid; the live product
 path is auth → family:
@@ -47,7 +47,8 @@ look up adult by id, update `displayName`).
 
 ## Family circle (v1)
 
-Locked for `family-circle-and-kids` + `family-adult-invites-roles`:
+Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
+`named-places`:
 
 | Topic | Decision |
 |--------|----------|
@@ -58,9 +59,10 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles`:
 | Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
 | Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
 | Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
-| Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD; all members may read |
+| Writes | Organizer-only: invite regen, members/roles, rename circle, kids CRUD; **any member** may manage named places; all members may read |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
-| Empty circle | Allowed (add kids later) |
+| Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); no lat/lng yet (`place-geocoding`) |
+| Empty circle | Allowed (add kids / places later) |
 
 Modulith module: `backend/modules/family/`. Contract paths under `/api/family/*`.
 Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
@@ -71,6 +73,7 @@ Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
 - **Adult** ↔ **circle** via membership (+ role `ORGANIZER` | `CAREGIVER`)
 - **Invite code** lives on the circle (not per-member)
 - **Kid** belongs to a **circle**
+- **Place** belongs to a **circle** (shared origins for leave-by / coverage later)
 - Later **activity feeds** attach to a circle; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
   a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
@@ -79,6 +82,8 @@ Auth public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
 Adult --membership(+role)--> FamilyCircle <-- Kid
                                   |
                              invite_code
+                                  |
+                               Place
                                   ^
                                   | (later)
                              ActivityFeed --feed↔kid--> Kid
@@ -90,7 +95,7 @@ family-carpool/
 ├── backend/              # Spring Boot app + Modulith modules (root Gradle build)
 │   └── modules/
 │       ├── auth/         # Email OTP + Bearer sessions
-│       └── family/       # Family circle + kids
+│       └── family/       # Family circle + kids + named places
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
 │   ├── sharedUI/         # Compose Multiplatform (Android auth/family UI)

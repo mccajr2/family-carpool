@@ -15,6 +15,7 @@ const sampleCircle = {
     },
   ],
   kids: [],
+  places: [],
 }
 
 describe("FamilyClient", () => {
@@ -155,6 +156,47 @@ describe("FamilyClient", () => {
 
     expect(fetchFn.mock.calls[2]?.[0]).toBe(
       "http://localhost:8080/api/family/circle/kids/k1",
+    )
+  })
+
+  it("adds updates and deletes places", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: "p1", name: "Mom's house", address: "123 Main St" }),
+          {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ id: "p1", name: "Mom's house", address: "456 Oak Ave" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await expect(client.addPlace("tok", "Mom's house", "123 Main St")).resolves.toMatchObject({
+      name: "Mom's house",
+      address: "123 Main St",
+    })
+    await expect(
+      client.updatePlace("tok", "p1", "Mom's house", "456 Oak Ave"),
+    ).resolves.toMatchObject({
+      address: "456 Oak Ave",
+    })
+    await client.deletePlace("tok", "p1")
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/places")
+    expect(fetchFn.mock.calls[2]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/places/p1",
     )
   })
 })

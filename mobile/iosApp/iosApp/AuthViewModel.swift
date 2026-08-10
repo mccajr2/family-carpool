@@ -7,6 +7,12 @@ struct FamilyKidItem: Identifiable, Equatable {
     var displayName: String
 }
 
+struct FamilyPlaceItem: Identifiable, Equatable {
+    let id: String
+    var name: String
+    var address: String
+}
+
 struct FamilyMemberItem: Identifiable, Equatable {
     var id: String { adultId }
     let adultId: String
@@ -51,9 +57,15 @@ final class AuthViewModel: ObservableObject {
     @Published var members: [FamilyMemberItem] = []
     @Published var kids: [FamilyKidItem] = []
     @Published var newKidName: String = ""
+    @Published var places: [FamilyPlaceItem] = []
+    @Published var newPlaceName: String = ""
+    @Published var newPlaceAddress: String = ""
     @Published var familyPhase: FamilyPhase = .loading
     @Published var editingKidId: String?
     @Published var editingKidName: String = ""
+    @Published var editingPlaceId: String?
+    @Published var editingPlaceName: String = ""
+    @Published var editingPlaceAddress: String = ""
     @Published var devHint: String?
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
@@ -161,7 +173,7 @@ final class AuthViewModel: ObservableObject {
                     self.familyPhase = .choose
                 }
             },
-            onReady: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames in
+            onReady: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses in
                 Task { @MainActor in
                     self?.applyReady(
                         title: title,
@@ -175,7 +187,10 @@ final class AuthViewModel: ObservableObject {
                         memberNames: memberNames,
                         memberRoles: memberRoles,
                         kidIds: kidIds,
-                        kidNames: kidNames
+                        kidNames: kidNames,
+                        placeIds: placeIds,
+                        placeNames: placeNames,
+                        placeAddresses: placeAddresses
                     )
                 }
             },
@@ -212,7 +227,7 @@ final class AuthViewModel: ObservableObject {
         bridge.createFamilyCircle(
             adultDisplayName: display,
             circleName: optionalName.isEmpty ? nil : optionalName,
-            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames in
+            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -228,7 +243,10 @@ final class AuthViewModel: ObservableObject {
                         memberNames: memberNames,
                         memberRoles: memberRoles,
                         kidIds: kidIds,
-                        kidNames: kidNames
+                        kidNames: kidNames,
+                        placeIds: placeIds,
+                        placeNames: placeNames,
+                        placeAddresses: placeAddresses
                     )
                 }
             },
@@ -251,7 +269,7 @@ final class AuthViewModel: ObservableObject {
         bridge.joinFamilyCircle(
             code: code,
             adultDisplayName: hasDisplayName ? nil : display,
-            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames in
+            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -267,7 +285,10 @@ final class AuthViewModel: ObservableObject {
                         memberNames: memberNames,
                         memberRoles: memberRoles,
                         kidIds: kidIds,
-                        kidNames: kidNames
+                        kidNames: kidNames,
+                        placeIds: placeIds,
+                        placeNames: placeNames,
+                        placeAddresses: placeAddresses
                     )
                 }
             },
@@ -442,7 +463,7 @@ final class AuthViewModel: ObservableObject {
         bridge.updateMemberRole(
             adultId: member.adultId,
             role: role,
-            onSuccess: { [weak self] title, email, adultId, displayName, familyRole, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames in
+            onSuccess: { [weak self] title, email, adultId, displayName, familyRole, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -458,8 +479,103 @@ final class AuthViewModel: ObservableObject {
                         memberNames: memberNames,
                         memberRoles: memberRoles,
                         kidIds: kidIds,
-                        kidNames: kidNames
+                        kidNames: kidNames,
+                        placeIds: placeIds,
+                        placeNames: placeNames,
+                        placeAddresses: placeAddresses
                     )
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+
+    func addPlace() {
+        let name = newPlaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let address = newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !address.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.addPlace(
+            name: name,
+            address: address,
+            onSuccess: { [weak self] id, placeName, placeAddress in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.places.append(FamilyPlaceItem(id: id, name: placeName, address: placeAddress))
+                    self.newPlaceName = ""
+                    self.newPlaceAddress = ""
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    func beginEditPlace(_ place: FamilyPlaceItem) {
+        editingPlaceId = place.id
+        editingPlaceName = place.name
+        editingPlaceAddress = place.address
+    }
+
+    func cancelEditPlace() {
+        editingPlaceId = nil
+        editingPlaceName = ""
+        editingPlaceAddress = ""
+    }
+
+    func savePlace() {
+        guard let placeId = editingPlaceId else { return }
+        let name = editingPlaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let address = editingPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !address.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.updatePlace(
+            placeId: placeId,
+            name: name,
+            address: address,
+            onSuccess: { [weak self] id, placeName, placeAddress in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    if let index = self.places.firstIndex(where: { $0.id == id }) {
+                        self.places[index].name = placeName
+                        self.places[index].address = placeAddress
+                    }
+                    self.cancelEditPlace()
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    func removePlace(_ placeId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.removePlace(
+            placeId: placeId,
+            onSuccess: { [weak self] in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.places.removeAll { $0.id == placeId }
                 }
             },
             onError: { [weak self] message in
@@ -483,7 +599,10 @@ final class AuthViewModel: ObservableObject {
         memberNames: [String],
         memberRoles: [String],
         kidIds: [String],
-        kidNames: [String]
+        kidNames: [String],
+        placeIds: [String],
+        placeNames: [String],
+        placeAddresses: [String]
     ) {
         familyTitle = title
         signedInEmail = email
@@ -501,6 +620,13 @@ final class AuthViewModel: ObservableObject {
             )
         }
         kids = zip(kidIds, kidNames).map { FamilyKidItem(id: $0.0, displayName: $0.1) }
+        places = (0..<placeIds.count).map { index in
+            FamilyPlaceItem(
+                id: placeIds[index],
+                name: placeNames[index],
+                address: placeAddresses[index]
+            )
+        }
         familyPhase = .ready
     }
 
@@ -512,6 +638,7 @@ final class AuthViewModel: ObservableObject {
         inviteCodeInput = ""
         inviteCode = ""
         kids = []
+        places = []
         members = []
         familyPhase = .loading
         hasDisplayName = false

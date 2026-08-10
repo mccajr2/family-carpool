@@ -36,6 +36,11 @@ class FamilyUiModel(
             val newKidName: String = "",
             val editingKidId: String? = null,
             val editingKidName: String = "",
+            val newPlaceName: String = "",
+            val newPlaceAddress: String = "",
+            val editingPlaceId: String? = null,
+            val editingPlaceName: String = "",
+            val editingPlaceAddress: String = "",
             val loading: Boolean = false,
             val error: String? = null,
         ) : State()
@@ -124,6 +129,48 @@ class FamilyUiModel(
     fun cancelRename() {
         val current = _state as? State.Ready ?: return
         _state = current.copy(editingKidId = null, editingKidName = "", error = null)
+    }
+
+    fun updateNewPlaceName(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newPlaceName = value, error = null)
+    }
+
+    fun updateNewPlaceAddress(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(newPlaceAddress = value, error = null)
+    }
+
+    fun beginEditPlace(place: Place) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingPlaceId = place.id,
+                editingPlaceName = place.name,
+                editingPlaceAddress = place.address,
+                error = null,
+            )
+    }
+
+    fun updateEditingPlaceName(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingPlaceName = value, error = null)
+    }
+
+    fun updateEditingPlaceAddress(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(editingPlaceAddress = value, error = null)
+    }
+
+    fun cancelEditPlace() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                editingPlaceId = null,
+                editingPlaceName = "",
+                editingPlaceAddress = "",
+                error = null,
+            )
     }
 
     suspend fun createCircle() {
@@ -322,6 +369,92 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     error = e.message ?: "Remove failed",
+                )
+        }
+    }
+
+    suspend fun addPlace() {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val place =
+                familyClient.addPlace(
+                    token,
+                    current.newPlaceName.trim(),
+                    current.newPlaceAddress.trim(),
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    newPlaceName = "",
+                    newPlaceAddress = "",
+                    circle = current.circle.copy(places = current.circle.places + place),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Add place failed",
+                )
+        }
+    }
+
+    suspend fun savePlace() {
+        val current = _state as? State.Ready ?: return
+        val placeId = current.editingPlaceId ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated =
+                familyClient.updatePlace(
+                    token,
+                    placeId,
+                    current.editingPlaceName.trim(),
+                    current.editingPlaceAddress.trim(),
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    editingPlaceId = null,
+                    editingPlaceName = "",
+                    editingPlaceAddress = "",
+                    circle =
+                        current.circle.copy(
+                            places =
+                                current.circle.places.map { place ->
+                                    if (place.id == placeId) updated else place
+                                },
+                        ),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Update place failed",
+                )
+        }
+    }
+
+    suspend fun removePlace(placeId: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            familyClient.deletePlace(token, placeId)
+            _state =
+                current.copy(
+                    loading = false,
+                    circle =
+                        current.circle.copy(
+                            places = current.circle.places.filterNot { it.id == placeId },
+                        ),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Remove place failed",
                 )
         }
     }

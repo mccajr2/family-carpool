@@ -1,9 +1,10 @@
 # Spec: named-places
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-07  
 Updated: 2026-08-09  
 Approved: 2026-08-09  
+Completed: 2026-08-09  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `named-places`  
 Added: 2026-08-07 · initial
@@ -70,44 +71,44 @@ member may write, and coords arrive in `place-geocoding`.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents place create/update/delete and includes `places` on
+- [x] OpenAPI documents place create/update/delete and includes `places` on
       circle GET; Bearer on all; blank/missing `name` or `address` → **400**;
       duplicate place name in the same circle → **409**.
-- [ ] Authenticated **Organizer or Caregiver** can **add** a place (`name` +
+- [x] Authenticated **Organizer or Caregiver** can **add** a place (`name` +
       `address`), **rename/edit** either field, and **delete** a place; GET
       circle lists places for that circle.
-- [ ] Creating or renaming to a name that another place in the same circle
+- [x] Creating or renaming to a name that another place in the same circle
       already uses (trim + case-insensitive) → **409**; renaming a place to its
       own current name (same spelling/casing after normalize) succeeds.
-- [ ] Circle may have **zero** places; unknown `placeId` or place in another
+- [x] Circle may have **zero** places; unknown `placeId` or place in another
       circle → **404** (no leak).
-- [ ] Unauthenticated place calls → **401**; adult with **no** membership →
+- [x] Unauthenticated place calls → **401**; adult with **no** membership →
       **404** on place endpoints.
-- [ ] Caregiver place writes succeed (regression: kids write still Organizer-only
+- [x] Caregiver place writes succeed (regression: kids write still Organizer-only
       **403** for Caregiver).
-- [ ] Responses include place `id`, `name`, and `address` only — **no** lat/lng
+- [x] Responses include place `id`, `name`, and `address` only — **no** lat/lng
       fields in this PR.
-- [ ] Web, Android, and iOS: signed-in members can list / add / edit / remove
+- [x] Web, Android, and iOS: signed-in members can list / add / edit / remove
       places on the family UI; errors surfaced.
-- [ ] Backend unit + integration tests cover place CRUD + Caregiver write +
+- [x] Backend unit + integration tests cover place CRUD + Caregiver write +
       authz; client tests cover new API paths; `ModularityTests` still green.
 
 ## Tasks
 
-- [ ] **Backend:** Flyway table for circle places (`id`, `circle_id`, `name`,
+- [x] **Backend:** Flyway table for circle places (`id`, `circle_id`, `name`,
       `address`) with a uniqueness strategy for per-circle names (DB unique
       index on normalized name, or equivalent service check + test); entity/repo;
       `FamilyService` CRUD for any member; extend circle GET mapping; controller
       endpoints; 400 for blank fields; 409 on name collision.
-- [ ] **Contract:** OpenAPI place request/response + paths; `FamilyCircle.places`;
+- [x] **Contract:** OpenAPI place request/response + paths; `FamilyCircle.places`;
       document 409 on duplicate name; bump info version as usual.
-- [ ] **Web:** `familyClient` + types; `FamilyScreen` places section (all
+- [x] **Web:** `familyClient` + types; `FamilyScreen` places section (all
       members); tests.
-- [ ] **Mobile:** `FamilyModels` / `FamilyClient` + tests; `FamilyUiModel` /
+- [x] **Mobile:** `FamilyModels` / `FamilyClient` + tests; `FamilyUiModel` /
       `FamilyScreen` (Android shared UI); iOS `AuthViewModel` / `ContentView`
       (or equivalent) places CRUD.
-- [ ] **Docs:** `docs/architecture.md` Places row + link diagram note.
-- [ ] **Tests:** service unit + controller integration for Caregiver write,
+- [x] **Docs:** `docs/architecture.md` Places row + link diagram note.
+- [x] **Tests:** service unit + controller integration for Caregiver write,
       Organizer write, 401/404, blank validation, **duplicate-name 409**;
       `OpenApiContractTest` paths; web + KMP client tests.
 

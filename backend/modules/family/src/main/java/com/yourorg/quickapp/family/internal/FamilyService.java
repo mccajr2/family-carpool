@@ -4,18 +4,22 @@ import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.family.CreateFamilyCircleRequest;
 import com.yourorg.quickapp.family.CreateKidRequest;
+import com.yourorg.quickapp.family.CreatePlaceRequest;
 import com.yourorg.quickapp.family.FamilyCircleResponse;
 import com.yourorg.quickapp.family.FamilyInviteResponse;
 import com.yourorg.quickapp.family.FamilyMemberResponse;
 import com.yourorg.quickapp.family.FamilyRole;
 import com.yourorg.quickapp.family.JoinFamilyCircleRequest;
 import com.yourorg.quickapp.family.KidResponse;
+import com.yourorg.quickapp.family.PlaceResponse;
 import com.yourorg.quickapp.family.UpdateFamilyCircleRequest;
 import com.yourorg.quickapp.family.UpdateFamilyMemberRoleRequest;
 import com.yourorg.quickapp.family.UpdateKidRequest;
+import com.yourorg.quickapp.family.UpdatePlaceRequest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,16 +36,19 @@ public class FamilyService {
     private final FamilyCircleRepository circles;
     private final FamilyMembershipRepository memberships;
     private final FamilyKidRepository kids;
+    private final FamilyPlaceRepository places;
 
     public FamilyService(
             AdultSessionApi adultSessionApi,
             FamilyCircleRepository circles,
             FamilyMembershipRepository memberships,
-            FamilyKidRepository kids) {
+            FamilyKidRepository kids,
+            FamilyPlaceRepository places) {
         this.adultSessionApi = adultSessionApi;
         this.circles = circles;
         this.memberships = memberships;
         this.kids = kids;
+        this.places = places;
     }
 
     @Transactional
@@ -226,6 +233,50 @@ public class FamilyService {
         kids.delete(kid);
     }
 
+    @Transactional
+    public PlaceResponse addPlace(AdultResponse adult, CreatePlaceRequest request) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        String name = normalizeRequiredName(request.name(), "name");
+        String address = normalizeRequiredAddress(request.address());
+        String nameNormalized = normalizePlaceNameKey(name);
+        assertPlaceNameAvailable(loaded.circle().id(), nameNormalized, null);
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        UUID.randomUUID(),
+                        loaded.circle().id(),
+                        name,
+                        nameNormalized,
+                        address,
+                        Instant.now());
+        places.save(place);
+        return new PlaceResponse(place.id(), place.name(), place.address());
+    }
+
+    @Transactional
+    public PlaceResponse updatePlace(AdultResponse adult, UUID placeId, UpdatePlaceRequest request) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        FamilyPlaceEntity place =
+                places.findByIdAndCircleId(placeId, loaded.circle().id())
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Place not found"));
+        String name = normalizeRequiredName(request.name(), "name");
+        String address = normalizeRequiredAddress(request.address());
+        String nameNormalized = normalizePlaceNameKey(name);
+        assertPlaceNameAvailable(loaded.circle().id(), nameNormalized, place.id());
+        place.setName(name, nameNormalized);
+        place.setAddress(address);
+        places.save(place);
+        return new PlaceResponse(place.id(), place.name(), place.address());
+    }
+
+    @Transactional
+    public void deletePlace(AdultResponse adult, UUID placeId) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        FamilyPlaceEntity place =
+                places.findByIdAndCircleId(placeId, loaded.circle().id())
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Place not found"));
+        places.delete(place);
+    }
+
     private FamilyCircleResponse loadCircle(UUID adultId) {
         MembershipCircle loaded = requireMembership(adultId);
         return toResponse(loaded.circle(), loaded.membership().role());
@@ -255,7 +306,12 @@ public class FamilyService {
 
     private FamilyCircleResponse toResponse(FamilyCircleEntity circle, FamilyRole role) {
         return new FamilyCircleResponse(
-                circle.id(), circle.name(), role, membersFor(circle.id()), kidsFor(circle.id()));
+                circle.id(),
+                circle.name(),
+                role,
+                membersFor(circle.id()),
+                kidsFor(circle.id()),
+                placesFor(circle.id()));
     }
 
     private List<FamilyMemberResponse> membersFor(UUID circleId) {
@@ -273,6 +329,23 @@ public class FamilyService {
         return kids.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                 .map(kid -> new KidResponse(kid.id(), kid.displayName()))
                 .toList();
+    }
+
+    private List<PlaceResponse> placesFor(UUID circleId) {
+        return places.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                .map(place -> new PlaceResponse(place.id(), place.name(), place.address()))
+                .toList();
+    }
+
+    private void assertPlaceNameAvailable(UUID circleId, String nameNormalized, UUID excludePlaceId) {
+        boolean taken =
+                excludePlaceId == null
+                        ? places.existsByCircleIdAndNameNormalized(circleId, nameNormalized)
+                        : places.existsByCircleIdAndNameNormalizedAndIdNot(
+                                circleId, nameNormalized, excludePlaceId);
+        if (taken) {
+            throw new FamilyException(HttpStatus.CONFLICT, "Place name already exists in this circle");
+        }
     }
 
     private String generateUniqueInviteCode() {
@@ -327,6 +400,21 @@ public class FamilyService {
             throw new FamilyException(HttpStatus.BAD_REQUEST, field + " is too long");
         }
         return trimmed;
+    }
+
+    private static String normalizeRequiredAddress(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new FamilyException(HttpStatus.BAD_REQUEST, "address must not be blank");
+        }
+        String trimmed = raw.trim();
+        if (trimmed.length() > 255) {
+            throw new FamilyException(HttpStatus.BAD_REQUEST, "address is too long");
+        }
+        return trimmed;
+    }
+
+    private static String normalizePlaceNameKey(String trimmedName) {
+        return trimmedName.toLowerCase(Locale.ROOT);
     }
 
     private record MembershipCircle(FamilyMembershipEntity membership, FamilyCircleEntity circle) {}

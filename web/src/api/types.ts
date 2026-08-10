@@ -24,6 +24,12 @@ export type Kid = {
   displayName: string
 }
 
+export type Place = {
+  id: string
+  name: string
+  address: string
+}
+
 export type FamilyMember = {
   adultId: string
   email: string
@@ -37,6 +43,7 @@ export type FamilyCircle = {
   role: FamilyRole
   members: FamilyMember[]
   kids: Kid[]
+  places: Place[]
 }
 
 export type FamilyInvite = {

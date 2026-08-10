@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import type { Adult, FamilyCircle, FamilyMember, Kid } from "@/api/types"
+import type { Adult, FamilyCircle, FamilyMember, Kid, Place } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -56,6 +56,11 @@ export function FamilyScreen({
   const [newKidName, setNewKidName] = useState("")
   const [editingKidId, setEditingKidId] = useState<string | null>(null)
   const [editingKidName, setEditingKidName] = useState("")
+  const [newPlaceName, setNewPlaceName] = useState("")
+  const [newPlaceAddress, setNewPlaceAddress] = useState("")
+  const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
+  const [editingPlaceName, setEditingPlaceName] = useState("")
+  const [editingPlaceAddress, setEditingPlaceAddress] = useState("")
 
   useEffect(() => {
     let cancelled = false
@@ -280,6 +285,83 @@ export function FamilyScreen({
       setCircle((current) =>
         current
           ? { ...current, kids: current.kids.filter((kid) => kid.id !== kidId) }
+          : current,
+      )
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onAddPlace() {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const place = await familyClient.addPlace(
+        token,
+        newPlaceName.trim(),
+        newPlaceAddress.trim(),
+      )
+      setCircle((current) =>
+        current ? { ...current, places: [...current.places, place] } : current,
+      )
+      setNewPlaceName("")
+      setNewPlaceAddress("")
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onSavePlace(place: Place) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.updatePlace(
+        token,
+        place.id,
+        editingPlaceName.trim(),
+        editingPlaceAddress.trim(),
+      )
+      setCircle((current) =>
+        current
+          ? {
+              ...current,
+              places: current.places.map((item) =>
+                item.id === place.id ? updated : item,
+              ),
+            }
+          : current,
+      )
+      setEditingPlaceId(null)
+      setEditingPlaceName("")
+      setEditingPlaceAddress("")
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemovePlace(placeId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.deletePlace(token, placeId)
+      setCircle((current) =>
+        current
+          ? {
+              ...current,
+              places: current.places.filter((place) => place.id !== placeId),
+            }
           : current,
       )
       setStatus({ kind: "idle" })
@@ -630,6 +712,120 @@ export function FamilyScreen({
             </Button>
           </div>
         ) : null}
+
+        <section aria-label="Places" className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Places</p>
+          {circle.places.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No places yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {circle.places.map((place) => (
+                <li key={place.id} className="flex flex-col gap-2">
+                  {editingPlaceId === place.id ? (
+                    <>
+                      <Input
+                        aria-label={`Rename place ${place.name}`}
+                        value={editingPlaceName}
+                        onChange={(event) => setEditingPlaceName(event.target.value)}
+                        disabled={status.kind === "loading"}
+                      />
+                      <Input
+                        aria-label={`Edit address for ${place.name}`}
+                        value={editingPlaceAddress}
+                        onChange={(event) => setEditingPlaceAddress(event.target.value)}
+                        disabled={status.kind === "loading"}
+                      />
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void onSavePlace(place)}
+                          disabled={
+                            status.kind === "loading" ||
+                            !editingPlaceName.trim() ||
+                            !editingPlaceAddress.trim()
+                          }
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingPlaceId(null)
+                            setEditingPlaceName("")
+                            setEditingPlaceAddress("")
+                          }}
+                          disabled={status.kind === "loading"}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <span className="flex-1 text-sm">
+                        {place.name}
+                        <span className="block text-muted-foreground">{place.address}</span>
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingPlaceId(place.id)
+                          setEditingPlaceName(place.name)
+                          setEditingPlaceAddress(place.address)
+                        }}
+                        disabled={status.kind === "loading"}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void onRemovePlace(place.id)}
+                        disabled={status.kind === "loading"}
+                      >
+                        Remove place
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <div className="flex flex-col gap-2">
+          <Input
+            aria-label="New place name"
+            value={newPlaceName}
+            onChange={(event) => setNewPlaceName(event.target.value)}
+            placeholder="Place name (e.g. Mom's house)"
+            disabled={status.kind === "loading"}
+          />
+          <Input
+            aria-label="New place address"
+            value={newPlaceAddress}
+            onChange={(event) => setNewPlaceAddress(event.target.value)}
+            placeholder="Address"
+            disabled={status.kind === "loading"}
+          />
+          <Button
+            type="button"
+            onClick={() => void onAddPlace()}
+            disabled={
+              status.kind === "loading" ||
+              !newPlaceName.trim() ||
+              !newPlaceAddress.trim()
+            }
+          >
+            Add place
+          </Button>
+        </div>
 
         {status.kind === "error" ? (
           <p role="alert" className="text-sm text-destructive">

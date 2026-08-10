@@ -39,6 +39,7 @@ describe("FamilyScreen", () => {
         },
       ],
       kids: [],
+      places: [],
     })
     const getInvite = vi.fn().mockResolvedValue({ code: "AB12CD34" })
     const addKid = vi.fn().mockResolvedValue({ id: "k1", displayName: "Sam" })
@@ -122,6 +123,7 @@ describe("FamilyScreen", () => {
         },
       ],
       kids: [],
+      places: [],
     })
     const getMe = vi.fn().mockResolvedValue({
       id: "2",
@@ -153,6 +155,7 @@ describe("FamilyScreen", () => {
       adultDisplayName: "Jordan",
     })
     expect(screen.queryByLabelText("New kid name")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("New place name")).toBeInTheDocument()
   })
 
   it("organizer can promote demote remove and leave", async () => {
@@ -183,6 +186,7 @@ describe("FamilyScreen", () => {
         },
       ],
       kids: [],
+      places: [],
     })
     const removeMember = vi.fn().mockResolvedValue(undefined)
     const leaveCircle = vi.fn().mockResolvedValue(undefined)
@@ -210,6 +214,7 @@ describe("FamilyScreen", () => {
               },
             ],
             kids: [],
+            places: [],
           }),
           getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
           updateMemberRole,
@@ -257,6 +262,7 @@ describe("FamilyScreen", () => {
               },
             ],
             kids: [],
+            places: [],
           }),
           getInvite: vi.fn().mockResolvedValue({ code: "ZZ99YY88" }),
         })}
@@ -265,6 +271,70 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("heading", { name: "McCarthy house" })).toBeInTheDocument()
+  })
+
+  it("caregiver can add and remove a place", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const addPlace = vi.fn().mockResolvedValue({
+      id: "p1",
+      name: "Mom's house",
+      address: "123 Main St",
+    })
+    const deletePlace = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          addPlace,
+          deletePlace,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("No places yet.")).toBeInTheDocument()
+    await user.type(screen.getByLabelText("New place name"), "Mom's house")
+    await user.type(screen.getByLabelText("New place address"), "123 Main St")
+    await user.click(screen.getByRole("button", { name: "Add place" }))
+
+    expect(await screen.findByText("Mom's house")).toBeInTheDocument()
+    expect(screen.getByText("123 Main St")).toBeInTheDocument()
+    expect(addPlace).toHaveBeenCalledWith("tok", "Mom's house", "123 Main St")
+
+    await user.click(screen.getByRole("button", { name: "Remove place" }))
+    await waitFor(() => {
+      expect(screen.queryByText("Mom's house")).not.toBeInTheDocument()
+    })
+    expect(deletePlace).toHaveBeenCalledWith("tok", "p1")
   })
 
   it("loads the circle only once when using the default FamilyClient", async () => {

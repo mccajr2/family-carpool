@@ -116,4 +116,28 @@ public class FamilyController {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         familyService.deleteKid(adult, kidId);
     }
+
+    @PostMapping("/circle/places")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PlaceResponse addPlace(
+            @Valid @RequestBody CreatePlaceRequest request, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.addPlace(adult, request);
+    }
+
+    @PatchMapping("/circle/places/{placeId}")
+    public PlaceResponse updatePlace(
+            @PathVariable("placeId") UUID placeId,
+            @Valid @RequestBody UpdatePlaceRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.updatePlace(adult, placeId, request);
+    }
+
+    @DeleteMapping("/circle/places/{placeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePlace(@PathVariable("placeId") UUID placeId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        familyService.deletePlace(adult, placeId);
+    }
 }
