@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   coerceEndsAfterStart,
+  calendarSourceLabel,
+  defaultCalendarWindow,
   formatEventWhen,
   formatIsoForDisplay,
   validateManualEventTimes,
@@ -42,5 +44,25 @@ describe("formatIsoForDisplay", () => {
     expect(formatEventWhen("2026-08-12T16:30:00Z", "2026-08-12T21:30:00Z")).toMatch(
       /Aug 12, 2026 at .+ → Aug 12, 2026 at .+/,
     )
+  })
+})
+
+describe("defaultCalendarWindow", () => {
+  it("spans local midnight today through plus 30 days", () => {
+    const now = new Date("2026-08-10T15:30:00")
+    const { from, to } = defaultCalendarWindow(now)
+    const fromDate = new Date(from)
+    const toDate = new Date(to)
+    expect(fromDate.getHours()).toBe(0)
+    expect(fromDate.getMinutes()).toBe(0)
+    expect((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)).toBe(30)
+  })
+})
+
+describe("calendarSourceLabel", () => {
+  it("labels feed and manual sources", () => {
+    expect(calendarSourceLabel("MANUAL", null)).toBe("Manual")
+    expect(calendarSourceLabel("FEED", "U12")).toBe("U12")
+    expect(calendarSourceLabel("FEED", "  ")).toBe("Feed")
   })
 })

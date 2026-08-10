@@ -341,7 +341,7 @@ describe("FamilyScreen", () => {
     expect(deletePlace).toHaveBeenCalledWith("tok", "p1")
   })
 
-  it("lets caregivers add and remove manual events", async () => {
+  it("lets caregivers add and remove manual events from the agenda", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -350,16 +350,33 @@ describe("FamilyScreen", () => {
       displayName: "Jordan",
     })
 
-    const listEvents = vi.fn().mockResolvedValue([])
-    const createEvent = vi.fn().mockResolvedValue({
+    const created = {
       id: "e1",
+      source: "MANUAL" as const,
       title: "Dentist",
-      startsAt: "2026-08-15T17:00:00.000Z",
-      endsAt: "2026-08-15T18:00:00.000Z",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
       location: "Clinic",
       kidIds: ["k1"],
+      feedId: null,
+      feedName: null,
+    }
+    let calendar: typeof created[] = []
+    const listCalendar = vi.fn().mockImplementation(async () => [...calendar])
+    const createEvent = vi.fn().mockImplementation(async () => {
+      calendar = [created]
+      return {
+        id: created.id,
+        title: created.title,
+        startsAt: created.startsAt,
+        endsAt: created.endsAt,
+        location: created.location,
+        kidIds: created.kidIds,
+      }
     })
-    const deleteEvent = vi.fn().mockResolvedValue(undefined)
+    const deleteEvent = vi.fn().mockImplementation(async () => {
+      calendar = []
+    })
 
     render(
       <FamilyScreen
@@ -386,7 +403,7 @@ describe("FamilyScreen", () => {
             kids: [{ id: "k1", displayName: "Sam" }],
             places: [],
           }),
-          listEvents,
+          listCalendar,
           createEvent,
           deleteEvent,
         })}
@@ -394,9 +411,15 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    const events = await screen.findByLabelText("Manual events")
-    expect(within(events).getByText("No manual events yet.")).toBeInTheDocument()
-    expect(listEvents).toHaveBeenCalledWith("tok")
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(
+      within(agenda).getByText("Nothing coming up in the next 30 days."),
+    ).toBeInTheDocument()
+    expect(listCalendar).toHaveBeenCalledWith(
+      "tok",
+      expect.any(String),
+      expect.any(String),
+    )
 
     await user.type(screen.getByLabelText("New event title"), "Dentist")
     const startInput = screen.getByLabelText("New event start")
@@ -409,8 +432,9 @@ describe("FamilyScreen", () => {
     await user.click(screen.getByLabelText("Assign Sam to new event"))
     await user.click(screen.getByRole("button", { name: "Add event" }))
 
-    expect(await within(events).findByText("Dentist")).toBeInTheDocument()
-    expect(within(events).getByText("Sam")).toBeInTheDocument()
+    expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
+    expect(within(agenda).getByText("Manual")).toBeInTheDocument()
+    expect(within(agenda).getAllByText("Sam").length).toBeGreaterThanOrEqual(1)
     expect(createEvent).toHaveBeenCalledWith(
       "tok",
       "Dentist",
@@ -420,11 +444,84 @@ describe("FamilyScreen", () => {
       "Clinic",
     )
 
-    await user.click(within(events).getByRole("button", { name: "Remove event" }))
+    await user.click(within(agenda).getByRole("button", { name: "Remove event" }))
     await waitFor(() => {
-      expect(within(events).queryByText("Dentist")).not.toBeInTheDocument()
+      expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("filters agenda by kid and keeps feed rows read-only", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [
+              { id: "k1", displayName: "Sam" },
+              { id: "k2", displayName: "Riley" },
+            ],
+            places: [],
+          }),
+          listCalendar: vi.fn().mockResolvedValue([
+            {
+              id: "e1",
+              source: "MANUAL",
+              title: "Dentist",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              endsAt: null,
+              location: null,
+              kidIds: ["k1"],
+              feedId: null,
+              feedName: null,
+            },
+            {
+              id: "f1",
+              source: "FEED",
+              title: "Practice",
+              startsAt: "2030-08-16T17:00:00.000Z",
+              endsAt: null,
+              location: "Field",
+              kidIds: ["k2"],
+              feedId: "feed1",
+              feedName: "Soccer",
+            },
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(agenda).getByText("Dentist")).toBeInTheDocument()
+    expect(within(agenda).getByText("Practice")).toBeInTheDocument()
+    expect(within(agenda).getByText("Soccer")).toBeInTheDocument()
+    expect(within(agenda).getAllByRole("button", { name: "Edit" })).toHaveLength(1)
+    expect(within(agenda).getAllByRole("button", { name: "Remove event" })).toHaveLength(1)
+
+    await user.click(screen.getByRole("button", { name: "Riley" }))
+    expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
+    expect(within(agenda).getByText("Practice")).toBeInTheDocument()
+    expect(within(agenda).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument()
   })
 
   it("shows not located and retries locate", async () => {

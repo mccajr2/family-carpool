@@ -68,3 +68,22 @@ export function formatEventWhen(startsAt: string, endsAt: string | null | undefi
   return start
 }
 
+/** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
+export function defaultCalendarWindow(now: Date = new Date()): { from: string; to: string } {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 30)
+  return { from: start.toISOString(), to: end.toISOString() }
+}
+
+export function calendarSourceLabel(
+  source: "MANUAL" | "FEED",
+  feedName: string | null | undefined,
+): string {
+  if (source === "FEED") {
+    return feedName?.trim() ? feedName.trim() : "Feed"
+  }
+  return "Manual"
+}
+

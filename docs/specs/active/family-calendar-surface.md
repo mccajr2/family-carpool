@@ -128,7 +128,7 @@ grid remains a follow-up id.
   Caregiver-readable feed events for calendar only.
   ```
 - [x] **Contract:** OpenAPI calendar path/schemas; bump version.
-- [ ] **Web:** types + client; Agenda UI + manual write flows; drop primary
+- [x] **Web:** types + client; Agenda UI + manual write flows; drop primary
   ```
   manage-events block; tests.
   ```
