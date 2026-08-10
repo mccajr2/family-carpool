@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import type { Adult, FamilyCircle, FamilyMember, Kid, Place } from "@/api/types"
+import { isPlaceLocated, type Adult, type FamilyCircle, type FamilyMember, type Kid, type Place } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -361,6 +361,30 @@ export function FamilyScreen({
           ? {
               ...current,
               places: current.places.filter((place) => place.id !== placeId),
+            }
+          : current,
+      )
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onLocatePlace(placeId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.locatePlace(token, placeId)
+      setCircle((current) =>
+        current
+          ? {
+              ...current,
+              places: current.places.map((place) =>
+                place.id === placeId ? updated : place,
+              ),
             }
           : current,
       )
@@ -768,7 +792,21 @@ export function FamilyScreen({
                       <span className="flex-1 text-sm">
                         {place.name}
                         <span className="block text-muted-foreground">{place.address}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {isPlaceLocated(place) ? "Located" : "Not located"}
+                        </span>
                       </span>
+                      {!isPlaceLocated(place) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void onLocatePlace(place.id)}
+                          disabled={status.kind === "loading"}
+                        >
+                          Retry locate
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         size="sm"

@@ -92,7 +92,7 @@ unchanged aside from reflecting returned coords after save.
       rate/cache; wire create/update place; `locatePlace` service + controller;
       fake port for tests.
 - [x] **Contract:** OpenAPI `Place` lat/lng + locate path; bump version.
-- [ ] **Web:** types + `familyClient.locatePlace`; FamilyScreen Located /
+- [x] **Web:** types + `familyClient.locatePlace`; FamilyScreen Located /
       Not located + Retry locate; tests.
 - [ ] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/
       ContentView; tests.

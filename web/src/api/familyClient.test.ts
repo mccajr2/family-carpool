@@ -159,12 +159,18 @@ describe("FamilyClient", () => {
     )
   })
 
-  it("adds updates and deletes places", async () => {
+  it("adds updates deletes and locates places", async () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ id: "p1", name: "Mom's house", address: "123 Main St" }),
+          JSON.stringify({
+            id: "p1",
+            name: "Mom's house",
+            address: "123 Main St",
+            latitude: 40.1,
+            longitude: -74.2,
+          }),
           {
             status: 201,
             headers: { "Content-Type": "application/json" },
@@ -173,7 +179,13 @@ describe("FamilyClient", () => {
       )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ id: "p1", name: "Mom's house", address: "456 Oak Ave" }),
+          JSON.stringify({
+            id: "p1",
+            name: "Mom's house",
+            address: "456 Oak Ave",
+            latitude: 40.2,
+            longitude: -74.3,
+          }),
           {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -181,22 +193,48 @@ describe("FamilyClient", () => {
         ),
       )
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: "p2",
+            name: "School",
+            address: "1 Rd",
+            latitude: null,
+            longitude: null,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
 
     const client = new FamilyClient("http://localhost:8080", fetchFn)
     await expect(client.addPlace("tok", "Mom's house", "123 Main St")).resolves.toMatchObject({
       name: "Mom's house",
       address: "123 Main St",
+      latitude: 40.1,
+      longitude: -74.2,
     })
     await expect(
       client.updatePlace("tok", "p1", "Mom's house", "456 Oak Ave"),
     ).resolves.toMatchObject({
       address: "456 Oak Ave",
+      latitude: 40.2,
     })
     await client.deletePlace("tok", "p1")
+    await expect(client.locatePlace("tok", "p2")).resolves.toMatchObject({
+      latitude: null,
+      longitude: null,
+    })
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/places")
     expect(fetchFn.mock.calls[2]?.[0]).toBe(
       "http://localhost:8080/api/family/circle/places/p1",
     )
+    expect(fetchFn.mock.calls[3]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/places/p2/locate",
+    )
+    expect(fetchFn.mock.calls[3]?.[1]).toMatchObject({ method: "POST" })
   })
 })
