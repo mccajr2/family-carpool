@@ -91,7 +91,7 @@ unchanged aside from reflecting returned coords after save.
       `family_places`; geocode cache table; `GeocoderPort` + Nominatim adapter +
       rate/cache; wire create/update place; `locatePlace` service + controller;
       fake port for tests.
-- [ ] **Contract:** OpenAPI `Place` lat/lng + locate path; bump version.
+- [x] **Contract:** OpenAPI `Place` lat/lng + locate path; bump version.
 - [ ] **Web:** types + `familyClient.locatePlace`; FamilyScreen Located /
       Not located + Retry locate; tests.
 - [ ] **Mobile:** models/client + UiModel/Screen; iOS AuthBridge/ViewModel/

@@ -1,15 +1,16 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.5.0
+  version: 0.6.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
     hold kids, named places, and memberships (ORGANIZER / CAREGIVER). Organizers
     share a short invite code; Caregivers join via that code. Any member may
-    manage named places (label + free-text address; no lat/lng yet). Magic links,
-    passwords, multi-circle membership, invite deep links, email/push invite
-    delivery, and HTTP-only web cookies are out of scope for this revision.
+    manage named places (label + free-text address; optional lat/lng from
+    geocoding with soft-fail and retry locate). Magic links, passwords,
+    multi-circle membership, invite deep links, email/push invite delivery, and
+    HTTP-only web cookies are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -21,7 +22,8 @@ tags:
     description: >
       Family circle, kids, named places, invite code, and memberships (one circle
       per adult in v1). Organizer-only writes for invite regen, roles, remove,
-      kids, and circle rename. Any member may create/update/delete places.
+      kids, and circle rename. Any member may create/update/delete places and
+      retry place geocoding.
 
 paths:
   /api/auth/request-code:
@@ -256,6 +258,8 @@ paths:
                   - id: 01900000-0000-7000-8000-000000000031
                     name: Mom's house
                     address: 123 Main St
+                    latitude: 40.7128
+                    longitude: -74.006
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -730,8 +734,9 @@ paths:
       description: >
         Any circle member (ORGANIZER or CAREGIVER) may add a place. Place names
         are unique per circle after trim, compared case-insensitively. Duplicate
-        names return 409. Address is free-text; lat/lng are out of scope for this
-        revision.
+        names return 409. The trimmed address is geocoded (cache or Nominatim);
+        on success the response includes latitude/longitude. Geocode failure or
+        no hit still creates the place with null coordinates (soft-fail).
       security:
         - bearerAuth: []
       requestBody:
@@ -745,7 +750,7 @@ paths:
               address: 123 Main St
       responses:
         "201":
-          description: Place created
+          description: Place created (coords may be null if geocode soft-failed)
           content:
             application/json:
               schema:
@@ -754,6 +759,8 @@ paths:
                 id: 01900000-0000-7000-8000-000000000031
                 name: Mom's house
                 address: 123 Main St
+                latitude: 40.7128
+                longitude: -74.006
         "400":
           description: Invalid request (e.g. blank name or address)
           content:
@@ -795,7 +802,9 @@ paths:
         Any circle member may update name and/or address. Renaming to a name
         already used by another place in the circle returns 409. Renaming a place
         to its own current name (same after trim + case-insensitive normalize)
-        succeeds.
+        succeeds. Changing the address re-geocodes (soft-fail allowed). Updating
+        only the name when coordinates are already present does not require a new
+        geocode call.
       security:
         - bearerAuth: []
       requestBody:
@@ -809,7 +818,7 @@ paths:
               address: 456 Oak Ave
       responses:
         "200":
-          description: Place updated
+          description: Place updated (coords may be null if geocode soft-failed)
           content:
             application/json:
               schema:
@@ -864,7 +873,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-components:
+  /api/family/circle/places/{placeId}/locate:
+    post:
+      operationId: locatePlace
+      tags: [family]
+      summary: Retry geocoding for a named place
+      description: >
+        Any circle member may re-run geocoding for the place's current address.
+        Success returns the place with latitude/longitude filled. Soft-fail still
+        returns 200 with null coordinates (clients treat null as not located).
+        Unknown place id or place in another circle returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Locate attempt finished (coords may remain null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Place"
+              example:
+                id: 01900000-0000-7000-8000-000000000031
+                name: Mom's house
+                address: 123 Main St
+                latitude: 40.7128
+                longitude: -74.006
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Place not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   securitySchemes:
     bearerAuth:
       type: http
@@ -1093,8 +1145,8 @@ components:
       description: >
         ORGANIZER can invite (view/regenerate code), manage members/roles, rename
         the circle, and manage kids. CAREGIVER can read the circle and leave.
-        Any member may manage named places. Join always creates CAREGIVER;
-        promote/demote adjusts roles with ≥1 Organizer required.
+        Any member may manage named places and retry locate. Join always creates
+        CAREGIVER; promote/demote adjusts roles with ≥1 Organizer required.
 
     Kid:
       type: object
@@ -1155,8 +1207,24 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-          description: Free-text address (no lat/lng in this revision)
+          description: Free-text address used for geocoding
           example: 123 Main St
+        latitude:
+          type: number
+          format: double
+          nullable: true
+          description: >
+            WGS84 latitude when geocoding succeeded; null when not located
+            (soft-fail or not yet resolved).
+          example: 40.7128
+        longitude:
+          type: number
+          format: double
+          nullable: true
+          description: >
+            WGS84 longitude when geocoding succeeded; null when not located
+            (soft-fail or not yet resolved).
+          example: -74.006
 
     CreatePlaceRequest:
       type: object
