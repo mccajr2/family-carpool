@@ -22,13 +22,12 @@ class NominatimGeocoderPort implements GeocoderPort {
     private long lastCallEpochMs;
 
     NominatimGeocoderPort(
-            RestClient.Builder restClientBuilder,
             @Value("${app.geocode.nominatim-base-url:https://nominatim.openstreetmap.org}")
                     String baseUrl,
             @Value("${app.geocode.user-agent:family-carpool/0.1 (dev; contact@example.com)}")
                     String userAgent,
             @Value("${app.geocode.min-interval-ms:1000}") long minIntervalMs) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
         this.userAgent = userAgent;
         this.minIntervalMs = Math.max(0, minIntervalMs);
     }
