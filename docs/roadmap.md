@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (cross-platform-ui-system added)
+Updated: 2026-08-10 (`/spec app-shell-navigation`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -69,7 +69,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | app-shell-navigation | planned | 2026-08-10 · enhancement | Tab/nav shell: split long family scroll into focused screens (Calendar, Family, Places, …) |
+| 1 | app-shell-navigation | active | 2026-08-10 · enhancement | 4-destination shell: Calendar → Carpool (placeholder) → Family → More/Settings (Places, Feeds, Account) |
 | 2 | cross-platform-ui-system | planned | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
 | 3 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
 | 4 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
@@ -114,7 +114,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| — | — | — |
+| app-shell-navigation | `app-shell-navigation` | [active](specs/active/app-shell-navigation.md) |
 
 ## Done
 
@@ -171,3 +171,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/implement family-calendar-surface`: calendar module + Agenda UI (web/Android/iOS); docs updated. |
 | 2026-08-10 | `/pr family-calendar-surface`: unified calendar Agenda shipped; next up `app-shell-navigation`. |
 | 2026-08-10 | Agenda **Load more**: clients append +30d pages beyond the initial window (web/Android/iOS). |
+| 2026-08-10 | `/spec app-shell-navigation`: Calendar → Carpool (placeholder) → Family → More/Settings; web sidebar vs mobile tabs; Caregiver Feeds omitted. | |
