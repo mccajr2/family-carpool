@@ -1093,6 +1093,74 @@ class FamilyUiModelTest {
                 assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
             )
         }
+
+    @Test
+    fun setCalendarLeaveFromUpdatesMatchingAgendaRow() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[{"id":"p1","name":"Mom's house","address":"1 Main","latitude":40.1,"longitude":-74.1},{"id":"p2","name":"Dad's house","address":"2 Main","latitude":40.2,"longitude":-74.2}]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Practice","startsAt":"2030-08-15T17:00:00Z","location":"Rink","kidIds":["k1"],"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2030-08-15T16:30:00Z","leaveByStatus":"OK","leaveByReason":null}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/MANUAL/e1/leave-from" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Practice","startsAt":"2030-08-15T17:00:00Z","location":"Rink","kidIds":["k1"],"leaveFromPlaceId":"p2","leaveFromPlaceName":"Dad's house","leaveByAt":"2030-08-15T16:20:00Z","leaveByStatus":"OK","leaveByReason":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val item = ready.calendarItems.first()
+            assertEquals("p1", item.leaveFromPlaceId)
+            assertEquals(LeaveByStatus.OK, item.leaveByStatus)
+            assertTrue(leaveByAgendaLine(item).endsWith(" · estimate"))
+
+            model.setCalendarLeaveFrom(item, "p2")
+            val updated = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("p2", updated.calendarItems.first().leaveFromPlaceId)
+            assertEquals("Dad's house", updated.calendarItems.first().leaveFromPlaceName)
+            assertNull(updated.error)
+        }
 }
 
 private fun familyUiModel(

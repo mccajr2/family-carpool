@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -1024,6 +1026,14 @@ private fun CalendarDestination(
     } else {
         visibleItems.forEach { item ->
             val isManual = item.source == CalendarItemSource.MANUAL
+            val needsOrigin =
+                item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
+                    item.leaveByReason == "NO_ORIGIN"
+            val needsDestination =
+                item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
+                    (item.leaveByReason == "NO_DESTINATION" ||
+                        item.leaveByReason == "GEOCODE_FAILED")
+            var leaveFromExpanded by remember(item.source, item.id) { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(item.title)
                 Text(
@@ -1044,6 +1054,10 @@ private fun CalendarDestination(
                 if (kidNames.isNotEmpty()) {
                     Text(kidNames, style = MaterialTheme.typography.bodySmall)
                 }
+                Text(
+                    leaveByAgendaLine(item),
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 if (isManual) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
@@ -1065,6 +1079,73 @@ private fun CalendarDestination(
                             enabled = !current.loading,
                         ) {
                             Text("Remove event")
+                        }
+                    }
+                }
+                Text("Leave from", style = MaterialTheme.typography.labelSmall)
+                Box {
+                    OutlinedButton(
+                        onClick = { leaveFromExpanded = true },
+                        enabled = !current.loading && current.circle.places.isNotEmpty(),
+                    ) {
+                        Text(
+                            item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                ?: if (current.circle.places.isEmpty()) {
+                                    "No places yet"
+                                } else {
+                                    "Choose a located place"
+                                },
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = leaveFromExpanded,
+                        onDismissRequest = { leaveFromExpanded = false },
+                    ) {
+                        current.circle.places.forEach { place ->
+                            val located = place.isLocated()
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (located) {
+                                            place.name
+                                        } else {
+                                            "${place.name} (not located)"
+                                        },
+                                    )
+                                },
+                                onClick = {
+                                    if (!located) return@DropdownMenuItem
+                                    leaveFromExpanded = false
+                                    scope.launch {
+                                        model.setCalendarLeaveFrom(item, place.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = located && !current.loading,
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (needsOrigin) {
+                        OutlinedButton(
+                            onClick = {
+                                model.openMorePlaces()
+                                refresh()
+                            },
+                        ) {
+                            Text("Open Places")
+                        }
+                    }
+                    if (needsDestination && isManual) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditEvent(item)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit location")
                         }
                     }
                 }

@@ -124,7 +124,7 @@ selectable; not-located disabled or labeled).
       multipliers, fallback).
 - [x] **Web:** Agenda leave-by line + leave-from control; UNAVAILABLE reason;
       MANUAL path to edit location; copy says estimate.
-- [ ] **Android (sharedUI):** Same Agenda affordances.
+- [x] **Android (sharedUI):** Same Agenda affordances.
 - [ ] **iOS:** Same Agenda affordances.
 - [ ] **Docs:** `docs/architecture.md` — leave-by module, estimate formula,
       soft-fail recovery paths; OSRM PoC → `paid-live-traffic` upgrade note;
