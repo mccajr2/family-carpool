@@ -48,10 +48,9 @@ Added: 2026-08-10 · note carried from cross-platform-ui-system approval
 
 - Depends on `cross-platform-ui-system` shipping first.
 - Prefer one destination (or one cohesive surface) per PR at `/spec` time.
-- **Sequencing:** Spec Calendar and/or Family (and Places/Feeds detail if in
-  scope) **before** Carpool. Do **not** restyle Carpool UI ahead of carpool
-  product slices (`team-carpool-space-invite`, `carpool-request-accept`, etc.) —
-  `/roadmap` **split** / re-rank when carving Carpool adoption so it sits after
-  those features exist.
+- **Leave until later:** New UI arrives with `family-calendar-grid` and the
+  carpool specs; adopt shared tokens **after** those product surfaces exist
+  rather than restyling twice. Rank sits after the carpool cluster for that
+  reason — split/re-rank per destination at `/spec` if needed.
 - Cross-ref: [active cross-platform-ui-system](../active/cross-platform-ui-system.md)
   (moves to archive when that slice ships).
