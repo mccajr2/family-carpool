@@ -126,7 +126,7 @@ independently re-run screenshots + WCAG AA — see roadmap parking
 
 ## Tasks
 
-- [ ] **Tokens:** Author `tokens` JSON (light + dark); semantic icon name list;
+- [x] **Tokens:** Author `tokens` JSON (light + dark); semantic icon name list;
   in-repo generator; checked-in web CSS vars, Compose theme tokens, SwiftUI
   token helpers; drift check/test.
 - [ ] **Docs:** `docs/ui-system.md` — visual direction with **provisional

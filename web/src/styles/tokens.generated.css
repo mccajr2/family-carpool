@@ -1,0 +1,51 @@
+/* Generated from design-tokens/tokens.json — do not edit by hand. Run: node design-tokens/generate.mjs */
+
+:root {
+  --fc-accent: #0D6E6E;
+  --fc-accent-on: #FFFFFF;
+  --fc-danger: #B42318;
+  --fc-danger-on: #FFFFFF;
+  --fc-success: #1B7A4E;
+  --fc-success-on: #FFFFFF;
+  --fc-surface: #F4F7F6;
+  --fc-surface-raised: #FFFFFF;
+  --fc-border: #D5DEDA;
+  --fc-text-primary: #1A2421;
+  --fc-text-secondary: #5A6B66;
+  --fc-space-xs: 4px;
+  --fc-space-sm: 8px;
+  --fc-space-md: 12px;
+  --fc-space-lg: 16px;
+  --fc-space-xl: 24px;
+  --fc-space-2xl: 32px;
+  --fc-radius-sm: 4px;
+  --fc-radius-md: 8px;
+  --fc-radius-lg: 12px;
+  --fc-font-caption-size: 12px;
+  --fc-font-caption-line: 16px;
+  --fc-font-caption-weight: 400;
+  --fc-font-body-size: 15px;
+  --fc-font-body-line: 22px;
+  --fc-font-body-weight: 400;
+  --fc-font-title-size: 17px;
+  --fc-font-title-line: 24px;
+  --fc-font-title-weight: 600;
+  --fc-font-headline-size: 22px;
+  --fc-font-headline-line: 28px;
+  --fc-font-headline-weight: 700;
+  --fc-font-family: system-ui, system-ui, sans-serif;
+}
+
+.dark, [data-theme="dark"] {
+  --fc-accent: #3DB8B0;
+  --fc-accent-on: #0A1A18;
+  --fc-danger: #F97066;
+  --fc-danger-on: #1A0A08;
+  --fc-success: #3DCF8E;
+  --fc-success-on: #0A1A12;
+  --fc-surface: #121A18;
+  --fc-surface-raised: #1C2623;
+  --fc-border: #2E3B37;
+  --fc-text-primary: #E8EFEC;
+  --fc-text-secondary: #9AABA5;
+}
