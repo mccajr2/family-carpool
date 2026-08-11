@@ -122,7 +122,7 @@ selectable; not-located disabled or labeled).
       stub; estimate service (TOD + buffer + OSRM-down fallback); wire into
       calendar read enrichment; config via env (OSRM base URL, buffer,
       multipliers, fallback).
-- [ ] **Web:** Agenda leave-by line + leave-from control; UNAVAILABLE reason;
+- [x] **Web:** Agenda leave-by line + leave-from control; UNAVAILABLE reason;
       MANUAL path to edit location; copy says estimate.
 - [ ] **Android (sharedUI):** Same Agenda affordances.
 - [ ] **iOS:** Same Agenda affordances.

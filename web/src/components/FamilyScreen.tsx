@@ -31,6 +31,10 @@ import {
   mergeCalendarItems,
   validateManualEventTimes,
 } from "@/components/eventTimes"
+import {
+  formatLeaveByEstimateLine,
+  leaveByUnavailableLabel,
+} from "@/components/leaveByDisplay"
 
 type ShellDestination = "calendar" | "carpool" | "family" | "places" | "feeds"
 
@@ -762,6 +766,40 @@ export function FamilyScreen({
     }
   }
 
+  async function onSetCalendarLeaveFrom(item: CalendarItem, placeId: string) {
+    if (item.leaveFromPlaceId === placeId) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.setCalendarLeaveFrom(token, item.source, item.id, {
+        leaveFromPlaceId: placeId,
+      })
+      setCalendarItems((current) =>
+        current.map((row) =>
+          row.source === item.source && row.id === item.id ? updated : row,
+        ),
+      )
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  function openEditEvent(item: CalendarItem) {
+    setEditingEventId(item.id)
+    setEditingEventTitle(item.title)
+    setEditingEventStartsAt(toDatetimeLocalValue(item.startsAt))
+    setEditingEventEndsAt(item.endsAt ? toDatetimeLocalValue(item.endsAt) : "")
+    setEditingEventLocation(item.location ?? "")
+    setEditingEventKidIds([...item.kidIds])
+    setEventComposeOpen(true)
+  }
+
   async function onSignOut() {
     setStatus({ kind: "loading" })
     const token = session.getAccessToken()
@@ -1412,6 +1450,17 @@ export function FamilyScreen({
                 const kidsLabel = eventKidNames(item, circle.kids)
                 const sourceLabel = calendarSourceLabel(item.source, item.feedName)
                 const isManual = item.source === "MANUAL"
+                const leaveByLine =
+                  item.leaveByStatus === "OK" && item.leaveByAt
+                    ? formatLeaveByEstimateLine(item.leaveByAt)
+                    : leaveByUnavailableLabel(item.leaveByReason)
+                const needsOrigin =
+                  item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN"
+                const needsDestination =
+                  item.leaveByStatus === "UNAVAILABLE" &&
+                  (item.leaveByReason === "NO_DESTINATION" ||
+                    item.leaveByReason === "GEOCODE_FAILED")
                 return (
                   <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1433,6 +1482,12 @@ export function FamilyScreen({
                             {kidsLabel}
                           </span>
                         ) : null}
+                        <span
+                          className="block text-xs text-muted-foreground"
+                          data-testid={`leave-by-${item.source}-${item.id}`}
+                        >
+                          {leaveByLine}
+                        </span>
                       </span>
                       {isManual ? (
                         <>
@@ -1440,17 +1495,7 @@ export function FamilyScreen({
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              setEditingEventId(item.id)
-                              setEditingEventTitle(item.title)
-                              setEditingEventStartsAt(toDatetimeLocalValue(item.startsAt))
-                              setEditingEventEndsAt(
-                                item.endsAt ? toDatetimeLocalValue(item.endsAt) : "",
-                              )
-                              setEditingEventLocation(item.location ?? "")
-                              setEditingEventKidIds([...item.kidIds])
-                              setEventComposeOpen(true)
-                            }}
+                            onClick={() => openEditEvent(item)}
                             disabled={status.kind === "loading"}
                           >
                             Edit
@@ -1465,6 +1510,65 @@ export function FamilyScreen({
                             Remove event
                           </Button>
                         </>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
+                        Leave from
+                        <select
+                          aria-label={`Leave from for ${item.title}`}
+                          className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                          value={item.leaveFromPlaceId ?? ""}
+                          onChange={(event) => {
+                            const placeId = event.target.value
+                            if (placeId) {
+                              void onSetCalendarLeaveFrom(item, placeId)
+                            }
+                          }}
+                          disabled={status.kind === "loading" || circle.places.length === 0}
+                        >
+                          {circle.places.length === 0 ? (
+                            <option value="">No places yet</option>
+                          ) : (
+                            <>
+                              {!item.leaveFromPlaceId ? (
+                                <option value="">Choose a located place</option>
+                              ) : null}
+                              {circle.places.map((place) => (
+                                <option
+                                  key={place.id}
+                                  value={place.id}
+                                  disabled={!isPlaceLocated(place)}
+                                >
+                                  {isPlaceLocated(place)
+                                    ? place.name
+                                    : `${place.name} (not located)`}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
+                      </label>
+                      {needsOrigin ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDestination("places")}
+                        >
+                          Open Places
+                        </Button>
+                      ) : null}
+                      {needsDestination && isManual ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditEvent(item)}
+                          disabled={status.kind === "loading"}
+                        >
+                          Edit location
+                        </Button>
                       ) : null}
                     </div>
                   </li>

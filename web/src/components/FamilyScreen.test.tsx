@@ -1206,4 +1206,204 @@ describe("FamilyScreen", () => {
       expect(onSignedOut).toHaveBeenCalled()
     })
   })
+
+  it("shows leave-by estimate and lets the adult change leave-from", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const setCalendarLeaveFrom = vi.fn().mockResolvedValue(
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        location: "Rink",
+        kidIds: ["k1"],
+        leaveFromPlaceId: "p2",
+        leaveFromPlaceName: "Dad's house",
+        leaveByAt: "2030-08-15T16:20:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+      }),
+    )
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [
+              {
+                id: "p1",
+                name: "Mom's house",
+                address: "1 Main",
+                latitude: 40.1,
+                longitude: -74.1,
+              },
+              {
+                id: "p2",
+                name: "Dad's house",
+                address: "2 Main",
+                latitude: 40.2,
+                longitude: -74.2,
+              },
+              {
+                id: "p3",
+                name: "Unlocated",
+                address: "Mystery",
+                latitude: null,
+                longitude: null,
+              },
+            ],
+          }),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Mom's house",
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+            }),
+          ]),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          setCalendarLeaveFrom,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const leaveBy = await within(agenda).findByTestId("leave-by-MANUAL-e1")
+    expect(leaveBy.textContent).toMatch(/^Leave by ~/)
+    expect(leaveBy.textContent).toMatch(/ · estimate$/)
+    expect(leaveBy.textContent?.toLowerCase()).not.toMatch(/\beta\b/)
+    expect(leaveBy.textContent?.toLowerCase()).not.toContain("live traffic")
+
+    const leaveFrom = within(agenda).getByLabelText("Leave from for Practice")
+    expect(leaveFrom).toHaveValue("p1")
+    expect(within(leaveFrom).getByRole("option", { name: "Unlocated (not located)" })).toBeDisabled()
+
+    await user.selectOptions(leaveFrom, "p2")
+    await waitFor(() => {
+      expect(setCalendarLeaveFrom).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
+        leaveFromPlaceId: "p2",
+      })
+    })
+    expect(leaveFrom).toHaveValue("p2")
+  })
+
+  it("shows UNAVAILABLE reasons with Places and Edit location recovery", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e-origin",
+              source: "MANUAL",
+              title: "No origin",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              leaveByStatus: "UNAVAILABLE",
+              leaveByReason: "NO_ORIGIN",
+            }),
+            calendarItem({
+              id: "e-dest",
+              source: "MANUAL",
+              title: "No dest",
+              startsAt: "2030-08-16T17:00:00.000Z",
+              kidIds: ["k1"],
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Home",
+              leaveByStatus: "UNAVAILABLE",
+              leaveByReason: "NO_DESTINATION",
+            }),
+            calendarItem({
+              id: "e-feed",
+              source: "FEED",
+              title: "Feed game",
+              startsAt: "2030-08-17T17:00:00.000Z",
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              leaveByStatus: "UNAVAILABLE",
+              leaveByReason: "GEOCODE_FAILED",
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(agenda).getByTestId("leave-by-MANUAL-e-origin")).toHaveTextContent(
+      "No leave-from place yet",
+    )
+    expect(within(agenda).getByTestId("leave-by-MANUAL-e-dest")).toHaveTextContent(
+      "Add a location to estimate leave-by",
+    )
+    expect(within(agenda).getByTestId("leave-by-FEED-e-feed")).toHaveTextContent(
+      "Couldn't locate the destination",
+    )
+
+    await user.click(within(agenda).getByRole("button", { name: "Open Places" }))
+    expect(await screen.findByRole("heading", { name: "Places" })).toBeInTheDocument()
+
+    await goTo(user, "Calendar")
+    const agendaAgain = await screen.findByLabelText("Agenda")
+    await user.click(within(agendaAgain).getByRole("button", { name: "Edit location" }))
+    expect(await screen.findByRole("dialog", { name: "Edit event" })).toBeInTheDocument()
+    expect(screen.getByLabelText("Event location")).toBeInTheDocument()
+
+    // FEED rows do not get Edit location
+    expect(within(agendaAgain).queryAllByRole("button", { name: "Edit location" })).toHaveLength(1)
+  })
 })
