@@ -126,7 +126,7 @@ selectable; not-located disabled or labeled).
       MANUAL path to edit location; copy says estimate.
 - [x] **Android (sharedUI):** Same Agenda affordances.
 - [x] **iOS:** Same Agenda affordances.
-- [ ] **Docs:** `docs/architecture.md` — leave-by module, estimate formula,
+- [x] **Docs:** `docs/architecture.md` — leave-by module, estimate formula,
       soft-fail recovery paths; OSRM PoC → `paid-live-traffic` upgrade note;
       pointer to `event-arrival-lead-time`.
 - [ ] **Tests:** Estimate unit tests (OSRM ok / OSRM-down fallback / missing
