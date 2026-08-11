@@ -95,6 +95,11 @@ More attached to the PR for human review — not automated visual CI in this
 slice. Contrast for text-on-surface pairings used on More is checked against
 WCAG AA alongside that review.
 
+**Carry-forward:** A pass on More does **not** certify other destinations.
+When Calendar / Family / Carpool / etc. adopt tokens later, that work must
+independently re-run screenshots + WCAG AA — see roadmap parking
+[`ui-system-destination-adoption`](../planned/ui-system-destination-adoption.md).
+
 ## Acceptance criteria
 
 - [ ] A documented token set (JSON source of truth) exists with light **and**

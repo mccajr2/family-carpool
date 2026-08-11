@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (`/spec cross-platform-ui-system`)
+Updated: 2026-08-10 (`ui-system-destination-adoption` carry-forward note)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -62,6 +62,7 @@ share the ride.
 | Auth | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups |
 | Leave-by | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic) |
 | Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
+| UI token adoption | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md) |
 
 ## Upcoming (ranked)
 
@@ -91,6 +92,7 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 | Id | Added | Summary |
 |----|-------|---------|
+| ui-system-destination-adoption | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on Calendar/Family/Carpool/etc.; **re-run** light+dark screenshots + WCAG AA per destination (More pass does not carry forward) — [stub](specs/planned/ui-system-destination-adoption.md) |
 | multi-circle-membership | 2026-08-08 · enhancement | Adult in multiple family circles (blended households; grandparents with more than one grandkid family) |
 | read-only-calendar-follows | 2026-08-08 · enhancement | Follow another team/kid calendar read-only (e.g. last year’s teammates on a new team) |
 | venue-proximity-alerts | 2026-08-08 · enhancement | Notify when followed/circle kids are at or near the same venue around the same time |
@@ -179,3 +181,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/spec agenda-event-compose`: remove inline Agenda create/edit; chrome Add + compose sheet/page (web/Android/iOS). |
 | 2026-08-10 | `/pr agenda-event-compose`: Calendar Add → dedicated compose shipped; next up `cross-platform-ui-system`. |
 | 2026-08-10 | `/spec cross-platform-ui-system`: shared tokens + parity primitives; More as reference screen (light+dark); other screens deferred. |
+| 2026-08-10 | Carry-forward: `ui-system-destination-adoption` — destination token adoption must re-run screenshots + WCAG AA (More pass does not certify elsewhere). |
