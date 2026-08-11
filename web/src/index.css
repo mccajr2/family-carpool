@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/tokens.generated.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -24,22 +25,22 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.21 0.02 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.02 255);
-  --primary: oklch(0.37 0.08 255);
-  --primary-foreground: oklch(0.98 0.01 255);
-  --secondary: oklch(0.95 0.01 255);
-  --secondary-foreground: oklch(0.3 0.04 255);
-  --muted: oklch(0.95 0.01 255);
-  --muted-foreground: oklch(0.5 0.02 255);
-  --accent: oklch(0.95 0.01 255);
-  --accent-foreground: oklch(0.3 0.04 255);
-  --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.9 0.01 255);
-  --input: oklch(0.9 0.01 255);
-  --ring: oklch(0.55 0.06 255);
+  --background: var(--fc-surface);
+  --foreground: var(--fc-text-primary);
+  --card: var(--fc-surface-raised);
+  --card-foreground: var(--fc-text-primary);
+  --primary: var(--fc-accent);
+  --primary-foreground: var(--fc-accent-on);
+  --secondary: color-mix(in srgb, var(--fc-accent) 10%, var(--fc-surface));
+  --secondary-foreground: var(--fc-text-primary);
+  --muted: color-mix(in srgb, var(--fc-border) 55%, var(--fc-surface));
+  --muted-foreground: var(--fc-text-secondary);
+  --accent: color-mix(in srgb, var(--fc-accent) 12%, var(--fc-surface));
+  --accent-foreground: var(--fc-text-primary);
+  --destructive: var(--fc-danger);
+  --border: var(--fc-border);
+  --input: var(--fc-border);
+  --ring: var(--fc-accent);
 }
 
 @layer base {
@@ -49,5 +50,13 @@
 
   body {
     @apply m-0 min-h-svh bg-background font-sans text-foreground antialiased;
+    font-family: var(--fc-font-family);
   }
 }
+
+/* More / Settings reference surface (cross-platform-ui-system) */
+.fc-more {
+  color: var(--fc-text-primary);
+  font-family: var(--fc-font-family);
+}
+

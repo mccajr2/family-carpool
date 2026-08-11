@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { LogOut, MapPin, Plus, Rss, UserRound } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
@@ -7,6 +7,7 @@ import { FamilyClient } from "@/api/familyClient"
 import { isPlaceLocated, type ActivityFeed, type Adult, type CalendarItem, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
 import {
   AccountSummaryRow,
+  SettingsGroupLabel,
   SettingsRow,
   ShellNavButton,
 } from "@/components/shellNav"
@@ -957,9 +958,9 @@ export function FamilyScreen({
     <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
       <aside
         aria-label="App navigation"
-        className="flex w-full shrink-0 flex-col gap-4 rounded-lg border border-border bg-card p-3 md:w-56"
+        className="flex w-full shrink-0 flex-col gap-[var(--fc-space-lg)] rounded-[var(--fc-radius-lg)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] p-[var(--fc-space-md)] md:w-56"
       >
-        <nav aria-label="Primary" className="flex flex-col gap-1">
+        <nav aria-label="Primary" className="flex flex-col gap-[var(--fc-space-xs)]">
           <ShellNavButton
             label="Calendar"
             active={destination === "calendar"}
@@ -977,37 +978,38 @@ export function FamilyScreen({
           />
         </nav>
 
-        <section aria-label="Settings" className="flex flex-col gap-3 border-t border-border pt-3">
-          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Settings
-          </p>
-          <div aria-label="General" className="flex flex-col gap-1">
-            <p className="px-2 text-xs text-muted-foreground">General</p>
+        <section
+          aria-label="Settings"
+          className="fc-more flex flex-col gap-[var(--fc-space-md)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]"
+        >
+          <SettingsGroupLabel>Settings</SettingsGroupLabel>
+          <div aria-label="General" className="flex flex-col gap-[var(--fc-space-xs)]">
+            <SettingsGroupLabel>General</SettingsGroupLabel>
             <SettingsRow
               label="Places"
-              icon={MapPin}
+              icon="icon.places"
               active={destination === "places"}
               onClick={() => setDestination("places")}
             />
             {isOrganizer ? (
               <SettingsRow
                 label="Feeds"
-                icon={Rss}
+                icon="icon.feeds"
                 active={destination === "feeds"}
                 onClick={() => setDestination("feeds")}
               />
             ) : null}
           </div>
-          <div aria-label="Account" className="flex flex-col gap-1">
-            <p className="px-2 text-xs text-muted-foreground">Account</p>
+          <div aria-label="Account" className="flex flex-col gap-[var(--fc-space-xs)]">
+            <SettingsGroupLabel>Account</SettingsGroupLabel>
             <AccountSummaryRow
               email={adult?.email ?? ""}
               role={circle.role}
-              icon={UserRound}
+              icon="icon.family"
             />
             <SettingsRow
               label={status.kind === "loading" ? "Working…" : "Sign out"}
-              icon={LogOut}
+              icon="icon.signout"
               onClick={() => void onSignOut()}
               chevron={false}
               danger

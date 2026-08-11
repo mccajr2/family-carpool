@@ -49,3 +49,19 @@
   --fc-text-primary: #E8EFEC;
   --fc-text-secondary: #9AABA5;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fc-accent: #3DB8B0;
+    --fc-accent-on: #0A1A18;
+    --fc-danger: #F97066;
+    --fc-danger-on: #1A0A08;
+    --fc-success: #3DCF8E;
+    --fc-success-on: #0A1A12;
+    --fc-surface: #121A18;
+    --fc-surface-raised: #1C2623;
+    --fc-border: #2E3B37;
+    --fc-text-primary: #E8EFEC;
+    --fc-text-secondary: #9AABA5;
+  }
+}

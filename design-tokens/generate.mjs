@@ -32,37 +32,54 @@ function iconConstName(name) {
   return leaf.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
 }
 
+function cssColorBlock(vars, indent = "  ") {
+  const lines = []
+  for (const [k, v] of Object.entries(vars)) {
+    lines.push(
+      `${indent}--fc-${k.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${v};`,
+    )
+  }
+  return lines
+}
+
 function cssFromTokens(t) {
   const light = t.color.light
   const dark = t.color.dark
+  const shared = []
+  for (const [k, v] of Object.entries(t.spacing)) {
+    shared.push(`  --fc-space-${k}: ${v}px;`)
+  }
+  for (const [k, v] of Object.entries(t.radius)) {
+    shared.push(`  --fc-radius-${k}: ${v}px;`)
+  }
+  for (const [k, scale] of Object.entries(t.typography.scale)) {
+    shared.push(`  --fc-font-${k}-size: ${scale.size}px;`)
+    shared.push(`  --fc-font-${k}-line: ${scale.lineHeight}px;`)
+    shared.push(`  --fc-font-${k}-weight: ${scale.weight};`)
+  }
+  shared.push(
+    `  --fc-font-family: ${t.typography.fontFamily}, system-ui, sans-serif;`,
+  )
+
   const lines = [
     `/* ${GENERATED_BANNER} */`,
     "",
     ":root {",
+    ...cssColorBlock(light),
+    ...shared,
+    "}",
+    "",
+    '.dark, [data-theme="dark"] {',
+    ...cssColorBlock(dark),
+    "}",
+    "",
+    "@media (prefers-color-scheme: dark) {",
+    '  :root:not([data-theme="light"]) {',
+    ...cssColorBlock(dark, "    "),
+    "  }",
+    "}",
+    "",
   ]
-  for (const [k, v] of Object.entries(light)) {
-    lines.push(`  --fc-${k.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${v};`)
-  }
-  for (const [k, v] of Object.entries(t.spacing)) {
-    lines.push(`  --fc-space-${k}: ${v}px;`)
-  }
-  for (const [k, v] of Object.entries(t.radius)) {
-    lines.push(`  --fc-radius-${k}: ${v}px;`)
-  }
-  for (const [k, scale] of Object.entries(t.typography.scale)) {
-    lines.push(`  --fc-font-${k}-size: ${scale.size}px;`)
-    lines.push(`  --fc-font-${k}-line: ${scale.lineHeight}px;`)
-    lines.push(`  --fc-font-${k}-weight: ${scale.weight};`)
-  }
-  lines.push(`  --fc-font-family: ${t.typography.fontFamily}, system-ui, sans-serif;`)
-  lines.push("}")
-  lines.push("")
-  lines.push('.dark, [data-theme="dark"] {')
-  for (const [k, v] of Object.entries(dark)) {
-    lines.push(`  --fc-${k.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${v};`)
-  }
-  lines.push("}")
-  lines.push("")
   return lines.join("\n")
 }
 

@@ -132,7 +132,7 @@ independently re-run screenshots + WCAG AA — see roadmap parking
 - [x] **Docs:** `docs/ui-system.md` — visual direction with **provisional
   palette** warning, token usage rules, component parity list, icon-mapping
   rule, More as reference screen.
-- [ ] **Web:** Wire tokens into CSS/Tailwind; restyle More / Settings grouped
+- [x] **Web:** Wire tokens into CSS/Tailwind; restyle More / Settings grouped
   list + rows using parity primitives; map semantic icons → existing web icon
   font; support dark mode for that surface.
 - [ ] **Android (sharedUI):** Theme from tokens; restyle More destination with
