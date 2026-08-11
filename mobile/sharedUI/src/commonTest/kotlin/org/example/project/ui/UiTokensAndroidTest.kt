@@ -20,6 +20,11 @@ class UiTokensAndroidTest {
         assertEquals("ExitToApp", UiIcons.materialIconName(UiTokens.Icon.signout))
         assertEquals("Place", UiIcons.imageVector(UiTokens.Icon.places).name)
         assertEquals("RssFeed", UiIcons.imageVector(UiTokens.Icon.feeds).name)
+        // Shell tabs map through the same semantic → Material vector table.
+        assertEquals("DateRange", UiIcons.imageVector(UiTokens.Icon.calendar).name)
+        assertEquals("DirectionsCar", UiIcons.imageVector(UiTokens.Icon.carpool).name)
+        assertEquals("People", UiIcons.imageVector(UiTokens.Icon.family).name)
+        assertEquals("MoreHoriz", UiIcons.imageVector(UiTokens.Icon.more).name)
     }
 
     @Test

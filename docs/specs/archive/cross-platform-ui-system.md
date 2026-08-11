@@ -1,6 +1,6 @@
 # Spec: cross-platform-ui-system
 
-Status: approved  
+Status: done  
 Created: 2026-08-10  
 Updated: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -102,26 +102,26 @@ independently re-run screenshots + WCAG AA — see roadmap parking
 
 ## Acceptance criteria
 
-- [ ] A documented token set (JSON source of truth) exists with light **and**
+- [x] A documented token set (JSON source of truth) exists with light **and**
   dark values for color roles, spacing, radius, and type scale; web, Android,
   and iOS consume generated/adapted outputs from that file (no duplicated
   hardcoded hex/spacing for the More restyle path).
-- [ ] `docs/ui-system.md` lists the component parity table above (at least:
+- [x] `docs/ui-system.md` lists the component parity table above (at least:
   list row, grouped section, card, button primary/secondary/danger, badge/chip,
   empty state), states that shell nav chrome may diverge, documents semantic
   icon names + per-platform mapping, and **flags the palette as provisional**
   (roles stable; hex values may revise before Calendar/Family adopt).
-- [ ] More destination on web, Android, and iOS uses the token/component system
+- [x] More destination on web, Android, and iOS uses the token/component system
   and is visually consistent across platforms (spacing, type hierarchy, color
   roles) — verified by side-by-side screenshots in the PR (light + dark).
-- [ ] Dark mode on the More reference screen works on all three platforms without
+- [x] Dark mode on the More reference screen works on all three platforms without
   additional per-screen color overrides.
-- [ ] Color role tokens (text-on-surface pairings used on the More reference
+- [x] Color role tokens (text-on-surface pairings used on the More reference
   screen) meet WCAG AA contrast — **4.5:1** body text, **3:1** large text/icons
   — in both light and dark, verified alongside the screenshot review.
-- [ ] No OpenAPI or backend changes; no third-party component library added; no
+- [x] No OpenAPI or backend changes; no third-party component library added; no
   shared cross-platform icon asset pack.
-- [ ] Automated tests cover token sync (generator/drift) and any new UI helpers;
+- [x] Automated tests cover token sync (generator/drift) and any new UI helpers;
   More still has working navigation smoke coverage where it already exists.
 
 ## Tasks
@@ -137,9 +137,9 @@ independently re-run screenshots + WCAG AA — see roadmap parking
   font; support dark mode for that surface.
 - [x] **Android (sharedUI):** Theme from tokens; restyle More destination with
   native Compose primitives; map semantic icons → Material Symbols / Icons.
-- [ ] **iOS:** Token helpers; restyle More destination with native SwiftUI;
+- [x] **iOS:** Token helpers; restyle More destination with native SwiftUI;
   map semantic icons → SF Symbols; honor system light/dark.
-- [ ] **Tests / review:** Generator/drift test; update client tests as needed;
+- [x] **Tests / review:** Generator/drift test; update client tests as needed;
   attach light+dark screenshots for More on all three platforms; record WCAG AA
   contrast check for More text-on-surface pairings (light + dark).
 

@@ -286,6 +286,7 @@ private fun ReadyContent(
             NavigationBar {
                 ShellTabItem(
                     label = AppShell.TAB_CALENDAR,
+                    icon = UiIcons.imageVector(UiTokens.Icon.calendar),
                     selected = current.shellTab == FamilyUiModel.ShellTab.CALENDAR,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CALENDAR)
@@ -294,6 +295,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_CARPOOL,
+                    icon = UiIcons.imageVector(UiTokens.Icon.carpool),
                     selected = current.shellTab == FamilyUiModel.ShellTab.CARPOOL,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
@@ -302,6 +304,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_FAMILY,
+                    icon = UiIcons.imageVector(UiTokens.Icon.family),
                     selected = current.shellTab == FamilyUiModel.ShellTab.FAMILY,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
@@ -310,6 +313,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_MORE,
+                    icon = UiIcons.imageVector(UiTokens.Icon.more),
                     selected = current.shellTab == FamilyUiModel.ShellTab.MORE,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.MORE)
@@ -392,14 +396,27 @@ private fun ReadyContent(
                     when (moreScreen) {
                         FamilyUiModel.MoreScreen.LIST -> {
                             FcTheme {
-                                Text(AppShell.TAB_MORE, style = MaterialTheme.typography.headlineSmall)
-                                MoreListDestination(
-                                    current = current,
-                                    model = model,
-                                    refresh = refresh,
-                                    onSignOut = onSignOut,
-                                    isOrganizer = isOrganizer,
-                                )
+                                Column(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.background)
+                                            .padding(vertical = FcSpaceSm),
+                                    verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+                                ) {
+                                    Text(
+                                        AppShell.TAB_MORE,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                    )
+                                    MoreListDestination(
+                                        current = current,
+                                        model = model,
+                                        refresh = refresh,
+                                        onSignOut = onSignOut,
+                                        isOrganizer = isOrganizer,
+                                    )
+                                }
                             }
                         }
                         FamilyUiModel.MoreScreen.PLACES -> {
@@ -454,13 +471,19 @@ private fun ReadyContent(
 @Composable
 private fun RowScope.ShellTabItem(
     label: String,
+    icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
-        icon = { Text(label.take(1)) },
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+            )
+        },
         label = { Text(label) },
     )
 }
