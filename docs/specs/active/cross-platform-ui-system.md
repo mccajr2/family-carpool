@@ -129,7 +129,7 @@ independently re-run screenshots + WCAG AA — see roadmap parking
 - [x] **Tokens:** Author `tokens` JSON (light + dark); semantic icon name list;
   in-repo generator; checked-in web CSS vars, Compose theme tokens, SwiftUI
   token helpers; drift check/test.
-- [ ] **Docs:** `docs/ui-system.md` — visual direction with **provisional
+- [x] **Docs:** `docs/ui-system.md` — visual direction with **provisional
   palette** warning, token usage rules, component parity list, icon-mapping
   rule, More as reference screen.
 - [ ] **Web:** Wire tokens into CSS/Tailwind; restyle More / Settings grouped
