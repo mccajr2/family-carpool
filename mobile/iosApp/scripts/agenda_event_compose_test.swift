@@ -39,6 +39,17 @@ struct AgendaEventComposeTestMain {
         compose.onSelectTab(from: .calendar, to: .carpool)
         expect(!compose.isOpen, "leaving calendar for carpool closes compose")
 
+        // Inline Agenda create labels must stay removed from ContentView.
+        let contentViewURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/ContentView.swift")
+        let content = try! String(contentsOf: contentViewURL, encoding: .utf8)
+        expect(!content.contains("New event title"), "Agenda no longer hosts New event title field")
+        expect(!content.contains("Button(\"Add event\")"), "Agenda no longer hosts Add event submit")
+        expect(content.contains("accessibilityLabel(\"Add event\")"), "Calendar chrome still has Add event")
+        expect(content.contains("eventComposeDestination"), "compose sheet content is present")
+
         print("AgendaEventCompose tests passed")
     }
 }

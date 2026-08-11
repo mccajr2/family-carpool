@@ -431,7 +431,12 @@ describe("FamilyScreen", () => {
     expect(
       within(agenda).getByText("No events in the loaded window."),
     ).toBeInTheDocument()
+    expect(screen.queryByLabelText("New event title")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Event title")).not.toBeInTheDocument()
+    expect(
+      within(agenda).queryByRole("button", { name: "Add event" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Add event" })).toBeInTheDocument()
     expect(listCalendar).toHaveBeenCalledWith(
       "tok",
       expect.any(String),
@@ -469,6 +474,70 @@ describe("FamilyScreen", () => {
       expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("cancels edit compose without updating the event", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const updateEvent = vi.fn()
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar: vi.fn().mockResolvedValue([
+            {
+              id: "e1",
+              source: "MANUAL",
+              title: "Dentist",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              endsAt: "2030-08-15T18:00:00.000Z",
+              location: "Clinic",
+              kidIds: ["k1"],
+              feedId: null,
+              feedName: null,
+            },
+          ]),
+          updateEvent,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
+    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+
+    const compose = await screen.findByRole("dialog", { name: "Edit event" })
+    const title = within(compose).getByLabelText("Event title")
+    await user.clear(title)
+    await user.type(title, "Should discard")
+    await user.click(within(compose).getByRole("button", { name: "Cancel" }))
+
+    expect(screen.queryByRole("dialog", { name: "Edit event" })).not.toBeInTheDocument()
+    expect(within(agenda).getByText("Dentist")).toBeInTheDocument()
+    expect(within(agenda).queryByText("Should discard")).not.toBeInTheDocument()
+    expect(updateEvent).not.toHaveBeenCalled()
   })
 
   it("opens the same compose dialog to edit a manual event", async () => {

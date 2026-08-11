@@ -1,8 +1,9 @@
 # Spec: agenda-event-compose
 
-Status: approved  
+Status: done  
 Created: 2026-08-10  
 Updated: 2026-08-10  
+Approved: 2026-08-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-event-compose`  
 Added: 2026-08-10 · enhancement
@@ -49,18 +50,18 @@ Agenda scroll so the list is the primary content.
 
 ## Acceptance criteria
 
-- [ ] Calendar shows a persistent, visible **Add** control in destination chrome
+- [x] Calendar shows a persistent, visible **Add** control in destination chrome
   (not below the agenda list) on web, Android, and iOS.
-- [ ] Add opens a dedicated compose surface (not an inline form under the list)
+- [x] Add opens a dedicated compose surface (not an inline form under the list)
   with title, start, optional end/location, kid multi-select (1+ required),
   save/cancel — same validation as current manual create.
-- [ ] Successful create dismisses compose and shows the new event on Agenda
+- [x] Successful create dismisses compose and shows the new event on Agenda
   (within the loaded window rules already shipped).
-- [ ] Editing a **manual** event opens the same compose surface prefilled;
+- [x] Editing a **manual** event opens the same compose surface prefilled;
   save updates; cancel discards; feed rows remain non-editable.
-- [ ] Agenda no longer hosts the long inline create (or inline edit) form under
+- [x] Agenda no longer hosts the long inline create (or inline edit) form under
   the list; Load more / kid filter / list behavior unchanged.
-- [ ] No OpenAPI or backend changes; client tests cover Add entry → compose →
+- [x] No OpenAPI or backend changes; client tests cover Add entry → compose →
   create, and edit via compose (plus Caregiver can still create).
 
 ## Tasks
@@ -71,7 +72,7 @@ Agenda scroll so the list is the primary content.
   create + edit; remove inline forms; update `FamilyUiModel` / UI tests.
 - [x] **iOS:** Calendar Add control; sheet/push compose for create + edit;
   remove inline forms; keep AuthViewModel write paths.
-- [ ] **Tests:** Client coverage for Add → create and Edit → update via compose;
+- [x] **Tests:** Client coverage for Add → create and Edit → update via compose;
   assert inline create form is gone from Agenda.
 
 ## Open questions
@@ -88,4 +89,4 @@ Agenda scroll so the list is the primary content.
 
 ## Approval
 
-Approved 2026-08-10. Ready for `/implement`.
+Approved 2026-08-10. Shipped via `/pr`.
