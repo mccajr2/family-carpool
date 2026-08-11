@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (`/pr agenda-event-compose`)
+Updated: 2026-08-10 (`ui-system-destination-adoption` → Upcoming rank 10)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -62,6 +62,7 @@ share the ride.
 | Auth | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups |
 | Leave-by | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic) |
 | Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
+| UI token adoption | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md) |
 
 ## Upcoming (ranked)
 
@@ -69,7 +70,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | cross-platform-ui-system | planned | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
+| 1 | cross-platform-ui-system | active | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
 | 2 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
 | 3 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
 | 4 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
@@ -78,9 +79,10 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | 7 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
 | 8 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
 | 9 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 10 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 11 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 12 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 10 | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface |
+| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -113,7 +115,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| — | — | — |
+| cross-platform-ui-system | `cross-platform-ui-system` | [active](specs/active/cross-platform-ui-system.md) |
 
 ## Done
 
@@ -178,3 +180,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | Added `agenda-event-compose` (rank 1): Calendar Add → dedicated create/edit compose; bumped UI system / grid. |
 | 2026-08-10 | `/spec agenda-event-compose`: remove inline Agenda create/edit; chrome Add + compose sheet/page (web/Android/iOS). |
 | 2026-08-10 | `/pr agenda-event-compose`: Calendar Add → dedicated compose shipped; next up `cross-platform-ui-system`. |
+| 2026-08-10 | `/spec cross-platform-ui-system`: shared tokens + parity primitives; More as reference screen (light+dark); other screens deferred. |
+| 2026-08-10 | Carry-forward: `ui-system-destination-adoption` — destination token adoption must re-run screenshots + WCAG AA (More pass does not certify elsewhere). |
+| 2026-08-10 | Promoted `ui-system-destination-adoption` → Upcoming (after carpool product slices; not parking). |
