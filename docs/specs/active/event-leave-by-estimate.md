@@ -118,7 +118,7 @@ selectable; not-located disabled or labeled).
 - [x] **Backend (`family`):** Public place lookup (id → coords/name) for members;
       keep Nominatim geocode reusable for destination strings (cache key =
       normalized location) without stuffing OSRM into `family`.
-- [ ] **Backend (`leaveby` module):** Persist per-adult leave-from; OSRM port +
+- [x] **Backend (`leaveby` module):** Persist per-adult leave-from; OSRM port +
       stub; estimate service (TOD + buffer + OSRM-down fallback); wire into
       calendar read enrichment; config via env (OSRM base URL, buffer,
       multipliers, fallback).

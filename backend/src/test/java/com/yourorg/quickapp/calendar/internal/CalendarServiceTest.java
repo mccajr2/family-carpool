@@ -2,6 +2,9 @@ package com.yourorg.quickapp.calendar.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -15,9 +18,15 @@ import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
+import com.yourorg.quickapp.leaveby.LeaveByApi;
+import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
+import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.leaveby.LeaveByStatus;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,12 +46,22 @@ class CalendarServiceTest {
     @Mock
     private ManualEventCalendarApi manualEventCalendarApi;
 
+    @Mock
+    private LeaveByApi leaveByApi;
+
     @InjectMocks
     private CalendarService calendarService;
 
     private final AdultResponse adult =
             new AdultResponse(UUID.randomUUID(), "care@example.com", "Jordan");
     private final UUID circleId = UUID.randomUUID();
+
+    @BeforeEach
+    void stubLeaveByUnavailable() {
+        lenient()
+                .when(leaveByApi.enrich(any(), any(), any(), any(), any()))
+                .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
+    }
 
     @Test
     void mergesFeedAndManualOrderedByStartsAtThenSourceThenId() {
@@ -84,10 +103,18 @@ class CalendarServiceTest {
         assertThat(items.get(0).id()).isEqualTo(manualEarlierId);
         assertThat(items.get(0).source()).isEqualTo(CalendarItemSource.MANUAL);
         assertThat(items.get(0).feedId()).isNull();
+        assertThat(items.get(0).leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
         assertThat(items.get(1).source()).isEqualTo(CalendarItemSource.FEED);
         assertThat(items.get(1).feedName()).isEqualTo("U12");
         assertThat(items.get(1).kidIds()).containsExactly(kidId);
         verify(familyMembershipApi).requireMemberCircleId(adult.id());
+        verify(leaveByApi)
+                .enrich(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(manualEarlierId),
+                        any(),
+                        eq("Clinic"));
     }
 
     @Test
@@ -121,5 +148,33 @@ class CalendarServiceTest {
         assertThatThrownBy(() -> calendarService.list(adult, from, to))
                 .isInstanceOf(FamilyAccessException.class);
         verifyNoInteractions(feedCalendarApi, manualEventCalendarApi);
+    }
+
+    @Test
+    void setLeaveFromDelegatesToLeaveByApiAndReturnsEnrichedItem() {
+        UUID itemId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "Practice", startsAt, null, "Rink", List.of(kidId))));
+        when(leaveByApi.enrich(
+                        adult.id(), LeaveByItemSource.MANUAL, itemId, startsAt, "Rink"))
+                .thenReturn(
+                        LeaveByEnrichmentDto.ok(
+                                placeId, "Mom's house", Instant.parse("2026-08-15T16:30:00Z")));
+
+        CalendarItemResponse response =
+                calendarService.setLeaveFrom(adult, CalendarItemSource.MANUAL, itemId, placeId);
+
+        verify(leaveByApi)
+                .setLeaveFrom(adult.id(), LeaveByItemSource.MANUAL, itemId, placeId);
+        assertThat(response.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
+        assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));
     }
 }

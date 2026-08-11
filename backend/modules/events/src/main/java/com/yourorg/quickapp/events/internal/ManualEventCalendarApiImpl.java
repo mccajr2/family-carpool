@@ -4,6 +4,7 @@ import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +25,23 @@ class ManualEventCalendarApiImpl implements ManualEventCalendarApi {
                 .findByCircleIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAscIdAsc(
                         circleId, from, to)
                 .stream()
-                .map(
-                        event ->
-                                new ManualCalendarEventDto(
-                                        event.id(),
-                                        event.title(),
-                                        event.startsAt(),
-                                        event.endsAt(),
-                                        event.location(),
-                                        List.copyOf(event.kidIds())))
+                .map(ManualEventCalendarApiImpl::toDto)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ManualCalendarEventDto> findInCircle(UUID circleId, UUID itemId) {
+        return events.findByIdAndCircleId(itemId, circleId).map(ManualEventCalendarApiImpl::toDto);
+    }
+
+    private static ManualCalendarEventDto toDto(ManualEventEntity event) {
+        return new ManualCalendarEventDto(
+                event.id(),
+                event.title(),
+                event.startsAt(),
+                event.endsAt(),
+                event.location(),
+                List.copyOf(event.kidIds()));
     }
 }
