@@ -113,9 +113,9 @@ selectable; not-located disabled or labeled).
 
 ## Tasks
 
-- [ ] **Contract:** Extend `CalendarItem`; add set-leave-from path; document
+- [x] **Contract:** Extend `CalendarItem`; add set-leave-from path; document
       status/reason enums and soft-fail behavior in `contracts/openapi.yaml`.
-- [ ] **Backend (`family`):** Public place lookup (id → coords/name) for members;
+- [x] **Backend (`family`):** Public place lookup (id → coords/name) for members;
       keep Nominatim geocode reusable for destination strings (cache key =
       normalized location) without stuffing OSRM into `family`.
 - [ ] **Backend (`leaveby` module):** Persist per-adult leave-from; OSRM port +

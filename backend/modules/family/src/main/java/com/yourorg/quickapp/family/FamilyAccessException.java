@@ -2,7 +2,7 @@ package com.yourorg.quickapp.family;
 
 import org.springframework.http.HttpStatus;
 
-/** Thrown by {@link FamilyMembershipApi} for authz / validation failures. */
+/** Thrown by family public APIs for authz / validation failures. */
 public class FamilyAccessException extends RuntimeException {
 
     private final HttpStatus status;

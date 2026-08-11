@@ -271,7 +271,7 @@ class FamilyClientTest {
                             assertEquals("2026-09-01T00:00:00Z", request.url.parameters["to"])
                             respond(
                                 content =
-                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null},{"id":"fe1","source":"FEED","title":"Practice","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Field 3","kidIds":["k1"],"feedId":"f1","feedName":"U12"}]""",
+                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null},{"id":"fe1","source":"FEED","title":"Practice","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Field 3","kidIds":["k1"],"feedId":"f1","feedName":"U12","leaveFromPlaceId":null,"leaveFromPlaceName":null,"leaveByAt":null,"leaveByStatus":"UNAVAILABLE","leaveByReason":"NO_ORIGIN"}]""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -286,6 +286,39 @@ class FamilyClientTest {
             assertEquals(CalendarItemSource.MANUAL, items[0].source)
             assertEquals(CalendarItemSource.FEED, items[1].source)
             assertEquals("U12", items[1].feedName)
+            assertEquals(LeaveByStatus.OK, items[0].leaveByStatus)
+            assertEquals(LeaveByStatus.UNAVAILABLE, items[1].leaveByStatus)
+        }
+
+    @Test
+    fun setCalendarLeaveFrom() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/MANUAL/e1/leave-from" &&
+                            request.method == HttpMethod.Put -> {
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val item =
+                client.setCalendarLeaveFrom(
+                    "tok",
+                    CalendarItemSource.MANUAL,
+                    "e1",
+                    SetCalendarLeaveFromRequest(leaveFromPlaceId = "p1"),
+                )
+            assertEquals("p1", item.leaveFromPlaceId)
+            assertEquals(LeaveByStatus.OK, item.leaveByStatus)
         }
 
     @Test

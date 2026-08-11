@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
+import type { CalendarItem } from "@/api/types"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
@@ -13,6 +14,25 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
 
 function mockAuthClient(partial: Partial<AuthClient>): AuthClient {
   return partial as AuthClient
+}
+
+/** Test fixture with leave-by fields required by the OpenAPI CalendarItem schema. */
+function calendarItem(
+  partial: Pick<CalendarItem, "id" | "source" | "title" | "startsAt" | "kidIds"> &
+    Partial<CalendarItem>,
+): CalendarItem {
+  return {
+    endsAt: null,
+    location: null,
+    feedId: null,
+    feedName: null,
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveByAt: null,
+    leaveByStatus: "UNAVAILABLE",
+    leaveByReason: "NO_ORIGIN",
+    ...partial,
+  }
 }
 
 async function goTo(
@@ -366,18 +386,16 @@ describe("FamilyScreen", () => {
       displayName: "Jordan",
     })
 
-    const created = {
+    const created = calendarItem({
       id: "e1",
-      source: "MANUAL" as const,
+      source: "MANUAL",
       title: "Dentist",
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: "2030-08-15T18:00:00.000Z",
       location: "Clinic",
       kidIds: ["k1"],
-      feedId: null,
-      feedName: null,
-    }
-    let calendar: typeof created[] = []
+    })
+    let calendar: CalendarItem[] = []
     const listCalendar = vi.fn().mockImplementation(async () => [...calendar])
     const createEvent = vi.fn().mockImplementation(async () => {
       calendar = [created]
@@ -506,7 +524,7 @@ describe("FamilyScreen", () => {
             places: [],
           }),
           listCalendar: vi.fn().mockResolvedValue([
-            {
+            calendarItem({
               id: "e1",
               source: "MANUAL",
               title: "Dentist",
@@ -514,9 +532,7 @@ describe("FamilyScreen", () => {
               endsAt: "2030-08-15T18:00:00.000Z",
               location: "Clinic",
               kidIds: ["k1"],
-              feedId: null,
-              feedName: null,
-            },
+            }),
           ]),
           updateEvent,
         })}
@@ -549,17 +565,15 @@ describe("FamilyScreen", () => {
       displayName: "Jordan",
     })
 
-    const created = {
+    const created = calendarItem({
       id: "e1",
-      source: "MANUAL" as const,
+      source: "MANUAL",
       title: "Dentist",
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: "2030-08-15T18:00:00.000Z",
       location: "Clinic",
       kidIds: ["k1"],
-      feedId: null,
-      feedName: null,
-    }
+    })
     let calendar = [created]
     const listCalendar = vi.fn().mockImplementation(async () => [...calendar])
     const updateEvent = vi.fn().mockImplementation(async () => {
@@ -645,30 +659,22 @@ describe("FamilyScreen", () => {
     const listCalendar = vi
       .fn()
       .mockResolvedValueOnce([
-        {
+        calendarItem({
           id: "e1",
           source: "MANUAL",
           title: "Near",
           startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
-          location: null,
           kidIds: ["k1"],
-          feedId: null,
-          feedName: null,
-        },
+        }),
       ])
       .mockResolvedValueOnce([
-        {
+        calendarItem({
           id: "e2",
           source: "MANUAL",
           title: "Later",
           startsAt: "2030-09-20T17:00:00.000Z",
-          endsAt: null,
-          location: null,
           kidIds: ["k1"],
-          feedId: null,
-          feedName: null,
-        },
+        }),
       ])
 
     render(
@@ -738,28 +744,23 @@ describe("FamilyScreen", () => {
             places: [],
           }),
           listCalendar: vi.fn().mockResolvedValue([
-            {
+            calendarItem({
               id: "e1",
               source: "MANUAL",
               title: "Dentist",
               startsAt: "2030-08-15T17:00:00.000Z",
-              endsAt: null,
-              location: null,
               kidIds: ["k1"],
-              feedId: null,
-              feedName: null,
-            },
-            {
+            }),
+            calendarItem({
               id: "f1",
               source: "FEED",
               title: "Practice",
               startsAt: "2030-08-16T17:00:00.000Z",
-              endsAt: null,
               location: "Field",
               kidIds: ["k2"],
               feedId: "feed1",
               feedName: "Soccer",
-            },
+            }),
           ]),
         })}
         onSignedOut={vi.fn()}

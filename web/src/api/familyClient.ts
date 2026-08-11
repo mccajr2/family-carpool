@@ -9,7 +9,9 @@ import type {
   Kid,
   ManualEvent,
   CalendarItem,
+  CalendarItemSource,
   Place,
+  SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -373,6 +375,32 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "List calendar failed"))
     }
     return (await response.json()) as CalendarItem[]
+  }
+
+  async setCalendarLeaveFrom(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    body: SetCalendarLeaveFromRequest,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/leave-from`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set leave-from failed"))
+    }
+    return (await response.json()) as CalendarItem
   }
 
   async listEvents(accessToken: string): Promise<ManualEvent[]> {
