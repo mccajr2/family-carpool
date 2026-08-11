@@ -46,11 +46,12 @@ Added: 2026-08-10 · note carried from cross-platform-ui-system approval
 
 ## Notes
 
-- Depends on `cross-platform-ui-system` shipping first.
+- Depends on shipped [`cross-platform-ui-system`](../archive/cross-platform-ui-system.md).
 - Prefer one destination (or one cohesive surface) per PR at `/spec` time.
 - **Leave until later:** New UI arrives with `family-calendar-grid` and the
   carpool specs; adopt shared tokens **after** those product surfaces exist
-  rather than restyling twice. Rank sits after the carpool cluster for that
-  reason — split/re-rank per destination at `/spec` if needed.
-- Cross-ref: [active cross-platform-ui-system](../active/cross-platform-ui-system.md)
-  (moves to archive when that slice ships).
+  rather than restyling twice. Rank sits after the carpool cluster (+ grid)
+  for that reason — split/re-rank per destination at `/spec` if needed.
+- Brand hex churn (`ui-palette-refresh`) should follow the first adoption
+  slices so palette work paints real destinations, not More-only.
+- Cross-ref: [`ui-palette-refresh`](ui-palette-refresh.md).

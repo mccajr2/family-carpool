@@ -28,6 +28,9 @@ token plumbing exists — without rebuilding components.
 
 - Depends on shipped [`cross-platform-ui-system`](../archive/cross-platform-ui-system.md)
   (`design-tokens/tokens.json` + generator).
-- Must re-run More light/dark screenshots + WCAG AA after hex changes (same gate
-  as the original More reference pass).
+- **Sequence after** [`ui-system-destination-adoption`](ui-system-destination-adoption.md)
+  (or the first destination-adoption slice): painting brand hex only on More
+  is low PoC value; refresh once Calendar/Family/Carpool also consume tokens.
+- Must re-run light/dark screenshots + WCAG AA for every surface then on tokens
+  (More plus any adopted destinations).
 - Palette remains expected to churn until locked in this `/spec`.
