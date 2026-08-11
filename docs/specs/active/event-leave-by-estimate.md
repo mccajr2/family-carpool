@@ -125,7 +125,7 @@ selectable; not-located disabled or labeled).
 - [x] **Web:** Agenda leave-by line + leave-from control; UNAVAILABLE reason;
       MANUAL path to edit location; copy says estimate.
 - [x] **Android (sharedUI):** Same Agenda affordances.
-- [ ] **iOS:** Same Agenda affordances.
+- [x] **iOS:** Same Agenda affordances.
 - [ ] **Docs:** `docs/architecture.md` — leave-by module, estimate formula,
       soft-fail recovery paths; OSRM PoC → `paid-live-traffic` upgrade note;
       pointer to `event-arrival-lead-time`.

@@ -467,7 +467,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.visibleCalendarItems) { item in
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(item.title)
                         Text(item.whenLabel)
                             .font(.footnote)
@@ -486,11 +486,56 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        Text(item.leaveByAgendaLine)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         if item.isManual {
                             HStack {
                                 Button("Edit") { model.beginEditEvent(item) }
                                     .disabled(model.isLoading)
                                 Button("Remove event") { model.removeEvent(item.id) }
+                                    .disabled(model.isLoading)
+                            }
+                        }
+                        Text("Leave from")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Menu {
+                            ForEach(model.places) { place in
+                                Button {
+                                    if place.isLocated {
+                                        model.setCalendarLeaveFrom(item: item, placeId: place.id)
+                                    }
+                                } label: {
+                                    Text(
+                                        place.isLocated
+                                            ? place.name
+                                            : "\(place.name) (not located)"
+                                    )
+                                }
+                                .disabled(!place.isLocated)
+                            }
+                        } label: {
+                            Text(
+                                item.leaveFromPlaceName
+                                    ?? (model.places.isEmpty
+                                        ? "No places yet"
+                                        : "Choose a located place")
+                            )
+                        }
+                        .disabled(model.isLoading || model.places.isEmpty)
+                        HStack {
+                            if item.leaveByStatus == "UNAVAILABLE",
+                               item.leaveByReason == "NO_ORIGIN"
+                            {
+                                Button("Open Places") { model.openMorePlaces() }
+                            }
+                            if item.isManual,
+                               item.leaveByStatus == "UNAVAILABLE",
+                               item.leaveByReason == "NO_DESTINATION"
+                                || item.leaveByReason == "GEOCODE_FAILED"
+                            {
+                                Button("Edit location") { model.beginEditEvent(item) }
                                     .disabled(model.isLoading)
                             }
                         }
