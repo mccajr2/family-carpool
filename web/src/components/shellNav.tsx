@@ -1,6 +1,9 @@
 import type { LucideIcon } from "lucide-react"
-import { ChevronRight } from "lucide-react"
 
+import {
+  resolveSemanticIcon,
+  type SemanticIconName,
+} from "@/components/uiIcons"
 import { cn } from "@/lib/utils"
 
 export function ShellNavButton({
@@ -18,10 +21,10 @@ export function ShellNavButton({
       aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
+        "w-full rounded-[var(--fc-radius-md)] px-[var(--fc-space-md)] py-[var(--fc-space-sm)] text-left font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-body-size)] font-[number:var(--fc-font-title-weight)] leading-[var(--fc-font-body-line)] transition-colors",
         active
-          ? "bg-accent text-accent-foreground"
-          : "text-foreground hover:bg-accent/60",
+          ? "bg-[var(--fc-accent)] text-[var(--fc-accent-on)]"
+          : "text-[var(--fc-text-primary)] hover:bg-[color-mix(in_srgb,var(--fc-accent)_12%,transparent)]",
       )}
     >
       {label}
@@ -31,42 +34,56 @@ export function ShellNavButton({
 
 export function SettingsRow({
   label,
-  icon: Icon,
+  icon,
   onClick,
   chevron = true,
   danger = false,
   active = false,
 }: {
   label: string
-  icon: LucideIcon
+  icon: SemanticIconName
   onClick?: () => void
   chevron?: boolean
   danger?: boolean
   active?: boolean
 }) {
+  const Icon: LucideIcon = resolveSemanticIcon(icon)
+  const Chevron = resolveSemanticIcon("icon.chevron")
   const className = cn(
-    "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
+    "flex w-full items-center gap-[var(--fc-space-md)] rounded-[var(--fc-radius-md)] px-[var(--fc-space-sm)] py-[var(--fc-space-sm)] text-left font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-body-size)] leading-[var(--fc-font-body-line)] transition-colors",
     danger
-      ? "text-destructive hover:bg-destructive/10"
+      ? "text-[var(--fc-danger)] hover:bg-[color-mix(in_srgb,var(--fc-danger)_12%,transparent)]"
       : active
-        ? "bg-accent text-accent-foreground"
-        : "hover:bg-accent/60",
+        ? "bg-[var(--fc-accent)] text-[var(--fc-accent-on)]"
+        : "text-[var(--fc-text-primary)] hover:bg-[color-mix(in_srgb,var(--fc-accent)_10%,transparent)]",
   )
   const content = (
     <>
       <span
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-lg",
+          "flex size-8 shrink-0 items-center justify-center rounded-[var(--fc-radius-md)]",
           danger
-            ? "bg-destructive/15 text-destructive"
-            : "bg-primary/10 text-primary",
+            ? "bg-[color-mix(in_srgb,var(--fc-danger)_15%,transparent)] text-[var(--fc-danger)]"
+            : active
+              ? "bg-[color-mix(in_srgb,var(--fc-accent-on)_18%,transparent)] text-[var(--fc-accent-on)]"
+              : "bg-[color-mix(in_srgb,var(--fc-accent)_12%,transparent)] text-[var(--fc-accent)]",
         )}
       >
         <Icon className="size-4" aria-hidden />
       </span>
-      <span className="min-w-0 flex-1">{label}</span>
+      <span className="min-w-0 flex-1 font-[number:var(--fc-font-body-weight)]">
+        {label}
+      </span>
       {chevron ? (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Chevron
+          className={cn(
+            "size-4 shrink-0",
+            active
+              ? "text-[var(--fc-accent-on)]"
+              : "text-[var(--fc-text-secondary)]",
+          )}
+          aria-hidden
+        />
       ) : null}
     </>
   )
@@ -88,21 +105,34 @@ export function SettingsRow({
 export function AccountSummaryRow({
   email,
   role,
-  icon: Icon,
+  icon,
 }: {
   email: string
   role: string
-  icon: LucideIcon
+  icon: SemanticIconName
 }) {
+  const Icon = resolveSemanticIcon(icon)
   return (
-    <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+    <div className="flex items-center gap-[var(--fc-space-md)] rounded-[var(--fc-radius-md)] px-[var(--fc-space-sm)] py-[var(--fc-space-sm)] font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-body-size)] leading-[var(--fc-font-body-line)] text-[var(--fc-text-primary)]">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-[var(--fc-radius-md)] bg-[color-mix(in_srgb,var(--fc-accent)_12%,transparent)] text-[var(--fc-accent)]">
         <Icon className="size-4" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate">{email}</span>
-        <span className="block text-xs text-muted-foreground">{role}</span>
+        <span className="block truncate font-[number:var(--fc-font-body-weight)]">
+          {email}
+        </span>
+        <span className="block text-[length:var(--fc-font-caption-size)] leading-[var(--fc-font-caption-line)] text-[var(--fc-text-secondary)]">
+          {role}
+        </span>
       </span>
     </div>
+  )
+}
+
+export function SettingsGroupLabel({ children }: { children: string }) {
+  return (
+    <p className="px-[var(--fc-space-sm)] font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-caption-size)] font-[number:var(--fc-font-title-weight)] leading-[var(--fc-font-caption-line)] tracking-wide text-[var(--fc-text-secondary)] uppercase">
+      {children}
+    </p>
   )
 }

@@ -17,10 +17,10 @@ enum AppShellTab: String, Hashable, CaseIterable {
 
     var systemImage: String {
         switch self {
-        case .calendar: return "calendar"
-        case .carpool: return "car"
-        case .family: return "person.3"
-        case .more: return "ellipsis.circle"
+        case .calendar: return UiIcons.systemName(UiTokens.Icon.calendar)
+        case .carpool: return UiIcons.systemName(UiTokens.Icon.carpool)
+        case .family: return UiIcons.systemName(UiTokens.Icon.family)
+        case .more: return UiIcons.systemName(UiTokens.Icon.more)
         }
     }
 }

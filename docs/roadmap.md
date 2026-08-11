@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (`ui-system-destination-adoption` → Upcoming rank 10)
+Updated: 2026-08-10 (`cross-platform-ui-system` done; `ui-palette-refresh` → Next up)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -70,7 +70,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | cross-platform-ui-system | active | 2026-08-10 · enhancement | Custom shared look + aligned components/patterns across web, Android, iOS |
+| 1 | ui-palette-refresh | planned | 2026-08-10 · enhancement | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify More screenshots + WCAG AA |
 | 2 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
 | 3 | event-leave-by-estimate | planned | 2026-08-07 · re-rank split | Per-event origin override; OSRM/fallback + time-of-day + buffer; “estimate” leave-by UI |
 | 4 | conflict-detection | planned | 2026-08-07 · re-rank split | Surface overlapping kid needs and adult double-books (amber; no auto-resolve) |
@@ -115,12 +115,13 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| cross-platform-ui-system | `cross-platform-ui-system` | [active](specs/active/cross-platform-ui-system.md) |
+| — | — | none |
 
 ## Done
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| cross-platform-ui-system | 2026-08-10 | [archive](specs/archive/cross-platform-ui-system.md) |
 | agenda-event-compose | 2026-08-10 | [archive](specs/archive/agenda-event-compose.md) |
 | app-shell-navigation | 2026-08-10 | [archive](specs/archive/app-shell-navigation.md) |
 | family-calendar-surface | 2026-08-10 | [archive](specs/archive/family-calendar-surface.md) |
@@ -183,3 +184,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/spec cross-platform-ui-system`: shared tokens + parity primitives; More as reference screen (light+dark); other screens deferred. |
 | 2026-08-10 | Carry-forward: `ui-system-destination-adoption` — destination token adoption must re-run screenshots + WCAG AA (More pass does not certify elsewhere). |
 | 2026-08-10 | Promoted `ui-system-destination-adoption` → Upcoming (after carpool product slices; not parking). |
+| 2026-08-10 | `/pr cross-platform-ui-system`: shared tokens + More reference shipped; next up `ui-palette-refresh`. |
+| 2026-08-10 | Added `ui-palette-refresh` (rank 1): more distinctive brand hex values on existing token roles. |

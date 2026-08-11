@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = AuthViewModel()
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -247,30 +248,34 @@ struct ContentView: View {
                 }
             )) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: UiTokens.Space.lg) {
                         moreListDestination
                     }
-                    .padding()
+                    .padding(UiTokens.Space.lg)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .background(FcTheme.surface(colorScheme))
                 .navigationTitle("More")
                 .navigationDestination(for: MoreDestination.self) { destination in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: UiTokens.Space.lg) {
                             switch destination {
                             case .places:
                                 Text("Places")
                                     .font(.title2.bold())
+                                    .foregroundStyle(FcTheme.textPrimary(colorScheme))
                                 placesDestination
                             case .feeds:
                                 Text("Feeds")
                                     .font(.title2.bold())
+                                    .foregroundStyle(FcTheme.textPrimary(colorScheme))
                                 feedsDestination
                             }
                         }
-                        .padding()
+                        .padding(UiTokens.Space.lg)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .background(FcTheme.surface(colorScheme))
                     .navigationTitle(destination.title)
                     .navigationBarTitleDisplayMode(.inline)
                 }
@@ -673,26 +678,37 @@ struct ContentView: View {
     @ViewBuilder
     private var moreListDestination: some View {
         Text("General")
-            .font(.headline)
-        moreRow(title: "Places", systemImage: "mappin.and.ellipse", showChevron: true) {
+            .font(.system(size: UiTokens.Typography.caption.size, weight: .semibold))
+            .foregroundStyle(FcTheme.textSecondary(colorScheme))
+        moreRow(
+            title: "Places",
+            icon: UiTokens.Icon.places,
+            showChevron: true
+        ) {
             model.openMorePlaces()
         }
         if AppShellNavigationState.showsFeedsRow(isOrganizer: model.isOrganizer) {
-            moreRow(title: "Feeds", systemImage: "dot.radiowaves.up.forward", showChevron: true) {
+            moreRow(
+                title: "Feeds",
+                icon: UiTokens.Icon.feeds,
+                showChevron: true
+            ) {
                 model.openMoreFeeds()
             }
         }
         Text("Account")
-            .font(.headline)
+            .font(.system(size: UiTokens.Typography.caption.size, weight: .semibold))
+            .foregroundStyle(FcTheme.textSecondary(colorScheme))
+            .padding(.top, UiTokens.Space.sm)
         moreRow(
             title: accountSummaryLabel,
-            systemImage: "person.crop.circle",
+            icon: UiTokens.Icon.family,
             showChevron: false,
             action: nil
         )
         moreRow(
             title: model.isLoading ? "Working…" : "Sign out",
-            systemImage: "rectangle.portrait.and.arrow.right",
+            icon: UiTokens.Icon.signout,
             showChevron: false,
             danger: true
         ) {
@@ -709,30 +725,34 @@ struct ContentView: View {
     @ViewBuilder
     private func moreRow(
         title: String,
-        systemImage: String,
+        icon: String,
         showChevron: Bool,
         danger: Bool = false,
         action: (() -> Void)?
     ) -> some View {
-        let contentColor: Color = danger ? .red : .primary
+        let contentColor: Color =
+            danger ? FcTheme.danger(colorScheme) : FcTheme.textPrimary(colorScheme)
+        let chipFill: Color =
+            (danger ? FcTheme.danger(colorScheme) : FcTheme.accent(colorScheme)).opacity(0.15)
         Button {
             action?()
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
+            HStack(spacing: UiTokens.Space.md) {
+                Image(systemName: UiIcons.systemName(icon))
                     .frame(width: 28, height: 28)
                     .foregroundStyle(contentColor)
                     .background(
-                        (danger ? Color.red : Color.accentColor).opacity(0.15),
-                        in: RoundedRectangle(cornerRadius: 8)
+                        chipFill,
+                        in: RoundedRectangle(cornerRadius: UiTokens.Radius.md)
                     )
                 Text(title)
+                    .font(.system(size: UiTokens.Typography.body.size))
                     .foregroundStyle(contentColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if showChevron {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: UiIcons.systemName(UiTokens.Icon.chevron))
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FcTheme.textSecondary(colorScheme))
                 }
             }
             .contentShape(Rectangle())

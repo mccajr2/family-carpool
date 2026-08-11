@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>More reference — light / dark (web tokens)</title>
+    <style>
+      /* Inlined from tokens.generated.css so each panel can force light or dark. */
+      [data-theme="light"] {
+        --fc-accent: #0d6e6e;
+        --fc-accent-on: #ffffff;
+        --fc-danger: #b42318;
+        --fc-danger-on: #ffffff;
+        --fc-surface: #f4f7f6;
+        --fc-surface-raised: #ffffff;
+        --fc-border: #d5deda;
+        --fc-text-primary: #1a2421;
+        --fc-text-secondary: #5a6b66;
+        --fc-space-sm: 8px;
+        --fc-space-md: 12px;
+        --fc-space-lg: 16px;
+        --fc-radius-md: 8px;
+        --fc-radius-lg: 12px;
+        --fc-font-caption-size: 12px;
+        --fc-font-caption-line: 16px;
+        --fc-font-body-size: 15px;
+        --fc-font-body-line: 22px;
+        --fc-font-title-size: 17px;
+        --fc-font-title-line: 24px;
+        --fc-font-title-weight: 600;
+        --fc-font-family: system-ui, sans-serif;
+      }
+      [data-theme="dark"] {
+        --fc-accent: #3db8b0;
+        --fc-accent-on: #0a1a18;
+        --fc-danger: #f97066;
+        --fc-danger-on: #1a0a08;
+        --fc-surface: #121a18;
+        --fc-surface-raised: #1c2623;
+        --fc-border: #2e3b37;
+        --fc-text-primary: #e8efec;
+        --fc-text-secondary: #9aaba5;
+        --fc-space-sm: 8px;
+        --fc-space-md: 12px;
+        --fc-space-lg: 16px;
+        --fc-radius-md: 8px;
+        --fc-radius-lg: 12px;
+        --fc-font-caption-size: 12px;
+        --fc-font-caption-line: 16px;
+        --fc-font-body-size: 15px;
+        --fc-font-body-line: 22px;
+        --fc-font-title-size: 17px;
+        --fc-font-title-line: 24px;
+        --fc-font-title-weight: 600;
+        --fc-font-family: system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #cfd8d4;
+        padding: 24px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      .panel {
+        background: var(--fc-surface);
+        color: var(--fc-text-primary);
+        border-radius: var(--fc-radius-lg);
+        border: 1px solid var(--fc-border);
+        padding: var(--fc-space-lg);
+        min-height: 420px;
+      }
+      .panel h1 {
+        margin: 0 0 var(--fc-space-lg);
+        font-size: var(--fc-font-title-size);
+        line-height: var(--fc-font-title-line);
+        font-weight: var(--fc-font-title-weight);
+      }
+      .group {
+        margin: 0 0 var(--fc-space-sm);
+        padding: 0 var(--fc-space-sm);
+        font-size: var(--fc-font-caption-size);
+        line-height: var(--fc-font-caption-line);
+        font-weight: var(--fc-font-title-weight);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--fc-text-secondary);
+      }
+      .group.account {
+        margin-top: var(--fc-space-lg);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: var(--fc-space-md);
+        padding: var(--fc-space-sm);
+        border-radius: var(--fc-radius-md);
+        font-size: var(--fc-font-body-size);
+        line-height: var(--fc-font-body-line);
+      }
+      .chip {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--fc-radius-md);
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--fc-accent) 12%, transparent);
+        color: var(--fc-accent);
+      }
+      .chip svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .row.danger {
+        color: var(--fc-danger);
+      }
+      .row.danger .chip {
+        background: color-mix(in srgb, var(--fc-danger) 15%, transparent);
+        color: var(--fc-danger);
+      }
+      .label {
+        flex: 1;
+        min-width: 0;
+      }
+      .chev {
+        color: var(--fc-text-secondary);
+        width: 16px;
+        height: 16px;
+      }
+      .caption {
+        display: block;
+        font-size: var(--fc-font-caption-size);
+        line-height: var(--fc-font-caption-line);
+        color: var(--fc-text-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
+      <symbol id="i-map" viewBox="0 0 24 24">
+        <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+        <circle cx="12" cy="10" r="3" />
+      </symbol>
+      <symbol id="i-radio" viewBox="0 0 24 24">
+        <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+        <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+        <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol id="i-out" viewBox="0 0 24 24">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" x2="9" y1="12" y2="12" />
+      </symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+    </svg>
+    <div class="grid">
+      <section class="panel" data-theme="light" id="more-light">
+        <h1>More</h1>
+        <p class="group">General</p>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-map" /></svg></span>
+          <span class="label">Places</span>
+          <svg class="chev"><use href="#i-chev" /></svg>
+        </div>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-radio" /></svg></span>
+          <span class="label">Feeds</span>
+          <svg class="chev"><use href="#i-chev" /></svg>
+        </div>
+        <p class="group account">Account</p>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-user" /></svg></span>
+          <span class="label"
+            >parent@example.com<span class="caption">Organizer</span></span
+          >
+        </div>
+        <div class="row danger">
+          <span class="chip"><svg><use href="#i-out" /></svg></span>
+          <span class="label">Sign out</span>
+        </div>
+      </section>
+      <section class="panel dark" data-theme="dark" id="more-dark">
+        <h1>More</h1>
+        <p class="group">General</p>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-map" /></svg></span>
+          <span class="label">Places</span>
+          <svg class="chev"><use href="#i-chev" /></svg>
+        </div>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-radio" /></svg></span>
+          <span class="label">Feeds</span>
+          <svg class="chev"><use href="#i-chev" /></svg>
+        </div>
+        <p class="group account">Account</p>
+        <div class="row">
+          <span class="chip"><svg><use href="#i-user" /></svg></span>
+          <span class="label"
+            >parent@example.com<span class="caption">Organizer</span></span
+          >
+        </div>
+        <div class="row danger">
+          <span class="chip"><svg><use href="#i-out" /></svg></span>
+          <span class="label">Sign out</span>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

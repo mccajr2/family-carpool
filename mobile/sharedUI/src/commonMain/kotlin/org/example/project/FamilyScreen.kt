@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,9 +33,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.example.project.ui.FcRadiusMd
+import org.example.project.ui.FcSpaceMd
+import org.example.project.ui.FcSpaceSm
+import org.example.project.ui.FcSpaceXs
+import org.example.project.ui.FcTheme
+import org.example.project.ui.UiIcons
+import org.example.project.ui.UiTokens
 
 @Composable
 fun FamilyScreen(
@@ -277,6 +286,7 @@ private fun ReadyContent(
             NavigationBar {
                 ShellTabItem(
                     label = AppShell.TAB_CALENDAR,
+                    icon = UiIcons.imageVector(UiTokens.Icon.calendar),
                     selected = current.shellTab == FamilyUiModel.ShellTab.CALENDAR,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CALENDAR)
@@ -285,6 +295,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_CARPOOL,
+                    icon = UiIcons.imageVector(UiTokens.Icon.carpool),
                     selected = current.shellTab == FamilyUiModel.ShellTab.CARPOOL,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
@@ -293,6 +304,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_FAMILY,
+                    icon = UiIcons.imageVector(UiTokens.Icon.family),
                     selected = current.shellTab == FamilyUiModel.ShellTab.FAMILY,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
@@ -301,6 +313,7 @@ private fun ReadyContent(
                 )
                 ShellTabItem(
                     label = AppShell.TAB_MORE,
+                    icon = UiIcons.imageVector(UiTokens.Icon.more),
                     selected = current.shellTab == FamilyUiModel.ShellTab.MORE,
                     onClick = {
                         model.selectShellTab(FamilyUiModel.ShellTab.MORE)
@@ -382,14 +395,29 @@ private fun ReadyContent(
                 FamilyUiModel.ShellTab.MORE -> {
                     when (moreScreen) {
                         FamilyUiModel.MoreScreen.LIST -> {
-                            Text(AppShell.TAB_MORE, style = MaterialTheme.typography.headlineSmall)
-                            MoreListDestination(
-                                current = current,
-                                model = model,
-                                refresh = refresh,
-                                onSignOut = onSignOut,
-                                isOrganizer = isOrganizer,
-                            )
+                            FcTheme {
+                                Column(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.background)
+                                            .padding(vertical = FcSpaceSm),
+                                    verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+                                ) {
+                                    Text(
+                                        AppShell.TAB_MORE,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                    )
+                                    MoreListDestination(
+                                        current = current,
+                                        model = model,
+                                        refresh = refresh,
+                                        onSignOut = onSignOut,
+                                        isOrganizer = isOrganizer,
+                                    )
+                                }
+                            }
                         }
                         FamilyUiModel.MoreScreen.PLACES -> {
                             OutlinedButton(
@@ -443,13 +471,19 @@ private fun ReadyContent(
 @Composable
 private fun RowScope.ShellTabItem(
     label: String,
+    icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
-        icon = { Text(label.take(1)) },
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+            )
+        },
         label = { Text(label) },
     )
 }
@@ -462,10 +496,14 @@ private fun MoreListDestination(
     onSignOut: () -> Unit,
     isOrganizer: Boolean,
 ) {
-    Text(AppShell.MORE_GROUP_GENERAL, style = MaterialTheme.typography.titleSmall)
+    Text(
+        AppShell.MORE_GROUP_GENERAL,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     MoreSettingsRow(
         label = AppShell.ROW_PLACES,
-        glyph = "P",
+        icon = UiIcons.imageVector(UiTokens.Icon.places),
         showChevron = true,
         onClick = {
             model.openMorePlaces()
@@ -475,7 +513,7 @@ private fun MoreListDestination(
     if (AppShell.showsFeedsRow(isOrganizer)) {
         MoreSettingsRow(
             label = AppShell.ROW_FEEDS,
-            glyph = "F",
+            icon = UiIcons.imageVector(UiTokens.Icon.feeds),
             showChevron = true,
             onClick = {
                 model.openMoreFeeds()
@@ -483,16 +521,21 @@ private fun MoreListDestination(
             },
         )
     }
-    Text(AppShell.MORE_GROUP_ACCOUNT, style = MaterialTheme.typography.titleSmall)
+    Text(
+        AppShell.MORE_GROUP_ACCOUNT,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = FcSpaceSm),
+    )
     MoreSettingsRow(
         label = "${current.email} · ${current.circle.role.name}",
-        glyph = "A",
+        icon = UiIcons.imageVector(UiTokens.Icon.family),
         showChevron = false,
         onClick = null,
     )
     MoreSettingsRow(
         label = if (current.loading) "Working…" else AppShell.ROW_SIGN_OUT,
-        glyph = "X",
+        icon = UiIcons.imageVector(UiTokens.Icon.signout),
         showChevron = false,
         danger = true,
         onClick = onSignOut,
@@ -502,7 +545,7 @@ private fun MoreListDestination(
 @Composable
 private fun MoreSettingsRow(
     label: String,
-    glyph: String,
+    icon: ImageVector,
     showChevron: Boolean,
     onClick: (() -> Unit)?,
     danger: Boolean = false,
@@ -526,18 +569,23 @@ private fun MoreSettingsRow(
                         Modifier
                     },
                 )
-                .padding(vertical = 6.dp),
+                .padding(vertical = FcSpaceXs),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(FcSpaceMd),
     ) {
         Box(
             modifier =
                 Modifier
                     .size(40.dp)
-                    .background(chipColor, shape = RoundedCornerShape(8.dp)),
+                    .background(chipColor, shape = RoundedCornerShape(FcRadiusMd)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(glyph, color = contentColor, style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp),
+            )
         }
         Text(
             text = label,
@@ -546,7 +594,12 @@ private fun MoreSettingsRow(
             style = MaterialTheme.typography.bodyLarge,
         )
         if (showChevron) {
-            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                imageVector = UiIcons.imageVector(UiTokens.Icon.chevron),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
