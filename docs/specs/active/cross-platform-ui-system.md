@@ -135,7 +135,7 @@ independently re-run screenshots + WCAG AA — see roadmap parking
 - [x] **Web:** Wire tokens into CSS/Tailwind; restyle More / Settings grouped
   list + rows using parity primitives; map semantic icons → existing web icon
   font; support dark mode for that surface.
-- [ ] **Android (sharedUI):** Theme from tokens; restyle More destination with
+- [x] **Android (sharedUI):** Theme from tokens; restyle More destination with
   native Compose primitives; map semantic icons → Material Symbols / Icons.
 - [ ] **iOS:** Token helpers; restyle More destination with native SwiftUI;
   map semantic icons → SF Symbols; honor system light/dark.
