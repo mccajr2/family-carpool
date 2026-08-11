@@ -76,6 +76,7 @@ class FamilyUiModel(
             val editingEventEndsAt: String = "",
             val editingEventLocation: String = "",
             val editingEventKidIds: List<String> = emptyList(),
+            val eventComposeOpen: Boolean = false,
             val shellTab: ShellTab = ShellTab.CALENDAR,
             val moreScreen: MoreScreen = MoreScreen.LIST,
             val loading: Boolean = false,
@@ -145,12 +146,21 @@ class FamilyUiModel(
 
     fun selectShellTab(tab: ShellTab) {
         val current = _state as? State.Ready ?: return
+        val leavingCalendar = current.shellTab == ShellTab.CALENDAR && tab != ShellTab.CALENDAR
         _state =
-            current.copy(
-                shellTab = tab,
-                moreScreen = MoreScreen.LIST,
-                error = null,
-            )
+            if (leavingCalendar) {
+                current.withEventComposeClosed().copy(
+                    shellTab = tab,
+                    moreScreen = MoreScreen.LIST,
+                    error = null,
+                )
+            } else {
+                current.copy(
+                    shellTab = tab,
+                    moreScreen = MoreScreen.LIST,
+                    error = null,
+                )
+            }
     }
 
     fun openMorePlaces() {
@@ -356,11 +366,32 @@ class FamilyUiModel(
         _state = current.copy(agendaKidFilter = kidId, error = null)
     }
 
+    fun openCreateEventCompose() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                eventComposeOpen = true,
+                editingEventId = null,
+                editingEventTitle = "",
+                editingEventStartsAt = "",
+                editingEventEndsAt = "",
+                editingEventLocation = "",
+                editingEventKidIds = emptyList(),
+                error = null,
+            )
+    }
+
+    fun closeEventCompose() {
+        val current = _state as? State.Ready ?: return
+        _state = current.withEventComposeClosed()
+    }
+
     fun beginEditEvent(item: CalendarItem) {
         if (item.source != CalendarItemSource.MANUAL) return
         val current = _state as? State.Ready ?: return
         _state =
             current.copy(
+                eventComposeOpen = true,
                 editingEventId = item.id,
                 editingEventTitle = item.title,
                 editingEventStartsAt = item.startsAt,
@@ -406,17 +437,7 @@ class FamilyUiModel(
     }
 
     fun cancelEditEvent() {
-        val current = _state as? State.Ready ?: return
-        _state =
-            current.copy(
-                editingEventId = null,
-                editingEventTitle = "",
-                editingEventStartsAt = "",
-                editingEventEndsAt = "",
-                editingEventLocation = "",
-                editingEventKidIds = emptyList(),
-                error = null,
-            )
+        closeEventCompose()
     }
 
     suspend fun createCircle() {
@@ -888,6 +909,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
+                    eventComposeOpen = false,
                     newEventTitle = "",
                     newEventStartsAt = defaultNewEventStartsAtIso(),
                     newEventEndsAt = "",
@@ -934,6 +956,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
+                    eventComposeOpen = false,
                     editingEventId = null,
                     editingEventTitle = "",
                     editingEventStartsAt = "",
@@ -1013,6 +1036,23 @@ class FamilyUiModel(
         )
     }
 }
+
+private fun FamilyUiModel.State.Ready.withEventComposeClosed(): FamilyUiModel.State.Ready =
+    copy(
+        eventComposeOpen = false,
+        newEventTitle = "",
+        newEventStartsAt = defaultNewEventStartsAtIso(),
+        newEventEndsAt = "",
+        newEventLocation = "",
+        newEventKidIds = emptyList(),
+        editingEventId = null,
+        editingEventTitle = "",
+        editingEventStartsAt = "",
+        editingEventEndsAt = "",
+        editingEventLocation = "",
+        editingEventKidIds = emptyList(),
+        error = null,
+    )
 
 /** Clear ends when it would be before the new start (client ordering rule). */
 private fun coerceEndsAt(

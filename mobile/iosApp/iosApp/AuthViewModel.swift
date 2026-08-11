@@ -227,13 +227,13 @@ final class AuthViewModel: ObservableObject {
     @Published var newEventHasEndsAt: Bool = false
     @Published var newEventLocation: String = ""
     @Published var newEventKidIds: [String] = []
-    @Published var editingEventId: String?
     @Published var editingEventTitle: String = ""
     @Published var editingEventStartsAtDate: Date = Date()
     @Published var editingEventEndsAtDate: Date = Date()
     @Published var editingEventHasEndsAt: Bool = false
     @Published var editingEventLocation: String = ""
     @Published var editingEventKidIds: [String] = []
+    @Published var eventCompose = AgendaEventComposeState()
     @Published var familyPhase: FamilyPhase = .loading
     @Published var editingKidId: String?
     @Published var editingKidName: String = ""
@@ -259,9 +259,31 @@ final class AuthViewModel: ObservableObject {
     }
 
     func selectShellTab(_ tab: AppShellTab) {
+        var compose = eventCompose
+        compose.onSelectTab(from: shell.tab, to: tab)
+        if !compose.isOpen, eventCompose.isOpen {
+            clearEventComposeFields()
+        }
+        eventCompose = compose
         var next = shell
         next.selectTab(tab)
         shell = next
+    }
+
+    func openCreateEventCompose() {
+        clearEditingEventFields()
+        var compose = eventCompose
+        compose.openCreate()
+        eventCompose = compose
+        errorMessage = nil
+    }
+
+    func closeEventCompose() {
+        var compose = eventCompose
+        compose.close()
+        eventCompose = compose
+        clearEventComposeFields()
+        errorMessage = nil
     }
 
     func openMorePlaces() {
@@ -1135,12 +1157,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self] _, _, _, _, _, _ in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.newEventTitle = ""
-                    self.newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
-                    self.newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
-                    self.newEventHasEndsAt = false
-                    self.newEventLocation = ""
-                    self.newEventKidIds = []
+                    self.closeEventCompose()
                     let nextTo = ManualEventDateCodec.ensureCalendarWindowCovers(
                         loadedToIso: self.calendarLoadedTo,
                         instant: startsDate
@@ -1154,7 +1171,6 @@ final class AuthViewModel: ObservableObject {
 
     func beginEditEvent(_ item: FamilyCalendarItem) {
         guard item.isManual else { return }
-        editingEventId = item.id
         editingEventTitle = item.title
         editingEventStartsAtDate = ManualEventDateCodec.date(fromIso: item.startsAt) ?? Date()
         if let endsAt = item.endsAt, let endsDate = ManualEventDateCodec.date(fromIso: endsAt) {
@@ -1166,20 +1182,18 @@ final class AuthViewModel: ObservableObject {
         }
         editingEventLocation = item.location ?? ""
         editingEventKidIds = item.kidIds
+        var compose = eventCompose
+        compose.openEdit(eventId: item.id)
+        eventCompose = compose
+        errorMessage = nil
     }
 
     func cancelEditEvent() {
-        editingEventId = nil
-        editingEventTitle = ""
-        editingEventStartsAtDate = Date()
-        editingEventEndsAtDate = Date()
-        editingEventHasEndsAt = false
-        editingEventLocation = ""
-        editingEventKidIds = []
+        closeEventCompose()
     }
 
     func saveEvent() {
-        guard let eventId = editingEventId else { return }
+        guard let eventId = eventCompose.editingEventId else { return }
         let title = editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, !editingEventKidIds.isEmpty else { return }
         if let message = ManualEventDateCodec.validationMessage(
@@ -1204,7 +1218,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self] _, _, _, _, _, _ in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.cancelEditEvent()
+                    self.closeEventCompose()
                     let nextTo = ManualEventDateCodec.ensureCalendarWindowCovers(
                         loadedToIso: self.calendarLoadedTo,
                         instant: startsDate
@@ -1228,6 +1242,29 @@ final class AuthViewModel: ObservableObject {
             },
             onError: eventError
         )
+    }
+
+    private func clearEditingEventFields() {
+        editingEventTitle = ""
+        editingEventStartsAtDate = Date()
+        editingEventEndsAtDate = Date()
+        editingEventHasEndsAt = false
+        editingEventLocation = ""
+        editingEventKidIds = []
+    }
+
+    private func clearNewEventFields() {
+        newEventTitle = ""
+        newEventStartsAtDate = Date().addingTimeInterval(15 * 60)
+        newEventEndsAtDate = Date().addingTimeInterval(75 * 60)
+        newEventHasEndsAt = false
+        newEventLocation = ""
+        newEventKidIds = []
+    }
+
+    private func clearEventComposeFields() {
+        clearNewEventFields()
+        clearEditingEventFields()
     }
 
     private func makeFeedItem(

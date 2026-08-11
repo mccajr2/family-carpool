@@ -167,12 +167,46 @@ struct ContentView: View {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Calendar")
-                            .font(.title2.bold())
                         calendarDestination
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .navigationTitle(AppShellTab.calendar.title)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Add") { model.openCreateEventCompose() }
+                            .disabled(model.isLoading)
+                            .accessibilityLabel("Add event")
+                    }
+                }
+                .sheet(
+                    isPresented: Binding(
+                        get: { model.eventCompose.isOpen },
+                        set: { open in
+                            if !open {
+                                model.closeEventCompose()
+                            }
+                        }
+                    )
+                ) {
+                    NavigationStack {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                eventComposeDestination
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .navigationTitle(model.eventCompose.isEditing ? "Edit event" : "Add event")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") { model.closeEventCompose() }
+                                    .disabled(model.isLoading)
+                            }
+                        }
+                    }
                 }
             }
             .tabItem { Label(AppShellTab.calendar.title, systemImage: AppShellTab.calendar.systemImage) }
@@ -403,7 +437,7 @@ struct ContentView: View {
     private var calendarDestination: some View {
             Text("Agenda")
                 .font(.headline)
-            if let errorMessage = model.errorMessage {
+            if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
                 Text(errorMessage)
                     .foregroundStyle(.red)
                     .font(.footnote)
@@ -428,71 +462,31 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.visibleCalendarItems) { item in
-                    if model.editingEventId == item.id, item.isManual {
-                        TextField("Title", text: $model.editingEventTitle)
-                            .disabled(model.isLoading)
-                            .textFieldStyle(.roundedBorder)
-                        DatePicker(
-                            "Starts at",
-                            selection: $model.editingEventStartsAtDate,
-                            in: Date()...,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                        .disabled(model.isLoading)
-                        Toggle("Ends at", isOn: $model.editingEventHasEndsAt)
-                            .disabled(model.isLoading)
-                        if model.editingEventHasEndsAt {
-                            DatePicker(
-                                "Ends at",
-                                selection: $model.editingEventEndsAtDate,
-                                in: model.editingEventStartsAtDate...,
-                                displayedComponents: [.date, .hourAndMinute]
-                            )
-                            .disabled(model.isLoading)
-                        }
-                        TextField("Location (optional)", text: $model.editingEventLocation)
-                            .disabled(model.isLoading)
-                            .textFieldStyle(.roundedBorder)
-                        feedKidToggles(selectedKidIds: model.editingEventKidIds) { kidId in
-                            model.toggleEditingEventKid(kidId)
-                        }
-                        HStack {
-                            Button("Save") { model.saveEvent() }
-                                .disabled(
-                                    model.isLoading
-                                        || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                        || model.editingEventKidIds.isEmpty
-                                )
-                            Button("Cancel") { model.cancelEditEvent() }
-                                .disabled(model.isLoading)
-                        }
-                    } else {
-                        VStack(alignment: .leading) {
-                            Text(item.title)
-                            Text(item.whenLabel)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            Text(item.sourceLabel)
+                    VStack(alignment: .leading) {
+                        Text(item.title)
+                        Text(item.whenLabel)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Text(item.sourceLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let location = item.location, !location.isEmpty {
+                            Text(location)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            if let location = item.location, !location.isEmpty {
-                                Text(location)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            let kidsLabel = item.kidNamesLabel(kids: model.kids)
-                            if !kidsLabel.isEmpty {
-                                Text(kidsLabel)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if item.isManual {
-                                HStack {
-                                    Button("Edit") { model.beginEditEvent(item) }
-                                        .disabled(model.isLoading)
-                                    Button("Remove event") { model.removeEvent(item.id) }
-                                        .disabled(model.isLoading)
-                                }
+                        }
+                        let kidsLabel = item.kidNamesLabel(kids: model.kids)
+                        if !kidsLabel.isEmpty {
+                            Text(kidsLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if item.isManual {
+                            HStack {
+                                Button("Edit") { model.beginEditEvent(item) }
+                                    .disabled(model.isLoading)
+                                Button("Remove event") { model.removeEvent(item.id) }
+                                    .disabled(model.isLoading)
                             }
                         }
                     }
@@ -500,29 +494,75 @@ struct ContentView: View {
             }
             Button("Load more") { model.loadMoreCalendar() }
                 .disabled(model.isLoading)
+            if model.isLoading {
+                ProgressView()
+            }
+    }
 
-            TextField("New event title", text: $model.newEventTitle)
+    @ViewBuilder
+    private var eventComposeDestination: some View {
+        if let errorMessage = model.errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+        if model.eventCompose.isEditing {
+            TextField("Event title", text: $model.editingEventTitle)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
             DatePicker(
-                "Starts at",
+                "Event start",
+                selection: $model.editingEventStartsAtDate,
+                in: Date()...,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .disabled(model.isLoading)
+            Toggle("Event end", isOn: $model.editingEventHasEndsAt)
+                .disabled(model.isLoading)
+            if model.editingEventHasEndsAt {
+                DatePicker(
+                    "Event end",
+                    selection: $model.editingEventEndsAtDate,
+                    in: model.editingEventStartsAtDate...,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .disabled(model.isLoading)
+            }
+            TextField("Event location (optional)", text: $model.editingEventLocation)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            feedKidToggles(selectedKidIds: model.editingEventKidIds) { kidId in
+                model.toggleEditingEventKid(kidId)
+            }
+            Button("Save") { model.saveEvent() }
+                .disabled(
+                    model.isLoading
+                        || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || model.editingEventKidIds.isEmpty
+                )
+        } else {
+            TextField("Event title", text: $model.newEventTitle)
+                .disabled(model.isLoading)
+                .textFieldStyle(.roundedBorder)
+            DatePicker(
+                "Event start",
                 selection: $model.newEventStartsAtDate,
                 in: Date()...,
                 displayedComponents: [.date, .hourAndMinute]
             )
             .disabled(model.isLoading)
-            Toggle("Ends at", isOn: $model.newEventHasEndsAt)
+            Toggle("Event end", isOn: $model.newEventHasEndsAt)
                 .disabled(model.isLoading)
             if model.newEventHasEndsAt {
                 DatePicker(
-                    "Ends at",
+                    "Event end",
                     selection: $model.newEventEndsAtDate,
                     in: model.newEventStartsAtDate...,
                     displayedComponents: [.date, .hourAndMinute]
                 )
                 .disabled(model.isLoading)
             }
-            TextField("Location (optional)", text: $model.newEventLocation)
+            TextField("Event location (optional)", text: $model.newEventLocation)
                 .disabled(model.isLoading)
                 .textFieldStyle(.roundedBorder)
             if model.kids.isEmpty {
@@ -534,17 +574,12 @@ struct ContentView: View {
                     model.toggleNewEventKid(kidId)
                 }
             }
-            Button("Add event") { model.addEvent() }
+            Button("Save") { model.addEvent() }
                 .disabled(
                     model.isLoading
                         || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || model.newEventKidIds.isEmpty
                 )
-
-        if let errorMessage = model.errorMessage {
-            Text(errorMessage)
-                .foregroundStyle(.red)
-                .font(.footnote)
         }
         if model.isLoading {
             ProgressView()

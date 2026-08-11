@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { LogOut, MapPin, Rss, UserRound } from "lucide-react"
+import { LogOut, MapPin, Plus, Rss, UserRound } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
@@ -141,6 +141,7 @@ export function FamilyScreen({
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
   const [destination, setDestination] = useState<ShellDestination>("calendar")
+  const [eventComposeOpen, setEventComposeOpen] = useState(false)
 
   useEffect(() => {
     if (circle?.id) {
@@ -153,6 +154,12 @@ export function FamilyScreen({
       setDestination("calendar")
     }
   }, [destination, circle?.role])
+
+  useEffect(() => {
+    if (destination !== "calendar") {
+      setEventComposeOpen(false)
+    }
+  }, [destination])
 
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
     const window = calendarWindowThrough(loadedTo)
@@ -688,6 +695,7 @@ export function FamilyScreen({
       setNewEventEndsAt("")
       setNewEventLocation("")
       setNewEventKidIds([])
+      setEventComposeOpen(false)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -728,6 +736,7 @@ export function FamilyScreen({
       setEditingEventEndsAt("")
       setEditingEventLocation("")
       setEditingEventKidIds([])
+      setEventComposeOpen(false)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -1008,13 +1017,46 @@ export function FamilyScreen({
       </aside>
 
       <Card className="min-w-0 flex-1">
-        <CardHeader>
-          <CardTitle>{contentTitle}</CardTitle>
-          {destination === "family" ? (
-            <CardDescription>
-              {adult?.displayName ? `${adult.displayName} · ` : null}
-              {adult?.email} · {circle.role}
-            </CardDescription>
+        <CardHeader
+          className={
+            destination === "calendar"
+              ? "flex flex-row items-start justify-between gap-3 space-y-0"
+              : undefined
+          }
+        >
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <CardTitle>{contentTitle}</CardTitle>
+            {destination === "family" ? (
+              <CardDescription>
+                {adult?.displayName ? `${adult.displayName} · ` : null}
+                {adult?.email} · {circle.role}
+              </CardDescription>
+            ) : null}
+          </div>
+          {destination === "calendar" ? (
+            <Button
+              type="button"
+              size="sm"
+              aria-label="Add event"
+              onClick={() => {
+                setEditingEventId(null)
+                setEditingEventTitle("")
+                setEditingEventStartsAt("")
+                setEditingEventEndsAt("")
+                setEditingEventLocation("")
+                setEditingEventKidIds([])
+                setNewEventTitle("")
+                setNewEventStartsAt(defaultNewEventStartsLocal())
+                setNewEventEndsAt("")
+                setNewEventLocation("")
+                setNewEventKidIds([])
+                setEventComposeOpen(true)
+              }}
+              disabled={status.kind === "loading"}
+            >
+              <Plus className="size-4" aria-hidden />
+              Add
+            </Button>
           ) : null}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -1370,155 +1412,59 @@ export function FamilyScreen({
                 const isManual = item.source === "MANUAL"
                 return (
                   <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
-                    {isManual && editingEventId === item.id ? (
-                      <>
-                        <Input
-                          aria-label={`Edit title for ${item.title}`}
-                          value={editingEventTitle}
-                          onChange={(e) => setEditingEventTitle(e.target.value)}
-                          disabled={status.kind === "loading"}
-                        />
-                        <Input
-                          type="datetime-local"
-                          aria-label={`Edit start for ${item.title}`}
-                          value={editingEventStartsAt}
-                          min={datetimeMin}
-                          onChange={(e) => {
-                            const next = e.target.value
-                            setEditingEventStartsAt(next)
-                            setEditingEventEndsAt((ends) =>
-                              coerceEndsAfterStart(next, ends),
-                            )
-                          }}
-                          disabled={status.kind === "loading"}
-                        />
-                        <Input
-                          type="datetime-local"
-                          aria-label={`Edit end for ${item.title}`}
-                          value={editingEventEndsAt}
-                          min={editingEventEndsMin}
-                          onChange={(e) => setEditingEventEndsAt(e.target.value)}
-                          disabled={status.kind === "loading"}
-                        />
-                        <Input
-                          aria-label={`Edit location for ${item.title}`}
-                          value={editingEventLocation}
-                          onChange={(e) => setEditingEventLocation(e.target.value)}
-                          placeholder="Location (optional)"
-                          disabled={status.kind === "loading"}
-                        />
-                        {circle.kids.length > 0 ? (
-                          <fieldset className="flex flex-col gap-1">
-                            <legend className="text-xs text-muted-foreground">Kids</legend>
-                            {circle.kids.map((kid) => (
-                              <label
-                                key={kid.id}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Assign ${kid.displayName} to ${item.title}`}
-                                  checked={editingEventKidIds.includes(kid.id)}
-                                  onChange={() =>
-                                    toggleKidId(
-                                      kid.id,
-                                      editingEventKidIds,
-                                      setEditingEventKidIds,
-                                    )
-                                  }
-                                  disabled={status.kind === "loading"}
-                                />
-                                {kid.displayName}
-                              </label>
-                            ))}
-                          </fieldset>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <span className="flex-1 text-sm">
+                        {item.title}
+                        <span className="block text-muted-foreground">
+                          {formatEventWhen(item.startsAt, item.endsAt)}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {sourceLabel}
+                        </span>
+                        {item.location ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {item.location}
+                          </span>
                         ) : null}
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void onSaveEvent(item.id)}
-                            disabled={
-                              status.kind === "loading" ||
-                              !editingEventTitle.trim() ||
-                              !editingEventStartsAt.trim() ||
-                              editingEventKidIds.length === 0
-                            }
-                          >
-                            Save
-                          </Button>
+                        {kidsLabel ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {kidsLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                      {isManual ? (
+                        <>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setEditingEventId(null)
-                              setEditingEventTitle("")
-                              setEditingEventStartsAt("")
-                              setEditingEventEndsAt("")
-                              setEditingEventLocation("")
-                              setEditingEventKidIds([])
+                              setEditingEventId(item.id)
+                              setEditingEventTitle(item.title)
+                              setEditingEventStartsAt(toDatetimeLocalValue(item.startsAt))
+                              setEditingEventEndsAt(
+                                item.endsAt ? toDatetimeLocalValue(item.endsAt) : "",
+                              )
+                              setEditingEventLocation(item.location ?? "")
+                              setEditingEventKidIds([...item.kidIds])
+                              setEventComposeOpen(true)
                             }}
                             disabled={status.kind === "loading"}
                           >
-                            Cancel
+                            Edit
                           </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <span className="flex-1 text-sm">
-                          {item.title}
-                          <span className="block text-muted-foreground">
-                            {formatEventWhen(item.startsAt, item.endsAt)}
-                          </span>
-                          <span className="block text-xs text-muted-foreground">
-                            {sourceLabel}
-                          </span>
-                          {item.location ? (
-                            <span className="block text-xs text-muted-foreground">
-                              {item.location}
-                            </span>
-                          ) : null}
-                          {kidsLabel ? (
-                            <span className="block text-xs text-muted-foreground">
-                              {kidsLabel}
-                            </span>
-                          ) : null}
-                        </span>
-                        {isManual ? (
-                          <>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingEventId(item.id)
-                                setEditingEventTitle(item.title)
-                                setEditingEventStartsAt(toDatetimeLocalValue(item.startsAt))
-                                setEditingEventEndsAt(
-                                  item.endsAt ? toDatetimeLocalValue(item.endsAt) : "",
-                                )
-                                setEditingEventLocation(item.location ?? "")
-                                setEditingEventKidIds([...item.kidIds])
-                              }}
-                              disabled={status.kind === "loading"}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void onRemoveEvent(item.id)}
-                              disabled={status.kind === "loading"}
-                            >
-                              Remove event
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onRemoveEvent(item.id)}
+                            disabled={status.kind === "loading"}
+                          >
+                            Remove event
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </li>
                 )
               })}
@@ -1534,77 +1480,221 @@ export function FamilyScreen({
           </Button>
         </section>
 
-        <div className="flex flex-col gap-2">
-          <Input
-            aria-label="New event title"
-            value={newEventTitle}
-            onChange={(e) => setNewEventTitle(e.target.value)}
-            placeholder="Event title"
-            disabled={status.kind === "loading"}
-          />
-          <Input
-            type="datetime-local"
-            aria-label="New event start"
-            value={newEventStartsAt}
-            min={datetimeMin}
-            onChange={(e) => {
-              const next = e.target.value
-              setNewEventStartsAt(next)
-              setNewEventEndsAt((ends) => coerceEndsAfterStart(next, ends))
+        {eventComposeOpen ? (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 p-4 sm:items-center"
+            role="presentation"
+            onClick={() => {
+              setEventComposeOpen(false)
+              setEditingEventId(null)
             }}
-            disabled={status.kind === "loading"}
-          />
-          <Input
-            type="datetime-local"
-            aria-label="New event end"
-            value={newEventEndsAt}
-            min={newEventEndsMin}
-            onChange={(e) => setNewEventEndsAt(e.target.value)}
-            disabled={status.kind === "loading"}
-          />
-          <Input
-            aria-label="New event location"
-            value={newEventLocation}
-            onChange={(e) => setNewEventLocation(e.target.value)}
-            placeholder="Location (optional)"
-            disabled={status.kind === "loading"}
-          />
-          {circle.kids.length > 0 ? (
-            <fieldset className="flex flex-col gap-1">
-              <legend className="text-xs text-muted-foreground">Kids on event</legend>
-              {circle.kids.map((kid) => (
-                <label key={kid.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    aria-label={`Assign ${kid.displayName} to new event`}
-                    checked={newEventKidIds.includes(kid.id)}
-                    onChange={() =>
-                      toggleKidId(kid.id, newEventKidIds, setNewEventKidIds)
-                    }
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={editingEventId ? "Edit event" : "Add event"}
+              className="flex max-h-[90vh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="text-sm font-medium">
+                {editingEventId ? "Edit event" : "Add event"}
+              </p>
+              {editingEventId ? (
+                <>
+                  <Input
+                    aria-label="Event title"
+                    value={editingEventTitle}
+                    onChange={(e) => setEditingEventTitle(e.target.value)}
                     disabled={status.kind === "loading"}
                   />
-                  {kid.displayName}
-                </label>
-              ))}
-            </fieldset>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Add a kid before creating a manual event.
-            </p>
-          )}
-          <Button
-            type="button"
-            onClick={() => void onAddEvent()}
-            disabled={
-              status.kind === "loading" ||
-              !newEventTitle.trim() ||
-              !newEventStartsAt.trim() ||
-              newEventKidIds.length === 0
-            }
-          >
-            Add event
-          </Button>
-        </div>
+                  <Input
+                    type="datetime-local"
+                    aria-label="Event start"
+                    value={editingEventStartsAt}
+                    min={datetimeMin}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setEditingEventStartsAt(next)
+                      setEditingEventEndsAt((ends) => coerceEndsAfterStart(next, ends))
+                    }}
+                    disabled={status.kind === "loading"}
+                  />
+                  <Input
+                    type="datetime-local"
+                    aria-label="Event end"
+                    value={editingEventEndsAt}
+                    min={editingEventEndsMin}
+                    onChange={(e) => setEditingEventEndsAt(e.target.value)}
+                    disabled={status.kind === "loading"}
+                  />
+                  <Input
+                    aria-label="Event location"
+                    value={editingEventLocation}
+                    onChange={(e) => setEditingEventLocation(e.target.value)}
+                    placeholder="Location (optional)"
+                    disabled={status.kind === "loading"}
+                  />
+                  {circle.kids.length > 0 ? (
+                    <fieldset className="flex flex-col gap-1">
+                      <legend className="text-xs text-muted-foreground">Kids on event</legend>
+                      {circle.kids.map((kid) => (
+                        <label key={kid.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            aria-label={`Assign ${kid.displayName} to event`}
+                            checked={editingEventKidIds.includes(kid.id)}
+                            onChange={() =>
+                              toggleKidId(
+                                kid.id,
+                                editingEventKidIds,
+                                setEditingEventKidIds,
+                              )
+                            }
+                            disabled={status.kind === "loading"}
+                          />
+                          {kid.displayName}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Add a kid before creating a manual event.
+                    </p>
+                  )}
+                  {status.kind === "error" ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {status.message}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={() => void onSaveEvent(editingEventId)}
+                      disabled={
+                        status.kind === "loading" ||
+                        !editingEventTitle.trim() ||
+                        !editingEventStartsAt.trim() ||
+                        editingEventKidIds.length === 0
+                      }
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEventComposeOpen(false)
+                        setEditingEventId(null)
+                        setEditingEventTitle("")
+                        setEditingEventStartsAt("")
+                        setEditingEventEndsAt("")
+                        setEditingEventLocation("")
+                        setEditingEventKidIds([])
+                      }}
+                      disabled={status.kind === "loading"}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Input
+                    aria-label="Event title"
+                    value={newEventTitle}
+                    onChange={(e) => setNewEventTitle(e.target.value)}
+                    placeholder="Event title"
+                    disabled={status.kind === "loading"}
+                  />
+                  <Input
+                    type="datetime-local"
+                    aria-label="Event start"
+                    value={newEventStartsAt}
+                    min={datetimeMin}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setNewEventStartsAt(next)
+                      setNewEventEndsAt((ends) => coerceEndsAfterStart(next, ends))
+                    }}
+                    disabled={status.kind === "loading"}
+                  />
+                  <Input
+                    type="datetime-local"
+                    aria-label="Event end"
+                    value={newEventEndsAt}
+                    min={newEventEndsMin}
+                    onChange={(e) => setNewEventEndsAt(e.target.value)}
+                    disabled={status.kind === "loading"}
+                  />
+                  <Input
+                    aria-label="Event location"
+                    value={newEventLocation}
+                    onChange={(e) => setNewEventLocation(e.target.value)}
+                    placeholder="Location (optional)"
+                    disabled={status.kind === "loading"}
+                  />
+                  {circle.kids.length > 0 ? (
+                    <fieldset className="flex flex-col gap-1">
+                      <legend className="text-xs text-muted-foreground">Kids on event</legend>
+                      {circle.kids.map((kid) => (
+                        <label key={kid.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            aria-label={`Assign ${kid.displayName} to event`}
+                            checked={newEventKidIds.includes(kid.id)}
+                            onChange={() =>
+                              toggleKidId(kid.id, newEventKidIds, setNewEventKidIds)
+                            }
+                            disabled={status.kind === "loading"}
+                          />
+                          {kid.displayName}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Add a kid before creating a manual event.
+                    </p>
+                  )}
+                  {status.kind === "error" ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {status.message}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={() => void onAddEvent()}
+                      disabled={
+                        status.kind === "loading" ||
+                        !newEventTitle.trim() ||
+                        !newEventStartsAt.trim() ||
+                        newEventKidIds.length === 0
+                      }
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEventComposeOpen(false)
+                        setNewEventTitle("")
+                        setNewEventStartsAt(defaultNewEventStartsLocal())
+                        setNewEventEndsAt("")
+                        setNewEventLocation("")
+                        setNewEventKidIds([])
+                      }}
+                      disabled={status.kind === "loading"}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : null}
 
                     </>
           ) : null}

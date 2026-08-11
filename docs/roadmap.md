@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-10 (`/pr app-shell-navigation`)
+Updated: 2026-08-10 (`/pr agenda-event-compose`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -119,6 +119,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| agenda-event-compose | 2026-08-10 | [archive](specs/archive/agenda-event-compose.md) |
 | app-shell-navigation | 2026-08-10 | [archive](specs/archive/app-shell-navigation.md) |
 | family-calendar-surface | 2026-08-10 | [archive](specs/archive/family-calendar-surface.md) |
 | manual-events | 2026-08-10 | [archive](specs/archive/manual-events.md) |
@@ -174,3 +175,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-10 | `/spec app-shell-navigation`: Calendar → Carpool (placeholder) → Family → More/Settings; web sidebar vs mobile tabs; Caregiver Feeds omitted. |
 | 2026-08-10 | `/implement app-shell-navigation`: web sidebar + Android/iOS bottom tabs; architecture shell IA noted; Active row unchanged. |
 | 2026-08-10 | `/pr app-shell-navigation`: 4-destination shell shipped (web/Android/iOS); next up `cross-platform-ui-system`. |
+| 2026-08-10 | Added `agenda-event-compose` (rank 1): Calendar Add → dedicated create/edit compose; bumped UI system / grid. |
+| 2026-08-10 | `/spec agenda-event-compose`: remove inline Agenda create/edit; chrome Add + compose sheet/page (web/Android/iOS). |
+| 2026-08-10 | `/pr agenda-event-compose`: Calendar Add → dedicated compose shipped; next up `cross-platform-ui-system`. |

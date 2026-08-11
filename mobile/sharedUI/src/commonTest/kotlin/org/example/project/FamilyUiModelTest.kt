@@ -209,7 +209,10 @@ class FamilyUiModelTest {
                 }
             val model = familyUiModel(mockEngine, token = "tok")
             model.load()
-            assertIs<FamilyUiModel.State.Ready>(model.state)
+            val beforeCompose = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(false, beforeCompose.eventComposeOpen)
+            model.openCreateEventCompose()
+            assertEquals(true, assertIs<FamilyUiModel.State.Ready>(model.state).eventComposeOpen)
             model.updateNewEventTitle("Dentist")
             model.updateNewEventStartsAt("2030-08-15T17:00:00Z")
             model.updateNewEventEndsAt("2030-08-15T18:00:00Z")
@@ -220,10 +223,174 @@ class FamilyUiModelTest {
             assertEquals(1, withEvent.calendarItems.size)
             assertEquals("Dentist", withEvent.calendarItems.first().title)
             assertEquals(CalendarItemSource.MANUAL, withEvent.calendarItems.first().source)
+            assertEquals(false, withEvent.eventComposeOpen)
 
             model.removeEvent("e1")
             val withoutEvent = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertTrue(withoutEvent.calendarItems.isEmpty())
+        }
+
+    @Test
+    fun caregiverCanEditManualEventViaCompose() =
+        runTest {
+            var calendarJson =
+                """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2030-08-15T17:00:00Z","endsAt":"2030-08-15T18:00:00Z","location":"Clinic","kidIds":["k1"]}]"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = calendarJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Put -> {
+                            calendarJson =
+                                """[{"id":"e1","source":"MANUAL","title":"Orthodontist","startsAt":"2030-08-15T17:00:00Z","endsAt":"2030-08-15T18:00:00Z","location":"Ortho","kidIds":["k1"]}]"""
+                            respond(
+                                content =
+                                    """{"id":"e1","title":"Orthodontist","startsAt":"2030-08-15T17:00:00Z","endsAt":"2030-08-15T18:00:00Z","location":"Ortho","kidIds":["k1"]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val manual = ready.calendarItems.first()
+            model.beginEditEvent(manual)
+            val composing = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(true, composing.eventComposeOpen)
+            assertEquals("e1", composing.editingEventId)
+            assertEquals("Dentist", composing.editingEventTitle)
+            model.updateEditingEventTitle("Orthodontist")
+            model.updateEditingEventLocation("Ortho")
+            model.saveEvent()
+            val updated = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(false, updated.eventComposeOpen)
+            assertNull(updated.editingEventId)
+            assertEquals("Orthodontist", updated.calendarItems.first().title)
+            assertEquals("Ortho", updated.calendarItems.first().location)
+        }
+
+    @Test
+    fun leavingCalendarClosesEventCompose() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            model.openCreateEventCompose()
+            model.updateNewEventTitle("Draft")
+            assertEquals(true, assertIs<FamilyUiModel.State.Ready>(model.state).eventComposeOpen)
+            model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(FamilyUiModel.ShellTab.FAMILY, after.shellTab)
+            assertEquals(false, after.eventComposeOpen)
+            assertEquals("", after.newEventTitle)
+        }
+
+    @Test
+    fun cancelEventComposeDiscardsDraftWithoutApiCall() =
+        runTest {
+            var putCalled = false
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2030-08-15T17:00:00Z","endsAt":"2030-08-15T18:00:00Z","location":"Clinic","kidIds":["k1"]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/events/e1" &&
+                            request.method == HttpMethod.Put -> {
+                            putCalled = true
+                            respond(
+                                content =
+                                    """{"id":"e1","title":"Orthodontist","startsAt":"2030-08-15T17:00:00Z","endsAt":"2030-08-15T18:00:00Z","location":"Clinic","kidIds":["k1"]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.beginEditEvent(ready.calendarItems.first())
+            model.updateEditingEventTitle("Should discard")
+            model.closeEventCompose()
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(false, after.eventComposeOpen)
+            assertNull(after.editingEventId)
+            assertEquals("", after.editingEventTitle)
+            assertEquals("Dentist", after.calendarItems.first().title)
+            assertFalse(putCalled)
         }
 
     @Test
@@ -263,7 +430,15 @@ class FamilyUiModelTest {
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(2, ready.calendarItems.size)
             model.beginEditEvent(ready.calendarItems.first { it.source == CalendarItemSource.FEED })
-            assertNull(assertIs<FamilyUiModel.State.Ready>(model.state).editingEventId)
+            val afterFeed = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertNull(afterFeed.editingEventId)
+            assertEquals(false, afterFeed.eventComposeOpen)
+            model.beginEditEvent(ready.calendarItems.first { it.source == CalendarItemSource.MANUAL })
+            val afterManual = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("e1", afterManual.editingEventId)
+            assertEquals(true, afterManual.eventComposeOpen)
+            model.closeEventCompose()
+            assertEquals(false, assertIs<FamilyUiModel.State.Ready>(model.state).eventComposeOpen)
             model.setAgendaKidFilter("k2")
             val filtered = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals("k2", filtered.agendaKidFilter)
