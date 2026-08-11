@@ -1,8 +1,8 @@
 # Spec: event-leave-by-estimate
 
-Status: approved  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-11 (approved)  
+Updated: 2026-08-11 (implemented; archived)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `event-leave-by-estimate`  
 Added: 2026-08-07 · re-rank split
@@ -90,25 +90,25 @@ selectable; not-located disabled or labeled).
 
 ## Acceptance criteria
 
-- [ ] Any circle member can set **their** leave-from place for a MANUAL or FEED
+- [x] Any circle member can set **their** leave-from place for a MANUAL or FEED
       calendar item; unknown place / other circle → 404; place without coords
       is not selectable (or set returns 400) so origin recovery is “locate or
       pick another.”
-- [ ] `GET /api/family/circle/calendar` includes leave-by fields for the
+- [x] `GET /api/family/circle/calendar` includes leave-by fields for the
       **current adult** on each item (defaults applied when no override).
-- [ ] When origin place and destination `location` both resolve to coords and
+- [x] When origin place and destination `location` both resolve to coords and
       OSRM succeeds, `leaveByAt` is computed with TOD multiplier + fixed buffer;
       UI labels it an **estimate**.
-- [ ] Soft-fail: missing/blank location or geocode failure → item still
+- [x] Soft-fail: missing/blank location or geocode failure → item still
       returned with `leaveByStatus=UNAVAILABLE` + reason; never fails the whole
       calendar GET. Both coords present but OSRM down → fallback duration +
       still labeled estimate.
-- [ ] No live-traffic wording in client UI strings; docs note OSRM is PoC-free
+- [x] No live-traffic wording in client UI strings; docs note OSRM is PoC-free
       routing with `paid-live-traffic` as the upgrade path.
-- [ ] OpenAPI + web + Android + iOS clients updated together; `ModularityTests`
+- [x] OpenAPI + web + Android + iOS clients updated together; `ModularityTests`
       passes with the new module; unit + integration tests cover estimate math,
       leave-from authz, and soft-fail.
-- [ ] Activity-type arrival lead times are **not** implemented (tracked as
+- [x] Activity-type arrival lead times are **not** implemented (tracked as
       `event-arrival-lead-time`).
 
 ## Tasks
@@ -129,7 +129,7 @@ selectable; not-located disabled or labeled).
 - [x] **Docs:** `docs/architecture.md` — leave-by module, estimate formula,
       soft-fail recovery paths; OSRM PoC → `paid-live-traffic` upgrade note;
       pointer to `event-arrival-lead-time`.
-- [ ] **Tests:** Estimate unit tests (OSRM ok / OSRM-down fallback / missing
+- [x] **Tests:** Estimate unit tests (OSRM ok / OSRM-down fallback / missing
       coords → UNAVAILABLE); integration for leave-from + calendar enrichment;
       client tests for display / set leave-from; `ModularityTests`.
 
