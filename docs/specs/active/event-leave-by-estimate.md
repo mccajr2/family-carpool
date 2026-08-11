@@ -1,8 +1,8 @@
 # Spec: event-leave-by-estimate
 
-Status: draft  
+Status: approved  
 Created: 2026-08-07  
-Updated: 2026-08-11 (recovery paths + OSRM→paid-traffic note)  
+Updated: 2026-08-11 (approved)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `event-leave-by-estimate`  
 Added: 2026-08-07 · re-rank split
@@ -148,4 +148,5 @@ selectable; not-located disabled or labeled).
 
 ## Approval
 
-Status stays **draft** until you approve (or amend). No `/implement` until then.
+**Approved** 2026-08-11. Ready for `/implement`. Do not merge implementation to
+`main` without a PR.
