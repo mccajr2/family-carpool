@@ -105,7 +105,7 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 | driver-only-role | 2026-08-07 · initial | Narrow Driver-only role (orthogonal driving stays in garage for now) |
 | rss-atom-schedule-feeds | 2026-08-09 · enhancement | RSS/Atom schedule import (superseded for v1 by iCal/webcal) |
 | rescue-broadcast | 2026-08-07 · initial | Emergency / rescue broadcast mode |
-| paid-live-traffic | 2026-08-07 · initial | Paid live-traffic providers for leave-by |
+| paid-live-traffic | 2026-08-07 · initial | After leave-by proves value: replace/supplement free **OSRM** routing with a paid live-traffic provider (still labeled estimate unless product decides otherwise) |
 | coach-league-admin | 2026-08-07 · initial | Coach/league admin consoles, fees, club OS |
 | in-app-chat | 2026-08-07 · initial | Messaging between caregivers / carpool members |
 | osm-map-tiles | 2026-08-07 · initial | Optional in-app map with OSM tiles + attribution |
