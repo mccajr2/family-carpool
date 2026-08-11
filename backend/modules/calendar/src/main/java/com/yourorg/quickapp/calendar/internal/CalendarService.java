@@ -8,6 +8,9 @@ import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
+import com.yourorg.quickapp.leaveby.LeaveByApi;
+import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
+import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,14 +25,17 @@ public class CalendarService {
     private final FamilyMembershipApi familyMembershipApi;
     private final FeedCalendarApi feedCalendarApi;
     private final ManualEventCalendarApi manualEventCalendarApi;
+    private final LeaveByApi leaveByApi;
 
     public CalendarService(
             FamilyMembershipApi familyMembershipApi,
             FeedCalendarApi feedCalendarApi,
-            ManualEventCalendarApi manualEventCalendarApi) {
+            ManualEventCalendarApi manualEventCalendarApi,
+            LeaveByApi leaveByApi) {
         this.familyMembershipApi = familyMembershipApi;
         this.feedCalendarApi = feedCalendarApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
+        this.leaveByApi = leaveByApi;
     }
 
     public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
@@ -38,11 +44,11 @@ public class CalendarService {
 
         List<CalendarItemResponse> items = new ArrayList<>();
         for (FeedCalendarEventDto feedEvent : feedCalendarApi.listEventsInRange(circleId, from, to)) {
-            items.add(fromFeed(feedEvent));
+            items.add(fromFeed(adult.id(), feedEvent));
         }
         for (ManualCalendarEventDto manual :
                 manualEventCalendarApi.listInRange(circleId, from, to)) {
-            items.add(fromManual(manual));
+            items.add(fromManual(adult.id(), manual));
         }
 
         items.sort(
@@ -50,6 +56,30 @@ public class CalendarService {
                         .thenComparing(item -> item.source().name())
                         .thenComparing(CalendarItemResponse::id));
         return List.copyOf(items);
+    }
+
+    public CalendarItemResponse setLeaveFrom(
+            AdultResponse adult, CalendarItemSource source, UUID itemId, UUID placeId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        leaveByApi.setLeaveFrom(adult.id(), toLeaveBySource(source), itemId, placeId);
+        return switch (source) {
+            case MANUAL ->
+                    manualEventCalendarApi
+                            .findInCircle(circleId, itemId)
+                            .map(event -> fromManual(adult.id(), event))
+                            .orElseThrow(
+                                    () ->
+                                            new CalendarException(
+                                                    HttpStatus.NOT_FOUND, "Calendar item not found"));
+            case FEED ->
+                    feedCalendarApi
+                            .findEventInCircle(circleId, itemId)
+                            .map(event -> fromFeed(adult.id(), event))
+                            .orElseThrow(
+                                    () ->
+                                            new CalendarException(
+                                                    HttpStatus.NOT_FOUND, "Calendar item not found"));
+        };
     }
 
     private static void requireValidRange(Instant from, Instant to) {
@@ -61,7 +91,14 @@ public class CalendarService {
         }
     }
 
-    private static CalendarItemResponse fromFeed(FeedCalendarEventDto event) {
+    private CalendarItemResponse fromFeed(UUID adultId, FeedCalendarEventDto event) {
+        LeaveByEnrichmentDto leaveBy =
+                leaveByApi.enrich(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        event.id(),
+                        event.startsAt(),
+                        event.location());
         return new CalendarItemResponse(
                 event.id(),
                 CalendarItemSource.FEED,
@@ -71,10 +108,22 @@ public class CalendarService {
                 event.location(),
                 event.kidIds(),
                 event.feedId(),
-                event.feedName());
+                event.feedName(),
+                leaveBy.leaveFromPlaceId(),
+                leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveByAt(),
+                leaveBy.leaveByStatus(),
+                leaveBy.leaveByReason());
     }
 
-    private static CalendarItemResponse fromManual(ManualCalendarEventDto event) {
+    private CalendarItemResponse fromManual(UUID adultId, ManualCalendarEventDto event) {
+        LeaveByEnrichmentDto leaveBy =
+                leaveByApi.enrich(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        event.id(),
+                        event.startsAt(),
+                        event.location());
         return new CalendarItemResponse(
                 event.id(),
                 CalendarItemSource.MANUAL,
@@ -84,6 +133,18 @@ public class CalendarService {
                 event.location(),
                 event.kidIds(),
                 null,
-                null);
+                null,
+                leaveBy.leaveFromPlaceId(),
+                leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveByAt(),
+                leaveBy.leaveByStatus(),
+                leaveBy.leaveByReason());
+    }
+
+    private static LeaveByItemSource toLeaveBySource(CalendarItemSource source) {
+        return switch (source) {
+            case MANUAL -> LeaveByItemSource.MANUAL;
+            case FEED -> LeaveByItemSource.FEED;
+        };
     }
 }

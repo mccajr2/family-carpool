@@ -36,6 +36,8 @@ public final class PostgresTestcontainers {
         registry.add("app.feeds.fetch-provider", () -> "stub");
         // Do not run the background feed poller in SpringBootTests.
         registry.add("app.feeds.poll-enabled", () -> "false");
+        // Never hit live OSRM from CI / local SpringBootTests.
+        registry.add("app.leaveby.osrm.provider", () -> "stub");
     }
 
     public static boolean dockerAvailable() {

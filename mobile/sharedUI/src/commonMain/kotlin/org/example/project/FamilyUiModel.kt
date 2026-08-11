@@ -996,6 +996,39 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun setCalendarLeaveFrom(
+        item: CalendarItem,
+        placeId: String,
+    ) {
+        if (item.leaveFromPlaceId == placeId) return
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated =
+                familyClient.setCalendarLeaveFrom(
+                    token,
+                    item.source,
+                    item.id,
+                    SetCalendarLeaveFromRequest(leaveFromPlaceId = placeId),
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    calendarItems =
+                        current.calendarItems.map { row ->
+                            if (row.source == item.source && row.id == item.id) updated else row
+                        },
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Set leave-from failed",
+                )
+        }
+    }
+
     private suspend fun loadCalendarItems(
         token: String,
         loadedTo: String = defaultCalendarWindow().to,

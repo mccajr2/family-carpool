@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.calendar;
 
+import com.yourorg.quickapp.leaveby.LeaveByStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -13,4 +14,9 @@ public record CalendarItemResponse(
         String location,
         List<UUID> kidIds,
         UUID feedId,
-        String feedName) {}
+        String feedName,
+        UUID leaveFromPlaceId,
+        String leaveFromPlaceName,
+        Instant leaveByAt,
+        LeaveByStatus leaveByStatus,
+        String leaveByReason) {}

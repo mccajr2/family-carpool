@@ -5,6 +5,7 @@ import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,16 +41,32 @@ class FeedCalendarApiImpl implements FeedCalendarApi {
                 .map(
                         event -> {
                             ActivityFeedEntity feed = byId.get(event.feedId());
-                            return new FeedCalendarEventDto(
-                                    event.id(),
-                                    feed.id(),
-                                    feed.name(),
-                                    event.summary(),
-                                    event.startsAt(),
-                                    event.endsAt(),
-                                    IcalParser.unescapeText(event.location()),
-                                    List.copyOf(feed.kidIds()));
+                            return toDto(event, feed);
                         })
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<FeedCalendarEventDto> findEventInCircle(UUID circleId, UUID itemId) {
+        return events
+                .findById(itemId)
+                .flatMap(
+                        event ->
+                                feeds.findByIdAndCircleId(event.feedId(), circleId)
+                                        .map(feed -> toDto(event, feed)));
+    }
+
+    private static FeedCalendarEventDto toDto(
+            ActivityFeedEventEntity event, ActivityFeedEntity feed) {
+        return new FeedCalendarEventDto(
+                event.id(),
+                feed.id(),
+                feed.name(),
+                event.summary(),
+                event.startsAt(),
+                event.endsAt(),
+                IcalParser.unescapeText(event.location()),
+                List.copyOf(feed.kidIds()));
     }
 }

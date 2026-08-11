@@ -72,6 +72,12 @@ enum class CalendarItemSource {
 }
 
 @Serializable
+enum class LeaveByStatus {
+    OK,
+    UNAVAILABLE,
+}
+
+@Serializable
 data class CalendarItem(
     val id: String,
     val source: CalendarItemSource,
@@ -82,6 +88,16 @@ data class CalendarItem(
     val kidIds: List<String> = emptyList(),
     val feedId: String? = null,
     val feedName: String? = null,
+    val leaveFromPlaceId: String? = null,
+    val leaveFromPlaceName: String? = null,
+    val leaveByAt: String? = null,
+    val leaveByStatus: LeaveByStatus = LeaveByStatus.UNAVAILABLE,
+    val leaveByReason: String? = null,
+)
+
+@Serializable
+data class SetCalendarLeaveFromRequest(
+    val leaveFromPlaceId: String,
 )
 
 @Serializable

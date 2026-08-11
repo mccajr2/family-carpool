@@ -54,8 +54,21 @@ struct FamilyCalendarItem: Identifiable, Equatable {
     var kidIds: [String]
     var feedId: String?
     var feedName: String?
+    var leaveFromPlaceId: String?
+    var leaveFromPlaceName: String?
+    var leaveByAt: String?
+    var leaveByStatus: String
+    var leaveByReason: String?
 
     var isManual: Bool { source == "MANUAL" }
+
+    var leaveByAgendaLine: String {
+        LeaveByDisplay.leaveByAgendaLine(
+            leaveByStatus: leaveByStatus,
+            leaveByAt: leaveByAt,
+            leaveByReason: leaveByReason
+        )
+    }
 
     var whenLabel: String {
         let start = ManualEventDateCodec.displayString(fromIso: startsAt) ?? startsAt
@@ -1051,24 +1064,29 @@ final class AuthViewModel: ObservableObject {
         bridge.listCalendar(
             from: window.from,
             to: window.to,
-            onSuccess: { [weak self] ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames in
+            onSuccess: { [weak self]
+                ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
+                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
                     self.calendarLoadedTo = end
-                    self.calendarItems = (0..<ids.count).map { index in
-                        FamilyCalendarItem(
-                            id: ids[index],
-                            source: sources[index],
-                            title: titles[index],
-                            startsAt: startsAts[index],
-                            endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
-                            location: locations[index].isEmpty ? nil : locations[index],
-                            kidIds: Self.splitJoinedIds(kidIdsJoined[index]),
-                            feedId: feedIds[index].isEmpty ? nil : feedIds[index],
-                            feedName: feedNames[index].isEmpty ? nil : feedNames[index]
-                        )
-                    }
+                    self.calendarItems = Self.mapCalendarItems(
+                        ids: ids,
+                        sources: sources,
+                        titles: titles,
+                        startsAts: startsAts,
+                        endsAts: endsAts,
+                        locations: locations,
+                        kidIdsJoined: kidIdsJoined,
+                        feedIds: feedIds,
+                        feedNames: feedNames,
+                        leaveFromPlaceIds: leaveFromPlaceIds,
+                        leaveFromPlaceNames: leaveFromPlaceNames,
+                        leaveByAts: leaveByAts,
+                        leaveByStatuses: leaveByStatuses,
+                        leaveByReasons: leaveByReasons
+                    )
                 }
             },
             onError: eventError
@@ -1082,23 +1100,28 @@ final class AuthViewModel: ObservableObject {
         bridge.listCalendar(
             from: page.from,
             to: page.to,
-            onSuccess: { [weak self] ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames in
+            onSuccess: { [weak self]
+                ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
+                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
-                    let more = (0..<ids.count).map { index in
-                        FamilyCalendarItem(
-                            id: ids[index],
-                            source: sources[index],
-                            title: titles[index],
-                            startsAt: startsAts[index],
-                            endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
-                            location: locations[index].isEmpty ? nil : locations[index],
-                            kidIds: Self.splitJoinedIds(kidIdsJoined[index]),
-                            feedId: feedIds[index].isEmpty ? nil : feedIds[index],
-                            feedName: feedNames[index].isEmpty ? nil : feedNames[index]
-                        )
-                    }
+                    let more = Self.mapCalendarItems(
+                        ids: ids,
+                        sources: sources,
+                        titles: titles,
+                        startsAts: startsAts,
+                        endsAts: endsAts,
+                        locations: locations,
+                        kidIdsJoined: kidIdsJoined,
+                        feedIds: feedIds,
+                        feedNames: feedNames,
+                        leaveFromPlaceIds: leaveFromPlaceIds,
+                        leaveFromPlaceNames: leaveFromPlaceNames,
+                        leaveByAts: leaveByAts,
+                        leaveByStatuses: leaveByStatuses,
+                        leaveByReasons: leaveByReasons
+                    )
                     var seen = Set(self.calendarItems.map { "\($0.source):\($0.id)" })
                     for item in more where !seen.contains("\(item.source):\(item.id)") {
                         seen.insert("\(item.source):\(item.id)")
@@ -1111,6 +1134,47 @@ final class AuthViewModel: ObservableObject {
                         return $0.startsAt < $1.startsAt
                     }
                     self.calendarLoadedTo = page.to
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func setCalendarLeaveFrom(item: FamilyCalendarItem, placeId: String) {
+        guard item.leaveFromPlaceId != placeId else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.setCalendarLeaveFrom(
+            source: item.source,
+            itemId: item.id,
+            placeId: placeId,
+            onSuccess: { [weak self]
+                id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    let updated = FamilyCalendarItem(
+                        id: id,
+                        source: source,
+                        title: title,
+                        startsAt: startsAt,
+                        endsAt: endsAt.isEmpty ? nil : endsAt,
+                        location: location.isEmpty ? nil : location,
+                        kidIds: Self.splitJoinedIds(kidIdsJoined),
+                        feedId: feedId.isEmpty ? nil : feedId,
+                        feedName: feedName.isEmpty ? nil : feedName,
+                        leaveFromPlaceId: leaveFromPlaceId.isEmpty ? nil : leaveFromPlaceId,
+                        leaveFromPlaceName: leaveFromPlaceName.isEmpty ? nil : leaveFromPlaceName,
+                        leaveByAt: leaveByAt.isEmpty ? nil : leaveByAt,
+                        leaveByStatus: leaveByStatus,
+                        leaveByReason: leaveByReason.isEmpty ? nil : leaveByReason
+                    )
+                    if let index = self.calendarItems.firstIndex(where: {
+                        $0.source == item.source && $0.id == item.id
+                    }) {
+                        self.calendarItems[index] = updated
+                    }
                 }
             },
             onError: eventError
@@ -1285,6 +1349,43 @@ final class AuthViewModel: ObservableObject {
             lastSyncError: lastSyncError.isEmpty ? nil : lastSyncError,
             eventCount: Int(eventCount) ?? 0
         )
+    }
+
+    private static func mapCalendarItems(
+        ids: [String],
+        sources: [String],
+        titles: [String],
+        startsAts: [String],
+        endsAts: [String],
+        locations: [String],
+        kidIdsJoined: [String],
+        feedIds: [String],
+        feedNames: [String],
+        leaveFromPlaceIds: [String],
+        leaveFromPlaceNames: [String],
+        leaveByAts: [String],
+        leaveByStatuses: [String],
+        leaveByReasons: [String]
+    ) -> [FamilyCalendarItem] {
+        (0..<ids.count).map { index in
+            FamilyCalendarItem(
+                id: ids[index],
+                source: sources[index],
+                title: titles[index],
+                startsAt: startsAts[index],
+                endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
+                location: locations[index].isEmpty ? nil : locations[index],
+                kidIds: splitJoinedIds(kidIdsJoined[index]),
+                feedId: feedIds[index].isEmpty ? nil : feedIds[index],
+                feedName: feedNames[index].isEmpty ? nil : feedNames[index],
+                leaveFromPlaceId: leaveFromPlaceIds[index].isEmpty ? nil : leaveFromPlaceIds[index],
+                leaveFromPlaceName: leaveFromPlaceNames[index].isEmpty
+                    ? nil : leaveFromPlaceNames[index],
+                leaveByAt: leaveByAts[index].isEmpty ? nil : leaveByAts[index],
+                leaveByStatus: leaveByStatuses[index],
+                leaveByReason: leaveByReasons[index].isEmpty ? nil : leaveByReasons[index]
+            )
+        }
     }
 
     private static func splitJoinedIds(_ joined: String) -> [String] {

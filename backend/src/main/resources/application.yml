@@ -45,6 +45,22 @@ app:
     # Override with GEOCODE_USER_AGENT for your deploy / personal contact.
     user-agent: ${GEOCODE_USER_AGENT:family-carpool/0.1 (https://github.com/mccajr2/family-carpool)}
     min-interval-ms: ${GEOCODE_MIN_INTERVAL_MS:1000}
+  leaveby:
+    # Fixed buffer + TOD multipliers applied after OSRM (or fallback) travel seconds.
+    fixed-buffer-seconds: ${LEAVEBY_FIXED_BUFFER_SECONDS:300}
+    # Used when origin+destination coords exist but OSRM is unreachable.
+    fallback-duration-seconds: ${LEAVEBY_FALLBACK_DURATION_SECONDS:1800}
+    peak-multiplier: ${LEAVEBY_PEAK_MULTIPLIER:1.25}
+    off-peak-multiplier: ${LEAVEBY_OFF_PEAK_MULTIPLIER:1.0}
+    # Peak windows use the event startsAt hour in UTC [start, end).
+    morning-peak-start-hour-utc: ${LEAVEBY_MORNING_PEAK_START_HOUR_UTC:7}
+    morning-peak-end-hour-utc: ${LEAVEBY_MORNING_PEAK_END_HOUR_UTC:9}
+    evening-peak-start-hour-utc: ${LEAVEBY_EVENING_PEAK_START_HOUR_UTC:16}
+    evening-peak-end-hour-utc: ${LEAVEBY_EVENING_PEAK_END_HOUR_UTC:19}
+    osrm:
+      # http (default) or stub (CI / offline)
+      provider: ${LEAVEBY_OSRM_PROVIDER:http}
+      base-url: ${LEAVEBY_OSRM_BASE_URL:https://router.project-osrm.org}
 
 logging:
   level:

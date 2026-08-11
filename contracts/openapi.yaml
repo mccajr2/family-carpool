@@ -1,23 +1,25 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.9.0
+  version: 0.10.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
     hold kids, named places, activity feeds (Organizer-managed iCal/webcal
     subscriptions with soft-fail sync and server-side background polling),
     manual events (any member may CRUD one-off schedule items with 1+ kids),
-    a unified circle calendar read (feed + manual items in a time window),
-    and memberships (ORGANIZER / CAREGIVER). Organizers share a short invite
-    code; Caregivers join via that code. Any member may manage named places
-    (label + free-text address; optional lat/lng from geocoding with soft-fail
-    and retry locate) and manual events, and may read the calendar agenda.
-    Feed last-synced / error / event count may update from Sync now or from
-    the server poller — clients re-GET the feeds list to observe changes.
-    Magic links, passwords, multi-circle membership, invite deep links,
-    email/push invite delivery, and HTTP-only web cookies are out of scope
-    for this revision.
+    a unified circle calendar read (feed + manual items in a time window) with
+    per-adult leave-from and estimated leave-by (OSRM or fallback; never live
+    traffic), and memberships (ORGANIZER / CAREGIVER). Organizers share a short
+    invite code; Caregivers join via that code. Any member may manage named
+    places (label + free-text address; optional lat/lng from geocoding with
+    soft-fail and retry locate) and manual events, read the calendar agenda,
+    and set their own leave-from place per calendar item. Feed last-synced /
+    error / event count may update from Sync now or from the server poller —
+    clients re-GET the feeds list to observe changes. Magic links, passwords,
+    multi-circle membership, invite deep links, email/push invite delivery,
+    HTTP-only web cookies, and paid live-traffic routing are out of scope for
+    this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -28,11 +30,12 @@ tags:
   - name: family
     description: >
       Family circle, kids, named places, activity feeds, manual events, unified
-      calendar read, invite code, and memberships (one circle per adult in v1).
-      Organizer-only writes for invite regen, roles, remove, kids, circle rename,
-      and activity feed create/update/delete/sync. Any member may create/update/
-      delete places and manual events, retry place geocoding, and list the
-      circle calendar.
+      calendar read (with per-adult leave-by estimates), invite code, and
+      memberships (one circle per adult in v1). Organizer-only writes for invite
+      regen, roles, remove, kids, circle rename, and activity feed
+      create/update/delete/sync. Any member may create/update/delete places and
+      manual events, retry place geocoding, list the circle calendar, and set
+      their leave-from place per calendar item.
 
 paths:
   /api/auth/request-code:
@@ -1205,6 +1208,11 @@ paths:
         startsAt falls in the half-open interval [from, to), ordered by
         startsAt ascending, then source, then id. Feed items include feedId /
         feedName and kidIds from the feed; manual items omit feed fields.
+        Each item is enriched for the **current adult** with leave-from and
+        estimated leave-by (OSRM driving duration when origin and destination
+        coords resolve; UNAVAILABLE when location is blank/geocode fails or no
+        located leave-from; fallback duration when both coords exist but OSRM
+        is unreachable). Leave-by is always an estimate — never live traffic.
         Empty array when none match. from must be strictly before to (400
         otherwise). Adults without a circle receive 404. Does not mutate
         feed snapshots or manual events.
@@ -1247,6 +1255,11 @@ paths:
                     - 01900000-0000-7000-8000-000000000021
                   feedId: null
                   feedName: null
+                  leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+                  leaveFromPlaceName: Mom's house
+                  leaveByAt: "2026-08-15T15:25:00Z"
+                  leaveByStatus: OK
+                  leaveByReason: null
                 - id: 01900000-0000-7000-8000-000000000061
                   source: FEED
                   title: Practice
@@ -1257,6 +1270,11 @@ paths:
                     - 01900000-0000-7000-8000-000000000021
                   feedId: 01900000-0000-7000-8000-000000000041
                   feedName: U12
+                  leaveFromPlaceId: null
+                  leaveFromPlaceName: null
+                  leaveByAt: null
+                  leaveByStatus: UNAVAILABLE
+                  leaveByReason: NO_ORIGIN
         "400":
           description: Missing from/to, or from is not strictly before to
           content:
@@ -1271,6 +1289,74 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/{source}/{itemId}/leave-from:
+    put:
+      operationId: setCalendarLeaveFrom
+      tags: [family]
+      summary: Set the current adult's leave-from place for a calendar item
+      description: >
+        Any circle member. Stores a per-adult leave-from place override for the
+        given calendar item (MANUAL or FEED). The place must belong to the
+        adult's circle and must be located (non-null latitude/longitude); an
+        unlocated place returns 400. Unknown item id for the given source,
+        unknown place, or place in another circle returns 404. Adults without
+        a circle receive 404. Returns the calendar item enriched with leave-by
+        for the current adult (same shape as listCircleCalendar rows). Does not
+        mutate the underlying manual event or feed snapshot.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          description: Whether the item is a manual event or a feed-imported row
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          description: Manual event id or feed event id
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCalendarLeaveFromRequest"
+            example:
+              leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+      responses:
+        "200":
+          description: Leave-from saved; item returned with leave-by for this adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: >
+            Missing leaveFromPlaceId, or place exists but is not located
+            (null latitude/longitude)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: >
+            No circle, unknown calendar item for source, unknown place, or
+            place not in the adult's circle
           content:
             application/json:
               schema:
@@ -1993,6 +2079,30 @@ components:
         - MANUAL
         - FEED
 
+    LeaveByStatus:
+      type: string
+      description: >
+        Whether an estimated leave-by could be computed for the current adult.
+        OK means leaveByAt is set (from OSRM or OSRM-down fallback). UNAVAILABLE
+        means leaveByAt is null (missing origin, blank location, or geocode
+        failure).
+      enum:
+        - OK
+        - UNAVAILABLE
+
+    SetCalendarLeaveFromRequest:
+      type: object
+      required:
+        - leaveFromPlaceId
+      properties:
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          description: >
+            Circle place to use as this adult's leave-from for the calendar item.
+            Must be located (non-null latitude and longitude).
+          example: 01900000-0000-7000-8000-000000000031
+
     CalendarItem:
       type: object
       required:
@@ -2001,6 +2111,7 @@ components:
         - title
         - startsAt
         - kidIds
+        - leaveByStatus
       properties:
         id:
           type: string
@@ -2027,7 +2138,7 @@ components:
           type: string
           nullable: true
           maxLength: 500
-          description: Optional free-text location
+          description: Optional free-text location (geocoded for leave-by destination)
           example: Field 3
         kidIds:
           type: array
@@ -2046,6 +2157,35 @@ components:
           nullable: true
           description: Present when source is FEED; omitted/null for MANUAL
           example: U12
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Current adult's leave-from place for this item (explicit override or
+            default located place). Null when no located place is available.
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+          description: Display name of leaveFromPlaceId when set
+          example: Mom's house
+        leaveByAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Estimated leave-by instant (UTC) for the current adult. Null when
+            leaveByStatus is UNAVAILABLE. Always an estimate — not live traffic.
+          example: "2026-08-15T15:25:00Z"
+        leaveByStatus:
+          $ref: "#/components/schemas/LeaveByStatus"
+        leaveByReason:
+          type: string
+          nullable: true
+          description: >
+            Machine-readable reason when leaveByStatus is UNAVAILABLE (e.g.
+            NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK.
+          example: NO_ORIGIN
 
     CreateManualEventRequest:
       type: object

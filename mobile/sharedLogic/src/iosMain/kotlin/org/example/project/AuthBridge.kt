@@ -505,6 +505,11 @@ class AuthBridge {
             kidIdsJoined: List<String>,
             feedIds: List<String>,
             feedNames: List<String>,
+            leaveFromPlaceIds: List<String>,
+            leaveFromPlaceNames: List<String>,
+            leaveByAts: List<String>,
+            leaveByStatuses: List<String>,
+            leaveByReasons: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -521,9 +526,67 @@ class AuthBridge {
                     items.map { it.kidIds.joinToString(",") },
                     items.map { it.feedId.orEmpty() },
                     items.map { it.feedName.orEmpty() },
+                    items.map { it.leaveFromPlaceId.orEmpty() },
+                    items.map { it.leaveFromPlaceName.orEmpty() },
+                    items.map { it.leaveByAt.orEmpty() },
+                    items.map { it.leaveByStatus.name },
+                    items.map { it.leaveByReason.orEmpty() },
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "List calendar failed")
+            }
+        }
+    }
+
+    fun setCalendarLeaveFrom(
+        source: String,
+        itemId: String,
+        placeId: String,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.setCalendarLeaveFrom(
+                        session.requireAccessToken(),
+                        CalendarItemSource.valueOf(source),
+                        itemId,
+                        SetCalendarLeaveFromRequest(leaveFromPlaceId = placeId),
+                    )
+                onSuccess(
+                    item.id,
+                    item.source.name,
+                    item.title,
+                    item.startsAt,
+                    item.endsAt.orEmpty(),
+                    item.location.orEmpty(),
+                    item.kidIds.joinToString(","),
+                    item.feedId.orEmpty(),
+                    item.feedName.orEmpty(),
+                    item.leaveFromPlaceId.orEmpty(),
+                    item.leaveFromPlaceName.orEmpty(),
+                    item.leaveByAt.orEmpty(),
+                    item.leaveByStatus.name,
+                    item.leaveByReason.orEmpty(),
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Set leave-from failed")
             }
         }
     }

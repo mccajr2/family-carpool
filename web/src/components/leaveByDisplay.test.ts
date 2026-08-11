@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest"
+import {
+  formatLeaveByEstimateLine,
+  formatLeaveByTime,
+  leaveByUnavailableLabel,
+} from "./leaveByDisplay"
+
+describe("formatLeaveByEstimateLine", () => {
+  it("labels leave-by as an estimate with a tilde time", () => {
+    const line = formatLeaveByEstimateLine("2026-08-15T15:25:00Z")
+    expect(line).toMatch(/^Leave by ~/)
+    expect(line).toMatch(/ · estimate$/)
+    expect(line.toLowerCase()).not.toMatch(/\beta\b/)
+    expect(line.toLowerCase()).not.toContain("live traffic")
+    expect(line.toLowerCase()).not.toContain("live-traffic")
+    expect(formatLeaveByTime("2026-08-15T15:25:00Z")).not.toMatch(/T15:25/)
+  })
+})
+
+describe("leaveByUnavailableLabel", () => {
+  it("maps machine reasons to short copy", () => {
+    expect(leaveByUnavailableLabel("NO_ORIGIN")).toBe("No leave-from place yet")
+    expect(leaveByUnavailableLabel("NO_DESTINATION")).toBe(
+      "Add a location to estimate leave-by",
+    )
+    expect(leaveByUnavailableLabel("GEOCODE_FAILED")).toBe(
+      "Couldn't locate the destination",
+    )
+    expect(leaveByUnavailableLabel(null)).toBe("Leave-by estimate unavailable")
+  })
+})

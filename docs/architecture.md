@@ -50,7 +50,7 @@ look up adult by id, update `displayName`).
 Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 `named-places` + `place-geocoding` + `activity-feed-subscribe` +
 `activity-feed-poller` + `manual-events` + `family-calendar-surface` +
-`app-shell-navigation` (client shell IA):
+`app-shell-navigation` (client shell IA) + `event-leave-by-estimate`:
 
 | Topic | Decision |
 |--------|----------|
@@ -61,13 +61,14 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
 | Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
 | Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
-| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now. **Any member:** named places (+ retry locate), **manual events**, **calendar agenda read**. All members may read circle (Caregivers omit feed manage UI) |
+| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now. **Any member:** named places (+ retry locate), **manual events**, **calendar agenda read**, **own leave-from** per calendar item. All members may read circle (Caregivers omit feed manage UI) |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
-| Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
+| Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. Same cache path geocodes event free-text `location` for leave-by destinations (public `FamilyGeocodeApi`). **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
 | Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
-| Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
+| Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; each row enriched for the **current adult** with leave-from + leave-by (see Leave-by below); clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
+| Leave-by | Per **signed-in adult** + calendar item (`source` + `id`): optional leave-from place override; default = first **located** place by name. Estimate: `leaveBy ≈ startsAt − (travelDuration × TOD multiplier + fixedBuffer)`. Travel from **OSRM** when origin + destination coords exist; missing coords → `leaveByStatus=UNAVAILABLE` (soft-fail, calendar GET still succeeds); both coords OK but OSRM down → config **fallback duration**, still labeled **estimate**. Destination = geocode of item `location` (no destination place FK). Recovery: origin via leave-from / Places locate; MANUAL destination via edit `location`; no lat/lng editors; no FEED destination override in this slice. Activity-type arrival lead times → [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md). **OSRM is PoC-free routing**; upgrade path parked as [`paid-live-traffic`](roadmap.md) |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
 | Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; Carpool = reserved “Coming soon” placeholder (no flows yet); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places; Feeds for Organizers only — Caregiver row omitted) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
 
@@ -79,24 +80,28 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
    they do not manage subscribe URLs.
 2. **Any-member household content** — day-to-day shared facts everyone may
    contribute: **named places** (+ retry locate) and **manual events**. Same
-   write policy for both; no creator-only edit rules in v1.
+   write policy for both; no creator-only edit rules in v1. **Leave-from** is
+   also any-member but **per adult** (each caregiver’s own origin for an item).
 
 Modulith modules: `backend/modules/family/` (circle, kids, places, membership
-API), `backend/modules/feeds/` (subscriptions + synced events),
-`backend/modules/events/` (manual events), and `backend/modules/calendar/`
-(orchestrates feeds + events **public** APIs into the unified agenda read —
-no imports of either module’s `internal` packages). Contract paths under
-`/api/family/*`. Family public surface used by feeds, events, and calendar:
+API + public `FamilyPlaceApi` / `FamilyGeocodeApi`), `backend/modules/feeds/`
+(subscriptions + synced events), `backend/modules/events/` (manual events),
+`backend/modules/leaveby/` (OSRM port, leave-from persistence, estimate math),
+and `backend/modules/calendar/` (orchestrates feeds + events public APIs into
+the unified agenda read and composes leave-by enrichment — no imports of other
+modules’ `internal` packages). Contract paths under `/api/family/*`. Family
+public surface used by feeds, events, calendar, and leaveby:
 `FamilyMembershipApi` (`requireOrganizerCircleId` / `requireMemberCircleId`,
-validate kids). Auth public surface used by family: `AdultSessionApi`
-(`requireCurrentAdult`, `requireAdult`, `updateDisplayName`).
+validate kids), `FamilyPlaceApi`, `FamilyGeocodeApi`. Auth public surface used
+by family: `AdultSessionApi` (`requireCurrentAdult`, `requireAdult`,
+`updateDisplayName`). Leaveby public surface used by calendar: `LeaveByApi`.
 
 **How objects link (extensible):**
 
 - **Adult** ↔ **circle** via membership (+ role `ORGANIZER` | `CAREGIVER`)
 - **Invite code** lives on the circle (not per-member)
 - **Kid** belongs to a **circle**
-- **Place** belongs to a **circle** (shared origins for leave-by / coverage later);
+- **Place** belongs to a **circle** (shared origins for leave-by / coverage);
   coords come from geocoding the address, not manual entry
 - **ActivityFeed** belongs to a **circle**; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
@@ -105,6 +110,9 @@ validate kids). Auth public surface used by family: `AdultSessionApi`
   `family-calendar-surface`; manage-feeds only exposes sync status + event count.
 - **ManualEvent** belongs to a **circle** with **1+ kids**; not owned by a feed;
   not touched by Sync now / poller.
+- **Leave-from override** is per **adult** + calendar item (`MANUAL`|`FEED` +
+  item id) → a circle **Place**; not shared across adults. Leave-by estimates
+  are computed at calendar read time for the signed-in adult only.
 
 ```
 Adult --membership(+role)--> FamilyCircle <-- Kid
@@ -118,7 +126,28 @@ Adult --membership(+role)--> FamilyCircle <-- Kid
                             FeedEvent (UID snapshot)
                                   |
                              ManualEvent --event↔kid--> Kid
+                                  |
+Adult --leave-from override--> (source + itemId) --> Place
 ```
+
+### Leave-by estimate (detail)
+
+Locked for `event-leave-by-estimate`:
+
+| Topic | Decision |
+|--------|----------|
+| Formula | `leaveBy ≈ startsAt − (travelSeconds × TOD multiplier + fixedBufferSeconds)` |
+| TOD | Peak vs off-peak multipliers; peak windows use `startsAt` hour in **UTC** (config under `app.leaveby.*`) |
+| Travel | OSRM driving duration when origin place and destination geocode both have coords |
+| Soft-fail | Blank location → `NO_DESTINATION`; geocode miss → `GEOCODE_FAILED`; no located origin → `NO_ORIGIN`; calendar list never fails for a single bad row |
+| OSRM down | Config `fallback-duration-seconds`; status still `OK` and UI still says **estimate** |
+| Default origin | First located place by name (case-insensitive); else `UNAVAILABLE` |
+| UI copy | Always **estimate** — never “live traffic” / “ETA” |
+| Not in this slice | Activity-type arrival lead times → [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md) |
+| Routing upgrade | OSRM is free/self-hostable **PoC** routing. If leave-by proves value, replace or supplement with a paid live-traffic provider — parked as [`paid-live-traffic`](roadmap.md) |
+
+Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`, buffer / multipliers / fallback env vars under `app.leaveby`. Tests force stub OSRM + stub geocode (no live public hosts).
+
 ## Repository layout
 
 ```
@@ -129,7 +158,8 @@ family-carpool/
 │       ├── family/       # Family circle + kids + named places (+ geocode)
 │       ├── feeds/        # Activity feed subscribe + sync + background poller
 │       ├── events/       # Manual (non-feed) circle events
-│       └── calendar/     # Unified agenda read (orchestrates feeds + events)
+│       ├── leaveby/      # Leave-from persistence + OSRM estimate
+│       └── calendar/     # Unified agenda read (+ leave-by enrichment)
 ├── mobile/               # Separate Gradle build (KMP)
 │   ├── sharedLogic/      # Auth + family clients + secure token store
 │   ├── sharedUI/         # Compose Multiplatform (Android signed-in shell + destinations)

@@ -73,6 +73,8 @@ export type ManualEvent = {
 
 export type CalendarItemSource = "MANUAL" | "FEED"
 
+export type LeaveByStatus = "OK" | "UNAVAILABLE"
+
 export type CalendarItem = {
   id: string
   source: CalendarItemSource
@@ -83,6 +85,15 @@ export type CalendarItem = {
   kidIds: string[]
   feedId: string | null
   feedName: string | null
+  leaveFromPlaceId: string | null
+  leaveFromPlaceName: string | null
+  leaveByAt: string | null
+  leaveByStatus: LeaveByStatus
+  leaveByReason: string | null
+}
+
+export type SetCalendarLeaveFromRequest = {
+  leaveFromPlaceId: string
 }
 
 export type FamilyMember = {

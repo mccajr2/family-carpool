@@ -399,6 +399,11 @@ describe("FamilyClient", () => {
         kidIds: ["k1"],
         feedId: null,
         feedName: null,
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Mom's house",
+        leaveByAt: "2026-08-15T15:25:00Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
       },
       {
         id: "fe1",
@@ -410,6 +415,11 @@ describe("FamilyClient", () => {
         kidIds: ["k1"],
         feedId: "f1",
         feedName: "U12",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveByAt: null,
+        leaveByStatus: "UNAVAILABLE",
+        leaveByReason: "NO_ORIGIN",
       },
     ]
 
@@ -418,10 +428,49 @@ describe("FamilyClient", () => {
 
     await expect(
       client.listCalendar("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"),
-    ).resolves.toMatchObject([{ source: "MANUAL" }, { source: "FEED", feedName: "U12" }])
+    ).resolves.toMatchObject([
+      { source: "MANUAL", leaveByStatus: "OK" },
+      { source: "FEED", feedName: "U12", leaveByStatus: "UNAVAILABLE" },
+    ])
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(
       "http://localhost:8080/api/family/circle/calendar?from=2026-08-01T00%3A00%3A00Z&to=2026-09-01T00%3A00%3A00Z",
     )
+  })
+
+  it("sets leave-from for a calendar item", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const item = {
+      id: "e1",
+      source: "MANUAL" as const,
+      title: "Dentist",
+      startsAt: "2026-08-15T16:00:00Z",
+      endsAt: null,
+      location: "Clinic",
+      kidIds: ["k1"],
+      feedId: null,
+      feedName: null,
+      leaveFromPlaceId: "p1",
+      leaveFromPlaceName: "Mom's house",
+      leaveByAt: "2026-08-15T15:25:00Z",
+      leaveByStatus: "OK" as const,
+      leaveByReason: null,
+    }
+    const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.setCalendarLeaveFrom("tok", "MANUAL", "e1", { leaveFromPlaceId: "p1" }),
+    ).resolves.toMatchObject({ leaveFromPlaceId: "p1", leaveByStatus: "OK" })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/leave-from",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PUT" })
   })
 })
