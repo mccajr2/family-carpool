@@ -69,7 +69,7 @@ Agenda scroll so the list is the primary content.
   remove inline forms from Agenda; update tests.
 - [x] **Android (sharedUI):** Calendar Add control; sheet/push compose for
   create + edit; remove inline forms; update `FamilyUiModel` / UI tests.
-- [ ] **iOS:** Calendar Add control; sheet/push compose for create + edit;
+- [x] **iOS:** Calendar Add control; sheet/push compose for create + edit;
   remove inline forms; keep AuthViewModel write paths.
 - [ ] **Tests:** Client coverage for Add → create and Edit → update via compose;
   assert inline create form is gone from Agenda.
