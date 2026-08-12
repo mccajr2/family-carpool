@@ -881,7 +881,10 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
-    func loadFeeds() {
+    /// Loads feeds without owning global busy state.
+    /// Ready bootstraps `loadFeeds()` in parallel with `loadCalendar()`; clearing
+    /// `isLoading` here would hide Agenda's Loading… while calendar is still in flight.
+    func loadFeeds(clearLoadingWhenDone: Bool = false) {
         guard isOrganizer else {
             feeds = []
             return
@@ -907,12 +910,16 @@ final class AuthViewModel: ObservableObject {
                         )
                     }
                     self.feeds = next
-                    self.isLoading = false
+                    if clearLoadingWhenDone {
+                        self.isLoading = false
+                    }
                 }
             },
             onError: { [weak self] message in
                 Task { @MainActor in
-                    self?.isLoading = false
+                    if clearLoadingWhenDone {
+                        self?.isLoading = false
+                    }
                     self?.errorMessage = message
                 }
             }
@@ -924,7 +931,7 @@ final class AuthViewModel: ObservableObject {
         guard isOrganizer else { return }
         isLoading = true
         errorMessage = nil
-        loadFeeds()
+        loadFeeds(clearLoadingWhenDone: true)
     }
 
     func toggleNewFeedKid(_ kidId: String) {

@@ -104,6 +104,13 @@ struct CoverageDisplayTestMain {
             "defaults covering adult to signed-in adult"
         )
         expect(
+            CoverageDisplay.defaultCoverageAdultId(
+                currentAdultId: "1",
+                memberAdultIds: ["9"]
+            ) == "9",
+            "sole circle adult is implicit"
+        )
+        expect(
             CoverageDisplay.defaultCoverageKidIds(["k1"]) == Set(["k1"]),
             "sole uncovered kid is auto-selected"
         )
@@ -120,8 +127,64 @@ struct CoverageDisplayTestMain {
         expect(content.contains("Needs coverage"), "Agenda shows Needs coverage")
         expect(content.contains("Assign coverage"), "Agenda shows Assign coverage")
         expect(content.contains("Confirm coverage"), "Agenda shows Confirm coverage")
+        expect(content.contains("Decline coverage"), "Agenda shows Decline coverage")
+        expect(content.contains("Remove coverage"), "Agenda shows Remove coverage")
         expect(content.contains("My default leave-from"), "Places shows default leave-from")
         expect(content.contains("effectiveAdultId"), "Agenda uses effective covering adult")
+        expect(
+            content.contains("CoverageDisplay.defaultCoverageAdultId"),
+            "Agenda defaults covering adult via CoverageDisplay"
+        )
+        expect(
+            content.contains("Toggling kids must not clear the covering-adult default"),
+            "kid toggle preserves covering adult default"
+        )
+        expect(content.contains("UiTokens.Space.xl"), "Agenda uses xl section spacing")
+        expect(content.contains("UiTokens.Space._2xl"), "Agenda items use 2xl list gap")
+        expect(content.contains("UiTokens.Space.md"), "Agenda list has md top padding")
+        expect(content.contains("\"Saving…\""), "compose Save uses Saving… while busy")
+        expect(content.contains("\"Loading…\""), "Load more uses Loading… while busy")
+        expect(
+            content.contains("agendaListBusy"),
+            "Agenda empty copy suppressed while list is busy"
+        )
+        expect(
+            content.contains("No events in the loaded window."),
+            "Agenda keeps empty-window copy for idle empty"
+        )
+        expect(
+            !content.contains("Working…"),
+            "Sign out must never become Working…"
+        )
+
+        let authViewModelURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/AuthViewModel.swift")
+        let auth = try! String(contentsOf: authViewModelURL, encoding: .utf8)
+        expect(
+            auth.contains("clearLoadingWhenDone"),
+            "loadFeeds must not always clear isLoading (parallel with loadCalendar)"
+        )
+        expect(
+            auth.contains("loadFeeds(clearLoadingWhenDone: true)"),
+            "refreshFeeds owns busy clear via clearLoadingWhenDone"
+        )
+        expect(
+            content.contains("title: \"Sign out\""),
+            "More Sign out label stays Sign out"
+        )
+        expect(
+            !content.contains("Edit location"),
+            "manual destination fixes go through Edit, not Edit location"
+        )
+        expect(content.contains("Open Places"), "NO_ORIGIN recovery keeps Open Places")
+        expect(
+            content.contains("locatedPlaces.count <= 1"),
+            "leave-from sole located place is label-only"
+        )
+        expect(content.contains("soleAdult"), "sole adult hides covering-adult picker")
+        expect(content.contains("soleKid"), "sole kid hides uncovered-kid checkboxes")
 
         print("CoverageDisplay tests passed")
     }

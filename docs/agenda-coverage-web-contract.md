@@ -1,6 +1,6 @@
 # Agenda coverage — web behavior contract (reference client)
 
-Status: **stable** (web dogfood complete — 2026-08-12)  
+Status: **stable** (web dogfood complete — 2026-08-12; iOS ported to this contract)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)
 
 Web Agenda is the **source of truth** for coverage + leave-from **client UX**.
@@ -31,8 +31,14 @@ default leave-from + event compose).
   dialog.
   - Event compose: Save → spinner + “Saving…” (`aria-busy` on the dialog).
   - Agenda list refresh via Load more → spinner + “Loading…”.
+  - While Agenda calendar is loading and the list is empty, do **not** show
+    “No events in the loaded window.” — keep busy on Load more → Loading…
+    instead (initial fetch and Load more).
 - Empty-state primary actions may still use local labels on their own buttons
   (e.g. Creating… / Joining…).
+- Clients must not clear global busy from a parallel feeds fetch while calendar
+  is still loading (iOS: `loadFeeds` must not clear `isLoading` unless it owns
+  the busy, e.g. Refresh).
 
 ## Manual event controls
 

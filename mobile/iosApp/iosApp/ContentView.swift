@@ -167,7 +167,7 @@ struct ContentView: View {
         )) {
             NavigationStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: UiTokens.Space.xl) {
                         calendarDestination
                     }
                     .padding()
@@ -459,141 +459,162 @@ struct ContentView: View {
 
     @ViewBuilder
     private var calendarDestination: some View {
-            Text("Agenda")
-                .font(.headline)
-            if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-            if !model.kids.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        Button("All kids") { model.agendaKidFilter = nil }
+        Text("Agenda")
+            .font(.headline)
+        if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+        if !model.kids.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    Button("All kids") { model.agendaKidFilter = nil }
+                        .buttonStyle(.bordered)
+                        .tint(model.agendaKidFilter == nil ? .accentColor : .secondary)
+                    ForEach(model.kids) { kid in
+                        Button(kid.displayName) { model.agendaKidFilter = kid.id }
                             .buttonStyle(.bordered)
-                            .tint(model.agendaKidFilter == nil ? .accentColor : .secondary)
-                        ForEach(model.kids) { kid in
-                            Button(kid.displayName) { model.agendaKidFilter = kid.id }
-                                .buttonStyle(.bordered)
-                                .tint(model.agendaKidFilter == kid.id ? .accentColor : .secondary)
-                        }
+                            .tint(model.agendaKidFilter == kid.id ? .accentColor : .secondary)
                     }
                 }
             }
-            if model.visibleCalendarItems.isEmpty {
+        }
+        let agendaListBusy = model.isLoading && !model.eventCompose.isOpen
+        if model.visibleCalendarItems.isEmpty {
+            // While the first calendar fetch (or Load more) is in flight, do not claim
+            // the window is empty — busy feedback lives on Load more → Loading….
+            if !agendaListBusy {
                 Text("No events in the loaded window.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(model.visibleCalendarItems) { item in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                        Text(item.whenLabel)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(item.sourceLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if let location = item.location, !location.isEmpty {
-                            Text(location)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        let kidsLabel = item.kidNamesLabel(kids: model.kids)
-                        if !kidsLabel.isEmpty {
-                            Text(kidsLabel)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(item.leaveByAgendaLine)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if item.isManual {
-                            HStack {
-                                Button("Edit") { model.beginEditEvent(item) }
-                                    .disabled(model.isLoading)
-                                Button("Remove event") { model.removeEvent(item.id) }
-                                    .disabled(model.isLoading)
-                            }
-                        }
-                        Text("Leave from")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        let locatedPlaces = model.places.filter(\.isLocated)
-                        if locatedPlaces.count <= 1 {
-                            Text(
-                                item.leaveFromPlaceName
-                                    ?? locatedPlaces.first?.name
-                                    ?? (model.places.isEmpty
-                                        ? "No places yet"
-                                        : "No located places yet")
-                            )
-                            .font(.caption)
-                        } else {
-                            Menu {
-                                ForEach(model.places) { place in
-                                    Button {
-                                        if place.isLocated {
-                                            model.setCalendarLeaveFrom(item: item, placeId: place.id)
-                                        }
-                                    } label: {
-                                        Text(
-                                            place.isLocated
-                                                ? place.name
-                                                : "\(place.name) (not located)"
-                                        )
-                                    }
-                                    .disabled(!place.isLocated)
-                                }
-                            } label: {
-                                Text(
-                                    item.leaveFromPlaceName
-                                        ?? "Choose a located place"
-                                )
-                            }
-                            .disabled(model.isLoading || model.places.isEmpty)
-                        }
-                        HStack {
-                            if item.leaveByStatus == "UNAVAILABLE",
-                               item.leaveByReason == "NO_ORIGIN"
-                            {
-                                Button("Open Places") { model.openMorePlaces() }
-                            }
-                            if item.isManual,
-                               item.leaveByStatus == "UNAVAILABLE",
-                               item.leaveByReason == "NO_DESTINATION"
-                                || item.leaveByReason == "GEOCODE_FAILED"
-                            {
-                                Button("Edit location") { model.beginEditEvent(item) }
-                                    .disabled(model.isLoading)
-                            }
-                        }
-                        AgendaCoverageSection(
-                            item: item,
-                            members: model.members,
-                            kids: model.kids,
-                            currentAdultId: model.currentAdultId,
-                            isLoading: model.isLoading,
-                            onRemove: { model.removeCoverage(assignmentId: $0) },
-                            onConfirm: { model.confirmCoverage(assignmentId: $0) },
-                            onDecline: { model.declineCoverage(assignmentId: $0) },
-                            onAssign: { adultId, kidIds in
-                                model.assignCoverage(
-                                    item: item,
-                                    coveringAdultId: adultId,
-                                    kidIds: kidIds
-                                )
-                            }
-                        )
-                        .id("\(item.source)-\(item.id)-coverage")
-                    }
+            }
+        } else {
+            let items = model.visibleCalendarItems
+            VStack(alignment: .leading, spacing: UiTokens.Space._2xl) {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    agendaItemRow(item: item, isLast: index == items.count - 1)
                 }
             }
-            Button("Load more") { model.loadMoreCalendar() }
-                .disabled(model.isLoading)
-            if model.isLoading {
-                ProgressView()
+            .padding(.top, UiTokens.Space.md)
+        }
+        Button {
+            model.loadMoreCalendar()
+        } label: {
+            if agendaListBusy {
+                HStack(spacing: UiTokens.Space.sm) {
+                    ProgressView()
+                    Text("Loading…")
+                }
+            } else {
+                Text("Load more")
             }
+        }
+        .disabled(model.isLoading)
+        .accessibilityLabel(agendaListBusy ? "Loading…" : "Load more")
+    }
+
+    @ViewBuilder
+    private func agendaItemRow(item: FamilyCalendarItem, isLast: Bool) -> some View {
+        VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
+            Text(item.title)
+            Text(item.whenLabel)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text(item.sourceLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let location = item.location, !location.isEmpty {
+                Text(location)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            let kidsLabel = item.kidNamesLabel(kids: model.kids)
+            if !kidsLabel.isEmpty {
+                Text(kidsLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(item.leaveByAgendaLine)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if item.isManual {
+                HStack {
+                    Button("Edit") { model.beginEditEvent(item) }
+                        .disabled(model.isLoading)
+                    Button("Remove event") { model.removeEvent(item.id) }
+                        .disabled(model.isLoading)
+                }
+            }
+            Text("Leave from")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            let locatedPlaces = model.places.filter(\.isLocated)
+            if locatedPlaces.count <= 1 {
+                Text(
+                    item.leaveFromPlaceName
+                        ?? locatedPlaces.first?.name
+                        ?? (model.places.isEmpty
+                            ? "No places yet"
+                            : "No located places yet")
+                )
+                .font(.caption)
+            } else {
+                Menu {
+                    ForEach(model.places) { place in
+                        Button {
+                            if place.isLocated {
+                                model.setCalendarLeaveFrom(item: item, placeId: place.id)
+                            }
+                        } label: {
+                            Text(
+                                place.isLocated
+                                    ? place.name
+                                    : "\(place.name) (not located)"
+                            )
+                        }
+                        .disabled(!place.isLocated)
+                    }
+                } label: {
+                    Text(
+                        item.leaveFromPlaceName
+                            ?? "Choose a located place"
+                    )
+                }
+                .disabled(model.isLoading || model.places.isEmpty)
+            }
+            if item.leaveByStatus == "UNAVAILABLE",
+               item.leaveByReason == "NO_ORIGIN"
+            {
+                Button("Open Places") { model.openMorePlaces() }
+            }
+            AgendaCoverageSection(
+                item: item,
+                members: model.members,
+                kids: model.kids,
+                currentAdultId: model.currentAdultId,
+                isLoading: model.isLoading,
+                onRemove: { model.removeCoverage(assignmentId: $0) },
+                onConfirm: { model.confirmCoverage(assignmentId: $0) },
+                onDecline: { model.declineCoverage(assignmentId: $0) },
+                onAssign: { adultId, kidIds in
+                    model.assignCoverage(
+                        item: item,
+                        coveringAdultId: adultId,
+                        kidIds: kidIds
+                    )
+                }
+            )
+            .id("\(item.source)-\(item.id)-coverage")
+        }
+        .padding(.bottom, isLast ? 0 : UiTokens.Space.xl)
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(FcTheme.border(colorScheme))
+                    .frame(height: 1)
+            }
+        }
     }
 
     @ViewBuilder
@@ -631,12 +652,24 @@ struct ContentView: View {
             feedKidToggles(selectedKidIds: model.editingEventKidIds) { kidId in
                 model.toggleEditingEventKid(kidId)
             }
-            Button("Save") { model.saveEvent() }
-                .disabled(
-                    model.isLoading
-                        || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.editingEventKidIds.isEmpty
-                )
+            Button {
+                model.saveEvent()
+            } label: {
+                if model.isLoading {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Saving…")
+                    }
+                } else {
+                    Text("Save")
+                }
+            }
+            .disabled(
+                model.isLoading
+                    || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.editingEventKidIds.isEmpty
+            )
+            .accessibilityLabel(model.isLoading ? "Saving…" : "Save")
         } else {
             TextField("Event title", text: $model.newEventTitle)
                 .disabled(model.isLoading)
@@ -671,15 +704,24 @@ struct ContentView: View {
                     model.toggleNewEventKid(kidId)
                 }
             }
-            Button("Save") { model.addEvent() }
-                .disabled(
-                    model.isLoading
-                        || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.newEventKidIds.isEmpty
-                )
-        }
-        if model.isLoading {
-            ProgressView()
+            Button {
+                model.addEvent()
+            } label: {
+                if model.isLoading {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Saving…")
+                    }
+                } else {
+                    Text("Save")
+                }
+            }
+            .disabled(
+                model.isLoading
+                    || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.newEventKidIds.isEmpty
+            )
+            .accessibilityLabel(model.isLoading ? "Saving…" : "Save")
         }
     }
 
@@ -799,7 +841,7 @@ struct ContentView: View {
             action: nil
         )
         moreRow(
-            title: model.isLoading ? "Working…" : "Sign out",
+            title: "Sign out",
             icon: UiTokens.Icon.signout,
             showChevron: false,
             danger: true
@@ -913,10 +955,10 @@ private struct AgendaCoverageSection: View {
     private var effectiveAdultId: String {
         if soleAdult { return members[0].adultId }
         if !assignAdultId.isEmpty { return assignAdultId }
-        if members.contains(where: { $0.adultId == currentAdultId }) {
-            return currentAdultId
-        }
-        return members.first?.adultId ?? ""
+        return CoverageDisplay.defaultCoverageAdultId(
+            currentAdultId: currentAdultId,
+            memberAdultIds: members.map(\.adultId)
+        )
     }
 
     private var effectiveKidIds: [String] {
@@ -1006,6 +1048,7 @@ private struct AgendaCoverageSection: View {
                             isOn: Binding(
                                 get: { assignKidIds.contains(kidId) },
                                 set: { checked in
+                                    // Toggling kids must not clear the covering-adult default.
                                     if checked {
                                         assignKidIds.insert(kidId)
                                     } else {
@@ -1021,7 +1064,7 @@ private struct AgendaCoverageSection: View {
 
             Button("Assign coverage") {
                 onAssign(effectiveAdultId, effectiveKidIds)
-                assignKidIds = soleKid ? Set(item.uncoveredKidIds) : []
+                assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
             }
             .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
         }
