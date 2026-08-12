@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Plus } from "lucide-react"
+import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
@@ -1222,7 +1222,7 @@ export function FamilyScreen({
               icon="icon.family"
             />
             <SettingsRow
-              label={status.kind === "loading" ? "Working…" : "Sign out"}
+              label="Sign out"
               icon="icon.signout"
               onClick={() => void onSignOut()}
               chevron={false}
@@ -1615,7 +1615,7 @@ export function FamilyScreen({
 
           {destination === "calendar" ? (
             <>
-<section aria-label="Agenda" className="flex flex-col gap-3">
+<section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
           <p className="text-sm font-medium">Agenda</p>
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
@@ -1623,7 +1623,12 @@ export function FamilyScreen({
             </p>
           ) : null}
           {circle.kids.length > 0 ? (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter agenda by kid">
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Filter agenda by kid"
+              data-testid="agenda-kid-filter"
+            >
               <Button
                 type="button"
                 size="sm"
@@ -1650,7 +1655,10 @@ export function FamilyScreen({
           {visibleCalendarItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">No events in the loaded window.</p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul
+              data-testid="agenda-list"
+              className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]"
+            >
               {visibleCalendarItems.map((item) => {
                 const kidsLabel = eventKidNames(item, circle.kids)
                 const sourceLabel = calendarSourceLabel(item.source, item.feedName)
@@ -1662,10 +1670,6 @@ export function FamilyScreen({
                 const needsOrigin =
                   item.leaveByStatus === "UNAVAILABLE" &&
                   item.leaveByReason === "NO_ORIGIN"
-                const needsDestination =
-                  item.leaveByStatus === "UNAVAILABLE" &&
-                  (item.leaveByReason === "NO_DESTINATION" ||
-                    item.leaveByReason === "GEOCODE_FAILED")
                 const itemKey = calendarItemKey(item)
                 const activeCoverages = item.coverages.filter(
                   (coverage) =>
@@ -1682,7 +1686,10 @@ export function FamilyScreen({
                   circle.kids,
                 )
                 return (
-                  <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
+                  <li
+                    key={`${item.source}-${item.id}`}
+                    className="flex flex-col gap-2 border-b border-[var(--fc-border)] pb-[var(--fc-space-xl)] last:border-b-0 last:pb-0"
+                  >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <span className="flex-1 text-sm">
                         {item.title}
@@ -1784,17 +1791,6 @@ export function FamilyScreen({
                           onClick={() => setDestination("places")}
                         >
                           Open Places
-                        </Button>
-                      ) : null}
-                      {needsDestination && isManual ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditEvent(item)}
-                          disabled={status.kind === "loading"}
-                        >
-                          Edit location
                         </Button>
                       ) : null}
                     </div>
@@ -1940,7 +1936,14 @@ export function FamilyScreen({
             onClick={() => void loadMoreCalendar()}
             disabled={status.kind === "loading"}
           >
-            Load more
+            {status.kind === "loading" && !eventComposeOpen ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Loading…
+              </>
+            ) : (
+              "Load more"
+            )}
           </Button>
         </section>
 
@@ -1956,6 +1959,7 @@ export function FamilyScreen({
             <div
               role="dialog"
               aria-modal="true"
+              aria-busy={status.kind === "loading"}
               aria-label={editingEventId ? "Edit event" : "Add event"}
               className="flex max-h-[90vh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg"
               onClick={(event) => event.stopPropagation()}
@@ -2041,7 +2045,14 @@ export function FamilyScreen({
                         editingEventKidIds.length === 0
                       }
                     >
-                      Save
+                      {status.kind === "loading" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save"
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -2136,7 +2147,14 @@ export function FamilyScreen({
                         newEventKidIds.length === 0
                       }
                     >
-                      Save
+                      {status.kind === "loading" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save"
+                      )}
                     </Button>
                     <Button
                       type="button"
