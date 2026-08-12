@@ -167,7 +167,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
 - [x] **Web:** Agenda coverage + needs-coverage; assign/confirm/decline;
       default leave-from control; client + tests.
 - [x] **Android (`sharedLogic` / `sharedUI`):** Same surfaces + tests.
-- [ ] **iOS:** Same surfaces + tests.
+- [x] **iOS:** Same surfaces + tests.
 - [ ] **Docs:** `docs/architecture.md`.
 - [ ] **Tests:** Service unit + API integration; ModularityTests.
 

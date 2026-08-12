@@ -436,6 +436,25 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
+            let locatedPlaces = model.places.filter(\.isLocated)
+            Text("My default leave-from")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Menu {
+                Button("None") { model.setDefaultLeaveFrom(placeId: nil) }
+                    .disabled(model.isLoading)
+                ForEach(locatedPlaces) { place in
+                    Button(place.name) { model.setDefaultLeaveFrom(placeId: place.id) }
+                        .disabled(model.isLoading)
+                }
+            } label: {
+                Text(
+                    model.defaultLeaveFromPlaceName
+                        ?? (locatedPlaces.isEmpty ? "No located places yet" : "None")
+                )
+            }
+            .disabled(model.isLoading)
+
     }
 
     @ViewBuilder
@@ -539,6 +558,24 @@ struct ContentView: View {
                                     .disabled(model.isLoading)
                             }
                         }
+                        AgendaCoverageSection(
+                            item: item,
+                            members: model.members,
+                            kids: model.kids,
+                            currentAdultId: model.currentAdultId,
+                            isLoading: model.isLoading,
+                            onRemove: { model.removeCoverage(assignmentId: $0) },
+                            onConfirm: { model.confirmCoverage(assignmentId: $0) },
+                            onDecline: { model.declineCoverage(assignmentId: $0) },
+                            onAssign: { adultId, kidIds in
+                                model.assignCoverage(
+                                    item: item,
+                                    coveringAdultId: adultId,
+                                    kidIds: kidIds
+                                )
+                            }
+                        )
+                        .id("\(item.source)-\(item.id)-coverage")
                     }
                 }
             }
@@ -834,6 +871,128 @@ struct ContentView: View {
                 )
             )
             .disabled(model.isLoading)
+        }
+    }
+}
+
+private struct AgendaCoverageSection: View {
+    let item: FamilyCalendarItem
+    let members: [FamilyMemberItem]
+    let kids: [FamilyKidItem]
+    let currentAdultId: String
+    let isLoading: Bool
+    let onRemove: (String) -> Void
+    let onConfirm: (String) -> Void
+    let onDecline: (String) -> Void
+    let onAssign: (String, [String]) -> Void
+
+    @State private var assignAdultId: String = ""
+    @State private var assignKidIds: Set<String> = []
+
+    private var memberTuples: [(adultId: String, displayName: String, email: String)] {
+        members.map { ($0.adultId, $0.displayName, $0.email) }
+    }
+
+    private var kidTuples: [(id: String, displayName: String)] {
+        kids.map { ($0.id, $0.displayName) }
+    }
+
+    var body: some View {
+        let active = CoverageDisplay.activeCoverages(item.coverages)
+        let pending = CoverageDisplay.pendingCoverageForAdult(
+            item.coverages,
+            adultId: currentAdultId
+        )
+        let uncoveredNames = CoverageDisplay.eventKidNames(
+            kidIds: item.uncoveredKidIds,
+            kids: kidTuples
+        )
+
+        ForEach(active) { coverage in
+            HStack(alignment: .top) {
+                Text(
+                    "\(CoverageDisplay.coverageAdultLabel(coverage, members: memberTuples)) · "
+                        + "\(CoverageDisplay.coverageKidNames(coverage, kids: kidTuples)) · "
+                        + CoverageDisplay.coverageStatusLabel(coverage.status)
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Remove coverage") { onRemove(coverage.id) }
+                    .font(.caption)
+                    .disabled(isLoading)
+            }
+        }
+
+        if !item.uncoveredKidIds.isEmpty {
+            Text(
+                uncoveredNames.isEmpty
+                    ? "Needs coverage"
+                    : "Needs coverage: \(uncoveredNames)"
+            )
+            .font(.caption)
+            .foregroundStyle(.red)
+        }
+
+        if let pending {
+            HStack {
+                Button("Confirm coverage") { onConfirm(pending.id) }
+                    .disabled(isLoading)
+                Button("Decline coverage") { onDecline(pending.id) }
+                    .disabled(isLoading)
+            }
+        }
+
+        if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
+            Text("Covering adult")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Menu {
+                ForEach(members) { member in
+                    Button(CoverageDisplay.memberLabel(
+                        displayName: member.displayName,
+                        email: member.email
+                    )) {
+                        assignAdultId = member.adultId
+                    }
+                    .disabled(isLoading)
+                }
+            } label: {
+                Text(
+                    members.first(where: { $0.adultId == assignAdultId }).map {
+                        CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
+                    } ?? "Choose adult"
+                )
+            }
+            .disabled(isLoading)
+
+            Text("Uncovered kids")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            ForEach(item.uncoveredKidIds, id: \.self) { kidId in
+                if let kid = kids.first(where: { $0.id == kidId }) {
+                    Toggle(
+                        kid.displayName,
+                        isOn: Binding(
+                            get: { assignKidIds.contains(kidId) },
+                            set: { checked in
+                                if checked {
+                                    assignKidIds.insert(kidId)
+                                } else {
+                                    assignKidIds.remove(kidId)
+                                }
+                            }
+                        )
+                    )
+                    .disabled(isLoading)
+                }
+            }
+
+            Button("Assign coverage") {
+                onAssign(assignAdultId, Array(assignKidIds))
+                assignKidIds = []
+            }
+            .disabled(isLoading || assignAdultId.isEmpty || assignKidIds.isEmpty)
         }
     }
 }

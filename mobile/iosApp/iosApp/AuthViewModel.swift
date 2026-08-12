@@ -59,6 +59,8 @@ struct FamilyCalendarItem: Identifiable, Equatable {
     var leaveByAt: String?
     var leaveByStatus: String
     var leaveByReason: String?
+    var coverages: [FamilyCoverageAssignment] = []
+    var uncoveredKidIds: [String] = []
 
     var isManual: Bool { source == "MANUAL" }
 
@@ -234,6 +236,8 @@ final class AuthViewModel: ObservableObject {
     @Published var calendarItems: [FamilyCalendarItem] = []
     @Published var calendarLoadedTo: String = ManualEventDateCodec.defaultCalendarWindow().to
     @Published var agendaKidFilter: String?
+    @Published var defaultLeaveFromPlaceId: String?
+    @Published var defaultLeaveFromPlaceName: String?
     @Published var newEventTitle: String = ""
     @Published var newEventStartsAtDate: Date = Date().addingTimeInterval(15 * 60)
     @Published var newEventEndsAtDate: Date = Date().addingTimeInterval(75 * 60)
@@ -410,7 +414,7 @@ final class AuthViewModel: ObservableObject {
                     self.familyPhase = .choose
                 }
             },
-            onReady: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated in
+            onReady: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated, defaultLeaveFromPlaceId, defaultLeaveFromPlaceName in
                 Task { @MainActor in
                     self?.applyReady(
                         title: title,
@@ -428,7 +432,9 @@ final class AuthViewModel: ObservableObject {
                         placeIds: placeIds,
                         placeNames: placeNames,
                         placeAddresses: placeAddresses,
-                        placeLocated: placeLocated
+                        placeLocated: placeLocated,
+                        defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
+                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName
                     )
                 }
             },
@@ -465,7 +471,7 @@ final class AuthViewModel: ObservableObject {
         bridge.createFamilyCircle(
             adultDisplayName: display,
             circleName: optionalName.isEmpty ? nil : optionalName,
-            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated in
+            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated, defaultLeaveFromPlaceId, defaultLeaveFromPlaceName in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -485,7 +491,9 @@ final class AuthViewModel: ObservableObject {
                         placeIds: placeIds,
                         placeNames: placeNames,
                         placeAddresses: placeAddresses,
-                        placeLocated: placeLocated
+                        placeLocated: placeLocated,
+                        defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
+                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName
                     )
                 }
             },
@@ -508,7 +516,7 @@ final class AuthViewModel: ObservableObject {
         bridge.joinFamilyCircle(
             code: code,
             adultDisplayName: hasDisplayName ? nil : display,
-            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated in
+            onSuccess: { [weak self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated, defaultLeaveFromPlaceId, defaultLeaveFromPlaceName in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -528,7 +536,9 @@ final class AuthViewModel: ObservableObject {
                         placeIds: placeIds,
                         placeNames: placeNames,
                         placeAddresses: placeAddresses,
-                        placeLocated: placeLocated
+                        placeLocated: placeLocated,
+                        defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
+                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName
                     )
                 }
             },
@@ -578,6 +588,8 @@ final class AuthViewModel: ObservableObject {
                     self.calendarItems = []
                     self.calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
                     self.agendaKidFilter = nil
+                    self.defaultLeaveFromPlaceId = nil
+                    self.defaultLeaveFromPlaceName = nil
                     self.shell.resetToCalendar()
                     self.familyPhase = .choose
                 }
@@ -709,7 +721,7 @@ final class AuthViewModel: ObservableObject {
         bridge.updateMemberRole(
             adultId: member.adultId,
             role: role,
-            onSuccess: { [weak self] title, email, adultId, displayName, familyRole, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated in
+            onSuccess: { [weak self] title, email, adultId, displayName, familyRole, inviteCode, memberAdultIds, memberEmails, memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses, placeLocated, defaultLeaveFromPlaceId, defaultLeaveFromPlaceName in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -729,7 +741,9 @@ final class AuthViewModel: ObservableObject {
                         placeIds: placeIds,
                         placeNames: placeNames,
                         placeAddresses: placeAddresses,
-                        placeLocated: placeLocated
+                        placeLocated: placeLocated,
+                        defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
+                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName
                     )
                 }
             },
@@ -1066,7 +1080,8 @@ final class AuthViewModel: ObservableObject {
             to: window.to,
             onSuccess: { [weak self]
                 ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
-                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons in
+                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons,
+                coveragesJson, uncoveredKidIdsJoined in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1085,7 +1100,9 @@ final class AuthViewModel: ObservableObject {
                         leaveFromPlaceNames: leaveFromPlaceNames,
                         leaveByAts: leaveByAts,
                         leaveByStatuses: leaveByStatuses,
-                        leaveByReasons: leaveByReasons
+                        leaveByReasons: leaveByReasons,
+                        coveragesJson: coveragesJson,
+                        uncoveredKidIdsJoined: uncoveredKidIdsJoined
                     )
                 }
             },
@@ -1102,7 +1119,8 @@ final class AuthViewModel: ObservableObject {
             to: page.to,
             onSuccess: { [weak self]
                 ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
-                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons in
+                leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons,
+                coveragesJson, uncoveredKidIdsJoined in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1120,7 +1138,9 @@ final class AuthViewModel: ObservableObject {
                         leaveFromPlaceNames: leaveFromPlaceNames,
                         leaveByAts: leaveByAts,
                         leaveByStatuses: leaveByStatuses,
-                        leaveByReasons: leaveByReasons
+                        leaveByReasons: leaveByReasons,
+                        coveragesJson: coveragesJson,
+                        uncoveredKidIdsJoined: uncoveredKidIdsJoined
                     )
                     var seen = Set(self.calendarItems.map { "\($0.source):\($0.id)" })
                     for item in more where !seen.contains("\(item.source):\(item.id)") {
@@ -1150,31 +1170,205 @@ final class AuthViewModel: ObservableObject {
             placeId: placeId,
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
-                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason in
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
+                coveragesJson, uncoveredKidIdsJoined in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
-                    let updated = FamilyCalendarItem(
-                        id: id,
-                        source: source,
-                        title: title,
-                        startsAt: startsAt,
-                        endsAt: endsAt.isEmpty ? nil : endsAt,
-                        location: location.isEmpty ? nil : location,
-                        kidIds: Self.splitJoinedIds(kidIdsJoined),
-                        feedId: feedId.isEmpty ? nil : feedId,
-                        feedName: feedName.isEmpty ? nil : feedName,
-                        leaveFromPlaceId: leaveFromPlaceId.isEmpty ? nil : leaveFromPlaceId,
-                        leaveFromPlaceName: leaveFromPlaceName.isEmpty ? nil : leaveFromPlaceName,
-                        leaveByAt: leaveByAt.isEmpty ? nil : leaveByAt,
-                        leaveByStatus: leaveByStatus,
-                        leaveByReason: leaveByReason.isEmpty ? nil : leaveByReason
+                    self.replaceCalendarItem(
+                        Self.calendarItem(
+                            id: id,
+                            source: source,
+                            title: title,
+                            startsAt: startsAt,
+                            endsAt: endsAt,
+                            location: location,
+                            kidIdsJoined: kidIdsJoined,
+                            feedId: feedId,
+                            feedName: feedName,
+                            leaveFromPlaceId: leaveFromPlaceId,
+                            leaveFromPlaceName: leaveFromPlaceName,
+                            leaveByAt: leaveByAt,
+                            leaveByStatus: leaveByStatus,
+                            leaveByReason: leaveByReason,
+                            coveragesJson: coveragesJson,
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        )
                     )
-                    if let index = self.calendarItems.firstIndex(where: {
-                        $0.source == item.source && $0.id == item.id
-                    }) {
-                        self.calendarItems[index] = updated
-                    }
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func setDefaultLeaveFrom(placeId: String?) {
+        if defaultLeaveFromPlaceId == placeId { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.setDefaultLeaveFrom(
+            placeId: placeId,
+            onSuccess: { [weak self] id, name in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.defaultLeaveFromPlaceId = id.isEmpty ? nil : id
+                    self.defaultLeaveFromPlaceName = name.isEmpty ? nil : name
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func assignCoverage(item: FamilyCalendarItem, coveringAdultId: String, kidIds: [String]) {
+        guard !coveringAdultId.isEmpty, !kidIds.isEmpty else { return }
+        isLoading = true
+        errorMessage = nil
+        bridge.assignCalendarCoverage(
+            source: item.source,
+            itemId: item.id,
+            coveringAdultId: coveringAdultId,
+            kidIds: kidIds,
+            onSuccess: { [weak self]
+                id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
+                coveragesJson, uncoveredKidIdsJoined in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.replaceCalendarItem(
+                        Self.calendarItem(
+                            id: id,
+                            source: source,
+                            title: title,
+                            startsAt: startsAt,
+                            endsAt: endsAt,
+                            location: location,
+                            kidIdsJoined: kidIdsJoined,
+                            feedId: feedId,
+                            feedName: feedName,
+                            leaveFromPlaceId: leaveFromPlaceId,
+                            leaveFromPlaceName: leaveFromPlaceName,
+                            leaveByAt: leaveByAt,
+                            leaveByStatus: leaveByStatus,
+                            leaveByReason: leaveByReason,
+                            coveragesJson: coveragesJson,
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        )
+                    )
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func confirmCoverage(assignmentId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.confirmCalendarCoverage(
+            assignmentId: assignmentId,
+            onSuccess: { [weak self]
+                id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
+                coveragesJson, uncoveredKidIdsJoined in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.replaceCalendarItem(
+                        Self.calendarItem(
+                            id: id,
+                            source: source,
+                            title: title,
+                            startsAt: startsAt,
+                            endsAt: endsAt,
+                            location: location,
+                            kidIdsJoined: kidIdsJoined,
+                            feedId: feedId,
+                            feedName: feedName,
+                            leaveFromPlaceId: leaveFromPlaceId,
+                            leaveFromPlaceName: leaveFromPlaceName,
+                            leaveByAt: leaveByAt,
+                            leaveByStatus: leaveByStatus,
+                            leaveByReason: leaveByReason,
+                            coveragesJson: coveragesJson,
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        )
+                    )
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func declineCoverage(assignmentId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.declineCalendarCoverage(
+            assignmentId: assignmentId,
+            onSuccess: { [weak self]
+                id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
+                coveragesJson, uncoveredKidIdsJoined in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.replaceCalendarItem(
+                        Self.calendarItem(
+                            id: id,
+                            source: source,
+                            title: title,
+                            startsAt: startsAt,
+                            endsAt: endsAt,
+                            location: location,
+                            kidIdsJoined: kidIdsJoined,
+                            feedId: feedId,
+                            feedName: feedName,
+                            leaveFromPlaceId: leaveFromPlaceId,
+                            leaveFromPlaceName: leaveFromPlaceName,
+                            leaveByAt: leaveByAt,
+                            leaveByStatus: leaveByStatus,
+                            leaveByReason: leaveByReason,
+                            coveragesJson: coveragesJson,
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        )
+                    )
+                }
+            },
+            onError: eventError
+        )
+    }
+
+    func removeCoverage(assignmentId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.removeCalendarCoverage(
+            assignmentId: assignmentId,
+            onSuccess: { [weak self]
+                id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
+                leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
+                coveragesJson, uncoveredKidIdsJoined in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.replaceCalendarItem(
+                        Self.calendarItem(
+                            id: id,
+                            source: source,
+                            title: title,
+                            startsAt: startsAt,
+                            endsAt: endsAt,
+                            location: location,
+                            kidIdsJoined: kidIdsJoined,
+                            feedId: feedId,
+                            feedName: feedName,
+                            leaveFromPlaceId: leaveFromPlaceId,
+                            leaveFromPlaceName: leaveFromPlaceName,
+                            leaveByAt: leaveByAt,
+                            leaveByStatus: leaveByStatus,
+                            leaveByReason: leaveByReason,
+                            coveragesJson: coveragesJson,
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        )
+                    )
                 }
             },
             onError: eventError
@@ -1365,27 +1559,82 @@ final class AuthViewModel: ObservableObject {
         leaveFromPlaceNames: [String],
         leaveByAts: [String],
         leaveByStatuses: [String],
-        leaveByReasons: [String]
+        leaveByReasons: [String],
+        coveragesJson: [String],
+        uncoveredKidIdsJoined: [String]
     ) -> [FamilyCalendarItem] {
         (0..<ids.count).map { index in
-            FamilyCalendarItem(
+            calendarItem(
                 id: ids[index],
                 source: sources[index],
                 title: titles[index],
                 startsAt: startsAts[index],
-                endsAt: endsAts[index].isEmpty ? nil : endsAts[index],
-                location: locations[index].isEmpty ? nil : locations[index],
-                kidIds: splitJoinedIds(kidIdsJoined[index]),
-                feedId: feedIds[index].isEmpty ? nil : feedIds[index],
-                feedName: feedNames[index].isEmpty ? nil : feedNames[index],
-                leaveFromPlaceId: leaveFromPlaceIds[index].isEmpty ? nil : leaveFromPlaceIds[index],
-                leaveFromPlaceName: leaveFromPlaceNames[index].isEmpty
-                    ? nil : leaveFromPlaceNames[index],
-                leaveByAt: leaveByAts[index].isEmpty ? nil : leaveByAts[index],
+                endsAt: endsAts[index],
+                location: locations[index],
+                kidIdsJoined: kidIdsJoined[index],
+                feedId: feedIds[index],
+                feedName: feedNames[index],
+                leaveFromPlaceId: leaveFromPlaceIds[index],
+                leaveFromPlaceName: leaveFromPlaceNames[index],
+                leaveByAt: leaveByAts[index],
                 leaveByStatus: leaveByStatuses[index],
-                leaveByReason: leaveByReasons[index].isEmpty ? nil : leaveByReasons[index]
+                leaveByReason: leaveByReasons[index],
+                coveragesJson: coveragesJson[index],
+                uncoveredKidIdsJoined: uncoveredKidIdsJoined[index]
             )
         }
+    }
+
+    private static func calendarItem(
+        id: String,
+        source: String,
+        title: String,
+        startsAt: String,
+        endsAt: String,
+        location: String,
+        kidIdsJoined: String,
+        feedId: String,
+        feedName: String,
+        leaveFromPlaceId: String,
+        leaveFromPlaceName: String,
+        leaveByAt: String,
+        leaveByStatus: String,
+        leaveByReason: String,
+        coveragesJson: String,
+        uncoveredKidIdsJoined: String
+    ) -> FamilyCalendarItem {
+        FamilyCalendarItem(
+            id: id,
+            source: source,
+            title: title,
+            startsAt: startsAt,
+            endsAt: endsAt.isEmpty ? nil : endsAt,
+            location: location.isEmpty ? nil : location,
+            kidIds: splitJoinedIds(kidIdsJoined),
+            feedId: feedId.isEmpty ? nil : feedId,
+            feedName: feedName.isEmpty ? nil : feedName,
+            leaveFromPlaceId: leaveFromPlaceId.isEmpty ? nil : leaveFromPlaceId,
+            leaveFromPlaceName: leaveFromPlaceName.isEmpty ? nil : leaveFromPlaceName,
+            leaveByAt: leaveByAt.isEmpty ? nil : leaveByAt,
+            leaveByStatus: leaveByStatus,
+            leaveByReason: leaveByReason.isEmpty ? nil : leaveByReason,
+            coverages: parseCoveragesJson(coveragesJson),
+            uncoveredKidIds: splitJoinedIds(uncoveredKidIdsJoined)
+        )
+    }
+
+    private func replaceCalendarItem(_ updated: FamilyCalendarItem) {
+        if let index = calendarItems.firstIndex(where: {
+            $0.source == updated.source && $0.id == updated.id
+        }) {
+            calendarItems[index] = updated
+        }
+    }
+
+    private static func parseCoveragesJson(_ json: String) -> [FamilyCoverageAssignment] {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([FamilyCoverageAssignment].self, from: data)) ?? []
     }
 
     private static func splitJoinedIds(_ joined: String) -> [String] {
@@ -1428,7 +1677,9 @@ final class AuthViewModel: ObservableObject {
         placeIds: [String],
         placeNames: [String],
         placeAddresses: [String],
-        placeLocated: [String]
+        placeLocated: [String],
+        defaultLeaveFromPlaceId: String,
+        defaultLeaveFromPlaceName: String
     ) {
         familyTitle = title
         signedInEmail = email
@@ -1454,6 +1705,10 @@ final class AuthViewModel: ObservableObject {
                 isLocated: placeLocated[index] == "true"
             )
         }
+        self.defaultLeaveFromPlaceId =
+            defaultLeaveFromPlaceId.isEmpty ? nil : defaultLeaveFromPlaceId
+        self.defaultLeaveFromPlaceName =
+            defaultLeaveFromPlaceName.isEmpty ? nil : defaultLeaveFromPlaceName
         feeds = []
         calendarItems = []
         calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
@@ -1477,6 +1732,8 @@ final class AuthViewModel: ObservableObject {
         calendarItems = []
         calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         agendaKidFilter = nil
+        defaultLeaveFromPlaceId = nil
+        defaultLeaveFromPlaceName = nil
         newFeedName = ""
         newFeedUrl = ""
         newFeedKidIds = []
