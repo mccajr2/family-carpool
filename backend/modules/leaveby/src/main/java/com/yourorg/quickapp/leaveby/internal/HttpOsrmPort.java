@@ -1,7 +1,9 @@
 package com.yourorg.quickapp.leaveby.internal;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -9,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -25,6 +28,9 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Requests {@code Accept-Encoding: identity} and reads the body as bytes —
  * public OSRM/CDN gzip responses otherwise trip JDK RestClient with
  * {@code ZipException: incorrect header check} when decoding as String.
+ *
+ * <p>Connect/read timeouts are short so calendar list enrichment (one OSRM call
+ * per event) cannot hang past mobile client socket timeouts.
  */
 @Component
 @ConditionalOnProperty(
@@ -35,6 +41,8 @@ class HttpOsrmPort implements OsrmPort {
 
     private static final Logger log = LoggerFactory.getLogger(HttpOsrmPort.class);
     private static final JsonMapper MAPPER = JsonMapper.shared();
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    static final Duration READ_TIMEOUT = Duration.ofSeconds(3);
 
     private final RestClient restClient;
     private final String baseUrl;
@@ -42,9 +50,14 @@ class HttpOsrmPort implements OsrmPort {
     HttpOsrmPort(
             @Value("${app.leaveby.osrm.base-url:https://router.project-osrm.org}") String baseUrl) {
         this.baseUrl = trimTrailingSlash(baseUrl);
+        JdkClientHttpRequestFactory requestFactory =
+                new JdkClientHttpRequestFactory(
+                        HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        requestFactory.setReadTimeout(READ_TIMEOUT);
         this.restClient =
                 RestClient.builder()
                         .baseUrl(this.baseUrl)
+                        .requestFactory(requestFactory)
                         .defaultHeader(HttpHeaders.ACCEPT_ENCODING, "identity")
                         .defaultHeader(
                                 HttpHeaders.USER_AGENT,

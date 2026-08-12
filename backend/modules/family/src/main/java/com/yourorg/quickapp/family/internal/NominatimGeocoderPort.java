@@ -1,11 +1,14 @@
 package com.yourorg.quickapp.family.internal;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -14,6 +17,8 @@ import org.springframework.web.client.RestClient;
 class NominatimGeocoderPort implements GeocoderPort {
 
     private static final Logger log = LoggerFactory.getLogger(NominatimGeocoderPort.class);
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 
     private final RestClient restClient;
     private final String userAgent;
@@ -30,9 +35,14 @@ class NominatimGeocoderPort implements GeocoderPort {
             @Value("${app.geocode.min-interval-ms:1000}") long minIntervalMs) {
         this.userAgent = userAgent;
         this.minIntervalMs = Math.max(0, minIntervalMs);
+        JdkClientHttpRequestFactory requestFactory =
+                new JdkClientHttpRequestFactory(
+                        HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        requestFactory.setReadTimeout(READ_TIMEOUT);
         this.restClient =
                 RestClient.builder()
                         .baseUrl(baseUrl)
+                        .requestFactory(requestFactory)
                         .defaultHeader("User-Agent", userAgent)
                         .build();
     }

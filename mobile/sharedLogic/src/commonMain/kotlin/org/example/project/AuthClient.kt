@@ -2,6 +2,7 @@ package org.example.project
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -97,6 +98,12 @@ private data class VerifyAuthCodeRequest(
     val code: String,
 )
 
+internal object ApiHttpTimeouts {
+    const val REQUEST_MS = 120_000L
+    const val CONNECT_MS = 15_000L
+    const val SOCKET_MS = 120_000L
+}
+
 internal fun createHttpClient(): HttpClient =
     HttpClient {
         install(ContentNegotiation) {
@@ -106,6 +113,14 @@ internal fun createHttpClient(): HttpClient =
                     explicitNulls = false
                 },
             )
+        }
+        // Calendar list enriches leave-by per event (Nominatim throttle + OSRM)
+        // before the first response byte. OkHttp's default ~10s socket timeout
+        // otherwise aborts Android Agenda loads while the backend is still working.
+        install(HttpTimeout) {
+            requestTimeoutMillis = ApiHttpTimeouts.REQUEST_MS
+            connectTimeoutMillis = ApiHttpTimeouts.CONNECT_MS
+            socketTimeoutMillis = ApiHttpTimeouts.SOCKET_MS
         }
     }
 
