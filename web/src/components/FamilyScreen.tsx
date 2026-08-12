@@ -4,7 +4,19 @@ import { Plus } from "lucide-react"
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import { isPlaceLocated, type ActivityFeed, type Adult, type CalendarItem, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
+import {
+  isPlaceLocated,
+  type ActivityFeed,
+  type Adult,
+  type CalendarCoverageAssignment,
+  type CalendarItem,
+  type CoverageStatus,
+  type FamilyCircle,
+  type FamilyMember,
+  type Kid,
+  type Place,
+  feedSyncStatusLabel,
+} from "@/api/types"
 import {
   AccountSummaryRow,
   SettingsGroupLabel,
@@ -79,6 +91,36 @@ function eventKidNames(event: { kidIds: string[] }, kids: Kid[]): string {
     .join(", ")
 }
 
+function calendarItemKey(item: CalendarItem): string {
+  return `${item.source}-${item.id}`
+}
+
+function coverageStatusLabel(status: CoverageStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "Pending"
+    case "CONFIRMED":
+      return "Confirmed"
+    case "DECLINED":
+      return "Declined"
+  }
+}
+
+function coverageAdultLabel(
+  coverage: CalendarCoverageAssignment,
+  members: FamilyMember[],
+): string {
+  if (coverage.coveringAdultDisplayName?.trim()) {
+    return coverage.coveringAdultDisplayName.trim()
+  }
+  const member = members.find((m) => m.adultId === coverage.coveringAdultId)
+  return member ? memberLabel(member) : "Adult"
+}
+
+function coverageKidNames(coverage: CalendarCoverageAssignment, kids: Kid[]): string {
+  return eventKidNames({ kidIds: coverage.kidIds }, kids)
+}
+
 function toDatetimeLocalValue(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) {
@@ -147,6 +189,9 @@ export function FamilyScreen({
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
+  const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
+    Record<string, { adultId: string; kidIds: string[] }>
+  >({})
 
   useEffect(() => {
     if (circle?.id) {
@@ -766,6 +811,116 @@ export function FamilyScreen({
     }
   }
 
+  function replaceCalendarItem(updated: CalendarItem) {
+    setCalendarItems((current) =>
+      current.map((row) =>
+        row.source === updated.source && row.id === updated.id ? updated : row,
+      ),
+    )
+  }
+
+  function updateAssignCoverageDraft(
+    itemKey: string,
+    patch: Partial<{ adultId: string; kidIds: string[] }>,
+  ) {
+    setAssignCoverageDrafts((current) => {
+      const existing = current[itemKey] ?? { adultId: "", kidIds: [] }
+      return { ...current, [itemKey]: { ...existing, ...patch } }
+    })
+  }
+
+  async function onSetDefaultLeaveFrom(placeId: string | null) {
+    if (circle?.defaultLeaveFromPlaceId === placeId) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.setDefaultLeaveFrom(token, { placeId })
+      setCircle(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onAssignCoverage(
+    item: CalendarItem,
+    coveringAdultId: string,
+    kidIds: string[],
+  ) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.assignCalendarCoverage(
+        token,
+        item.source,
+        item.id,
+        { coveringAdultId, kidIds },
+      )
+      replaceCalendarItem(updated)
+      setAssignCoverageDrafts((current) => {
+        const next = { ...current }
+        delete next[calendarItemKey(item)]
+        return next
+      })
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.confirmCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onDeclineCoverage(item: CalendarItem, assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.declineCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemoveCoverage(item: CalendarItem, assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.removeCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onSetCalendarLeaveFrom(item: CalendarItem, placeId: string) {
     if (item.leaveFromPlaceId === placeId) {
       return
@@ -980,6 +1135,7 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
+  const locatedPlaces = circle.places.filter(isPlaceLocated)
 
   const contentTitle =
     destination === "calendar"
@@ -1377,6 +1533,35 @@ export function FamilyScreen({
           )}
         </section>
 
+        <section aria-label="Default leave-from" className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            My default leave-from
+            <select
+              aria-label="My default leave-from"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              value={circle.defaultLeaveFromPlaceId ?? ""}
+              onChange={(event) => {
+                const placeId = event.target.value ? event.target.value : null
+                void onSetDefaultLeaveFrom(placeId)
+              }}
+              disabled={status.kind === "loading"}
+            >
+              <option value="">None</option>
+              {locatedPlaces.length === 0 ? (
+                <option value="" disabled>
+                  No located places yet
+                </option>
+              ) : (
+                locatedPlaces.map((place) => (
+                  <option key={place.id} value={place.id}>
+                    {place.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+        </section>
+
         <div className="flex flex-col gap-2">
           <Input
             aria-label="New place name"
@@ -1461,6 +1646,23 @@ export function FamilyScreen({
                   item.leaveByStatus === "UNAVAILABLE" &&
                   (item.leaveByReason === "NO_DESTINATION" ||
                     item.leaveByReason === "GEOCODE_FAILED")
+                const itemKey = calendarItemKey(item)
+                const activeCoverages = item.coverages.filter(
+                  (coverage) =>
+                    coverage.status === "PENDING" || coverage.status === "CONFIRMED",
+                )
+                const pendingForSelf = activeCoverages.find(
+                  (coverage) =>
+                    coverage.status === "PENDING" && coverage.coveringAdultId === adult?.id,
+                )
+                const assignDraft = assignCoverageDrafts[itemKey] ?? {
+                  adultId: circle.members[0]?.adultId ?? "",
+                  kidIds: [] as string[],
+                }
+                const uncoveredKidNames = eventKidNames(
+                  { kidIds: item.uncoveredKidIds },
+                  circle.kids,
+                )
                 return (
                   <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1571,6 +1773,133 @@ export function FamilyScreen({
                         </Button>
                       ) : null}
                     </div>
+                    {activeCoverages.length > 0 ? (
+                      <ul className="flex flex-col gap-2">
+                        {activeCoverages.map((coverage) => (
+                          <li
+                            key={coverage.id}
+                            className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                          >
+                            <span className="flex-1 text-xs text-muted-foreground">
+                              {coverageAdultLabel(coverage, circle.members)} ·{" "}
+                              {coverageKidNames(coverage, circle.kids)} ·{" "}
+                              {coverageStatusLabel(coverage.status)}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void onRemoveCoverage(item, coverage.id)}
+                              disabled={status.kind === "loading"}
+                            >
+                              Remove coverage
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {item.uncoveredKidIds.length > 0 ? (
+                      <p className="text-xs text-destructive">
+                        Needs coverage{item.uncoveredKidIds.length > 0 && uncoveredKidNames
+                          ? `: ${uncoveredKidNames}`
+                          : ""}
+                      </p>
+                    ) : null}
+                    {pendingForSelf ? (
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void onConfirmCoverage(item, pendingForSelf.id)}
+                          disabled={status.kind === "loading"}
+                        >
+                          Confirm coverage
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void onDeclineCoverage(item, pendingForSelf.id)}
+                          disabled={status.kind === "loading"}
+                        >
+                          Decline coverage
+                        </Button>
+                      </div>
+                    ) : null}
+                    {item.uncoveredKidIds.length > 0 && circle.members.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                          Covering adult
+                          <select
+                            aria-label={`Covering adult for ${item.title}`}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                            value={assignDraft.adultId}
+                            onChange={(event) =>
+                              updateAssignCoverageDraft(itemKey, {
+                                adultId: event.target.value,
+                              })
+                            }
+                            disabled={status.kind === "loading"}
+                          >
+                            {circle.members.map((member) => (
+                              <option key={member.adultId} value={member.adultId}>
+                                {memberLabel(member)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <fieldset className="flex flex-col gap-1">
+                          <legend className="text-xs text-muted-foreground">
+                            Uncovered kids
+                          </legend>
+                          {item.uncoveredKidIds.map((kidId) => {
+                            const kid = circle.kids.find((entry) => entry.id === kidId)
+                            if (!kid) {
+                              return null
+                            }
+                            return (
+                              <label
+                                key={kidId}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Cover ${kid.displayName} for ${item.title}`}
+                                  checked={assignDraft.kidIds.includes(kidId)}
+                                  onChange={() =>
+                                    updateAssignCoverageDraft(itemKey, {
+                                      kidIds: assignDraft.kidIds.includes(kidId)
+                                        ? assignDraft.kidIds.filter((id) => id !== kidId)
+                                        : [...assignDraft.kidIds, kidId],
+                                    })
+                                  }
+                                  disabled={status.kind === "loading"}
+                                />
+                                {kid.displayName}
+                              </label>
+                            )
+                          })}
+                        </fieldset>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() =>
+                            void onAssignCoverage(
+                              item,
+                              assignDraft.adultId,
+                              assignDraft.kidIds,
+                            )
+                          }
+                          disabled={
+                            status.kind === "loading" ||
+                            !assignDraft.adultId ||
+                            assignDraft.kidIds.length === 0
+                          }
+                        >
+                          Assign coverage
+                        </Button>
+                      </div>
+                    ) : null}
                   </li>
                 )
               })}
