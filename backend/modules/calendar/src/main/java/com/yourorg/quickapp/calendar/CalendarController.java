@@ -9,12 +9,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -46,5 +50,46 @@ public class CalendarController {
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         return calendarService.setLeaveFrom(adult, source, itemId, request.leaveFromPlaceId());
+    }
+
+    @PostMapping("/{source}/{itemId}/coverages")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CalendarItemResponse assignCoverage(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            @Valid @RequestBody AssignCalendarCoverageRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.assignCoverage(adult, source, itemId, request);
+    }
+
+    @PutMapping("/coverages/{assignmentId}")
+    public CalendarItemResponse reassignCoverage(
+            @PathVariable("assignmentId") UUID assignmentId,
+            @Valid @RequestBody AssignCalendarCoverageRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.reassignCoverage(adult, assignmentId, request);
+    }
+
+    @DeleteMapping("/coverages/{assignmentId}")
+    public CalendarItemResponse removeCoverage(
+            @PathVariable("assignmentId") UUID assignmentId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.removeCoverage(adult, assignmentId);
+    }
+
+    @PostMapping("/coverages/{assignmentId}/confirm")
+    public CalendarItemResponse confirmCoverage(
+            @PathVariable("assignmentId") UUID assignmentId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.confirmCoverage(adult, assignmentId);
+    }
+
+    @PostMapping("/coverages/{assignmentId}/decline")
+    public CalendarItemResponse declineCoverage(
+            @PathVariable("assignmentId") UUID assignmentId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.declineCoverage(adult, assignmentId);
     }
 }

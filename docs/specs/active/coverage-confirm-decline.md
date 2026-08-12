@@ -161,7 +161,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
       first-located-by-name fallback; tests.
 - [x] **Backend (`coverage`):** Module + migration; assignment entity/repo;
       assign/reassign/remove/confirm/decline rules; public API for calendar.
-- [ ] **Backend (`calendar`):** Enrich agenda items with coverage; wire write
+- [x] **Backend (`calendar`):** Enrich agenda items with coverage; wire write
       endpoints (controller in calendar or coverage — keep Modulith boundaries).
 - [ ] **Contract:** OpenAPI coverage + default leave-from; version bump.
 - [ ] **Web:** Agenda coverage + needs-coverage; assign/confirm/decline;

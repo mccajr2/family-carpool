@@ -19,4 +19,6 @@ public record CalendarItemResponse(
         String leaveFromPlaceName,
         Instant leaveByAt,
         LeaveByStatus leaveByStatus,
-        String leaveByReason) {}
+        String leaveByReason,
+        List<CalendarCoverageAssignmentResponse> coverages,
+        List<UUID> uncoveredKidIds) {}

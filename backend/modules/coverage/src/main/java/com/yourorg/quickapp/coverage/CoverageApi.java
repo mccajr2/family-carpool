@@ -22,6 +22,13 @@ public interface CoverageApi {
             UUID circleId, CoverageItemSource source, Collection<UUID> itemIds);
 
     /**
+     * Load an assignment in the actor's circle.
+     *
+     * @throws com.yourorg.quickapp.family.FamilyAccessException 404
+     */
+    CoverageAssignmentDto requireAssignment(UUID actorAdultId, UUID assignmentId);
+
+    /**
      * Create coverage for an adult + kid subset on an item. Self-assign →
      * CONFIRMED; otherwise PENDING. If the covering adult already has an active
      * (PENDING/CONFIRMED) row on this item, updates that row instead.

@@ -67,6 +67,13 @@ class CoverageApiImpl implements CoverageApi {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public CoverageAssignmentDto requireAssignment(UUID actorAdultId, UUID assignmentId) {
+        UUID circleId = membershipApi.requireMemberCircleId(actorAdultId);
+        return toDto(requireAssignmentInCircle(assignmentId, circleId));
+    }
+
+    @Override
     @Transactional
     public CoverageAssignmentDto assign(
             UUID actorAdultId,

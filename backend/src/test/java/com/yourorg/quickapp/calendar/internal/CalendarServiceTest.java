@@ -10,8 +10,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.auth.AdultResponse;
+import com.yourorg.quickapp.auth.AdultSessionApi;
+import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
+import com.yourorg.quickapp.coverage.CoverageApi;
+import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
+import com.yourorg.quickapp.coverage.CoverageItemSource;
+import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyAccessException;
@@ -49,6 +55,12 @@ class CalendarServiceTest {
     @Mock
     private LeaveByApi leaveByApi;
 
+    @Mock
+    private CoverageApi coverageApi;
+
+    @Mock
+    private AdultSessionApi adultSessionApi;
+
     @InjectMocks
     private CalendarService calendarService;
 
@@ -61,6 +73,8 @@ class CalendarServiceTest {
         lenient()
                 .when(leaveByApi.enrich(any(), any(), any(), any(), any()))
                 .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
+        lenient().when(coverageApi.listForItems(any(), any(), any())).thenReturn(List.of());
+        lenient().when(coverageApi.listForItem(any(), any(), any())).thenReturn(List.of());
     }
 
     @Test
@@ -104,6 +118,8 @@ class CalendarServiceTest {
         assertThat(items.get(0).source()).isEqualTo(CalendarItemSource.MANUAL);
         assertThat(items.get(0).feedId()).isNull();
         assertThat(items.get(0).leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
+        assertThat(items.get(0).uncoveredKidIds()).containsExactly(kidId);
+        assertThat(items.get(0).coverages()).isEmpty();
         assertThat(items.get(1).source()).isEqualTo(CalendarItemSource.FEED);
         assertThat(items.get(1).feedName()).isEqualTo("U12");
         assertThat(items.get(1).kidIds()).containsExactly(kidId);
@@ -115,6 +131,50 @@ class CalendarServiceTest {
                         eq(manualEarlierId),
                         any(),
                         eq("Clinic"));
+    }
+
+    @Test
+    void listAttachesCoverageAndUncoveredKids() {
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-09-01T00:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        UUID itemId = UUID.randomUUID();
+        UUID kidCovered = UUID.randomUUID();
+        UUID kidOpen = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of());
+        when(manualEventCalendarApi.listInRange(circleId, from, to))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        itemId,
+                                        "Game",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        "Rink",
+                                        List.of(kidCovered, kidOpen))));
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidCovered),
+                        CoverageStatus.CONFIRMED,
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        when(coverageApi.listForItems(eq(circleId), eq(CoverageItemSource.MANUAL), any()))
+                .thenReturn(List.of(coverage));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+
+        List<CalendarItemResponse> items = calendarService.list(adult, from, to);
+
+        assertThat(items).hasSize(1);
+        assertThat(items.getFirst().coverages()).hasSize(1);
+        assertThat(items.getFirst().coverages().getFirst().coveringAdultDisplayName())
+                .isEqualTo("Jordan");
+        assertThat(items.getFirst().uncoveredKidIds()).containsExactly(kidOpen);
     }
 
     @Test
@@ -176,5 +236,76 @@ class CalendarServiceTest {
         assertThat(response.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
         assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
         assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));
+        assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+    }
+
+    @Test
+    void assignCoverageDelegatesAndReturnsItem() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "Practice", startsAt, null, "Rink", List.of(kidId))));
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        UUID.randomUUID(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.assign(
+                        adult.id(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        List.of(kidId)))
+                .thenReturn(coverage);
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(coverage));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+
+        CalendarItemResponse response =
+                calendarService.assignCoverage(
+                        adult,
+                        CalendarItemSource.MANUAL,
+                        itemId,
+                        new AssignCalendarCoverageRequest(adult.id(), List.of(kidId)));
+
+        assertThat(response.coverages()).hasSize(1);
+        assertThat(response.uncoveredKidIds()).isEmpty();
+        verify(coverageApi)
+                .assign(
+                        adult.id(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        List.of(kidId));
+    }
+
+    @Test
+    void uncoveredKidIdsIgnoresDeclined() {
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        CoverageAssignmentDto declined =
+                new CoverageAssignmentDto(
+                        UUID.randomUUID(),
+                        CoverageItemSource.MANUAL,
+                        UUID.randomUUID(),
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidA),
+                        CoverageStatus.DECLINED,
+                        Instant.now(),
+                        Instant.now());
+        assertThat(CalendarService.uncoveredKidIds(List.of(kidA, kidB), List.of(declined)))
+                .containsExactly(kidA, kidB);
     }
 }
