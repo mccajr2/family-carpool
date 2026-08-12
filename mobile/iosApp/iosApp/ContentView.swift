@@ -455,59 +455,61 @@ struct ContentView: View {
 
     @ViewBuilder
     private var calendarDestination: some View {
-        Text("Agenda")
-            .font(.headline)
-        if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
-            Text(errorMessage)
-                .foregroundStyle(.red)
-                .font(.footnote)
-        }
-        if !model.kids.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    Button("All kids") { model.agendaKidFilter = nil }
-                        .buttonStyle(.bordered)
-                        .tint(model.agendaKidFilter == nil ? .accentColor : .secondary)
-                    ForEach(model.kids) { kid in
-                        Button(kid.displayName) { model.agendaKidFilter = kid.id }
+        let agendaListBusy = model.isLoading && !model.eventCompose.isOpen
+        VStack(alignment: .leading, spacing: UiTokens.Space.xl) {
+            Text("Agenda")
+                .font(.headline)
+            if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+            }
+            if !model.kids.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        Button("All kids") { model.agendaKidFilter = nil }
                             .buttonStyle(.bordered)
-                            .tint(model.agendaKidFilter == kid.id ? .accentColor : .secondary)
+                            .tint(model.agendaKidFilter == nil ? .accentColor : .secondary)
+                        ForEach(model.kids) { kid in
+                            Button(kid.displayName) { model.agendaKidFilter = kid.id }
+                                .buttonStyle(.bordered)
+                                .tint(model.agendaKidFilter == kid.id ? .accentColor : .secondary)
+                        }
                     }
                 }
             }
-        }
-        let agendaListBusy = model.isLoading && !model.eventCompose.isOpen
-        if model.visibleCalendarItems.isEmpty {
-            // While the first calendar fetch (or Load more) is in flight, do not claim
-            // the window is empty — busy feedback lives on Load more → Loading….
-            if !agendaListBusy {
-                Text("No events in the loaded window.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        } else {
-            let items = model.visibleCalendarItems
-            VStack(alignment: .leading, spacing: UiTokens.Space._2xl) {
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                    agendaItemRow(item: item, isLast: index == items.count - 1)
-                }
-            }
-            .padding(.top, UiTokens.Space.md)
-        }
-        Button {
-            model.loadMoreCalendar()
-        } label: {
-            if agendaListBusy {
-                HStack(spacing: UiTokens.Space.sm) {
-                    ProgressView()
-                    Text("Loading…")
+            if model.visibleCalendarItems.isEmpty {
+                // While the first calendar fetch (or Load more) is in flight, do not claim
+                // the window is empty — busy feedback lives on Load more → Loading….
+                if !agendaListBusy {
+                    Text("No events in the loaded window.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             } else {
-                Text("Load more")
+                let items = model.visibleCalendarItems
+                VStack(alignment: .leading, spacing: UiTokens.Space._2xl) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        agendaItemRow(item: item, isLast: index == items.count - 1)
+                    }
+                }
+                .padding(.top, UiTokens.Space.md)
             }
+            Button {
+                model.loadMoreCalendar()
+            } label: {
+                if agendaListBusy {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Loading…")
+                    }
+                } else {
+                    Text("Load more")
+                }
+            }
+            .disabled(model.isLoading)
+            .accessibilityLabel(agendaListBusy ? "Loading…" : "Load more")
         }
-        .disabled(model.isLoading)
-        .accessibilityLabel(agendaListBusy ? "Loading…" : "Load more")
     }
 
     @ViewBuilder

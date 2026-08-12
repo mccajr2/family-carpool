@@ -826,6 +826,71 @@ describe("FamilyScreen", () => {
     expect(secondCall[1]).toBe(listCalendar.mock.calls[0][2])
   })
 
+  it("hides empty agenda copy while Load more is in flight", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    let finishLoadMore!: () => void
+    const listCalendar = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishLoadMore = () => resolve([])
+          }),
+      )
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(
+      within(agenda).getByText("No events in the loaded window."),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Load more" }))
+    await waitFor(() => {
+      expect(
+        within(agenda).queryByText("No events in the loaded window."),
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Loading/ })).toBeInTheDocument()
+    })
+
+    finishLoadMore()
+    expect(
+      await within(agenda).findByText("No events in the loaded window."),
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument()
+  })
+
   it("filters agenda by kid and keeps feed rows read-only", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

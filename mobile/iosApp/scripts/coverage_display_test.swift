@@ -155,6 +155,20 @@ struct CoverageDisplayTestMain {
         expect(content.contains("UiTokens.Space.xl"), "Agenda uses xl section spacing")
         expect(content.contains("UiTokens.Space._2xl"), "Agenda items use 2xl list gap")
         expect(content.contains("UiTokens.Space.md"), "Agenda list has md top padding")
+        if let destRange = content.range(of: "private var calendarDestination"),
+           let itemRange = content.range(
+            of: "private func agendaItemRow",
+            range: destRange.upperBound..<content.endIndex
+           )
+        {
+            let body = content[destRange.lowerBound..<itemRange.lowerBound]
+            expect(
+                body.contains("VStack(alignment: .leading, spacing: UiTokens.Space.xl)"),
+                "Agenda destination spaces heading/filters/list with xl"
+            )
+        } else {
+            expect(false, "calendarDestination body must be findable for spacing assert")
+        }
         expect(content.contains("\"Saving…\""), "compose Save uses Saving… while busy")
         expect(content.contains("\"Loading…\""), "Load more uses Loading… while busy")
         expect(

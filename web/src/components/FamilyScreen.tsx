@@ -1673,7 +1673,13 @@ export function FamilyScreen({
             </div>
           ) : null}
           {visibleCalendarItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events in the loaded window.</p>
+            // While calendar list is busy, do not claim the window is empty —
+            // busy feedback lives on Load more → Loading….
+            status.kind === "loading" && !eventComposeOpen ? null : (
+              <p className="text-sm text-muted-foreground">
+                No events in the loaded window.
+              </p>
+            )
           ) : (
             <ul
               data-testid="agenda-list"
