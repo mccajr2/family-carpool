@@ -157,7 +157,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
 
 - [x] **Backend (`family`):** Persist per-membership default leave-from; PATCH
       (+ expose on circle/me); validate located place; public port for leaveby.
-- [ ] **Backend (`leaveby`):** Origin resolution uses default before
+- [x] **Backend (`leaveby`):** Origin resolution uses default before
       first-located-by-name fallback; tests.
 - [ ] **Backend (`coverage`):** Module + migration; assignment entity/repo;
       assign/reassign/remove/confirm/decline rules; public API for calendar.
