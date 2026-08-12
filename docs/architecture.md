@@ -175,6 +175,52 @@ Locked for `coverage-confirm-decline`:
 
 Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`, buffer / multipliers / fallback env vars under `app.leaveby`. Tests force stub OSRM + stub geocode (no live public hosts).
 
+## Interaction UX
+
+Locked for [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md). Living reference
+surface: **Calendar / Agenda** (web is the behavior reference —
+[`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md); iOS/Android
+match decisions and strings). Distinct custom UI — not a rideshare clone.
+Inspiration only: [Laws of UX that Uber follows](https://medium.com/design-bootcamp/laws-of-ux-that-uber-follows-fa7c6619748b).
+
+### Tenets
+
+| Tenet | Meaning for this product |
+|--------|---------------------------|
+| Aesthetic-Usability | Clear hierarchy and spacing make Agenda feel usable, not sparse chrome |
+| Doherty | Focused busy feedback (Save → Saving…, Load more → Loading…) feels instant; **Sign out** never becomes Working… |
+| Fitts | Primary actions are large enough and easy to hit (especially mobile) |
+| Hick | Few choices per step; sole-option defaults / field rows; one emphasized CTA when present |
+| Proximity / Similarity | Critically grouped bands within an Agenda item; consistent control patterns across clients |
+
+### Presentation choice A (spacing / proximity only)
+
+- Group with hierarchy, type weight, and spacing.
+- **No** new card, muted band, or bordered subsection chrome inside Agenda items.
+- Attribute **order / proximity** may change after critical regroup; coverage /
+  leave-from / compose **behavior and copy** stay on the Agenda contract.
+
+### Busy ladder
+
+When a surface feels too dense:
+
+1. Regroup + hierarchy (proximity, type weight, one primary CTA)
+2. Slight type/spacing tuning within existing tokens
+3. Expand/collapse dense blocks — **not** until dogfood says hierarchy failed
+   (possible follow-up id, e.g. `calendar-ux-disclosure`)
+4. Navigate away — only for real destination jobs (event compose; Open Places
+   for `NO_ORIGIN`; Carpool tab for ride-share later). No nested Agenda
+   attribute screens for fields that belong on the item.
+
+### Forward-looking seams (structure only)
+
+- Agenda: schedule + coverage responsibility + leave-by.
+- Later conflict chrome attaches to the **item**, not a new control dump.
+- Per-coverage leave-from is a later product slice; don’t bury leave-from where
+  it can’t grow.
+- Carpool stays the **Carpool** destination — do not absorb ride-share actions
+  into every Agenda row.
+
 ## Repository layout
 
 ```

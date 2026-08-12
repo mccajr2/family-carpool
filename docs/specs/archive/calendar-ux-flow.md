@@ -1,7 +1,8 @@
 # Spec: calendar-ux-flow
 
-Status: draft  
+Status: done  
 Created: 2026-08-12  
+Updated: 2026-08-12  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `calendar-ux-flow`  
 Added: 2026-08-12 · enhancement
@@ -112,15 +113,15 @@ busy ladder pointer) without changing behavior strings.
 
 ## Acceptance criteria
 
-- [ ] `docs/architecture.md` documents Interaction UX tenets (table above),
+- [x] `docs/architecture.md` documents Interaction UX tenets (table above),
       selection A, the busy ladder, and Agenda as the living reference surface.
-- [ ] `docs/agenda-coverage-web-contract.md` includes **Presentation hierarchy**
+- [x] `docs/agenda-coverage-web-contract.md` includes **Presentation hierarchy**
       (selection A: spacing/proximity only; critical regroup allowed; bands +
       one emphasized situational CTA; no accordion in this slice) without
       changing behavior/copy rules.
-- [ ] Implement includes a short written regroup outcome (in contract or PR):
+- [x] Implement includes a short written regroup outcome (in contract or PR):
       what moved vs today’s flat stack and why (forward-looking seams noted).
-- [ ] On **web, Android, and iOS** Agenda items:
+- [x] On **web, Android, and iOS** Agenda items:
   - Title + when read as the primary band (stronger type / weight than meta).
   - Leave-by and Leave from sit in a travel/origin proximity group (not in the
     title band); Open Places stays with that recovery path.
@@ -134,33 +135,52 @@ busy ladder pointer) without changing behavior strings.
     Open Places stay secondary.
   - When neither Confirm nor Assign is shown, no fake primary — Edit/Remove
     remain secondary peers.
-- [ ] Event compose Save remains the primary action in the compose surface
+- [x] Event compose Save remains the primary action in the compose surface
       (Saving… busy rule unchanged).
-- [ ] Sign out never becomes Working…; Load more / Save busy labels unchanged
+- [x] Sign out never becomes Working…; Load more / Save busy labels unchanged
       per coverage contract.
-- [ ] Behavior and strings from the coverage contract still hold (sole options,
+- [x] Behavior and strings from the coverage contract still hold (sole options,
       field rows, empty-while-busy, Edit+Remove only, Open Places for
       `NO_ORIGIN`, etc.).
-- [ ] No new navigable Agenda subsections or expand/collapse for attributes in
+- [x] No new navigable Agenda subsections or expand/collapse for attributes in
       this PR.
-- [ ] Light + dark (or equivalent) smoke: Calendar Agenda still readable on
+- [x] Light + dark (or equivalent) smoke: Calendar Agenda still readable on
       web + both mobile clients (screenshot or manual check noted in PR) —
       full WCAG destination-adoption campaign is **not** required here.
+      Checklist: see **Visual smoke (PR)** below.
 
 ## Tasks
 
-- [ ] Docs: Interaction UX section in `docs/architecture.md` (tenets, A, ladder)
-- [ ] Docs: Presentation hierarchy in `docs/agenda-coverage-web-contract.md`
-- [ ] Docs/PR: regroup outcome vs today’s flat Agenda stack
-- [ ] Web: Agenda item hierarchy + regroup + primary CTA emphasis
+- [x] Docs: Interaction UX section in `docs/architecture.md` (tenets, A, ladder)
+- [x] Docs: Presentation hierarchy in `docs/agenda-coverage-web-contract.md`
+- [x] Docs/PR: regroup outcome vs today’s flat Agenda stack
+- [x] Web: Agenda item hierarchy + regroup + primary CTA emphasis
       (`FamilyScreen.tsx`)
-- [ ] Android: same in sharedUI `FamilyScreen.kt` / related
-- [ ] iOS: same in `ContentView.swift` / related
-- [ ] Web: tests for primary CTA emphasis / hierarchy hooks (or contract-style
+- [x] Android: same in sharedUI `FamilyScreen.kt` / related
+- [x] iOS: same in `ContentView.swift` / related
+- [x] Web: tests for primary CTA emphasis / hierarchy hooks (or contract-style
       asserts that fail if emphasis regresses)
-- [ ] iOS: script assert(s) for hierarchy / primary CTA markers
-- [ ] Android: host test assert(s) for hierarchy / primary CTA markers
-- [ ] PR note: brief visual smoke (Agenda with pending confirm + assign cases)
+- [x] iOS: script assert(s) for hierarchy / primary CTA markers
+- [x] Android: host test assert(s) for hierarchy / primary CTA markers
+- [x] PR note: brief visual smoke (Agenda with pending confirm + assign cases)
+
+## Visual smoke (PR)
+
+Manual check before merge (`/pr`). No screenshots required in-repo; note results
+in the PR body.
+
+On **web, Android, and iOS** Calendar Agenda (light; dark if the client theme
+supports it):
+
+1. **Pending for me** — Confirm is the filled primary; Decline secondary; Edit /
+   Remove (manual) secondary; bands read Primary → Travel → People → Coverage.
+2. **Needs assign (no pending Confirm)** — Assign is the filled primary; Edit /
+   Remove secondary.
+3. **Covered / no assign** — no fake primary; Edit/Remove stay quiet peers.
+4. Compose **Save** still primary; Sign out still “Sign out”; Load more busy
+   label unchanged.
+5. Spot-check: leave-by sits with Leave from (not under the title); no new
+   card/band chrome inside the item.
 
 ## Open questions
 

@@ -1,6 +1,7 @@
 # Agenda coverage — web behavior contract (reference client)
 
-Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to this contract)  
+Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to this contract;
+presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md))  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)
 
 Web Agenda is the **source of truth** for coverage + leave-from **client UX**.
@@ -27,6 +28,70 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
   - list gap `--fc-space-2xl` (32px)
   - each item: bottom border + `--fc-space-xl` (24px) padding (omitted on last)
   - Controls for one item must not read as belonging to the next.
+
+## Presentation hierarchy
+
+Locked for [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md). Durable
+tenets / busy ladder: [`architecture.md` Interaction UX](architecture.md).
+
+**Selection A — spacing / proximity only.** Group with hierarchy, type weight,
+and spacing. Do **not** add card, muted band, or bordered subsection chrome
+inside an Agenda item. Critical regroup of attribute **order / proximity** is
+allowed; behavior and copy in this contract stay authoritative.
+
+**No accordion / nested Agenda screens** in this slice. If still too dense after
+dogfood, escalate via the busy ladder (architecture) — possible follow-up
+`calendar-ux-disclosure`, not ad-hoc chrome.
+
+### Bands (within one Agenda item)
+
+Starting target for ports (adjust only with a written regroup outcome):
+
+1. **Primary** — title + when (location with event identity when present);
+   stronger type / weight than meta.
+2. **Travel / origin** — leave-by + Leave from (+ **Open Places** when
+   `NO_ORIGIN`). Keep travel together; not in the title band.
+3. **People / source** — source label, kids on the event.
+4. **Coverage / actions** — active coverage lines, needs-coverage,
+   Confirm/Decline, Assign, Edit/Remove — one spacing-grouped region, no inner
+   card/band.
+
+### Situational primary CTA
+
+Among an item’s action buttons:
+
+- **Confirm coverage** shown (pending for signed-in adult) → Confirm is the
+  filled/emphasized primary; **Decline coverage** stays secondary.
+- Else **Assign coverage** shown → Assign is the filled/emphasized primary;
+  Edit / Remove / Open Places stay secondary.
+- Neither Confirm nor Assign → no fake primary; Edit/Remove remain secondary
+  peers.
+
+Event compose **Save** remains the primary action on the compose surface
+(Saving… rule unchanged). Calendar **Add** stays the clear create entry point.
+
+### Regroup outcome (vs flat stack before `calendar-ux-flow`)
+
+**Today’s web stack (flat):** title → when → source → location → kids → leave-by
+in one meta dump; **Edit / Remove** peer to that dump on wide layouts; then
+Leave from (+ Open Places); then coverage lines / needs-coverage / Confirm /
+Decline / Assign. Travel is split (leave-by in the dump, Leave from below
+actions). Edit/Remove compete visually with later Confirm/Assign. Source and
+kids sit between identity and leave-by, so “who” and “when to leave” blur.
+
+**Chosen order (selection A — spacing only):**
+
+| Band | Contents | Why |
+|------|----------|-----|
+| Primary | title, when, location | Event identity first; location belongs with “where is this,” not travel timing |
+| Travel / origin | leave-by, Leave from, Open Places (`NO_ORIGIN`) | Keep leave timing + origin together so adults answer “when do I leave / from where?” in one place; recovery stays with the gap |
+| People / source | source label, kids on the event | Who the event is about / where it came from — separate from travel |
+| Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign, Edit/Remove | Responsibility + situational CTAs as one proximity group; Edit/Remove stay secondary peers (never fake primary when Confirm/Assign exists) |
+
+**Forward-looking seams (not shipped here):** conflict chrome can attach to the
+item (primary or a future status affordance) without inventing a new dump;
+per-coverage leave-from can extend Travel later; carpool request/accept stays
+on the **Carpool** destination — not absorbed into Coverage / actions.
 
 ## Field rows (single-value attributes)
 
@@ -138,7 +203,9 @@ Match this contract for each item before calling the port done:
 6. Default leave-from on Places.
 7. Field rows: Leave from / Covering adult / My default leave-from are
    horizontal (label leading, value/picker trailing).
-8. Tests covering the matrix above (especially sole kid, kid-toggle without
+8. Presentation hierarchy (selection A): bands + one situational primary CTA;
+   no inner card/band; no accordion in this slice.
+9. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
 
 ## Toolkit differences (OK)

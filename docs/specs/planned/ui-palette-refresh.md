@@ -28,7 +28,7 @@ token plumbing exists — without rebuilding components.
 
 - Depends on shipped [`cross-platform-ui-system`](../archive/cross-platform-ui-system.md)
   (`design-tokens/tokens.json` + generator).
-- **Sequence after** [`calendar-ux-flow`](../active/calendar-ux-flow.md) and
+- **Sequence after** [`calendar-ux-flow`](../archive/calendar-ux-flow.md) and
   [`ui-system-destination-adoption`](ui-system-destination-adoption.md)
   (or the first destination-adoption slice): painting brand hex only on More
   is low PoC value; refresh once Calendar/Family/Carpool also consume tokens.
