@@ -53,6 +53,13 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
         }
     }
 
+    @Override
+    public void requireAdultInCircle(UUID circleId, UUID adultId) {
+        if (memberships.findByCircleIdAndAdultId(circleId, adultId).isEmpty()) {
+            throw new FamilyAccessException(HttpStatus.NOT_FOUND, "Adult is not a member of this circle");
+        }
+    }
+
     private FamilyMembershipEntity requireMembership(UUID adultId) {
         FamilyMembershipEntity membership =
                 memberships

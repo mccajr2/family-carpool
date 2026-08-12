@@ -25,4 +25,9 @@ public interface FamilyMembershipApi {
      * @throws FamilyAccessException 400 if any kid id is missing or not in the circle
      */
     void requireKidsInCircle(UUID circleId, Collection<UUID> kidIds);
+
+    /**
+     * @throws FamilyAccessException 404 if the adult is not a member of the circle
+     */
+    void requireAdultInCircle(UUID circleId, UUID adultId);
 }

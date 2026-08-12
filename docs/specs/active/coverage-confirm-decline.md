@@ -159,7 +159,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
       (+ expose on circle/me); validate located place; public port for leaveby.
 - [x] **Backend (`leaveby`):** Origin resolution uses default before
       first-located-by-name fallback; tests.
-- [ ] **Backend (`coverage`):** Module + migration; assignment entity/repo;
+- [x] **Backend (`coverage`):** Module + migration; assignment entity/repo;
       assign/reassign/remove/confirm/decline rules; public API for calendar.
 - [ ] **Backend (`calendar`):** Enrich agenda items with coverage; wire write
       endpoints (controller in calendar or coverage — keep Modulith boundaries).
