@@ -22,6 +22,30 @@ default leave-from + event compose).
   - each item: bottom border + `--fc-space-xl` (24px) padding (omitted on last)
   - Controls for one item must not read as belonging to the next.
 
+## Field rows (single-value attributes)
+
+Single-value attributes use one **horizontal field row**: attribute label on the
+**leading** side, current value or native picker on the **trailing** side.
+Do not stack a tiny label above an unlabeled link/button.
+
+Applies to:
+
+- **Leave from** (Agenda item)
+- **Covering adult** (Assign coverage)
+- **My default leave-from** (Places)
+
+Rules:
+
+- Interactive: platform-native chooser (web `<select>`, iOS `Menu`, Android
+  dropdown) showing the **current value** on the trailing side, with a clear
+  affordance (chevron / control chrome).
+- Sole / read-only (≤1 option): same row layout; trailing side is plain text
+  (no chooser, no chevron).
+- Does **not** apply to multi-select **Uncovered kids** (checkbox list) or to
+  action buttons (Assign / Confirm / Open Places / etc.).
+
+Toolkit chrome may differ; **layout and strings** must not.
+
 ## Busy / loading indicators
 
 - **Sign out** always stays labeled “Sign out” — never hijacked as a global
@@ -95,7 +119,9 @@ Match web for each item before calling the port done:
 4. Sole-option rules for adult / kid / leave-from.
 5. Coverage lines, needs-coverage, confirm/decline, assign defaults + self-confirm.
 6. Default leave-from on Places.
-7. Tests covering the matrix above (especially sole kid, kid-toggle without
+7. Field rows: Leave from / Covering adult / My default leave-from are
+   horizontal (label leading, value/picker trailing).
+8. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
 
 ## Out of scope here

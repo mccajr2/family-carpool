@@ -130,7 +130,20 @@ struct CoverageDisplayTestMain {
         expect(content.contains("Decline coverage"), "Agenda shows Decline coverage")
         expect(content.contains("Remove coverage"), "Agenda shows Remove coverage")
         expect(content.contains("My default leave-from"), "Places shows default leave-from")
+        expect(content.contains("FieldMenuRow"), "Agenda uses FieldMenuRow for pickers")
+        expect(content.contains("FieldValueRow"), "Agenda uses FieldValueRow for sole values")
         expect(content.contains("effectiveAdultId"), "Agenda uses effective covering adult")
+
+        let fieldRowURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/FieldRow.swift")
+        let fieldRow = try! String(contentsOf: fieldRowURL, encoding: .utf8)
+        expect(fieldRow.contains("struct FieldMenuRow"), "FieldMenuRow helper exists")
+        expect(fieldRow.contains("struct FieldValueRow"), "FieldValueRow helper exists")
+        expect(fieldRow.contains("chevron.down"), "interactive field rows show chevron")
+        expect(fieldRow.contains("Field rows"), "FieldRow documents contract section")
+
         expect(
             content.contains("CoverageDisplay.defaultCoverageAdultId"),
             "Agenda defaults covering adult via CoverageDisplay"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
@@ -70,6 +70,27 @@ function circleTitle(circle: FamilyCircle): string {
 
 function memberLabel(member: FamilyMember): string {
   return member.displayName?.trim() ? member.displayName : member.email
+}
+
+/** Horizontal single-value field: label leading, control/value trailing. */
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      data-testid="field-row"
+      className="flex items-center justify-between gap-3"
+    >
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1 flex justify-end [&_select]:w-full [&_select]:max-w-xs">
+        {children}
+      </div>
+    </div>
+  )
 }
 
 function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
@@ -1554,8 +1575,7 @@ export function FamilyScreen({
         </section>
 
         <section aria-label="Default leave-from" className="flex flex-col gap-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            My default leave-from
+          <FieldRow label="My default leave-from">
             <select
               aria-label="My default leave-from"
               className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
@@ -1579,7 +1599,7 @@ export function FamilyScreen({
                 ))
               )}
             </select>
-          </label>
+          </FieldRow>
         </section>
 
         <div className="flex flex-col gap-2">
@@ -1740,49 +1760,50 @@ export function FamilyScreen({
                       ) : null}
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                        Leave from
-                        {locatedForItem.length <= 1 ? (
-                          <span
-                            className="flex h-9 items-center rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                            data-testid={`leave-from-label-${item.source}-${item.id}`}
-                          >
-                            {item.leaveFromPlaceName ??
-                              locatedForItem[0]?.name ??
-                              (circle.places.length === 0
-                                ? "No places yet"
-                                : "No located places yet")}
-                          </span>
-                        ) : (
-                          <select
-                            aria-label={`Leave from for ${item.title}`}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                            value={item.leaveFromPlaceId ?? ""}
-                            onChange={(event) => {
-                              const placeId = event.target.value
-                              if (placeId) {
-                                void onSetCalendarLeaveFrom(item, placeId)
-                              }
-                            }}
-                            disabled={status.kind === "loading" || circle.places.length === 0}
-                          >
-                            {!item.leaveFromPlaceId ? (
-                              <option value="">Choose a located place</option>
-                            ) : null}
-                            {circle.places.map((place) => (
-                              <option
-                                key={place.id}
-                                value={place.id}
-                                disabled={!isPlaceLocated(place)}
-                              >
-                                {isPlaceLocated(place)
-                                  ? place.name
-                                  : `${place.name} (not located)`}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </label>
+                      <div className="flex-1">
+                        <FieldRow label="Leave from">
+                          {locatedForItem.length <= 1 ? (
+                            <span
+                              className="flex h-9 max-w-xs items-center justify-end px-1 text-sm text-foreground"
+                              data-testid={`leave-from-label-${item.source}-${item.id}`}
+                            >
+                              {item.leaveFromPlaceName ??
+                                locatedForItem[0]?.name ??
+                                (circle.places.length === 0
+                                  ? "No places yet"
+                                  : "No located places yet")}
+                            </span>
+                          ) : (
+                            <select
+                              aria-label={`Leave from for ${item.title}`}
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                              value={item.leaveFromPlaceId ?? ""}
+                              onChange={(event) => {
+                                const placeId = event.target.value
+                                if (placeId) {
+                                  void onSetCalendarLeaveFrom(item, placeId)
+                                }
+                              }}
+                              disabled={status.kind === "loading" || circle.places.length === 0}
+                            >
+                              {!item.leaveFromPlaceId ? (
+                                <option value="">Choose a located place</option>
+                              ) : null}
+                              {circle.places.map((place) => (
+                                <option
+                                  key={place.id}
+                                  value={place.id}
+                                  disabled={!isPlaceLocated(place)}
+                                >
+                                  {isPlaceLocated(place)
+                                    ? place.name
+                                    : `${place.name} (not located)`}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </FieldRow>
+                      </div>
                       {needsOrigin ? (
                         <Button
                           type="button"
@@ -1850,8 +1871,7 @@ export function FamilyScreen({
                     {item.uncoveredKidIds.length > 0 && circle.members.length > 0 ? (
                       <div className="flex flex-col gap-2">
                         {assignDraft.soleAdult ? null : (
-                          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                            Covering adult
+                          <FieldRow label="Covering adult">
                             <select
                               aria-label={`Covering adult for ${item.title}`}
                               className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
@@ -1869,7 +1889,7 @@ export function FamilyScreen({
                                 </option>
                               ))}
                             </select>
-                          </label>
+                          </FieldRow>
                         )}
                         {assignDraft.soleKid ? null : (
                           <fieldset className="flex flex-col gap-1">

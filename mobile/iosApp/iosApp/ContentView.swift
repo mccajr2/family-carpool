@@ -437,23 +437,19 @@ struct ContentView: View {
             )
 
             let locatedPlaces = model.places.filter(\.isLocated)
-            Text("My default leave-from")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Menu {
+            FieldMenuRow(
+                label: "My default leave-from",
+                valueText: model.defaultLeaveFromPlaceName
+                    ?? (locatedPlaces.isEmpty ? "No located places yet" : "None"),
+                disabled: model.isLoading
+            ) {
                 Button("None") { model.setDefaultLeaveFrom(placeId: nil) }
                     .disabled(model.isLoading)
                 ForEach(locatedPlaces) { place in
                     Button(place.name) { model.setDefaultLeaveFrom(placeId: place.id) }
                         .disabled(model.isLoading)
                 }
-            } label: {
-                Text(
-                    model.defaultLeaveFromPlaceName
-                        ?? (locatedPlaces.isEmpty ? "No located places yet" : "None")
-                )
             }
-            .disabled(model.isLoading)
 
     }
 
@@ -546,21 +542,23 @@ struct ContentView: View {
                         .disabled(model.isLoading)
                 }
             }
-            Text("Leave from")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
             let locatedPlaces = model.places.filter(\.isLocated)
             if locatedPlaces.count <= 1 {
-                Text(
-                    item.leaveFromPlaceName
+                FieldValueRow(
+                    label: "Leave from",
+                    valueText: item.leaveFromPlaceName
                         ?? locatedPlaces.first?.name
                         ?? (model.places.isEmpty
                             ? "No places yet"
                             : "No located places yet")
                 )
-                .font(.caption)
             } else {
-                Menu {
+                FieldMenuRow(
+                    label: "Leave from",
+                    valueText: item.leaveFromPlaceName
+                        ?? "Choose a located place",
+                    disabled: model.isLoading || model.places.isEmpty
+                ) {
                     ForEach(model.places) { place in
                         Button {
                             if place.isLocated {
@@ -575,13 +573,7 @@ struct ContentView: View {
                         }
                         .disabled(!place.isLocated)
                     }
-                } label: {
-                    Text(
-                        item.leaveFromPlaceName
-                            ?? "Choose a located place"
-                    )
                 }
-                .disabled(model.isLoading || model.places.isEmpty)
             }
             if item.leaveByStatus == "UNAVAILABLE",
                item.leaveByReason == "NO_ORIGIN"
@@ -1014,10 +1006,13 @@ private struct AgendaCoverageSection: View {
 
         if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
             if !soleAdult {
-                Text("Covering adult")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Menu {
+                FieldMenuRow(
+                    label: "Covering adult",
+                    valueText: members.first(where: { $0.adultId == effectiveAdultId }).map {
+                        CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
+                    } ?? "Choose adult",
+                    disabled: isLoading
+                ) {
                     ForEach(members) { member in
                         Button(CoverageDisplay.memberLabel(
                             displayName: member.displayName,
@@ -1027,14 +1022,7 @@ private struct AgendaCoverageSection: View {
                         }
                         .disabled(isLoading)
                     }
-                } label: {
-                    Text(
-                        members.first(where: { $0.adultId == effectiveAdultId }).map {
-                            CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
-                        } ?? "Choose adult"
-                    )
                 }
-                .disabled(isLoading)
             }
 
             if !soleKid {

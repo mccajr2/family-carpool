@@ -1632,6 +1632,7 @@ describe("FamilyScreen", () => {
     const rows = within(list).getAllByRole("listitem")
     expect(rows).toHaveLength(2)
     expect(rows[0].className).toContain("border-b")
+    expect(within(agenda).getAllByTestId("field-row").length).toBeGreaterThanOrEqual(1)
     expect(rows[0].className).toContain("--fc-space-xl")
     expect(rows[1].className).toContain("last:border-b-0")
   })
@@ -2061,6 +2062,7 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Places")
     const select = await screen.findByLabelText("My default leave-from")
+    expect(select.closest("[data-testid='field-row']")).toBeTruthy()
     await user.selectOptions(select, "p2")
 
     await waitFor(() => {

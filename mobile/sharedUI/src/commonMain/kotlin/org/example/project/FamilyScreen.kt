@@ -948,48 +948,54 @@ private fun PlacesDestination(
 
     val locatedPlaces = current.circle.places.filter { it.isLocated() }
     var defaultLeaveFromExpanded by remember { mutableStateOf(false) }
-    Text("My default leave-from", style = MaterialTheme.typography.labelSmall)
-    Box {
-        OutlinedButton(
-            onClick = { defaultLeaveFromExpanded = true },
-            enabled = !current.loading,
-        ) {
-            Text(
-                current.circle.defaultLeaveFromPlaceName?.takeIf { it.isNotBlank() }
-                    ?: if (locatedPlaces.isEmpty()) {
-                        "No located places yet"
-                    } else {
-                        "None"
+    FieldRow(label = FieldRowLabels.DEFAULT_LEAVE_FROM) {
+        Box {
+            Row(
+                modifier =
+                    Modifier.clickable(enabled = !current.loading) {
+                        defaultLeaveFromExpanded = true
                     },
-            )
-        }
-        DropdownMenu(
-            expanded = defaultLeaveFromExpanded,
-            onDismissRequest = { defaultLeaveFromExpanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("None") },
-                onClick = {
-                    defaultLeaveFromExpanded = false
-                    scope.launch {
-                        model.setDefaultLeaveFrom(null)
-                        refresh()
-                    }
-                },
-                enabled = !current.loading,
-            )
-            locatedPlaces.forEach { place ->
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                FieldRowValueText(
+                    current.circle.defaultLeaveFromPlaceName?.takeIf { it.isNotBlank() }
+                        ?: if (locatedPlaces.isEmpty()) {
+                            "No located places yet"
+                        } else {
+                            "None"
+                        },
+                )
+                FieldRowChevron()
+            }
+            DropdownMenu(
+                expanded = defaultLeaveFromExpanded,
+                onDismissRequest = { defaultLeaveFromExpanded = false },
+            ) {
                 DropdownMenuItem(
-                    text = { Text(place.name) },
+                    text = { Text("None") },
                     onClick = {
                         defaultLeaveFromExpanded = false
                         scope.launch {
-                            model.setDefaultLeaveFrom(place.id)
+                            model.setDefaultLeaveFrom(null)
                             refresh()
                         }
                     },
                     enabled = !current.loading,
                 )
+                locatedPlaces.forEach { place ->
+                    DropdownMenuItem(
+                        text = { Text(place.name) },
+                        onClick = {
+                            defaultLeaveFromExpanded = false
+                            scope.launch {
+                                model.setDefaultLeaveFrom(place.id)
+                                refresh()
+                            }
+                        },
+                        enabled = !current.loading,
+                    )
+                }
             }
         }
     }
@@ -1076,10 +1082,6 @@ private fun CalendarDestination(
             val needsOrigin =
                 item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
                     item.leaveByReason == "NO_ORIGIN"
-            val needsDestination =
-                item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
-                    (item.leaveByReason == "NO_DESTINATION" ||
-                        item.leaveByReason == "GEOCODE_FAILED")
             var leaveFromExpanded by remember(item.source, item.id) { mutableStateOf(false) }
             val itemCoverages = activeCoverages(item)
             val pendingForSelf = pendingCoverageForAdult(item, current.adultId)
@@ -1141,81 +1143,77 @@ private fun CalendarDestination(
                         }
                     }
                 }
-                Text("Leave from", style = MaterialTheme.typography.labelSmall)
                 val locatedPlaces = current.circle.places.filter { it.isLocated() }
                 if (locatedPlaces.size <= 1) {
-                    Text(
-                        item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
-                            ?: locatedPlaces.singleOrNull()?.name
-                            ?: if (current.circle.places.isEmpty()) {
-                                "No places yet"
-                            } else {
-                                "No located places yet"
-                            },
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
+                        FieldRowValueText(
+                            item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                ?: locatedPlaces.singleOrNull()?.name
+                                ?: if (current.circle.places.isEmpty()) {
+                                    "No places yet"
+                                } else {
+                                    "No located places yet"
+                                },
+                        )
+                    }
                 } else {
-                    Box {
-                        OutlinedButton(
-                            onClick = { leaveFromExpanded = true },
-                            enabled = !current.loading && current.circle.places.isNotEmpty(),
-                        ) {
-                            Text(
-                                item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
-                                    ?: "Choose a located place",
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = leaveFromExpanded,
-                            onDismissRequest = { leaveFromExpanded = false },
-                        ) {
-                            current.circle.places.forEach { place ->
-                                val located = place.isLocated()
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (located) {
-                                                place.name
-                                            } else {
-                                                "${place.name} (not located)"
-                                            },
-                                        )
+                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
+                        Box {
+                            Row(
+                                modifier =
+                                    Modifier.clickable(
+                                        enabled = !current.loading && current.circle.places.isNotEmpty(),
+                                    ) {
+                                        leaveFromExpanded = true
                                     },
-                                    onClick = {
-                                        if (!located) return@DropdownMenuItem
-                                        leaveFromExpanded = false
-                                        scope.launch {
-                                            model.setCalendarLeaveFrom(item, place.id)
-                                            refresh()
-                                        }
-                                    },
-                                    enabled = located && !current.loading,
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                FieldRowValueText(
+                                    item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                        ?: "Choose a located place",
                                 )
+                                FieldRowChevron()
+                            }
+                            DropdownMenu(
+                                expanded = leaveFromExpanded,
+                                onDismissRequest = { leaveFromExpanded = false },
+                            ) {
+                                current.circle.places.forEach { place ->
+                                    val located = place.isLocated()
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (located) {
+                                                    place.name
+                                                } else {
+                                                    "${place.name} (not located)"
+                                                },
+                                            )
+                                        },
+                                        onClick = {
+                                            if (!located) return@DropdownMenuItem
+                                            leaveFromExpanded = false
+                                            scope.launch {
+                                                model.setCalendarLeaveFrom(item, place.id)
+                                                refresh()
+                                            }
+                                        },
+                                        enabled = located && !current.loading,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (needsOrigin) {
-                        OutlinedButton(
-                            onClick = {
-                                model.openMorePlaces()
-                                refresh()
-                            },
-                        ) {
-                            Text("Open Places")
-                        }
-                    }
-                    if (needsDestination && isManual) {
-                        OutlinedButton(
-                            onClick = {
-                                model.beginEditEvent(item)
-                                refresh()
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Edit location")
-                        }
+                if (needsOrigin) {
+                    OutlinedButton(
+                        onClick = {
+                            model.openMorePlaces()
+                            refresh()
+                        },
+                    ) {
+                        Text("Open Places")
                     }
                 }
                 if (itemCoverages.isNotEmpty()) {
@@ -1299,33 +1297,39 @@ private fun CalendarDestination(
                             assignKidIds.toList()
                         }
                     if (!soleAdult) {
-                        Text("Covering adult", style = MaterialTheme.typography.labelSmall)
                         var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
-                        Box {
-                            OutlinedButton(
-                                onClick = { assignAdultExpanded = true },
-                                enabled = !current.loading,
-                            ) {
-                                Text(
-                                    current.circle.members
-                                        .find { it.adultId == assignAdultId }
-                                        ?.let(::memberLabel)
-                                        ?: "Choose adult",
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = assignAdultExpanded,
-                                onDismissRequest = { assignAdultExpanded = false },
-                            ) {
-                                current.circle.members.forEach { member ->
-                                    DropdownMenuItem(
-                                        text = { Text(memberLabel(member)) },
-                                        onClick = {
-                                            assignAdultId = member.adultId
-                                            assignAdultExpanded = false
+                        FieldRow(label = FieldRowLabels.COVERING_ADULT) {
+                            Box {
+                                Row(
+                                    modifier =
+                                        Modifier.clickable(enabled = !current.loading) {
+                                            assignAdultExpanded = true
                                         },
-                                        enabled = !current.loading,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    FieldRowValueText(
+                                        current.circle.members
+                                            .find { it.adultId == assignAdultId }
+                                            ?.let(::memberLabel)
+                                            ?: "Choose adult",
                                     )
+                                    FieldRowChevron()
+                                }
+                                DropdownMenu(
+                                    expanded = assignAdultExpanded,
+                                    onDismissRequest = { assignAdultExpanded = false },
+                                ) {
+                                    current.circle.members.forEach { member ->
+                                        DropdownMenuItem(
+                                            text = { Text(memberLabel(member)) },
+                                            onClick = {
+                                                assignAdultId = member.adultId
+                                                assignAdultExpanded = false
+                                            },
+                                            enabled = !current.loading,
+                                        )
+                                    }
                                 }
                             }
                         }
