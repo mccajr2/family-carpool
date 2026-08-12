@@ -824,9 +824,29 @@ export function FamilyScreen({
     patch: Partial<{ adultId: string; kidIds: string[] }>,
   ) {
     setAssignCoverageDrafts((current) => {
-      const existing = current[itemKey] ?? { adultId: "", kidIds: [] }
+      const existing = current[itemKey] ?? { adultId: "", kidIds: [] as string[] }
       return { ...current, [itemKey]: { ...existing, ...patch } }
     })
+  }
+
+  function coverageAssignState(
+    item: CalendarItem,
+    itemKey: string,
+  ): { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean } {
+    const soleAdult = circle!.members.length === 1
+    const soleKid = item.uncoveredKidIds.length === 1
+    const stored = assignCoverageDrafts[itemKey]
+    const defaultAdultId =
+      adult?.id && circle!.members.some((member) => member.adultId === adult.id)
+        ? adult.id
+        : (circle!.members[0]?.adultId ?? "")
+    const adultId = soleAdult
+      ? circle!.members[0]!.adultId
+      : stored?.adultId || defaultAdultId
+    const kidIds = soleKid
+      ? item.uncoveredKidIds
+      : (stored?.kidIds ?? [])
+    return { adultId, kidIds, soleAdult, soleKid }
   }
 
   async function onSetDefaultLeaveFrom(placeId: string | null) {
@@ -1655,10 +1675,8 @@ export function FamilyScreen({
                   (coverage) =>
                     coverage.status === "PENDING" && coverage.coveringAdultId === adult?.id,
                 )
-                const assignDraft = assignCoverageDrafts[itemKey] ?? {
-                  adultId: circle.members[0]?.adultId ?? "",
-                  kidIds: [] as string[],
-                }
+                const assignDraft = coverageAssignState(item, itemKey)
+                const locatedForItem = circle.places.filter(isPlaceLocated)
                 const uncoveredKidNames = eventKidNames(
                   { kidIds: item.uncoveredKidIds },
                   circle.kids,
@@ -1717,39 +1735,46 @@ export function FamilyScreen({
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
                         Leave from
-                        <select
-                          aria-label={`Leave from for ${item.title}`}
-                          className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                          value={item.leaveFromPlaceId ?? ""}
-                          onChange={(event) => {
-                            const placeId = event.target.value
-                            if (placeId) {
-                              void onSetCalendarLeaveFrom(item, placeId)
-                            }
-                          }}
-                          disabled={status.kind === "loading" || circle.places.length === 0}
-                        >
-                          {circle.places.length === 0 ? (
-                            <option value="">No places yet</option>
-                          ) : (
-                            <>
-                              {!item.leaveFromPlaceId ? (
-                                <option value="">Choose a located place</option>
-                              ) : null}
-                              {circle.places.map((place) => (
-                                <option
-                                  key={place.id}
-                                  value={place.id}
-                                  disabled={!isPlaceLocated(place)}
-                                >
-                                  {isPlaceLocated(place)
-                                    ? place.name
-                                    : `${place.name} (not located)`}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
+                        {locatedForItem.length <= 1 ? (
+                          <span
+                            className="flex h-9 items-center rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                            data-testid={`leave-from-label-${item.source}-${item.id}`}
+                          >
+                            {item.leaveFromPlaceName ??
+                              locatedForItem[0]?.name ??
+                              (circle.places.length === 0
+                                ? "No places yet"
+                                : "No located places yet")}
+                          </span>
+                        ) : (
+                          <select
+                            aria-label={`Leave from for ${item.title}`}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                            value={item.leaveFromPlaceId ?? ""}
+                            onChange={(event) => {
+                              const placeId = event.target.value
+                              if (placeId) {
+                                void onSetCalendarLeaveFrom(item, placeId)
+                              }
+                            }}
+                            disabled={status.kind === "loading" || circle.places.length === 0}
+                          >
+                            {!item.leaveFromPlaceId ? (
+                              <option value="">Choose a located place</option>
+                            ) : null}
+                            {circle.places.map((place) => (
+                              <option
+                                key={place.id}
+                                value={place.id}
+                                disabled={!isPlaceLocated(place)}
+                              >
+                                {isPlaceLocated(place)
+                                  ? place.name
+                                  : `${place.name} (not located)`}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </label>
                       {needsOrigin ? (
                         <Button
@@ -1828,58 +1853,62 @@ export function FamilyScreen({
                     ) : null}
                     {item.uncoveredKidIds.length > 0 && circle.members.length > 0 ? (
                       <div className="flex flex-col gap-2">
-                        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                          Covering adult
-                          <select
-                            aria-label={`Covering adult for ${item.title}`}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                            value={assignDraft.adultId}
-                            onChange={(event) =>
-                              updateAssignCoverageDraft(itemKey, {
-                                adultId: event.target.value,
-                              })
-                            }
-                            disabled={status.kind === "loading"}
-                          >
-                            {circle.members.map((member) => (
-                              <option key={member.adultId} value={member.adultId}>
-                                {memberLabel(member)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <fieldset className="flex flex-col gap-1">
-                          <legend className="text-xs text-muted-foreground">
-                            Uncovered kids
-                          </legend>
-                          {item.uncoveredKidIds.map((kidId) => {
-                            const kid = circle.kids.find((entry) => entry.id === kidId)
-                            if (!kid) {
-                              return null
-                            }
-                            return (
-                              <label
-                                key={kidId}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Cover ${kid.displayName} for ${item.title}`}
-                                  checked={assignDraft.kidIds.includes(kidId)}
-                                  onChange={() =>
-                                    updateAssignCoverageDraft(itemKey, {
-                                      kidIds: assignDraft.kidIds.includes(kidId)
-                                        ? assignDraft.kidIds.filter((id) => id !== kidId)
-                                        : [...assignDraft.kidIds, kidId],
-                                    })
-                                  }
-                                  disabled={status.kind === "loading"}
-                                />
-                                {kid.displayName}
-                              </label>
-                            )
-                          })}
-                        </fieldset>
+                        {assignDraft.soleAdult ? null : (
+                          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                            Covering adult
+                            <select
+                              aria-label={`Covering adult for ${item.title}`}
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                              value={assignDraft.adultId}
+                              onChange={(event) =>
+                                updateAssignCoverageDraft(itemKey, {
+                                  adultId: event.target.value,
+                                })
+                              }
+                              disabled={status.kind === "loading"}
+                            >
+                              {circle.members.map((member) => (
+                                <option key={member.adultId} value={member.adultId}>
+                                  {memberLabel(member)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {assignDraft.soleKid ? null : (
+                          <fieldset className="flex flex-col gap-1">
+                            <legend className="text-xs text-muted-foreground">
+                              Uncovered kids
+                            </legend>
+                            {item.uncoveredKidIds.map((kidId) => {
+                              const kid = circle.kids.find((entry) => entry.id === kidId)
+                              if (!kid) {
+                                return null
+                              }
+                              return (
+                                <label
+                                  key={kidId}
+                                  className="flex items-center gap-2 text-sm"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Cover ${kid.displayName} for ${item.title}`}
+                                    checked={assignDraft.kidIds.includes(kidId)}
+                                    onChange={() =>
+                                      updateAssignCoverageDraft(itemKey, {
+                                        kidIds: assignDraft.kidIds.includes(kidId)
+                                          ? assignDraft.kidIds.filter((id) => id !== kidId)
+                                          : [...assignDraft.kidIds, kidId],
+                                      })
+                                    }
+                                    disabled={status.kind === "loading"}
+                                  />
+                                  {kid.displayName}
+                                </label>
+                              )
+                            })}
+                          </fieldset>
+                        )}
                         <Button
                           type="button"
                           size="sm"

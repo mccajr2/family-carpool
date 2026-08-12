@@ -709,8 +709,8 @@ class AuthBridge {
                         CalendarItemSource.valueOf(source),
                         itemId,
                         AssignCalendarCoverageRequest(
-                            coveringAdultId = coveringAdultId,
-                            kidIds = kidIds,
+                            coveringAdultId = coveringAdultId.trim(),
+                            kidIds = kidIds.map { it.trim() }.filter { it.isNotEmpty() },
                         ),
                     )
                 val args = calendarItemSuccessArgs(item)

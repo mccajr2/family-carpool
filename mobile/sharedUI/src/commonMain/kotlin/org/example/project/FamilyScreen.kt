@@ -1084,10 +1084,15 @@ private fun CalendarDestination(
             val itemCoverages = activeCoverages(item)
             val pendingForSelf = pendingCoverageForAdult(item, current.adultId)
             val uncoveredKidNames = eventKidNames(item.uncoveredKidIds, current.circle.kids)
-            var assignAdultId by remember(item.source, item.id) {
-                mutableStateOf(current.circle.members.firstOrNull()?.adultId ?: "")
+            var assignAdultId by remember(item.source, item.id, current.adultId) {
+                mutableStateOf(
+                    defaultCoverageAdultId(current.adultId, current.circle.members),
+                )
             }
-            var assignKidIds by remember(item.source, item.id) { mutableStateOf(setOf<String>()) }
+            var assignKidIds by
+                remember(item.source, item.id, item.uncoveredKidIds.joinToString(",")) {
+                    mutableStateOf(defaultCoverageKidIds(item.uncoveredKidIds))
+                }
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(item.title)
                 Text(
@@ -1137,46 +1142,56 @@ private fun CalendarDestination(
                     }
                 }
                 Text("Leave from", style = MaterialTheme.typography.labelSmall)
-                Box {
-                    OutlinedButton(
-                        onClick = { leaveFromExpanded = true },
-                        enabled = !current.loading && current.circle.places.isNotEmpty(),
-                    ) {
-                        Text(
-                            item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
-                                ?: if (current.circle.places.isEmpty()) {
-                                    "No places yet"
-                                } else {
-                                    "Choose a located place"
-                                },
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = leaveFromExpanded,
-                        onDismissRequest = { leaveFromExpanded = false },
-                    ) {
-                        current.circle.places.forEach { place ->
-                            val located = place.isLocated()
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (located) {
-                                            place.name
-                                        } else {
-                                            "${place.name} (not located)"
-                                        },
-                                    )
-                                },
-                                onClick = {
-                                    if (!located) return@DropdownMenuItem
-                                    leaveFromExpanded = false
-                                    scope.launch {
-                                        model.setCalendarLeaveFrom(item, place.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = located && !current.loading,
+                val locatedPlaces = current.circle.places.filter { it.isLocated() }
+                if (locatedPlaces.size <= 1) {
+                    Text(
+                        item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                            ?: locatedPlaces.singleOrNull()?.name
+                            ?: if (current.circle.places.isEmpty()) {
+                                "No places yet"
+                            } else {
+                                "No located places yet"
+                            },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    Box {
+                        OutlinedButton(
+                            onClick = { leaveFromExpanded = true },
+                            enabled = !current.loading && current.circle.places.isNotEmpty(),
+                        ) {
+                            Text(
+                                item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                    ?: "Choose a located place",
                             )
+                        }
+                        DropdownMenu(
+                            expanded = leaveFromExpanded,
+                            onDismissRequest = { leaveFromExpanded = false },
+                        ) {
+                            current.circle.places.forEach { place ->
+                                val located = place.isLocated()
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (located) {
+                                                place.name
+                                            } else {
+                                                "${place.name} (not located)"
+                                            },
+                                        )
+                                    },
+                                    onClick = {
+                                        if (!located) return@DropdownMenuItem
+                                        leaveFromExpanded = false
+                                        scope.launch {
+                                            model.setCalendarLeaveFrom(item, place.id)
+                                            refresh()
+                                        }
+                                    },
+                                    enabled = located && !current.loading,
+                                )
+                            }
                         }
                     }
                 }
@@ -1269,53 +1284,71 @@ private fun CalendarDestination(
                     }
                 }
                 if (item.uncoveredKidIds.isNotEmpty() && current.circle.members.isNotEmpty()) {
-                    Text("Covering adult", style = MaterialTheme.typography.labelSmall)
-                    var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(
-                            onClick = { assignAdultExpanded = true },
-                            enabled = !current.loading,
-                        ) {
-                            Text(
-                                current.circle.members
-                                    .find { it.adultId == assignAdultId }
-                                    ?.let(::memberLabel)
-                                    ?: "Choose adult",
-                            )
+                    val soleAdult = current.circle.members.size == 1
+                    val soleKid = item.uncoveredKidIds.size == 1
+                    val effectiveAdultId =
+                        if (soleAdult) {
+                            current.circle.members.first().adultId
+                        } else {
+                            assignAdultId
                         }
-                        DropdownMenu(
-                            expanded = assignAdultExpanded,
-                            onDismissRequest = { assignAdultExpanded = false },
-                        ) {
-                            current.circle.members.forEach { member ->
-                                DropdownMenuItem(
-                                    text = { Text(memberLabel(member)) },
-                                    onClick = {
-                                        assignAdultId = member.adultId
-                                        assignAdultExpanded = false
-                                    },
-                                    enabled = !current.loading,
+                    val effectiveKidIds =
+                        if (soleKid) {
+                            item.uncoveredKidIds
+                        } else {
+                            assignKidIds.toList()
+                        }
+                    if (!soleAdult) {
+                        Text("Covering adult", style = MaterialTheme.typography.labelSmall)
+                        var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(
+                                onClick = { assignAdultExpanded = true },
+                                enabled = !current.loading,
+                            ) {
+                                Text(
+                                    current.circle.members
+                                        .find { it.adultId == assignAdultId }
+                                        ?.let(::memberLabel)
+                                        ?: "Choose adult",
                                 )
+                            }
+                            DropdownMenu(
+                                expanded = assignAdultExpanded,
+                                onDismissRequest = { assignAdultExpanded = false },
+                            ) {
+                                current.circle.members.forEach { member ->
+                                    DropdownMenuItem(
+                                        text = { Text(memberLabel(member)) },
+                                        onClick = {
+                                            assignAdultId = member.adultId
+                                            assignAdultExpanded = false
+                                        },
+                                        enabled = !current.loading,
+                                    )
+                                }
                             }
                         }
                     }
-                    Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
-                    item.uncoveredKidIds.forEach { kidId ->
-                        val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Checkbox(
-                                checked = kidId in assignKidIds,
-                                onCheckedChange = { checked ->
-                                    assignKidIds =
-                                        if (checked) {
-                                            assignKidIds + kidId
-                                        } else {
-                                            assignKidIds - kidId
-                                        }
-                                },
-                                enabled = !current.loading,
-                            )
-                            Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                    if (!soleKid) {
+                        Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
+                        item.uncoveredKidIds.forEach { kidId ->
+                            val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Checkbox(
+                                    checked = kidId in assignKidIds,
+                                    onCheckedChange = { checked ->
+                                        assignKidIds =
+                                            if (checked) {
+                                                assignKidIds + kidId
+                                            } else {
+                                                assignKidIds - kidId
+                                            }
+                                    },
+                                    enabled = !current.loading,
+                                )
+                                Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                            }
                         }
                     }
                     Button(
@@ -1323,17 +1356,17 @@ private fun CalendarDestination(
                             scope.launch {
                                 model.assignCoverage(
                                     item,
-                                    assignAdultId,
-                                    assignKidIds.toList(),
+                                    effectiveAdultId,
+                                    effectiveKidIds,
                                 )
-                                assignKidIds = emptySet()
+                                assignKidIds = defaultCoverageKidIds(item.uncoveredKidIds)
                                 refresh()
                             }
                         },
                         enabled =
                             !current.loading &&
-                                assignAdultId.isNotBlank() &&
-                                assignKidIds.isNotEmpty(),
+                                effectiveAdultId.isNotBlank() &&
+                                effectiveKidIds.isNotEmpty(),
                     ) {
                         Text("Assign coverage")
                     }

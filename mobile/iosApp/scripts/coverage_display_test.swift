@@ -95,6 +95,23 @@ struct CoverageDisplayTestMain {
             "no pending for adult 1"
         )
 
+        let memberAdultIds = ["2", "1"]
+        expect(
+            CoverageDisplay.defaultCoverageAdultId(
+                currentAdultId: "1",
+                memberAdultIds: memberAdultIds
+            ) == "1",
+            "defaults covering adult to signed-in adult"
+        )
+        expect(
+            CoverageDisplay.defaultCoverageKidIds(["k1"]) == Set(["k1"]),
+            "sole uncovered kid is auto-selected"
+        )
+        expect(
+            CoverageDisplay.defaultCoverageKidIds(["k1", "k2"]).isEmpty,
+            "multiple uncovered kids stay unselected"
+        )
+
         let contentViewURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -104,6 +121,7 @@ struct CoverageDisplayTestMain {
         expect(content.contains("Assign coverage"), "Agenda shows Assign coverage")
         expect(content.contains("Confirm coverage"), "Agenda shows Confirm coverage")
         expect(content.contains("My default leave-from"), "Places shows default leave-from")
+        expect(content.contains("effectiveAdultId"), "Agenda uses effective covering adult")
 
         print("CoverageDisplay tests passed")
     }

@@ -864,10 +864,7 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             val page = advanceCalendarWindow(current.calendarLoadedTo)
-            val more =
-                runCatching {
-                    familyClient.listCalendar(token, page.from, page.to)
-                }.getOrElse { emptyList() }
+            val more = familyClient.listCalendar(token, page.from, page.to)
             _state =
                 current.copy(
                     loading = false,
@@ -1135,9 +1132,7 @@ class FamilyUiModel(
         loadedTo: String = defaultCalendarWindow().to,
     ): List<CalendarItem> {
         val window = calendarWindowThrough(loadedTo)
-        return runCatching {
-            familyClient.listCalendar(token, window.from, window.to)
-        }.getOrElse { emptyList() }
+        return familyClient.listCalendar(token, window.from, window.to)
     }
 
     private suspend fun readyState(
@@ -1158,6 +1153,8 @@ class FamilyUiModel(
                 emptyList()
             }
         val initialWindow = defaultCalendarWindow()
+        val calendarResult =
+            runCatching { loadCalendarItems(token, initialWindow.to) }
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
@@ -1165,8 +1162,9 @@ class FamilyUiModel(
             circle = circle,
             inviteCode = inviteCode,
             feeds = feeds,
-            calendarItems = loadCalendarItems(token, initialWindow.to),
+            calendarItems = calendarResult.getOrElse { emptyList() },
             calendarLoadedTo = initialWindow.to,
+            error = calendarResult.exceptionOrNull()?.message,
         )
     }
 }

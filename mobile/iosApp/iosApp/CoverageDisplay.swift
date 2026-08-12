@@ -88,4 +88,21 @@ enum CoverageDisplay {
             $0.status == "PENDING" && $0.coveringAdultId == adultId
         }
     }
+
+    static func defaultCoverageAdultId(
+        currentAdultId: String,
+        memberAdultIds: [String]
+    ) -> String {
+        if memberAdultIds.count == 1 {
+            return memberAdultIds[0]
+        }
+        if memberAdultIds.contains(currentAdultId) {
+            return currentAdultId
+        }
+        return memberAdultIds.first ?? ""
+    }
+
+    static func defaultCoverageKidIds(_ uncoveredKidIds: [String]) -> Set<String> {
+        uncoveredKidIds.count == 1 ? Set(uncoveredKidIds) : []
+    }
 }

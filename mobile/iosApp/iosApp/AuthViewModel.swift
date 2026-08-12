@@ -1226,8 +1226,8 @@ final class AuthViewModel: ObservableObject {
         bridge.assignCalendarCoverage(
             source: item.source,
             itemId: item.id,
-            coveringAdultId: coveringAdultId,
-            kidIds: kidIds,
+            coveringAdultId: coveringAdultId.trimmingCharacters(in: .whitespacesAndNewlines),
+            kidIds: kidIds.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty },
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,

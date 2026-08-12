@@ -48,3 +48,21 @@ fun pendingCoverageForAdult(
     activeCoverages(item).find {
         it.status == CoverageStatus.PENDING && it.coveringAdultId == adultId
     }
+
+/** Prefer the signed-in adult when they are in the circle; else sole member; else first. */
+fun defaultCoverageAdultId(
+    currentAdultId: String,
+    members: List<FamilyMember>,
+): String {
+    if (members.size == 1) {
+        return members.first().adultId
+    }
+    if (members.any { it.adultId == currentAdultId }) {
+        return currentAdultId
+    }
+    return members.firstOrNull()?.adultId.orEmpty()
+}
+
+/** Single uncovered kid is implicitly selected — no chooser needed. */
+fun defaultCoverageKidIds(uncoveredKidIds: List<String>): Set<String> =
+    if (uncoveredKidIds.size == 1) uncoveredKidIds.toSet() else emptySet()

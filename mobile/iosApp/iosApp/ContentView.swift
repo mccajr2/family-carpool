@@ -519,30 +519,40 @@ struct ContentView: View {
                         Text("Leave from")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Menu {
-                            ForEach(model.places) { place in
-                                Button {
-                                    if place.isLocated {
-                                        model.setCalendarLeaveFrom(item: item, placeId: place.id)
-                                    }
-                                } label: {
-                                    Text(
-                                        place.isLocated
-                                            ? place.name
-                                            : "\(place.name) (not located)"
-                                    )
-                                }
-                                .disabled(!place.isLocated)
-                            }
-                        } label: {
+                        let locatedPlaces = model.places.filter(\.isLocated)
+                        if locatedPlaces.count <= 1 {
                             Text(
                                 item.leaveFromPlaceName
+                                    ?? locatedPlaces.first?.name
                                     ?? (model.places.isEmpty
                                         ? "No places yet"
-                                        : "Choose a located place")
+                                        : "No located places yet")
                             )
+                            .font(.caption)
+                        } else {
+                            Menu {
+                                ForEach(model.places) { place in
+                                    Button {
+                                        if place.isLocated {
+                                            model.setCalendarLeaveFrom(item: item, placeId: place.id)
+                                        }
+                                    } label: {
+                                        Text(
+                                            place.isLocated
+                                                ? place.name
+                                                : "\(place.name) (not located)"
+                                        )
+                                    }
+                                    .disabled(!place.isLocated)
+                                }
+                            } label: {
+                                Text(
+                                    item.leaveFromPlaceName
+                                        ?? "Choose a located place"
+                                )
+                            }
+                            .disabled(model.isLoading || model.places.isEmpty)
                         }
-                        .disabled(model.isLoading || model.places.isEmpty)
                         HStack {
                             if item.leaveByStatus == "UNAVAILABLE",
                                item.leaveByReason == "NO_ORIGIN"
@@ -897,6 +907,23 @@ private struct AgendaCoverageSection: View {
         kids.map { ($0.id, $0.displayName) }
     }
 
+    private var soleAdult: Bool { members.count == 1 }
+    private var soleKid: Bool { item.uncoveredKidIds.count == 1 }
+
+    private var effectiveAdultId: String {
+        if soleAdult { return members[0].adultId }
+        if !assignAdultId.isEmpty { return assignAdultId }
+        if members.contains(where: { $0.adultId == currentAdultId }) {
+            return currentAdultId
+        }
+        return members.first?.adultId ?? ""
+    }
+
+    private var effectiveKidIds: [String] {
+        if soleKid { return item.uncoveredKidIds }
+        return Array(assignKidIds)
+    }
+
     var body: some View {
         let active = CoverageDisplay.activeCoverages(item.coverages)
         let pending = CoverageDisplay.pendingCoverageForAdult(
@@ -944,55 +971,59 @@ private struct AgendaCoverageSection: View {
         }
 
         if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
-            Text("Covering adult")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Menu {
-                ForEach(members) { member in
-                    Button(CoverageDisplay.memberLabel(
-                        displayName: member.displayName,
-                        email: member.email
-                    )) {
-                        assignAdultId = member.adultId
+            if !soleAdult {
+                Text("Covering adult")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Menu {
+                    ForEach(members) { member in
+                        Button(CoverageDisplay.memberLabel(
+                            displayName: member.displayName,
+                            email: member.email
+                        )) {
+                            assignAdultId = member.adultId
+                        }
+                        .disabled(isLoading)
                     }
-                    .disabled(isLoading)
-                }
-            } label: {
-                Text(
-                    members.first(where: { $0.adultId == assignAdultId }).map {
-                        CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
-                    } ?? "Choose adult"
-                )
-            }
-            .disabled(isLoading)
-
-            Text("Uncovered kids")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            ForEach(item.uncoveredKidIds, id: \.self) { kidId in
-                if let kid = kids.first(where: { $0.id == kidId }) {
-                    Toggle(
-                        kid.displayName,
-                        isOn: Binding(
-                            get: { assignKidIds.contains(kidId) },
-                            set: { checked in
-                                if checked {
-                                    assignKidIds.insert(kidId)
-                                } else {
-                                    assignKidIds.remove(kidId)
-                                }
-                            }
-                        )
+                } label: {
+                    Text(
+                        members.first(where: { $0.adultId == effectiveAdultId }).map {
+                            CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
+                        } ?? "Choose adult"
                     )
-                    .disabled(isLoading)
+                }
+                .disabled(isLoading)
+            }
+
+            if !soleKid {
+                Text("Uncovered kids")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                ForEach(item.uncoveredKidIds, id: \.self) { kidId in
+                    if let kid = kids.first(where: { $0.id == kidId }) {
+                        Toggle(
+                            kid.displayName,
+                            isOn: Binding(
+                                get: { assignKidIds.contains(kidId) },
+                                set: { checked in
+                                    if checked {
+                                        assignKidIds.insert(kidId)
+                                    } else {
+                                        assignKidIds.remove(kidId)
+                                    }
+                                }
+                            )
+                        )
+                        .disabled(isLoading)
+                    }
                 }
             }
 
             Button("Assign coverage") {
-                onAssign(assignAdultId, Array(assignKidIds))
-                assignKidIds = []
+                onAssign(effectiveAdultId, effectiveKidIds)
+                assignKidIds = soleKid ? Set(item.uncoveredKidIds) : []
             }
-            .disabled(isLoading || assignAdultId.isEmpty || assignKidIds.isEmpty)
+            .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
         }
     }
 }

@@ -93,4 +93,17 @@ class CoverageDisplayTest {
         assertEquals("Alex, Jordan", coverageKidNames(coverage, kids))
         assertEquals("Pending", coverageStatusLabel(CoverageStatus.PENDING))
     }
+
+    @Test
+    fun defaultCoverageAdultIdPrefersSignedInAdult() {
+        val members =
+            listOf(
+                FamilyMember("2", "other@example.com", "Jordan", FamilyRole.CAREGIVER),
+                FamilyMember("1", "me@example.com", "Alex", FamilyRole.ORGANIZER),
+            )
+        assertEquals("1", defaultCoverageAdultId("1", members))
+        assertEquals("2", defaultCoverageAdultId("2", listOf(members[0])))
+        assertEquals(emptySet(), defaultCoverageKidIds(listOf("k1", "k2")))
+        assertEquals(setOf("k1"), defaultCoverageKidIds(listOf("k1")))
+    }
 }
