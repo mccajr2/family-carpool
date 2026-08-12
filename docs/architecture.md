@@ -170,6 +170,7 @@ Locked for `coverage-confirm-decline`:
 | Authz | Assign / reassign / remove: any member. Confirm / decline: covering adult only (**403** otherwise) |
 | Kids | Non-empty subset of item kids; exclusive on active rows; multi-kid per adult OK |
 | Leave-from | Not on the coverage row — reuse leave-by (default + per-item override) |
+| Client UX | Web is the reference client — see [`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md) (stable). iOS/Android ports match that contract |
 | Out of scope | Conflict amber UI → `conflict-detection`; seats / vehicles / nonplayers → carpool |
 
 Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`, buffer / multipliers / fallback env vars under `app.leaveby`. Tests force stub OSRM + stub geocode (no live public hosts).

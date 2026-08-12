@@ -118,12 +118,19 @@ Clearing default is allowed. Setting a non-located place → **400**.
 
 ### Clients (web + Android + iOS)
 
+**Web reference (stable):** [`docs/agenda-coverage-web-contract.md`](../../agenda-coverage-web-contract.md)
+— layout, busy indicators, Edit-only manual controls, sole-option assign/leave-from,
+coverage copy, and port checklist. Port iOS then Android to that contract; do not
+fork UX.
+
+High-level (all clients):
+
 - Agenda row: coverage lines (adult + kids + pending/confirmed) and **needs
   coverage** when any item kid is uncovered.
-- Assign / reassign UI (pick adult + kids on that item); confirm / decline
-  when the signed-in adult has a `PENDING` row.
+- Assign UI (pick adult + kids when needed; sole options implicit); confirm /
+  decline when the signed-in adult has a `PENDING` row.
 - Set **My default leave-from** (located places only); leave-by picker remains
-  for per-item exceptions.
+  for per-item exceptions when there are multiple located places.
 
 ### Docs
 
