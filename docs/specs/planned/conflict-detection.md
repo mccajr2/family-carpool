@@ -25,8 +25,9 @@ coverage intent, must be visible (amber) — no silent auto-resolve.
 
 ## Notes
 
-- **Depends on `coverage-confirm-decline`** so adult double-book uses real
-  coverage assignments (not a temporary “everyone covers everyone” heuristic).
+- **Depends on `coverage-confirm-decline`** (done — see
+  [`archive`](../archive/coverage-confirm-decline.md)) so adult double-book uses
+  real coverage assignments.
 - This slice surfaces **both** same-kid time overlaps and adult double-books
   from coverage — still detection/UI only (amber; no auto-resolve).
 - Also depends on `family-calendar-surface` (Agenda).

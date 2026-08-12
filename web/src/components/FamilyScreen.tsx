@@ -876,7 +876,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
+  async function onConfirmCoverage(assignmentId: string) {
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -891,7 +891,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onDeclineCoverage(item: CalendarItem, assignmentId: string) {
+  async function onDeclineCoverage(assignmentId: string) {
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -906,7 +906,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onRemoveCoverage(item: CalendarItem, assignmentId: string) {
+  async function onRemoveCoverage(assignmentId: string) {
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -1789,7 +1789,7 @@ export function FamilyScreen({
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => void onRemoveCoverage(item, coverage.id)}
+                              onClick={() => void onRemoveCoverage(coverage.id)}
                               disabled={status.kind === "loading"}
                             >
                               Remove coverage
@@ -1810,7 +1810,7 @@ export function FamilyScreen({
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => void onConfirmCoverage(item, pendingForSelf.id)}
+                          onClick={() => void onConfirmCoverage(pendingForSelf.id)}
                           disabled={status.kind === "loading"}
                         >
                           Confirm coverage
@@ -1819,7 +1819,7 @@ export function FamilyScreen({
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => void onDeclineCoverage(item, pendingForSelf.id)}
+                          onClick={() => void onDeclineCoverage(pendingForSelf.id)}
                           disabled={status.kind === "loading"}
                         >
                           Decline coverage

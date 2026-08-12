@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-11 (`/spec coverage-confirm-decline` active)
+Updated: 2026-08-12 (`/pr coverage-confirm-decline`; next up `conflict-detection`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -61,7 +61,7 @@ share the ride.
 | Feed vs carpool | **Feed = calendar only**. **Carpool join = parent invite code/link** (first family enables space; members reshare/regenerate). No coach admin |
 | Auth | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups |
 | Leave-by | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic). Destination coords: **geocode event `location`** (soft-fail); origins = named places. Origin order: per-item override → **per-adult default leave-from** → first located by name |
-| Coverage | **Responsibility** rows (adult + kid subset + PENDING/CONFIRMED/DECLINED); any member assigns; assignee confirms/declines; kid exclusive per item on active rows; not a trip/seat plan — carpool later. Active: [`coverage-confirm-decline`](specs/active/coverage-confirm-decline.md) |
+| Coverage | **Responsibility** rows (adult + kid subset + PENDING/CONFIRMED/DECLINED); any member assigns; assignee confirms/declines; kid exclusive per item on active rows; not a trip/seat plan — carpool later. Done: [`coverage-confirm-decline`](specs/archive/coverage-confirm-decline.md) |
 | Arrival lead time | Follow-up [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md): editable defaults — game **30m** early, practice **15m**, other **0** — after leave-by ships |
 | Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
 | UI token adoption | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md) |
@@ -72,19 +72,18 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | coverage-confirm-decline | active | 2026-08-07 · re-rank split | Assign adult↔kid coverage + confirm/decline; per-adult default leave-from |
-| 2 | conflict-detection | planned | 2026-08-07 · re-rank split | Amber kid time-overlaps + adult double-books from coverage (no auto-resolve) |
-| 3 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
-| 4 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
-| 5 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
-| 6 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 7 | event-arrival-lead-time | planned | 2026-08-11 · enhancement | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target |
-| 8 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
-| 9 | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface |
-| 10 | ui-palette-refresh | planned | 2026-08-10 · enhancement | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
-| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 1 | conflict-detection | planned | 2026-08-07 · re-rank split | Amber kid time-overlaps + adult double-books from coverage (no auto-resolve) |
+| 2 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 3 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 4 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 5 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 6 | event-arrival-lead-time | planned | 2026-08-11 · enhancement | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target |
+| 7 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
+| 8 | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface |
+| 9 | ui-palette-refresh | planned | 2026-08-10 · enhancement | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
+| 10 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 11 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 12 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -117,12 +116,13 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| coverage-confirm-decline | `coverage-confirm-decline` | [active](specs/active/coverage-confirm-decline.md) |
+| — | — | *(none)* |
 
 ## Done
 
 | Id | Completed | Spec |
 |----|-----------|------|
+| coverage-confirm-decline | 2026-08-12 | [archive](specs/archive/coverage-confirm-decline.md) |
 | event-leave-by-estimate | 2026-08-11 | [archive](specs/archive/event-leave-by-estimate.md) |
 | cross-platform-ui-system | 2026-08-10 | [archive](specs/archive/cross-platform-ui-system.md) |
 | agenda-event-compose | 2026-08-10 | [archive](specs/archive/agenda-event-compose.md) |
@@ -194,3 +194,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-11 | `/pr event-leave-by-estimate`: leave-by estimates on Agenda (web/Android/iOS); next up `conflict-detection`. |
 | 2026-08-11 | Re-rank: `coverage-confirm-decline` before `conflict-detection` so adult double-books use real coverage (still two PRs). |
 | 2026-08-11 | `/spec coverage-confirm-decline`: responsibility coverage + confirm/decline; per-adult default leave-from; conflicts next. |
+| 2026-08-12 | `/pr coverage-confirm-decline`: Agenda coverage + default leave-from (web/Android/iOS); next up `conflict-detection`. |

@@ -28,6 +28,10 @@ public final class PostgresTestcontainers {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // Many @SpringBootTest contexts share one container; keep pools tiny so
+        // we stay under Postgres' default max_connections (~100).
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "3");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "0");
         registry.add("app.auth.dev-code-echo", () -> "true");
         registry.add("app.auth.code-pepper", () -> "test-pepper");
         // Never hit live Nominatim from CI / local SpringBootTests.

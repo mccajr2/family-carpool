@@ -1,8 +1,8 @@
 # Spec: coverage-confirm-decline
 
-Status: ready-for-pr  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-12  
+Updated: 2026-08-12 (implemented; archived)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `coverage-confirm-decline`  
 Added: 2026-08-07 · re-rank split
