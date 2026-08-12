@@ -12,6 +12,7 @@ import com.yourorg.quickapp.family.FamilyRole;
 import com.yourorg.quickapp.family.JoinFamilyCircleRequest;
 import com.yourorg.quickapp.family.KidResponse;
 import com.yourorg.quickapp.family.PlaceResponse;
+import com.yourorg.quickapp.family.SetDefaultLeaveFromRequest;
 import com.yourorg.quickapp.family.UpdateFamilyCircleRequest;
 import com.yourorg.quickapp.family.UpdateFamilyMemberRoleRequest;
 import com.yourorg.quickapp.family.UpdateKidRequest;
@@ -73,7 +74,7 @@ public class FamilyService {
                         UUID.randomUUID(), circle.id(), adult.id(), FamilyRole.ORGANIZER, now);
         memberships.save(membership);
 
-        return toResponse(circle, membership.role());
+        return toResponse(circle, membership);
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +87,7 @@ public class FamilyService {
         MembershipCircle loaded = requireOrganizer(adult.id());
         loaded.circle().setName(normalizeOptionalName(request.name()));
         circles.save(loaded.circle());
-        return toResponse(loaded.circle(), loaded.membership().role());
+        return toResponse(loaded.circle(), loaded.membership());
     }
 
     @Transactional(readOnly = true)
@@ -131,7 +132,7 @@ public class FamilyService {
                         Instant.now());
         memberships.save(membership);
 
-        return toResponse(circle, FamilyRole.CAREGIVER);
+        return toResponse(circle, membership);
     }
 
     @Transactional
@@ -181,7 +182,7 @@ public class FamilyService {
 
         member.setRole(newRole);
         memberships.save(member);
-        return toResponse(loaded.circle(), loaded.membership().role());
+        return toResponse(loaded.circle(), loaded.membership());
     }
 
     @Transactional
@@ -298,9 +299,31 @@ public class FamilyService {
         places.delete(place);
     }
 
+    @Transactional
+    public FamilyCircleResponse setDefaultLeaveFrom(
+            AdultResponse adult, SetDefaultLeaveFromRequest request) {
+        MembershipCircle loaded = requireMembership(adult.id());
+        UUID placeId = request == null ? null : request.placeId();
+        if (placeId == null) {
+            loaded.membership().setDefaultLeaveFromPlaceId(null);
+            memberships.save(loaded.membership());
+            return toResponse(loaded.circle(), loaded.membership());
+        }
+        FamilyPlaceEntity place =
+                places.findByIdAndCircleId(placeId, loaded.circle().id())
+                        .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Place not found"));
+        if (place.latitude() == null || place.longitude() == null) {
+            throw new FamilyException(
+                    HttpStatus.BAD_REQUEST, "Place is not located; retry locate or pick another");
+        }
+        loaded.membership().setDefaultLeaveFromPlaceId(place.id());
+        memberships.save(loaded.membership());
+        return toResponse(loaded.circle(), loaded.membership());
+    }
+
     private FamilyCircleResponse loadCircle(UUID adultId) {
         MembershipCircle loaded = requireMembership(adultId);
-        return toResponse(loaded.circle(), loaded.membership().role());
+        return toResponse(loaded.circle(), loaded.membership());
     }
 
     private MembershipCircle requireOrganizer(UUID adultId) {
@@ -325,14 +348,28 @@ public class FamilyService {
         return new MembershipCircle(membership, circle);
     }
 
-    private FamilyCircleResponse toResponse(FamilyCircleEntity circle, FamilyRole role) {
+    private FamilyCircleResponse toResponse(
+            FamilyCircleEntity circle, FamilyMembershipEntity callerMembership) {
+        UUID defaultPlaceId = callerMembership.defaultLeaveFromPlaceId();
+        String defaultPlaceName = null;
+        if (defaultPlaceId != null) {
+            defaultPlaceName =
+                    places.findByIdAndCircleId(defaultPlaceId, circle.id())
+                            .map(FamilyPlaceEntity::name)
+                            .orElse(null);
+            if (defaultPlaceName == null) {
+                defaultPlaceId = null;
+            }
+        }
         return new FamilyCircleResponse(
                 circle.id(),
                 circle.name(),
-                role,
+                callerMembership.role(),
                 membersFor(circle.id()),
                 kidsFor(circle.id()),
-                placesFor(circle.id()));
+                placesFor(circle.id()),
+                defaultPlaceId,
+                defaultPlaceName);
     }
 
     private List<FamilyMemberResponse> membersFor(UUID circleId) {

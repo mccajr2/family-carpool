@@ -25,6 +25,9 @@ class FamilyPlaceApiImplTest {
     private FamilyMembershipApi membershipApi;
 
     @Mock
+    private FamilyMembershipRepository memberships;
+
+    @Mock
     private FamilyPlaceRepository places;
 
     @InjectMocks
@@ -100,6 +103,61 @@ class FamilyPlaceApiImplTest {
 
         assertThat(result.id()).isEqualTo(placeId);
         assertThat(result.latitude()).isEqualTo(42.0);
+    }
+
+    @Test
+    void findDefaultLeaveFromForMemberReturnsLocatedDefault() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        adultId,
+                        com.yourorg.quickapp.family.FamilyRole.ORGANIZER,
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        membership.setDefaultLeaveFromPlaceId(placeId);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByIdAndCircleId(placeId, circleId))
+                .thenReturn(Optional.of(place(placeId, "Home", 42.0, -71.0)));
+
+        assertThat(api.findDefaultLeaveFromForMember(adultId))
+                .isPresent()
+                .get()
+                .extracting(CirclePlaceDto::id, CirclePlaceDto::name)
+                .containsExactly(placeId, "Home");
+    }
+
+    @Test
+    void findDefaultLeaveFromForMemberEmptyWhenUnset() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        adultId,
+                        com.yourorg.quickapp.family.FamilyRole.CAREGIVER,
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+
+        assertThat(api.findDefaultLeaveFromForMember(adultId)).isEmpty();
+    }
+
+    @Test
+    void findDefaultLeaveFromForMemberEmptyWhenDefaultNotLocated() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        adultId,
+                        com.yourorg.quickapp.family.FamilyRole.ORGANIZER,
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        membership.setDefaultLeaveFromPlaceId(placeId);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByIdAndCircleId(placeId, circleId))
+                .thenReturn(Optional.of(place(placeId, "Home", null, null)));
+
+        assertThat(api.findDefaultLeaveFromForMember(adultId)).isEmpty();
     }
 
     private FamilyPlaceEntity place(UUID id, String name, Double lat, Double lng) {

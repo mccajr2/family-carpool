@@ -124,6 +124,10 @@ class LeaveByApiImpl implements LeaveByApi {
                 return override;
             }
         }
+        Optional<CirclePlaceDto> membershipDefault = placeApi.findDefaultLeaveFromForMember(adultId);
+        if (membershipDefault.isPresent()) {
+            return membershipDefault;
+        }
         List<CirclePlaceDto> located = placeApi.listLocatedPlacesForMember(adultId);
         if (located.isEmpty()) {
             return Optional.empty();

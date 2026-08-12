@@ -9,4 +9,6 @@ public record FamilyCircleResponse(
         FamilyRole role,
         List<FamilyMemberResponse> members,
         List<KidResponse> kids,
-        List<PlaceResponse> places) {}
+        List<PlaceResponse> places,
+        UUID defaultLeaveFromPlaceId,
+        String defaultLeaveFromPlaceName) {}

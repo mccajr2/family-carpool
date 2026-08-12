@@ -155,7 +155,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
 
 ## Tasks
 
-- [ ] **Backend (`family`):** Persist per-membership default leave-from; PATCH
+- [x] **Backend (`family`):** Persist per-membership default leave-from; PATCH
       (+ expose on circle/me); validate located place; public port for leaveby.
 - [ ] **Backend (`leaveby`):** Origin resolution uses default before
       first-located-by-name fallback; tests.

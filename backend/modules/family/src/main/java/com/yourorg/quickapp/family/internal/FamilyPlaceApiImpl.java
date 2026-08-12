@@ -16,10 +16,15 @@ import org.springframework.stereotype.Component;
 class FamilyPlaceApiImpl implements FamilyPlaceApi {
 
     private final FamilyMembershipApi membershipApi;
+    private final FamilyMembershipRepository memberships;
     private final FamilyPlaceRepository places;
 
-    FamilyPlaceApiImpl(FamilyMembershipApi membershipApi, FamilyPlaceRepository places) {
+    FamilyPlaceApiImpl(
+            FamilyMembershipApi membershipApi,
+            FamilyMembershipRepository memberships,
+            FamilyPlaceRepository places) {
         this.membershipApi = membershipApi;
+        this.memberships = memberships;
         this.places = places;
     }
 
@@ -52,6 +57,25 @@ class FamilyPlaceApiImpl implements FamilyPlaceApi {
                     HttpStatus.BAD_REQUEST, "Place is not located; retry locate or pick another");
         }
         return place;
+    }
+
+    @Override
+    public Optional<CirclePlaceDto> findDefaultLeaveFromForMember(UUID adultId) {
+        UUID circleId = membershipApi.requireMemberCircleId(adultId);
+        FamilyMembershipEntity membership =
+                memberships
+                        .findByAdultId(adultId)
+                        .orElseThrow(
+                                () ->
+                                        new FamilyAccessException(
+                                                HttpStatus.NOT_FOUND, "Family circle not found"));
+        UUID placeId = membership.defaultLeaveFromPlaceId();
+        if (placeId == null) {
+            return Optional.empty();
+        }
+        return places.findByIdAndCircleId(placeId, circleId)
+                .map(FamilyPlaceApiImpl::toDto)
+                .filter(CirclePlaceDto::located);
     }
 
     private static CirclePlaceDto toDto(FamilyPlaceEntity entity) {

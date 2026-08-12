@@ -527,4 +527,99 @@ class FamilyServiceTest {
                 .extracting(ex -> ((FamilyException) ex).status())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
+
+    @Test
+    void setDefaultLeaveFromPersistsLocatedPlace() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, "Our house", "AB12CD34", Instant.now());
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        placeId, circleId, "Home", "home", "1 Home Rd", Instant.now());
+        place.setCoordinates(40.0, -74.0);
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.findByIdAndCircleId(placeId, circleId)).thenReturn(Optional.of(place));
+        when(memberships.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of(membership));
+        when(kids.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of(place));
+        when(adultSessionApi.requireAdult(adultId)).thenReturn(adult);
+
+        var response =
+                familyService.setDefaultLeaveFrom(
+                        adult, new com.yourorg.quickapp.family.SetDefaultLeaveFromRequest(placeId));
+
+        assertThat(response.defaultLeaveFromPlaceId()).isEqualTo(placeId);
+        assertThat(response.defaultLeaveFromPlaceName()).isEqualTo("Home");
+        assertThat(membership.defaultLeaveFromPlaceId()).isEqualTo(placeId);
+        verify(memberships).save(membership);
+    }
+
+    @Test
+    void setDefaultLeaveFromRejectsUnlocatedPlace() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+        FamilyPlaceEntity place =
+                new FamilyPlaceEntity(
+                        placeId, circleId, "Home", "home", "1 Home Rd", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.findByIdAndCircleId(placeId, circleId)).thenReturn(Optional.of(place));
+
+        assertThatThrownBy(
+                        () ->
+                                familyService.setDefaultLeaveFrom(
+                                        adult,
+                                        new com.yourorg.quickapp.family.SetDefaultLeaveFromRequest(
+                                                placeId)))
+                .isInstanceOf(FamilyException.class)
+                .extracting(ex -> ((FamilyException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(memberships, never()).save(any());
+    }
+
+    @Test
+    void setDefaultLeaveFromClearsWhenPlaceIdNull() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.ORGANIZER, Instant.now());
+        membership.setDefaultLeaveFromPlaceId(placeId);
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(memberships.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of(membership));
+        when(kids.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
+        when(adultSessionApi.requireAdult(adultId)).thenReturn(adult);
+
+        var response =
+                familyService.setDefaultLeaveFrom(
+                        adult, new com.yourorg.quickapp.family.SetDefaultLeaveFromRequest(null));
+
+        assertThat(response.defaultLeaveFromPlaceId()).isNull();
+        assertThat(membership.defaultLeaveFromPlaceId()).isNull();
+    }
 }

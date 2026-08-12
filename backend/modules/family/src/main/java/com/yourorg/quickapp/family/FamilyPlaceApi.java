@@ -31,4 +31,12 @@ public interface FamilyPlaceApi {
      * @throws FamilyAccessException 404 if no circle / unknown place; 400 if not located
      */
     CirclePlaceDto requireLocatedPlaceForMember(UUID adultId, UUID placeId);
+
+    /**
+     * The adult's default leave-from place when set and still located; empty if
+     * unset, missing, or not located.
+     *
+     * @throws FamilyAccessException 404 if the adult has no circle
+     */
+    Optional<CirclePlaceDto> findDefaultLeaveFromForMember(UUID adultId);
 }
