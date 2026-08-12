@@ -18,6 +18,7 @@ class ModularityTests {
         assertThat(modules.getModuleByName("events")).isPresent();
         assertThat(modules.getModuleByName("calendar")).isPresent();
         assertThat(modules.getModuleByName("leaveby")).isPresent();
+        assertThat(modules.getModuleByName("coverage")).isPresent();
         assertThat(modules.getModuleByName("greeting")).isEmpty();
     }
 }

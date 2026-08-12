@@ -78,6 +78,29 @@ enum class LeaveByStatus {
 }
 
 @Serializable
+enum class CoverageStatus {
+    PENDING,
+    CONFIRMED,
+    DECLINED,
+}
+
+@Serializable
+data class CalendarCoverageAssignment(
+    val id: String,
+    val coveringAdultId: String,
+    val coveringAdultDisplayName: String? = null,
+    val assignedByAdultId: String,
+    val kidIds: List<String> = emptyList(),
+    val status: CoverageStatus,
+)
+
+@Serializable
+data class AssignCalendarCoverageRequest(
+    val coveringAdultId: String,
+    val kidIds: List<String>,
+)
+
+@Serializable
 data class CalendarItem(
     val id: String,
     val source: CalendarItemSource,
@@ -93,11 +116,18 @@ data class CalendarItem(
     val leaveByAt: String? = null,
     val leaveByStatus: LeaveByStatus = LeaveByStatus.UNAVAILABLE,
     val leaveByReason: String? = null,
+    val coverages: List<CalendarCoverageAssignment> = emptyList(),
+    val uncoveredKidIds: List<String> = emptyList(),
 )
 
 @Serializable
 data class SetCalendarLeaveFromRequest(
     val leaveFromPlaceId: String,
+)
+
+@Serializable
+data class SetDefaultLeaveFromRequest(
+    val placeId: String? = null,
 )
 
 @Serializable
@@ -116,6 +146,8 @@ data class FamilyCircle(
     val members: List<FamilyMember> = emptyList(),
     val kids: List<Kid> = emptyList(),
     val places: List<Place> = emptyList(),
+    val defaultLeaveFromPlaceId: String? = null,
+    val defaultLeaveFromPlaceName: String? = null,
 )
 
 @Serializable

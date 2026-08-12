@@ -30,6 +30,9 @@ class FamilyMembershipEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "default_leave_from_place_id")
+    private UUID defaultLeaveFromPlaceId;
+
     protected FamilyMembershipEntity() {}
 
     FamilyMembershipEntity(UUID id, UUID circleId, UUID adultId, FamilyRole role, Instant createdAt) {
@@ -52,7 +55,15 @@ class FamilyMembershipEntity {
         return role;
     }
 
+    UUID defaultLeaveFromPlaceId() {
+        return defaultLeaveFromPlaceId;
+    }
+
     void setRole(FamilyRole role) {
         this.role = role;
+    }
+
+    void setDefaultLeaveFromPlaceId(UUID defaultLeaveFromPlaceId) {
+        this.defaultLeaveFromPlaceId = defaultLeaveFromPlaceId;
     }
 }

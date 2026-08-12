@@ -18,6 +18,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,8 +42,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.example.project.ui.FcRadiusMd
+import org.example.project.ui.FcSpace2xl
 import org.example.project.ui.FcSpaceMd
 import org.example.project.ui.FcSpaceSm
+import org.example.project.ui.FcSpaceXl
 import org.example.project.ui.FcSpaceXs
 import org.example.project.ui.FcTheme
 import org.example.project.ui.UiIcons
@@ -59,6 +63,12 @@ fun FamilyScreen(
 
     fun refresh() {
         state = model.state
+    }
+
+    // Push model updates while suspend work is in flight (loading=true), not only after.
+    DisposableEffect(model) {
+        model.stateListener = { refresh() }
+        onDispose { model.stateListener = null }
     }
 
     LaunchedEffect(session, familyClient) {
@@ -463,9 +473,7 @@ private fun ReadyContent(
             if (current.error != null && current.shellTab != FamilyUiModel.ShellTab.CALENDAR) {
                 Text(text = current.error, color = MaterialTheme.colorScheme.error)
             }
-            if (current.loading) {
-                CircularProgressIndicator()
-            }
+            // Busy feedback stays on focused controls (Save / Load more) — no global banner.
         }
     }
 }
@@ -536,7 +544,7 @@ private fun MoreListDestination(
         onClick = null,
     )
     MoreSettingsRow(
-        label = if (current.loading) "Working…" else AppShell.ROW_SIGN_OUT,
+        label = AppShell.ROW_SIGN_OUT,
         icon = UiIcons.imageVector(UiTokens.Icon.signout),
         showChevron = false,
         danger = true,
@@ -946,6 +954,59 @@ private fun PlacesDestination(
         Text("Add place")
     }
 
+    val locatedPlaces = current.circle.places.filter { it.isLocated() }
+    var defaultLeaveFromExpanded by remember { mutableStateOf(false) }
+    FieldRow(label = FieldRowLabels.DEFAULT_LEAVE_FROM) {
+        Box {
+            Row(
+                modifier =
+                    Modifier.clickable(enabled = !current.loading) {
+                        defaultLeaveFromExpanded = true
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                FieldRowValueText(
+                    current.circle.defaultLeaveFromPlaceName?.takeIf { it.isNotBlank() }
+                        ?: if (locatedPlaces.isEmpty()) {
+                            "No located places yet"
+                        } else {
+                            "None"
+                        },
+                )
+                FieldRowChevron()
+            }
+            DropdownMenu(
+                expanded = defaultLeaveFromExpanded,
+                onDismissRequest = { defaultLeaveFromExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("None") },
+                    onClick = {
+                        defaultLeaveFromExpanded = false
+                        scope.launch {
+                            model.setDefaultLeaveFrom(null)
+                            refresh()
+                        }
+                    },
+                    enabled = !current.loading,
+                )
+                locatedPlaces.forEach { place ->
+                    DropdownMenuItem(
+                        text = { Text(place.name) },
+                        onClick = {
+                            defaultLeaveFromExpanded = false
+                            scope.launch {
+                                model.setDefaultLeaveFrom(place.id)
+                                refresh()
+                            }
+                        },
+                        enabled = !current.loading,
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -955,6 +1016,11 @@ private fun CalendarDestination(
     refresh: () -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
+    val agendaListBusy = current.loading
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(FcSpaceXl),
+    ) {
     Text("Agenda", style = MaterialTheme.typography.titleSmall)
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
@@ -1019,22 +1085,47 @@ private fun CalendarDestination(
             current.calendarItems.filter { current.agendaKidFilter in it.kidIds }
         }
     if (visibleItems.isEmpty()) {
-        Text(
-            "No events in the loaded window.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        // While the first calendar fetch (or Load more) is in flight, do not claim
+        // the window is empty — busy feedback lives on Load more → Loading….
+        if (!agendaListBusy) {
+            Text(
+                "No events in the loaded window.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     } else {
-        visibleItems.forEach { item ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = FcSpaceMd),
+            verticalArrangement = Arrangement.spacedBy(FcSpace2xl),
+        ) {
+        visibleItems.forEachIndexed { index, item ->
             val isManual = item.source == CalendarItemSource.MANUAL
             val needsOrigin =
                 item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
                     item.leaveByReason == "NO_ORIGIN"
-            val needsDestination =
-                item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
-                    (item.leaveByReason == "NO_DESTINATION" ||
-                        item.leaveByReason == "GEOCODE_FAILED")
             var leaveFromExpanded by remember(item.source, item.id) { mutableStateOf(false) }
-            Column(modifier = Modifier.fillMaxWidth()) {
+            val itemCoverages = activeCoverages(item)
+            val pendingForSelf = pendingCoverageForAdult(item, current.adultId)
+            val uncoveredKidNames = eventKidNames(item.uncoveredKidIds, current.circle.kids)
+            var assignAdultId by remember(item.source, item.id, current.adultId) {
+                mutableStateOf(
+                    defaultCoverageAdultId(current.adultId, current.circle.members),
+                )
+            }
+            var assignKidIds by
+                remember(item.source, item.id, item.uncoveredKidIds.joinToString(",")) {
+                    mutableStateOf(defaultCoverageKidIds(item.uncoveredKidIds))
+                }
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = if (index == visibleItems.lastIndex) 0.dp else FcSpaceXl),
+                verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+            ) {
                 Text(item.title)
                 Text(
                     formatEventWhen(item.startsAt, item.endsAt),
@@ -1082,74 +1173,244 @@ private fun CalendarDestination(
                         }
                     }
                 }
-                Text("Leave from", style = MaterialTheme.typography.labelSmall)
-                Box {
-                    OutlinedButton(
-                        onClick = { leaveFromExpanded = true },
-                        enabled = !current.loading && current.circle.places.isNotEmpty(),
-                    ) {
-                        Text(
+                val locatedPlaces = current.circle.places.filter { it.isLocated() }
+                if (locatedPlaces.size <= 1) {
+                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
+                        FieldRowValueText(
                             item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                ?: locatedPlaces.singleOrNull()?.name
                                 ?: if (current.circle.places.isEmpty()) {
                                     "No places yet"
                                 } else {
-                                    "Choose a located place"
+                                    "No located places yet"
                                 },
                         )
                     }
-                    DropdownMenu(
-                        expanded = leaveFromExpanded,
-                        onDismissRequest = { leaveFromExpanded = false },
-                    ) {
-                        current.circle.places.forEach { place ->
-                            val located = place.isLocated()
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (located) {
-                                            place.name
-                                        } else {
-                                            "${place.name} (not located)"
+                } else {
+                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
+                        Box {
+                            Row(
+                                modifier =
+                                    Modifier.clickable(
+                                        enabled = !current.loading && current.circle.places.isNotEmpty(),
+                                    ) {
+                                        leaveFromExpanded = true
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                FieldRowValueText(
+                                    item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                        ?: "Choose a located place",
+                                )
+                                FieldRowChevron()
+                            }
+                            DropdownMenu(
+                                expanded = leaveFromExpanded,
+                                onDismissRequest = { leaveFromExpanded = false },
+                            ) {
+                                current.circle.places.forEach { place ->
+                                    val located = place.isLocated()
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (located) {
+                                                    place.name
+                                                } else {
+                                                    "${place.name} (not located)"
+                                                },
+                                            )
                                         },
+                                        onClick = {
+                                            if (!located) return@DropdownMenuItem
+                                            leaveFromExpanded = false
+                                            scope.launch {
+                                                model.setCalendarLeaveFrom(item, place.id)
+                                                refresh()
+                                            }
+                                        },
+                                        enabled = located && !current.loading,
                                     )
-                                },
+                                }
+                            }
+                        }
+                    }
+                }
+                if (needsOrigin) {
+                    OutlinedButton(
+                        onClick = {
+                            model.openMorePlaces()
+                            refresh()
+                        },
+                    ) {
+                        Text("Open Places")
+                    }
+                }
+                if (itemCoverages.isNotEmpty()) {
+                    itemCoverages.forEach { coverage ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                "${coverageAdultLabel(coverage, current.circle.members)} · " +
+                                    "${coverageKidNames(coverage, current.circle.kids)} · " +
+                                    coverageStatusLabel(coverage.status),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(
                                 onClick = {
-                                    if (!located) return@DropdownMenuItem
-                                    leaveFromExpanded = false
                                     scope.launch {
-                                        model.setCalendarLeaveFrom(item, place.id)
+                                        model.removeCoverage(coverage.id)
                                         refresh()
                                     }
                                 },
-                                enabled = located && !current.loading,
-                            )
+                                enabled = !current.loading,
+                            ) {
+                                Text("Remove coverage")
+                            }
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (needsOrigin) {
-                        OutlinedButton(
+                if (item.uncoveredKidIds.isNotEmpty()) {
+                    Text(
+                        buildString {
+                            append("Needs coverage")
+                            if (uncoveredKidNames.isNotEmpty()) {
+                                append(": $uncoveredKidNames")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                pendingForSelf?.let { pending ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
                             onClick = {
-                                model.openMorePlaces()
-                                refresh()
-                            },
-                        ) {
-                            Text("Open Places")
-                        }
-                    }
-                    if (needsDestination && isManual) {
-                        OutlinedButton(
-                            onClick = {
-                                model.beginEditEvent(item)
-                                refresh()
+                                scope.launch {
+                                    model.confirmCoverage(pending.id)
+                                    refresh()
+                                }
                             },
                             enabled = !current.loading,
                         ) {
-                            Text("Edit location")
+                            Text("Confirm coverage")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.declineCoverage(pending.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Decline coverage")
                         }
                     }
                 }
+                if (item.uncoveredKidIds.isNotEmpty() && current.circle.members.isNotEmpty()) {
+                    val soleAdult = current.circle.members.size == 1
+                    val soleKid = item.uncoveredKidIds.size == 1
+                    val effectiveAdultId =
+                        if (soleAdult) {
+                            current.circle.members.first().adultId
+                        } else {
+                            assignAdultId
+                        }
+                    val effectiveKidIds =
+                        if (soleKid) {
+                            item.uncoveredKidIds
+                        } else {
+                            assignKidIds.toList()
+                        }
+                    if (!soleAdult) {
+                        var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
+                        FieldRow(label = FieldRowLabels.COVERING_ADULT) {
+                            Box {
+                                Row(
+                                    modifier =
+                                        Modifier.clickable(enabled = !current.loading) {
+                                            assignAdultExpanded = true
+                                        },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    FieldRowValueText(
+                                        current.circle.members
+                                            .find { it.adultId == assignAdultId }
+                                            ?.let(::memberLabel)
+                                            ?: "Choose adult",
+                                    )
+                                    FieldRowChevron()
+                                }
+                                DropdownMenu(
+                                    expanded = assignAdultExpanded,
+                                    onDismissRequest = { assignAdultExpanded = false },
+                                ) {
+                                    current.circle.members.forEach { member ->
+                                        DropdownMenuItem(
+                                            text = { Text(memberLabel(member)) },
+                                            onClick = {
+                                                assignAdultId = member.adultId
+                                                assignAdultExpanded = false
+                                            },
+                                            enabled = !current.loading,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!soleKid) {
+                        Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
+                        item.uncoveredKidIds.forEach { kidId ->
+                            val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Checkbox(
+                                    checked = kidId in assignKidIds,
+                                    onCheckedChange = { checked ->
+                                        // Toggling kids must not clear the covering-adult default.
+                                        assignKidIds =
+                                            if (checked) {
+                                                assignKidIds + kidId
+                                            } else {
+                                                assignKidIds - kidId
+                                            }
+                                    },
+                                    enabled = !current.loading,
+                                )
+                                Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                            }
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.assignCoverage(
+                                    item,
+                                    effectiveAdultId,
+                                    effectiveKidIds,
+                                )
+                                assignKidIds = defaultCoverageKidIds(item.uncoveredKidIds)
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                effectiveAdultId.isNotBlank() &&
+                                effectiveKidIds.isNotEmpty(),
+                    ) {
+                        Text("Assign coverage")
+                    }
+                }
+                if (index != visibleItems.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                }
             }
+        }
         }
     }
 
@@ -1163,7 +1424,34 @@ private fun CalendarDestination(
         enabled = !current.loading,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Load more")
+        BusyButtonLabel(
+            busy = agendaListBusy,
+            idle = "Load more",
+            busyLabel = AppShell.BUSY_LOADING,
+        )
+    }
+    }
+}
+
+@Composable
+private fun BusyButtonLabel(
+    busy: Boolean,
+    idle: String,
+    busyLabel: String,
+) {
+    if (busy) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(FcSpaceSm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+            Text(busyLabel)
+        }
+    } else {
+        Text(idle)
     }
 }
 
@@ -1253,7 +1541,11 @@ private fun EventComposeDestination(
                         current.editingEventStartsAt.isNotBlank() &&
                         current.editingEventKidIds.isNotEmpty(),
             ) {
-                Text("Save")
+                BusyButtonLabel(
+                    busy = current.loading,
+                    idle = "Save",
+                    busyLabel = AppShell.BUSY_SAVING,
+                )
             }
             OutlinedButton(
                 onClick = {
@@ -1343,7 +1635,11 @@ private fun EventComposeDestination(
                         current.newEventStartsAt.isNotBlank() &&
                         current.newEventKidIds.isNotEmpty(),
             ) {
-                Text("Save")
+                BusyButtonLabel(
+                    busy = current.loading,
+                    idle = "Save",
+                    busyLabel = AppShell.BUSY_SAVING,
+                )
             }
             OutlinedButton(
                 onClick = {

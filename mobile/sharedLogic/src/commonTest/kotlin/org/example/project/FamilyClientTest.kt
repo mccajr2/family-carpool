@@ -271,7 +271,7 @@ class FamilyClientTest {
                             assertEquals("2026-09-01T00:00:00Z", request.url.parameters["to"])
                             respond(
                                 content =
-                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null},{"id":"fe1","source":"FEED","title":"Practice","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Field 3","kidIds":["k1"],"feedId":"f1","feedName":"U12","leaveFromPlaceId":null,"leaveFromPlaceName":null,"leaveByAt":null,"leaveByStatus":"UNAVAILABLE","leaveByReason":"NO_ORIGIN"}]""",
+                                    """[{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null,"coverages":[],"uncoveredKidIds":[]},{"id":"fe1","source":"FEED","title":"Practice","startsAt":"2026-08-15T17:00:00Z","endsAt":"2026-08-15T18:00:00Z","location":"Field 3","kidIds":["k1"],"feedId":"f1","feedName":"U12","leaveFromPlaceId":null,"leaveFromPlaceName":null,"leaveByAt":null,"leaveByStatus":"UNAVAILABLE","leaveByReason":"NO_ORIGIN","coverages":[],"uncoveredKidIds":["k1"]}]""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -288,6 +288,65 @@ class FamilyClientTest {
             assertEquals("U12", items[1].feedName)
             assertEquals(LeaveByStatus.OK, items[0].leaveByStatus)
             assertEquals(LeaveByStatus.UNAVAILABLE, items[1].leaveByStatus)
+            assertEquals(emptyList(), items[0].coverages)
+            assertEquals(listOf("k1"), items[1].uncoveredKidIds)
+        }
+
+    @Test
+    fun setDefaultLeaveFrom() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/default-leave-from" &&
+                            request.method == HttpMethod.Patch ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"Our house","role":"ORGANIZER","members":[],"kids":[],"places":[],"defaultLeaveFromPlaceId":"p1","defaultLeaveFromPlaceName":"Mom's house"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val circle =
+                client.setDefaultLeaveFrom(
+                    "tok",
+                    SetDefaultLeaveFromRequest(placeId = "p1"),
+                )
+            assertEquals("p1", circle.defaultLeaveFromPlaceId)
+            assertEquals("Mom's house", circle.defaultLeaveFromPlaceName)
+        }
+
+    @Test
+    fun assignCalendarCoverage() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/MANUAL/e1/coverages" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":null,"leaveFromPlaceName":null,"leaveByAt":null,"leaveByStatus":"UNAVAILABLE","leaveByReason":"NO_ORIGIN","coverages":[{"id":"a1","coveringAdultId":"2","coveringAdultDisplayName":"Sam","assignedByAdultId":"1","kidIds":["k1"],"status":"PENDING"}],"uncoveredKidIds":[]}""",
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val item =
+                client.assignCalendarCoverage(
+                    "tok",
+                    CalendarItemSource.MANUAL,
+                    "e1",
+                    AssignCalendarCoverageRequest(coveringAdultId = "2", kidIds = listOf("k1")),
+                )
+            assertEquals(CoverageStatus.PENDING, item.coverages.single().status)
+            assertEquals("2", item.coverages.single().coveringAdultId)
         }
 
     @Test
@@ -301,7 +360,7 @@ class FamilyClientTest {
                             request.method == HttpMethod.Put -> {
                             respond(
                                 content =
-                                    """{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null}""",
+                                    """{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null,"coverages":[],"uncoveredKidIds":[]}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )

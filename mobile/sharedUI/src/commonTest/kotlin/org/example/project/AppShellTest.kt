@@ -26,4 +26,12 @@ class AppShellTest {
         assertTrue(AppShell.showsFeedsRow(isOrganizer = true))
         assertFalse(AppShell.showsFeedsRow(isOrganizer = false))
     }
+
+    @Test
+    fun focusedBusyLabelsNeverHijackSignOut() {
+        assertEquals("Sign out", AppShell.ROW_SIGN_OUT)
+        assertEquals("Saving…", AppShell.BUSY_SAVING)
+        assertEquals("Loading…", AppShell.BUSY_LOADING)
+        assertFalse(AppShell.ROW_SIGN_OUT.contains("Working"))
+    }
 }

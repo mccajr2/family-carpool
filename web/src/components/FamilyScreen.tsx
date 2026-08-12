@@ -1,10 +1,22 @@
-import { useEffect, useState } from "react"
-import { Plus } from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
+import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
-import { isPlaceLocated, type ActivityFeed, type Adult, type CalendarItem, type FamilyCircle, type FamilyMember, type Kid, type Place, feedSyncStatusLabel } from "@/api/types"
+import {
+  isPlaceLocated,
+  type ActivityFeed,
+  type Adult,
+  type CalendarCoverageAssignment,
+  type CalendarItem,
+  type CoverageStatus,
+  type FamilyCircle,
+  type FamilyMember,
+  type Kid,
+  type Place,
+  feedSyncStatusLabel,
+} from "@/api/types"
 import {
   AccountSummaryRow,
   SettingsGroupLabel,
@@ -60,6 +72,27 @@ function memberLabel(member: FamilyMember): string {
   return member.displayName?.trim() ? member.displayName : member.email
 }
 
+/** Horizontal single-value field: label leading, control/value trailing. */
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      data-testid="field-row"
+      className="flex items-center justify-between gap-3"
+    >
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1 flex justify-end [&_select]:w-full [&_select]:max-w-xs">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
   if (feed.kidIds.length === 0) {
     return ""
@@ -77,6 +110,36 @@ function eventKidNames(event: { kidIds: string[] }, kids: Kid[]): string {
     .map((id) => namesById.get(id))
     .filter((name): name is string => Boolean(name?.trim()))
     .join(", ")
+}
+
+function calendarItemKey(item: CalendarItem): string {
+  return `${item.source}-${item.id}`
+}
+
+function coverageStatusLabel(status: CoverageStatus): string {
+  switch (status) {
+    case "PENDING":
+      return "Pending"
+    case "CONFIRMED":
+      return "Confirmed"
+    case "DECLINED":
+      return "Declined"
+  }
+}
+
+function coverageAdultLabel(
+  coverage: CalendarCoverageAssignment,
+  members: FamilyMember[],
+): string {
+  if (coverage.coveringAdultDisplayName?.trim()) {
+    return coverage.coveringAdultDisplayName.trim()
+  }
+  const member = members.find((m) => m.adultId === coverage.coveringAdultId)
+  return member ? memberLabel(member) : "Adult"
+}
+
+function coverageKidNames(coverage: CalendarCoverageAssignment, kids: Kid[]): string {
+  return eventKidNames({ kidIds: coverage.kidIds }, kids)
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -147,6 +210,9 @@ export function FamilyScreen({
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
+  const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
+    Record<string, { adultId: string; kidIds: string[] }>
+  >({})
 
   useEffect(() => {
     if (circle?.id) {
@@ -766,6 +832,136 @@ export function FamilyScreen({
     }
   }
 
+  function replaceCalendarItem(updated: CalendarItem) {
+    setCalendarItems((current) =>
+      current.map((row) =>
+        row.source === updated.source && row.id === updated.id ? updated : row,
+      ),
+    )
+  }
+
+  function updateAssignCoverageDraft(
+    itemKey: string,
+    patch: Partial<{ adultId: string; kidIds: string[] }>,
+  ) {
+    setAssignCoverageDrafts((current) => {
+      const existing = current[itemKey] ?? { adultId: "", kidIds: [] as string[] }
+      return { ...current, [itemKey]: { ...existing, ...patch } }
+    })
+  }
+
+  function coverageAssignState(
+    item: CalendarItem,
+    itemKey: string,
+  ): { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean } {
+    const soleAdult = circle!.members.length === 1
+    const soleKid = item.uncoveredKidIds.length === 1
+    const stored = assignCoverageDrafts[itemKey]
+    const defaultAdultId =
+      adult?.id && circle!.members.some((member) => member.adultId === adult.id)
+        ? adult.id
+        : (circle!.members[0]?.adultId ?? "")
+    const adultId = soleAdult
+      ? circle!.members[0]!.adultId
+      : stored?.adultId || defaultAdultId
+    const kidIds = soleKid
+      ? item.uncoveredKidIds
+      : (stored?.kidIds ?? [])
+    return { adultId, kidIds, soleAdult, soleKid }
+  }
+
+  async function onSetDefaultLeaveFrom(placeId: string | null) {
+    if (circle?.defaultLeaveFromPlaceId === placeId) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.setDefaultLeaveFrom(token, { placeId })
+      setCircle(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onAssignCoverage(
+    item: CalendarItem,
+    coveringAdultId: string,
+    kidIds: string[],
+  ) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.assignCalendarCoverage(
+        token,
+        item.source,
+        item.id,
+        { coveringAdultId, kidIds },
+      )
+      replaceCalendarItem(updated)
+      setAssignCoverageDrafts((current) => {
+        const next = { ...current }
+        delete next[calendarItemKey(item)]
+        return next
+      })
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onConfirmCoverage(assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.confirmCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onDeclineCoverage(assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.declineCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemoveCoverage(assignmentId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.removeCalendarCoverage(token, assignmentId)
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onSetCalendarLeaveFrom(item: CalendarItem, placeId: string) {
     if (item.leaveFromPlaceId === placeId) {
       return
@@ -980,6 +1176,7 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
+  const locatedPlaces = circle.places.filter(isPlaceLocated)
 
   const contentTitle =
     destination === "calendar"
@@ -1046,7 +1243,7 @@ export function FamilyScreen({
               icon="icon.family"
             />
             <SettingsRow
-              label={status.kind === "loading" ? "Working…" : "Sign out"}
+              label="Sign out"
               icon="icon.signout"
               onClick={() => void onSignOut()}
               chevron={false}
@@ -1377,6 +1574,34 @@ export function FamilyScreen({
           )}
         </section>
 
+        <section aria-label="Default leave-from" className="flex flex-col gap-2">
+          <FieldRow label="My default leave-from">
+            <select
+              aria-label="My default leave-from"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              value={circle.defaultLeaveFromPlaceId ?? ""}
+              onChange={(event) => {
+                const placeId = event.target.value ? event.target.value : null
+                void onSetDefaultLeaveFrom(placeId)
+              }}
+              disabled={status.kind === "loading"}
+            >
+              <option value="">None</option>
+              {locatedPlaces.length === 0 ? (
+                <option value="" disabled>
+                  No located places yet
+                </option>
+              ) : (
+                locatedPlaces.map((place) => (
+                  <option key={place.id} value={place.id}>
+                    {place.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </FieldRow>
+        </section>
+
         <div className="flex flex-col gap-2">
           <Input
             aria-label="New place name"
@@ -1410,7 +1635,7 @@ export function FamilyScreen({
 
           {destination === "calendar" ? (
             <>
-<section aria-label="Agenda" className="flex flex-col gap-3">
+<section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
           <p className="text-sm font-medium">Agenda</p>
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
@@ -1418,7 +1643,12 @@ export function FamilyScreen({
             </p>
           ) : null}
           {circle.kids.length > 0 ? (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter agenda by kid">
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Filter agenda by kid"
+              data-testid="agenda-kid-filter"
+            >
               <Button
                 type="button"
                 size="sm"
@@ -1443,9 +1673,18 @@ export function FamilyScreen({
             </div>
           ) : null}
           {visibleCalendarItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No events in the loaded window.</p>
+            // While calendar list is busy, do not claim the window is empty —
+            // busy feedback lives on Load more → Loading….
+            status.kind === "loading" && !eventComposeOpen ? null : (
+              <p className="text-sm text-muted-foreground">
+                No events in the loaded window.
+              </p>
+            )
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul
+              data-testid="agenda-list"
+              className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]"
+            >
               {visibleCalendarItems.map((item) => {
                 const kidsLabel = eventKidNames(item, circle.kids)
                 const sourceLabel = calendarSourceLabel(item.source, item.feedName)
@@ -1457,12 +1696,26 @@ export function FamilyScreen({
                 const needsOrigin =
                   item.leaveByStatus === "UNAVAILABLE" &&
                   item.leaveByReason === "NO_ORIGIN"
-                const needsDestination =
-                  item.leaveByStatus === "UNAVAILABLE" &&
-                  (item.leaveByReason === "NO_DESTINATION" ||
-                    item.leaveByReason === "GEOCODE_FAILED")
+                const itemKey = calendarItemKey(item)
+                const activeCoverages = item.coverages.filter(
+                  (coverage) =>
+                    coverage.status === "PENDING" || coverage.status === "CONFIRMED",
+                )
+                const pendingForSelf = activeCoverages.find(
+                  (coverage) =>
+                    coverage.status === "PENDING" && coverage.coveringAdultId === adult?.id,
+                )
+                const assignDraft = coverageAssignState(item, itemKey)
+                const locatedForItem = circle.places.filter(isPlaceLocated)
+                const uncoveredKidNames = eventKidNames(
+                  { kidIds: item.uncoveredKidIds },
+                  circle.kids,
+                )
                 return (
-                  <li key={`${item.source}-${item.id}`} className="flex flex-col gap-2">
+                  <li
+                    key={`${item.source}-${item.id}`}
+                    className="flex flex-col gap-2 border-b border-[var(--fc-border)] pb-[var(--fc-space-xl)] last:border-b-0 last:pb-0"
+                  >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <span className="flex-1 text-sm">
                         {item.title}
@@ -1513,24 +1766,32 @@ export function FamilyScreen({
                       ) : null}
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                        Leave from
-                        <select
-                          aria-label={`Leave from for ${item.title}`}
-                          className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                          value={item.leaveFromPlaceId ?? ""}
-                          onChange={(event) => {
-                            const placeId = event.target.value
-                            if (placeId) {
-                              void onSetCalendarLeaveFrom(item, placeId)
-                            }
-                          }}
-                          disabled={status.kind === "loading" || circle.places.length === 0}
-                        >
-                          {circle.places.length === 0 ? (
-                            <option value="">No places yet</option>
+                      <div className="flex-1">
+                        <FieldRow label="Leave from">
+                          {locatedForItem.length <= 1 ? (
+                            <span
+                              className="flex h-9 max-w-xs items-center justify-end px-1 text-sm text-foreground"
+                              data-testid={`leave-from-label-${item.source}-${item.id}`}
+                            >
+                              {item.leaveFromPlaceName ??
+                                locatedForItem[0]?.name ??
+                                (circle.places.length === 0
+                                  ? "No places yet"
+                                  : "No located places yet")}
+                            </span>
                           ) : (
-                            <>
+                            <select
+                              aria-label={`Leave from for ${item.title}`}
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                              value={item.leaveFromPlaceId ?? ""}
+                              onChange={(event) => {
+                                const placeId = event.target.value
+                                if (placeId) {
+                                  void onSetCalendarLeaveFrom(item, placeId)
+                                }
+                              }}
+                              disabled={status.kind === "loading" || circle.places.length === 0}
+                            >
                               {!item.leaveFromPlaceId ? (
                                 <option value="">Choose a located place</option>
                               ) : null}
@@ -1545,10 +1806,10 @@ export function FamilyScreen({
                                     : `${place.name} (not located)`}
                                 </option>
                               ))}
-                            </>
+                            </select>
                           )}
-                        </select>
-                      </label>
+                        </FieldRow>
+                      </div>
                       {needsOrigin ? (
                         <Button
                           type="button"
@@ -1559,18 +1820,137 @@ export function FamilyScreen({
                           Open Places
                         </Button>
                       ) : null}
-                      {needsDestination && isManual ? (
+                    </div>
+                    {activeCoverages.length > 0 ? (
+                      <ul className="flex flex-col gap-2">
+                        {activeCoverages.map((coverage) => (
+                          <li
+                            key={coverage.id}
+                            className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                          >
+                            <span className="flex-1 text-xs text-muted-foreground">
+                              {coverageAdultLabel(coverage, circle.members)} ·{" "}
+                              {coverageKidNames(coverage, circle.kids)} ·{" "}
+                              {coverageStatusLabel(coverage.status)}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void onRemoveCoverage(coverage.id)}
+                              disabled={status.kind === "loading"}
+                            >
+                              Remove coverage
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {item.uncoveredKidIds.length > 0 ? (
+                      <p className="text-xs text-destructive">
+                        Needs coverage{item.uncoveredKidIds.length > 0 && uncoveredKidNames
+                          ? `: ${uncoveredKidNames}`
+                          : ""}
+                      </p>
+                    ) : null}
+                    {pendingForSelf ? (
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void onConfirmCoverage(pendingForSelf.id)}
+                          disabled={status.kind === "loading"}
+                        >
+                          Confirm coverage
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => openEditEvent(item)}
+                          onClick={() => void onDeclineCoverage(pendingForSelf.id)}
                           disabled={status.kind === "loading"}
                         >
-                          Edit location
+                          Decline coverage
                         </Button>
-                      ) : null}
-                    </div>
+                      </div>
+                    ) : null}
+                    {item.uncoveredKidIds.length > 0 && circle.members.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {assignDraft.soleAdult ? null : (
+                          <FieldRow label="Covering adult">
+                            <select
+                              aria-label={`Covering adult for ${item.title}`}
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                              value={assignDraft.adultId}
+                              onChange={(event) =>
+                                updateAssignCoverageDraft(itemKey, {
+                                  adultId: event.target.value,
+                                })
+                              }
+                              disabled={status.kind === "loading"}
+                            >
+                              {circle.members.map((member) => (
+                                <option key={member.adultId} value={member.adultId}>
+                                  {memberLabel(member)}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldRow>
+                        )}
+                        {assignDraft.soleKid ? null : (
+                          <fieldset className="flex flex-col gap-1">
+                            <legend className="text-xs text-muted-foreground">
+                              Uncovered kids
+                            </legend>
+                            {item.uncoveredKidIds.map((kidId) => {
+                              const kid = circle.kids.find((entry) => entry.id === kidId)
+                              if (!kid) {
+                                return null
+                              }
+                              return (
+                                <label
+                                  key={kidId}
+                                  className="flex items-center gap-2 text-sm"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Cover ${kid.displayName} for ${item.title}`}
+                                    checked={assignDraft.kidIds.includes(kidId)}
+                                    onChange={() =>
+                                      updateAssignCoverageDraft(itemKey, {
+                                        kidIds: assignDraft.kidIds.includes(kidId)
+                                          ? assignDraft.kidIds.filter((id) => id !== kidId)
+                                          : [...assignDraft.kidIds, kidId],
+                                      })
+                                    }
+                                    disabled={status.kind === "loading"}
+                                  />
+                                  {kid.displayName}
+                                </label>
+                              )
+                            })}
+                          </fieldset>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() =>
+                            void onAssignCoverage(
+                              item,
+                              assignDraft.adultId,
+                              assignDraft.kidIds,
+                            )
+                          }
+                          disabled={
+                            status.kind === "loading" ||
+                            !assignDraft.adultId ||
+                            assignDraft.kidIds.length === 0
+                          }
+                        >
+                          Assign coverage
+                        </Button>
+                      </div>
+                    ) : null}
                   </li>
                 )
               })}
@@ -1582,7 +1962,14 @@ export function FamilyScreen({
             onClick={() => void loadMoreCalendar()}
             disabled={status.kind === "loading"}
           >
-            Load more
+            {status.kind === "loading" && !eventComposeOpen ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Loading…
+              </>
+            ) : (
+              "Load more"
+            )}
           </Button>
         </section>
 
@@ -1598,6 +1985,7 @@ export function FamilyScreen({
             <div
               role="dialog"
               aria-modal="true"
+              aria-busy={status.kind === "loading"}
               aria-label={editingEventId ? "Edit event" : "Add event"}
               className="flex max-h-[90vh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg"
               onClick={(event) => event.stopPropagation()}
@@ -1683,7 +2071,14 @@ export function FamilyScreen({
                         editingEventKidIds.length === 0
                       }
                     >
-                      Save
+                      {status.kind === "loading" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save"
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -1778,7 +2173,14 @@ export function FamilyScreen({
                         newEventKidIds.length === 0
                       }
                     >
-                      Save
+                      {status.kind === "loading" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save"
+                      )}
                     </Button>
                     <Button
                       type="button"

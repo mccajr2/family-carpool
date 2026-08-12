@@ -147,4 +147,11 @@ public class FamilyController {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         familyService.deletePlace(adult, placeId);
     }
+
+    @PatchMapping("/circle/default-leave-from")
+    public FamilyCircleResponse setDefaultLeaveFrom(
+            @RequestBody SetDefaultLeaveFromRequest request, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return familyService.setDefaultLeaveFrom(adult, request);
+    }
 }

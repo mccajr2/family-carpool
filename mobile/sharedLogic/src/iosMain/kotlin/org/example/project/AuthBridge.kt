@@ -4,12 +4,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** Swift-friendly bridge for email OTP auth + family circle on iOS. */
 class AuthBridge {
     private val session: AuthSession
     private val familyClient: FamilyClient
     private val scope: CoroutineScope
+    private val json = Json { encodeDefaults = true }
 
     constructor() {
         session =
@@ -26,6 +30,48 @@ class AuthBridge {
         this.familyClient = familyClient
         this.scope = scope
     }
+
+    private fun encodeCoverages(coverages: List<CalendarCoverageAssignment>): String =
+        json.encodeToString(ListSerializer(CalendarCoverageAssignment.serializer()), coverages)
+
+    private fun calendarItemSuccessArgs(item: CalendarItem): CalendarItemBridgeArgs =
+        CalendarItemBridgeArgs(
+            id = item.id,
+            source = item.source.name,
+            title = item.title,
+            startsAt = item.startsAt,
+            endsAt = item.endsAt.orEmpty(),
+            location = item.location.orEmpty(),
+            kidIdsJoined = item.kidIds.joinToString(","),
+            feedId = item.feedId.orEmpty(),
+            feedName = item.feedName.orEmpty(),
+            leaveFromPlaceId = item.leaveFromPlaceId.orEmpty(),
+            leaveFromPlaceName = item.leaveFromPlaceName.orEmpty(),
+            leaveByAt = item.leaveByAt.orEmpty(),
+            leaveByStatus = item.leaveByStatus.name,
+            leaveByReason = item.leaveByReason.orEmpty(),
+            coveragesJson = encodeCoverages(item.coverages),
+            uncoveredKidIdsJoined = item.uncoveredKidIds.joinToString(","),
+        )
+
+    private data class CalendarItemBridgeArgs(
+        val id: String,
+        val source: String,
+        val title: String,
+        val startsAt: String,
+        val endsAt: String,
+        val location: String,
+        val kidIdsJoined: String,
+        val feedId: String,
+        val feedName: String,
+        val leaveFromPlaceId: String,
+        val leaveFromPlaceName: String,
+        val leaveByAt: String,
+        val leaveByStatus: String,
+        val leaveByReason: String,
+        val coveragesJson: String,
+        val uncoveredKidIdsJoined: String,
+    )
 
     fun requestCode(
         email: String,
@@ -106,6 +152,8 @@ class AuthBridge {
             placeNames: List<String>,
             placeAddresses: List<String>,
             placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -145,6 +193,8 @@ class AuthBridge {
             placeNames: List<String>,
             placeAddresses: List<String>,
             placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -186,6 +236,8 @@ class AuthBridge {
             placeNames: List<String>,
             placeAddresses: List<String>,
             placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -255,6 +307,8 @@ class AuthBridge {
             placeNames: List<String>,
             placeAddresses: List<String>,
             placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -510,6 +564,8 @@ class AuthBridge {
             leaveByAts: List<String>,
             leaveByStatuses: List<String>,
             leaveByReasons: List<String>,
+            coveragesJson: List<String>,
+            uncoveredKidIdsJoined: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -531,6 +587,8 @@ class AuthBridge {
                     items.map { it.leaveByAt.orEmpty() },
                     items.map { it.leaveByStatus.name },
                     items.map { it.leaveByReason.orEmpty() },
+                    items.map { encodeCoverages(it.coverages) },
+                    items.map { it.uncoveredKidIds.joinToString(",") },
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "List calendar failed")
@@ -557,6 +615,8 @@ class AuthBridge {
             leaveByAt: String,
             leaveByStatus: String,
             leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -569,24 +629,273 @@ class AuthBridge {
                         itemId,
                         SetCalendarLeaveFromRequest(leaveFromPlaceId = placeId),
                     )
+                val args = calendarItemSuccessArgs(item)
                 onSuccess(
-                    item.id,
-                    item.source.name,
-                    item.title,
-                    item.startsAt,
-                    item.endsAt.orEmpty(),
-                    item.location.orEmpty(),
-                    item.kidIds.joinToString(","),
-                    item.feedId.orEmpty(),
-                    item.feedName.orEmpty(),
-                    item.leaveFromPlaceId.orEmpty(),
-                    item.leaveFromPlaceName.orEmpty(),
-                    item.leaveByAt.orEmpty(),
-                    item.leaveByStatus.name,
-                    item.leaveByReason.orEmpty(),
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Set leave-from failed")
+            }
+        }
+    }
+
+    fun setDefaultLeaveFrom(
+        placeId: String?,
+        onSuccess: (placeId: String, placeName: String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val circle =
+                    familyClient.setDefaultLeaveFrom(
+                        session.requireAccessToken(),
+                        SetDefaultLeaveFromRequest(placeId = placeId),
+                    )
+                onSuccess(
+                    circle.defaultLeaveFromPlaceId.orEmpty(),
+                    circle.defaultLeaveFromPlaceName.orEmpty(),
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Set default leave-from failed")
+            }
+        }
+    }
+
+    fun assignCalendarCoverage(
+        source: String,
+        itemId: String,
+        coveringAdultId: String,
+        kidIds: List<String>,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.assignCalendarCoverage(
+                        session.requireAccessToken(),
+                        CalendarItemSource.valueOf(source),
+                        itemId,
+                        AssignCalendarCoverageRequest(
+                            coveringAdultId = coveringAdultId.trim(),
+                            kidIds = kidIds.map { it.trim() }.filter { it.isNotEmpty() },
+                        ),
+                    )
+                val args = calendarItemSuccessArgs(item)
+                onSuccess(
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Assign coverage failed")
+            }
+        }
+    }
+
+    fun confirmCalendarCoverage(
+        assignmentId: String,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.confirmCalendarCoverage(
+                        session.requireAccessToken(),
+                        assignmentId,
+                    )
+                val args = calendarItemSuccessArgs(item)
+                onSuccess(
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Confirm coverage failed")
+            }
+        }
+    }
+
+    fun declineCalendarCoverage(
+        assignmentId: String,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.declineCalendarCoverage(
+                        session.requireAccessToken(),
+                        assignmentId,
+                    )
+                val args = calendarItemSuccessArgs(item)
+                onSuccess(
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Decline coverage failed")
+            }
+        }
+    }
+
+    fun removeCalendarCoverage(
+        assignmentId: String,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.removeCalendarCoverage(
+                        session.requireAccessToken(),
+                        assignmentId,
+                    )
+                val args = calendarItemSuccessArgs(item)
+                onSuccess(
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Remove coverage failed")
             }
         }
     }
@@ -748,6 +1057,8 @@ class AuthBridge {
             placeNames: List<String>,
             placeAddresses: List<String>,
             placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
         ) -> Unit,
     ) {
         val inviteCode =
@@ -773,6 +1084,8 @@ class AuthBridge {
             circle.places.map { it.name },
             circle.places.map { it.address },
             circle.places.map { if (it.isLocated()) "true" else "false" },
+            circle.defaultLeaveFromPlaceId.orEmpty(),
+            circle.defaultLeaveFromPlaceName.orEmpty(),
         )
     }
 }

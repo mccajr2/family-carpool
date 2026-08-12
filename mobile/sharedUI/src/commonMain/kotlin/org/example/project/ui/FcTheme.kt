@@ -60,6 +60,8 @@ val FcSpaceXs = UiTokens.Space.xs.dp
 val FcSpaceSm = UiTokens.Space.sm.dp
 val FcSpaceMd = UiTokens.Space.md.dp
 val FcSpaceLg = UiTokens.Space.lg.dp
+val FcSpaceXl = UiTokens.Space.xl.dp
+val FcSpace2xl = UiTokens.Space._2xl.dp
 val FcRadiusMd = UiTokens.Radius.md.dp
 val FcRadiusLg = UiTokens.Radius.lg.dp
 

@@ -167,7 +167,7 @@ struct ContentView: View {
         )) {
             NavigationStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: UiTokens.Space.xl) {
                         calendarDestination
                     }
                     .padding()
@@ -436,10 +436,27 @@ struct ContentView: View {
                     || model.newPlaceAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
 
+            let locatedPlaces = model.places.filter(\.isLocated)
+            FieldMenuRow(
+                label: "My default leave-from",
+                valueText: model.defaultLeaveFromPlaceName
+                    ?? (locatedPlaces.isEmpty ? "No located places yet" : "None"),
+                disabled: model.isLoading
+            ) {
+                Button("None") { model.setDefaultLeaveFrom(placeId: nil) }
+                    .disabled(model.isLoading)
+                ForEach(locatedPlaces) { place in
+                    Button(place.name) { model.setDefaultLeaveFrom(placeId: place.id) }
+                        .disabled(model.isLoading)
+                }
+            }
+
     }
 
     @ViewBuilder
     private var calendarDestination: some View {
+        let agendaListBusy = model.isLoading && !model.eventCompose.isOpen
+        VStack(alignment: .leading, spacing: UiTokens.Space.xl) {
             Text("Agenda")
                 .font(.headline)
             if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
@@ -462,91 +479,136 @@ struct ContentView: View {
                 }
             }
             if model.visibleCalendarItems.isEmpty {
-                Text("No events in the loaded window.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                // While the first calendar fetch (or Load more) is in flight, do not claim
+                // the window is empty — busy feedback lives on Load more → Loading….
+                if !agendaListBusy {
+                    Text("No events in the loaded window.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                ForEach(model.visibleCalendarItems) { item in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                        Text(item.whenLabel)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(item.sourceLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if let location = item.location, !location.isEmpty {
-                            Text(location)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        let kidsLabel = item.kidNamesLabel(kids: model.kids)
-                        if !kidsLabel.isEmpty {
-                            Text(kidsLabel)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(item.leaveByAgendaLine)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if item.isManual {
-                            HStack {
-                                Button("Edit") { model.beginEditEvent(item) }
-                                    .disabled(model.isLoading)
-                                Button("Remove event") { model.removeEvent(item.id) }
-                                    .disabled(model.isLoading)
-                            }
-                        }
-                        Text("Leave from")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Menu {
-                            ForEach(model.places) { place in
-                                Button {
-                                    if place.isLocated {
-                                        model.setCalendarLeaveFrom(item: item, placeId: place.id)
-                                    }
-                                } label: {
-                                    Text(
-                                        place.isLocated
-                                            ? place.name
-                                            : "\(place.name) (not located)"
-                                    )
-                                }
-                                .disabled(!place.isLocated)
+                let items = model.visibleCalendarItems
+                VStack(alignment: .leading, spacing: UiTokens.Space._2xl) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        agendaItemRow(item: item, isLast: index == items.count - 1)
+                    }
+                }
+                .padding(.top, UiTokens.Space.md)
+            }
+            Button {
+                model.loadMoreCalendar()
+            } label: {
+                if agendaListBusy {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Loading…")
+                    }
+                } else {
+                    Text("Load more")
+                }
+            }
+            .disabled(model.isLoading)
+            .accessibilityLabel(agendaListBusy ? "Loading…" : "Load more")
+        }
+    }
+
+    @ViewBuilder
+    private func agendaItemRow(item: FamilyCalendarItem, isLast: Bool) -> some View {
+        VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
+            Text(item.title)
+            Text(item.whenLabel)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text(item.sourceLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let location = item.location, !location.isEmpty {
+                Text(location)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            let kidsLabel = item.kidNamesLabel(kids: model.kids)
+            if !kidsLabel.isEmpty {
+                Text(kidsLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(item.leaveByAgendaLine)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if item.isManual {
+                HStack {
+                    Button("Edit") { model.beginEditEvent(item) }
+                        .disabled(model.isLoading)
+                    Button("Remove event") { model.removeEvent(item.id) }
+                        .disabled(model.isLoading)
+                }
+            }
+            let locatedPlaces = model.places.filter(\.isLocated)
+            if locatedPlaces.count <= 1 {
+                FieldValueRow(
+                    label: "Leave from",
+                    valueText: item.leaveFromPlaceName
+                        ?? locatedPlaces.first?.name
+                        ?? (model.places.isEmpty
+                            ? "No places yet"
+                            : "No located places yet")
+                )
+            } else {
+                FieldMenuRow(
+                    label: "Leave from",
+                    valueText: item.leaveFromPlaceName
+                        ?? "Choose a located place",
+                    disabled: model.isLoading || model.places.isEmpty
+                ) {
+                    ForEach(model.places) { place in
+                        Button {
+                            if place.isLocated {
+                                model.setCalendarLeaveFrom(item: item, placeId: place.id)
                             }
                         } label: {
                             Text(
-                                item.leaveFromPlaceName
-                                    ?? (model.places.isEmpty
-                                        ? "No places yet"
-                                        : "Choose a located place")
+                                place.isLocated
+                                    ? place.name
+                                    : "\(place.name) (not located)"
                             )
                         }
-                        .disabled(model.isLoading || model.places.isEmpty)
-                        HStack {
-                            if item.leaveByStatus == "UNAVAILABLE",
-                               item.leaveByReason == "NO_ORIGIN"
-                            {
-                                Button("Open Places") { model.openMorePlaces() }
-                            }
-                            if item.isManual,
-                               item.leaveByStatus == "UNAVAILABLE",
-                               item.leaveByReason == "NO_DESTINATION"
-                                || item.leaveByReason == "GEOCODE_FAILED"
-                            {
-                                Button("Edit location") { model.beginEditEvent(item) }
-                                    .disabled(model.isLoading)
-                            }
-                        }
+                        .disabled(!place.isLocated)
                     }
                 }
             }
-            Button("Load more") { model.loadMoreCalendar() }
-                .disabled(model.isLoading)
-            if model.isLoading {
-                ProgressView()
+            if item.leaveByStatus == "UNAVAILABLE",
+               item.leaveByReason == "NO_ORIGIN"
+            {
+                Button("Open Places") { model.openMorePlaces() }
             }
+            AgendaCoverageSection(
+                item: item,
+                members: model.members,
+                kids: model.kids,
+                currentAdultId: model.currentAdultId,
+                isLoading: model.isLoading,
+                onRemove: { model.removeCoverage(assignmentId: $0) },
+                onConfirm: { model.confirmCoverage(assignmentId: $0) },
+                onDecline: { model.declineCoverage(assignmentId: $0) },
+                onAssign: { adultId, kidIds in
+                    model.assignCoverage(
+                        item: item,
+                        coveringAdultId: adultId,
+                        kidIds: kidIds
+                    )
+                }
+            )
+            .id("\(item.source)-\(item.id)-coverage")
+        }
+        .padding(.bottom, isLast ? 0 : UiTokens.Space.xl)
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(FcTheme.border(colorScheme))
+                    .frame(height: 1)
+            }
+        }
     }
 
     @ViewBuilder
@@ -584,12 +646,24 @@ struct ContentView: View {
             feedKidToggles(selectedKidIds: model.editingEventKidIds) { kidId in
                 model.toggleEditingEventKid(kidId)
             }
-            Button("Save") { model.saveEvent() }
-                .disabled(
-                    model.isLoading
-                        || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.editingEventKidIds.isEmpty
-                )
+            Button {
+                model.saveEvent()
+            } label: {
+                if model.isLoading {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Saving…")
+                    }
+                } else {
+                    Text("Save")
+                }
+            }
+            .disabled(
+                model.isLoading
+                    || model.editingEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.editingEventKidIds.isEmpty
+            )
+            .accessibilityLabel(model.isLoading ? "Saving…" : "Save")
         } else {
             TextField("Event title", text: $model.newEventTitle)
                 .disabled(model.isLoading)
@@ -624,15 +698,24 @@ struct ContentView: View {
                     model.toggleNewEventKid(kidId)
                 }
             }
-            Button("Save") { model.addEvent() }
-                .disabled(
-                    model.isLoading
-                        || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.newEventKidIds.isEmpty
-                )
-        }
-        if model.isLoading {
-            ProgressView()
+            Button {
+                model.addEvent()
+            } label: {
+                if model.isLoading {
+                    HStack(spacing: UiTokens.Space.sm) {
+                        ProgressView()
+                        Text("Saving…")
+                    }
+                } else {
+                    Text("Save")
+                }
+            }
+            .disabled(
+                model.isLoading
+                    || model.newEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.newEventKidIds.isEmpty
+            )
+            .accessibilityLabel(model.isLoading ? "Saving…" : "Save")
         }
     }
 
@@ -752,7 +835,7 @@ struct ContentView: View {
             action: nil
         )
         moreRow(
-            title: model.isLoading ? "Working…" : "Sign out",
+            title: "Sign out",
             icon: UiTokens.Icon.signout,
             showChevron: false,
             danger: true
@@ -834,6 +917,146 @@ struct ContentView: View {
                 )
             )
             .disabled(model.isLoading)
+        }
+    }
+}
+
+private struct AgendaCoverageSection: View {
+    let item: FamilyCalendarItem
+    let members: [FamilyMemberItem]
+    let kids: [FamilyKidItem]
+    let currentAdultId: String
+    let isLoading: Bool
+    let onRemove: (String) -> Void
+    let onConfirm: (String) -> Void
+    let onDecline: (String) -> Void
+    let onAssign: (String, [String]) -> Void
+
+    @State private var assignAdultId: String = ""
+    @State private var assignKidIds: Set<String> = []
+
+    private var memberTuples: [(adultId: String, displayName: String, email: String)] {
+        members.map { ($0.adultId, $0.displayName, $0.email) }
+    }
+
+    private var kidTuples: [(id: String, displayName: String)] {
+        kids.map { ($0.id, $0.displayName) }
+    }
+
+    private var soleAdult: Bool { members.count == 1 }
+    private var soleKid: Bool { item.uncoveredKidIds.count == 1 }
+
+    private var effectiveAdultId: String {
+        if soleAdult { return members[0].adultId }
+        if !assignAdultId.isEmpty { return assignAdultId }
+        return CoverageDisplay.defaultCoverageAdultId(
+            currentAdultId: currentAdultId,
+            memberAdultIds: members.map(\.adultId)
+        )
+    }
+
+    private var effectiveKidIds: [String] {
+        if soleKid { return item.uncoveredKidIds }
+        return Array(assignKidIds)
+    }
+
+    var body: some View {
+        let active = CoverageDisplay.activeCoverages(item.coverages)
+        let pending = CoverageDisplay.pendingCoverageForAdult(
+            item.coverages,
+            adultId: currentAdultId
+        )
+        let uncoveredNames = CoverageDisplay.eventKidNames(
+            kidIds: item.uncoveredKidIds,
+            kids: kidTuples
+        )
+
+        ForEach(active) { coverage in
+            HStack(alignment: .top) {
+                Text(
+                    "\(CoverageDisplay.coverageAdultLabel(coverage, members: memberTuples)) · "
+                        + "\(CoverageDisplay.coverageKidNames(coverage, kids: kidTuples)) · "
+                        + CoverageDisplay.coverageStatusLabel(coverage.status)
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Remove coverage") { onRemove(coverage.id) }
+                    .font(.caption)
+                    .disabled(isLoading)
+            }
+        }
+
+        if !item.uncoveredKidIds.isEmpty {
+            Text(
+                uncoveredNames.isEmpty
+                    ? "Needs coverage"
+                    : "Needs coverage: \(uncoveredNames)"
+            )
+            .font(.caption)
+            .foregroundStyle(.red)
+        }
+
+        if let pending {
+            HStack {
+                Button("Confirm coverage") { onConfirm(pending.id) }
+                    .disabled(isLoading)
+                Button("Decline coverage") { onDecline(pending.id) }
+                    .disabled(isLoading)
+            }
+        }
+
+        if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
+            if !soleAdult {
+                FieldMenuRow(
+                    label: "Covering adult",
+                    valueText: members.first(where: { $0.adultId == effectiveAdultId }).map {
+                        CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
+                    } ?? "Choose adult",
+                    disabled: isLoading
+                ) {
+                    ForEach(members) { member in
+                        Button(CoverageDisplay.memberLabel(
+                            displayName: member.displayName,
+                            email: member.email
+                        )) {
+                            assignAdultId = member.adultId
+                        }
+                        .disabled(isLoading)
+                    }
+                }
+            }
+
+            if !soleKid {
+                Text("Uncovered kids")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                ForEach(item.uncoveredKidIds, id: \.self) { kidId in
+                    if let kid = kids.first(where: { $0.id == kidId }) {
+                        Toggle(
+                            kid.displayName,
+                            isOn: Binding(
+                                get: { assignKidIds.contains(kidId) },
+                                set: { checked in
+                                    // Toggling kids must not clear the covering-adult default.
+                                    if checked {
+                                        assignKidIds.insert(kidId)
+                                    } else {
+                                        assignKidIds.remove(kidId)
+                                    }
+                                }
+                            )
+                        )
+                        .disabled(isLoading)
+                    }
+                }
+            }
+
+            Button("Assign coverage") {
+                onAssign(effectiveAdultId, effectiveKidIds)
+                assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+            }
+            .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
         }
     }
 }

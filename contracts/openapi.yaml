@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.10.0
+  version: 0.11.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -9,17 +9,19 @@ info:
     subscriptions with soft-fail sync and server-side background polling),
     manual events (any member may CRUD one-off schedule items with 1+ kids),
     a unified circle calendar read (feed + manual items in a time window) with
-    per-adult leave-from and estimated leave-by (OSRM or fallback; never live
-    traffic), and memberships (ORGANIZER / CAREGIVER). Organizers share a short
-    invite code; Caregivers join via that code. Any member may manage named
-    places (label + free-text address; optional lat/lng from geocoding with
-    soft-fail and retry locate) and manual events, read the calendar agenda,
-    and set their own leave-from place per calendar item. Feed last-synced /
-    error / event count may update from Sync now or from the server poller —
-    clients re-GET the feeds list to observe changes. Magic links, passwords,
-    multi-circle membership, invite deep links, email/push invite delivery,
-    HTTP-only web cookies, and paid live-traffic routing are out of scope for
-    this revision.
+    per-adult leave-from, per-adult default leave-from, estimated leave-by
+    (OSRM or fallback; never live traffic), coverage responsibility assignments
+    (assign / reassign / remove; assignee confirm or decline), and memberships
+    (ORGANIZER / CAREGIVER). Organizers share a short invite code; Caregivers
+    join via that code. Any member may manage named places (label + free-text
+    address; optional lat/lng from geocoding with soft-fail and retry locate),
+    manual events, read the calendar agenda, set their own leave-from place per
+    calendar item, set their default leave-from for the circle, and manage
+    coverage assignments on calendar items. Feed last-synced / error / event
+    count may update from Sync now or from the server poller — clients re-GET
+    the feeds list to observe changes. Magic links, passwords, multi-circle
+    membership, invite deep links, email/push invite delivery, HTTP-only web
+    cookies, and paid live-traffic routing are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -30,12 +32,15 @@ tags:
   - name: family
     description: >
       Family circle, kids, named places, activity feeds, manual events, unified
-      calendar read (with per-adult leave-by estimates), invite code, and
+      calendar read (with per-adult leave-by estimates, coverage assignments,
+      and uncovered kid ids), per-adult default leave-from, invite code, and
       memberships (one circle per adult in v1). Organizer-only writes for invite
       regen, roles, remove, kids, circle rename, and activity feed
       create/update/delete/sync. Any member may create/update/delete places and
-      manual events, retry place geocoding, list the circle calendar, and set
-      their leave-from place per calendar item.
+      manual events, retry place geocoding, list the circle calendar, set their
+      leave-from place per calendar item, set their default leave-from for the
+      circle, and assign / reassign / remove coverage on calendar items
+      (assignee confirm or decline).
 
 paths:
   /api/auth/request-code:
@@ -272,6 +277,8 @@ paths:
                     address: 123 Main St
                     latitude: 40.7128
                     longitude: -74.006
+                defaultLeaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+                defaultLeaveFromPlaceName: Mom's house
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -930,6 +937,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/default-leave-from:
+    patch:
+      operationId: setDefaultLeaveFrom
+      tags: [family]
+      summary: Set or clear the current adult's default leave-from place
+      description: >
+        Any circle member. Sets the caller's default leave-from place for the
+        circle (used when no per-item override exists). Pass null for placeId to
+        clear. The place must belong to the adult's circle and must be located
+        (non-null latitude/longitude); an unlocated place returns 400. Unknown
+        place or place in another circle returns 404. Adults without a circle
+        receive 404.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDefaultLeaveFromRequest"
+            example:
+              placeId: 01900000-0000-7000-8000-000000000031
+      responses:
+        "200":
+          description: Default leave-from updated; returns the circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyCircle"
+        "400":
+          description: Place exists but is not located (null latitude/longitude)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle, or unknown place not in the adult's circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/family/circle/feeds:
     get:
       operationId: listActivityFeeds
@@ -1213,6 +1268,9 @@ paths:
         coords resolve; UNAVAILABLE when location is blank/geocode fails or no
         located leave-from; fallback duration when both coords exist but OSRM
         is unreachable). Leave-by is always an estimate — never live traffic.
+        Each item also includes coverage assignments for the circle (all
+        members' assignments on that item) and uncoveredKidIds (kids on the
+        item not covered by any active PENDING or CONFIRMED assignment).
         Empty array when none match. from must be strictly before to (400
         otherwise). Adults without a circle receive 404. Does not mutate
         feed snapshots or manual events.
@@ -1260,6 +1318,15 @@ paths:
                   leaveByAt: "2026-08-15T15:25:00Z"
                   leaveByStatus: OK
                   leaveByReason: null
+                  coverages:
+                    - id: 01900000-0000-7000-8000-000000000071
+                      coveringAdultId: 01900000-0000-7000-8000-000000000001
+                      coveringAdultDisplayName: Alex
+                      assignedByAdultId: 01900000-0000-7000-8000-000000000002
+                      kidIds:
+                        - 01900000-0000-7000-8000-000000000021
+                      status: CONFIRMED
+                  uncoveredKidIds: []
                 - id: 01900000-0000-7000-8000-000000000061
                   source: FEED
                   title: Practice
@@ -1275,6 +1342,9 @@ paths:
                   leaveByAt: null
                   leaveByStatus: UNAVAILABLE
                   leaveByReason: NO_ORIGIN
+                  coverages: []
+                  uncoveredKidIds:
+                    - 01900000-0000-7000-8000-000000000021
         "400":
           description: Missing from/to, or from is not strictly before to
           content:
@@ -1357,6 +1427,262 @@ paths:
           description: >
             No circle, unknown calendar item for source, unknown place, or
             place not in the adult's circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/{source}/{itemId}/coverages:
+    parameters:
+      - name: source
+        in: path
+        required: true
+        description: Whether the item is a manual event or a feed-imported row
+        schema:
+          $ref: "#/components/schemas/CalendarItemSource"
+      - name: itemId
+        in: path
+        required: true
+        description: Manual event id or feed event id
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: assignCalendarCoverage
+      tags: [family]
+      summary: Assign coverage responsibility for kids on a calendar item
+      description: >
+        Any circle member. Creates a coverage assignment naming a covering adult
+        and one or more kids on the calendar item. Self-assignment auto-confirms;
+        assigning another adult creates a PENDING assignment they must confirm or
+        decline. Empty kidIds, kids not on the item, or kid already covered by
+        another active (PENDING or CONFIRMED) assignment returns 400 or 409.
+        Unknown item id for the given source returns 404.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignCalendarCoverageRequest"
+            example:
+              coveringAdultId: 01900000-0000-7000-8000-000000000002
+              kidIds:
+                - 01900000-0000-7000-8000-000000000021
+      responses:
+        "201":
+          description: Coverage assigned; calendar item returned with updated coverages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: Empty kidIds or kid not on the calendar item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown calendar item for source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Kid already covered by another active assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/coverages/{assignmentId}:
+    parameters:
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: reassignCalendarCoverage
+      tags: [family]
+      summary: Reassign an existing coverage assignment
+      description: >
+        Any circle member. Updates the covering adult and/or kid list on an
+        existing assignment. Same validation as assign (empty kidIds, kid not on
+        item, kid conflict). Unknown assignment id returns 404.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignCalendarCoverageRequest"
+      responses:
+        "200":
+          description: Coverage reassigned; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: Empty kidIds or kid not on the calendar item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown assignment id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Kid already covered by another active assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: removeCalendarCoverage
+      tags: [family]
+      summary: Remove a coverage assignment
+      description: >
+        Any circle member. Deletes the assignment. Unknown assignment id
+        returns 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Assignment removed; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown assignment id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/coverages/{assignmentId}/confirm:
+    parameters:
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: confirmCalendarCoverage
+      tags: [family]
+      summary: Confirm a pending coverage assignment
+      description: >
+        The covering adult named on the assignment only. Sets status to
+        CONFIRMED. Non-assignee receives 403. Assignment must be PENDING;
+        already confirmed or declined may return 409.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Assignment confirmed; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not the covering adult on this assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown assignment id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Assignment is not in PENDING state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/coverages/{assignmentId}/decline:
+    parameters:
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: declineCalendarCoverage
+      tags: [family]
+      summary: Decline a pending coverage assignment
+      description: >
+        The covering adult named on the assignment only. Sets status to
+        DECLINED (kids become uncovered unless reassigned). Non-assignee
+        receives 403. Assignment must be PENDING; already confirmed or declined
+        may return 409.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Assignment declined; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not the covering adult on this assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown assignment id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Assignment is not in PENDING state
           content:
             application/json:
               schema:
@@ -1743,6 +2069,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Place"
+        defaultLeaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Caller's default leave-from place for this circle (used when no
+            per-item override). Null when unset.
+        defaultLeaveFromPlaceName:
+          type: string
+          nullable: true
+          description: Display name of defaultLeaveFromPlaceId when set
+          example: Mom's house
 
     FamilyMember:
       type: object
@@ -2103,6 +2441,83 @@ components:
             Must be located (non-null latitude and longitude).
           example: 01900000-0000-7000-8000-000000000031
 
+    SetDefaultLeaveFromRequest:
+      type: object
+      properties:
+        placeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Circle place to use as this adult's default leave-from. Null clears
+            the default. Must be located when non-null.
+          example: 01900000-0000-7000-8000-000000000031
+
+    CoverageStatus:
+      type: string
+      description: >
+        Coverage assignment lifecycle. PENDING and CONFIRMED are active (hold
+        kids). DECLINED releases the kids.
+      enum:
+        - PENDING
+        - CONFIRMED
+        - DECLINED
+
+    CalendarCoverageAssignment:
+      type: object
+      required:
+        - id
+        - coveringAdultId
+        - assignedByAdultId
+        - kidIds
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable assignment identifier
+        coveringAdultId:
+          type: string
+          format: uuid
+          description: Adult responsible for covering the listed kids
+        coveringAdultDisplayName:
+          type: string
+          nullable: true
+          description: Display name of coveringAdultId when known
+          example: Sam
+        assignedByAdultId:
+          type: string
+          format: uuid
+          description: Adult who created or last reassigned this assignment
+        kidIds:
+          type: array
+          minItems: 1
+          description: Kids on the calendar item covered by this assignment
+          items:
+            type: string
+            format: uuid
+        status:
+          $ref: "#/components/schemas/CoverageStatus"
+
+    AssignCalendarCoverageRequest:
+      type: object
+      required:
+        - coveringAdultId
+        - kidIds
+      properties:
+        coveringAdultId:
+          type: string
+          format: uuid
+          description: Adult to assign coverage responsibility to
+          example: 01900000-0000-7000-8000-000000000002
+        kidIds:
+          type: array
+          minItems: 1
+          description: One or more kids on the calendar item to cover
+          items:
+            type: string
+            format: uuid
+
     CalendarItem:
       type: object
       required:
@@ -2112,6 +2527,8 @@ components:
         - startsAt
         - kidIds
         - leaveByStatus
+        - coverages
+        - uncoveredKidIds
       properties:
         id:
           type: string
@@ -2186,6 +2603,19 @@ components:
             Machine-readable reason when leaveByStatus is UNAVAILABLE (e.g.
             NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK.
           example: NO_ORIGIN
+        coverages:
+          type: array
+          description: Coverage assignments on this calendar item for the circle
+          items:
+            $ref: "#/components/schemas/CalendarCoverageAssignment"
+        uncoveredKidIds:
+          type: array
+          description: >
+            Kids on this item not covered by any active (PENDING or CONFIRMED)
+            assignment
+          items:
+            type: string
+            format: uuid
 
     CreateManualEventRequest:
       type: object

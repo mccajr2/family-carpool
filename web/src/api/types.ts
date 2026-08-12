@@ -75,6 +75,22 @@ export type CalendarItemSource = "MANUAL" | "FEED"
 
 export type LeaveByStatus = "OK" | "UNAVAILABLE"
 
+export type CoverageStatus = "PENDING" | "CONFIRMED" | "DECLINED"
+
+export type CalendarCoverageAssignment = {
+  id: string
+  coveringAdultId: string
+  coveringAdultDisplayName: string | null
+  assignedByAdultId: string
+  kidIds: string[]
+  status: CoverageStatus
+}
+
+export type AssignCalendarCoverageRequest = {
+  coveringAdultId: string
+  kidIds: string[]
+}
+
 export type CalendarItem = {
   id: string
   source: CalendarItemSource
@@ -90,10 +106,16 @@ export type CalendarItem = {
   leaveByAt: string | null
   leaveByStatus: LeaveByStatus
   leaveByReason: string | null
+  coverages: CalendarCoverageAssignment[]
+  uncoveredKidIds: string[]
 }
 
 export type SetCalendarLeaveFromRequest = {
   leaveFromPlaceId: string
+}
+
+export type SetDefaultLeaveFromRequest = {
+  placeId: string | null
 }
 
 export type FamilyMember = {
@@ -110,6 +132,8 @@ export type FamilyCircle = {
   members: FamilyMember[]
   kids: Kid[]
   places: Place[]
+  defaultLeaveFromPlaceId: string | null
+  defaultLeaveFromPlaceName: string | null
 }
 
 export type FamilyInvite = {

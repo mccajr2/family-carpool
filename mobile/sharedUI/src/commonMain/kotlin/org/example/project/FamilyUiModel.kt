@@ -84,7 +84,17 @@ class FamilyUiModel(
         ) : State()
     }
 
+    /**
+     * Invoked after every [_state] assignment so Compose can show mid-request busy
+     * (e.g. Load more → Loading…) — [FamilyScreen] only mirrored state after await.
+     */
+    var stateListener: (() -> Unit)? = null
+
     private var _state: State = State.Loading
+        set(value) {
+            field = value
+            stateListener?.invoke()
+        }
 
     val state: State
         get() = _state
@@ -864,10 +874,7 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             val page = advanceCalendarWindow(current.calendarLoadedTo)
-            val more =
-                runCatching {
-                    familyClient.listCalendar(token, page.from, page.to)
-                }.getOrElse { emptyList() }
+            val more = familyClient.listCalendar(token, page.from, page.to)
             _state =
                 current.copy(
                     loading = false,
@@ -1015,10 +1022,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems =
-                        current.calendarItems.map { row ->
-                            if (row.source == item.source && row.id == item.id) updated else row
-                        },
+                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
                 )
         } catch (e: Throwable) {
             _state =
@@ -1029,14 +1033,116 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun setDefaultLeaveFrom(placeId: String?) {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.defaultLeaveFromPlaceId == placeId) return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated =
+                familyClient.setDefaultLeaveFrom(
+                    token,
+                    SetDefaultLeaveFromRequest(placeId = placeId),
+                )
+            _state = current.copy(loading = false, circle = updated)
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Set default leave-from failed",
+                )
+        }
+    }
+
+    suspend fun assignCoverage(
+        item: CalendarItem,
+        coveringAdultId: String,
+        kidIds: List<String>,
+    ) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated =
+                familyClient.assignCalendarCoverage(
+                    token,
+                    item.source,
+                    item.id,
+                    AssignCalendarCoverageRequest(
+                        coveringAdultId = coveringAdultId,
+                        kidIds = kidIds,
+                    ),
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Assign coverage failed",
+                )
+        }
+    }
+
+    suspend fun confirmCoverage(assignmentId: String) {
+        updateCalendarItemFromCoverageAction(assignmentId, "Confirm coverage failed") { token, id ->
+            familyClient.confirmCalendarCoverage(token, id)
+        }
+    }
+
+    suspend fun declineCoverage(assignmentId: String) {
+        updateCalendarItemFromCoverageAction(assignmentId, "Decline coverage failed") { token, id ->
+            familyClient.declineCalendarCoverage(token, id)
+        }
+    }
+
+    suspend fun removeCoverage(assignmentId: String) {
+        updateCalendarItemFromCoverageAction(assignmentId, "Remove coverage failed") { token, id ->
+            familyClient.removeCalendarCoverage(token, id)
+        }
+    }
+
+    private suspend fun updateCalendarItemFromCoverageAction(
+        assignmentId: String,
+        failureMessage: String,
+        action: suspend (token: String, assignmentId: String) -> CalendarItem,
+    ) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated = action(token, assignmentId)
+            _state =
+                current.copy(
+                    loading = false,
+                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: failureMessage,
+                )
+        }
+    }
+
+    private fun replaceCalendarItem(
+        items: List<CalendarItem>,
+        updated: CalendarItem,
+    ): List<CalendarItem> =
+        items.map { row ->
+            if (row.source == updated.source && row.id == updated.id) updated else row
+        }
+
     private suspend fun loadCalendarItems(
         token: String,
         loadedTo: String = defaultCalendarWindow().to,
     ): List<CalendarItem> {
         val window = calendarWindowThrough(loadedTo)
-        return runCatching {
-            familyClient.listCalendar(token, window.from, window.to)
-        }.getOrElse { emptyList() }
+        return familyClient.listCalendar(token, window.from, window.to)
     }
 
     private suspend fun readyState(
@@ -1057,6 +1163,8 @@ class FamilyUiModel(
                 emptyList()
             }
         val initialWindow = defaultCalendarWindow()
+        val calendarResult =
+            runCatching { loadCalendarItems(token, initialWindow.to) }
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
@@ -1064,8 +1172,9 @@ class FamilyUiModel(
             circle = circle,
             inviteCode = inviteCode,
             feeds = feeds,
-            calendarItems = loadCalendarItems(token, initialWindow.to),
+            calendarItems = calendarResult.getOrElse { emptyList() },
             calendarLoadedTo = initialWindow.to,
+            error = calendarResult.exceptionOrNull()?.message,
         )
     }
 }

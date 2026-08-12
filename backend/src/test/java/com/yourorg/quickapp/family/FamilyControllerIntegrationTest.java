@@ -483,6 +483,71 @@ class FamilyControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void defaultLeaveFromSetClearAndRejectUnlocated() throws Exception {
+        String token = signIn("default-leave@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.defaultLeaveFromPlaceId").isEmpty());
+
+        MvcResult located =
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"Home\",\"address\":\"123 Main St\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.latitude").isNumber())
+                        .andReturn();
+        String homeId = JsonPath.read(located.getResponse().getContentAsString(), "$.id");
+
+        MvcResult soft =
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"Mystery\",\"address\":\"Unlocateable Rd\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.latitude").value(org.hamcrest.Matchers.nullValue()))
+                        .andReturn();
+        String softId = JsonPath.read(soft.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        patch("/api/family/circle/default-leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"placeId\":\"" + softId + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(
+                        patch("/api/family/circle/default-leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"placeId\":\"" + homeId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultLeaveFromPlaceId").value(homeId))
+                .andExpect(jsonPath("$.defaultLeaveFromPlaceName").value("Home"));
+
+        mockMvc.perform(
+                        get("/api/family/circle").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultLeaveFromPlaceId").value(homeId));
+
+        mockMvc.perform(
+                        patch("/api/family/circle/default-leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"placeId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultLeaveFromPlaceId").isEmpty());
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

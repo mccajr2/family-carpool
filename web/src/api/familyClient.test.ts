@@ -404,6 +404,8 @@ describe("FamilyClient", () => {
         leaveByAt: "2026-08-15T15:25:00Z",
         leaveByStatus: "OK",
         leaveByReason: null,
+        coverages: [],
+        uncoveredKidIds: [],
       },
       {
         id: "fe1",
@@ -420,6 +422,8 @@ describe("FamilyClient", () => {
         leaveByAt: null,
         leaveByStatus: "UNAVAILABLE",
         leaveByReason: "NO_ORIGIN",
+        coverages: [],
+        uncoveredKidIds: ["k1"],
       },
     ]
 
@@ -460,6 +464,8 @@ describe("FamilyClient", () => {
       leaveByAt: "2026-08-15T15:25:00Z",
       leaveByStatus: "OK" as const,
       leaveByReason: null,
+      coverages: [],
+      uncoveredKidIds: [],
     }
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -472,5 +478,104 @@ describe("FamilyClient", () => {
       "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/leave-from",
     )
     expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PUT" })
+  })
+
+  it("sets default leave-from and clears it", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        json({
+          ...sampleCircle,
+          defaultLeaveFromPlaceId: "p1",
+          defaultLeaveFromPlaceName: "Mom's house",
+        }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          ...sampleCircle,
+          defaultLeaveFromPlaceId: null,
+          defaultLeaveFromPlaceName: null,
+        }),
+      )
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.setDefaultLeaveFrom("tok", { placeId: "p1" }),
+    ).resolves.toMatchObject({
+      defaultLeaveFromPlaceId: "p1",
+      defaultLeaveFromPlaceName: "Mom's house",
+    })
+    await expect(client.setDefaultLeaveFrom("tok", { placeId: null })).resolves.toMatchObject({
+      defaultLeaveFromPlaceId: null,
+    })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/default-leave-from",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PATCH" })
+    expect(JSON.parse((fetchFn.mock.calls[0]?.[1] as RequestInit).body as string)).toEqual({
+      placeId: "p1",
+    })
+  })
+
+  it("assigns calendar coverage", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const item = {
+      id: "e1",
+      source: "MANUAL" as const,
+      title: "Dentist",
+      startsAt: "2026-08-15T16:00:00Z",
+      endsAt: null,
+      location: "Clinic",
+      kidIds: ["k1"],
+      feedId: null,
+      feedName: null,
+      leaveFromPlaceId: null,
+      leaveFromPlaceName: null,
+      leaveByAt: null,
+      leaveByStatus: "UNAVAILABLE" as const,
+      leaveByReason: "NO_ORIGIN",
+      coverages: [
+        {
+          id: "a1",
+          coveringAdultId: "2",
+          coveringAdultDisplayName: "Sam",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "PENDING" as const,
+        },
+      ],
+      uncoveredKidIds: [],
+    }
+
+    const fetchFn = vi.fn().mockResolvedValueOnce(json(item, 201))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.assignCalendarCoverage("tok", "MANUAL", "e1", {
+        coveringAdultId: "2",
+        kidIds: ["k1"],
+      }),
+    ).resolves.toMatchObject({
+      coverages: [{ status: "PENDING", coveringAdultId: "2" }],
+      uncoveredKidIds: [],
+    })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/coverages",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "POST" })
   })
 })

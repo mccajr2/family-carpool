@@ -63,8 +63,13 @@ struct LeaveByDisplayTestMain {
         let content = try! String(contentsOf: contentViewURL, encoding: .utf8)
         expect(content.contains("leaveByAgendaLine"), "Agenda shows leave-by line")
         expect(content.contains("Open Places"), "Agenda has Open Places recovery")
-        expect(content.contains("Edit location"), "Agenda has Edit location recovery")
+        expect(
+            !content.contains("Edit location"),
+            "Agenda does not show Edit location (destination via Edit)"
+        )
         expect(content.contains("Leave from"), "Agenda has leave-from control")
+        expect(content.contains("Button(\"Edit\")"), "manual rows keep Edit")
+        expect(content.contains("Remove event"), "manual rows keep Remove event")
         expect(!content.lowercased().contains("live traffic"), "ContentView has no live traffic")
         expect(!content.contains("\"ETA\""), "ContentView has no ETA string")
 

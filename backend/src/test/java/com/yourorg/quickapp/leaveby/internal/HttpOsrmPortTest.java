@@ -67,4 +67,33 @@ class HttpOsrmPortTest {
             server.stop(0);
         }
     }
+
+    @Test
+    void drivingDurationSecondsSoftFailsWhenUpstreamExceedsReadTimeout() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    try {
+                        Thread.sleep(HttpOsrmPort.READ_TIMEOUT.toMillis() + 2_000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] payload = "{\"code\":\"Ok\",\"routes\":[{\"duration\":1}]}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, payload.length);
+                    exchange.getResponseBody().write(payload);
+                    exchange.close();
+                });
+        server.start();
+        try {
+            String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+            HttpOsrmPort port = new HttpOsrmPort(baseUrl);
+            long started = System.nanoTime();
+            assertThat(port.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2)).isEmpty();
+            long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
+            assertThat(elapsedMs).isLessThan(HttpOsrmPort.READ_TIMEOUT.toMillis() + 2_500);
+        } finally {
+            server.stop(0);
+        }
+    }
 }

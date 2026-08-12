@@ -87,7 +87,21 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: deleteManualEvent");
         assertThat(yaml).contains("operationId: listCircleCalendar");
         assertThat(yaml).contains("operationId: setCalendarLeaveFrom");
+        assertThat(yaml).contains("operationId: setDefaultLeaveFrom");
+        assertThat(yaml).contains("operationId: assignCalendarCoverage");
+        assertThat(yaml).contains("operationId: reassignCalendarCoverage");
+        assertThat(yaml).contains("operationId: removeCalendarCoverage");
+        assertThat(yaml).contains("operationId: confirmCalendarCoverage");
+        assertThat(yaml).contains("operationId: declineCalendarCoverage");
         assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/leave-from");
+        assertThat(yaml).contains("/api/family/circle/default-leave-from");
+        assertThat(yaml).contains(
+                "/api/family/circle/calendar/{source}/{itemId}/coverages");
+        assertThat(yaml).contains("/api/family/circle/calendar/coverages/{assignmentId}");
+        assertThat(yaml).contains(
+                "/api/family/circle/calendar/coverages/{assignmentId}/confirm");
+        assertThat(yaml).contains(
+                "/api/family/circle/calendar/coverages/{assignmentId}/decline");
 
         assertThat(yaml).contains("CreateFamilyCircleRequest:");
         assertThat(yaml).contains("UpdateFamilyCircleRequest:");
@@ -113,6 +127,14 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CalendarItemSource:");
         assertThat(yaml).contains("LeaveByStatus:");
         assertThat(yaml).contains("SetCalendarLeaveFromRequest:");
+        assertThat(yaml).contains("SetDefaultLeaveFromRequest:");
+        assertThat(yaml).contains("CoverageStatus:");
+        assertThat(yaml).contains("CalendarCoverageAssignment:");
+        assertThat(yaml).contains("AssignCalendarCoverageRequest:");
+        assertThat(yaml).contains("coverages:");
+        assertThat(yaml).contains("uncoveredKidIds:");
+        assertThat(yaml).contains("defaultLeaveFromPlaceId:");
+        assertThat(yaml).contains("defaultLeaveFromPlaceName:");
         assertThat(yaml).contains("leaveFromPlaceId:");
         assertThat(yaml).contains("leaveFromPlaceName:");
         assertThat(yaml).contains("leaveByAt:");
@@ -131,11 +153,13 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.10.0");
+        assertThat(yaml).contains("version: 0.11.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
+        assertThat(yaml).contains("coverage responsibility");
+        assertThat(yaml).contains("default leave-from");
         assertThat(yaml).contains("components:");
     }
 

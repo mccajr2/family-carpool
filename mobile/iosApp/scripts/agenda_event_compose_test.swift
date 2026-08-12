@@ -49,6 +49,8 @@ struct AgendaEventComposeTestMain {
         expect(!content.contains("Button(\"Add event\")"), "Agenda no longer hosts Add event submit")
         expect(content.contains("accessibilityLabel(\"Add event\")"), "Calendar chrome still has Add event")
         expect(content.contains("eventComposeDestination"), "compose sheet content is present")
+        expect(content.contains("\"Saving…\""), "compose Save shows Saving… while busy")
+        expect(!content.contains("Working…"), "compose busy must not hijack Sign out")
 
         print("AgendaEventCompose tests passed")
     }
