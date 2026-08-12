@@ -1,8 +1,8 @@
 # Spec: coverage-confirm-decline
 
-Status: in-progress  
+Status: ready-for-pr  
 Created: 2026-08-07  
-Updated: 2026-08-11  
+Updated: 2026-08-12  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `coverage-confirm-decline`  
 Added: 2026-08-07 · re-rank split
@@ -132,26 +132,26 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI bumped; coverage fields on `CalendarItem` + assign/confirm/decline
+- [x] OpenAPI bumped; coverage fields on `CalendarItem` + assign/confirm/decline
       (+ remove) endpoints documented; default leave-from get/set documented;
       web + Android + iOS clients updated in the same change.
-- [ ] Any member can assign an adult + non-empty kid subset on a calendar item;
+- [x] Any member can assign an adult + non-empty kid subset on a calendar item;
       self-assign → `CONFIRMED`; assign other → `PENDING`.
-- [ ] Assignee can confirm (`CONFIRMED`) or decline (`DECLINED`); non-assignee
+- [x] Assignee can confirm (`CONFIRMED`) or decline (`DECLINED`); non-assignee
       confirm/decline → **403**. Declined kids count as uncovered.
-- [ ] Kid exclusivity: second active assignment claiming the same kid on the
+- [x] Kid exclusivity: second active assignment claiming the same kid on the
       same item → **409**. Kid not on item / empty kidIds → **400**.
-- [ ] Reassign by any member updates the row; covering-adult change to someone
+- [x] Reassign by any member updates the row; covering-adult change to someone
       else → `PENDING`.
-- [ ] `GET …/calendar` includes coverage for all members; uncovered kids are
+- [x] `GET …/calendar` includes coverage for all members; uncovered kids are
       detectable by clients; calendar GET never fails solely because coverage
       is empty.
-- [ ] Adult can set/clear **default leave-from** to a located circle place;
+- [x] Adult can set/clear **default leave-from** to a located circle place;
       leave-by uses override → default → legacy first-located-by-name.
-- [ ] No conflict amber UI; no vehicle/seats/nonplayers on coverage.
-- [ ] `ModularityTests` green; unit + integration tests for assign/confirm/decline,
+- [x] No conflict amber UI; no vehicle/seats/nonplayers on coverage.
+- [x] `ModularityTests` green; unit + integration tests for assign/confirm/decline,
       exclusivity, authz, and default leave-from resolution.
-- [ ] `docs/architecture.md` updated (coverage + default origin order).
+- [x] `docs/architecture.md` updated (coverage + default origin order).
 
 ## Tasks
 
@@ -168,8 +168,8 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
       default leave-from control; client + tests.
 - [x] **Android (`sharedLogic` / `sharedUI`):** Same surfaces + tests.
 - [x] **iOS:** Same surfaces + tests.
-- [ ] **Docs:** `docs/architecture.md`.
-- [ ] **Tests:** Service unit + API integration; ModularityTests.
+- [x] **Docs:** `docs/architecture.md`.
+- [x] **Tests:** Service unit + API integration; ModularityTests.
 
 ## Open questions
 
