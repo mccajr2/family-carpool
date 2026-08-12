@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-12 (`/roadmap` added `coverage-leave-from`; next up still `conflict-detection`)
+Updated: 2026-08-12 (`/spec calendar-ux-flow` active — Agenda hierarchy + Interaction UX tenets)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -25,12 +25,17 @@ administering software.
 2. **Carpool** — opt-in team spaces (parent invite); household garage; simple
    **request / accept** with multi-kid seat counts.
 
+**Look and feel:** Simple and intuitive — a distinct custom UI, not a clone of
+any rideshare app. Interaction quality matters as much as features: few choices
+per step, clear primary actions, fast feedback, reachable targets, and grouped
+related controls (see Locked decisions → Interaction UX).
+
 **Primary users:** single- and multi-adult care networks (parents in one or two
 homes, grandparents, nannies, etc.).
 
 **Success:** Before the next practice or game, adults know where kids need to
 be, whether the circle can cover it, when to leave, and whether a teammate can
-share the ride.
+share the ride — without fighting the UI.
 
 **Clients (beta):** **Web + Android + iOS in parallel**, contract-first
 (OpenAPI → backend → web + mobile clients together when a surface ships).
@@ -45,6 +50,8 @@ share the ride.
 - Desktop-first dashboard UX
 - Driver-only role (defer)
 - Sign in with Apple/Google (defer)
+- Cloning Uber (or any rideshare) visual brand, map-first home, or booking IA
+  — tenets only; our flows stay family-calendar + carpool
 
 ## Locked decisions
 
@@ -65,6 +72,7 @@ share the ride.
 | Arrival lead time | Follow-up [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md): editable defaults — game **30m** early, practice **15m**, other **0** — after leave-by ships |
 | Vehicle specs | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable |
 | UI token adoption | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md) |
+| Interaction UX | Distinct custom UI guided by UX-law tenets (not a rideshare clone): **Aesthetic-Usability** (polish reads as usable), **Doherty** (focused busy feedback feels instant), **Fitts** (primary actions large/reachable), **Hick** (few choices per step; sole-option defaults), **Proximity / Similarity** (group related controls; consistent patterns). Lock + apply on Calendar first: [`calendar-ux-flow`](specs/active/calendar-ux-flow.md). Inspired by [Laws of UX that Uber follows](https://medium.com/design-bootcamp/laws-of-ux-that-uber-follows-fa7c6619748b) |
 
 ## Upcoming (ranked)
 
@@ -72,19 +80,20 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id | Status | Added | Summary |
 |------|-----|--------|-------|---------|
-| 1 | conflict-detection | planned | 2026-08-07 · re-rank split | Amber kid time-overlaps + adult double-books from coverage (no auto-resolve) |
-| 2 | coverage-leave-from | planned | 2026-08-12 · enhancement | Leave-from (and leave-by) per coverage when adults take separate cars/kids |
-| 3 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
-| 4 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
-| 5 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
-| 6 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
-| 7 | event-arrival-lead-time | planned | 2026-08-11 · enhancement | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target |
-| 8 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule |
-| 9 | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface |
-| 10 | ui-palette-refresh | planned | 2026-08-10 · enhancement | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
-| 11 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
-| 12 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
-| 13 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
+| 1 | calendar-ux-flow | active | 2026-08-12 · enhancement | Lock interaction tenets; make Calendar/Agenda feel simple and intuitive before more features cement awkward flow |
+| 2 | conflict-detection | planned | 2026-08-07 · re-rank split | Amber kid time-overlaps + adult double-books from coverage (no auto-resolve) |
+| 3 | coverage-leave-from | planned | 2026-08-12 · enhancement | Leave-from (and leave-by) per coverage when adults take separate cars/kids |
+| 4 | event-arrival-lead-time | planned | 2026-08-11 · enhancement | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target |
+| 5 | team-carpool-space-invite | planned | 2026-08-07 · initial | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only |
+| 6 | garage-vehicles | planned | 2026-08-07 · initial | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver |
+| 7 | carpool-request-accept | planned | 2026-08-07 · initial | Multi-kid default ride request + deselect override; accept; seat updates |
+| 8 | driver-leave-by-pickups | planned | 2026-08-07 · initial | Leave-by when teammate pickups are part of the plan (multi-stop estimate) |
+| 9 | family-calendar-grid | planned | 2026-08-10 · re-rank split | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid) |
+| 10 | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface |
+| 11 | ui-palette-refresh | planned | 2026-08-10 · enhancement | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
+| 12 | auth-email-delivery | planned | 2026-08-07 · enhancement | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery) |
+| 13 | web-auth-session-hardening | planned | 2026-08-07 · enhancement | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer |
+| 14 | adult-optional-password | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary) |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -117,7 +126,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 |----|--------|------|
-| — | — | *(none)* |
+| calendar-ux-flow | `calendar-ux-flow` | [active](specs/active/calendar-ux-flow.md) |
 
 ## Done
 
@@ -197,3 +206,4 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-11 | `/spec coverage-confirm-decline`: responsibility coverage + confirm/decline; per-adult default leave-from; conflicts next. |
 | 2026-08-12 | `/pr coverage-confirm-decline`: Agenda coverage + default leave-from (web/Android/iOS); next up `conflict-detection`. |
 | 2026-08-12 | Enhancement: `coverage-leave-from` (rank 2) — per-coverage leave-from when adults take separate cars/kids; next up still `conflict-detection`. |
+| 2026-08-12 | Major re-rank: look-and-feel first — add `calendar-ux-flow` (Next up); lock Interaction UX tenets; pull `event-arrival-lead-time` before carpool; keep conflicts/coverage-leave-from next; grid/palette/adoption after Agenda UX. |
