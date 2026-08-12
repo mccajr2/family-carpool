@@ -84,7 +84,17 @@ class FamilyUiModel(
         ) : State()
     }
 
+    /**
+     * Invoked after every [_state] assignment so Compose can show mid-request busy
+     * (e.g. Load more → Loading…) — [FamilyScreen] only mirrored state after await.
+     */
+    var stateListener: (() -> Unit)? = null
+
     private var _state: State = State.Loading
+        set(value) {
+            field = value
+            stateListener?.invoke()
+        }
 
     val state: State
         get() = _state

@@ -18,6 +18,10 @@ object AppShell {
     const val ROW_FEEDS = "Feeds"
     const val ROW_SIGN_OUT = "Sign out"
 
+    /** Focused-control busy labels (Agenda contract — never put these on Sign out). */
+    const val BUSY_SAVING = "Saving…"
+    const val BUSY_LOADING = "Loading…"
+
     val primaryTabs: List<String> =
         listOf(TAB_CALENDAR, TAB_CARPOOL, TAB_FAMILY, TAB_MORE)
 

@@ -1,6 +1,6 @@
 # Agenda coverage — web behavior contract (reference client)
 
-Status: **stable** (web dogfood complete — 2026-08-12; iOS ported to this contract)  
+Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to this contract)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)
 
 Web Agenda is the **source of truth** for coverage + leave-from **client UX**.

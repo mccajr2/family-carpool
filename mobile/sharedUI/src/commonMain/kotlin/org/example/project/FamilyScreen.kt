@@ -18,6 +18,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,8 +42,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.example.project.ui.FcRadiusMd
+import org.example.project.ui.FcSpace2xl
 import org.example.project.ui.FcSpaceMd
 import org.example.project.ui.FcSpaceSm
+import org.example.project.ui.FcSpaceXl
 import org.example.project.ui.FcSpaceXs
 import org.example.project.ui.FcTheme
 import org.example.project.ui.UiIcons
@@ -59,6 +63,12 @@ fun FamilyScreen(
 
     fun refresh() {
         state = model.state
+    }
+
+    // Push model updates while suspend work is in flight (loading=true), not only after.
+    DisposableEffect(model) {
+        model.stateListener = { refresh() }
+        onDispose { model.stateListener = null }
     }
 
     LaunchedEffect(session, familyClient) {
@@ -463,9 +473,7 @@ private fun ReadyContent(
             if (current.error != null && current.shellTab != FamilyUiModel.ShellTab.CALENDAR) {
                 Text(text = current.error, color = MaterialTheme.colorScheme.error)
             }
-            if (current.loading) {
-                CircularProgressIndicator()
-            }
+            // Busy feedback stays on focused controls (Save / Load more) — no global banner.
         }
     }
 }
@@ -536,7 +544,7 @@ private fun MoreListDestination(
         onClick = null,
     )
     MoreSettingsRow(
-        label = if (current.loading) "Working…" else AppShell.ROW_SIGN_OUT,
+        label = AppShell.ROW_SIGN_OUT,
         icon = UiIcons.imageVector(UiTokens.Icon.signout),
         showChevron = false,
         danger = true,
@@ -1008,6 +1016,11 @@ private fun CalendarDestination(
     refresh: () -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
+    val agendaListBusy = current.loading
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(FcSpaceXl),
+    ) {
     Text("Agenda", style = MaterialTheme.typography.titleSmall)
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
@@ -1072,12 +1085,23 @@ private fun CalendarDestination(
             current.calendarItems.filter { current.agendaKidFilter in it.kidIds }
         }
     if (visibleItems.isEmpty()) {
-        Text(
-            "No events in the loaded window.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        // While the first calendar fetch (or Load more) is in flight, do not claim
+        // the window is empty — busy feedback lives on Load more → Loading….
+        if (!agendaListBusy) {
+            Text(
+                "No events in the loaded window.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     } else {
-        visibleItems.forEach { item ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = FcSpaceMd),
+            verticalArrangement = Arrangement.spacedBy(FcSpace2xl),
+        ) {
+        visibleItems.forEachIndexed { index, item ->
             val isManual = item.source == CalendarItemSource.MANUAL
             val needsOrigin =
                 item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
@@ -1095,7 +1119,13 @@ private fun CalendarDestination(
                 remember(item.source, item.id, item.uncoveredKidIds.joinToString(",")) {
                     mutableStateOf(defaultCoverageKidIds(item.uncoveredKidIds))
                 }
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = if (index == visibleItems.lastIndex) 0.dp else FcSpaceXl),
+                verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+            ) {
                 Text(item.title)
                 Text(
                     formatEventWhen(item.startsAt, item.endsAt),
@@ -1342,6 +1372,7 @@ private fun CalendarDestination(
                                 Checkbox(
                                     checked = kidId in assignKidIds,
                                     onCheckedChange = { checked ->
+                                        // Toggling kids must not clear the covering-adult default.
                                         assignKidIds =
                                             if (checked) {
                                                 assignKidIds + kidId
@@ -1375,7 +1406,11 @@ private fun CalendarDestination(
                         Text("Assign coverage")
                     }
                 }
+                if (index != visibleItems.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                }
             }
+        }
         }
     }
 
@@ -1389,7 +1424,34 @@ private fun CalendarDestination(
         enabled = !current.loading,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Load more")
+        BusyButtonLabel(
+            busy = agendaListBusy,
+            idle = "Load more",
+            busyLabel = AppShell.BUSY_LOADING,
+        )
+    }
+    }
+}
+
+@Composable
+private fun BusyButtonLabel(
+    busy: Boolean,
+    idle: String,
+    busyLabel: String,
+) {
+    if (busy) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(FcSpaceSm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+            Text(busyLabel)
+        }
+    } else {
+        Text(idle)
     }
 }
 
@@ -1479,7 +1541,11 @@ private fun EventComposeDestination(
                         current.editingEventStartsAt.isNotBlank() &&
                         current.editingEventKidIds.isNotEmpty(),
             ) {
-                Text("Save")
+                BusyButtonLabel(
+                    busy = current.loading,
+                    idle = "Save",
+                    busyLabel = AppShell.BUSY_SAVING,
+                )
             }
             OutlinedButton(
                 onClick = {
@@ -1569,7 +1635,11 @@ private fun EventComposeDestination(
                         current.newEventStartsAt.isNotBlank() &&
                         current.newEventKidIds.isNotEmpty(),
             ) {
-                Text("Save")
+                BusyButtonLabel(
+                    busy = current.loading,
+                    idle = "Save",
+                    busyLabel = AppShell.BUSY_SAVING,
+                )
             }
             OutlinedButton(
                 onClick = {
