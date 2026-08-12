@@ -21,8 +21,14 @@ coverage intent, must be visible (amber) — no silent auto-resolve.
 - Assigning / confirming coverage (`coverage-confirm-decline`)
 - Push notifications
 - Auto-assign algorithms
+- Merging coverage CRUD into this PR (coverage ships first)
 
 ## Notes
 
-- Depends on `family-calendar-surface` (and coverage model may be minimal until next slice).
-- Split from former `conflicts-and-coverage`.
+- **Depends on `coverage-confirm-decline`** so adult double-book uses real
+  coverage assignments (not a temporary “everyone covers everyone” heuristic).
+- This slice surfaces **both** same-kid time overlaps and adult double-books
+  from coverage — still detection/UI only (amber; no auto-resolve).
+- Also depends on `family-calendar-surface` (Agenda).
+- Split from former `conflicts-and-coverage`; kept as a separate PR after
+  coverage (do not recombine into one mega-spec).
