@@ -946,6 +946,53 @@ private fun PlacesDestination(
         Text("Add place")
     }
 
+    val locatedPlaces = current.circle.places.filter { it.isLocated() }
+    var defaultLeaveFromExpanded by remember { mutableStateOf(false) }
+    Text("My default leave-from", style = MaterialTheme.typography.labelSmall)
+    Box {
+        OutlinedButton(
+            onClick = { defaultLeaveFromExpanded = true },
+            enabled = !current.loading,
+        ) {
+            Text(
+                current.circle.defaultLeaveFromPlaceName?.takeIf { it.isNotBlank() }
+                    ?: if (locatedPlaces.isEmpty()) {
+                        "No located places yet"
+                    } else {
+                        "None"
+                    },
+            )
+        }
+        DropdownMenu(
+            expanded = defaultLeaveFromExpanded,
+            onDismissRequest = { defaultLeaveFromExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("None") },
+                onClick = {
+                    defaultLeaveFromExpanded = false
+                    scope.launch {
+                        model.setDefaultLeaveFrom(null)
+                        refresh()
+                    }
+                },
+                enabled = !current.loading,
+            )
+            locatedPlaces.forEach { place ->
+                DropdownMenuItem(
+                    text = { Text(place.name) },
+                    onClick = {
+                        defaultLeaveFromExpanded = false
+                        scope.launch {
+                            model.setDefaultLeaveFrom(place.id)
+                            refresh()
+                        }
+                    },
+                    enabled = !current.loading,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1034,6 +1081,13 @@ private fun CalendarDestination(
                     (item.leaveByReason == "NO_DESTINATION" ||
                         item.leaveByReason == "GEOCODE_FAILED")
             var leaveFromExpanded by remember(item.source, item.id) { mutableStateOf(false) }
+            val itemCoverages = activeCoverages(item)
+            val pendingForSelf = pendingCoverageForAdult(item, current.adultId)
+            val uncoveredKidNames = eventKidNames(item.uncoveredKidIds, current.circle.kids)
+            var assignAdultId by remember(item.source, item.id) {
+                mutableStateOf(current.circle.members.firstOrNull()?.adultId ?: "")
+            }
+            var assignKidIds by remember(item.source, item.id) { mutableStateOf(setOf<String>()) }
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(item.title)
                 Text(
@@ -1147,6 +1201,141 @@ private fun CalendarDestination(
                         ) {
                             Text("Edit location")
                         }
+                    }
+                }
+                if (itemCoverages.isNotEmpty()) {
+                    itemCoverages.forEach { coverage ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                "${coverageAdultLabel(coverage, current.circle.members)} · " +
+                                    "${coverageKidNames(coverage, current.circle.kids)} · " +
+                                    coverageStatusLabel(coverage.status),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.removeCoverage(coverage.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Remove coverage")
+                            }
+                        }
+                    }
+                }
+                if (item.uncoveredKidIds.isNotEmpty()) {
+                    Text(
+                        buildString {
+                            append("Needs coverage")
+                            if (uncoveredKidNames.isNotEmpty()) {
+                                append(": $uncoveredKidNames")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                pendingForSelf?.let { pending ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    model.confirmCoverage(pending.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Confirm coverage")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.declineCoverage(pending.id)
+                                    refresh()
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Decline coverage")
+                        }
+                    }
+                }
+                if (item.uncoveredKidIds.isNotEmpty() && current.circle.members.isNotEmpty()) {
+                    Text("Covering adult", style = MaterialTheme.typography.labelSmall)
+                    var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(
+                            onClick = { assignAdultExpanded = true },
+                            enabled = !current.loading,
+                        ) {
+                            Text(
+                                current.circle.members
+                                    .find { it.adultId == assignAdultId }
+                                    ?.let(::memberLabel)
+                                    ?: "Choose adult",
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = assignAdultExpanded,
+                            onDismissRequest = { assignAdultExpanded = false },
+                        ) {
+                            current.circle.members.forEach { member ->
+                                DropdownMenuItem(
+                                    text = { Text(memberLabel(member)) },
+                                    onClick = {
+                                        assignAdultId = member.adultId
+                                        assignAdultExpanded = false
+                                    },
+                                    enabled = !current.loading,
+                                )
+                            }
+                        }
+                    }
+                    Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
+                    item.uncoveredKidIds.forEach { kidId ->
+                        val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Checkbox(
+                                checked = kidId in assignKidIds,
+                                onCheckedChange = { checked ->
+                                    assignKidIds =
+                                        if (checked) {
+                                            assignKidIds + kidId
+                                        } else {
+                                            assignKidIds - kidId
+                                        }
+                                },
+                                enabled = !current.loading,
+                            )
+                            Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                model.assignCoverage(
+                                    item,
+                                    assignAdultId,
+                                    assignKidIds.toList(),
+                                )
+                                assignKidIds = emptySet()
+                                refresh()
+                            }
+                        },
+                        enabled =
+                            !current.loading &&
+                                assignAdultId.isNotBlank() &&
+                                assignKidIds.isNotEmpty(),
+                    ) {
+                        Text("Assign coverage")
                     }
                 }
             }
