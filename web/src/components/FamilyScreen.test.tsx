@@ -31,6 +31,8 @@ function calendarItem(
     leaveByAt: null,
     leaveByStatus: "UNAVAILABLE",
     leaveByReason: "NO_ORIGIN",
+    coverages: [],
+    uncoveredKidIds: [],
     ...partial,
   }
 }

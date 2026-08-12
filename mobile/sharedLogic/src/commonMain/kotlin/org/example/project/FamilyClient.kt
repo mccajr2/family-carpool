@@ -240,6 +240,20 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun setDefaultLeaveFrom(
+        accessToken: String,
+        body: SetDefaultLeaveFromRequest,
+    ): FamilyCircle {
+        val response =
+            httpClient.patch("$baseUrl/api/family/circle/default-leave-from") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Set default leave-from failed")
+        return response.body()
+    }
+
     suspend fun listFeeds(accessToken: String): List<ActivityFeed> {
         val response =
             httpClient.get("$baseUrl/api/family/circle/feeds") {
@@ -337,6 +351,77 @@ class FamilyClient(
                 setBody(body)
             }
         ensureSuccess(response, "Set leave-from failed")
+        return response.body()
+    }
+
+    suspend fun assignCalendarCoverage(
+        accessToken: String,
+        source: CalendarItemSource,
+        itemId: String,
+        body: AssignCalendarCoverageRequest,
+    ): CalendarItem {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/calendar/$source/$itemId/coverages") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Assign coverage failed")
+        return response.body()
+    }
+
+    suspend fun reassignCalendarCoverage(
+        accessToken: String,
+        assignmentId: String,
+        body: AssignCalendarCoverageRequest,
+    ): CalendarItem {
+        val response =
+            httpClient.put("$baseUrl/api/family/circle/calendar/coverages/$assignmentId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Reassign coverage failed")
+        return response.body()
+    }
+
+    suspend fun removeCalendarCoverage(
+        accessToken: String,
+        assignmentId: String,
+    ): CalendarItem {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/calendar/coverages/$assignmentId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Remove coverage failed")
+        return response.body()
+    }
+
+    suspend fun confirmCalendarCoverage(
+        accessToken: String,
+        assignmentId: String,
+    ): CalendarItem {
+        val response =
+            httpClient.post(
+                "$baseUrl/api/family/circle/calendar/coverages/$assignmentId/confirm",
+            ) {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Confirm coverage failed")
+        return response.body()
+    }
+
+    suspend fun declineCalendarCoverage(
+        accessToken: String,
+        assignmentId: String,
+    ): CalendarItem {
+        val response =
+            httpClient.post(
+                "$baseUrl/api/family/circle/calendar/coverages/$assignmentId/decline",
+            ) {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Decline coverage failed")
         return response.body()
     }
 

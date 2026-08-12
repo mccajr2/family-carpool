@@ -163,7 +163,7 @@ origin order; explicit hand-off that seats/nonplayers/trips → carpool.
       assign/reassign/remove/confirm/decline rules; public API for calendar.
 - [x] **Backend (`calendar`):** Enrich agenda items with coverage; wire write
       endpoints (controller in calendar or coverage — keep Modulith boundaries).
-- [ ] **Contract:** OpenAPI coverage + default leave-from; version bump.
+- [x] **Contract:** OpenAPI coverage + default leave-from; version bump.
 - [ ] **Web:** Agenda coverage + needs-coverage; assign/confirm/decline;
       default leave-from control; client + tests.
 - [ ] **Android (`sharedLogic` / `sharedUI`):** Same surfaces + tests.

@@ -1,6 +1,7 @@
 import { authUrl } from "@/api/authClient"
 import type {
   ActivityFeed,
+  AssignCalendarCoverageRequest,
   CreateFamilyCircleRequest,
   FamilyCircle,
   FamilyInvite,
@@ -12,6 +13,7 @@ import type {
   CalendarItemSource,
   Place,
   SetCalendarLeaveFromRequest,
+  SetDefaultLeaveFromRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -278,6 +280,27 @@ export class FamilyClient {
     return (await response.json()) as Place
   }
 
+  async setDefaultLeaveFrom(
+    accessToken: string,
+    body: SetDefaultLeaveFromRequest,
+  ): Promise<FamilyCircle> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/default-leave-from"),
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set default leave-from failed"))
+    }
+    return (await response.json()) as FamilyCircle
+  }
+
   async listFeeds(accessToken: string): Promise<ActivityFeed[]> {
     const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/feeds"), {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -399,6 +422,111 @@ export class FamilyClient {
     )
     if (!response.ok) {
       throw new Error(await readErrorMessage(response, "Set leave-from failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async assignCalendarCoverage(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    body: AssignCalendarCoverageRequest,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/coverages`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Assign coverage failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async reassignCalendarCoverage(
+    accessToken: string,
+    assignmentId: string,
+    body: AssignCalendarCoverageRequest,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/calendar/coverages/${assignmentId}`),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Reassign coverage failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async removeCalendarCoverage(
+    accessToken: string,
+    assignmentId: string,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/calendar/coverages/${assignmentId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Remove coverage failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async confirmCalendarCoverage(
+    accessToken: string,
+    assignmentId: string,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/coverages/${assignmentId}/confirm`,
+      ),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Confirm coverage failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async declineCalendarCoverage(
+    accessToken: string,
+    assignmentId: string,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/coverages/${assignmentId}/decline`,
+      ),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Decline coverage failed"))
     }
     return (await response.json()) as CalendarItem
   }
