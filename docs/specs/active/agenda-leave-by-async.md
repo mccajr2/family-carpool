@@ -200,7 +200,7 @@ Sign-out / identity change still clears the calendar cache.
 - [x] **Android (`sharedLogic` / `sharedUI`):** Same behavior in `FamilyUiModel`
       + Agenda leave-by line.
 - [x] **iOS:** Same behavior (`AuthViewModel` / Calendar UI).
-- [ ] **Docs:** `docs/architecture.md` — cheap list + async fill-in; reuse
+- [x] **Docs:** `docs/architecture.md` — cheap list + async fill-in; reuse
       `geocode_cache` + new duration cache; pointer at
       `calendar-conditional-get` for ETag on the cheap payload.
 - [ ] **Tests:** List GET never hits Nominatim/OSRM HTTP; fill-in integration;
