@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-12 (`/pr conflict-detection` — next up `calendar-client-cache`)
+Updated: 2026-08-12 (`/spec calendar-client-cache` — split conditional GET; active cache slice)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -87,20 +87,21 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                             | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ------------------------------ | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | calendar-client-cache          | planned | 2026-08-12 · enhancement                                         | Persist + background refresh Agenda so calendar is instant on login; update behind the scenes                                                                   |
-| 2    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
-| 3    | event-arrival-lead-time        | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
-| 4    | conflict-travel-margin         | planned | 2026-08-12 · enhancement                                         | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                                                         |
-| 5    | team-carpool-space-invite      | planned | 2026-08-07 · initial                                             | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only                                                                |
-| 6    | garage-vehicles                | planned | 2026-08-07 · initial                                             | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver                                                                 |
-| 7    | carpool-request-accept         | planned | 2026-08-07 · initial                                             | Multi-kid default ride request + deselect override; accept; seat updates                                                                                        |
-| 8    | driver-leave-by-pickups        | planned | 2026-08-07 · initial                                             | Leave-by when teammate pickups are part of the plan (multi-stop estimate)                                                                                       |
-| 9    | family-calendar-grid           | planned | 2026-08-10 · re-rank split                                       | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid)                                                                |
-| 10   | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
-| 11   | ui-palette-refresh             | planned | 2026-08-10 · enhancement                                         | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
-| 12   | auth-email-delivery            | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
-| 13   | web-auth-session-hardening     | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
-| 14   | adult-optional-password        | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
+| 1    | calendar-client-cache          | active  | 2026-08-12 · enhancement                                         | Persist + SWR Agenda (paint cache, full GET revalidate); mutations keep snapshot coherent                                                                       |
+| 2    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after client cache)                                                           |
+| 3    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
+| 4    | event-arrival-lead-time        | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
+| 5    | conflict-travel-margin         | planned | 2026-08-12 · enhancement                                         | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                                                         |
+| 6    | team-carpool-space-invite      | planned | 2026-08-07 · initial                                             | Enable team carpool space; parent invite code/link; reshare/regenerate; feed stays calendar-only                                                                |
+| 7    | garage-vehicles                | planned | 2026-08-07 · initial                                             | Adult garage; NHTSA seat hints + manual override; 0 vehicles / don’t drive still full Caregiver                                                                 |
+| 8    | carpool-request-accept         | planned | 2026-08-07 · initial                                             | Multi-kid default ride request + deselect override; accept; seat updates                                                                                        |
+| 9    | driver-leave-by-pickups        | planned | 2026-08-07 · initial                                             | Leave-by when teammate pickups are part of the plan (multi-stop estimate)                                                                                       |
+| 10   | family-calendar-grid           | planned | 2026-08-10 · re-rank split                                       | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid)                                                                |
+| 11   | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
+| 12   | ui-palette-refresh             | planned | 2026-08-10 · enhancement                                         | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
+| 13   | auth-email-delivery            | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
+| 14   | web-auth-session-hardening     | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
+| 15   | adult-optional-password        | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -139,7 +140,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| —  | —      | _none_ |
+| calendar-client-cache | `calendar-client-cache` | [active](specs/active/calendar-client-cache.md) |
 
 
 ## Done
@@ -231,5 +232,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-12 | `/pr calendar-ux-flow`: Agenda presentation hierarchy + Interaction UX tenets (web/Android/iOS); next up `conflict-detection`.                                                                                                    |
 | 2026-08-12 | `/spec conflict-detection`: server conflicts + amber Agenda + 409 double-CONFIRMED; add `calendar-client-cache` (Next up) + `conflict-travel-margin`.                                                                            |
 | 2026-08-12 | `/pr conflict-detection`: Agenda conflict amber + 409 double-CONFIRMED (web/Android/iOS); next up `calendar-client-cache`.                                                                                                        |
+| 2026-08-12 | `/spec calendar-client-cache`: re-rank split — client persist + SWR now; add `calendar-conditional-get` (ETag/`304`) as rank 2.                                                                                                  |
 
 
