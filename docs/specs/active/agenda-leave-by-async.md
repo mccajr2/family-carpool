@@ -199,7 +199,7 @@ Sign-out / identity change still clears the calendar cache.
       PENDING copy; cache merge; Load more fill for the appended page.
 - [x] **Android (`sharedLogic` / `sharedUI`):** Same behavior in `FamilyUiModel`
       + Agenda leave-by line.
-- [ ] **iOS:** Same behavior (`AuthViewModel` / Calendar UI).
+- [x] **iOS:** Same behavior (`AuthViewModel` / Calendar UI).
 - [ ] **Docs:** `docs/architecture.md` — cheap list + async fill-in; reuse
       `geocode_cache` + new duration cache; pointer at
       `calendar-conditional-get` for ETag on the cheap payload.

@@ -44,27 +44,7 @@ struct FamilyFeedItem: Identifiable, Equatable {
     }
 }
 
-struct FamilyCalendarItem: Identifiable, Equatable {
-    let id: String
-    let source: String
-    var title: String
-    var startsAt: String
-    var endsAt: String?
-    var location: String?
-    var kidIds: [String]
-    var feedId: String?
-    var feedName: String?
-    var leaveFromPlaceId: String?
-    var leaveFromPlaceName: String?
-    var leaveByAt: String?
-    var leaveByStatus: String
-    var leaveByReason: String?
-    var coverages: [FamilyCoverageAssignment] = []
-    var uncoveredKidIds: [String] = []
-    var conflicts: [FamilyCalendarConflict] = []
-
-    var isManual: Bool { source == "MANUAL" }
-
+extension FamilyCalendarItem {
     var leaveByAgendaLine: String {
         LeaveByDisplay.leaveByAgendaLine(
             leaveByStatus: leaveByStatus,
@@ -96,90 +76,6 @@ struct FamilyCalendarItem: Identifiable, Equatable {
             let name = namesById[id]?.trimmingCharacters(in: .whitespacesAndNewlines)
             return (name?.isEmpty == false) ? name : nil
         }.joined(separator: ", ")
-    }
-}
-
-enum ManualEventDateCodec {
-    private static let displayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    private static let isoWithFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let isoPlain: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    static func date(fromIso value: String) -> Date? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return isoWithFractional.date(from: trimmed) ?? isoPlain.date(from: trimmed)
-    }
-
-    static func isoString(from date: Date) -> String {
-        isoPlain.string(from: date)
-    }
-
-    static func displayString(fromIso value: String) -> String? {
-        guard let date = date(fromIso: value) else { return nil }
-        return displayFormatter.string(from: date)
-    }
-
-    /// Client-side rules: start in the future; end on or after start.
-    static func validationMessage(startsAt: Date, endsAt: Date?, now: Date = Date()) -> String? {
-        if startsAt < now {
-            return "Start must be in the future"
-        }
-        guard let endsAt else { return nil }
-        if endsAt < startsAt {
-            return "End must be on or after start"
-        }
-        return nil
-    }
-
-    static let calendarPageDays = 30
-
-    static func defaultCalendarWindow(now: Date = Date()) -> (from: String, to: String) {
-        advanceCalendarWindow(from: startOfLocalDay(now), days: calendarPageDays)
-    }
-
-    static func startOfLocalDay(_ now: Date = Date()) -> Date {
-        Calendar.current.startOfDay(for: now)
-    }
-
-    static func advanceCalendarWindow(from: Date, days: Int = calendarPageDays) -> (from: String, to: String) {
-        let calendar = Calendar.current
-        let end = calendar.date(byAdding: .day, value: days, to: from) ?? from
-        return (isoString(from: from), isoString(from: end))
-    }
-
-    static func advanceCalendarWindow(fromIso: String, days: Int = calendarPageDays) -> (from: String, to: String) {
-        let from = date(fromIso: fromIso) ?? Date()
-        return advanceCalendarWindow(from: from, days: days)
-    }
-
-    static func calendarWindowThrough(loadedToIso: String, now: Date = Date()) -> (from: String, to: String) {
-        (isoString(from: startOfLocalDay(now)), loadedToIso)
-    }
-
-    static func ensureCalendarWindowCovers(loadedToIso: String, instant: Date) -> String {
-        let instantIso = isoString(from: instant)
-        var to = loadedToIso
-        var guardCount = 0
-        while instantIso >= to && guardCount < 120 {
-            to = advanceCalendarWindow(fromIso: to).to
-            guardCount += 1
-        }
-        return to
     }
 }
 
@@ -275,6 +171,9 @@ final class AuthViewModel: ObservableObject {
     @Published var isLoading: Bool = false
 
     private let bridge: AuthBridge
+    private var leaveByFillGen = 0
+    private var nearTermDone = true
+    private var nearTermContinuation: CheckedContinuation<Void, Never>?
 
     var isOrganizer: Bool { familyRole == "ORGANIZER" }
 
@@ -651,6 +550,7 @@ final class AuthViewModel: ObservableObject {
                     self.calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
                     self.calendarFetchedAtMs = nil
                     self.calendarRevalidating = false
+                    self.cancelLeaveByFill()
                     self.agendaKidFilter = nil
                     self.defaultLeaveFromPlaceId = nil
                     self.defaultLeaveFromPlaceName = nil
@@ -1166,7 +1066,7 @@ final class AuthViewModel: ObservableObject {
                     self.calendarLoadedTo = to
                     let fetchedAt = Self.nowEpochMillis()
                     self.calendarFetchedAtMs = fetchedAt
-                    self.calendarItems = Self.mapCalendarItems(
+                    let incoming = Self.mapCalendarItems(
                         ids: ids,
                         sources: sources,
                         titles: titles,
@@ -1185,28 +1085,12 @@ final class AuthViewModel: ObservableObject {
                         uncoveredKidIdsJoined: uncoveredKidIdsJoined,
                         conflictsJson: conflictsJson
                     )
-                    self.bridge.saveCalendarCache(
-                        from: window.from,
-                        to: window.to,
-                        fetchedAt: fetchedAt,
-                        ids: ids,
-                        sources: sources,
-                        titles: titles,
-                        startsAts: startsAts,
-                        endsAts: endsAts,
-                        locations: locations,
-                        kidIdsJoined: kidIdsJoined,
-                        feedIds: feedIds,
-                        feedNames: feedNames,
-                        leaveFromPlaceIds: leaveFromPlaceIds,
-                        leaveFromPlaceNames: leaveFromPlaceNames,
-                        leaveByAts: leaveByAts,
-                        leaveByStatuses: leaveByStatuses,
-                        leaveByReasons: leaveByReasons,
-                        coveragesJson: coveragesJson,
-                        uncoveredKidIdsJoined: uncoveredKidIdsJoined,
-                        conflictsJson: conflictsJson
+                    self.calendarItems = CalendarLeaveByMerge.mergeCheapCalendarItems(
+                        incoming: incoming,
+                        cached: self.calendarItems
                     )
+                    self.persistCalendarSnapshot(from: window.from, to: window.to, fetchedAt: fetchedAt)
+                    self.fillLeaveByForWindow(from: window.from, to: window.to)
                 }
             },
             onError: { [weak self] message in
@@ -1214,10 +1098,12 @@ final class AuthViewModel: ObservableObject {
                     guard let self else { return }
                     self.isLoading = false
                     self.calendarRevalidating = false
+                    self.errorMessage = message
                     if !self.calendarItems.isEmpty {
-                        self.errorMessage = message
-                    } else {
-                        self.errorMessage = message
+                        let shown = ManualEventDateCodec.calendarWindowThrough(
+                            loadedToIso: self.calendarLoadedTo
+                        )
+                        self.fillLeaveByForWindow(from: shown.from, to: shown.to)
                     }
                 }
             }
@@ -1282,30 +1168,12 @@ final class AuthViewModel: ObservableObject {
                     let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: page.to)
                     let fetchedAt = Self.nowEpochMillis()
                     self.calendarFetchedAtMs = fetchedAt
-                    self.bridge.saveCalendarCache(
-                        from: window.from,
-                        to: page.to,
-                        fetchedAt: fetchedAt,
-                        ids: self.calendarItems.map(\.id),
-                        sources: self.calendarItems.map(\.source),
-                        titles: self.calendarItems.map(\.title),
-                        startsAts: self.calendarItems.map(\.startsAt),
-                        endsAts: self.calendarItems.map { $0.endsAt ?? "" },
-                        locations: self.calendarItems.map { $0.location ?? "" },
-                        kidIdsJoined: self.calendarItems.map { $0.kidIds.joined(separator: ",") },
-                        feedIds: self.calendarItems.map { $0.feedId ?? "" },
-                        feedNames: self.calendarItems.map { $0.feedName ?? "" },
-                        leaveFromPlaceIds: self.calendarItems.map { $0.leaveFromPlaceId ?? "" },
-                        leaveFromPlaceNames: self.calendarItems.map { $0.leaveFromPlaceName ?? "" },
-                        leaveByAts: self.calendarItems.map { $0.leaveByAt ?? "" },
-                        leaveByStatuses: self.calendarItems.map(\.leaveByStatus),
-                        leaveByReasons: self.calendarItems.map { $0.leaveByReason ?? "" },
-                        coveragesJson: self.calendarItems.map { Self.encodeCoveragesJson($0.coverages) },
-                        uncoveredKidIdsJoined: self.calendarItems.map {
-                            $0.uncoveredKidIds.joined(separator: ",")
-                        },
-                        conflictsJson: self.calendarItems.map { Self.encodeConflictsJson($0.conflicts) }
-                    )
+                    self.persistCalendarSnapshot(from: window.from, to: page.to, fetchedAt: fetchedAt)
+                    let gen = self.leaveByFillGen
+                    Task { @MainActor in
+                        await self.waitForNearTermFill()
+                        await self.fetchAndApplyLeaveBy(from: page.from, to: page.to, gen: gen)
+                    }
                 }
             },
             onError: eventError
@@ -1812,6 +1680,130 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
+    private func persistCalendarSnapshot(from: String, to: String, fetchedAt: Int64) {
+        bridge.saveCalendarCache(
+            from: from,
+            to: to,
+            fetchedAt: fetchedAt,
+            ids: calendarItems.map(\.id),
+            sources: calendarItems.map(\.source),
+            titles: calendarItems.map(\.title),
+            startsAts: calendarItems.map(\.startsAt),
+            endsAts: calendarItems.map { $0.endsAt ?? "" },
+            locations: calendarItems.map { $0.location ?? "" },
+            kidIdsJoined: calendarItems.map { $0.kidIds.joined(separator: ",") },
+            feedIds: calendarItems.map { $0.feedId ?? "" },
+            feedNames: calendarItems.map { $0.feedName ?? "" },
+            leaveFromPlaceIds: calendarItems.map { $0.leaveFromPlaceId ?? "" },
+            leaveFromPlaceNames: calendarItems.map { $0.leaveFromPlaceName ?? "" },
+            leaveByAts: calendarItems.map { $0.leaveByAt ?? "" },
+            leaveByStatuses: calendarItems.map(\.leaveByStatus),
+            leaveByReasons: calendarItems.map { $0.leaveByReason ?? "" },
+            coveragesJson: calendarItems.map { Self.encodeCoveragesJson($0.coverages) },
+            uncoveredKidIdsJoined: calendarItems.map {
+                $0.uncoveredKidIds.joined(separator: ",")
+            },
+            conflictsJson: calendarItems.map { Self.encodeConflictsJson($0.conflicts) }
+        )
+    }
+
+    private func persistFilledCalendarItems() {
+        let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: calendarLoadedTo)
+        let fetchedAt = calendarFetchedAtMs ?? Self.nowEpochMillis()
+        persistCalendarSnapshot(from: window.from, to: window.to, fetchedAt: fetchedAt)
+    }
+
+    private func cancelLeaveByFill() {
+        leaveByFillGen += 1
+        resolveNearTermGate()
+    }
+
+    private func armNearTermGate() {
+        guard nearTermDone else { return }
+        nearTermDone = false
+    }
+
+    private func resolveNearTermGate() {
+        guard !nearTermDone else { return }
+        nearTermDone = true
+        nearTermContinuation?.resume()
+        nearTermContinuation = nil
+    }
+
+    private func waitForNearTermFill() async {
+        if nearTermDone { return }
+        await withCheckedContinuation { continuation in
+            if nearTermDone {
+                continuation.resume()
+            } else {
+                nearTermContinuation = continuation
+            }
+        }
+    }
+
+    private func fillLeaveByForWindow(from loadedFrom: String, to loadedTo: String) {
+        leaveByFillGen += 1
+        let gen = leaveByFillGen
+        armNearTermGate()
+        Task { @MainActor in
+            if let near = ManualEventDateCodec.nearTermLeaveByWindow(
+                loadedFromIso: loadedFrom,
+                loadedToIso: loadedTo
+            ) {
+                await self.fetchAndApplyLeaveBy(from: near.from, to: near.to, gen: gen)
+            }
+            if gen == self.leaveByFillGen {
+                self.resolveNearTermGate()
+            }
+            guard gen == self.leaveByFillGen else { return }
+            if let rest = ManualEventDateCodec.remainderAfterNearTermLeaveByWindow(
+                loadedFromIso: loadedFrom,
+                loadedToIso: loadedTo
+            ) {
+                await self.fetchAndApplyLeaveBy(from: rest.from, to: rest.to, gen: gen)
+            }
+        }
+    }
+
+    private func fetchAndApplyLeaveBy(from: String, to: String, gen: Int) async {
+        let rows = await listCalendarLeaveBy(from: from, to: to)
+        guard gen == leaveByFillGen else { return }
+        guard let rows else { return }
+        calendarItems = CalendarLeaveByMerge.applyLeaveByFillIn(items: calendarItems, rows: rows)
+        persistFilledCalendarItems()
+    }
+
+    private func listCalendarLeaveBy(from: String, to: String) async -> [FamilyCalendarLeaveBy]? {
+        await withCheckedContinuation { continuation in
+            bridge.listCalendarLeaveBy(
+                from: from,
+                to: to,
+                onSuccess: { ids, sources, leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts,
+                    leaveByStatuses, leaveByReasons in
+                    let rows = (0..<ids.count).map { index in
+                        FamilyCalendarLeaveBy(
+                            id: ids[index],
+                            source: sources[index],
+                            leaveFromPlaceId: leaveFromPlaceIds[index].isEmpty
+                                ? nil : leaveFromPlaceIds[index],
+                            leaveFromPlaceName: leaveFromPlaceNames[index].isEmpty
+                                ? nil : leaveFromPlaceNames[index],
+                            leaveByAt: leaveByAts[index].isEmpty ? nil : leaveByAts[index],
+                            leaveByStatus: leaveByStatuses[index],
+                            leaveByReason: leaveByReasons[index].isEmpty
+                                ? nil : leaveByReasons[index]
+                        )
+                    }
+                    continuation.resume(returning: rows)
+                },
+                onError: { _ in
+                    // Keep last known leave-by; do not wipe Agenda.
+                    continuation.resume(returning: nil)
+                }
+            )
+        }
+    }
+
     private func replaceCalendarItem(_ updated: FamilyCalendarItem) {
         if let index = calendarItems.firstIndex(where: {
             $0.source == updated.source && $0.id == updated.id
@@ -1985,6 +1977,7 @@ final class AuthViewModel: ObservableObject {
         let paintedFromCache = cacheHit && !calendarItems.isEmpty
         if paintedFromCache {
             calendarRevalidating = true
+            armNearTermGate()
         } else if calendarItems.isEmpty {
             calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
             calendarFetchedAtMs = nil
@@ -2057,6 +2050,7 @@ final class AuthViewModel: ObservableObject {
         calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         calendarFetchedAtMs = nil
         calendarRevalidating = false
+        cancelLeaveByFill()
         agendaKidFilter = nil
         defaultLeaveFromPlaceId = nil
         defaultLeaveFromPlaceName = nil

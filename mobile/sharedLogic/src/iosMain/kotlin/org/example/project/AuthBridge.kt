@@ -751,6 +751,38 @@ class AuthBridge {
         }
     }
 
+    fun listCalendarLeaveBy(
+        from: String,
+        to: String,
+        onSuccess: (
+            ids: List<String>,
+            sources: List<String>,
+            leaveFromPlaceIds: List<String>,
+            leaveFromPlaceNames: List<String>,
+            leaveByAts: List<String>,
+            leaveByStatuses: List<String>,
+            leaveByReasons: List<String>,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val rows = familyClient.listCalendarLeaveBy(session.requireAccessToken(), from, to)
+                onSuccess(
+                    rows.map { it.id },
+                    rows.map { it.source.name },
+                    rows.map { it.leaveFromPlaceId.orEmpty() },
+                    rows.map { it.leaveFromPlaceName.orEmpty() },
+                    rows.map { it.leaveByAt.orEmpty() },
+                    rows.map { it.leaveByStatus.name },
+                    rows.map { it.leaveByReason.orEmpty() },
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "List calendar leave-by failed")
+            }
+        }
+    }
+
     fun setCalendarLeaveFrom(
         source: String,
         itemId: String,

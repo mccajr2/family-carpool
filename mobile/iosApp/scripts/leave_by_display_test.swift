@@ -56,6 +56,19 @@ struct LeaveByDisplayTestMain {
             )
         expect(unavailableLine == "No leave-from place yet", "UNAVAILABLE agenda line")
 
+        expect(
+            LeaveByDisplay.pendingLabel == "Estimating leave-by…",
+            "PENDING copy"
+        )
+        let pendingLine =
+            LeaveByDisplay.leaveByAgendaLine(
+                leaveByStatus: "PENDING",
+                leaveByAt: nil,
+                leaveByReason: nil
+            )
+        expect(pendingLine == LeaveByDisplay.pendingLabel, "PENDING agenda line")
+        expect(pendingLine == "Estimating leave-by…", "PENDING wording")
+
         let contentViewURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -68,6 +81,14 @@ struct LeaveByDisplayTestMain {
             "Agenda does not show Edit location (destination via Edit)"
         )
         expect(content.contains("Leave from"), "Agenda has leave-from control")
+        expect(
+            content.contains("disabled: model.isLoading || model.places.isEmpty"),
+            "Leave from stays usable while leave-by is PENDING"
+        )
+        expect(
+            !content.contains("leaveByStatus == \"PENDING\""),
+            "PENDING does not hide leave-from or coverage"
+        )
         expect(content.contains("Button(\"Edit\")"), "manual rows keep Edit")
         expect(content.contains("Remove event"), "manual rows keep Remove event")
         expect(!content.lowercased().contains("live traffic"), "ContentView has no live traffic")

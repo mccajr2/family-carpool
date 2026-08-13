@@ -30,6 +30,8 @@ enum LeaveByDisplay {
         return timeFormatter.string(from: date)
     }
 
+    static let pendingLabel = "Estimating leave-by…"
+
     /// e.g. "Leave by ~3:40 PM · estimate"
     static func formatLeaveByEstimateLine(leaveByAtIso: String) -> String {
         "Leave by ~\(formatLeaveByTime(iso: leaveByAtIso)) · estimate"
@@ -53,6 +55,9 @@ enum LeaveByDisplay {
         leaveByAt: String?,
         leaveByReason: String?
     ) -> String {
+        if leaveByStatus == "PENDING" {
+            return pendingLabel
+        }
         if leaveByStatus == "OK", let leaveByAt, !leaveByAt.isEmpty {
             return formatLeaveByEstimateLine(leaveByAtIso: leaveByAt)
         }
