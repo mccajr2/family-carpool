@@ -12,6 +12,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -102,6 +103,24 @@ class AuthClientTest {
                     client.requestCode("parent@example.com")
                 }
             assertEquals("Too many code requests", error.message)
+            assertFalse(error.unreachable)
+        }
+
+    @Test
+    fun connectFailureIsFlaggedUnreachable() =
+        runTest {
+            val mockEngine = MockEngine { throw RuntimeException("Failed to connect to /127.0.0.1:8080") }
+            val httpClient =
+                HttpClient(mockEngine) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val client = AuthClient("http://127.0.0.1:8080", httpClient)
+
+            val error = assertFailsWith<AuthApiException> { client.getMe("tok") }
+            assertTrue(error.unreachable)
+            assertTrue(error.message?.contains("Cannot reach http://127.0.0.1:8080") == true)
         }
 }
 
@@ -145,6 +164,24 @@ class AuthSessionTest {
             session.logout()
             assertNull(store.loadAccessToken())
         }
+
+    @Test
+    fun clearLocalSessionDropsTokenWithoutCallingServer() {
+        val mockEngine = MockEngine { error("clearLocalSession must not call the server") }
+        val httpClient = HttpClient(mockEngine)
+        val store = InMemorySecureTokenStore().also { it.saveAccessToken("tok") }
+        val session =
+            AuthSession(
+                client = AuthClient("http://localhost:8080", httpClient),
+                tokenStore = store,
+            )
+
+        session.clearLocalSession()
+
+        assertNull(store.loadAccessToken())
+        assertFalse(session.isSignedIn())
+        assertTrue(mockEngine.requestHistory.isEmpty())
+    }
 }
 
 class InMemorySecureTokenStoreTest {

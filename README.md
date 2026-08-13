@@ -74,13 +74,17 @@ members / invite code (Organizer) → add/rename/remove kids (Organizer) →
 Leave family or Sign out. Unnamed circles show as **Your family**.
 
 **Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator
-or USB device. With the backend on the host, forward the port once per device:
+or USB device. With the backend on the host, `./gradlew :androidApp:installDebug`
+(and Android Studio's install) runs `adb reverse tcp:8080 tcp:8080` automatically.
+You can also run it alone:
 
 ```bash
-adb reverse tcp:8080 tcp:8080
+cd mobile && ./gradlew :androidApp:adbReverse
+# or: adb reverse tcp:8080 tcp:8080
 ```
 
 The app calls `http://127.0.0.1:8080` (same as iOS localhost after reverse).
+Re-run install/`adbReverse` after an emulator restart or a host `adb kill-server`.
 
 **iOS:** open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on a simulator.
 

@@ -170,6 +170,10 @@ export function FamilyScreen({
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
   const [status, setStatus] = useState<Status>({ kind: "loading" })
   const [circle, setCircle] = useState<FamilyCircle | null>(null)
+  // Kept apart from `circle === null` (which means "no circle yet"): after a failed load we do
+  // not know whether one exists, and offering Create family invites a duplicate circle.
+  const [loadFailed, setLoadFailed] = useState<string | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [adult, setAdult] = useState<Adult | null>(() => session.getAdult())
   const [emptyMode, setEmptyMode] = useState<EmptyMode>("choose")
   const [adultDisplayName, setAdultDisplayName] = useState("")
@@ -259,7 +263,8 @@ export function FamilyScreen({
     async function load() {
       const token = session.getAccessToken()
       if (!token) {
-        setStatus({ kind: "error", message: "Not signed in" })
+        setLoadFailed("Not signed in")
+        setStatus({ kind: "idle" })
         return
       }
       setStatus({ kind: "loading" })
@@ -268,6 +273,7 @@ export function FamilyScreen({
         if (cancelled) {
           return
         }
+        setLoadFailed(null)
         setCircle(loaded)
         if (loaded) {
           try {
@@ -316,17 +322,15 @@ export function FamilyScreen({
         if (cancelled) {
           return
         }
-        setStatus({
-          kind: "error",
-          message: error instanceof Error ? error.message : "Something went wrong",
-        })
+        setLoadFailed(error instanceof Error ? error.message : "Something went wrong")
+        setStatus({ kind: "idle" })
       }
     }
     void load()
     return () => {
       cancelled = true
     }
-  }, [familyClient, session])
+  }, [familyClient, session, loadAttempt])
 
   async function requireToken(): Promise<string> {
     const token = session.getAccessToken()
@@ -866,7 +870,7 @@ export function FamilyScreen({
       : stored?.adultId || defaultAdultId
     const kidIds = soleKid
       ? item.uncoveredKidIds
-      : (stored?.kidIds ?? [])
+      : (stored?.kidIds ?? [...item.uncoveredKidIds])
     return { adultId, kidIds, soleAdult, soleKid }
   }
 
@@ -1003,12 +1007,9 @@ export function FamilyScreen({
       if (token && authClient) {
         await authClient.logout(token)
       }
-    } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
-      return
+    } catch {
+      // Telling the server is best-effort: dropping the local session must still happen, or
+      // Sign out does nothing at all whenever the backend is unreachable.
     }
     session.clear()
     onSignedOut()
@@ -1021,6 +1022,37 @@ export function FamilyScreen({
           <CardTitle>Your family</CardTitle>
           <CardDescription>Loading…</CardDescription>
         </CardHeader>
+      </Card>
+    )
+  }
+
+  if (!circle && loadFailed) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your family</CardTitle>
+          <CardDescription>Could not load your family.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p role="alert" className="text-sm text-destructive">
+            {loadFailed}
+          </p>
+          <Button
+            type="button"
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+            disabled={status.kind === "loading"}
+          >
+            Retry
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void onSignOut()}
+            disabled={status.kind === "loading"}
+          >
+            Sign out
+          </Button>
+        </CardContent>
       </Card>
     )
   }

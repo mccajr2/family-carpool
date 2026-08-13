@@ -98,6 +98,29 @@ fun FamilyScreen(
             }
         }
 
+        is FamilyUiModel.State.LoadFailed -> {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Your family", style = MaterialTheme.typography.headlineSmall)
+                Text(text = current.message, color = MaterialTheme.colorScheme.error)
+                Button(
+                    onClick = {
+                        scope.launch {
+                            model.load()
+                            refresh()
+                        }
+                    },
+                ) {
+                    Text("Retry")
+                }
+                OutlinedButton(onClick = onSignOut) {
+                    Text("Sign out")
+                }
+            }
+        }
+
         is FamilyUiModel.State.NeedsMembership -> {
             Column(
                 modifier =

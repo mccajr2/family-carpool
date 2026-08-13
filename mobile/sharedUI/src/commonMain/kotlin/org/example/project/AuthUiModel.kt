@@ -43,11 +43,14 @@ class AuthUiModel(
             val adult = session.currentAdult()
             _state = State.SignedIn(email = adult.email)
         } catch (e: Throwable) {
-            session.logout()
-            _state =
-                State.SignedOut(
-                    error = e.message ?: "Session expired",
-                )
+            if (e is AuthApiException && e.unreachable) {
+                // An unreachable backend is not an expired session: keep the stored token so the
+                // user stays signed in and a retry works once it is back.
+                _state = State.SignedIn(email = "", error = e.message)
+            } else {
+                session.clearLocalSession()
+                _state = State.SignedOut(error = e.message ?: "Session expired")
+            }
         }
     }
 
@@ -101,15 +104,14 @@ class AuthUiModel(
     suspend fun signOut() {
         val current = _state as? State.SignedIn ?: return
         _state = current.copy(loading = true, error = null)
-        try {
-            session.logout()
-            _state = State.SignedOut()
-        } catch (e: Throwable) {
-            _state =
-                current.copy(
-                    loading = false,
-                    error = e.message ?: "Sign out failed",
-                )
-        }
+        // The stored token is dropped even when the server call fails, so the local session is
+        // gone either way — staying on SignedIn would leave a signed-in screen with no token.
+        _state =
+            try {
+                session.logout()
+                State.SignedOut()
+            } catch (e: Throwable) {
+                State.SignedOut(error = e.message ?: "Sign out failed")
+            }
     }
 }

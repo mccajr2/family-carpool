@@ -42,4 +42,12 @@ class AuthSession(
             tokenStore.clear()
         }
     }
+
+    /**
+     * Drops the stored token without calling the server. Use when the session is already known to
+     * be unusable — a server round-trip would only fail again, and it must never throw.
+     */
+    fun clearLocalSession() {
+        tokenStore.clear()
+    }
 }

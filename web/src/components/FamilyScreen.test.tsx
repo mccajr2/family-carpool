@@ -1386,6 +1386,95 @@ describe("FamilyScreen", () => {
     })
   })
 
+  it("offers Retry instead of Create family when the circle load fails", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const getCircle = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue({
+        id: "c1",
+        name: "House",
+        role: "CAREGIVER",
+        members: [],
+        kids: [],
+        places: [],
+      })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle,
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch")
+    expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Have an invite code?" })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(getCircle).toHaveBeenCalledTimes(2)
+  })
+
+  it("signs out locally when the backend cannot be reached", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const logout = vi.fn().mockRejectedValue(new Error("Failed to fetch"))
+    const onSignedOut = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        authClient={mockAuthClient({ logout })}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        onSignedOut={onSignedOut}
+      />,
+    )
+
+    const nav = await screen.findByLabelText("App navigation")
+    await user.click(within(nav).getByRole("button", { name: "Sign out" }))
+
+    await waitFor(() => {
+      expect(onSignedOut).toHaveBeenCalled()
+    })
+    expect(session.getAccessToken()).toBeNull()
+  })
+
   it("shows leave-by estimate and lets the adult change leave-from", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
@@ -1792,7 +1881,7 @@ describe("FamilyScreen", () => {
     expect(within(agenda).queryByText("Needs coverage: Riley")).not.toBeInTheDocument()
   })
 
-  it("enables assign after toggling a kid without re-picking the default adult", async () => {
+  it("pre-selects uncovered kids and keeps default adult when deselecting", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -1863,8 +1952,11 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     const assignButton = within(agenda).getByRole("button", { name: "Assign coverage" })
-    expect(assignButton).toBeDisabled()
-    await user.click(within(agenda).getByLabelText("Cover Sam for Practice"))
+    expect(assignButton).toBeEnabled()
+    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    // Deselect Riley — Assign stays enabled and must not clear default adult.
+    await user.click(within(agenda).getByLabelText("Cover Riley for Practice"))
     expect(assignButton).toBeEnabled()
     await user.click(assignButton)
 

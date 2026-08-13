@@ -76,7 +76,11 @@ class AuthClient(
         } catch (error: AuthApiException) {
             throw error
         } catch (error: Throwable) {
-            throw AuthApiException(connectivityMessage(baseUrl, error), error)
+            throw AuthApiException(
+                connectivityMessage(baseUrl, error),
+                error,
+                unreachable = true,
+            )
         }
 
     companion object {
@@ -84,9 +88,15 @@ class AuthClient(
     }
 }
 
+/**
+ * @param unreachable true when the backend could not be contacted at all (down, wrong host, or a
+ * dropped `adb reverse`). Callers use this to tell "no network" apart from "the server rejected
+ * this request", so a blip is not mistaken for an expired session.
+ */
 class AuthApiException(
     message: String,
     cause: Throwable? = null,
+    val unreachable: Boolean = false,
 ) : Exception(message, cause)
 
 @Serializable
