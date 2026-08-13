@@ -23,7 +23,19 @@ function storageKey(adultId: string, circleId: string): string {
  * Not a secret store — calendar enrichment is adult-scoped but not credentials.
  */
 export class CalendarCacheStore {
-  constructor(private readonly storage: Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length"> = localStorage) {}
+  private readonly storage: Pick<
+    Storage,
+    "getItem" | "setItem" | "removeItem" | "key" | "length"
+  >
+
+  constructor(
+    storage: Pick<
+      Storage,
+      "getItem" | "setItem" | "removeItem" | "key" | "length"
+    > = localStorage,
+  ) {
+    this.storage = storage
+  }
 
   load(adultId: string, circleId: string): CalendarCacheSnapshot | null {
     const raw = this.storage.getItem(storageKey(adultId, circleId))
