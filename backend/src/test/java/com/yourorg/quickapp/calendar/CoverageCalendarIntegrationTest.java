@@ -155,6 +155,125 @@ class CoverageCalendarIntegrationTest {
                 .andExpect(jsonPath("$.uncoveredKidIds.length()").value(2));
     }
 
+    @Test
+    void feedEventIdsStayStableAcrossSyncSoAssignStillWorks() throws Exception {
+        String organizerToken = signIn("coverage-feed-org@example.com");
+        String caregiverToken = signIn("coverage-feed-care@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult invite =
+                mockMvc.perform(
+                                get("/api/family/circle/invite")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String code = JsonPath.read(invite.getResponse().getContentAsString(), "$.code");
+
+        mockMvc.perform(
+                        post("/api/family/circle/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"code\":\""
+                                                + code
+                                                + "\",\"adultDisplayName\":\"Jordan\"}"))
+                .andExpect(status().isOk());
+
+        MvcResult circleAsCare =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        java.util.List<String> caregiverIds =
+                JsonPath.read(
+                        circleAsCare.getResponse().getContentAsString(),
+                        "$.members[?(@.role=='CAREGIVER')].adultId");
+        String caregiverAdultId = caregiverIds.getFirst();
+
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult feedResult =
+                mockMvc.perform(
+                                post("/api/family/circle/feeds")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"U12\",\"sourceUrl\":\"https://example.com/team.ics\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String feedId = JsonPath.read(feedResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult beforeSync =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .param("from", "2026-08-01T00:00:00Z")
+                                        .param("to", "2026-09-01T00:00:00Z"))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        java.util.List<String> practiceIdsBefore =
+                JsonPath.read(
+                        beforeSync.getResponse().getContentAsString(),
+                        "$.[?(@.title=='Practice')].id");
+        org.assertj.core.api.Assertions.assertThat(practiceIdsBefore).hasSize(1);
+        String practiceId = practiceIdsBefore.getFirst();
+
+        mockMvc.perform(
+                        post("/api/family/circle/feeds/" + feedId + "/sync")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventCount").value(2));
+
+        MvcResult afterSync =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .param("from", "2026-08-01T00:00:00Z")
+                                        .param("to", "2026-09-01T00:00:00Z"))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        java.util.List<String> practiceIdsAfter =
+                JsonPath.read(
+                        afterSync.getResponse().getContentAsString(),
+                        "$.[?(@.title=='Practice')].id");
+        org.assertj.core.api.Assertions.assertThat(practiceIdsAfter).containsExactly(practiceId);
+
+        mockMvc.perform(
+                        post("/api/family/circle/calendar/FEED/" + practiceId + "/coverages")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"coveringAdultId\":\""
+                                                + caregiverAdultId
+                                                + "\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(practiceId))
+                .andExpect(jsonPath("$.source").value("FEED"))
+                .andExpect(jsonPath("$.coverages[0].status").value("PENDING"));
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

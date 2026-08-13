@@ -7,9 +7,12 @@ import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.UpdateFeedRequest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -160,8 +163,23 @@ public class FeedsService {
             feed.markSyncFailure(ex.getMessage() == null ? ex.toString() : ex.getMessage());
             return;
         }
-        events.deleteByFeedId(feed.id());
-        List<ActivityFeedEventEntity> rows = new ArrayList<>();
+
+        // Upsert by iCal UID so calendar / coverage / leave-from item ids stay stable across
+        // Sync now and the background poller. Delete-all + recreate broke Assign (404) on FEED
+        // rows the client still had loaded.
+        List<ActivityFeedEventEntity> existing = events.findByFeedId(feed.id());
+        Map<String, ActivityFeedEventEntity> byUid = new HashMap<>();
+        List<ActivityFeedEventEntity> withoutUid = new ArrayList<>();
+        for (ActivityFeedEventEntity row : existing) {
+            if (row.uid() != null) {
+                byUid.putIfAbsent(row.uid(), row);
+            } else {
+                withoutUid.add(row);
+            }
+        }
+
+        List<ActivityFeedEventEntity> upserts = new ArrayList<>();
+        Set<UUID> keepIds = new HashSet<>();
         Set<String> seenUids = new HashSet<>();
         for (ParsedIcalEvent event : parsed) {
             String uid = event.uid();
@@ -169,19 +187,82 @@ public class FeedsService {
                 if (!seenUids.add(uid)) {
                     continue;
                 }
+                ActivityFeedEventEntity row = byUid.remove(uid);
+                if (row == null) {
+                    row =
+                            new ActivityFeedEventEntity(
+                                    UUID.randomUUID(),
+                                    feed.id(),
+                                    uid,
+                                    event.summary(),
+                                    event.startsAt(),
+                                    event.endsAt(),
+                                    event.location());
+                } else {
+                    row.applySnapshot(
+                            event.summary(), event.startsAt(), event.endsAt(), event.location());
+                }
+                keepIds.add(row.id());
+                upserts.add(row);
+            } else {
+                ActivityFeedEventEntity row =
+                        takeAnonymousMatch(
+                                withoutUid,
+                                event.summary(),
+                                event.startsAt(),
+                                event.endsAt(),
+                                event.location());
+                if (row == null) {
+                    row =
+                            new ActivityFeedEventEntity(
+                                    UUID.randomUUID(),
+                                    feed.id(),
+                                    null,
+                                    event.summary(),
+                                    event.startsAt(),
+                                    event.endsAt(),
+                                    event.location());
+                } else {
+                    row.applySnapshot(
+                            event.summary(), event.startsAt(), event.endsAt(), event.location());
+                }
+                keepIds.add(row.id());
+                upserts.add(row);
             }
-            rows.add(
-                    new ActivityFeedEventEntity(
-                            UUID.randomUUID(),
-                            feed.id(),
-                            uid,
-                            event.summary(),
-                            event.startsAt(),
-                            event.endsAt(),
-                            event.location()));
         }
-        events.saveAll(rows);
+
+        if (keepIds.isEmpty()) {
+            events.deleteByFeedId(feed.id());
+        } else {
+            events.deleteByFeedIdAndIdNotIn(feed.id(), keepIds);
+        }
+        if (!upserts.isEmpty()) {
+            events.saveAll(upserts);
+        }
         feed.markSyncSuccess(Instant.now());
+    }
+
+    /**
+     * Best-effort match for VEVENTs that omit UID: reuse a prior null-uid row with the same
+     * fingerprint so ids do not churn when the feed is otherwise unchanged.
+     */
+    private static ActivityFeedEventEntity takeAnonymousMatch(
+            List<ActivityFeedEventEntity> withoutUid,
+            String summary,
+            Instant startsAt,
+            Instant endsAt,
+            String location) {
+        for (int i = 0; i < withoutUid.size(); i++) {
+            ActivityFeedEventEntity row = withoutUid.get(i);
+            if (Objects.equals(row.summary(), summary)
+                    && Objects.equals(row.startsAt(), startsAt)
+                    && Objects.equals(row.endsAt(), endsAt)
+                    && Objects.equals(row.location(), location)) {
+                withoutUid.remove(i);
+                return row;
+            }
+        }
+        return null;
     }
 
     private FeedResponse toResponse(ActivityFeedEntity feed) {

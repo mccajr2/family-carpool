@@ -78,4 +78,11 @@ class ActivityFeedEventEntity {
     String location() {
         return location;
     }
+
+    void applySnapshot(String summary, Instant startsAt, Instant endsAt, String location) {
+        this.summary = summary;
+        this.startsAt = startsAt;
+        this.endsAt = endsAt;
+        this.location = location;
+    }
 }

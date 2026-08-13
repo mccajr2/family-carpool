@@ -18,7 +18,15 @@ interface ActivityFeedEventRepository extends JpaRepository<ActivityFeedEventEnt
     @Query("delete from ActivityFeedEventEntity e where e.feedId = :feedId")
     int deleteByFeedId(@Param("feedId") UUID feedId);
 
+    @Modifying(clearAutomatically = false, flushAutomatically = true)
+    @Query(
+            "delete from ActivityFeedEventEntity e where e.feedId = :feedId and e.id not in :keepIds")
+    int deleteByFeedIdAndIdNotIn(
+            @Param("feedId") UUID feedId, @Param("keepIds") Collection<UUID> keepIds);
+
     long countByFeedId(UUID feedId);
+
+    List<ActivityFeedEventEntity> findByFeedId(UUID feedId);
 
     List<ActivityFeedEventEntity>
             findByFeedIdInAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAscIdAsc(
