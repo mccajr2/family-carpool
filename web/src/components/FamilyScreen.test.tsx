@@ -1386,6 +1386,95 @@ describe("FamilyScreen", () => {
     })
   })
 
+  it("offers Retry instead of Create family when the circle load fails", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const getCircle = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue({
+        id: "c1",
+        name: "House",
+        role: "CAREGIVER",
+        members: [],
+        kids: [],
+        places: [],
+      })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle,
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch")
+    expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Have an invite code?" })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(getCircle).toHaveBeenCalledTimes(2)
+  })
+
+  it("signs out locally when the backend cannot be reached", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const logout = vi.fn().mockRejectedValue(new Error("Failed to fetch"))
+    const onSignedOut = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        authClient={mockAuthClient({ logout })}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        onSignedOut={onSignedOut}
+      />,
+    )
+
+    const nav = await screen.findByLabelText("App navigation")
+    await user.click(within(nav).getByRole("button", { name: "Sign out" }))
+
+    await waitFor(() => {
+      expect(onSignedOut).toHaveBeenCalled()
+    })
+    expect(session.getAccessToken()).toBeNull()
+  })
+
   it("shows leave-by estimate and lets the adult change leave-from", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
@@ -1792,7 +1881,7 @@ describe("FamilyScreen", () => {
     expect(within(agenda).queryByText("Needs coverage: Riley")).not.toBeInTheDocument()
   })
 
-  it("enables assign after toggling a kid without re-picking the default adult", async () => {
+  it("pre-selects uncovered kids and keeps default adult when deselecting", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -1863,8 +1952,11 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     const assignButton = within(agenda).getByRole("button", { name: "Assign coverage" })
-    expect(assignButton).toBeDisabled()
-    await user.click(within(agenda).getByLabelText("Cover Sam for Practice"))
+    expect(assignButton).toBeEnabled()
+    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    // Deselect Riley — Assign stays enabled and must not clear default adult.
+    await user.click(within(agenda).getByLabelText("Cover Riley for Practice"))
     expect(assignButton).toBeEnabled()
     await user.click(assignButton)
 
@@ -1875,6 +1967,98 @@ describe("FamilyScreen", () => {
       })
     })
     expect(within(agenda).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
+  })
+
+  it("keeps uncovered kids pre-selected when changing covering adult", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+    })
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...baseItem,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "2",
+          coveringAdultDisplayName: "Jordan",
+          assignedByAdultId: "1",
+          kidIds: ["k1", "k2"],
+          status: "PENDING",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          assignCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const assignButton = within(agenda).getByRole("button", { name: "Assign coverage" })
+    expect(assignButton).toBeEnabled()
+    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+
+    await user.selectOptions(
+      within(agenda).getByLabelText("Covering adult for Practice"),
+      "2",
+    )
+    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    expect(assignButton).toBeEnabled()
+
+    await user.click(assignButton)
+    await waitFor(() => {
+      expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
+        coveringAdultId: "2",
+        kidIds: ["k1", "k2"],
+      })
+    })
   })
 
   it("self-assigns a sole uncovered kid without choosers", async () => {
@@ -2037,6 +2221,158 @@ describe("FamilyScreen", () => {
     expect(
       within(agenda).queryByRole("button", { name: "Confirm coverage" }),
     ).not.toBeInTheDocument()
+  })
+
+  it("groups Agenda item bands and emphasizes Confirm as the primary CTA", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Field",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Mom's house",
+              leaveByStatus: "OK",
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "2",
+                  coveringAdultDisplayName: "Jordan",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "PENDING",
+                },
+              ],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    const primary = within(item).getByTestId("agenda-band-primary")
+    const travel = within(item).getByTestId("agenda-band-travel")
+    const people = within(item).getByTestId("agenda-band-people")
+    const coverage = within(item).getByTestId("agenda-band-coverage")
+
+    expect(primary.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(travel.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(people.compareDocumentPosition(coverage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    expect(within(primary).getByText("Practice")).toBeInTheDocument()
+    expect(within(primary).getByText("Field")).toBeInTheDocument()
+    expect(within(travel).getByTestId("leave-by-MANUAL-e1")).toBeInTheDocument()
+    expect(within(travel).getByTestId("leave-from-label-MANUAL-e1")).toHaveTextContent(
+      "Mom's house",
+    )
+    expect(within(people).getByText("Manual")).toBeInTheDocument()
+    expect(within(people).getByText("Sam")).toBeInTheDocument()
+    expect(within(coverage).getByText(/Jordan · Sam · Pending/)).toBeInTheDocument()
+
+    const primaryCta = within(coverage).getByTestId("agenda-cta-primary")
+    expect(primaryCta).toHaveTextContent("Confirm coverage")
+    expect(within(coverage).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+    expect(within(coverage).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
+  })
+
+  it("emphasizes Assign coverage as primary when Confirm is not shown", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              uncoveredKidIds: ["k1"],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const coverage = within(agenda).getByTestId("agenda-band-coverage")
+    expect(within(coverage).getByTestId("agenda-cta-primary")).toHaveTextContent(
+      "Assign coverage",
+    )
   })
 
   it("sets default leave-from from the Places screen", async () => {

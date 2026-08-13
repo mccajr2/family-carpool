@@ -22,6 +22,68 @@ import kotlinx.serialization.json.Json
 class FamilyUiModelTest {
 
     @Test
+    fun unreachableLoadFailsRetryablyInsteadOfOfferingCreate() =
+        runTest {
+            var reachable = false
+            val mockEngine =
+                MockEngine { request ->
+                    if (!reachable) {
+                        throw RuntimeException("Failed to connect to /127.0.0.1:8080")
+                    }
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+
+            model.load()
+
+            // Never NeedsMembership: a failed load says nothing about whether a circle exists,
+            // and offering Create family there invites a duplicate circle.
+            val failed = assertIs<FamilyUiModel.State.LoadFailed>(model.state)
+            assertTrue(failed.message.contains("Cannot reach"))
+
+            reachable = true
+            model.load()
+
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("House", ready.circle.displayTitle())
+        }
+
+    @Test
     fun createCircleThenAddAndRemoveKid() =
         runTest {
             val mockEngine =

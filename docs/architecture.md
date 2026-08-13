@@ -40,6 +40,7 @@ Locked for `adult-auth-magic-link` (see archive spec):
 | Prod mail | Upcoming `auth-email-delivery` (pre-beta) |
 | Web hardening | Upcoming `web-auth-session-hardening` (HTTP-only cookie; pre-beta) |
 | Mobile tokens | Android `EncryptedSharedPreferences`; iOS Keychain |
+| Unreachable ≠ expired | Clients tell "backend not reachable" (`AuthApiException.unreachable` on mobile) apart from "server rejected the token". Only a rejection clears the stored token, and it clears **locally** (`AuthSession.clearLocalSession()`) — never via a second network call, which is what crashed Android restore. A blip keeps the session so a retry works. A failed circle load shows **Retry**, never Create family (a failure says nothing about whether a circle exists). **Sign out** always drops the local session even when the server call fails. Web + Android follow this; **iOS** still bounces to the sign-in screen on an unreachable `/api/auth/me` (token kept, no crash) — parity is a follow-up |
 
 Modulith module: `backend/modules/auth/`. Contract paths under `/api/auth/*`.
 Public surface for other modules: `AdultSessionApi` (resolve Bearer adult,
@@ -66,7 +67,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. Same cache path geocodes event free-text `location` for leave-by destinations (public `FamilyGeocodeApi`). **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
-| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **replaces** that feed’s event snapshot keyed by iCal `UID`; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
+| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **upserts by iCal `UID`** (stable event UUIDs for Agenda / coverage / leave-from) and deletes only removed UIDs; null-UID rows matched by summary/starts/ends/location fingerprint when possible; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
 | Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; each row enriched for the **current adult** with leave-from + leave-by (see Leave-by below) and **circle-visible coverage** (`coverages` + `uncoveredKidIds`); clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
 | Coverage | **Responsibility** for kid(s) on a calendar item — not seats, vehicles, or trips (those → carpool). Many rows per item; each row = covering adult + non-empty kid subset + `PENDING`\|`CONFIRMED`\|`DECLINED`. Any member may assign / reassign / remove; assignee confirms or declines; **self-assign → `CONFIRMED`**. Kid exclusive across **active** (`PENDING`\|`CONFIRMED`) rows on the same item; multi-kid per adult OK. Declined kids count as uncovered. Modulith: `backend/modules/coverage/`; HTTP under `/api/family/circle/calendar/...` (calendar controllers call `CoverageApi`). Conflict amber UI → [`conflict-detection`](roadmap.md) |
@@ -174,6 +175,52 @@ Locked for `coverage-confirm-decline`:
 | Out of scope | Conflict amber UI → `conflict-detection`; seats / vehicles / nonplayers → carpool |
 
 Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`, buffer / multipliers / fallback env vars under `app.leaveby`. Tests force stub OSRM + stub geocode (no live public hosts).
+
+## Interaction UX
+
+Locked for [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md). Living reference
+surface: **Calendar / Agenda** (web is the behavior reference —
+[`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md); iOS/Android
+match decisions and strings). Distinct custom UI — not a rideshare clone.
+Inspiration only: [Laws of UX that Uber follows](https://medium.com/design-bootcamp/laws-of-ux-that-uber-follows-fa7c6619748b).
+
+### Tenets
+
+| Tenet | Meaning for this product |
+|--------|---------------------------|
+| Aesthetic-Usability | Clear hierarchy and spacing make Agenda feel usable, not sparse chrome |
+| Doherty | Focused busy feedback (Save → Saving…, Load more → Loading…) feels instant; **Sign out** never becomes Working… |
+| Fitts | Primary actions are large enough and easy to hit (especially mobile) |
+| Hick | Few choices per step; sole-option defaults / field rows; one emphasized CTA when present |
+| Proximity / Similarity | Critically grouped bands within an Agenda item; consistent control patterns across clients |
+
+### Presentation choice A (spacing / proximity only)
+
+- Group with hierarchy, type weight, and spacing.
+- **No** new card, muted band, or bordered subsection chrome inside Agenda items.
+- Attribute **order / proximity** may change after critical regroup; coverage /
+  leave-from / compose **behavior and copy** stay on the Agenda contract.
+
+### Busy ladder
+
+When a surface feels too dense:
+
+1. Regroup + hierarchy (proximity, type weight, one primary CTA)
+2. Slight type/spacing tuning within existing tokens
+3. Expand/collapse dense blocks — **not** until dogfood says hierarchy failed
+   (possible follow-up id, e.g. `calendar-ux-disclosure`)
+4. Navigate away — only for real destination jobs (event compose; Open Places
+   for `NO_ORIGIN`; Carpool tab for ride-share later). No nested Agenda
+   attribute screens for fields that belong on the item.
+
+### Forward-looking seams (structure only)
+
+- Agenda: schedule + coverage responsibility + leave-by.
+- Later conflict chrome attaches to the **item**, not a new control dump.
+- Per-coverage leave-from is a later product slice; don’t bury leave-from where
+  it can’t grow.
+- Carpool stays the **Carpool** destination — do not absorb ride-share actions
+  into every Agenda row.
 
 ## Repository layout
 
@@ -365,8 +412,9 @@ Run: `./gradlew :backend:test` and
 - **Ktor Client** — `ktor-client-core` + OkHttp (Android) + Darwin (iOS).
 - **JSON** — kotlinx.serialization + Ktor ContentNegotiation.
 - **Base URL** — `expect fun apiBaseUrl()` in commonMain:
-  - Android (emulator or USB) → `http://127.0.0.1:8080` after
-    `adb reverse tcp:8080 tcp:8080`
+  - Android (emulator/USB) → `http://127.0.0.1:8080` after
+    `adb reverse tcp:8080 tcp:8080` (modern AVDs default to Wi‑Fi where
+    `10.0.2.2` is only a gateway, so app sockets to it time out)
   - iOS simulator → `http://localhost:8080`
 - **iOS Swift interop** — callback wrapper in `iosMain` (e.g. `AuthBridge`)
   rather than exposing `suspend` directly to SwiftUI.
@@ -378,7 +426,7 @@ Run: `./gradlew :backend:test` and
 | Target | How |
 |--------|-----|
 | Backend | `./gradlew :backend:bootRun` (repo root) |
-| Android | Open `mobile/` in Android Studio → run `androidApp`; then `adb reverse tcp:8080 tcp:8080` |
+| Android | Open `mobile/` in Android Studio → run `androidApp`; `installDebug` runs `adb reverse tcp:8080 tcp:8080` — re-run after emulator/`adb` reset |
 | iOS | Open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on simulator |
 
 Manual success signal: sign in with email OTP on each client (dev code echo / log

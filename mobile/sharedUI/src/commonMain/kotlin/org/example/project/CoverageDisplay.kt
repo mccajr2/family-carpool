@@ -63,6 +63,10 @@ fun defaultCoverageAdultId(
     return members.firstOrNull()?.adultId.orEmpty()
 }
 
-/** Single uncovered kid is implicitly selected — no chooser needed. */
+/**
+ * Pre-select every uncovered kid so Assign (the situational primary CTA) is
+ * enabled immediately; the chooser still lets adults deselect. Sole uncovered
+ * kid hides the chooser and uses the same default.
+ */
 fun defaultCoverageKidIds(uncoveredKidIds: List<String>): Set<String> =
-    if (uncoveredKidIds.size == 1) uncoveredKidIds.toSet() else emptySet()
+    uncoveredKidIds.toSet()

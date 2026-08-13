@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -50,6 +52,15 @@ import org.example.project.ui.FcSpaceXs
 import org.example.project.ui.FcTheme
 import org.example.project.ui.UiIcons
 import org.example.project.ui.UiTokens
+
+/** Agenda presentation hierarchy markers (calendar-ux-flow / coverage contract). */
+internal object AgendaBands {
+    const val PRIMARY = "agenda-band-primary"
+    const val TRAVEL = "agenda-band-travel"
+    const val PEOPLE = "agenda-band-people"
+    const val COVERAGE = "agenda-band-coverage"
+    const val CTA_PRIMARY = "agenda-cta-primary"
+}
 
 @Composable
 fun FamilyScreen(
@@ -84,6 +95,29 @@ fun FamilyScreen(
             ) {
                 Text("Your family", style = MaterialTheme.typography.headlineSmall)
                 CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
+            }
+        }
+
+        is FamilyUiModel.State.LoadFailed -> {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Your family", style = MaterialTheme.typography.headlineSmall)
+                Text(text = current.message, color = MaterialTheme.colorScheme.error)
+                Button(
+                    onClick = {
+                        scope.launch {
+                            model.load()
+                            refresh()
+                        }
+                    },
+                ) {
+                    Text("Retry")
+                }
+                OutlinedButton(onClick = onSignOut) {
+                    Text("Sign out")
+                }
             }
         }
 
@@ -1124,286 +1158,366 @@ private fun CalendarDestination(
                     Modifier
                         .fillMaxWidth()
                         .padding(bottom = if (index == visibleItems.lastIndex) 0.dp else FcSpaceXl),
-                verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+                verticalArrangement = Arrangement.spacedBy(FcSpaceMd),
             ) {
-                Text(item.title)
-                Text(
-                    formatEventWhen(item.startsAt, item.endsAt),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    calendarSourceLabel(item.source, item.feedName),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (!item.location.isNullOrBlank()) {
-                    Text(item.location!!, style = MaterialTheme.typography.bodySmall)
-                }
-                val kidNames =
-                    item.kidIds.mapNotNull { id ->
-                        current.circle.kids.find { it.id == id }?.displayName
-                    }.joinToString(", ")
-                if (kidNames.isNotEmpty()) {
-                    Text(kidNames, style = MaterialTheme.typography.bodySmall)
-                }
-                Text(
-                    leaveByAgendaLine(item),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (isManual) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                model.beginEditEvent(item)
-                                refresh()
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Edit")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    model.removeEvent(item.id)
-                                    refresh()
-                                }
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Remove event")
-                        }
-                    }
-                }
-                val locatedPlaces = current.circle.places.filter { it.isLocated() }
-                if (locatedPlaces.size <= 1) {
-                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
-                        FieldRowValueText(
-                            item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
-                                ?: locatedPlaces.singleOrNull()?.name
-                                ?: if (current.circle.places.isEmpty()) {
-                                    "No places yet"
-                                } else {
-                                    "No located places yet"
-                                },
+                // agenda-band-primary — title / when / location
+                Column(
+                    modifier = Modifier.semantics { contentDescription = AgendaBands.PRIMARY },
+                    verticalArrangement = Arrangement.spacedBy(FcSpaceXs),
+                ) {
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        formatEventWhen(item.startsAt, item.endsAt),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!item.location.isNullOrBlank()) {
+                        Text(
+                            item.location!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                } else {
-                    FieldRow(label = FieldRowLabels.LEAVE_FROM) {
-                        Box {
-                            Row(
-                                modifier =
-                                    Modifier.clickable(
-                                        enabled = !current.loading && current.circle.places.isNotEmpty(),
-                                    ) {
-                                        leaveFromExpanded = true
-                                    },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                FieldRowValueText(
-                                    item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
-                                        ?: "Choose a located place",
-                                )
-                                FieldRowChevron()
-                            }
-                            DropdownMenu(
-                                expanded = leaveFromExpanded,
-                                onDismissRequest = { leaveFromExpanded = false },
-                            ) {
-                                current.circle.places.forEach { place ->
-                                    val located = place.isLocated()
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                if (located) {
-                                                    place.name
-                                                } else {
-                                                    "${place.name} (not located)"
-                                                },
-                                            )
-                                        },
-                                        onClick = {
-                                            if (!located) return@DropdownMenuItem
-                                            leaveFromExpanded = false
-                                            scope.launch {
-                                                model.setCalendarLeaveFrom(item, place.id)
-                                                refresh()
-                                            }
-                                        },
-                                        enabled = located && !current.loading,
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
-                if (needsOrigin) {
-                    OutlinedButton(
-                        onClick = {
-                            model.openMorePlaces()
-                            refresh()
-                        },
-                    ) {
-                        Text("Open Places")
-                    }
-                }
-                if (itemCoverages.isNotEmpty()) {
-                    itemCoverages.forEach { coverage ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                "${coverageAdultLabel(coverage, current.circle.members)} · " +
-                                    "${coverageKidNames(coverage, current.circle.kids)} · " +
-                                    coverageStatusLabel(coverage.status),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.weight(1f),
-                            )
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        model.removeCoverage(coverage.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Remove coverage")
-                            }
-                        }
-                    }
-                }
-                if (item.uncoveredKidIds.isNotEmpty()) {
+
+                // agenda-band-travel — leave-by + Leave from (+ Open Places)
+                Column(
+                    modifier = Modifier.semantics { contentDescription = AgendaBands.TRAVEL },
+                    verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+                ) {
                     Text(
-                        buildString {
-                            append("Needs coverage")
-                            if (uncoveredKidNames.isNotEmpty()) {
-                                append(": $uncoveredKidNames")
-                            }
-                        },
+                        leaveByAgendaLine(item),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                pendingForSelf?.let { pending ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    model.confirmCoverage(pending.id)
-                                    refresh()
-                                }
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Confirm coverage")
+                    val locatedPlaces = current.circle.places.filter { it.isLocated() }
+                    if (locatedPlaces.size <= 1) {
+                        FieldRow(label = FieldRowLabels.LEAVE_FROM) {
+                            FieldRowValueText(
+                                item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                    ?: locatedPlaces.singleOrNull()?.name
+                                    ?: if (current.circle.places.isEmpty()) {
+                                        "No places yet"
+                                    } else {
+                                        "No located places yet"
+                                    },
+                            )
                         }
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    model.declineCoverage(pending.id)
-                                    refresh()
-                                }
-                            },
-                            enabled = !current.loading,
-                        ) {
-                            Text("Decline coverage")
-                        }
-                    }
-                }
-                if (item.uncoveredKidIds.isNotEmpty() && current.circle.members.isNotEmpty()) {
-                    val soleAdult = current.circle.members.size == 1
-                    val soleKid = item.uncoveredKidIds.size == 1
-                    val effectiveAdultId =
-                        if (soleAdult) {
-                            current.circle.members.first().adultId
-                        } else {
-                            assignAdultId
-                        }
-                    val effectiveKidIds =
-                        if (soleKid) {
-                            item.uncoveredKidIds
-                        } else {
-                            assignKidIds.toList()
-                        }
-                    if (!soleAdult) {
-                        var assignAdultExpanded by remember(item.source, item.id) { mutableStateOf(false) }
-                        FieldRow(label = FieldRowLabels.COVERING_ADULT) {
+                    } else {
+                        FieldRow(label = FieldRowLabels.LEAVE_FROM) {
                             Box {
                                 Row(
                                     modifier =
-                                        Modifier.clickable(enabled = !current.loading) {
-                                            assignAdultExpanded = true
+                                        Modifier.clickable(
+                                            enabled =
+                                                !current.loading &&
+                                                    current.circle.places.isNotEmpty(),
+                                        ) {
+                                            leaveFromExpanded = true
                                         },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     FieldRowValueText(
-                                        current.circle.members
-                                            .find { it.adultId == assignAdultId }
-                                            ?.let(::memberLabel)
-                                            ?: "Choose adult",
+                                        item.leaveFromPlaceName?.takeIf { it.isNotBlank() }
+                                            ?: "Choose a located place",
                                     )
                                     FieldRowChevron()
                                 }
                                 DropdownMenu(
-                                    expanded = assignAdultExpanded,
-                                    onDismissRequest = { assignAdultExpanded = false },
+                                    expanded = leaveFromExpanded,
+                                    onDismissRequest = { leaveFromExpanded = false },
                                 ) {
-                                    current.circle.members.forEach { member ->
+                                    current.circle.places.forEach { place ->
+                                        val located = place.isLocated()
                                         DropdownMenuItem(
-                                            text = { Text(memberLabel(member)) },
-                                            onClick = {
-                                                assignAdultId = member.adultId
-                                                assignAdultExpanded = false
+                                            text = {
+                                                Text(
+                                                    if (located) {
+                                                        place.name
+                                                    } else {
+                                                        "${place.name} (not located)"
+                                                    },
+                                                )
                                             },
-                                            enabled = !current.loading,
+                                            onClick = {
+                                                if (!located) return@DropdownMenuItem
+                                                leaveFromExpanded = false
+                                                scope.launch {
+                                                    model.setCalendarLeaveFrom(item, place.id)
+                                                    refresh()
+                                                }
+                                            },
+                                            enabled = located && !current.loading,
                                         )
                                     }
                                 }
                             }
                         }
                     }
-                    if (!soleKid) {
-                        Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
-                        item.uncoveredKidIds.forEach { kidId ->
-                            val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                Checkbox(
-                                    checked = kidId in assignKidIds,
-                                    onCheckedChange = { checked ->
-                                        // Toggling kids must not clear the covering-adult default.
-                                        assignKidIds =
-                                            if (checked) {
-                                                assignKidIds + kidId
-                                            } else {
-                                                assignKidIds - kidId
-                                            }
+                    if (needsOrigin) {
+                        OutlinedButton(
+                            onClick = {
+                                model.openMorePlaces()
+                                refresh()
+                            },
+                        ) {
+                            Text("Open Places")
+                        }
+                    }
+                }
+
+                // agenda-band-people — source + kids
+                Column(
+                    modifier = Modifier.semantics { contentDescription = AgendaBands.PEOPLE },
+                    verticalArrangement = Arrangement.spacedBy(FcSpaceXs),
+                ) {
+                    Text(
+                        calendarSourceLabel(item.source, item.feedName),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val kidNames =
+                        item.kidIds.mapNotNull { id ->
+                            current.circle.kids.find { it.id == id }?.displayName
+                        }.joinToString(", ")
+                    if (kidNames.isNotEmpty()) {
+                        Text(
+                            kidNames,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                // agenda-band-coverage — responsibility + situational CTAs + Edit/Remove
+                Column(
+                    modifier = Modifier.semantics { contentDescription = AgendaBands.COVERAGE },
+                    verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
+                ) {
+                    if (itemCoverages.isNotEmpty()) {
+                        itemCoverages.forEach { coverage ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    "${coverageAdultLabel(coverage, current.circle.members)} · " +
+                                        "${coverageKidNames(coverage, current.circle.kids)} · " +
+                                        coverageStatusLabel(coverage.status),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            model.removeCoverage(coverage.id)
+                                            refresh()
+                                        }
                                     },
                                     enabled = !current.loading,
-                                )
-                                Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                                ) {
+                                    Text("Remove coverage")
+                                }
                             }
                         }
                     }
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                model.assignCoverage(
-                                    item,
-                                    effectiveAdultId,
-                                    effectiveKidIds,
-                                )
-                                assignKidIds = defaultCoverageKidIds(item.uncoveredKidIds)
-                                refresh()
+                    if (item.uncoveredKidIds.isNotEmpty()) {
+                        Text(
+                            buildString {
+                                append("Needs coverage")
+                                if (uncoveredKidNames.isNotEmpty()) {
+                                    append(": $uncoveredKidNames")
+                                }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    pendingForSelf?.let { pending ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        model.confirmCoverage(pending.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                                modifier =
+                                    Modifier.semantics {
+                                        contentDescription = AgendaBands.CTA_PRIMARY
+                                    },
+                            ) {
+                                Text("Confirm coverage")
                             }
-                        },
-                        enabled =
-                            !current.loading &&
-                                effectiveAdultId.isNotBlank() &&
-                                effectiveKidIds.isNotEmpty(),
-                    ) {
-                        Text("Assign coverage")
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.declineCoverage(pending.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Decline coverage")
+                            }
+                        }
+                    }
+                    if (item.uncoveredKidIds.isNotEmpty() && current.circle.members.isNotEmpty()) {
+                        val soleAdult = current.circle.members.size == 1
+                        val soleKid = item.uncoveredKidIds.size == 1
+                        val effectiveAdultId =
+                            if (soleAdult) {
+                                current.circle.members.first().adultId
+                            } else {
+                                assignAdultId
+                            }
+                        val effectiveKidIds =
+                            if (soleKid) {
+                                item.uncoveredKidIds
+                            } else {
+                                assignKidIds.toList()
+                            }
+                        if (!soleAdult) {
+                            var assignAdultExpanded by remember(item.source, item.id) {
+                                mutableStateOf(false)
+                            }
+                            FieldRow(label = FieldRowLabels.COVERING_ADULT) {
+                                Box {
+                                    Row(
+                                        modifier =
+                                            Modifier.clickable(enabled = !current.loading) {
+                                                assignAdultExpanded = true
+                                            },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        FieldRowValueText(
+                                            current.circle.members
+                                                .find { it.adultId == assignAdultId }
+                                                ?.let(::memberLabel)
+                                                ?: "Choose adult",
+                                        )
+                                        FieldRowChevron()
+                                    }
+                                    DropdownMenu(
+                                        expanded = assignAdultExpanded,
+                                        onDismissRequest = { assignAdultExpanded = false },
+                                    ) {
+                                        current.circle.members.forEach { member ->
+                                            DropdownMenuItem(
+                                                text = { Text(memberLabel(member)) },
+                                                onClick = {
+                                                    assignAdultId = member.adultId
+                                                    assignAdultExpanded = false
+                                                },
+                                                enabled = !current.loading,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!soleKid) {
+                            Text("Uncovered kids", style = MaterialTheme.typography.labelSmall)
+                            item.uncoveredKidIds.forEach { kidId ->
+                                val kid = current.circle.kids.find { it.id == kidId } ?: return@forEach
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Checkbox(
+                                        checked = kidId in assignKidIds,
+                                        onCheckedChange = { checked ->
+                                            // Toggling kids must not clear the covering-adult default.
+                                            assignKidIds =
+                                                if (checked) {
+                                                    assignKidIds + kidId
+                                                } else {
+                                                    assignKidIds - kidId
+                                                }
+                                        },
+                                        enabled = !current.loading,
+                                    )
+                                    Text(kid.displayName, modifier = Modifier.padding(top = 12.dp))
+                                }
+                            }
+                        }
+                        val assignModifier =
+                            if (pendingForSelf == null) {
+                                Modifier.semantics {
+                                    contentDescription = AgendaBands.CTA_PRIMARY
+                                }
+                            } else {
+                                Modifier
+                            }
+                        if (pendingForSelf == null) {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        model.assignCoverage(
+                                            item,
+                                            effectiveAdultId,
+                                            effectiveKidIds,
+                                        )
+                                        assignKidIds = defaultCoverageKidIds(item.uncoveredKidIds)
+                                        refresh()
+                                    }
+                                },
+                                enabled =
+                                    !current.loading &&
+                                        effectiveAdultId.isNotBlank() &&
+                                        effectiveKidIds.isNotEmpty(),
+                                modifier = assignModifier,
+                            ) {
+                                Text("Assign coverage")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.assignCoverage(
+                                            item,
+                                            effectiveAdultId,
+                                            effectiveKidIds,
+                                        )
+                                        assignKidIds = defaultCoverageKidIds(item.uncoveredKidIds)
+                                        refresh()
+                                    }
+                                },
+                                enabled =
+                                    !current.loading &&
+                                        effectiveAdultId.isNotBlank() &&
+                                        effectiveKidIds.isNotEmpty(),
+                            ) {
+                                Text("Assign coverage")
+                            }
+                        }
+                    }
+                    if (isManual) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    model.beginEditEvent(item)
+                                    refresh()
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Edit")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.removeEvent(item.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Remove event")
+                            }
+                        }
                     }
                 }
                 if (index != visibleItems.lastIndex) {

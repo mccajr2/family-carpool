@@ -57,6 +57,8 @@ fun AuthScreen(session: AuthSession) {
     ) {
         when (val current = state) {
             is AuthUiModel.State.SignedIn -> {
+                // Once signed in, FamilyScreen reports its own load failures — repeating
+                // current.error here printed the same connectivity message twice.
                 FamilyScreen(
                     session = session,
                     onSignOut = {
@@ -66,13 +68,6 @@ fun AuthScreen(session: AuthSession) {
                         }
                     },
                 )
-                if (current.error != null) {
-                    Text(
-                        text = current.error,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
             }
 
             is AuthUiModel.State.SignedOut -> {

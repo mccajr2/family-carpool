@@ -103,7 +103,7 @@ class CoverageDisplayTest {
             )
         assertEquals("1", defaultCoverageAdultId("1", members))
         assertEquals("2", defaultCoverageAdultId("2", listOf(members[0])))
-        assertEquals(emptySet(), defaultCoverageKidIds(listOf("k1", "k2")))
+        assertEquals(setOf("k1", "k2"), defaultCoverageKidIds(listOf("k1", "k2")))
         assertEquals(setOf("k1"), defaultCoverageKidIds(listOf("k1")))
     }
 }

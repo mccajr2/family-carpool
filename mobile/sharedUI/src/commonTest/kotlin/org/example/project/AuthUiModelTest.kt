@@ -93,6 +93,71 @@ class AuthUiModelTest {
         }
 
     @Test
+    fun restoreKeepsSessionWhenBackendUnreachable() =
+        runTest {
+            // Every call fails to connect — the crash was restore falling back to a network
+            // logout that threw again out of the LaunchedEffect calling it.
+            val mockEngine = MockEngine { throw RuntimeException("Failed to connect to /127.0.0.1:8080") }
+            val (model, store) = authUiModel(mockEngine, existingToken = "tok")
+
+            model.restoreIfSignedIn()
+
+            val state = assertIs<AuthUiModel.State.SignedIn>(model.state)
+            assertTrue(state.error?.contains("Cannot reach") == true)
+            assertEquals("tok", store.loadAccessToken())
+            assertTrue(mockEngine.requestHistory.none { it.url.encodedPath == "/api/auth/logout" })
+        }
+
+    @Test
+    fun restoreSignsOutLocallyWhenTokenRejected() =
+        runTest {
+            val mockEngine =
+                MockEngine {
+                    respond(
+                        content = """{"message":"Invalid or expired token"}""",
+                        status = HttpStatusCode.Unauthorized,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val (model, store) = authUiModel(mockEngine, existingToken = "stale")
+
+            model.restoreIfSignedIn()
+
+            val state = assertIs<AuthUiModel.State.SignedOut>(model.state)
+            assertEquals("Invalid or expired token", state.error)
+            assertNull(store.loadAccessToken())
+            // No point asking the server to invalidate a token it already rejected.
+            assertTrue(mockEngine.requestHistory.none { it.url.encodedPath == "/api/auth/logout" })
+        }
+
+    @Test
+    fun signOutEndsSignedOutEvenWhenServerCallFails() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/api/auth/me" ->
+                            respond(
+                                content = """{"id":"1","email":"a@b.com"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/auth/logout" -> throw RuntimeException("Failed to connect")
+                        else -> error("Unexpected ${request.url.encodedPath}")
+                    }
+                }
+            val (model, store) = authUiModel(mockEngine, existingToken = "tok")
+            model.restoreIfSignedIn()
+            assertIs<AuthUiModel.State.SignedIn>(model.state)
+
+            model.signOut()
+
+            val state = assertIs<AuthUiModel.State.SignedOut>(model.state)
+            assertTrue(state.error?.contains("Cannot reach") == true)
+            assertNull(store.loadAccessToken())
+        }
+
+    @Test
     fun sendCodeSurfacesError() =
         runTest {
             val mockEngine =
@@ -111,14 +176,17 @@ class AuthUiModelTest {
         }
 }
 
-private fun authUiModel(mockEngine: MockEngine): Pair<AuthUiModel, InMemorySecureTokenStore> {
+private fun authUiModel(
+    mockEngine: MockEngine,
+    existingToken: String? = null,
+): Pair<AuthUiModel, InMemorySecureTokenStore> {
     val httpClient =
         HttpClient(mockEngine) {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
             }
         }
-    val store = InMemorySecureTokenStore()
+    val store = InMemorySecureTokenStore().also { if (existingToken != null) it.saveAccessToken(existingToken) }
     val session =
         AuthSession(
             client = AuthClient("http://localhost:8080", httpClient),

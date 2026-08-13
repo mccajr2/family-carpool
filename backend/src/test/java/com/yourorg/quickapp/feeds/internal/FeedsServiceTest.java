@@ -14,6 +14,7 @@ import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.CreateFeedRequest;
 import com.yourorg.quickapp.feeds.UpdateFeedRequest;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,6 +67,7 @@ class FeedsServiceTest {
                                         Instant.parse("2026-08-15T17:00:00Z"),
                                         Instant.parse("2026-08-15T18:00:00Z"),
                                         "Field")));
+        when(events.findByFeedId(any())).thenReturn(List.of());
         when(events.countByFeedId(any())).thenReturn(1L);
 
         var response =
@@ -78,7 +80,7 @@ class FeedsServiceTest {
         assertThat(response.lastSyncedAt()).isNotNull();
         assertThat(response.lastSyncError()).isNull();
         assertThat(response.eventCount()).isEqualTo(1);
-        verify(events).deleteByFeedId(any());
+        verify(events).deleteByFeedIdAndIdNotIn(any(), any());
         verify(events).saveAll(any());
     }
 
@@ -157,7 +159,7 @@ class FeedsServiceTest {
     }
 
     @Test
-    void syncReplacesSnapshot() {
+    void syncUpsertsByUidAndDedupesDuplicates() {
         UUID adultId = UUID.randomUUID();
         UUID circleId = UUID.randomUUID();
         UUID feedId = UUID.randomUUID();
@@ -177,16 +179,94 @@ class FeedsServiceTest {
                                         "u1", "A", Instant.parse("2026-08-15T17:00:00Z"), null, null),
                                 new ParsedIcalEvent(
                                         "u1", "dup", Instant.parse("2026-08-15T17:00:00Z"), null, null)));
+        when(events.findByFeedId(feedId)).thenReturn(List.of());
         when(events.countByFeedId(feedId)).thenReturn(1L);
 
         feedsService.sync(adult, feedId);
 
         ArgumentCaptor<List<ActivityFeedEventEntity>> saved = ArgumentCaptor.forClass(List.class);
-        verify(events).deleteByFeedId(feedId);
+        ArgumentCaptor<Collection<UUID>> keepIds = ArgumentCaptor.forClass(Collection.class);
+        verify(events).deleteByFeedIdAndIdNotIn(eq(feedId), keepIds.capture());
         verify(events).saveAll(saved.capture());
         assertThat(saved.getValue()).hasSize(1);
+        assertThat(keepIds.getValue()).containsExactly(saved.getValue().getFirst().id());
         assertThat(feed.lastSyncError()).isNull();
         assertThat(feed.kidIds()).isEqualTo(Set.of());
+    }
+
+    @Test
+    void syncPreservesExistingEventIdsWhenUidMatches() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        UUID existingId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ActivityFeedEntity feed =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+        ActivityFeedEventEntity existing =
+                new ActivityFeedEventEntity(
+                        existingId,
+                        feedId,
+                        "u1",
+                        "Old title",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        Instant.parse("2026-08-15T18:00:00Z"),
+                        "Old field");
+
+        when(familyMembershipApi.requireOrganizerCircleId(adultId)).thenReturn(circleId);
+        when(feeds.findByIdAndCircleIdForUpdate(feedId, circleId)).thenReturn(Optional.of(feed));
+        when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(icalFetchPort.fetch(any())).thenReturn("ICS");
+        when(icalParser.parse("ICS"))
+                .thenReturn(
+                        List.of(
+                                new ParsedIcalEvent(
+                                        "u1",
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:30:00Z"),
+                                        Instant.parse("2026-08-15T18:30:00Z"),
+                                        "Field 3")));
+        when(events.findByFeedId(feedId)).thenReturn(List.of(existing));
+        when(events.countByFeedId(feedId)).thenReturn(1L);
+
+        feedsService.sync(adult, feedId);
+
+        ArgumentCaptor<List<ActivityFeedEventEntity>> saved = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<Collection<UUID>> keepIds = ArgumentCaptor.forClass(Collection.class);
+        verify(events).deleteByFeedIdAndIdNotIn(eq(feedId), keepIds.capture());
+        verify(events).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        assertThat(saved.getValue().getFirst().id()).isEqualTo(existingId);
+        assertThat(saved.getValue().getFirst().summary()).isEqualTo("Practice");
+        assertThat(saved.getValue().getFirst().location()).isEqualTo("Field 3");
+        assertThat(keepIds.getValue()).containsExactly(existingId);
+        verify(events, never()).deleteByFeedId(feedId);
+    }
+
+    @Test
+    void syncDeletesRemovedEventsAndClearsWhenEmpty() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ActivityFeedEntity feed =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+
+        when(familyMembershipApi.requireOrganizerCircleId(adultId)).thenReturn(circleId);
+        when(feeds.findByIdAndCircleIdForUpdate(feedId, circleId)).thenReturn(Optional.of(feed));
+        when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(icalFetchPort.fetch(any())).thenReturn("ICS");
+        when(icalParser.parse("ICS")).thenReturn(List.of());
+        when(events.findByFeedId(feedId)).thenReturn(List.of());
+        when(events.countByFeedId(feedId)).thenReturn(0L);
+
+        feedsService.sync(adult, feedId);
+
+        verify(events).deleteByFeedId(feedId);
+        verify(events, never()).deleteByFeedIdAndIdNotIn(any(), any());
+        verify(events, never()).saveAll(any());
     }
 
     @Test
@@ -211,11 +291,12 @@ class FeedsServiceTest {
                                         Instant.parse("2026-08-15T17:00:00Z"),
                                         null,
                                         null)));
+        when(events.findByFeedId(feedId)).thenReturn(List.of());
         org.mockito.Mockito.doThrow(
                         new org.springframework.orm.ObjectOptimisticLockingFailureException(
                                 ActivityFeedEventEntity.class, feedId))
                 .when(events)
-                .deleteByFeedId(feedId);
+                .deleteByFeedIdAndIdNotIn(eq(feedId), any());
 
         assertThatThrownBy(() -> feedsService.sync(adult, feedId))
                 .isInstanceOf(
@@ -251,6 +332,7 @@ class FeedsServiceTest {
                                         Instant.parse("2026-08-15T17:00:00Z"),
                                         null,
                                         null)));
+        when(events.findByFeedId(okId)).thenReturn(List.of());
         when(icalFetchPort.fetch("https://example.com/fail.ics"))
                 .thenThrow(new IllegalStateException("timeout"));
 
@@ -261,8 +343,9 @@ class FeedsServiceTest {
         assertThat(ok.lastSyncError()).isNull();
         assertThat(fail.lastSyncedAt()).isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
         assertThat(fail.lastSyncError()).contains("timeout");
-        verify(events).deleteByFeedId(okId);
-        verify(events, never()).deleteByFeedId(failId);
+        verify(events).deleteByFeedIdAndIdNotIn(eq(okId), any());
+        verify(events, never()).deleteByFeedId(okId);
+        verify(events, never()).findByFeedId(failId);
         verify(feeds, org.mockito.Mockito.times(2)).save(any());
     }
 

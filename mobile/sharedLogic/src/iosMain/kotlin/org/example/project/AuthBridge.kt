@@ -126,7 +126,14 @@ class AuthBridge {
                 session.logout()
                 onSuccess()
             } catch (e: Throwable) {
-                onError(e.message ?: "Logout failed")
+                // AuthSession.logout clears the token in finally even when the server call fails.
+                // Treat a cleared session as signed-out success so iOS never stays "signed in"
+                // with no token.
+                if (!session.isSignedIn()) {
+                    onSuccess()
+                } else {
+                    onError(e.message ?: "Logout failed")
+                }
             }
         }
     }

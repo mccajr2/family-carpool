@@ -68,6 +68,30 @@ class AgendaCoverageContractTest {
             source.contains("FieldRowLabels.DEFAULT_LEAVE_FROM"),
             "default leave-from field row",
         )
+        assertTrue(source.contains("AgendaBands.PRIMARY"), "Agenda primary band")
+        assertTrue(source.contains("AgendaBands.TRAVEL"), "Agenda travel band")
+        assertTrue(source.contains("AgendaBands.PEOPLE"), "Agenda people/source band")
+        assertTrue(source.contains("AgendaBands.COVERAGE"), "Agenda coverage/actions band")
+        assertTrue(source.contains("AgendaBands.CTA_PRIMARY"), "situational primary CTA marker")
+        assertTrue(
+            source.contains("pendingForSelf == null"),
+            "Assign is filled primary only when Confirm is absent",
+        )
+        assertTrue(
+            source.indexOf("AgendaBands.PRIMARY") < source.indexOf("AgendaBands.TRAVEL") &&
+                source.indexOf("AgendaBands.TRAVEL") < source.indexOf("AgendaBands.PEOPLE") &&
+                source.indexOf("AgendaBands.PEOPLE") < source.indexOf("AgendaBands.COVERAGE"),
+            "Agenda bands appear in Primary → Travel → People → Coverage order",
+        )
+    }
+
+    @Test
+    fun agendaBandConstantsMatchWebContractIds() {
+        assertTrue(AgendaBands.PRIMARY == "agenda-band-primary")
+        assertTrue(AgendaBands.TRAVEL == "agenda-band-travel")
+        assertTrue(AgendaBands.PEOPLE == "agenda-band-people")
+        assertTrue(AgendaBands.COVERAGE == "agenda-band-coverage")
+        assertTrue(AgendaBands.CTA_PRIMARY == "agenda-cta-primary")
     }
 
     private fun familyScreenSource(): String {

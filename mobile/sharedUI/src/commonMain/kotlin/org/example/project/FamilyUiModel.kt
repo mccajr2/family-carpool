@@ -29,6 +29,15 @@ class FamilyUiModel(
     sealed class State {
         data object Loading : State()
 
+        /**
+         * The circle could not be loaded, so whether this adult has one is unknown. Distinct from
+         * [NeedsMembership] on purpose: offering "Create family" after a failed load invites a
+         * duplicate circle for someone who already has one.
+         */
+        data class LoadFailed(
+            val message: String,
+        ) : State()
+
         data class NeedsMembership(
             val email: String,
             val hasDisplayName: Boolean,
@@ -115,12 +124,7 @@ class FamilyUiModel(
                     readyState(adult, circle, token)
                 }
         } catch (e: Throwable) {
-            _state =
-                State.NeedsMembership(
-                    email = "",
-                    hasDisplayName = false,
-                    error = e.message ?: "Failed to load family",
-                )
+            _state = State.LoadFailed(message = e.message ?: "Failed to load family")
         }
     }
 

@@ -75,7 +75,7 @@ struct ContentView: View {
         switch model.familyPhase {
         case .ready:
             readyShell
-        case .loading, .choose, .create, .join:
+        case .loading, .loadFailed, .choose, .create, .join:
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     membershipContent
@@ -93,6 +93,19 @@ struct ContentView: View {
             Text("Your family")
                 .font(.title2.bold())
             ProgressView()
+        case .loadFailed:
+            Text("Your family")
+                .font(.title2.bold())
+            Text("Could not load your family.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.footnote)
+            }
+            Button("Retry") { model.loadFamily() }
+                .disabled(model.isLoading)
+            Button("Sign out") { model.signOut() }
+                .disabled(model.isLoading)
         case .choose:
             Text("Your family")
                 .font(.title2.bold())
@@ -514,80 +527,94 @@ struct ContentView: View {
 
     @ViewBuilder
     private func agendaItemRow(item: FamilyCalendarItem, isLast: Bool) -> some View {
-        VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
-            Text(item.title)
-            Text(item.whenLabel)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Text(item.sourceLabel)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if let location = item.location, !location.isEmpty {
-                Text(location)
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: UiTokens.Space.md) {
+            // Primary — title / when / location
+            VStack(alignment: .leading, spacing: UiTokens.Space.xs) {
+                Text(item.title)
+                    .font(.headline)
+                Text(item.whenLabel)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-            }
-            let kidsLabel = item.kidNamesLabel(kids: model.kids)
-            if !kidsLabel.isEmpty {
-                Text(kidsLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Text(item.leaveByAgendaLine)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if item.isManual {
-                HStack {
-                    Button("Edit") { model.beginEditEvent(item) }
-                        .disabled(model.isLoading)
-                    Button("Remove event") { model.removeEvent(item.id) }
-                        .disabled(model.isLoading)
+                if let location = item.location, !location.isEmpty {
+                    Text(location)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            let locatedPlaces = model.places.filter(\.isLocated)
-            if locatedPlaces.count <= 1 {
-                FieldValueRow(
-                    label: "Leave from",
-                    valueText: item.leaveFromPlaceName
-                        ?? locatedPlaces.first?.name
-                        ?? (model.places.isEmpty
-                            ? "No places yet"
-                            : "No located places yet")
-                )
-            } else {
-                FieldMenuRow(
-                    label: "Leave from",
-                    valueText: item.leaveFromPlaceName
-                        ?? "Choose a located place",
-                    disabled: model.isLoading || model.places.isEmpty
-                ) {
-                    ForEach(model.places) { place in
-                        Button {
-                            if place.isLocated {
-                                model.setCalendarLeaveFrom(item: item, placeId: place.id)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AgendaBands.primary)
+
+            // Travel / origin — leave-by + Leave from (+ Open Places)
+            VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
+                Text(item.leaveByAgendaLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                let locatedPlaces = model.places.filter(\.isLocated)
+                if locatedPlaces.count <= 1 {
+                    FieldValueRow(
+                        label: "Leave from",
+                        valueText: item.leaveFromPlaceName
+                            ?? locatedPlaces.first?.name
+                            ?? (model.places.isEmpty
+                                ? "No places yet"
+                                : "No located places yet")
+                    )
+                } else {
+                    FieldMenuRow(
+                        label: "Leave from",
+                        valueText: item.leaveFromPlaceName
+                            ?? "Choose a located place",
+                        disabled: model.isLoading || model.places.isEmpty
+                    ) {
+                        ForEach(model.places) { place in
+                            Button {
+                                if place.isLocated {
+                                    model.setCalendarLeaveFrom(item: item, placeId: place.id)
+                                }
+                            } label: {
+                                Text(
+                                    place.isLocated
+                                        ? place.name
+                                        : "\(place.name) (not located)"
+                                )
                             }
-                        } label: {
-                            Text(
-                                place.isLocated
-                                    ? place.name
-                                    : "\(place.name) (not located)"
-                            )
+                            .disabled(!place.isLocated)
                         }
-                        .disabled(!place.isLocated)
                     }
                 }
+                if item.leaveByStatus == "UNAVAILABLE",
+                   item.leaveByReason == "NO_ORIGIN"
+                {
+                    Button("Open Places") { model.openMorePlaces() }
+                        .buttonStyle(.bordered)
+                }
             }
-            if item.leaveByStatus == "UNAVAILABLE",
-               item.leaveByReason == "NO_ORIGIN"
-            {
-                Button("Open Places") { model.openMorePlaces() }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AgendaBands.travel)
+
+            // People / source
+            VStack(alignment: .leading, spacing: UiTokens.Space.xs) {
+                Text(item.sourceLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                let kidsLabel = item.kidNamesLabel(kids: model.kids)
+                if !kidsLabel.isEmpty {
+                    Text(kidsLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AgendaBands.people)
+
+            // Coverage / actions
             AgendaCoverageSection(
                 item: item,
                 members: model.members,
                 kids: model.kids,
                 currentAdultId: model.currentAdultId,
                 isLoading: model.isLoading,
+                isManual: item.isManual,
                 onRemove: { model.removeCoverage(assignmentId: $0) },
                 onConfirm: { model.confirmCoverage(assignmentId: $0) },
                 onDecline: { model.declineCoverage(assignmentId: $0) },
@@ -597,9 +624,13 @@ struct ContentView: View {
                         coveringAdultId: adultId,
                         kidIds: kidIds
                     )
-                }
+                },
+                onEdit: { model.beginEditEvent(item) },
+                onRemoveEvent: { model.removeEvent(item.id) }
             )
             .id("\(item.source)-\(item.id)-coverage")
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(AgendaBands.coverage)
         }
         .padding(.bottom, isLast ? 0 : UiTokens.Space.xl)
         .overlay(alignment: .bottom) {
@@ -921,19 +952,31 @@ struct ContentView: View {
     }
 }
 
+private enum AgendaBands {
+    static let primary = "agenda-band-primary"
+    static let travel = "agenda-band-travel"
+    static let people = "agenda-band-people"
+    static let coverage = "agenda-band-coverage"
+    static let ctaPrimary = "agenda-cta-primary"
+}
+
 private struct AgendaCoverageSection: View {
     let item: FamilyCalendarItem
     let members: [FamilyMemberItem]
     let kids: [FamilyKidItem]
     let currentAdultId: String
     let isLoading: Bool
+    let isManual: Bool
     let onRemove: (String) -> Void
     let onConfirm: (String) -> Void
     let onDecline: (String) -> Void
     let onAssign: (String, [String]) -> Void
+    let onEdit: () -> Void
+    let onRemoveEvent: () -> Void
 
     @State private var assignAdultId: String = ""
     @State private var assignKidIds: Set<String> = []
+    @State private var didInitAssignDraft = false
 
     private var memberTuples: [(adultId: String, displayName: String, email: String)] {
         members.map { ($0.adultId, $0.displayName, $0.email) }
@@ -960,6 +1003,16 @@ private struct AgendaCoverageSection: View {
         return Array(assignKidIds)
     }
 
+    private func syncAssignDraftFromItem() {
+        if assignAdultId.isEmpty {
+            assignAdultId = CoverageDisplay.defaultCoverageAdultId(
+                currentAdultId: currentAdultId,
+                memberAdultIds: members.map(\.adultId)
+            )
+        }
+        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+    }
+
     var body: some View {
         let active = CoverageDisplay.activeCoverages(item.coverages)
         let pending = CoverageDisplay.pendingCoverageForAdult(
@@ -971,92 +1024,132 @@ private struct AgendaCoverageSection: View {
             kids: kidTuples
         )
 
-        ForEach(active) { coverage in
-            HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
+            ForEach(active) { coverage in
+                HStack(alignment: .top) {
+                    Text(
+                        "\(CoverageDisplay.coverageAdultLabel(coverage, members: memberTuples)) · "
+                            + "\(CoverageDisplay.coverageKidNames(coverage, kids: kidTuples)) · "
+                            + CoverageDisplay.coverageStatusLabel(coverage.status)
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Remove coverage") { onRemove(coverage.id) }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                        .disabled(isLoading)
+                }
+            }
+
+            if !item.uncoveredKidIds.isEmpty {
                 Text(
-                    "\(CoverageDisplay.coverageAdultLabel(coverage, members: memberTuples)) · "
-                        + "\(CoverageDisplay.coverageKidNames(coverage, kids: kidTuples)) · "
-                        + CoverageDisplay.coverageStatusLabel(coverage.status)
+                    uncoveredNames.isEmpty
+                        ? "Needs coverage"
+                        : "Needs coverage: \(uncoveredNames)"
                 )
                 .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Button("Remove coverage") { onRemove(coverage.id) }
-                    .font(.caption)
-                    .disabled(isLoading)
+                .foregroundStyle(.red)
             }
-        }
 
-        if !item.uncoveredKidIds.isEmpty {
-            Text(
-                uncoveredNames.isEmpty
-                    ? "Needs coverage"
-                    : "Needs coverage: \(uncoveredNames)"
-            )
-            .font(.caption)
-            .foregroundStyle(.red)
-        }
-
-        if let pending {
-            HStack {
-                Button("Confirm coverage") { onConfirm(pending.id) }
-                    .disabled(isLoading)
-                Button("Decline coverage") { onDecline(pending.id) }
-                    .disabled(isLoading)
+            if let pending {
+                HStack {
+                    Button("Confirm coverage") { onConfirm(pending.id) }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isLoading)
+                        .accessibilityIdentifier(AgendaBands.ctaPrimary)
+                    Button("Decline coverage") { onDecline(pending.id) }
+                        .buttonStyle(.bordered)
+                        .disabled(isLoading)
+                }
             }
-        }
 
-        if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
-            if !soleAdult {
-                FieldMenuRow(
-                    label: "Covering adult",
-                    valueText: members.first(where: { $0.adultId == effectiveAdultId }).map {
-                        CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
-                    } ?? "Choose adult",
-                    disabled: isLoading
-                ) {
-                    ForEach(members) { member in
-                        Button(CoverageDisplay.memberLabel(
-                            displayName: member.displayName,
-                            email: member.email
-                        )) {
-                            assignAdultId = member.adultId
+            if !item.uncoveredKidIds.isEmpty, !members.isEmpty {
+                if !soleAdult {
+                    FieldMenuRow(
+                        label: "Covering adult",
+                        valueText: members.first(where: { $0.adultId == effectiveAdultId }).map {
+                            CoverageDisplay.memberLabel(displayName: $0.displayName, email: $0.email)
+                        } ?? "Choose adult",
+                        disabled: isLoading
+                    ) {
+                        ForEach(members) { member in
+                            Button(CoverageDisplay.memberLabel(
+                                displayName: member.displayName,
+                                email: member.email
+                            )) {
+                                assignAdultId = member.adultId
+                            }
+                            .disabled(isLoading)
                         }
-                        .disabled(isLoading)
                     }
                 }
-            }
 
-            if !soleKid {
-                Text("Uncovered kids")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                ForEach(item.uncoveredKidIds, id: \.self) { kidId in
-                    if let kid = kids.first(where: { $0.id == kidId }) {
-                        Toggle(
-                            kid.displayName,
-                            isOn: Binding(
-                                get: { assignKidIds.contains(kidId) },
-                                set: { checked in
-                                    // Toggling kids must not clear the covering-adult default.
-                                    if checked {
-                                        assignKidIds.insert(kidId)
-                                    } else {
-                                        assignKidIds.remove(kidId)
+                if !soleKid {
+                    Text("Uncovered kids")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    ForEach(item.uncoveredKidIds, id: \.self) { kidId in
+                        if let kid = kids.first(where: { $0.id == kidId }) {
+                            Toggle(
+                                kid.displayName,
+                                isOn: Binding(
+                                    get: { assignKidIds.contains(kidId) },
+                                    set: { checked in
+                                        // Toggling kids must not clear the covering-adult default.
+                                        if checked {
+                                            assignKidIds.insert(kidId)
+                                        } else {
+                                            assignKidIds.remove(kidId)
+                                        }
                                     }
-                                }
+                                )
                             )
-                        )
-                        .disabled(isLoading)
+                            .disabled(isLoading)
+                        }
                     }
+                }
+
+                // Assign is filled primary only when Confirm is absent.
+                // Apply buttonStyle on the Button itself (not via if/else ViewModifier) —
+                // conditional ViewModifier styles can swallow taps on some OS versions.
+                if pending == nil {
+                    Button("Assign coverage") {
+                        onAssign(effectiveAdultId, effectiveKidIds)
+                        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier(AgendaBands.ctaPrimary)
+                    .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
+                } else {
+                    Button("Assign coverage") {
+                        onAssign(effectiveAdultId, effectiveKidIds)
+                        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
                 }
             }
 
-            Button("Assign coverage") {
-                onAssign(effectiveAdultId, effectiveKidIds)
-                assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+            if isManual {
+                HStack {
+                    Button("Edit") { onEdit() }
+                        .buttonStyle(.bordered)
+                        .disabled(isLoading)
+                    Button("Remove event") { onRemoveEvent() }
+                        .buttonStyle(.bordered)
+                        .disabled(isLoading)
+                }
             }
-            .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
+        }
+        .onAppear {
+            if !didInitAssignDraft {
+                syncAssignDraftFromItem()
+                didInitAssignDraft = true
+            }
+        }
+        .onChange(of: item.uncoveredKidIds) { _, _ in
+            syncAssignDraftFromItem()
         }
     }
 }

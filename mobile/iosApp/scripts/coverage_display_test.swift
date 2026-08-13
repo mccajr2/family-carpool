@@ -115,8 +115,8 @@ struct CoverageDisplayTestMain {
             "sole uncovered kid is auto-selected"
         )
         expect(
-            CoverageDisplay.defaultCoverageKidIds(["k1", "k2"]).isEmpty,
-            "multiple uncovered kids stay unselected"
+            CoverageDisplay.defaultCoverageKidIds(["k1", "k2"]) == Set(["k1", "k2"]),
+            "multiple uncovered kids are pre-selected for Assign"
         )
 
         let contentViewURL = URL(fileURLWithPath: #filePath)
@@ -180,6 +180,44 @@ struct CoverageDisplayTestMain {
             "Agenda keeps empty-window copy for idle empty"
         )
         expect(
+            content.contains("AgendaBands.primary"),
+            "Agenda primary band identifier"
+        )
+        expect(
+            content.contains("AgendaBands.travel"),
+            "Agenda travel band identifier"
+        )
+        expect(
+            content.contains("AgendaBands.people"),
+            "Agenda people/source band identifier"
+        )
+        expect(
+            content.contains("AgendaBands.coverage"),
+            "Agenda coverage/actions band identifier"
+        )
+        expect(
+            content.contains("AgendaBands.ctaPrimary"),
+            "situational primary CTA identifier"
+        )
+        expect(
+            content.contains("Assign is filled primary only when Confirm is absent"),
+            "Assign demotes when Confirm is shown"
+        )
+        if let primaryRange = content.range(of: "AgendaBands.primary"),
+           let travelRange = content.range(of: "AgendaBands.travel"),
+           let peopleRange = content.range(of: "AgendaBands.people"),
+           let coverageRange = content.range(of: "AgendaBands.coverage")
+        {
+            expect(
+                primaryRange.lowerBound < travelRange.lowerBound
+                    && travelRange.lowerBound < peopleRange.lowerBound
+                    && peopleRange.lowerBound < coverageRange.lowerBound,
+                "Agenda bands appear in Primary → Travel → People → Coverage order"
+            )
+        } else {
+            expect(false, "all AgendaBands identifiers must be present for order assert")
+        }
+        expect(
             !content.contains("Working…"),
             "Sign out must never become Working…"
         )
@@ -212,6 +250,19 @@ struct CoverageDisplayTestMain {
         )
         expect(content.contains("soleAdult"), "sole adult hides covering-adult picker")
         expect(content.contains("soleKid"), "sole kid hides uncovered-kid checkboxes")
+        expect(content.contains("case .loadFailed:"), "membership load failure has loadFailed phase")
+        expect(
+            content.contains("Button(\"Retry\") { model.loadFamily() }"),
+            "loadFailed offers Retry that reloads family"
+        )
+        expect(
+            auth.contains("familyPhase = .loadFailed"),
+            "loadFamily onError sets loadFailed, not choose"
+        )
+        expect(
+            auth.contains("finishSignedOut(error: message)"),
+            "signOut onError still transitions to signedOut"
+        )
 
         print("CoverageDisplay tests passed")
     }
