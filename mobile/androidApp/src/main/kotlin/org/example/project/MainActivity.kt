@@ -20,7 +20,15 @@ class MainActivity : ComponentActivity() {
                 remember {
                     AndroidCalendarCacheStore(applicationContext)
                 }
-            App(session = session, calendarCacheStore = calendarCacheStore)
+            val bootstrapCacheStore =
+                remember {
+                    AndroidFamilyBootstrapCache(applicationContext)
+                }
+            App(
+                session = session,
+                calendarCacheStore = calendarCacheStore,
+                bootstrapCacheStore = bootstrapCacheStore,
+            )
         }
     }
 }

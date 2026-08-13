@@ -3,12 +3,13 @@ package org.example.project
 import platform.Foundation.NSUserDefaults
 
 /** NSUserDefaults-backed calendar snapshot store (not Keychain). */
-class IosCalendarCacheStore :
-    CalendarCacheStore by JsonCalendarCacheStore(
-        NsUserDefaultsCalendarCacheKeyValueStore(NSUserDefaults.standardUserDefaults),
+class IosCalendarCacheStore(
+    defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
+) : CalendarCacheStore by JsonCalendarCacheStore(
+        NsUserDefaultsCalendarCacheKeyValueStore(defaults),
     )
 
-private class NsUserDefaultsCalendarCacheKeyValueStore(
+internal class NsUserDefaultsCalendarCacheKeyValueStore(
     private val defaults: NSUserDefaults,
 ) : CalendarCacheKeyValueStore {
     override fun getString(key: String): String? = defaults.stringForKey(key)
@@ -17,7 +18,7 @@ private class NsUserDefaultsCalendarCacheKeyValueStore(
         key: String,
         value: String,
     ) {
-        defaults.setObject(value, key)
+        defaults.setObject(value, forKey = key)
     }
 
     override fun remove(key: String) {
@@ -27,7 +28,12 @@ private class NsUserDefaultsCalendarCacheKeyValueStore(
     override fun keysWithPrefix(prefix: String): List<String> {
         val dict = defaults.dictionaryRepresentation()
         return dict.keys.mapNotNull { key ->
-            val asString = key as? String ?: return@mapNotNull null
+            // NSDictionary keys arrive as NSString; `as? String` alone often fails.
+            val asString =
+                key as? String
+                    ?: (key as? platform.Foundation.NSString)?.toString()
+                    ?: key?.toString()
+                    ?: return@mapNotNull null
             if (asString.startsWith(prefix)) asString else null
         }
     }

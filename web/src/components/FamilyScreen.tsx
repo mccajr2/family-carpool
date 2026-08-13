@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
@@ -7,6 +7,7 @@ import {
   CalendarCacheStore,
   maxIsoInstant,
 } from "@/api/calendarCacheStore"
+import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
 import {
   isPlaceLocated,
@@ -70,6 +71,7 @@ type FamilyScreenProps = {
   authClient?: AuthClient
   familyClient?: FamilyClient
   calendarCacheStore?: CalendarCacheStore
+  bootstrapCacheStore?: FamilyBootstrapStore
   onSignedOut: () => void
 }
 
@@ -173,6 +175,7 @@ export function FamilyScreen({
   authClient,
   familyClient: familyClientProp,
   calendarCacheStore: calendarCacheStoreProp,
+  bootstrapCacheStore: bootstrapCacheStoreProp,
   onSignedOut,
 }: FamilyScreenProps) {
   // Default param `new FamilyClient()` would be a new instance every render and
@@ -181,8 +184,21 @@ export function FamilyScreen({
   const [calendarCache] = useState(
     () => calendarCacheStoreProp ?? new CalendarCacheStore(),
   )
-  const [status, setStatus] = useState<Status>({ kind: "loading" })
-  const [circle, setCircle] = useState<FamilyCircle | null>(null)
+  const [bootstrapCache] = useState(
+    () => bootstrapCacheStoreProp ?? new FamilyBootstrapStore(),
+  )
+  const initialAdultId = session.getAdult()?.id
+  const initialBootstrap = initialAdultId
+    ? bootstrapCache.load(initialAdultId)
+    : null
+  const initialCalendar =
+    initialAdultId && initialBootstrap
+      ? calendarCache.load(initialAdultId, initialBootstrap.circle.id)
+      : null
+  const [status, setStatus] = useState<Status>({ kind: "idle" })
+  const [circle, setCircle] = useState<FamilyCircle | null>(
+    () => initialBootstrap?.circle ?? null,
+  )
   // Kept apart from `circle === null` (which means "no circle yet"): after a failed load we do
   // not know whether one exists, and offering Create family invites a duplicate circle.
   const [loadFailed, setLoadFailed] = useState<string | null>(null)
@@ -192,7 +208,9 @@ export function FamilyScreen({
   const [adultDisplayName, setAdultDisplayName] = useState("")
   const [circleName, setCircleName] = useState("")
   const [inviteCodeInput, setInviteCodeInput] = useState("")
-  const [inviteCode, setInviteCode] = useState<string | null>(null)
+  const [inviteCode, setInviteCode] = useState<string | null>(
+    () => initialBootstrap?.inviteCode ?? null,
+  )
   const [newKidName, setNewKidName] = useState("")
   const [editingKidId, setEditingKidId] = useState<string | null>(null)
   const [editingKidName, setEditingKidName] = useState("")
@@ -201,7 +219,9 @@ export function FamilyScreen({
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
   const [editingPlaceName, setEditingPlaceName] = useState("")
   const [editingPlaceAddress, setEditingPlaceAddress] = useState("")
-  const [feeds, setFeeds] = useState<ActivityFeed[]>([])
+  const [feeds, setFeeds] = useState<ActivityFeed[]>(
+    () => initialBootstrap?.feeds ?? [],
+  )
   const [newFeedName, setNewFeedName] = useState("")
   const [newFeedUrl, setNewFeedUrl] = useState("")
   const [newFeedKidIds, setNewFeedKidIds] = useState<string[]>([])
@@ -209,12 +229,18 @@ export function FamilyScreen({
   const [editingFeedName, setEditingFeedName] = useState("")
   const [editingFeedUrl, setEditingFeedUrl] = useState("")
   const [editingFeedKidIds, setEditingFeedKidIds] = useState<string[]>([])
-  const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([])
-  const [calendarLoadedTo, setCalendarLoadedTo] = useState(
-    () => defaultCalendarWindow().to,
+  const [calendarItems, setCalendarItems] = useState<CalendarItem[]>(
+    () => initialCalendar?.items ?? [],
   )
-  const [calendarFetchedAt, setCalendarFetchedAt] = useState<number | null>(null)
-  const [calendarRevalidating, setCalendarRevalidating] = useState(false)
+  const [calendarLoadedTo, setCalendarLoadedTo] = useState(
+    () => initialCalendar?.to ?? defaultCalendarWindow().to,
+  )
+  const [calendarFetchedAt, setCalendarFetchedAt] = useState<number | null>(
+    () => initialCalendar?.fetchedAt ?? null,
+  )
+  const [calendarRevalidating, setCalendarRevalidating] = useState(
+    () => initialCalendar != null,
+  )
   const [agendaKidFilter, setAgendaKidFilter] = useState<string | null>(null)
   const [newEventTitle, setNewEventTitle] = useState("")
   const [newEventStartsAt, setNewEventStartsAt] = useState(defaultNewEventStartsLocal)
@@ -236,6 +262,8 @@ export function FamilyScreen({
   const [coverageActionErrors, setCoverageActionErrors] = useState<
     Record<string, string>
   >({})
+  const circleRef = useRef(circle)
+  circleRef.current = circle
 
   useEffect(() => {
     if (circle?.id) {
@@ -381,7 +409,26 @@ export function FamilyScreen({
         setStatus({ kind: "idle" })
         return
       }
-      setStatus({ kind: "loading" })
+      const adultId = session.getAdult()?.id
+      // Paint bootstrap/calendar before getCircle when present. With no cache,
+      // use a quiet Loading shell (no spinner, no create/join) until circle returns.
+      const bootstrap = adultId ? bootstrapCache.load(adultId) : null
+      if (bootstrap) {
+        setCircle(bootstrap.circle)
+        circleRef.current = bootstrap.circle
+        setInviteCode(bootstrap.inviteCode)
+        setFeeds(bootstrap.feeds)
+        const cached = calendarCache.load(adultId!, bootstrap.circle.id)
+        if (cached) {
+          setCalendarItems(cached.items)
+          setCalendarLoadedTo(cached.to)
+          setCalendarFetchedAt(cached.fetchedAt)
+        }
+        setCalendarRevalidating(true)
+        setStatus({ kind: "idle" })
+      } else {
+        setStatus({ kind: "loading" })
+      }
       try {
         const loaded = await familyClient.getCircle(token)
         if (cancelled) {
@@ -389,20 +436,19 @@ export function FamilyScreen({
         }
         setLoadFailed(null)
         setCircle(loaded)
-        const adultId = session.getAdult()?.id
-        let hadCache = false
+        circleRef.current = loaded
         let softCalendarError: string | null = null
         const cached =
           loaded && adultId ? calendarCache.load(adultId, loaded.id) : null
+        const hadCache = cached != null
 
         if (loaded && adultId) {
           if (cached) {
-            hadCache = true
             setCalendarItems(cached.items)
             setCalendarLoadedTo(cached.to)
             setCalendarFetchedAt(cached.fetchedAt)
-            setStatus({ kind: "idle" })
             setCalendarRevalidating(true)
+            setStatus({ kind: "idle" })
           }
 
           const today = defaultCalendarWindow()
@@ -431,33 +477,53 @@ export function FamilyScreen({
             }
           }
         } else {
+          if (adultId) {
+            bootstrapCache.clear(adultId)
+          }
           setCalendarItems([])
           setCalendarFetchedAt(null)
+          setCalendarRevalidating(false)
         }
+        let nextInvite: string | null = null
+        let nextFeeds: ActivityFeed[] = []
         if (loaded?.role === "ORGANIZER") {
           try {
             const invite = await familyClient.getInvite(token)
             if (!cancelled) {
+              nextInvite = invite.code
               setInviteCode(invite.code)
             }
           } catch {
             if (!cancelled) {
+              nextInvite = null
               setInviteCode(null)
             }
           }
           try {
             const loadedFeeds = await familyClient.listFeeds(token)
             if (!cancelled) {
+              nextFeeds = loadedFeeds
               setFeeds(loadedFeeds)
             }
           } catch {
             if (!cancelled) {
+              nextFeeds = []
               setFeeds([])
             }
           }
         } else {
           setInviteCode(null)
           setFeeds([])
+        }
+        if (!cancelled && loaded && adultId) {
+          bootstrapCache.save({
+            adultId,
+            email: session.getAdult()?.email ?? "",
+            adultDisplayName: session.getAdult()?.displayName ?? null,
+            circle: loaded,
+            inviteCode: nextInvite,
+            feeds: nextFeeds,
+          })
         }
         if (!cancelled) {
           if (softCalendarError) {
@@ -470,15 +536,31 @@ export function FamilyScreen({
         if (cancelled) {
           return
         }
-        setLoadFailed(error instanceof Error ? error.message : "Something went wrong")
-        setStatus({ kind: "idle" })
+        const message =
+          error instanceof Error ? error.message : "Something went wrong"
+        // Keep bootstrap / in-memory Ready shell; only full LoadFailed when we
+        // never had a circle to paint.
+        if (circleRef.current) {
+          setStatus({ kind: "error", message })
+          setCalendarRevalidating(false)
+        } else {
+          setLoadFailed(message)
+          setStatus({ kind: "idle" })
+        }
       }
     }
     void load()
     return () => {
       cancelled = true
     }
-  }, [familyClient, session, loadAttempt, calendarCache, persistCalendarSnapshot])
+  }, [
+    familyClient,
+    session,
+    loadAttempt,
+    calendarCache,
+    bootstrapCache,
+    persistCalendarSnapshot,
+  ])
 
   async function requireToken(): Promise<string> {
     const token = session.getAccessToken()
@@ -512,6 +594,17 @@ export function FamilyScreen({
       const invite = await familyClient.getInvite(token)
       setInviteCode(invite.code)
       await refreshAdult(token)
+      const createdAdult = session.getAdult()
+      if (createdAdult) {
+        bootstrapCache.save({
+          adultId: createdAdult.id,
+          email: createdAdult.email,
+          adultDisplayName: createdAdult.displayName,
+          circle: created,
+          inviteCode: invite.code,
+          feeds: [],
+        })
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -535,6 +628,17 @@ export function FamilyScreen({
       setCalendarItems([])
       setCalendarLoadedTo(defaultCalendarWindow().to)
       await refreshAdult(token)
+      const joinedAdult = session.getAdult()
+      if (joinedAdult) {
+        bootstrapCache.save({
+          adultId: joinedAdult.id,
+          email: joinedAdult.email,
+          adultDisplayName: joinedAdult.displayName,
+          circle: joined,
+          inviteCode: null,
+          feeds: [],
+        })
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -550,6 +654,13 @@ export function FamilyScreen({
       const token = await requireToken()
       const invite = await familyClient.regenerateInvite(token)
       setInviteCode(invite.code)
+      const adultId = session.getAdult()?.id
+      if (adultId && circle) {
+        const existing = bootstrapCache.load(adultId)
+        if (existing) {
+          bootstrapCache.save({ ...existing, inviteCode: invite.code })
+        }
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -568,6 +679,9 @@ export function FamilyScreen({
       await familyClient.leaveCircle(token)
       if (previousAdultId && previousCircleId) {
         calendarCache.clear(previousAdultId, previousCircleId)
+      }
+      if (previousAdultId) {
+        bootstrapCache.clear(previousAdultId)
       }
       setCircle(null)
       setInviteCode(null)
@@ -1193,7 +1307,8 @@ export function FamilyScreen({
       // Telling the server is best-effort: dropping the local session must still happen, or
       // Sign out does nothing at all whenever the backend is unreachable.
     }
-    calendarCache.clearAll()
+    // Keep (adultId, circleId) calendar snapshots so the same adult paints Agenda on next
+    // sign-in. Leave-circle still clears the active key.
     session.clear()
     onSignedOut()
   }
@@ -1203,7 +1318,7 @@ export function FamilyScreen({
       <Card>
         <CardHeader>
           <CardTitle>Your family</CardTitle>
-          <CardDescription>Loading…</CardDescription>
+          {/* Quiet wait for getCircle — never a spinner-only page. */}
         </CardHeader>
       </Card>
     )

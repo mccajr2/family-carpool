@@ -92,7 +92,7 @@ struct ContentView: View {
         case .loading:
             Text("Your family")
                 .font(.title2.bold())
-            ProgressView()
+            // No spinner — bootstrap paints Ready before getCircle when possible.
         case .loadFailed:
             Text("Your family")
                 .font(.title2.bold())
@@ -481,6 +481,8 @@ struct ContentView: View {
                 }
                 .accessibilityIdentifier("agenda-revalidating")
             }
+            // First fetch without cache: busy feedback lives only on Load more → Loading…
+            // (avoid a second ProgressView above the list).
             if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
                 Text(errorMessage)
                     .foregroundStyle(.red)

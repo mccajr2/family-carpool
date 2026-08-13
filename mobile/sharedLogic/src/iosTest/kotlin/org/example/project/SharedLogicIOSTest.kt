@@ -149,8 +149,9 @@ class AuthBridgeTest {
             )
             ready.await()
 
-            assertEquals(null, bridge.peekCalendarCache())
-            bridge.saveCalendarCache(
+            assertFalse(bridge.peekCalendarCache { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> })
+            val saved =
+                bridge.saveCalendarCache(
                 from = "2026-08-12T00:00:00Z",
                 to = "2026-09-11T00:00:00Z",
                 fetchedAt = 1_700_000_000_000L,
@@ -172,9 +173,17 @@ class AuthBridgeTest {
                 uncoveredKidIdsJoined = listOf("k1"),
                 conflictsJson = listOf("[]"),
             )
-            val hit = bridge.peekCalendarCache()
-            assertEquals("Practice", hit!!.titles.single())
-            assertEquals(1_700_000_000_000L, hit.fetchedAt)
+            assertTrue(saved)
+            var peekedTitle: String? = null
+            var peekedFetchedAt: Long? = null
+            assertTrue(
+                bridge.peekCalendarCache { _, _, fetchedAt, _, _, titles, _, _, _, _, _, _, _, _, _, _, _, _, _, _ ->
+                    peekedTitle = titles.single()
+                    peekedFetchedAt = fetchedAt
+                },
+            )
+            assertEquals("Practice", peekedTitle)
+            assertEquals(1_700_000_000_000L, peekedFetchedAt)
 
             bridge.patchCalendarCacheItem(
                 id = "e1",
@@ -195,7 +204,11 @@ class AuthBridgeTest {
                 uncoveredKidIdsJoined = "k1",
                 conflictsJson = "[]",
             )
-            assertEquals("Scrimmage", bridge.peekCalendarCache()!!.titles.single())
+            assertTrue(
+                bridge.peekCalendarCache { _, _, _, _, _, titles, _, _, _, _, _, _, _, _, _, _, _, _, _, _ ->
+                    assertEquals("Scrimmage", titles.single())
+                },
+            )
 
             val logoutDeferred = CompletableDeferred<Unit>()
             bridge.logout(
@@ -203,7 +216,124 @@ class AuthBridgeTest {
                 onError = { logoutDeferred.completeExceptionally(IllegalStateException(it)) },
             )
             logoutDeferred.await()
-            assertEquals(null, cache.load("1", "c1"))
+            // Sign-out must not wipe calendar cache — same adult paints on next login.
+            assertEquals("Scrimmage", cache.load("1", "c1")!!.items.single().title)
+            assertFalse(
+                bridge.peekCalendarCache { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+                "active adult/circle cleared on logout so peek misses until Ready",
+            )
+        }
+
+    @Test
+    fun paintBootstrapIfPresentPaintsShellAndFeedsBeforeGetCircle() =
+        runBlocking {
+            val circleGate = CompletableDeferred<Unit>()
+            val mockEngine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/family/circle" -> {
+                            circleGate.await()
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.url.encodedPath}")
+                    }
+                }
+            val httpClient =
+                HttpClient(mockEngine) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val bootstrap = InMemoryFamilyBootstrapCache()
+            bootstrap.save(
+                FamilyBootstrapSnapshot(
+                    adultId = "1",
+                    email = "parent@example.com",
+                    adultDisplayName = "Alex",
+                    circle =
+                        FamilyCircle(
+                            id = "c1",
+                            name = "House",
+                            role = FamilyRole.ORGANIZER,
+                            members =
+                                listOf(
+                                    FamilyMember(
+                                        adultId = "1",
+                                        email = "parent@example.com",
+                                        displayName = "Alex",
+                                        role = FamilyRole.ORGANIZER,
+                                    ),
+                                ),
+                        ),
+                    inviteCode = "AB12CD34",
+                    feeds =
+                        listOf(
+                            ActivityFeed(
+                                id = "f1",
+                                name = "Soccer",
+                                sourceUrl = "https://example.com/soccer.ics",
+                                eventCount = 3,
+                            ),
+                        ),
+                ),
+            )
+            val bridge =
+                AuthBridge(
+                    session =
+                        AuthSession(
+                            client = AuthClient("http://localhost:8080", httpClient),
+                            tokenStore = InMemorySecureTokenStore().also { it.saveAccessToken("tok") },
+                        ),
+                    familyClient = FamilyClient("http://localhost:8080", httpClient),
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                    calendarCache = InMemoryCalendarCacheStore(),
+                    bootstrapCache = bootstrap,
+                )
+
+            var paintedTitle: String? = null
+            var paintedInvite: String? = null
+            assertTrue(
+                bridge.paintBootstrapIfPresent { title, _, _, _, _, invite, _, _, _, _, _, _, _, _, _, _, _, _ ->
+                    paintedTitle = title
+                    paintedInvite = invite
+                },
+            )
+            assertEquals("House", paintedTitle)
+            assertEquals("AB12CD34", paintedInvite)
+            var paintedFeed: String? = null
+            assertTrue(
+                bridge.peekBootstrapFeeds { _, names, _, _, _, _, _ ->
+                    paintedFeed = names.single()
+                },
+            )
+            assertEquals("Soccer", paintedFeed)
+            assertFalse(circleGate.isCompleted, "paint must not wait on getCircle")
+            circleGate.complete(Unit)
+            Unit
         }
 }
 

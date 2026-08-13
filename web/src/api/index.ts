@@ -6,6 +6,8 @@ export {
   maxIsoInstant,
 } from "@/api/calendarCacheStore"
 export type { CalendarCacheSnapshot } from "@/api/calendarCacheStore"
+export { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
+export type { FamilyBootstrapSnapshot } from "@/api/familyBootstrapStore"
 export { FamilyClient } from "@/api/familyClient"
 export type {
   Adult,

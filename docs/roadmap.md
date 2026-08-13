@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-12 (`/pr calendar-client-cache` — next up `calendar-conditional-get`)
+Updated: 2026-08-13 (`/pr calendar-client-cache` bootstrap — next up `calendar-conditional-get`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -234,5 +234,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-12 | `/pr conflict-detection`: Agenda conflict amber + 409 double-CONFIRMED (web/Android/iOS); next up `calendar-client-cache`.                                                                                                        |
 | 2026-08-12 | `/spec calendar-client-cache`: re-rank split — client persist + SWR now; add `calendar-conditional-get` (ETag/`304`) as rank 2.                                                                                                  |
 | 2026-08-12 | `/pr calendar-client-cache`: Agenda client cache + SWR (web/Android/iOS); next up `calendar-conditional-get`.                                                                                                                    |
+| 2026-08-13 | `/pr calendar-client-cache` follow-up: family bootstrap cache paints Ready before `getCircle`; keep calendar cache across sign-out.                                                                                               |
 
 
