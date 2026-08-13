@@ -70,4 +70,12 @@ public interface CoverageApi {
      * @throws com.yourorg.quickapp.family.FamilyAccessException 403 / 404 / 409
      */
     CoverageAssignmentDto decline(UUID actorAdultId, UUID assignmentId);
+
+    /**
+     * Drop a kid from any active ({@code PENDING}/{@code CONFIRMED}) assignment on
+     * this item. Deletes the row if no kids remain. No-op when the kid is not on
+     * an active row. Does not touch {@code DECLINED} rows.
+     */
+    void releaseKidFromActiveRows(
+            UUID circleId, CoverageItemSource source, UUID itemId, UUID kidId);
 }

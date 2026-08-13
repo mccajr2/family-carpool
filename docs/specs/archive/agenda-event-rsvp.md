@@ -1,7 +1,9 @@
 # Spec: agenda-event-rsvp
 
-Status: draft  
+Status: done  
 Created: 2026-08-13  
+Approved: 2026-08-13  
+Updated: 2026-08-13 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-event-rsvp`  
 Added: 2026-08-13 · enhancement
@@ -149,51 +151,51 @@ iOS/Android match decisions and strings.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI bumped; `rsvps` on `CalendarItem` + PUT endpoint documented;
+- [x] OpenAPI bumped; `rsvps` on `CalendarItem` + PUT endpoint documented;
       assign/confirm descriptions note they set RSVP Yes and reject No kids;
       web + Android + iOS clients updated in the same change.
-- [ ] Any member can set a kid on an item to Yes, No, or No response; missing
+- [x] Any member can set a kid on an item to Yes, No, or No response; missing
       row reads as No response; kid not on item → 400/404.
-- [ ] One-kid item with that kid No (or every kid No) → row deemphasized;
+- [x] One-kid item with that kid No (or every kid No) → row deemphasized;
       leave-by / leave-from / coverage / assign / confirm / decline / conflict
       chrome hidden; summary + RSVP + manual Edit/Remove remain.
-- [ ] Mixed Yes/No (or No response/No): row stays in play; No kid omitted from
+- [x] Mixed Yes/No (or No response/No): row stays in play; No kid omitted from
       assign / uncovered / that kid’s coverage controls; Yes / No response
       kids unchanged.
-- [ ] Assign / reassign / confirm sets those kids to Yes; assigning a No kid
+- [x] Assign / reassign / confirm sets those kids to Yes; assigning a No kid
       → **400**. Decline / remove coverage does not change RSVP.
-- [ ] PUT No or No response while the kid has active coverage: client confirm
+- [x] PUT No or No response while the kid has active coverage: client confirm
       (`This will remove coverage for {kidName}.`); server hard-releases;
       flipping back does not restore the assignment. No confirm when uncovered.
-- [ ] `uncoveredKidIds` excludes No kids; needs-coverage copy follows that
+- [x] `uncoveredKidIds` excludes No kids; needs-coverage copy follows that
       list. Kid time-overlap ignores No kids. Cheap calendar GET never calls
       Nominatim/OSRM and includes `rsvps`.
-- [ ] No carpool/team rollup UI; no vendor RSVP sync; no “I’ll cover” RSVP
+- [x] No carpool/team rollup UI; no vendor RSVP sync; no “I’ll cover” RSVP
       option.
-- [ ] `ModularityTests` green; unit + integration tests for RSVP writes,
+- [x] `ModularityTests` green; unit + integration tests for RSVP writes,
       coverage coupling, uncovered/conflicts, and authz.
-- [ ] `docs/architecture.md` and the Agenda web contract updated.
+- [x] `docs/architecture.md` and the Agenda web contract updated.
 
 ## Tasks
 
-- [ ] **Backend (`rsvp`):** New module + migration; entity/repo; `RsvpApi`
+- [x] **Backend (`rsvp`):** New module + migration; entity/repo; `RsvpApi`
       get-for-items / upsert / delete-on-NO_RESPONSE; missing ≡ No response;
       delete when kid leaves the item.
-- [ ] **Backend (`coverage`):** Public release-kid-from-active-rows (drop kid;
+- [x] **Backend (`coverage`):** Public release-kid-from-active-rows (drop kid;
       delete empty row). Assign/reassign still 400 on empty / not-on-item /
       exclusivity.
-- [ ] **Backend (`calendar`):** Enrich `rsvps`; `uncoveredKidIds` skips No;
+- [x] **Backend (`calendar`):** Enrich `rsvps`; `uncoveredKidIds` skips No;
       kid-overlap ignores No; PUT RSVP endpoint; orchestrate coverage writes
       → `ensureYes` and reject No kids; RSVP No/No response → release then
       save.
-- [ ] **Contract:** OpenAPI RSVP fields + PUT; bump version; coverage
+- [x] **Contract:** OpenAPI RSVP fields + PUT; bump version; coverage
       operation descriptions.
-- [ ] **Web:** Per-kid RSVP field rows; out-of-play chrome; confirm dialog;
+- [x] **Web:** Per-kid RSVP field rows; out-of-play chrome; confirm dialog;
       assign implies Yes in UI after response; cache patch; tests.
-- [ ] **Android (`sharedLogic` / `sharedUI`):** Same surfaces + tests.
-- [ ] **iOS:** Same surfaces + tests.
-- [ ] **Docs:** `docs/architecture.md`; `docs/agenda-coverage-web-contract.md`.
-- [ ] **Tests:** Service unit + API integration; ModularityTests; web + mobile
+- [x] **Android (`sharedLogic` / `sharedUI`):** Same surfaces + tests.
+- [x] **iOS:** Same surfaces + tests.
+- [x] **Docs:** `docs/architecture.md`; `docs/agenda-coverage-web-contract.md`.
+- [x] **Tests:** Service unit + API integration; ModularityTests; web + mobile
       coverage of one-kid No, mixed, confirm-on-release, assign→Yes.
 
 ## Open questions

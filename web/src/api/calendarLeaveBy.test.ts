@@ -26,6 +26,7 @@ function item(
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
+    rsvps: [],
     ...partial,
   }
 }

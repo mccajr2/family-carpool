@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.13.0
+  version: 0.14.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -12,21 +12,23 @@ info:
     per-adult leave-from, per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic; calendar list does not call
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
-    coverage responsibility assignments (assign / reassign / remove; assignee
-    confirm or decline), server-computed schedule conflicts on calendar items
-    (kid time-overlaps and adult coverage overlaps; confirm/self-assign that
-    would create two overlapping CONFIRMED coverages for one adult returns 409),
-    and memberships (ORGANIZER / CAREGIVER). Organizers share a short invite
-    code; Caregivers join via that code. Any member may manage named places
-    (label + free-text address; optional lat/lng from geocoding with soft-fail
-    and retry locate), manual events, read the calendar agenda, set their own
-    leave-from place per calendar item, set their default leave-from for the
-    circle, and manage coverage assignments on calendar items. Feed last-synced
-    / error / event count may update from Sync now or from the server poller —
-    clients re-GET the feeds list to observe changes. Magic links, passwords,
-    multi-circle membership, invite deep links, email/push invite delivery,
-    HTTP-only web cookies, and paid live-traffic routing are out of scope for
-    this revision.
+    per-kid event RSVP (Yes / No / No response), coverage responsibility
+    assignments (assign / reassign / remove; assignee confirm or decline;
+    assign/confirm set RSVP Yes and reject No kids), server-computed schedule conflicts
+    on calendar items (kid time-overlaps ignore RSVP No; adult
+    coverage overlaps; confirm/self-assign that would create two overlapping
+    CONFIRMED coverages for one adult returns 409), and memberships
+    (ORGANIZER / CAREGIVER). Organizers share a short invite code; Caregivers
+    join via that code. Any member may manage named places (label + free-text
+    address; optional lat/lng from geocoding with soft-fail and retry locate),
+    manual events, read the calendar agenda, set their own leave-from place
+    per calendar item, set their default leave-from for the circle, set
+    per-kid RSVPs on calendar items, and manage coverage assignments on
+    calendar items. Feed last-synced / error / event count may update from
+    Sync now or from the server poller — clients re-GET the feeds list to
+    observe changes. Magic links, passwords, multi-circle membership, invite
+    deep links, email/push invite delivery, HTTP-only web cookies, and paid
+    live-traffic routing are out of scope for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -38,14 +40,15 @@ tags:
     description: >
       Family circle, kids, named places, activity feeds, manual events, unified
       calendar read (with per-adult leave-from, cheap leave-by status including
-      PENDING, coverage assignments, uncovered kid ids, and server-computed
-      conflicts), async leave-by fill-in, per-adult default leave-from, invite
-      code, and memberships (one circle per adult in v1). Organizer-only writes
-      for invite regen, roles, remove, kids, circle rename, and activity feed
-      create/update/delete/sync. Any member may create/update/delete places and
-      manual events, retry place geocoding, list the circle calendar, fill
-      leave-by estimates, set their leave-from place per calendar item, set
-      their default leave-from for the circle, and assign / reassign / remove
+      PENDING, per-kid RSVPs, coverage assignments, uncovered kid ids, and
+      server-computed conflicts), async leave-by fill-in, per-adult default
+      leave-from, invite code, and memberships (one circle per adult in v1).
+      Organizer-only writes for invite regen, roles, remove, kids, circle
+      rename, and activity feed create/update/delete/sync. Any member may
+      create/update/delete places and manual events, retry place geocoding,
+      list the circle calendar, fill leave-by estimates, set their leave-from
+      place per calendar item, set their default leave-from for the circle,
+      set per-kid RSVPs on calendar items, and assign / reassign / remove
       coverage on calendar items (assignee confirm or decline).
 
 paths:
@@ -1278,13 +1281,15 @@ paths:
         OSRM lookup is still required. Clients must GET
         /api/family/circle/calendar/leave-by to fill PENDING rows. Each item
         also includes coverage assignments for the circle (all members'
-        assignments on that item), uncoveredKidIds (kids on the item not
-        covered by any active PENDING or CONFIRMED assignment), and conflicts
-        (server-computed kid time-overlaps and adult coverage overlaps using
-        event startsAt/endsAt only; peers may lie outside the requested
-        window). Empty array when none match. from must be strictly before to
-        (400 otherwise). Adults without a circle receive 404. Does not mutate
-        feed snapshots or manual events.
+        assignments on that item), per-kid rsvps (YES / NO / NO_RESPONSE;
+        missing row materializes as NO_RESPONSE), uncoveredKidIds (in-play
+        kids — YES or NO_RESPONSE — not covered by any active PENDING or
+        CONFIRMED assignment; RSVP NO kids are never uncovered), and conflicts
+        (server-computed kid time-overlaps ignore RSVP NO kids; adult coverage
+        overlaps using event startsAt/endsAt only; peers may lie outside the
+        requested window). Empty array when none match. from must be strictly
+        before to (400 otherwise). Adults without a circle receive 404. Does
+        not mutate feed snapshots or manual events.
       security:
         - bearerAuth: []
       parameters:
@@ -1339,6 +1344,9 @@ paths:
                       status: CONFIRMED
                   uncoveredKidIds: []
                   conflicts: []
+                  rsvps:
+                    - kidId: 01900000-0000-7000-8000-000000000021
+                      status: YES
                 - id: 01900000-0000-7000-8000-000000000061
                   source: FEED
                   title: Practice
@@ -1366,6 +1374,9 @@ paths:
                       otherItemId: 01900000-0000-7000-8000-000000000051
                       otherTitle: Dentist
                       otherStartsAt: "2026-08-15T16:00:00Z"
+                  rsvps:
+                    - kidId: 01900000-0000-7000-8000-000000000021
+                      status: NO_RESPONSE
         "400":
           description: Missing from/to, or from is not strictly before to
           content:
@@ -1534,6 +1545,77 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/calendar/{source}/{itemId}/rsvps/{kidId}:
+    parameters:
+      - name: source
+        in: path
+        required: true
+        description: Whether the item is a manual event or a feed-imported row
+        schema:
+          $ref: "#/components/schemas/CalendarItemSource"
+      - name: itemId
+        in: path
+        required: true
+        description: Manual event id or feed event id
+        schema:
+          type: string
+          format: uuid
+      - name: kidId
+        in: path
+        required: true
+        description: Kid on the calendar item whose RSVP is being set
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setCalendarRsvp
+      tags: [family]
+      summary: Set per-kid RSVP on a calendar item
+      description: >
+        Any circle member. Sets attendance for one kid on the item to YES, NO,
+        or NO_RESPONSE. Missing rows read as NO_RESPONSE; setting NO_RESPONSE
+        deletes any stored row. Setting NO or NO_RESPONSE while the kid is on
+        an active (PENDING or CONFIRMED) coverage assignment hard-releases that
+        kid from the assignment (deletes the row if empty). Kid not on the
+        item returns 400. Unknown item id for the given source returns 404.
+        Returns the enriched calendar item (including rsvps and updated
+        coverages / uncoveredKidIds).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCalendarRsvpRequest"
+            example:
+              status: NO
+      responses:
+        "200":
+          description: RSVP updated; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: Kid is not on the calendar item, or status is missing/invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown calendar item for source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/family/circle/calendar/{source}/{itemId}/coverages:
     parameters:
       - name: source
@@ -1557,11 +1639,12 @@ paths:
         Any circle member. Creates a coverage assignment naming a covering adult
         and one or more kids on the calendar item. Self-assignment auto-confirms;
         assigning another adult creates a PENDING assignment they must confirm or
-        decline. Empty kidIds, kids not on the item, or kid already covered by
-        another active (PENDING or CONFIRMED) assignment returns 400 or 409.
-        Self-assign (auto-CONFIRMED) that would leave the adult with two
-        CONFIRMED coverages on overlapping events also returns 409. Unknown item
-        id for the given source returns 404.
+        decline. Successfully assigned kids are set to RSVP YES. A kid with RSVP
+        NO cannot be assigned (400). Empty kidIds, kids not on the item, or kid
+        already covered by another active (PENDING or CONFIRMED) assignment
+        returns 400 or 409. Self-assign (auto-CONFIRMED) that would leave the
+        adult with two CONFIRMED coverages on overlapping events also returns
+        409. Unknown item id for the given source returns 404.
       security:
         - bearerAuth: []
       requestBody:
@@ -1582,7 +1665,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CalendarItem"
         "400":
-          description: Empty kidIds or kid not on the calendar item
+          description: >
+            Empty kidIds, kid not on the calendar item, or kid RSVP is NO
           content:
             application/json:
               schema:
@@ -1623,7 +1707,8 @@ paths:
       description: >
         Any circle member. Updates the covering adult and/or kid list on an
         existing assignment. Same validation as assign (empty kidIds, kid not on
-        item, kid conflict). Reassign that auto-CONFIRMs (self) and would create
+        item, kid conflict, kid RSVP NO → 400). Successfully reassigned kids are
+        set to RSVP YES. Reassign that auto-CONFIRMs (self) and would create
         overlapping CONFIRMED coverages for that adult returns 409. Unknown
         assignment id returns 404.
       security:
@@ -1642,7 +1727,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/CalendarItem"
         "400":
-          description: Empty kidIds or kid not on the calendar item
+          description: >
+            Empty kidIds, kid not on the calendar item, or kid RSVP is NO
           content:
             application/json:
               schema:
@@ -1674,8 +1760,8 @@ paths:
       tags: [family]
       summary: Remove a coverage assignment
       description: >
-        Any circle member. Deletes the assignment. Unknown assignment id
-        returns 404.
+        Any circle member. Deletes the assignment. RSVP statuses are unchanged.
+        Unknown assignment id returns 404.
       security:
         - bearerAuth: []
       responses:
@@ -1712,10 +1798,10 @@ paths:
       summary: Confirm a pending coverage assignment
       description: >
         The covering adult named on the assignment only. Sets status to
-        CONFIRMED. Non-assignee receives 403. Assignment must be PENDING;
-        already confirmed or declined may return 409. Confirm that would leave
-        the adult with two CONFIRMED coverages on overlapping events returns
-        409 (assignments unchanged).
+        CONFIRMED and sets RSVP YES for kids on the assignment. Non-assignee
+        receives 403. Assignment must be PENDING; already confirmed or declined
+        may return 409. Confirm that would leave the adult with two CONFIRMED
+        coverages on overlapping events returns 409 (assignments unchanged).
       security:
         - bearerAuth: []
       responses:
@@ -1766,9 +1852,9 @@ paths:
       summary: Decline a pending coverage assignment
       description: >
         The covering adult named on the assignment only. Sets status to
-        DECLINED (kids become uncovered unless reassigned). Non-assignee
-        receives 403. Assignment must be PENDING; already confirmed or declined
-        may return 409.
+        DECLINED (kids become uncovered unless reassigned). RSVP statuses are
+        unchanged. Non-assignee receives 403. Assignment must be PENDING;
+        already confirmed or declined may return 409.
       security:
         - bearerAuth: []
       responses:
@@ -2683,6 +2769,38 @@ components:
         - CONFIRMED
         - DECLINED
 
+    RsvpStatus:
+      type: string
+      description: >
+        Per-kid attendance on a calendar item. NO_RESPONSE is the default when
+        no row is stored. YES and NO are persisted; setting NO_RESPONSE deletes
+        the row.
+      enum:
+        - YES
+        - NO
+        - NO_RESPONSE
+
+    CalendarRsvp:
+      type: object
+      required:
+        - kidId
+        - status
+      properties:
+        kidId:
+          type: string
+          format: uuid
+          description: Kid on the calendar item
+        status:
+          $ref: "#/components/schemas/RsvpStatus"
+
+    SetCalendarRsvpRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: "#/components/schemas/RsvpStatus"
+
     CalendarCoverageAssignment:
       type: object
       required:
@@ -2750,6 +2868,7 @@ components:
         - coverages
         - uncoveredKidIds
         - conflicts
+        - rsvps
       properties:
         id:
           type: string
@@ -2833,21 +2952,29 @@ components:
         uncoveredKidIds:
           type: array
           description: >
-            Kids on this item not covered by any active (PENDING or CONFIRMED)
-            assignment
+            In-play kids on this item (RSVP YES or NO_RESPONSE) not covered by
+            any active (PENDING or CONFIRMED) assignment. Kids with RSVP NO are
+            never included.
           items:
             type: string
             format: uuid
         conflicts:
           type: array
           description: >
-            Server-computed conflicts for this item (kid time-overlaps and adult
-            coverage overlaps). Empty when none. Clients should render amber
-            chrome from this list; do not re-derive overlap rules for truth.
-            Travel / leave-by “cutting it close” is out of scope for this
-            revision.
+            Server-computed conflicts for this item (kid time-overlaps ignore
+            RSVP NO kids; adult coverage overlaps). Empty when none. Clients
+            should render amber chrome from this list; do not re-derive overlap
+            rules for truth. Travel / leave-by “cutting it close” is out of
+            scope for this revision.
           items:
             $ref: "#/components/schemas/CalendarConflict"
+        rsvps:
+          type: array
+          description: >
+            One entry per kid on the item. Missing stored rows materialize as
+            NO_RESPONSE. Circle-visible.
+          items:
+            $ref: "#/components/schemas/CalendarRsvp"
 
     CreateManualEventRequest:
       type: object

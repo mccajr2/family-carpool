@@ -53,10 +53,17 @@ Starting target for ports (adjust only with a written regroup outcome):
    stronger type / weight than meta.
 2. **Travel / origin** — leave-by + Leave from (+ **Open Places** when
    `NO_ORIGIN`). Keep travel together; not in the title band.
-3. **People / source** — source label, kids on the event.
+3. **People / source** — source label + **per-kid RSVP** field rows (name
+   leading, Yes / No / No response trailing).
 4. **Coverage / actions** — active coverage lines, needs-coverage,
-   Confirm/Decline, Assign, Edit/Remove — one spacing-grouped region, no inner
-   card/band.
+   Confirm/Decline, Assign — one spacing-grouped region, no inner card/band.
+5. **Manual actions** — Edit / Remove for manual rows only (outside coverage so
+   they remain when the row is out of play).
+
+**Out of play** (every kid on the item is RSVP **No**): deemphasize the item
+(muted / reduced opacity); hide Travel, Coverage, and conflict amber; keep
+Primary summary, People RSVP rows, and Manual Edit/Remove. Mixed Yes/No stays
+in play; No kids are omitted from uncovered / Assign.
 
 ### Situational primary CTA
 
@@ -87,8 +94,9 @@ kids sit between identity and leave-by, so “who” and “when to leave” blu
 |------|----------|-----|
 | Primary | title, when, location, **conflict status lines** (when `conflicts` non-empty) | Event identity first; amber conflict copy attaches here as a status affordance — not a new control dump |
 | Travel / origin | leave-by, Leave from, Open Places (`NO_ORIGIN`) | Keep leave timing + origin together so adults answer “when do I leave / from where?” in one place; recovery stays with the gap |
-| People / source | source label, kids on the event | Who the event is about / where it came from — separate from travel |
-| Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign, Edit/Remove | Responsibility + situational CTAs as one proximity group; Edit/Remove stay secondary peers (never fake primary when Confirm/Assign exists) |
+| People / source | source label, **per-kid RSVP** field rows | Who is going (Yes / No / No response); attendance is separate from coverage |
+| Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign | Responsibility + situational CTAs; Edit/Remove moved to Manual actions |
+| Manual actions | Edit / Remove (manual only) | Stay available when out of play; never fake primary when Confirm/Assign exists |
 
 ### Conflict chrome (server-owned)
 
@@ -161,7 +169,9 @@ Toolkit chrome may differ; **layout and strings** must not.
 
 ## Manual event controls
 
-- Manual rows: **Edit** and **Remove event** only (adjacent).
+- Manual rows: **Edit** and **Remove event** only (adjacent), in the **Manual
+  actions** band — not inside Coverage — so they remain when the row is out of
+  play.
 - Do **not** show a separate **Edit location** button — destination / location
   fixes go through **Edit** (same compose dialog).
 - Leave-by `NO_ORIGIN`: show **Open Places** recovery (navigates to Places).
@@ -189,7 +199,8 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Active rows (`PENDING` / `CONFIRMED`):  
   `{adult} · {kids} · {Pending|Confirmed}` (+ **Remove coverage**).
 - Declined rows are not shown as active coverage.
-- Uncovered kids: **Needs coverage** / **Needs coverage: {names}**.
+- Uncovered kids: **Needs coverage** / **Needs coverage: {names}** (in-play
+  only — RSVP No kids are never uncovered).
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
 
 ### Assign
@@ -205,6 +216,17 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Button label: **Assign coverage**.
 - Self-assign (covering adult === signed-in adult) → API returns `CONFIRMED`;
   UI must not imply a confirm step is still required for that assignment.
+- Assign / confirm also set those kids’ RSVP to **Yes** (server); assigning a
+  **No** kid fails.
+
+## RSVP
+
+- People band: each kid is a **field row** (name leading, chooser trailing:
+  No response / Yes / No). `data-testid` / a11y id `rsvp-{source}-{id}-{kidId}`.
+- Client confirm only when setting No or No response while the kid has active
+  coverage: `This will remove coverage for {kidName}.` Cancel leaves RSVP
+  unchanged. No confirm when uncovered.
+- Patch the calendar cache on RSVP writes like other single-item mutations.
 
 ## Port checklist (iOS + Android)
 
@@ -212,15 +234,16 @@ Match this contract for each item before calling the port done:
 
 1. Layout spacing (section / filters / items).
 2. Busy labels on Save / Load more; Sign out label stable; no Agenda banner.
-3. Manual: Edit + Remove only; Open Places for `NO_ORIGIN`.
+3. Manual: Edit + Remove in Manual actions band; Open Places for `NO_ORIGIN`.
 4. Sole-option rules for adult / kid / leave-from (Agenda); Places default
    always chooser with None.
 5. Coverage lines, needs-coverage, confirm/decline, assign defaults + self-confirm.
 6. Default leave-from on Places.
-7. Field rows: Leave from / Covering adult / My default leave-from are
-   horizontal (label leading, value/picker trailing).
+7. Field rows: Leave from / Covering adult / My default leave-from / per-kid
+   RSVP are horizontal (label leading, value/picker trailing).
 8. Presentation hierarchy (selection A): bands + one situational primary CTA;
-   no inner card/band; no accordion in this slice.
+   no inner card/band; no accordion in this slice; out-of-play chrome when all
+   kids RSVP No; coverage-release confirm copy.
 9. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
 

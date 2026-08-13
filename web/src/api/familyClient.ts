@@ -14,6 +14,7 @@ import type {
   CalendarLeaveBy,
   Place,
   SetCalendarLeaveFromRequest,
+  SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -547,6 +548,33 @@ export class FamilyClient {
     )
     if (!response.ok) {
       throw new Error(await readErrorMessage(response, "Decline coverage failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
+  async setCalendarRsvp(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    kidId: string,
+    body: SetCalendarRsvpRequest,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/rsvps/${kidId}`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set RSVP failed"))
     }
     return (await response.json()) as CalendarItem
   }

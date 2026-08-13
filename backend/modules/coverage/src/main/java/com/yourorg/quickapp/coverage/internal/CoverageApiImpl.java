@@ -183,6 +183,32 @@ class CoverageApiImpl implements CoverageApi {
         return respond(actorAdultId, assignmentId, CoverageStatus.DECLINED);
     }
 
+    @Override
+    @Transactional
+    public void releaseKidFromActiveRows(
+            UUID circleId, CoverageItemSource source, UUID itemId, UUID kidId) {
+        if (kidId == null) {
+            return;
+        }
+        List<CoverageAssignmentEntity> active =
+                assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        circleId, source, itemId, ACTIVE);
+        Instant now = Instant.now();
+        for (CoverageAssignmentEntity row : active) {
+            if (!row.kidIds().contains(kidId)) {
+                continue;
+            }
+            Set<UUID> remaining = new HashSet<>(row.kidIds());
+            remaining.remove(kidId);
+            if (remaining.isEmpty()) {
+                assignments.delete(row);
+            } else {
+                row.setKids(remaining, now);
+                assignments.save(row);
+            }
+        }
+    }
+
     private CoverageAssignmentDto respond(
             UUID actorAdultId, UUID assignmentId, CoverageStatus next) {
         UUID circleId = membershipApi.requireMemberCircleId(actorAdultId);

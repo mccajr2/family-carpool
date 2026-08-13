@@ -48,6 +48,7 @@ function item(partial: Partial<CalendarItem> & Pick<CalendarItem, "id" | "title"
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
+    rsvps: [],
     ...partial,
   }
 }

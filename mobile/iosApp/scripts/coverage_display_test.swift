@@ -196,6 +196,10 @@ struct CoverageDisplayTestMain {
             "Agenda coverage/actions band identifier"
         )
         expect(
+            content.contains("AgendaBands.manualActions"),
+            "manual Edit/Remove outside coverage band"
+        )
+        expect(
             content.contains("AgendaBands.ctaPrimary"),
             "situational primary CTA identifier"
         )
@@ -203,16 +207,23 @@ struct CoverageDisplayTestMain {
             content.contains("Assign is filled primary only when Confirm is absent"),
             "Assign demotes when Confirm is shown"
         )
+        expect(
+            content.contains("RsvpDisplay.isAgendaItemOutOfPlay"),
+            "out-of-play chrome"
+        )
+        expect(content.contains("requestRsvpChange"), "per-kid RSVP chooser")
         if let primaryRange = content.range(of: "AgendaBands.primary"),
            let travelRange = content.range(of: "AgendaBands.travel"),
            let peopleRange = content.range(of: "AgendaBands.people"),
-           let coverageRange = content.range(of: "AgendaBands.coverage")
+           let coverageRange = content.range(of: "AgendaBands.coverage"),
+           let manualRange = content.range(of: "AgendaBands.manualActions")
         {
             expect(
                 primaryRange.lowerBound < travelRange.lowerBound
                     && travelRange.lowerBound < peopleRange.lowerBound
-                    && peopleRange.lowerBound < coverageRange.lowerBound,
-                "Agenda bands appear in Primary → Travel → People → Coverage order"
+                    && peopleRange.lowerBound < coverageRange.lowerBound
+                    && coverageRange.lowerBound < manualRange.lowerBound,
+                "Agenda bands appear in Primary → Travel → People → Coverage → Manual actions order"
             )
         } else {
             expect(false, "all AgendaBands identifiers must be present for order assert")

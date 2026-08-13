@@ -440,6 +440,25 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun setCalendarRsvp(
+        accessToken: String,
+        source: CalendarItemSource,
+        itemId: String,
+        kidId: String,
+        body: SetCalendarRsvpRequest,
+    ): CalendarItem {
+        val response =
+            httpClient.put(
+                "$baseUrl/api/family/circle/calendar/$source/$itemId/rsvps/$kidId",
+            ) {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Set RSVP failed")
+        return response.body()
+    }
+
     suspend fun listEvents(accessToken: String): List<ManualEvent> {
         val response =
             httpClient.get("$baseUrl/api/family/circle/events") {
