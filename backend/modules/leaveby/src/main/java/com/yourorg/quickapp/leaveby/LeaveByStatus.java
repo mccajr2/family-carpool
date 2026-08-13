@@ -2,5 +2,6 @@ package com.yourorg.quickapp.leaveby;
 
 public enum LeaveByStatus {
     OK,
-    UNAVAILABLE
+    UNAVAILABLE,
+    PENDING
 }

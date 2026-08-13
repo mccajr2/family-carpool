@@ -293,6 +293,35 @@ class FamilyClientTest {
         }
 
     @Test
+    fun listCalendarLeaveBy() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/calendar/leave-by" &&
+                            request.method == HttpMethod.Get -> {
+                            assertEquals("2026-08-01T00:00:00Z", request.url.parameters["from"])
+                            assertEquals("2026-09-01T00:00:00Z", request.url.parameters["to"])
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","leaveFromPlaceId":"p1","leaveFromPlaceName":"Mom's house","leaveByAt":"2026-08-15T15:25:00Z","leaveByStatus":"OK","leaveByReason":null}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val rows =
+                client.listCalendarLeaveBy("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z")
+            assertEquals(1, rows.size)
+            assertEquals(CalendarItemSource.MANUAL, rows[0].source)
+            assertEquals(LeaveByStatus.OK, rows[0].leaveByStatus)
+            assertEquals("2026-08-15T15:25:00Z", rows[0].leaveByAt)
+        }
+
+    @Test
     fun setDefaultLeaveFrom() =
         runTest {
             val mockEngine =

@@ -20,4 +20,11 @@ class FamilyGeocodeApiImpl implements FamilyGeocodeApi {
                 .resolve(locationText)
                 .map(coords -> new GeoPointDto(coords.latitude(), coords.longitude()));
     }
+
+    @Override
+    public Optional<GeoPointDto> findCachedLocation(String locationText) {
+        return geocodeService
+                .findCached(locationText)
+                .map(coords -> new GeoPointDto(coords.latitude(), coords.longitude()));
+    }
 }

@@ -73,7 +73,18 @@ export type ManualEvent = {
 
 export type CalendarItemSource = "MANUAL" | "FEED"
 
-export type LeaveByStatus = "OK" | "UNAVAILABLE"
+export type LeaveByStatus = "OK" | "UNAVAILABLE" | "PENDING"
+
+/** Fill-in row from GET …/calendar/leave-by (never PENDING). */
+export type CalendarLeaveBy = {
+  id: string
+  source: CalendarItemSource
+  leaveFromPlaceId?: string | null
+  leaveFromPlaceName?: string | null
+  leaveByAt?: string | null
+  leaveByStatus: Exclude<LeaveByStatus, "PENDING">
+  leaveByReason?: string | null
+}
 
 export type CoverageStatus = "PENDING" | "CONFIRMED" | "DECLINED"
 

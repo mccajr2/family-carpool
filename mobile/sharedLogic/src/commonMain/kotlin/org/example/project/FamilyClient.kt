@@ -338,6 +338,21 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun listCalendarLeaveBy(
+        accessToken: String,
+        from: String,
+        to: String,
+    ): List<CalendarLeaveBy> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/calendar/leave-by") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                parameter("from", from)
+                parameter("to", to)
+            }
+        ensureSuccess(response, "List calendar leave-by failed")
+        return response.body()
+    }
+
     suspend fun setCalendarLeaveFrom(
         accessToken: String,
         source: CalendarItemSource,

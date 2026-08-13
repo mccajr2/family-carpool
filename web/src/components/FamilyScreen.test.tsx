@@ -8,11 +8,15 @@ import { CalendarCacheStore, CALENDAR_CACHE_SOFT_TTL_MS } from "@/api/calendarCa
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
-import { defaultCalendarWindow } from "@/components/eventTimes"
+import { defaultCalendarWindow, nearTermLeaveByWindow, remainderAfterNearTermLeaveByWindow } from "@/components/eventTimes"
+import { LEAVE_BY_PENDING_LABEL } from "@/components/leaveByDisplay"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
-  return partial as FamilyClient
+  return {
+    listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
+    ...partial,
+  } as FamilyClient
 }
 
 function mockAuthClient(partial: Partial<AuthClient>): AuthClient {
@@ -3061,5 +3065,525 @@ describe("FamilyScreen", () => {
     })
 
     vi.restoreAllMocks()
+  })
+
+  it("paints agenda from a cheap list before leave-by fill-in completes", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    let releaseFill!: (rows: unknown[]) => void
+    const listCalendarLeaveBy = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseFill = resolve
+        }),
+    )
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+                {
+                  id: "p2",
+                  name: "Dad's house",
+                  address: "2 Main",
+                  latitude: 40.2,
+                  longitude: -74.2,
+                },
+              ],
+            }),
+          ),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Mom's house",
+              leaveByStatus: "PENDING",
+              leaveByReason: null,
+            }),
+          ]),
+          listCalendarLeaveBy,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
+      LEAVE_BY_PENDING_LABEL,
+    )
+    const leaveFrom = screen.getByLabelText("Leave from for Practice")
+    expect(leaveFrom).toBeEnabled()
+    expect(
+      within(screen.getByTestId("agenda-item-MANUAL-e1")).getByText("Sam"),
+    ).toBeInTheDocument()
+    expect(listCalendarLeaveBy).toHaveBeenCalled()
+    expect(screen.queryByText(/^Leave by ~/)).not.toBeInTheDocument()
+
+    releaseFill([
+      {
+        id: "e1",
+        source: "MANUAL",
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Mom's house",
+        leaveByAt: "2030-08-15T16:30:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+      },
+    ])
+
+    await waitFor(() => {
+      expect(screen.getByTestId("leave-by-MANUAL-e1").textContent).toMatch(
+        /^Leave by ~/,
+      )
+    })
+    expect(screen.getByText("Practice")).toBeInTheDocument()
+  })
+
+  it("requests near-term leave-by before the later loaded window", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const loaded = defaultCalendarWindow()
+    const near = nearTermLeaveByWindow(loaded.from, loaded.to)!
+    const rest = remainderAfterNearTermLeaveByWindow(loaded.from, loaded.to)!
+    let releaseNear!: (rows: unknown[]) => void
+    const listCalendarLeaveBy = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseNear = resolve
+          }),
+      )
+      .mockResolvedValueOnce([])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              leaveByStatus: "PENDING",
+              leaveByReason: null,
+            }),
+          ]),
+          listCalendarLeaveBy,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendarLeaveBy).toHaveBeenCalledTimes(1)
+    })
+    expect(listCalendarLeaveBy.mock.calls[0]?.[1]).toBe(near.from)
+    expect(listCalendarLeaveBy.mock.calls[0]?.[2]).toBe(near.to)
+
+    releaseNear([])
+    await waitFor(() => {
+      expect(listCalendarLeaveBy).toHaveBeenCalledTimes(2)
+    })
+    expect(listCalendarLeaveBy.mock.calls[1]?.[1]).toBe(rest.from)
+    expect(listCalendarLeaveBy.mock.calls[1]?.[2]).toBe(rest.to)
+  })
+
+  it("keeps cached OK leave-by when cheap revalidate is PENDING for the same origin", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const window = defaultCalendarWindow()
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "ORGANIZER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "ORGANIZER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: "AB12CD34",
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: window.from,
+      to: window.to,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+          leaveFromPlaceId: "p1",
+          leaveFromPlaceName: "Home",
+          leaveByAt: "2030-08-15T16:30:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+    let releaseFill!: (rows: unknown[]) => void
+    const listCalendarLeaveBy = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseFill = resolve
+        }),
+    )
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Home",
+              leaveByStatus: "PENDING",
+              leaveByReason: null,
+            }),
+          ]),
+          listCalendarLeaveBy,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendarLeaveBy).toHaveBeenCalled()
+    })
+    expect(screen.getByTestId("leave-by-MANUAL-e1").textContent).toMatch(/^Leave by ~/)
+    expect(screen.queryByText(LEAVE_BY_PENDING_LABEL)).not.toBeInTheDocument()
+
+    releaseFill([
+      {
+        id: "e1",
+        source: "MANUAL",
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Home",
+        leaveByAt: "2030-08-15T16:10:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+      },
+    ])
+    await waitFor(() => {
+      expect(cache.load("1", "c1")?.items[0]?.leaveByAt).toBe(
+        "2030-08-15T16:10:00.000Z",
+      )
+    })
+  })
+
+  it("drops cached OK to PENDING when cheap list origin changes", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const window = defaultCalendarWindow()
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "CAREGIVER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "CAREGIVER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: null,
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: window.from,
+      to: window.to,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+          leaveFromPlaceId: "p1",
+          leaveFromPlaceName: "Home",
+          leaveByAt: "2030-08-15T16:30:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+    const listCalendarLeaveBy = vi.fn().mockImplementation(
+      () => new Promise(() => {}),
+    )
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              leaveFromPlaceId: "p2",
+              leaveFromPlaceName: "Dad's house",
+              leaveByStatus: "PENDING",
+              leaveByReason: null,
+            }),
+          ]),
+          listCalendarLeaveBy,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
+        LEAVE_BY_PENDING_LABEL,
+      )
+    })
+  })
+
+  it("keeps agenda rows when leave-by fill-in fails", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              leaveByStatus: "PENDING",
+              leaveByReason: null,
+            }),
+          ]),
+          listCalendarLeaveBy: vi.fn().mockRejectedValue(new Error("leave-by down")),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
+        LEAVE_BY_PENDING_LABEL,
+      )
+    })
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("fills leave-by for a Load more page after the near-term request", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const listCalendar = vi
+      .fn()
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        }),
+      ])
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: "2030-09-20T17:00:00.000Z",
+          kidIds: ["k1"],
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        }),
+      ])
+    const listCalendarLeaveBy = vi.fn().mockResolvedValue([])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar,
+          listCalendarLeaveBy,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Near")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendarLeaveBy).toHaveBeenCalledTimes(2)
+    })
+    const nearTermTo = listCalendarLeaveBy.mock.calls[0]?.[2] as string
+
+    await user.click(screen.getByRole("button", { name: "Load more" }))
+    expect(await screen.findByText("Later")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendarLeaveBy).toHaveBeenCalledTimes(3)
+    })
+    const pageCall = listCalendarLeaveBy.mock.calls[2]
+    expect(pageCall?.[1]).toBe(listCalendar.mock.calls[1]?.[1])
+    expect(pageCall?.[2]).toBe(listCalendar.mock.calls[1]?.[2])
+    expect(listCalendarLeaveBy.mock.calls[0]?.[2]).toBe(nearTermTo)
   })
 })

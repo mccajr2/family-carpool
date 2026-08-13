@@ -53,6 +53,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle/events");
         assertThat(yaml).contains("/api/family/circle/events/{eventId}");
         assertThat(yaml).contains("/api/family/circle/calendar");
+        assertThat(yaml).contains("/api/family/circle/calendar/leave-by");
         assertThat(yaml).contains("/api/family/circle/invite");
         assertThat(yaml).contains("/api/family/circle/invite/regenerate");
         assertThat(yaml).contains("/api/family/circle/join");
@@ -86,6 +87,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: updateManualEvent");
         assertThat(yaml).contains("operationId: deleteManualEvent");
         assertThat(yaml).contains("operationId: listCircleCalendar");
+        assertThat(yaml).contains("operationId: listCalendarLeaveBy");
         assertThat(yaml).contains("operationId: setCalendarLeaveFrom");
         assertThat(yaml).contains("operationId: setDefaultLeaveFrom");
         assertThat(yaml).contains("operationId: assignCalendarCoverage");
@@ -130,6 +132,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("KID_TIME_OVERLAP");
         assertThat(yaml).contains("ADULT_COVERAGE_OVERLAP");
         assertThat(yaml).contains("LeaveByStatus:");
+        assertThat(yaml).contains("CalendarLeaveBy:");
+        assertThat(yaml).contains("listCalendarLeaveBy never");
+        assertThat(yaml).contains("This list does **not** call Nominatim");
         assertThat(yaml).contains("SetCalendarLeaveFromRequest:");
         assertThat(yaml).contains("SetDefaultLeaveFromRequest:");
         assertThat(yaml).contains("CoverageStatus:");
@@ -160,7 +165,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.12.0");
+        assertThat(yaml).contains("version: 0.13.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");

@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.calendar;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -85,9 +86,30 @@ class LeaveByCalendarIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Practice"))
-                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"))
+                .andExpect(jsonPath("$[0].leaveByStatus").value("PENDING"))
                 .andExpect(jsonPath("$[0].leaveFromPlaceId").value(placeId))
                 .andExpect(jsonPath("$[0].leaveFromPlaceName").value("Mom's house"))
+                .andExpect(jsonPath("$[0].leaveByAt").value(nullValue()));
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(eventId))
+                .andExpect(jsonPath("$[0].source").value("MANUAL"))
+                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"))
+                .andExpect(jsonPath("$[0].leaveFromPlaceId").value(placeId))
+                .andExpect(jsonPath("$[0].leaveByAt").isNotEmpty());
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"))
                 .andExpect(jsonPath("$[0].leaveByAt").isNotEmpty());
 
         // Soft-fail: blank location → UNAVAILABLE

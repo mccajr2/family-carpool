@@ -186,18 +186,18 @@ Sign-out / identity change still clears the calendar cache.
 
 ## Tasks
 
-- [ ] **Contract:** Add `PENDING` to `LeaveByStatus`; document cheap vs fill-in
+- [x] **Contract:** Add `PENDING` to `LeaveByStatus`; document cheap vs fill-in
       on `listCircleCalendar`; add `GET …/calendar/leave-by` + `CalendarLeaveBy`
       schema in `contracts/openapi.yaml`.
-- [ ] **Backend (`leaveby`):** Split cheap origin/status vs full `enrich`; list
+- [x] **Backend (`leaveby`):** Split cheap origin/status vs full `enrich`; list
       path must not call Nominatim/OSRM HTTP. Add duration cache (successful
       OSRM only). Fill-in/enrich must use `FamilyGeocodeApi` (existing
       `geocode_cache`) and collapse duplicate locations/routes in-request.
-- [ ] **Backend (`calendar`):** List uses cheap path; new leave-by range
+- [x] **Backend (`calendar`):** List uses cheap path; new leave-by range
       endpoint; single-item `requireItem` stays full enrich.
-- [ ] **Web:** `listCalendarLeaveBy` client; paint-then-fill; near-term slice;
+- [x] **Web:** `listCalendarLeaveBy` client; paint-then-fill; near-term slice;
       PENDING copy; cache merge; Load more fill for the appended page.
-- [ ] **Android (`sharedLogic` / `sharedUI`):** Same behavior in `FamilyUiModel`
+- [x] **Android (`sharedLogic` / `sharedUI`):** Same behavior in `FamilyUiModel`
       + Agenda leave-by line.
 - [ ] **iOS:** Same behavior (`AuthViewModel` / Calendar UI).
 - [ ] **Docs:** `docs/architecture.md` — cheap list + async fill-in; reuse

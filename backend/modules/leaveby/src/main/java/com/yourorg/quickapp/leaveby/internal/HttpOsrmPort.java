@@ -4,7 +4,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,14 +90,7 @@ class HttpOsrmPort implements OsrmPort {
     /** Visible for tests — builds the absolute OSRM route URI. */
     static URI routeUri(
             String baseUrl, double fromLat, double fromLng, double toLat, double toLng) {
-        String coordinates =
-                String.format(
-                        Locale.ROOT,
-                        "%.6f,%.6f;%.6f,%.6f",
-                        fromLng,
-                        fromLat,
-                        toLng,
-                        toLat);
+        String coordinates = LeaveByRouteKeys.routeKey(fromLat, fromLng, toLat, toLng);
         return URI.create(
                 trimTrailingSlash(baseUrl) + "/route/v1/driving/" + coordinates + "?overview=false");
     }

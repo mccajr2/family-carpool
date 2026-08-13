@@ -125,6 +125,14 @@ class CalendarControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("from must be before to"));
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-15T00:00:00Z")
+                                .param("to", "2026-08-15T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("from must be before to"));
     }
 
     @Test
@@ -136,9 +144,23 @@ class CalendarControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token"))
                 .andExpect(status().isUnauthorized());
 
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token"))
+                .andExpect(status().isUnauthorized());
+
         String token = signIn("cal-lonely@example.com");
         mockMvc.perform(
                         get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
                                 .param("from", "2026-08-01T00:00:00Z")
                                 .param("to", "2026-09-01T00:00:00Z")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))

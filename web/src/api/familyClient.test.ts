@@ -444,6 +444,37 @@ describe("FamilyClient", () => {
     )
   })
 
+  it("lists leave-by fill-in rows for a time window", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const rows = [
+      {
+        id: "e1",
+        source: "MANUAL",
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Mom's house",
+        leaveByAt: "2026-08-15T15:25:00Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+      },
+    ]
+
+    const fetchFn = vi.fn().mockResolvedValueOnce(json(rows))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.listCalendarLeaveBy("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"),
+    ).resolves.toMatchObject([{ source: "MANUAL", leaveByStatus: "OK" }])
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/leave-by?from=2026-08-01T00%3A00%3A00Z&to=2026-09-01T00%3A00%3A00Z",
+    )
+  })
+
   it("sets leave-from for a calendar item", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

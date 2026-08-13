@@ -66,6 +66,30 @@ class InstantIsoTest {
     }
 
     @Test
+    fun nearTermLeaveByWindow_slicesTodayPlusTwoDaysThenRemainder() {
+        val now = Instant.parse("2026-08-13T18:00:00Z").toEpochMilliseconds()
+        val loaded = defaultCalendarWindow(now)
+        val near = nearTermLeaveByWindow(loaded.from, loaded.to, now)!!
+        val rest = remainderAfterNearTermLeaveByWindow(loaded.from, loaded.to, now)!!
+        assertEquals(loaded.from, near.from)
+        val nearSpan =
+            Instant.parse(near.to).toEpochMilliseconds() -
+                Instant.parse(near.from).toEpochMilliseconds()
+        assertEquals(LEAVE_BY_NEAR_TERM_DAYS * 24L * 60 * 60 * 1000, nearSpan)
+        assertEquals(near.to, rest.from)
+        assertEquals(loaded.to, rest.to)
+    }
+
+    @Test
+    fun remainderAfterNearTerm_isNullWhenWindowIsOnlyNearTerm() {
+        val now = Instant.parse("2026-08-13T18:00:00Z").toEpochMilliseconds()
+        val near =
+            advanceCalendarWindow(defaultCalendarWindow(now).from, LEAVE_BY_NEAR_TERM_DAYS)
+        assertEquals(near, nearTermLeaveByWindow(near.from, near.to, now))
+        assertNull(remainderAfterNearTermLeaveByWindow(near.from, near.to, now))
+    }
+
+    @Test
     fun ensureCalendarWindowCovers_extendsUntilInstantFits() {
         val first = defaultCalendarWindow(Instant.parse("2026-08-15T12:00:00Z").toEpochMilliseconds())
         val far = "2026-11-01T17:00:00Z"

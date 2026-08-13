@@ -14,4 +14,10 @@ public interface FamilyGeocodeApi {
      * cache miss with provider miss, or provider error (soft-fail).
      */
     Optional<GeoPointDto> resolveLocation(String locationText);
+
+    /**
+     * Cache-only lookup. Empty on blank, oversize, or {@code geocode_cache}
+     * miss — never calls Nominatim.
+     */
+    Optional<GeoPointDto> findCachedLocation(String locationText);
 }

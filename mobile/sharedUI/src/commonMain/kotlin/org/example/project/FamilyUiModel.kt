@@ -1,5 +1,7 @@
 package org.example.project
 
+import kotlinx.coroutines.CompletableDeferred
+
 /**
  * Testable family-circle flow used by Compose [FamilyScreen].
  */
@@ -106,6 +108,9 @@ class FamilyUiModel(
      */
     var stateListener: (() -> Unit)? = null
 
+    private var leaveByFillGen: Int = 0
+    private var nearTermFill: CompletableDeferred<Unit> = CompletableDeferred(Unit)
+
     private var _state: State = State.Loading
         set(value) {
             field = value
@@ -125,17 +130,21 @@ class FamilyUiModel(
                 paintBootstrapIfPresent(adult.id)
             }
             val circle = familyClient.getCircle(token)
-            _state =
-                if (circle == null) {
-                    bootstrapCache.clear(adult.id)
+            if (circle == null) {
+                bootstrapCache.clear(adult.id)
+                _state =
                     State.NeedsMembership(
                         email = adult.email,
                         hasDisplayName = !adult.displayName.isNullOrBlank(),
                     )
-                } else {
-                    readyState(adult, circle, token)
-                }
+            } else {
+                val ready = readyState(adult, circle, token)
+                _state = ready
+                val window = calendarWindowThrough(ready.calendarLoadedTo)
+                fillLeaveByForWindow(token, window.from, window.to)
+            }
         } catch (e: Throwable) {
+            resolveNearTermGate()
             // Keep bootstrap Ready on screen when refresh fails.
             if (_state !is State.Ready) {
                 _state = State.LoadFailed(message = e.message ?: "Failed to load family")
@@ -163,6 +172,7 @@ class FamilyUiModel(
                 calendarRevalidating = true,
                 loading = false,
             )
+        armNearTermGate()
     }
 
     fun showCreate() {
@@ -848,6 +858,7 @@ class FamilyUiModel(
                     calendarItems = calendarItems,
                     calendarFetchedAt = calendarFetchedAt,
                 )
+            fillLeaveByForLoadedTo(token, current.calendarLoadedTo)
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Add feed failed")
         }
@@ -881,6 +892,7 @@ class FamilyUiModel(
                     calendarItems = calendarItems,
                     calendarFetchedAt = calendarFetchedAt,
                 )
+            fillLeaveByForLoadedTo(token, current.calendarLoadedTo)
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Update feed failed")
         }
@@ -902,6 +914,7 @@ class FamilyUiModel(
                     calendarItems = calendarItems,
                     calendarFetchedAt = calendarFetchedAt,
                 )
+            fillLeaveByForLoadedTo(token, current.calendarLoadedTo)
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Remove feed failed")
         }
@@ -923,6 +936,7 @@ class FamilyUiModel(
                     calendarItems = calendarItems,
                     calendarFetchedAt = calendarFetchedAt,
                 )
+            fillLeaveByForLoadedTo(token, current.calendarLoadedTo)
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Sync feed failed")
         }
@@ -957,6 +971,8 @@ class FamilyUiModel(
                     calendarLoadedTo = page.to,
                     calendarFetchedAt = fetchedAt,
                 )
+            nearTermFill.await()
+            fetchAndApplyLeaveBy(token, page.from, page.to, leaveByFillGen)
         } catch (e: Throwable) {
             _state =
                 current.copy(
@@ -1005,6 +1021,7 @@ class FamilyUiModel(
                     calendarFetchedAt = calendarFetchedAt,
                     error = null,
                 )
+            fillLeaveByForLoadedTo(token, loadedTo)
         } catch (e: Throwable) {
             _state =
                 current.copy(
@@ -1056,6 +1073,7 @@ class FamilyUiModel(
                     calendarFetchedAt = calendarFetchedAt,
                     error = null,
                 )
+            fillLeaveByForLoadedTo(token, loadedTo)
         } catch (e: Throwable) {
             _state =
                 current.copy(
@@ -1079,6 +1097,7 @@ class FamilyUiModel(
                     calendarItems = calendarItems,
                     calendarFetchedAt = calendarFetchedAt,
                 )
+            fillLeaveByForLoadedTo(token, current.calendarLoadedTo)
         } catch (e: Throwable) {
             _state =
                 current.copy(
@@ -1315,8 +1334,75 @@ class FamilyUiModel(
         loadedTo: String,
     ): Pair<List<CalendarItem>, Long> {
         val items = loadCalendarItems(token, loadedTo)
-        val fetchedAt = persistCalendarSnapshot(adultId, circleId, loadedTo, items)
-        return items to fetchedAt
+        val previous = calendarCache.load(adultId, circleId)?.items.orEmpty()
+        val merged = mergeCheapCalendarItems(items, previous)
+        val fetchedAt = persistCalendarSnapshot(adultId, circleId, loadedTo, merged)
+        return merged to fetchedAt
+    }
+
+    private fun persistFilledItems(items: List<CalendarItem>) {
+        val current = _state as? State.Ready ?: return
+        val existing = calendarCache.load(current.adultId, current.circle.id) ?: return
+        calendarCache.save(existing.copy(items = items))
+    }
+
+    private suspend fun fetchAndApplyLeaveBy(
+        token: String,
+        from: String,
+        to: String,
+        gen: Int,
+    ) {
+        try {
+            val rows = familyClient.listCalendarLeaveBy(token, from, to)
+            if (gen != leaveByFillGen) return
+            val latest = _state as? State.Ready ?: return
+            val next = applyLeaveByFillIn(latest.calendarItems, rows)
+            persistFilledItems(next)
+            _state = latest.copy(calendarItems = next)
+        } catch (_: Throwable) {
+            // Keep last known leave-by; do not wipe Agenda.
+        }
+    }
+
+    private fun armNearTermGate() {
+        if (!nearTermFill.isCompleted) return
+        nearTermFill = CompletableDeferred()
+    }
+
+    private fun resolveNearTermGate() {
+        if (!nearTermFill.isCompleted) {
+            nearTermFill.complete(Unit)
+        }
+    }
+
+    private suspend fun fillLeaveByForWindow(
+        token: String,
+        loadedFrom: String,
+        loadedTo: String,
+    ) {
+        val gen = ++leaveByFillGen
+        armNearTermGate()
+        try {
+            val near = nearTermLeaveByWindow(loadedFrom, loadedTo, nowMs())
+            if (near != null) {
+                fetchAndApplyLeaveBy(token, near.from, near.to, gen)
+            }
+        } finally {
+            resolveNearTermGate()
+        }
+        if (gen != leaveByFillGen) return
+        val rest = remainderAfterNearTermLeaveByWindow(loadedFrom, loadedTo, nowMs())
+        if (rest != null) {
+            fetchAndApplyLeaveBy(token, rest.from, rest.to, gen)
+        }
+    }
+
+    private suspend fun fillLeaveByForLoadedTo(
+        token: String,
+        loadedTo: String,
+    ) {
+        val window = calendarWindowThrough(loadedTo)
+        fillLeaveByForWindow(token, window.from, window.to)
     }
 
     private suspend fun revalidateCalendar(
@@ -1343,6 +1429,7 @@ class FamilyUiModel(
                     calendarRevalidating = false,
                     error = null,
                 )
+            fillLeaveByForLoadedTo(token, to)
         } catch (e: Throwable) {
             val latest = _state as? State.Ready ?: return
             _state =
@@ -1383,6 +1470,7 @@ class FamilyUiModel(
                     calendarRevalidating = cached != null,
                     loading = false,
                 )
+            if (cached != null) armNearTermGate()
         } else {
             val current = _state as State.Ready
             _state =
@@ -1398,6 +1486,7 @@ class FamilyUiModel(
                     loading = false,
                     error = null,
                 )
+            if (cached != null) armNearTermGate()
         }
         val latestForWindow = _state as State.Ready
         val to = maxIsoInstant(today.to, latestForWindow.calendarLoadedTo)

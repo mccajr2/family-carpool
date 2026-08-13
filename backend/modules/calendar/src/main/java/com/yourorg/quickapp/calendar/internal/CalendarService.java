@@ -7,6 +7,7 @@ import com.yourorg.quickapp.calendar.CalendarConflictResponse;
 import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
+import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -19,6 +20,7 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
+import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -89,30 +91,35 @@ public class CalendarService {
 
         Map<UUID, String> adultNames = displayNamesFor(feedCoverages, manualCoverages);
 
+        List<LeaveByEnrichmentDto> leaveBys =
+                leaveByApi.enrichCheapMany(
+                        adult.id(), leaveByInputs(feedEvents, manualEvents));
+
         List<CalendarItemResponse> items = new ArrayList<>();
+        int index = 0;
         for (FeedCalendarEventDto feedEvent : feedEvents) {
             items.add(
                     fromFeed(
-                            adult.id(),
                             feedEvent,
                             feedCoverages.getOrDefault(feedEvent.id(), List.of()),
                             adultNames,
                             conflictsByItem.getOrDefault(
                                     new CalendarConflictDetector.ItemKey(
                                             CalendarItemSource.FEED, feedEvent.id()),
-                                    List.of())));
+                                    List.of()),
+                            leaveBys.get(index++)));
         }
         for (ManualCalendarEventDto manual : manualEvents) {
             items.add(
                     fromManual(
-                            adult.id(),
                             manual,
                             manualCoverages.getOrDefault(manual.id(), List.of()),
                             adultNames,
                             conflictsByItem.getOrDefault(
                                     new CalendarConflictDetector.ItemKey(
                                             CalendarItemSource.MANUAL, manual.id()),
-                                    List.of())));
+                                    List.of()),
+                            leaveBys.get(index++)));
         }
 
         items.sort(
@@ -120,6 +127,37 @@ public class CalendarService {
                         .thenComparing(item -> item.source().name())
                         .thenComparing(CalendarItemResponse::id));
         return List.copyOf(items);
+    }
+
+    public List<CalendarLeaveByResponse> listLeaveBy(
+            AdultResponse adult, Instant from, Instant to) {
+        requireValidRange(from, to);
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+
+        List<FeedCalendarEventDto> feedEvents =
+                feedCalendarApi.listEventsInRange(circleId, from, to);
+        List<ManualCalendarEventDto> manualEvents =
+                manualEventCalendarApi.listInRange(circleId, from, to);
+
+        List<LeaveByItemInput> inputs = leaveByInputs(feedEvents, manualEvents);
+        List<LeaveByEnrichmentDto> leaveBys = leaveByApi.enrichMany(adult.id(), inputs);
+
+        Map<UUID, Instant> startsAtById = new HashMap<>();
+        List<CalendarLeaveByResponse> rows = new ArrayList<>(inputs.size());
+        int index = 0;
+        for (FeedCalendarEventDto feedEvent : feedEvents) {
+            startsAtById.put(feedEvent.id(), feedEvent.startsAt());
+            rows.add(toLeaveByResponse(feedEvent.id(), CalendarItemSource.FEED, leaveBys.get(index++)));
+        }
+        for (ManualCalendarEventDto manual : manualEvents) {
+            startsAtById.put(manual.id(), manual.startsAt());
+            rows.add(toLeaveByResponse(manual.id(), CalendarItemSource.MANUAL, leaveBys.get(index++)));
+        }
+        rows.sort(
+                Comparator.comparing((CalendarLeaveByResponse row) -> startsAtById.get(row.id()))
+                        .thenComparing(row -> row.source().name())
+                        .thenComparing(CalendarLeaveByResponse::id));
+        return List.copyOf(rows);
     }
 
     public CalendarItemResponse setLeaveFrom(
@@ -246,26 +284,40 @@ public class CalendarService {
         if (manual != null) {
             List<CoverageAssignmentDto> coverages =
                     coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, manual.id());
+            LeaveByEnrichmentDto leaveBy =
+                    leaveByApi.enrich(
+                            adultId,
+                            LeaveByItemSource.MANUAL,
+                            manual.id(),
+                            manual.startsAt(),
+                            manual.location());
             return fromManual(
-                    adultId,
                     manual,
                     coverages,
                     displayNames(coverages),
                     conflictsByItem.getOrDefault(
                             new CalendarConflictDetector.ItemKey(
                                     CalendarItemSource.MANUAL, manual.id()),
-                            List.of()));
+                            List.of()),
+                    leaveBy);
         }
         List<CoverageAssignmentDto> coverages =
                 coverageApi.listForItem(circleId, CoverageItemSource.FEED, feed.id());
+        LeaveByEnrichmentDto leaveBy =
+                leaveByApi.enrich(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        feed.id(),
+                        feed.startsAt(),
+                        feed.location());
         return fromFeed(
-                adultId,
                 feed,
                 coverages,
                 displayNames(coverages),
                 conflictsByItem.getOrDefault(
                         new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, feed.id()),
-                        List.of()));
+                        List.of()),
+                leaveBy);
     }
 
     private Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem>
@@ -422,18 +474,11 @@ public class CalendarService {
     }
 
     private CalendarItemResponse fromFeed(
-            UUID adultId,
             FeedCalendarEventDto event,
             List<CoverageAssignmentDto> coverages,
             Map<UUID, String> adultNames,
-            List<CalendarConflictResponse> conflicts) {
-        LeaveByEnrichmentDto leaveBy =
-                leaveByApi.enrich(
-                        adultId,
-                        LeaveByItemSource.FEED,
-                        event.id(),
-                        event.startsAt(),
-                        event.location());
+            List<CalendarConflictResponse> conflicts,
+            LeaveByEnrichmentDto leaveBy) {
         return toResponse(
                 event.id(),
                 CalendarItemSource.FEED,
@@ -451,18 +496,11 @@ public class CalendarService {
     }
 
     private CalendarItemResponse fromManual(
-            UUID adultId,
             ManualCalendarEventDto event,
             List<CoverageAssignmentDto> coverages,
             Map<UUID, String> adultNames,
-            List<CalendarConflictResponse> conflicts) {
-        LeaveByEnrichmentDto leaveBy =
-                leaveByApi.enrich(
-                        adultId,
-                        LeaveByItemSource.MANUAL,
-                        event.id(),
-                        event.startsAt(),
-                        event.location());
+            List<CalendarConflictResponse> conflicts,
+            LeaveByEnrichmentDto leaveBy) {
         return toResponse(
                 event.id(),
                 CalendarItemSource.MANUAL,
@@ -477,6 +515,41 @@ public class CalendarService {
                 coverages,
                 adultNames,
                 conflicts);
+    }
+
+    private static List<LeaveByItemInput> leaveByInputs(
+            List<FeedCalendarEventDto> feedEvents, List<ManualCalendarEventDto> manualEvents) {
+        List<LeaveByItemInput> inputs =
+                new ArrayList<>(feedEvents.size() + manualEvents.size());
+        for (FeedCalendarEventDto feedEvent : feedEvents) {
+            inputs.add(
+                    new LeaveByItemInput(
+                            LeaveByItemSource.FEED,
+                            feedEvent.id(),
+                            feedEvent.startsAt(),
+                            feedEvent.location()));
+        }
+        for (ManualCalendarEventDto manual : manualEvents) {
+            inputs.add(
+                    new LeaveByItemInput(
+                            LeaveByItemSource.MANUAL,
+                            manual.id(),
+                            manual.startsAt(),
+                            manual.location()));
+        }
+        return inputs;
+    }
+
+    private static CalendarLeaveByResponse toLeaveByResponse(
+            UUID id, CalendarItemSource source, LeaveByEnrichmentDto leaveBy) {
+        return new CalendarLeaveByResponse(
+                id,
+                source,
+                leaveBy.leaveFromPlaceId(),
+                leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveByAt(),
+                leaveBy.leaveByStatus(),
+                leaveBy.leaveByReason());
     }
 
     private static CalendarItemResponse toResponse(

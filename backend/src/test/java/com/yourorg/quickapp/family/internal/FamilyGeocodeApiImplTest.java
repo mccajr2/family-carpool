@@ -38,4 +38,22 @@ class FamilyGeocodeApiImplTest {
 
         assertThat(api.resolveLocation("")).isEmpty();
     }
+
+    @Test
+    void findCachedLocationMapsCoordinates() {
+        when(geocodeService.findCached("Veterans Memorial Rink"))
+                .thenReturn(Optional.of(new GeoCoordinates(42.38, -71.1)));
+
+        Optional<GeoPointDto> result = api.findCachedLocation("Veterans Memorial Rink");
+
+        assertThat(result).contains(new GeoPointDto(42.38, -71.1));
+        verify(geocodeService).findCached("Veterans Memorial Rink");
+    }
+
+    @Test
+    void findCachedLocationSoftFails() {
+        when(geocodeService.findCached("")).thenReturn(Optional.empty());
+
+        assertThat(api.findCachedLocation("")).isEmpty();
+    }
 }

@@ -1,4 +1,8 @@
+import type { LeaveByStatus } from "@/api/types"
+
 /** Agenda leave-by copy helpers (estimate only — never live traffic / ETA). */
+
+export const LEAVE_BY_PENDING_LABEL = "Estimating leave-by…"
 
 export function formatLeaveByTime(iso: string): string {
   const date = new Date(iso)
@@ -28,4 +32,18 @@ export function leaveByUnavailableLabel(reason: string | null | undefined): stri
     default:
       return "Leave-by estimate unavailable"
   }
+}
+
+export function agendaLeaveByLine(item: {
+  leaveByStatus: LeaveByStatus
+  leaveByAt: string | null
+  leaveByReason: string | null
+}): string {
+  if (item.leaveByStatus === "PENDING") {
+    return LEAVE_BY_PENDING_LABEL
+  }
+  if (item.leaveByStatus === "OK" && item.leaveByAt) {
+    return formatLeaveByEstimateLine(item.leaveByAt)
+  }
+  return leaveByUnavailableLabel(item.leaveByReason)
 }
