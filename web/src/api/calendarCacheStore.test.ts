@@ -70,6 +70,26 @@ describe("CalendarCacheStore", () => {
     expect(store.load("a2", "c1")).toBeNull()
   })
 
+  it("fills missing rsvps when loading a pre-RSVP snapshot", () => {
+    const storage = memoryStorage()
+    const store = new CalendarCacheStore(storage)
+    const legacyItem = item({ id: "e1", title: "Practice" })
+    delete (legacyItem as { rsvps?: CalendarItem["rsvps"] }).rsvps
+    storage.setItem(
+      "family-carpool.calendar-cache:a1:c1",
+      JSON.stringify({
+        adultId: "a1",
+        circleId: "c1",
+        from: "from",
+        to: "to",
+        items: [legacyItem],
+        fetchedAt: 1,
+      }),
+    )
+    const loaded = store.load("a1", "c1")
+    expect(loaded?.items[0]?.rsvps).toEqual([])
+  })
+
   it("patches one item without changing window bounds", () => {
     const store = new CalendarCacheStore(memoryStorage())
     store.save({

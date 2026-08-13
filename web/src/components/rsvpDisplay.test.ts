@@ -48,6 +48,14 @@ describe("rsvpDisplay", () => {
     ).toBe("NO_RESPONSE")
   })
 
+  it("treats omitted rsvps array (stale cache) as NO_RESPONSE", () => {
+    const stale = item({ id: "e1", kidIds: ["k1"], rsvps: [] })
+    // Simulate pre-RSVP localStorage rows that never had the field.
+    delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
+    expect(rsvpStatusForKid(stale, "k1")).toBe("NO_RESPONSE")
+    expect(isAgendaItemOutOfPlay(stale)).toBe(false)
+  })
+
   it("marks one-kid No and all-No as out of play", () => {
     expect(
       isAgendaItemOutOfPlay(

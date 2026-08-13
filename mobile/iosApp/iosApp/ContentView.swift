@@ -44,6 +44,7 @@ struct ContentView: View {
                 pendingRsvpConfirm = nil
             }
         }
+    }
 
     @ViewBuilder
     private var signInContent: some View {

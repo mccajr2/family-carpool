@@ -12,7 +12,8 @@ export function rsvpStatusLabel(status: RsvpStatus): string {
 }
 
 export function rsvpStatusForKid(item: CalendarItem, kidId: string): RsvpStatus {
-  return item.rsvps.find((row) => row.kidId === kidId)?.status ?? "NO_RESPONSE"
+  // Pre-RSVP localStorage cache rows omit `rsvps`; treat missing as empty.
+  return (item.rsvps ?? []).find((row) => row.kidId === kidId)?.status ?? "NO_RESPONSE"
 }
 
 /** Out of play when every kid on the item is RSVP No (includes one-kid No). */
@@ -24,7 +25,7 @@ export function isAgendaItemOutOfPlay(item: CalendarItem): boolean {
 }
 
 export function kidHasActiveCoverage(item: CalendarItem, kidId: string): boolean {
-  return item.coverages.some(
+  return (item.coverages ?? []).some(
     (coverage) =>
       (coverage.status === "PENDING" || coverage.status === "CONFIRMED") &&
       coverage.kidIds.includes(kidId),

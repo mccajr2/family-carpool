@@ -14,6 +14,17 @@ export type CalendarCacheSnapshot = {
   fetchedAt: number
 }
 
+/** Fill fields added after a row was cached so agenda helpers never see undefined arrays. */
+export function normalizeCachedCalendarItem(item: CalendarItem): CalendarItem {
+  return {
+    ...item,
+    coverages: item.coverages ?? [],
+    uncoveredKidIds: item.uncoveredKidIds ?? [],
+    conflicts: item.conflicts ?? [],
+    rsvps: item.rsvps ?? [],
+  }
+}
+
 function storageKey(adultId: string, circleId: string): string {
   return `${STORAGE_PREFIX}${adultId}:${circleId}`
 }
@@ -54,7 +65,10 @@ export class CalendarCacheStore {
       ) {
         return null
       }
-      return parsed
+      return {
+        ...parsed,
+        items: parsed.items.map(normalizeCachedCalendarItem),
+      }
     } catch {
       return null
     }
