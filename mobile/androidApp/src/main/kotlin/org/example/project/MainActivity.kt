@@ -16,7 +16,11 @@ class MainActivity : ComponentActivity() {
                 remember {
                     AuthSession(tokenStore = AndroidSecureTokenStore(applicationContext))
                 }
-            App(session = session)
+            val calendarCacheStore =
+                remember {
+                    AndroidCalendarCacheStore(applicationContext)
+                }
+            App(session = session, calendarCacheStore = calendarCacheStore)
         }
     }
 }

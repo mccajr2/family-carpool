@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-12 (`/pr conflict-detection` — next up `calendar-client-cache`)
+Updated: 2026-08-12 (`/pr calendar-client-cache` — next up `calendar-conditional-get`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -87,7 +87,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                             | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ------------------------------ | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | calendar-client-cache          | planned | 2026-08-12 · enhancement                                         | Persist + background refresh Agenda so calendar is instant on login; update behind the scenes                                                                   |
+| 1    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after client cache)                                                           |
 | 2    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
 | 3    | event-arrival-lead-time        | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
 | 4    | conflict-travel-margin         | planned | 2026-08-12 · enhancement                                         | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                                                         |
@@ -147,6 +147,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| calendar-client-cache     | 2026-08-12 | [archive](specs/archive/calendar-client-cache.md)      |
 | conflict-detection         | 2026-08-12 | [archive](specs/archive/conflict-detection.md)         |
 | calendar-ux-flow           | 2026-08-12 | [archive](specs/archive/calendar-ux-flow.md)           |
 | coverage-confirm-decline   | 2026-08-12 | [archive](specs/archive/coverage-confirm-decline.md)   |
@@ -231,5 +232,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-12 | `/pr calendar-ux-flow`: Agenda presentation hierarchy + Interaction UX tenets (web/Android/iOS); next up `conflict-detection`.                                                                                                    |
 | 2026-08-12 | `/spec conflict-detection`: server conflicts + amber Agenda + 409 double-CONFIRMED; add `calendar-client-cache` (Next up) + `conflict-travel-margin`.                                                                            |
 | 2026-08-12 | `/pr conflict-detection`: Agenda conflict amber + 409 double-CONFIRMED (web/Android/iOS); next up `calendar-client-cache`.                                                                                                        |
+| 2026-08-12 | `/spec calendar-client-cache`: re-rank split — client persist + SWR now; add `calendar-conditional-get` (ETag/`304`) as rank 2.                                                                                                  |
+| 2026-08-12 | `/pr calendar-client-cache`: Agenda client cache + SWR (web/Android/iOS); next up `calendar-conditional-get`.                                                                                                                    |
 
 

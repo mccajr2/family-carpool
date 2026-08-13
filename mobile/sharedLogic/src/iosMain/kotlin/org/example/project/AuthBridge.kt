@@ -13,7 +13,10 @@ class AuthBridge {
     private val session: AuthSession
     private val familyClient: FamilyClient
     private val scope: CoroutineScope
-    private val json = Json { encodeDefaults = true }
+    private val calendarCache: CalendarCacheStore
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private var activeCircleId: String? = null
+    private var activeAdultId: String? = null
 
     constructor() {
         session =
@@ -23,12 +26,22 @@ class AuthBridge {
             )
         familyClient = FamilyClient.create()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        calendarCache = IosCalendarCacheStore()
     }
 
-    constructor(session: AuthSession, familyClient: FamilyClient, scope: CoroutineScope) {
+    constructor(session: AuthSession, familyClient: FamilyClient, scope: CoroutineScope) :
+        this(session, familyClient, scope, InMemoryCalendarCacheStore())
+
+    constructor(
+        session: AuthSession,
+        familyClient: FamilyClient,
+        scope: CoroutineScope,
+        calendarCache: CalendarCacheStore,
+    ) {
         this.session = session
         this.familyClient = familyClient
         this.scope = scope
+        this.calendarCache = calendarCache
     }
 
     private fun encodeCoverages(coverages: List<CalendarCoverageAssignment>): String =
@@ -128,12 +141,18 @@ class AuthBridge {
     ) {
         scope.launch {
             try {
+                calendarCache.clearAll()
+                activeCircleId = null
+                activeAdultId = null
                 session.logout()
                 onSuccess()
             } catch (e: Throwable) {
                 // AuthSession.logout clears the token in finally even when the server call fails.
                 // Treat a cleared session as signed-out success so iOS never stays "signed in"
                 // with no token.
+                calendarCache.clearAll()
+                activeCircleId = null
+                activeAdultId = null
                 if (!session.isSignedIn()) {
                     onSuccess()
                 } else {
@@ -290,7 +309,10 @@ class AuthBridge {
     ) {
         scope.launch {
             try {
+                clearActiveCalendarCache()
                 familyClient.leaveCircle(session.requireAccessToken())
+                activeCircleId = null
+                activeAdultId = null
                 val adult = session.currentAdult()
                 onSuccess(adult.email, !adult.displayName.isNullOrBlank())
             } catch (e: Throwable) {
@@ -1085,6 +1107,8 @@ class AuthBridge {
             defaultLeaveFromPlaceName: String,
         ) -> Unit,
     ) {
+        activeCircleId = circle.id
+        activeAdultId = adult.id
         val inviteCode =
             if (circle.role == FamilyRole.ORGANIZER) {
                 runCatching { familyClient.getInvite(token).code }.getOrNull()
@@ -1112,4 +1136,240 @@ class AuthBridge {
             circle.defaultLeaveFromPlaceName.orEmpty(),
         )
     }
+
+    /** Soft TTL used by Swift Agenda revalidate-on-return. */
+    fun calendarCacheSoftTtlMs(): Long = CALENDAR_CACHE_SOFT_TTL_MS
+
+    fun isCalendarCacheStale(
+        fetchedAt: Long,
+        nowMs: Long,
+    ): Boolean = calendarCache.isStale(fetchedAt, nowMs)
+
+    fun clearAllCalendarCaches() {
+        calendarCache.clearAll()
+        activeCircleId = null
+        activeAdultId = null
+    }
+
+    fun clearActiveCalendarCache() {
+        val adultId = activeAdultId ?: return
+        val circleId = activeCircleId ?: return
+        calendarCache.clear(adultId, circleId)
+    }
+
+    fun peekCalendarCache(): CalendarCacheBridgeHit? {
+        val adultId = activeAdultId ?: return null
+        val circleId = activeCircleId ?: return null
+        val snap = calendarCache.load(adultId, circleId) ?: return null
+        return snap.toBridgeHit()
+    }
+
+    fun saveCalendarCache(
+        from: String,
+        to: String,
+        fetchedAt: Long,
+        ids: List<String>,
+        sources: List<String>,
+        titles: List<String>,
+        startsAts: List<String>,
+        endsAts: List<String>,
+        locations: List<String>,
+        kidIdsJoined: List<String>,
+        feedIds: List<String>,
+        feedNames: List<String>,
+        leaveFromPlaceIds: List<String>,
+        leaveFromPlaceNames: List<String>,
+        leaveByAts: List<String>,
+        leaveByStatuses: List<String>,
+        leaveByReasons: List<String>,
+        coveragesJson: List<String>,
+        uncoveredKidIdsJoined: List<String>,
+        conflictsJson: List<String>,
+    ) {
+        val adultId = activeAdultId ?: return
+        val circleId = activeCircleId ?: return
+        val items =
+            itemsFromParallel(
+                ids,
+                sources,
+                titles,
+                startsAts,
+                endsAts,
+                locations,
+                kidIdsJoined,
+                feedIds,
+                feedNames,
+                leaveFromPlaceIds,
+                leaveFromPlaceNames,
+                leaveByAts,
+                leaveByStatuses,
+                leaveByReasons,
+                coveragesJson,
+                uncoveredKidIdsJoined,
+                conflictsJson,
+            )
+        calendarCache.save(
+            CalendarCacheSnapshot(
+                adultId = adultId,
+                circleId = circleId,
+                from = from,
+                to = to,
+                items = items,
+                fetchedAt = fetchedAt,
+            ),
+        )
+    }
+
+    fun patchCalendarCacheItem(
+        id: String,
+        source: String,
+        title: String,
+        startsAt: String,
+        endsAt: String,
+        location: String,
+        kidIdsJoined: String,
+        feedId: String,
+        feedName: String,
+        leaveFromPlaceId: String,
+        leaveFromPlaceName: String,
+        leaveByAt: String,
+        leaveByStatus: String,
+        leaveByReason: String,
+        coveragesJson: String,
+        uncoveredKidIdsJoined: String,
+        conflictsJson: String,
+    ) {
+        val adultId = activeAdultId ?: return
+        val circleId = activeCircleId ?: return
+        val updated =
+            itemsFromParallel(
+                listOf(id),
+                listOf(source),
+                listOf(title),
+                listOf(startsAt),
+                listOf(endsAt),
+                listOf(location),
+                listOf(kidIdsJoined),
+                listOf(feedId),
+                listOf(feedName),
+                listOf(leaveFromPlaceId),
+                listOf(leaveFromPlaceName),
+                listOf(leaveByAt),
+                listOf(leaveByStatus),
+                listOf(leaveByReason),
+                listOf(coveragesJson),
+                listOf(uncoveredKidIdsJoined),
+                listOf(conflictsJson),
+            ).single()
+        calendarCache.patchItem(adultId, circleId, updated)
+    }
+
+    private fun CalendarCacheSnapshot.toBridgeHit(): CalendarCacheBridgeHit =
+        CalendarCacheBridgeHit(
+            from = from,
+            to = to,
+            fetchedAt = fetchedAt,
+            ids = items.map { it.id },
+            sources = items.map { it.source.name },
+            titles = items.map { it.title },
+            startsAts = items.map { it.startsAt },
+            endsAts = items.map { it.endsAt.orEmpty() },
+            locations = items.map { it.location.orEmpty() },
+            kidIdsJoined = items.map { it.kidIds.joinToString(",") },
+            feedIds = items.map { it.feedId.orEmpty() },
+            feedNames = items.map { it.feedName.orEmpty() },
+            leaveFromPlaceIds = items.map { it.leaveFromPlaceId.orEmpty() },
+            leaveFromPlaceNames = items.map { it.leaveFromPlaceName.orEmpty() },
+            leaveByAts = items.map { it.leaveByAt.orEmpty() },
+            leaveByStatuses = items.map { it.leaveByStatus.name },
+            leaveByReasons = items.map { it.leaveByReason.orEmpty() },
+            coveragesJson = items.map { encodeCoverages(it.coverages) },
+            uncoveredKidIdsJoined = items.map { it.uncoveredKidIds.joinToString(",") },
+            conflictsJson = items.map { encodeConflicts(it.conflicts) },
+        )
+
+    private fun itemsFromParallel(
+        ids: List<String>,
+        sources: List<String>,
+        titles: List<String>,
+        startsAts: List<String>,
+        endsAts: List<String>,
+        locations: List<String>,
+        kidIdsJoined: List<String>,
+        feedIds: List<String>,
+        feedNames: List<String>,
+        leaveFromPlaceIds: List<String>,
+        leaveFromPlaceNames: List<String>,
+        leaveByAts: List<String>,
+        leaveByStatuses: List<String>,
+        leaveByReasons: List<String>,
+        coveragesJson: List<String>,
+        uncoveredKidIdsJoined: List<String>,
+        conflictsJson: List<String>,
+    ): List<CalendarItem> =
+        ids.indices.map { index ->
+            CalendarItem(
+                id = ids[index],
+                source = CalendarItemSource.valueOf(sources[index]),
+                title = titles[index],
+                startsAt = startsAts[index],
+                endsAt = endsAts[index].ifEmpty { null },
+                location = locations[index].ifEmpty { null },
+                kidIds =
+                    kidIdsJoined[index]
+                        .split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() },
+                feedId = feedIds[index].ifEmpty { null },
+                feedName = feedNames[index].ifEmpty { null },
+                leaveFromPlaceId = leaveFromPlaceIds[index].ifEmpty { null },
+                leaveFromPlaceName = leaveFromPlaceNames[index].ifEmpty { null },
+                leaveByAt = leaveByAts[index].ifEmpty { null },
+                leaveByStatus = LeaveByStatus.valueOf(leaveByStatuses[index]),
+                leaveByReason = leaveByReasons[index].ifEmpty { null },
+                coverages =
+                    runCatching {
+                        json.decodeFromString(
+                            ListSerializer(CalendarCoverageAssignment.serializer()),
+                            coveragesJson[index],
+                        )
+                    }.getOrDefault(emptyList()),
+                uncoveredKidIds =
+                    uncoveredKidIdsJoined[index]
+                        .split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() },
+                conflicts =
+                    runCatching {
+                        json.decodeFromString(
+                            ListSerializer(CalendarConflict.serializer()),
+                            conflictsJson[index],
+                        )
+                    }.getOrDefault(emptyList()),
+            )
+        }
 }
+
+/** Parallel-array calendar snapshot for Swift SWR paint-from-cache. */
+class CalendarCacheBridgeHit(
+    val from: String,
+    val to: String,
+    val fetchedAt: Long,
+    val ids: List<String>,
+    val sources: List<String>,
+    val titles: List<String>,
+    val startsAts: List<String>,
+    val endsAts: List<String>,
+    val locations: List<String>,
+    val kidIdsJoined: List<String>,
+    val feedIds: List<String>,
+    val feedNames: List<String>,
+    val leaveFromPlaceIds: List<String>,
+    val leaveFromPlaceNames: List<String>,
+    val leaveByAts: List<String>,
+    val leaveByStatuses: List<String>,
+    val leaveByReasons: List<String>,
+    val coveragesJson: List<String>,
+    val uncoveredKidIdsJoined: List<String>,
+    val conflictsJson: List<String>,
+)

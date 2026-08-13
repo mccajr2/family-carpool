@@ -1584,11 +1584,345 @@ class FamilyUiModelTest {
             assertEquals("Dad's house", updated.circle.defaultLeaveFromPlaceName)
             assertNull(updated.error)
         }
+
+    @Test
+    fun paintsCachedAgendaBeforeRevalidateCompletes() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            val window = defaultCalendarWindow()
+            cache.save(
+                CalendarCacheSnapshot(
+                    adultId = "1",
+                    circleId = "c1",
+                    from = window.from,
+                    to = window.to,
+                    items =
+                        listOf(
+                            CalendarItem(
+                                id = "e1",
+                                source = CalendarItemSource.MANUAL,
+                                title = "Cached Practice",
+                                startsAt = "2030-08-15T17:00:00Z",
+                                kidIds = listOf("k1"),
+                            ),
+                        ),
+                    fetchedAt = nowEpochMillis(),
+                ),
+            )
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Fresh Practice","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            val snapshots = mutableListOf<Pair<String?, Boolean>>()
+            model.stateListener = {
+                val ready = model.state as? FamilyUiModel.State.Ready
+                if (ready != null) {
+                    snapshots.add(ready.calendarItems.firstOrNull()?.title to ready.calendarRevalidating)
+                }
+            }
+            model.load()
+            assertTrue(
+                snapshots.any { it.first == "Cached Practice" && it.second },
+                "expected cached paint while revalidating, saw $snapshots",
+            )
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("Fresh Practice", ready.calendarItems.single().title)
+            assertFalse(ready.calendarRevalidating)
+            assertEquals("Fresh Practice", cache.load("1", "c1")!!.items.single().title)
+        }
+
+    @Test
+    fun keepsCachedAgendaWhenRevalidateFails() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            val window = defaultCalendarWindow()
+            cache.save(
+                CalendarCacheSnapshot(
+                    adultId = "1",
+                    circleId = "c1",
+                    from = window.from,
+                    to = window.to,
+                    items =
+                        listOf(
+                            CalendarItem(
+                                id = "e1",
+                                source = CalendarItemSource.MANUAL,
+                                title = "Cached Practice",
+                                startsAt = "2030-08-15T17:00:00Z",
+                                kidIds = listOf("k1"),
+                            ),
+                        ),
+                    fetchedAt = nowEpochMillis(),
+                ),
+            )
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content = """{"message":"network down"}""",
+                                status = HttpStatusCode.BadGateway,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("Cached Practice", ready.calendarItems.single().title)
+            assertNotNull(ready.error)
+            assertEquals("Cached Practice", cache.load("1", "c1")!!.items.single().title)
+        }
+
+    @Test
+    fun patchesPersistedCacheOnCoverageMutationAndClearsOnSignOutHook() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Game","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"],"coverages":[{"id":"cov1","coveringAdultId":"1","coveringAdultDisplayName":"Alex","assignedByAdultId":"2","kidIds":["k1"],"status":"PENDING"}],"uncoveredKidIds":[]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/coverages/cov1/confirm" ->
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Game","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"],"coverages":[{"id":"cov1","coveringAdultId":"1","coveringAdultDisplayName":"Alex","assignedByAdultId":"2","kidIds":["k1"],"status":"CONFIRMED"}],"uncoveredKidIds":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(CoverageStatus.PENDING, cache.load("1", "c1")!!.items.single().coverages.single().status)
+
+            model.confirmCoverage("cov1")
+            assertEquals(
+                CoverageStatus.CONFIRMED,
+                cache.load("1", "c1")!!.items.single().coverages.single().status,
+            )
+
+            model.clearCalendarCache()
+            assertNull(cache.load("1", "c1"))
+        }
+
+    @Test
+    fun revalidateCalendarIfStaleFetchesOnlyWhenPastSoftTtl() =
+        runTest {
+            var now = 10_000_000L
+            var calendarGets = 0
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" -> {
+                            calendarGets++
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", nowMs = { now })
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            val afterLoad = calendarGets
+            assertTrue(afterLoad >= 1)
+
+            model.selectShellTab(FamilyUiModel.ShellTab.FAMILY)
+            model.selectShellTab(FamilyUiModel.ShellTab.CALENDAR)
+            model.revalidateCalendarIfStale()
+            assertEquals(afterLoad, calendarGets, "fresh cache must not revalidate on tab return")
+
+            now += CALENDAR_CACHE_SOFT_TTL_MS + 1
+            model.revalidateCalendarIfStale()
+            assertEquals(afterLoad + 1, calendarGets, "stale cache must revalidate on Calendar focus")
+        }
+
+    @Test
+    fun loadMorePersistsExtendedWindowInCalendarCache() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            var calendarJson =
+                """[{"id":"e1","source":"MANUAL","title":"Near","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"]}]"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content = calendarJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val beforeTo = ready.calendarLoadedTo
+            calendarJson =
+                """[{"id":"e2","source":"MANUAL","title":"Later","startsAt":"2030-09-20T17:00:00Z","kidIds":["k1"]}]"""
+            model.loadMoreCalendar()
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(after.calendarLoadedTo > beforeTo)
+            val snap = cache.load("1", "c1")!!
+            assertEquals(after.calendarLoadedTo, snap.to)
+            assertTrue(snap.items.any { it.title == "Near" })
+            assertTrue(snap.items.any { it.title == "Later" })
+        }
 }
 
 private fun familyUiModel(
     mockEngine: MockEngine,
     token: String,
+    calendarCache: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    nowMs: () -> Long = { nowEpochMillis() },
 ): FamilyUiModel {
     val httpClient =
         HttpClient(mockEngine) {
@@ -1605,5 +1939,7 @@ private fun familyUiModel(
     return FamilyUiModel(
         session = session,
         familyClient = FamilyClient("http://localhost:8080", httpClient),
+        calendarCache = calendarCache,
+        nowMs = nowMs,
     )
 }

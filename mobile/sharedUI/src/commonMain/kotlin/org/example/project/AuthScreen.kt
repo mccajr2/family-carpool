@@ -25,14 +25,20 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 @Composable
-fun App(session: AuthSession) {
+fun App(
+    session: AuthSession,
+    calendarCacheStore: CalendarCacheStore = InMemoryCalendarCacheStore(),
+) {
     MaterialTheme {
-        AuthScreen(session = session)
+        AuthScreen(session = session, calendarCacheStore = calendarCacheStore)
     }
 }
 
 @Composable
-fun AuthScreen(session: AuthSession) {
+fun AuthScreen(
+    session: AuthSession,
+    calendarCacheStore: CalendarCacheStore = InMemoryCalendarCacheStore(),
+) {
     val model = remember(session) { AuthUiModel(session) }
     var state by remember { mutableStateOf(model.state) }
     val scope = rememberCoroutineScope()
@@ -61,8 +67,10 @@ fun AuthScreen(session: AuthSession) {
                 // current.error here printed the same connectivity message twice.
                 FamilyScreen(
                     session = session,
+                    calendarCacheStore = calendarCacheStore,
                     onSignOut = {
                         scope.launch {
+                            calendarCacheStore.clearAll()
                             model.signOut()
                             refresh()
                         }

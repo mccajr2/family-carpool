@@ -20,8 +20,7 @@ events must be impossible — detection after the fact is too late.
 - **Travel / leave-by “cutting it close” soft warn** — follow-up
   [`conflict-travel-margin`](../planned/conflict-travel-margin.md)
 - **Client calendar cache / background refresh** — follow-up
-  [`calendar-client-cache`](../planned/calendar-client-cache.md) (Next up after
-  this PR)
+  [`calendar-client-cache`](../archive/calendar-client-cache.md) (shipped; conditional GET split to `calendar-conditional-get`)
 - Push / email for conflict alerts (`push-notifications`)
 - Auto-resolve, auto-reassign, or merge/split of coverage rows
 - Changing coverage CRUD semantics beyond the **409** guard on creating a

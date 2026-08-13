@@ -239,6 +239,8 @@ final class AuthViewModel: ObservableObject {
     @Published var newFeedKidIds: [String] = []
     @Published var calendarItems: [FamilyCalendarItem] = []
     @Published var calendarLoadedTo: String = ManualEventDateCodec.defaultCalendarWindow().to
+    @Published var calendarFetchedAtMs: Int64?
+    @Published var calendarRevalidating = false
     @Published var agendaKidFilter: String?
     @Published var defaultLeaveFromPlaceId: String?
     @Published var defaultLeaveFromPlaceName: String?
@@ -308,6 +310,9 @@ final class AuthViewModel: ObservableObject {
         var next = shell
         next.selectTab(tab)
         shell = next
+        if tab == .calendar {
+            revalidateCalendarIfStale()
+        }
     }
 
     func openCreateEventCompose() {
@@ -607,6 +612,8 @@ final class AuthViewModel: ObservableObject {
                     self.feeds = []
                     self.calendarItems = []
                     self.calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
+                    self.calendarFetchedAtMs = nil
+                    self.calendarRevalidating = false
                     self.agendaKidFilter = nil
                     self.defaultLeaveFromPlaceId = nil
                     self.defaultLeaveFromPlaceName = nil
@@ -1097,11 +1104,17 @@ final class AuthViewModel: ObservableObject {
         )
     }
 
-    func loadCalendar(through loadedTo: String? = nil) {
-        isLoading = true
+    func loadCalendar(through loadedTo: String? = nil, backgroundRevalidate: Bool = false) {
+        if backgroundRevalidate {
+            calendarRevalidating = true
+        } else {
+            isLoading = true
+        }
         errorMessage = nil
+        let today = ManualEventDateCodec.defaultCalendarWindow()
         let end = loadedTo ?? calendarLoadedTo
-        let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: end)
+        let to = maxIsoInstant(today.to, end)
+        let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: to)
         bridge.listCalendar(
             from: window.from,
             to: window.to,
@@ -1112,8 +1125,33 @@ final class AuthViewModel: ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
-                    self.calendarLoadedTo = end
+                    self.calendarRevalidating = false
+                    self.calendarLoadedTo = to
+                    let fetchedAt = Self.nowEpochMillis()
+                    self.calendarFetchedAtMs = fetchedAt
                     self.calendarItems = Self.mapCalendarItems(
+                        ids: ids,
+                        sources: sources,
+                        titles: titles,
+                        startsAts: startsAts,
+                        endsAts: endsAts,
+                        locations: locations,
+                        kidIdsJoined: kidIdsJoined,
+                        feedIds: feedIds,
+                        feedNames: feedNames,
+                        leaveFromPlaceIds: leaveFromPlaceIds,
+                        leaveFromPlaceNames: leaveFromPlaceNames,
+                        leaveByAts: leaveByAts,
+                        leaveByStatuses: leaveByStatuses,
+                        leaveByReasons: leaveByReasons,
+                        coveragesJson: coveragesJson,
+                        uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                        conflictsJson: conflictsJson
+                    )
+                    self.bridge.saveCalendarCache(
+                        from: window.from,
+                        to: window.to,
+                        fetchedAt: fetchedAt,
                         ids: ids,
                         sources: sources,
                         titles: titles,
@@ -1134,8 +1172,29 @@ final class AuthViewModel: ObservableObject {
                     )
                 }
             },
-            onError: eventError
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.isLoading = false
+                    self.calendarRevalidating = false
+                    if !self.calendarItems.isEmpty {
+                        self.errorMessage = message
+                    } else {
+                        self.errorMessage = message
+                    }
+                }
+            }
         )
+    }
+
+    /// Soft-TTL revalidate when returning to Calendar.
+    func revalidateCalendarIfStale() {
+        guard shell.tab == .calendar else { return }
+        guard let fetchedAt = calendarFetchedAtMs else { return }
+        guard !calendarRevalidating else { return }
+        let nowMs = Self.nowEpochMillis()
+        guard bridge.isCalendarCacheStale(fetchedAt: fetchedAt, nowMs: nowMs) else { return }
+        loadCalendar(through: calendarLoadedTo, backgroundRevalidate: !calendarItems.isEmpty)
     }
 
     func loadMoreCalendar() {
@@ -1183,6 +1242,33 @@ final class AuthViewModel: ObservableObject {
                         return $0.startsAt < $1.startsAt
                     }
                     self.calendarLoadedTo = page.to
+                    let window = ManualEventDateCodec.calendarWindowThrough(loadedToIso: page.to)
+                    let fetchedAt = Self.nowEpochMillis()
+                    self.calendarFetchedAtMs = fetchedAt
+                    self.bridge.saveCalendarCache(
+                        from: window.from,
+                        to: page.to,
+                        fetchedAt: fetchedAt,
+                        ids: self.calendarItems.map(\.id),
+                        sources: self.calendarItems.map(\.source),
+                        titles: self.calendarItems.map(\.title),
+                        startsAts: self.calendarItems.map(\.startsAt),
+                        endsAts: self.calendarItems.map { $0.endsAt ?? "" },
+                        locations: self.calendarItems.map { $0.location ?? "" },
+                        kidIdsJoined: self.calendarItems.map { $0.kidIds.joined(separator: ",") },
+                        feedIds: self.calendarItems.map { $0.feedId ?? "" },
+                        feedNames: self.calendarItems.map { $0.feedName ?? "" },
+                        leaveFromPlaceIds: self.calendarItems.map { $0.leaveFromPlaceId ?? "" },
+                        leaveFromPlaceNames: self.calendarItems.map { $0.leaveFromPlaceName ?? "" },
+                        leaveByAts: self.calendarItems.map { $0.leaveByAt ?? "" },
+                        leaveByStatuses: self.calendarItems.map(\.leaveByStatus),
+                        leaveByReasons: self.calendarItems.map { $0.leaveByReason ?? "" },
+                        coveragesJson: self.calendarItems.map { Self.encodeCoveragesJson($0.coverages) },
+                        uncoveredKidIdsJoined: self.calendarItems.map {
+                            $0.uncoveredKidIds.joined(separator: ",")
+                        },
+                        conflictsJson: self.calendarItems.map { Self.encodeConflictsJson($0.conflicts) }
+                    )
                 }
             },
             onError: eventError
@@ -1695,6 +1781,47 @@ final class AuthViewModel: ObservableObject {
         }) {
             calendarItems[index] = updated
         }
+        bridge.patchCalendarCacheItem(
+            id: updated.id,
+            source: updated.source,
+            title: updated.title,
+            startsAt: updated.startsAt,
+            endsAt: updated.endsAt ?? "",
+            location: updated.location ?? "",
+            kidIdsJoined: updated.kidIds.joined(separator: ","),
+            feedId: updated.feedId ?? "",
+            feedName: updated.feedName ?? "",
+            leaveFromPlaceId: updated.leaveFromPlaceId ?? "",
+            leaveFromPlaceName: updated.leaveFromPlaceName ?? "",
+            leaveByAt: updated.leaveByAt ?? "",
+            leaveByStatus: updated.leaveByStatus,
+            leaveByReason: updated.leaveByReason ?? "",
+            coveragesJson: Self.encodeCoveragesJson(updated.coverages),
+            uncoveredKidIdsJoined: updated.uncoveredKidIds.joined(separator: ","),
+            conflictsJson: Self.encodeConflictsJson(updated.conflicts)
+        )
+    }
+
+    private static func encodeCoveragesJson(_ coverages: [FamilyCoverageAssignment]) -> String {
+        guard let data = try? JSONEncoder().encode(coverages),
+              let json = String(data: data, encoding: .utf8)
+        else { return "[]" }
+        return json
+    }
+
+    private static func encodeConflictsJson(_ conflicts: [FamilyCalendarConflict]) -> String {
+        guard let data = try? JSONEncoder().encode(conflicts),
+              let json = String(data: data, encoding: .utf8)
+        else { return "[]" }
+        return json
+    }
+
+    private static func nowEpochMillis() -> Int64 {
+        Int64(Date().timeIntervalSince1970 * 1000)
+    }
+
+    private func maxIsoInstant(_ a: String, _ b: String) -> String {
+        a >= b ? a : b
     }
 
     private static func parseCoveragesJson(_ json: String) -> [FamilyCoverageAssignment] {
@@ -1783,13 +1910,43 @@ final class AuthViewModel: ObservableObject {
         self.defaultLeaveFromPlaceName =
             defaultLeaveFromPlaceName.isEmpty ? nil : defaultLeaveFromPlaceName
         feeds = []
-        calendarItems = []
-        calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
         agendaKidFilter = nil
         familyPhase = .ready
         shell.resetToCalendar()
+        if let hit = bridge.peekCalendarCache() {
+            calendarLoadedTo = hit.to
+            calendarFetchedAtMs = hit.fetchedAt
+            calendarItems = Self.mapCalendarItems(
+                ids: hit.ids,
+                sources: hit.sources,
+                titles: hit.titles,
+                startsAts: hit.startsAts,
+                endsAts: hit.endsAts,
+                locations: hit.locations,
+                kidIdsJoined: hit.kidIdsJoined,
+                feedIds: hit.feedIds,
+                feedNames: hit.feedNames,
+                leaveFromPlaceIds: hit.leaveFromPlaceIds,
+                leaveFromPlaceNames: hit.leaveFromPlaceNames,
+                leaveByAts: hit.leaveByAts,
+                leaveByStatuses: hit.leaveByStatuses,
+                leaveByReasons: hit.leaveByReasons,
+                coveragesJson: hit.coveragesJson,
+                uncoveredKidIdsJoined: hit.uncoveredKidIdsJoined,
+                conflictsJson: hit.conflictsJson
+            )
+            calendarRevalidating = true
+        } else {
+            calendarItems = []
+            calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
+            calendarFetchedAtMs = nil
+            calendarRevalidating = false
+        }
         loadFeeds()
-        loadCalendar()
+        loadCalendar(
+            through: calendarLoadedTo,
+            backgroundRevalidate: !calendarItems.isEmpty
+        )
     }
 
     private func finishSignedOut(error: String? = nil) {
@@ -1813,6 +1970,8 @@ final class AuthViewModel: ObservableObject {
         feeds = []
         calendarItems = []
         calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
+        calendarFetchedAtMs = nil
+        calendarRevalidating = false
         agendaKidFilter = nil
         defaultLeaveFromPlaceId = nil
         defaultLeaveFromPlaceName = nil

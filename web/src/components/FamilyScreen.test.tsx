@@ -4,8 +4,10 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
+import { CalendarCacheStore, CALENDAR_CACHE_SOFT_TTL_MS } from "@/api/calendarCacheStore"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
+import { defaultCalendarWindow } from "@/components/eventTimes"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
@@ -2618,5 +2620,331 @@ describe("FamilyScreen", () => {
       expect(setDefaultLeaveFrom).toHaveBeenCalledWith("tok", { placeId: "p2" })
     })
     expect(select).toHaveValue("p2")
+  })
+
+  it("paints agenda from calendar cache before revalidate completes", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const window = defaultCalendarWindow()
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: window.from,
+      to: window.to,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Cached Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+
+    let release!: (items: CalendarItem[]) => void
+    const listCalendar = vi.fn().mockImplementation(
+      () =>
+        new Promise<CalendarItem[]>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Cached Practice")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-revalidating")).toBeInTheDocument()
+    expect(listCalendar).toHaveBeenCalled()
+
+    release([
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Fresh Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+    ])
+
+    expect(await screen.findByText("Fresh Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId("agenda-revalidating")).not.toBeInTheDocument()
+    })
+    expect(cache.load("1", "c1")?.items[0]?.title).toBe("Fresh Practice")
+  })
+
+  it("keeps cached agenda when background revalidate fails", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const window = defaultCalendarWindow()
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: window.from,
+      to: window.to,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Cached Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockRejectedValue(new Error("network down")),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Cached Practice")).toBeInTheDocument()
+    const agenda = screen.getByLabelText("Agenda")
+    expect(within(agenda).getByRole("alert")).toHaveTextContent("network down")
+    expect(cache.load("1", "c1")?.items[0]?.title).toBe("Cached Practice")
+  })
+
+  it("patches persisted calendar cache on single-item coverage mutation and clears on sign-out", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const cache = new CalendarCacheStore()
+    const confirmCalendarCoverage = vi.fn().mockResolvedValue(
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Game",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "2",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+        uncoveredKidIds: [],
+      }),
+    )
+    const logout = vi.fn().mockResolvedValue(undefined)
+    const onSignedOut = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        authClient={mockAuthClient({ logout })}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Game",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "2",
+                  kidIds: ["k1"],
+                  status: "PENDING",
+                },
+              ],
+              uncoveredKidIds: [],
+            }),
+          ]),
+          confirmCalendarCoverage,
+        })}
+        onSignedOut={onSignedOut}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Game")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(cache.load("1", "c1")?.items).toHaveLength(1)
+    })
+
+    await user.click(within(agenda).getByRole("button", { name: "Confirm coverage" }))
+    await waitFor(() => {
+      expect(confirmCalendarCoverage).toHaveBeenCalled()
+    })
+    await waitFor(() => {
+      expect(cache.load("1", "c1")?.items[0]?.coverages[0]?.status).toBe("CONFIRMED")
+    })
+
+    const nav = screen.getByLabelText("App navigation")
+    await user.click(within(nav).getByRole("button", { name: "Sign out" }))
+    await waitFor(() => {
+      expect(onSignedOut).toHaveBeenCalled()
+    })
+    expect(cache.load("1", "c1")).toBeNull()
+  })
+
+  it("revalidates when returning to Calendar after soft TTL, not when fresh", async () => {
+    const user = userEvent.setup()
+    let now = 1_700_000_000_000
+    vi.spyOn(Date, "now").mockImplementation(() => now)
+
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const listCalendar = vi.fn().mockResolvedValue([
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+    ])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendar.mock.calls.length).toBeGreaterThanOrEqual(1)
+    })
+    const afterLoad = listCalendar.mock.calls.length
+
+    await goTo(user, "Family")
+    await goTo(user, "Calendar")
+    expect(listCalendar.mock.calls.length).toBe(afterLoad)
+
+    await goTo(user, "Family")
+    now += CALENDAR_CACHE_SOFT_TTL_MS + 1
+    await goTo(user, "Calendar")
+    await waitFor(() => {
+      expect(listCalendar.mock.calls.length).toBeGreaterThan(afterLoad)
+    })
+
+    vi.restoreAllMocks()
   })
 })
