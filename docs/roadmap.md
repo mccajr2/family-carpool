@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-13 (`/pr agenda-leave-by-async`)
+Updated: 2026-08-13 (`/spec agenda-event-rsvp`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -72,7 +72,7 @@ share the ride — without fighting the UI.
 | Auth                     | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups                                                                                                                                                                                                                                                                                                                                                                                             |
 | Leave-by                 | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic). Destination coords: **geocode event** `location` (soft-fail); origins = named places. Origin order: per-item override → **per-adult default leave-from** → first located by name. **Agenda must not wait on leave-by** — schedule first, estimates async, near-term before later days. Done: `[agenda-leave-by-async](specs/archive/agenda-leave-by-async.md)`. **Follow-up:** when adults take separate cars/kids, leave-from may differ per coverage — `[coverage-leave-from](specs/planned/coverage-leave-from.md)`                                                                                                          |
 | Coverage                 | **Responsibility** rows (adult + kid subset + PENDING/CONFIRMED/DECLINED); any member assigns; assignee confirms/declines; kid exclusive per item on active rows; not a trip/seat plan — carpool later. Done: `[coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)`                                                                                                                                                                                                                                                                                             |
-| Event RSVP               | Simple RSVP on Agenda items so adults can mark events they are **not covering**. Summary stays visible; row is deemphasized and leave-by / coverage / other dependent controls are hidden. Same record later feeds carpool + team rollups — `[agenda-event-rsvp](specs/planned/agenda-event-rsvp.md)` |
+| Event RSVP               | **Per kid + event:** **Yes / No / No response** (explicit; no implied Yes). Circle-visible; any member. Out of play when every kid is No (one-kid No included): summary stays, row deemphasized, hide leave-by/coverage/other dependent controls; RSVP + Edit/Remove stay. Mixed: No kid’s per-kid controls off. Assign/confirm coverage sets Yes. No (or No response) with active coverage: client confirm + hard-release. Foundation for carpool/team rollups — `[agenda-event-rsvp](specs/active/agenda-event-rsvp.md)` |
 | Arrival lead time        | Follow-up `[event-arrival-lead-time](specs/planned/event-arrival-lead-time.md)`: editable defaults — game **30m** early, practice **15m**, other **0** — after leave-by ships                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Vehicle specs            | Free API (e.g. **NHTSA vPIC**) to suggest seats; always manually overridable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | UI token adoption        | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See `[ui-system-destination-adoption](specs/planned/ui-system-destination-adoption.md)`                                                                                                                                                                                                                                                                                                                |
@@ -88,7 +88,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                             | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ------------------------------ | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-event-rsvp              | planned | 2026-08-13 · enhancement                                         | Simple Agenda RSVP; skip-cover deemphasizes the row (summary stays; hide leave-by/coverage/other controls); foundation for carpool/team rollups                 |
+| 1    | agenda-event-rsvp              | active  | 2026-08-13 · enhancement                                         | Per-kid Agenda RSVP (Yes/No/No response); all-No deemphasizes the row; assign implies Yes; foundation for carpool/team rollups                                  |
 | 2    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)                                              |
 | 3    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
 | 4    | event-arrival-lead-time        | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
@@ -141,6 +141,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
+| agenda-event-rsvp | `agenda-event-rsvp` | [active](specs/active/agenda-event-rsvp.md) |
 
 
 ## Done
@@ -241,5 +242,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-13 | Enhancement: `agenda-event-rsvp` (rank 2) — simple Agenda RSVP + skip-cover deemphasis; carpool/team rollups consume later.                                                                                                      |
 | 2026-08-13 | `/spec agenda-leave-by-async`: cheap calendar GET + async leave-by fill-in (near-term first); `calendar-conditional-get` stays next after this PR.                                                                              |
 | 2026-08-13 | `/pr agenda-leave-by-async`: cheap calendar list + async leave-by fill-in (web/Android/iOS); next up `agenda-event-rsvp`.                                                                                                      |
+| 2026-08-13 | `/spec agenda-event-rsvp`: per-kid Yes/No/No response; all-No deemphasis; assign implies Yes; confirm + hard-release when No would drop coverage.                                                                              |
 
 
