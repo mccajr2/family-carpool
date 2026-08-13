@@ -28,9 +28,14 @@ import kotlinx.coroutines.launch
 fun App(
     session: AuthSession,
     calendarCacheStore: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    bootstrapCacheStore: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
 ) {
     MaterialTheme {
-        AuthScreen(session = session, calendarCacheStore = calendarCacheStore)
+        AuthScreen(
+            session = session,
+            calendarCacheStore = calendarCacheStore,
+            bootstrapCacheStore = bootstrapCacheStore,
+        )
     }
 }
 
@@ -38,6 +43,7 @@ fun App(
 fun AuthScreen(
     session: AuthSession,
     calendarCacheStore: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    bootstrapCacheStore: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
 ) {
     val model = remember(session) { AuthUiModel(session) }
     var state by remember { mutableStateOf(model.state) }
@@ -68,9 +74,9 @@ fun AuthScreen(
                 FamilyScreen(
                     session = session,
                     calendarCacheStore = calendarCacheStore,
+                    bootstrapCacheStore = bootstrapCacheStore,
                     onSignOut = {
                         scope.launch {
-                            calendarCacheStore.clearAll()
                             model.signOut()
                             refresh()
                         }

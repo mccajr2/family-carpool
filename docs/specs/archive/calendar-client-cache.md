@@ -3,7 +3,7 @@
 Status: done  
 Created: 2026-08-12  
 Approved: 2026-08-12  
-Updated: 2026-08-12 (`/pr`)  
+Updated: 2026-08-13 (`/pr` bootstrap paint-before-getCircle)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `calendar-client-cache`  
 Added: 2026-08-12 · enhancement (split: conditional GET deferred)
@@ -54,9 +54,9 @@ circle.
 
 | Client | Store |
 |--------|--------|
-| Web | `localStorage` (JSON); clear on sign-out |
+| Web | `localStorage` (JSON); keep on sign-out; clear on leave circle |
 | Android | App-private storage via a small `CalendarCacheStore` in `sharedLogic` (not the secure token store) |
-| iOS | Same `CalendarCacheStore` expect/actual (or thin Swift mirror with identical schema if bridging is awkward) — clear on sign-out |
+| iOS | Same `CalendarCacheStore` expect/actual (or thin Swift mirror with identical schema if bridging is awkward) — keep on sign-out; clear on leave circle |
 
 Calendar payloads are not secrets; do **not** put them in encrypted token storage.
 
@@ -100,7 +100,8 @@ No idle polling timer while the app sits open — keep this PR thin. Conditional
 |-------|----------------|
 | Coverage assign / reassign / confirm / decline / remove; leave-from PUT; compose updates that already **patch one** `CalendarItem` in memory | Update that row in the persisted snapshot (same adult+circle key) — do not wait for a full refetch |
 | Writes that **reload the loaded range** (Sync now, feed URL change, manual create/delete that refetches) | After successful reload, persist the new full snapshot |
-| Sign-out, leave circle, or adult/circle identity change | **Clear** that cache entry (and in-memory calendar) |
+| Leave circle or adult/circle identity change | **Clear** that cache entry (and in-memory calendar) |
+| Sign-out | **Keep** `(adultId, circleId)` calendar + family bootstrap snapshots so the same adult paints Agenda on next sign-in |
 
 ### Load more
 
@@ -126,12 +127,14 @@ items and the new `to` (`calendarLoadedTo`).
       the persisted snapshot for that adult+circle.
 - [x] Successful Sync now / range reload / Load more persists the new window +
       items.
-- [x] Sign-out (and circle leave / identity change) clears the calendar cache
-      for that client.
+- [x] Circle leave / identity change clears the calendar + bootstrap cache
+      for that client. Sign-out keeps both so the same adult paints on next
+      login. Family bootstrap (circle + invite + feeds) paints the Ready
+      shell **before** `getCircle`.
 - [x] **No** OpenAPI or backend changes in this PR.
 - [x] Unit/component tests cover: cache hit paints before fetch; fetch
-      failure keeps cache; mutation patches persist; sign-out clears (per
-      client layer that owns the store).
+      failure keeps cache; mutation patches persist; leave-circle clears;
+      sign-out keeps cache (per client layer that owns the store).
 
 ## Tasks
 

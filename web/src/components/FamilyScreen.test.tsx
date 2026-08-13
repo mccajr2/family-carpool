@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
 import { CalendarCacheStore, CALENDAR_CACHE_SOFT_TTL_MS } from "@/api/calendarCacheStore"
+import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
 import { defaultCalendarWindow } from "@/components/eventTimes"
@@ -304,6 +305,88 @@ describe("FamilyScreen", () => {
     await user.click(screen.getByRole("button", { name: "Leave family" }))
     expect(leaveCircle).toHaveBeenCalledWith("tok")
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+  })
+
+  it("clears bootstrap and calendar cache when leaving the circle", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "ORGANIZER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "ORGANIZER",
+        },
+        {
+          adultId: "2",
+          email: "other@example.com",
+          displayName: "Jordan",
+          role: "ORGANIZER",
+        },
+      ],
+      kids: [],
+      places: [],
+    })
+    const window = defaultCalendarWindow()
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: "AB12CD34",
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: window.from,
+      to: window.to,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Cached Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+    const leaveCircle = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <FamilyScreen
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+          leaveCircle,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    await goTo(user, "Family")
+    await user.click(await screen.findByRole("button", { name: "Leave family" }))
+    expect(leaveCircle).toHaveBeenCalledWith("tok")
+    expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    expect(bootstrap.load("1")).toBeNull()
+    expect(cache.load("1", "c1")).toBeNull()
   })
 
   it("shows named circle title when name is set", async () => {
@@ -2630,6 +2713,30 @@ describe("FamilyScreen", () => {
       displayName: "Alex",
     })
     const window = defaultCalendarWindow()
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "ORGANIZER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "ORGANIZER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: "AB12CD34",
+      feeds: [],
+    })
     const cache = new CalendarCacheStore()
     cache.save({
       adultId: "1",
@@ -2648,6 +2755,13 @@ describe("FamilyScreen", () => {
       fetchedAt: Date.now(),
     })
 
+    let releaseCircle!: (value: typeof circle) => void
+    const getCircle = vi.fn().mockImplementation(
+      () =>
+        new Promise<typeof circle>((resolve) => {
+          releaseCircle = resolve
+        }),
+    )
     let release!: (items: CalendarItem[]) => void
     const listCalendar = vi.fn().mockImplementation(
       () =>
@@ -2660,24 +2774,9 @@ describe("FamilyScreen", () => {
       <FamilyScreen
         session={session}
         calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
         familyClient={mockFamilyClient({
-          getCircle: vi.fn().mockResolvedValue(
-            circleFixture({
-              id: "c1",
-              name: "House",
-              role: "ORGANIZER",
-              members: [
-                {
-                  adultId: "1",
-                  email: "parent@example.com",
-                  displayName: "Alex",
-                  role: "ORGANIZER",
-                },
-              ],
-              kids: [{ id: "k1", displayName: "Sam" }],
-              places: [],
-            }),
-          ),
+          getCircle,
           getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
           listFeeds: vi.fn().mockResolvedValue([]),
           listCalendar,
@@ -2686,9 +2785,15 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    expect(await screen.findByText("Cached Practice")).toBeInTheDocument()
+    // Bootstrap + calendar cache paint before getCircle resolves.
+    expect(screen.getByText("Cached Practice")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-revalidating")).toBeInTheDocument()
-    expect(listCalendar).toHaveBeenCalled()
+    expect(listCalendar).not.toHaveBeenCalled()
+
+    releaseCircle(circle)
+    await waitFor(() => {
+      expect(listCalendar).toHaveBeenCalled()
+    })
 
     release([
       calendarItem({
@@ -2715,6 +2820,30 @@ describe("FamilyScreen", () => {
       displayName: "Alex",
     })
     const window = defaultCalendarWindow()
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "CAREGIVER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "CAREGIVER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: null,
+      feeds: [],
+    })
     const cache = new CalendarCacheStore()
     cache.save({
       adultId: "1",
@@ -2737,24 +2866,9 @@ describe("FamilyScreen", () => {
       <FamilyScreen
         session={session}
         calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
         familyClient={mockFamilyClient({
-          getCircle: vi.fn().mockResolvedValue(
-            circleFixture({
-              id: "c1",
-              name: "House",
-              role: "CAREGIVER",
-              members: [
-                {
-                  adultId: "1",
-                  email: "parent@example.com",
-                  displayName: "Alex",
-                  role: "CAREGIVER",
-                },
-              ],
-              kids: [{ id: "k1", displayName: "Sam" }],
-              places: [],
-            }),
-          ),
+          getCircle: vi.fn().mockResolvedValue(circle),
           listCalendar: vi.fn().mockRejectedValue(new Error("network down")),
         })}
         onSignedOut={vi.fn()}
@@ -2767,7 +2881,7 @@ describe("FamilyScreen", () => {
     expect(cache.load("1", "c1")?.items[0]?.title).toBe("Cached Practice")
   })
 
-  it("patches persisted calendar cache on single-item coverage mutation and clears on sign-out", async () => {
+  it("patches persisted calendar cache on single-item coverage mutation and keeps cache after sign-out", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -2875,7 +2989,8 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(onSignedOut).toHaveBeenCalled()
     })
-    expect(cache.load("1", "c1")).toBeNull()
+    // Same adult should still have a snapshot for the next sign-in paint.
+    expect(cache.load("1", "c1")?.items[0]?.coverages[0]?.status).toBe("CONFIRMED")
   })
 
   it("revalidates when returning to Calendar after soft TTL, not when fresh", async () => {

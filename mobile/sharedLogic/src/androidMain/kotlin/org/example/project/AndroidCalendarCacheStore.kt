@@ -15,7 +15,7 @@ class AndroidCalendarCacheStore(
     }
 }
 
-private class SharedPreferencesCalendarCacheKeyValueStore(
+internal class SharedPreferencesCalendarCacheKeyValueStore(
     private val prefs: android.content.SharedPreferences,
 ) : CalendarCacheKeyValueStore {
     override fun getString(key: String): String? = prefs.getString(key, null)

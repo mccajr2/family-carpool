@@ -7,6 +7,7 @@ class FamilyUiModel(
     private val session: AuthSession,
     private val familyClient: FamilyClient = FamilyClient.create(),
     private val calendarCache: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    private val bootstrapCache: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
     private val nowMs: () -> Long = { nowEpochMillis() },
 ) {
     enum class EmptyMode {
@@ -115,13 +116,18 @@ class FamilyUiModel(
         get() = _state
 
     suspend fun load() {
-        _state = State.Loading
         try {
-            val adult = session.currentAdult()
             val token = session.requireAccessToken()
+            // Paint last Ready shell before getMe/getCircle so Agenda is never spinner-blocked.
+            bootstrapCache.lastAdultId()?.let { paintBootstrapIfPresent(it) }
+            val adult = session.currentAdult()
+            if ((_state as? State.Ready)?.adultId != adult.id) {
+                paintBootstrapIfPresent(adult.id)
+            }
             val circle = familyClient.getCircle(token)
             _state =
                 if (circle == null) {
+                    bootstrapCache.clear(adult.id)
                     State.NeedsMembership(
                         email = adult.email,
                         hasDisplayName = !adult.displayName.isNullOrBlank(),
@@ -130,8 +136,33 @@ class FamilyUiModel(
                     readyState(adult, circle, token)
                 }
         } catch (e: Throwable) {
-            _state = State.LoadFailed(message = e.message ?: "Failed to load family")
+            // Keep bootstrap Ready on screen when refresh fails.
+            if (_state !is State.Ready) {
+                _state = State.LoadFailed(message = e.message ?: "Failed to load family")
+            } else {
+                val ready = _state as State.Ready
+                _state = ready.copy(error = e.message ?: "Failed to load family", calendarRevalidating = false)
+            }
         }
+    }
+
+    private fun paintBootstrapIfPresent(adultId: String) {
+        val bootstrap = bootstrapCache.load(adultId) ?: return
+        val cached = calendarCache.load(adultId, bootstrap.circle.id)
+        _state =
+            State.Ready(
+                email = bootstrap.email,
+                adultId = bootstrap.adultId,
+                adultDisplayName = bootstrap.adultDisplayName,
+                circle = bootstrap.circle,
+                inviteCode = bootstrap.inviteCode,
+                feeds = bootstrap.feeds,
+                calendarItems = cached?.items ?: emptyList(),
+                calendarLoadedTo = cached?.to ?: defaultCalendarWindow().to,
+                calendarFetchedAt = cached?.fetchedAt,
+                calendarRevalidating = true,
+                loading = false,
+            )
     }
 
     fun showCreate() {
@@ -549,6 +580,7 @@ class FamilyUiModel(
             val token = session.requireAccessToken()
             familyClient.leaveCircle(token)
             calendarCache.clear(current.adultId, current.circle.id)
+            bootstrapCache.clear(current.adultId)
             val adult = session.currentAdult()
             _state =
                 State.NeedsMembership(
@@ -1331,6 +1363,46 @@ class FamilyUiModel(
         circle: FamilyCircle,
         token: String,
     ): State.Ready {
+        // Paint shell immediately. Prefer disk calendar cache; never full-screen Loading.
+        // No Load-more spinner on first fetch — empty Agenda stays quiet until data arrives
+        // (or Updating… when we already painted cache).
+        val cached = calendarCache.load(adult.id, circle.id)
+        val today = defaultCalendarWindow()
+        if (_state !is State.Ready) {
+            _state =
+                State.Ready(
+                    email = adult.email,
+                    adultId = adult.id,
+                    adultDisplayName = adult.displayName,
+                    circle = circle,
+                    inviteCode = null,
+                    feeds = emptyList(),
+                    calendarItems = cached?.items ?: emptyList(),
+                    calendarLoadedTo = cached?.to ?: today.to,
+                    calendarFetchedAt = cached?.fetchedAt,
+                    calendarRevalidating = cached != null,
+                    loading = false,
+                )
+        } else {
+            val current = _state as State.Ready
+            _state =
+                current.copy(
+                    email = adult.email,
+                    adultId = adult.id,
+                    adultDisplayName = adult.displayName,
+                    circle = circle,
+                    calendarItems = cached?.items ?: current.calendarItems,
+                    calendarLoadedTo = cached?.to ?: current.calendarLoadedTo,
+                    calendarFetchedAt = cached?.fetchedAt ?: current.calendarFetchedAt,
+                    calendarRevalidating = true,
+                    loading = false,
+                    error = null,
+                )
+        }
+        val latestForWindow = _state as State.Ready
+        val to = maxIsoInstant(today.to, latestForWindow.calendarLoadedTo)
+        val calendarResult =
+            runCatching { loadAndPersistCalendarItems(token, adult.id, circle.id, to) }
         val inviteCode =
             if (circle.role == FamilyRole.ORGANIZER) {
                 runCatching { familyClient.getInvite(token).code }.getOrNull()
@@ -1343,26 +1415,6 @@ class FamilyUiModel(
             } else {
                 emptyList()
             }
-        val cached = calendarCache.load(adult.id, circle.id)
-        if (cached != null) {
-            _state =
-                State.Ready(
-                    email = adult.email,
-                    adultId = adult.id,
-                    adultDisplayName = adult.displayName,
-                    circle = circle,
-                    inviteCode = inviteCode,
-                    feeds = feeds,
-                    calendarItems = cached.items,
-                    calendarLoadedTo = cached.to,
-                    calendarFetchedAt = cached.fetchedAt,
-                    calendarRevalidating = true,
-                )
-        }
-        val today = defaultCalendarWindow()
-        val to = if (cached != null) maxIsoInstant(today.to, cached.to) else today.to
-        val calendarResult =
-            runCatching { loadAndPersistCalendarItems(token, adult.id, circle.id, to) }
         val items: List<CalendarItem>
         val fetchedAt: Long?
         if (calendarResult.isSuccess) {
@@ -1373,27 +1425,48 @@ class FamilyUiModel(
             items = cached.items
             fetchedAt = cached.fetchedAt
         } else {
-            items = emptyList()
-            fetchedAt = null
+            val keep = (_state as? State.Ready)?.calendarItems.orEmpty()
+            items = keep
+            fetchedAt = (_state as? State.Ready)?.calendarFetchedAt
         }
-        return State.Ready(
-            email = adult.email,
-            adultId = adult.id,
-            adultDisplayName = adult.displayName,
-            circle = circle,
-            inviteCode = inviteCode,
-            feeds = feeds,
-            calendarItems = items,
-            calendarLoadedTo = if (calendarResult.isSuccess || cached != null) to else today.to,
-            calendarFetchedAt = fetchedAt,
-            calendarRevalidating = false,
-            error =
-                if (calendarResult.isFailure) {
-                    calendarResult.exceptionOrNull()?.message
-                } else {
-                    null
-                },
+        val ready =
+            State.Ready(
+                email = adult.email,
+                adultId = adult.id,
+                adultDisplayName = adult.displayName,
+                circle = circle,
+                inviteCode = inviteCode,
+                feeds = feeds,
+                calendarItems = items,
+                calendarLoadedTo =
+                    if (calendarResult.isSuccess || cached != null || items.isNotEmpty()) {
+                        to
+                    } else {
+                        today.to
+                    },
+                calendarFetchedAt = fetchedAt,
+                calendarRevalidating = false,
+                loading = false,
+                error =
+                    if (calendarResult.isFailure && items.isEmpty()) {
+                        calendarResult.exceptionOrNull()?.message
+                    } else if (calendarResult.isFailure) {
+                        calendarResult.exceptionOrNull()?.message
+                    } else {
+                        null
+                    },
+            )
+        bootstrapCache.save(
+            FamilyBootstrapSnapshot(
+                adultId = adult.id,
+                email = adult.email,
+                adultDisplayName = adult.displayName,
+                circle = circle,
+                inviteCode = inviteCode,
+                feeds = feeds,
+            ),
         )
+        return ready
     }
 }
 

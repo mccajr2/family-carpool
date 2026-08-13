@@ -14,6 +14,7 @@ class AuthBridge {
     private val familyClient: FamilyClient
     private val scope: CoroutineScope
     private val calendarCache: CalendarCacheStore
+    private val bootstrapCache: FamilyBootstrapCache
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
     private var activeCircleId: String? = null
     private var activeAdultId: String? = null
@@ -27,21 +28,24 @@ class AuthBridge {
         familyClient = FamilyClient.create()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         calendarCache = IosCalendarCacheStore()
+        bootstrapCache = IosFamilyBootstrapCache()
     }
 
     constructor(session: AuthSession, familyClient: FamilyClient, scope: CoroutineScope) :
-        this(session, familyClient, scope, InMemoryCalendarCacheStore())
+        this(session, familyClient, scope, InMemoryCalendarCacheStore(), InMemoryFamilyBootstrapCache())
 
     constructor(
         session: AuthSession,
         familyClient: FamilyClient,
         scope: CoroutineScope,
         calendarCache: CalendarCacheStore,
+        bootstrapCache: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
     ) {
         this.session = session
         this.familyClient = familyClient
         this.scope = scope
         this.calendarCache = calendarCache
+        this.bootstrapCache = bootstrapCache
     }
 
     private fun encodeCoverages(coverages: List<CalendarCoverageAssignment>): String =
@@ -141,7 +145,8 @@ class AuthBridge {
     ) {
         scope.launch {
             try {
-                calendarCache.clearAll()
+                // Do not clear calendar cache on logout — same adult should paint Agenda on
+                // the next sign-in (keyed by adultId+circleId). Leave-circle clears the key.
                 activeCircleId = null
                 activeAdultId = null
                 session.logout()
@@ -150,7 +155,6 @@ class AuthBridge {
                 // AuthSession.logout clears the token in finally even when the server call fails.
                 // Treat a cleared session as signed-out success so iOS never stays "signed in"
                 // with no token.
-                calendarCache.clearAll()
                 activeCircleId = null
                 activeAdultId = null
                 if (!session.isSignedIn()) {
@@ -163,6 +167,97 @@ class AuthBridge {
     }
 
     fun isSignedIn(): Boolean = session.isSignedIn()
+
+    /**
+     * Synchronously paint last Ready shell (and set active adult/circle for calendar peek).
+     * Call before [loadFamily] so Agenda is never blank while getCircle is in flight.
+     */
+    fun paintBootstrapIfPresent(
+        onReady: (
+            title: String,
+            email: String,
+            adultId: String,
+            displayName: String?,
+            role: String,
+            inviteCode: String?,
+            memberAdultIds: List<String>,
+            memberEmails: List<String>,
+            memberNames: List<String>,
+            memberRoles: List<String>,
+            kidIds: List<String>,
+            kidNames: List<String>,
+            placeIds: List<String>,
+            placeNames: List<String>,
+            placeAddresses: List<String>,
+            placeLocated: List<String>,
+            defaultLeaveFromPlaceId: String,
+            defaultLeaveFromPlaceName: String,
+        ) -> Unit,
+    ): Boolean {
+        if (!session.isSignedIn()) return false
+        val adultId =
+            activeAdultId
+                ?: bootstrapCache.lastAdultId()
+                ?: return false
+        val snap = bootstrapCache.load(adultId) ?: return false
+        activeAdultId = snap.adultId
+        activeCircleId = snap.circle.id
+        val circle = snap.circle
+        onReady(
+            circle.displayTitle(),
+            snap.email,
+            snap.adultId,
+            snap.adultDisplayName,
+            circle.role.name,
+            snap.inviteCode,
+            circle.members.map { it.adultId },
+            circle.members.map { it.email },
+            circle.members.map { it.displayName ?: "" },
+            circle.members.map { it.role.name },
+            circle.kids.map { it.id },
+            circle.kids.map { it.displayName },
+            circle.places.map { it.id },
+            circle.places.map { it.name },
+            circle.places.map { it.address },
+            circle.places.map { if (it.isLocated()) "true" else "false" },
+            circle.defaultLeaveFromPlaceId.orEmpty(),
+            circle.defaultLeaveFromPlaceName.orEmpty(),
+        )
+        return true
+    }
+
+    /** Paint last feeds from bootstrap (same List→Array bridging as [listFeeds]). */
+    fun peekBootstrapFeeds(
+        onHit: (
+            ids: List<String>,
+            names: List<String>,
+            sourceUrls: List<String>,
+            kidIdsJoined: List<String>,
+            lastSyncedAts: List<String>,
+            lastSyncErrors: List<String>,
+            eventCounts: List<String>,
+        ) -> Unit,
+    ): Boolean {
+        val adultId = activeAdultId ?: bootstrapCache.lastAdultId() ?: return false
+        val feeds = bootstrapCache.load(adultId)?.feeds ?: return false
+        if (feeds.isEmpty()) return false
+        onHit(
+            feeds.map { it.id },
+            feeds.map { it.name },
+            feeds.map { it.sourceUrl },
+            feeds.map { it.kidIds.joinToString(",") },
+            feeds.map { it.lastSyncedAt.orEmpty() },
+            feeds.map { it.lastSyncError.orEmpty() },
+            feeds.map { it.eventCount.toString() },
+        )
+        return true
+    }
+
+    private fun persistBootstrapFeeds(feeds: List<ActivityFeed>) {
+        val adultId = activeAdultId ?: return
+        val existing = bootstrapCache.load(adultId) ?: return
+        bootstrapCache.save(existing.copy(feeds = feeds))
+    }
 
     fun loadFamily(
         onNeedsCreate: (email: String, hasDisplayName: Boolean) -> Unit,
@@ -194,6 +289,7 @@ class AuthBridge {
                 val token = session.requireAccessToken()
                 val circle = familyClient.getCircle(token)
                 if (circle == null) {
+                    bootstrapCache.clear(adult.id)
                     onNeedsCreate(adult.email, !adult.displayName.isNullOrBlank())
                 } else {
                     emitReady(adult, circle, token, onReady)
@@ -303,6 +399,27 @@ class AuthBridge {
         }
     }
 
+    /** Non-blocking invite fetch so Ready can paint Agenda from cache first. */
+    fun loadInvite(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val invite = familyClient.getInvite(session.requireAccessToken())
+                val adultId = activeAdultId
+                if (adultId != null) {
+                    bootstrapCache.load(adultId)?.let { existing ->
+                        bootstrapCache.save(existing.copy(inviteCode = invite.code))
+                    }
+                }
+                onSuccess(invite.code)
+            } catch (e: Throwable) {
+                onError(e.message ?: "Invite failed")
+            }
+        }
+    }
+
     fun leaveFamily(
         onSuccess: (email: String, hasDisplayName: Boolean) -> Unit,
         onError: (String) -> Unit,
@@ -310,6 +427,7 @@ class AuthBridge {
         scope.launch {
             try {
                 clearActiveCalendarCache()
+                bootstrapCache.clear(activeAdultId ?: session.currentAdult().id)
                 familyClient.leaveCircle(session.requireAccessToken())
                 activeCircleId = null
                 activeAdultId = null
@@ -515,6 +633,7 @@ class AuthBridge {
         scope.launch {
             try {
                 val feeds = familyClient.listFeeds(session.requireAccessToken())
+                persistBootstrapFeeds(feeds)
                 onSuccess(
                     feeds.map { it.id },
                     feeds.map { it.name },
@@ -1085,7 +1204,7 @@ class AuthBridge {
     private suspend fun emitReady(
         adult: Adult,
         circle: FamilyCircle,
-        token: String,
+        @Suppress("UNUSED_PARAMETER") token: String,
         onReady: (
             title: String,
             email: String,
@@ -1109,19 +1228,16 @@ class AuthBridge {
     ) {
         activeCircleId = circle.id
         activeAdultId = adult.id
-        val inviteCode =
-            if (circle.role == FamilyRole.ORGANIZER) {
-                runCatching { familyClient.getInvite(token).code }.getOrNull()
-            } else {
-                null
-            }
+        // Do not await getInvite here — it blocked Ready/Agenda paint-from-cache on login.
+        // Organizers load the invite asynchronously via [loadInvite] after Ready.
+        val previous = bootstrapCache.load(adult.id)
         onReady(
             circle.displayTitle(),
             adult.email,
             adult.id,
             adult.displayName,
             circle.role.name,
-            inviteCode,
+            previous?.inviteCode,
             circle.members.map { it.adultId },
             circle.members.map { it.email },
             circle.members.map { it.displayName ?: "" },
@@ -1134,6 +1250,16 @@ class AuthBridge {
             circle.places.map { if (it.isLocated()) "true" else "false" },
             circle.defaultLeaveFromPlaceId.orEmpty(),
             circle.defaultLeaveFromPlaceName.orEmpty(),
+        )
+        bootstrapCache.save(
+            FamilyBootstrapSnapshot(
+                adultId = adult.id,
+                email = adult.email,
+                adultDisplayName = adult.displayName,
+                circle = circle,
+                inviteCode = previous?.inviteCode,
+                feeds = previous?.feeds ?: emptyList(),
+            ),
         )
     }
 
@@ -1157,11 +1283,61 @@ class AuthBridge {
         calendarCache.clear(adultId, circleId)
     }
 
-    fun peekCalendarCache(): CalendarCacheBridgeHit? {
-        val adultId = activeAdultId ?: return null
-        val circleId = activeCircleId ?: return null
-        val snap = calendarCache.load(adultId, circleId) ?: return null
-        return snap.toBridgeHit()
+    /**
+     * Paint-from-cache using the same List→Swift Array callback bridging as [listCalendar].
+     * Returns true when [onHit] was invoked.
+     */
+    fun peekCalendarCache(
+        onHit: (
+            from: String,
+            to: String,
+            fetchedAt: Long,
+            ids: List<String>,
+            sources: List<String>,
+            titles: List<String>,
+            startsAts: List<String>,
+            endsAts: List<String>,
+            locations: List<String>,
+            kidIdsJoined: List<String>,
+            feedIds: List<String>,
+            feedNames: List<String>,
+            leaveFromPlaceIds: List<String>,
+            leaveFromPlaceNames: List<String>,
+            leaveByAts: List<String>,
+            leaveByStatuses: List<String>,
+            leaveByReasons: List<String>,
+            coveragesJson: List<String>,
+            uncoveredKidIdsJoined: List<String>,
+            conflictsJson: List<String>,
+        ) -> Unit,
+    ): Boolean {
+        val adultId = activeAdultId ?: return false
+        val circleId = activeCircleId ?: return false
+        val snap = calendarCache.load(adultId, circleId) ?: return false
+        val hit = snap.toBridgeHit()
+        onHit(
+            hit.from,
+            hit.to,
+            hit.fetchedAt,
+            hit.ids,
+            hit.sources,
+            hit.titles,
+            hit.startsAts,
+            hit.endsAts,
+            hit.locations,
+            hit.kidIdsJoined,
+            hit.feedIds,
+            hit.feedNames,
+            hit.leaveFromPlaceIds,
+            hit.leaveFromPlaceNames,
+            hit.leaveByAts,
+            hit.leaveByStatuses,
+            hit.leaveByReasons,
+            hit.coveragesJson,
+            hit.uncoveredKidIdsJoined,
+            hit.conflictsJson,
+        )
+        return true
     }
 
     fun saveCalendarCache(
@@ -1185,39 +1361,44 @@ class AuthBridge {
         coveragesJson: List<String>,
         uncoveredKidIdsJoined: List<String>,
         conflictsJson: List<String>,
-    ) {
-        val adultId = activeAdultId ?: return
-        val circleId = activeCircleId ?: return
-        val items =
-            itemsFromParallel(
-                ids,
-                sources,
-                titles,
-                startsAts,
-                endsAts,
-                locations,
-                kidIdsJoined,
-                feedIds,
-                feedNames,
-                leaveFromPlaceIds,
-                leaveFromPlaceNames,
-                leaveByAts,
-                leaveByStatuses,
-                leaveByReasons,
-                coveragesJson,
-                uncoveredKidIdsJoined,
-                conflictsJson,
+    ): Boolean {
+        val adultId = activeAdultId ?: return false
+        val circleId = activeCircleId ?: return false
+        return try {
+            val items =
+                itemsFromParallel(
+                    ids,
+                    sources,
+                    titles,
+                    startsAts,
+                    endsAts,
+                    locations,
+                    kidIdsJoined,
+                    feedIds,
+                    feedNames,
+                    leaveFromPlaceIds,
+                    leaveFromPlaceNames,
+                    leaveByAts,
+                    leaveByStatuses,
+                    leaveByReasons,
+                    coveragesJson,
+                    uncoveredKidIdsJoined,
+                    conflictsJson,
+                )
+            calendarCache.save(
+                CalendarCacheSnapshot(
+                    adultId = adultId,
+                    circleId = circleId,
+                    from = from,
+                    to = to,
+                    items = items,
+                    fetchedAt = fetchedAt,
+                ),
             )
-        calendarCache.save(
-            CalendarCacheSnapshot(
-                adultId = adultId,
-                circleId = circleId,
-                from = from,
-                to = to,
-                items = items,
-                fetchedAt = fetchedAt,
-            ),
-        )
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     fun patchCalendarCacheItem(

@@ -428,7 +428,37 @@ final class AuthViewModel: ObservableObject {
     }
 
     func loadFamily() {
-        familyPhase = .loading
+        let paintedBootstrap = bridge.paintBootstrapIfPresent {
+            [self] title, email, adultId, displayName, role, inviteCode, memberAdultIds, memberEmails,
+            memberNames, memberRoles, kidIds, kidNames, placeIds, placeNames, placeAddresses,
+            placeLocated, defaultLeaveFromPlaceId, defaultLeaveFromPlaceName in
+            // Synchronous: must paint before loadFamily's network launch races ahead.
+            self.applyReady(
+                title: title,
+                email: email,
+                adultId: adultId,
+                displayName: displayName,
+                role: role,
+                inviteCode: inviteCode,
+                memberAdultIds: memberAdultIds,
+                memberEmails: memberEmails,
+                memberNames: memberNames,
+                memberRoles: memberRoles,
+                kidIds: kidIds,
+                kidNames: kidNames,
+                placeIds: placeIds,
+                placeNames: placeNames,
+                placeAddresses: placeAddresses,
+                placeLocated: placeLocated,
+                defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
+                defaultLeaveFromPlaceName: defaultLeaveFromPlaceName,
+                deferNetworkLoads: true
+            )
+            self.paintBootstrapFeeds()
+        }
+        if !paintedBootstrap {
+            familyPhase = .loading
+        }
         errorMessage = nil
         bridge.loadFamily(
             onNeedsCreate: { [weak self] email, hasDisplayName in
@@ -459,14 +489,21 @@ final class AuthViewModel: ObservableObject {
                         placeAddresses: placeAddresses,
                         placeLocated: placeLocated,
                         defaultLeaveFromPlaceId: defaultLeaveFromPlaceId,
-                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName
+                        defaultLeaveFromPlaceName: defaultLeaveFromPlaceName,
+                        deferNetworkLoads: false
                     )
                 }
             },
             onError: { [weak self] message in
                 Task { @MainActor in
-                    self?.familyPhase = .loadFailed
-                    self?.errorMessage = message
+                    guard let self else { return }
+                    if self.familyPhase != .ready {
+                        self.familyPhase = .loadFailed
+                        self.errorMessage = message
+                    } else {
+                        self.errorMessage = message
+                        self.calendarRevalidating = false
+                    }
                 }
             }
         )
@@ -1107,9 +1144,9 @@ final class AuthViewModel: ObservableObject {
     func loadCalendar(through loadedTo: String? = nil, backgroundRevalidate: Bool = false) {
         if backgroundRevalidate {
             calendarRevalidating = true
-        } else {
-            isLoading = true
         }
+        // Never set isLoading for Agenda bootstrap/revalidate — keeps Load more free of spinners.
+        // Load more / mutations still set isLoading themselves.
         errorMessage = nil
         let today = ManualEventDateCodec.defaultCalendarWindow()
         let end = loadedTo ?? calendarLoadedTo
@@ -1879,7 +1916,8 @@ final class AuthViewModel: ObservableObject {
         placeAddresses: [String],
         placeLocated: [String],
         defaultLeaveFromPlaceId: String,
-        defaultLeaveFromPlaceName: String
+        defaultLeaveFromPlaceName: String,
+        deferNetworkLoads: Bool = false
     ) {
         familyTitle = title
         signedInEmail = email
@@ -1887,7 +1925,11 @@ final class AuthViewModel: ObservableObject {
         adultDisplayName = displayName ?? ""
         hasDisplayName = !(displayName ?? "").isEmpty
         familyRole = role
-        self.inviteCode = inviteCode ?? ""
+        if let inviteCode, !inviteCode.isEmpty {
+            self.inviteCode = inviteCode
+        } else if !deferNetworkLoads {
+            self.inviteCode = inviteCode ?? ""
+        }
         members = (0..<memberAdultIds.count).map { index in
             FamilyMemberItem(
                 adultId: memberAdultIds[index],
@@ -1909,44 +1951,87 @@ final class AuthViewModel: ObservableObject {
             defaultLeaveFromPlaceId.isEmpty ? nil : defaultLeaveFromPlaceId
         self.defaultLeaveFromPlaceName =
             defaultLeaveFromPlaceName.isEmpty ? nil : defaultLeaveFromPlaceName
-        feeds = []
         agendaKidFilter = nil
         familyPhase = .ready
         shell.resetToCalendar()
-        if let hit = bridge.peekCalendarCache() {
-            calendarLoadedTo = hit.to
-            calendarFetchedAtMs = hit.fetchedAt
-            calendarItems = Self.mapCalendarItems(
-                ids: hit.ids,
-                sources: hit.sources,
-                titles: hit.titles,
-                startsAts: hit.startsAts,
-                endsAts: hit.endsAts,
-                locations: hit.locations,
-                kidIdsJoined: hit.kidIdsJoined,
-                feedIds: hit.feedIds,
-                feedNames: hit.feedNames,
-                leaveFromPlaceIds: hit.leaveFromPlaceIds,
-                leaveFromPlaceNames: hit.leaveFromPlaceNames,
-                leaveByAts: hit.leaveByAts,
-                leaveByStatuses: hit.leaveByStatuses,
-                leaveByReasons: hit.leaveByReasons,
-                coveragesJson: hit.coveragesJson,
-                uncoveredKidIdsJoined: hit.uncoveredKidIdsJoined,
-                conflictsJson: hit.conflictsJson
+        let cacheHit = bridge.peekCalendarCache { [self]
+            from, to, fetchedAt, ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined,
+            feedIds, feedNames, leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses,
+            leaveByReasons, coveragesJson, uncoveredKidIdsJoined, conflictsJson in
+            _ = from
+            self.calendarLoadedTo = to
+            // Callback Long parameters are boxed as KotlinLong (unlike BridgeHit int64 properties).
+            self.calendarFetchedAtMs = fetchedAt.int64Value
+            self.calendarItems = Self.mapCalendarItems(
+                ids: ids,
+                sources: sources,
+                titles: titles,
+                startsAts: startsAts,
+                endsAts: endsAts,
+                locations: locations,
+                kidIdsJoined: kidIdsJoined,
+                feedIds: feedIds,
+                feedNames: feedNames,
+                leaveFromPlaceIds: leaveFromPlaceIds,
+                leaveFromPlaceNames: leaveFromPlaceNames,
+                leaveByAts: leaveByAts,
+                leaveByStatuses: leaveByStatuses,
+                leaveByReasons: leaveByReasons,
+                coveragesJson: coveragesJson,
+                uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                conflictsJson: conflictsJson
             )
+        }
+        let paintedFromCache = cacheHit && !calendarItems.isEmpty
+        if paintedFromCache {
             calendarRevalidating = true
-        } else {
-            calendarItems = []
+        } else if calendarItems.isEmpty {
             calendarLoadedTo = ManualEventDateCodec.defaultCalendarWindow().to
             calendarFetchedAtMs = nil
             calendarRevalidating = false
+        } else {
+            calendarRevalidating = true
+        }
+        if deferNetworkLoads {
+            return
+        }
+        if isOrganizer {
+            bridge.loadInvite(
+                onSuccess: { [weak self] code in
+                    Task { @MainActor in
+                        self?.inviteCode = code
+                    }
+                },
+                onError: { _ in }
+            )
         }
         loadFeeds()
         loadCalendar(
             through: calendarLoadedTo,
             backgroundRevalidate: !calendarItems.isEmpty
         )
+    }
+
+    private func paintBootstrapFeeds() {
+        _ = bridge.peekBootstrapFeeds { [self]
+            ids, names, sourceUrls, kidIdsJoined, lastSyncedAts, lastSyncErrors, eventCounts in
+            var next: [FamilyFeedItem] = []
+            next.reserveCapacity(ids.count)
+            for index in 0..<ids.count {
+                next.append(
+                    self.makeFeedItem(
+                        id: ids[index],
+                        name: names[index],
+                        sourceUrl: sourceUrls[index],
+                        kidIds: Self.splitJoinedIds(kidIdsJoined[index]),
+                        lastSyncedAt: lastSyncedAts[index],
+                        lastSyncError: lastSyncErrors[index],
+                        eventCount: eventCounts[index]
+                    )
+                )
+            }
+            self.feeds = next
+        }
     }
 
     private func finishSignedOut(error: String? = nil) {

@@ -70,10 +70,11 @@ fun FamilyScreen(
     onSignOut: () -> Unit,
     familyClient: FamilyClient = remember { FamilyClient.create() },
     calendarCacheStore: CalendarCacheStore = remember { InMemoryCalendarCacheStore() },
+    bootstrapCacheStore: FamilyBootstrapCache = remember { InMemoryFamilyBootstrapCache() },
 ) {
     val model =
-        remember(session, familyClient, calendarCacheStore) {
-            FamilyUiModel(session, familyClient, calendarCacheStore)
+        remember(session, familyClient, calendarCacheStore, bootstrapCacheStore) {
+            FamilyUiModel(session, familyClient, calendarCacheStore, bootstrapCacheStore)
         }
     var state by remember { mutableStateOf(model.state) }
     val scope = rememberCoroutineScope()
@@ -88,7 +89,7 @@ fun FamilyScreen(
         onDispose { model.stateListener = null }
     }
 
-    LaunchedEffect(session, familyClient, calendarCacheStore) {
+    LaunchedEffect(session, familyClient, calendarCacheStore, bootstrapCacheStore) {
         model.load()
         refresh()
     }
@@ -108,7 +109,7 @@ fun FamilyScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Your family", style = MaterialTheme.typography.headlineSmall)
-                CircularProgressIndicator(modifier = Modifier.padding(top = 16.dp))
+                // No spinner — bootstrap paint skips this; first install waits quietly for circle.
             }
         }
 
@@ -1081,6 +1082,7 @@ private fun CalendarDestination(
                 },
         )
     }
+    // Cache miss first fetch: busy feedback lives on Load more → Loading… only.
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
     }

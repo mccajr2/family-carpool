@@ -1669,6 +1669,293 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun paintsCachedAgendaBeforeInviteReturns() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            val window = defaultCalendarWindow()
+            cache.save(
+                CalendarCacheSnapshot(
+                    adultId = "1",
+                    circleId = "c1",
+                    from = window.from,
+                    to = window.to,
+                    items =
+                        listOf(
+                            CalendarItem(
+                                id = "e1",
+                                source = CalendarItemSource.MANUAL,
+                                title = "Cached Practice",
+                                startsAt = "2030-08-15T17:00:00Z",
+                                kidIds = listOf("k1"),
+                            ),
+                        ),
+                    fetchedAt = nowEpochMillis(),
+                ),
+            )
+            val inviteGate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" -> {
+                            inviteGate.await()
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Fresh Practice","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            var sawCachedReadyWhileInvitePending = false
+            model.stateListener = {
+                when (val ready = model.state) {
+                    is FamilyUiModel.State.Ready -> {
+                        if (
+                            ready.calendarItems.any { it.title == "Cached Practice" } &&
+                                ready.calendarRevalidating &&
+                                ready.inviteCode == null &&
+                                !inviteGate.isCompleted
+                        ) {
+                            sawCachedReadyWhileInvitePending = true
+                            inviteGate.complete(Unit)
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+            model.load()
+            assertTrue(
+                sawCachedReadyWhileInvitePending,
+                "Ready+cache must paint before invite returns (otherwise Loading spinner sticks)",
+            )
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("AB12CD34", ready.inviteCode)
+            assertEquals("Fresh Practice", ready.calendarItems.single().title)
+        }
+
+    @Test
+    fun leavesFullScreenLoadingAsSoonAsCircleReturnsWithoutCache() =
+        runTest {
+            val calendarGate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" -> {
+                            calendarGate.await()
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            var sawReadyShellBeforeCalendar = false
+            model.stateListener = {
+                when (val ready = model.state) {
+                    is FamilyUiModel.State.Ready -> {
+                        if (ready.calendarItems.isEmpty() && !calendarGate.isCompleted) {
+                            sawReadyShellBeforeCalendar = true
+                            calendarGate.complete(Unit)
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+            model.load()
+            assertTrue(
+                sawReadyShellBeforeCalendar,
+                "login must show Ready shell after getCircle with no spinner flags",
+            )
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertFalse(ready.loading)
+            assertFalse(ready.calendarRevalidating)
+        }
+
+    @Test
+    fun paintsBootstrapShellBeforeGetCircleReturns() =
+        runTest {
+            val bootstrap = InMemoryFamilyBootstrapCache()
+            val calendarCache = InMemoryCalendarCacheStore()
+            val window = defaultCalendarWindow()
+            bootstrap.save(
+                FamilyBootstrapSnapshot(
+                    adultId = "1",
+                    email = "parent@example.com",
+                    adultDisplayName = "Alex",
+                    circle =
+                        FamilyCircle(
+                            id = "c1",
+                            name = "House",
+                            role = FamilyRole.ORGANIZER,
+                            members =
+                                listOf(
+                                    FamilyMember(
+                                        adultId = "1",
+                                        email = "parent@example.com",
+                                        displayName = "Alex",
+                                        role = FamilyRole.ORGANIZER,
+                                    ),
+                                ),
+                            kids = listOf(Kid(id = "k1", displayName = "Sam")),
+                        ),
+                    inviteCode = "AB12CD34",
+                ),
+            )
+            calendarCache.save(
+                CalendarCacheSnapshot(
+                    adultId = "1",
+                    circleId = "c1",
+                    from = window.from,
+                    to = window.to,
+                    items =
+                        listOf(
+                            CalendarItem(
+                                id = "e1",
+                                source = CalendarItemSource.MANUAL,
+                                title = "Bootstrapped Practice",
+                                startsAt = "2030-08-15T17:00:00Z",
+                                kidIds = listOf("k1"),
+                            ),
+                        ),
+                    fetchedAt = nowEpochMillis(),
+                ),
+            )
+            val circleGate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get -> {
+                            circleGate.await()
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Fresh","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model =
+                familyUiModel(
+                    mockEngine,
+                    token = "tok",
+                    calendarCache = calendarCache,
+                    bootstrapCache = bootstrap,
+                )
+            var sawBootstrapBeforeCircle = false
+            model.stateListener = {
+                when (val ready = model.state) {
+                    is FamilyUiModel.State.Ready -> {
+                        if (
+                            ready.calendarItems.any { it.title == "Bootstrapped Practice" } &&
+                                !circleGate.isCompleted
+                        ) {
+                            sawBootstrapBeforeCircle = true
+                            circleGate.complete(Unit)
+                        }
+                    }
+                    is FamilyUiModel.State.Loading -> Unit
+                    else -> Unit
+                }
+            }
+            model.load()
+            assertTrue(
+                sawBootstrapBeforeCircle,
+                "must paint bootstrap Agenda before getCircle returns",
+            )
+            assertEquals("Fresh", assertIs<FamilyUiModel.State.Ready>(model.state).calendarItems.single().title)
+            assertEquals("House", bootstrap.load("1")!!.circle.name)
+        }
+
+    @Test
     fun keepsCachedAgendaWhenRevalidateFails() =
         runTest {
             val cache = InMemoryCalendarCacheStore()
@@ -1728,7 +2015,7 @@ class FamilyUiModelTest {
         }
 
     @Test
-    fun patchesPersistedCacheOnCoverageMutationAndClearsOnSignOutHook() =
+    fun patchesPersistedCacheOnCoverageMutation() =
         runTest {
             val cache = InMemoryCalendarCacheStore()
             val mockEngine =
@@ -1790,9 +2077,97 @@ class FamilyUiModelTest {
                 CoverageStatus.CONFIRMED,
                 cache.load("1", "c1")!!.items.single().coverages.single().status,
             )
+            // Sign-out hook must not be required to wipe cache; leave-circle clears the key.
+            assertNotNull(cache.load("1", "c1"))
+        }
 
-            model.clearCalendarCache()
-            assertNull(cache.load("1", "c1"))
+    @Test
+    fun paintsCachedAgendaAfterSimulatedReSignIn() =
+        runTest {
+            val cache = InMemoryCalendarCacheStore()
+            val window = defaultCalendarWindow()
+            cache.save(
+                CalendarCacheSnapshot(
+                    adultId = "1",
+                    circleId = "c1",
+                    from = window.from,
+                    to = window.to,
+                    items =
+                        listOf(
+                            CalendarItem(
+                                id = "e1",
+                                source = CalendarItemSource.MANUAL,
+                                title = "Cached After Login",
+                                startsAt = "2030-08-15T17:00:00Z",
+                                kidIds = listOf("k1"),
+                            ),
+                        ),
+                    fetchedAt = nowEpochMillis(),
+                ),
+            )
+            val calendarGate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" -> {
+                            calendarGate.await()
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Fresh","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok", calendarCache = cache)
+            var sawCachedTitle = false
+            model.stateListener = {
+                when (val ready = model.state) {
+                    is FamilyUiModel.State.Ready -> {
+                        if (
+                            ready.calendarItems.any { it.title == "Cached After Login" } &&
+                                ready.calendarRevalidating &&
+                                !calendarGate.isCompleted
+                        ) {
+                            sawCachedTitle = true
+                            calendarGate.complete(Unit)
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+            model.load()
+            assertTrue(sawCachedTitle, "re-sign-in must paint cached Agenda before calendar GET")
+            assertEquals("Fresh", assertIs<FamilyUiModel.State.Ready>(model.state).calendarItems.single().title)
         }
 
     @Test
@@ -1922,6 +2297,7 @@ private fun familyUiModel(
     mockEngine: MockEngine,
     token: String,
     calendarCache: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    bootstrapCache: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
     nowMs: () -> Long = { nowEpochMillis() },
 ): FamilyUiModel {
     val httpClient =
@@ -1940,6 +2316,7 @@ private fun familyUiModel(
         session = session,
         familyClient = FamilyClient("http://localhost:8080", httpClient),
         calendarCache = calendarCache,
+        bootstrapCache = bootstrapCache,
         nowMs = nowMs,
     )
 }
