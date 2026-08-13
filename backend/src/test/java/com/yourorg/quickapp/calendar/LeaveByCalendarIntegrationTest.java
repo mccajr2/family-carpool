@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.calendar;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -9,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
+import com.yourorg.quickapp.family.internal.StubGeocoderPort;
+import com.yourorg.quickapp.leaveby.internal.StubOsrmPort;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,6 +34,12 @@ class LeaveByCalendarIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private StubGeocoderPort stubGeocoder;
+
+    @Autowired
+    private StubOsrmPort stubOsrm;
 
     @Test
     void calendarEnrichmentAndSetLeaveFrom() throws Exception {
@@ -150,6 +159,184 @@ class LeaveByCalendarIntegrationTest {
                                 .content(
                                         "{\"leaveFromPlaceId\":\"01900000-0000-7000-8000-000000000099\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void cheapListDoesNotCallUpstreamHttpAndFillInCollapsesDuplicates() throws Exception {
+        String token = signIn("leaveby-dup@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Mom's house\",\"address\":\"1 Main Street\"}"))
+                .andExpect(status().isCreated());
+
+        String venue = "Dup Rink " + java.util.UUID.randomUUID();
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Practice\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                + venue
+                                                + "\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Scrimmage\",\"startsAt\":\"2026-08-15T18:00:00Z\",\"location\":\" "
+                                                + venue
+                                                + " \",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+
+        int geoBefore = stubGeocoder.httpCallCount();
+        int osrmBefore = stubOsrm.httpCallCount();
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("PENDING"))
+                .andExpect(jsonPath("$[1].leaveByStatus").value("PENDING"));
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoBefore);
+        assertThat(stubOsrm.httpCallCount()).isEqualTo(osrmBefore);
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"))
+                .andExpect(jsonPath("$[1].leaveByStatus").value("OK"));
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoBefore + 1);
+        assertThat(stubOsrm.httpCallCount()).isEqualTo(osrmBefore + 1);
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"))
+                .andExpect(jsonPath("$[1].leaveByStatus").value("OK"));
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("OK"));
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoBefore + 1);
+        assertThat(stubOsrm.httpCallCount()).isEqualTo(osrmBefore + 1);
+    }
+
+    @Test
+    void cheapListUnavailableWithoutOriginOrDestinationAndFillInGeocodeMiss() throws Exception {
+        String token = signIn("leaveby-miss@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Away\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\"Rink\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$[0].leaveByReason").value("NO_ORIGIN"));
+
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Home\",\"address\":\"1 Main Street\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Lost\",\"startsAt\":\"2026-08-16T17:00:00Z\",\"location\":\"unlocateable rink "
+                                                + java.util.UUID.randomUUID()
+                                                + "\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+
+        int geoBefore = stubGeocoder.httpCallCount();
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-16T00:00:00Z")
+                                .param("to", "2026-08-17T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("PENDING"));
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoBefore);
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-16T00:00:00Z")
+                                .param("to", "2026-08-17T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByStatus").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$[0].leaveByReason").value("GEOCODE_FAILED"));
+        int geoAfterMiss = stubGeocoder.httpCallCount();
+        assertThat(geoAfterMiss).isEqualTo(geoBefore + 1);
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-16T00:00:00Z")
+                                .param("to", "2026-08-17T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveByReason").value("GEOCODE_FAILED"));
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoAfterMiss + 1);
     }
 
     private String signIn(String email) throws Exception {

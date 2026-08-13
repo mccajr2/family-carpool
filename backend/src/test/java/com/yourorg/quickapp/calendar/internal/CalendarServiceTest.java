@@ -356,6 +356,8 @@ class CalendarServiceTest {
 
         assertThat(response.coverages()).hasSize(1);
         assertThat(response.uncoveredKidIds()).isEmpty();
+        verify(leaveByApi).enrich(adult.id(), LeaveByItemSource.MANUAL, itemId, startsAt, "Rink");
+        verify(leaveByApi, never()).enrichCheapMany(any(), any());
         verify(coverageApi)
                 .assign(
                         adult.id(),

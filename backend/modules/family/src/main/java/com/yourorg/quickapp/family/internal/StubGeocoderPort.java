@@ -1,6 +1,7 @@
 package com.yourorg.quickapp.family.internal;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -10,10 +11,18 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(name = "app.geocode.provider", havingValue = "stub", matchIfMissing = false)
-class StubGeocoderPort implements GeocoderPort {
+public class StubGeocoderPort implements GeocoderPort {
+
+    private final AtomicInteger httpCalls = new AtomicInteger();
+
+    /** Nominatim-equivalent invocations (stub HTTP). */
+    public int httpCallCount() {
+        return httpCalls.get();
+    }
 
     @Override
     public Optional<GeoCoordinates> geocode(String address) {
+        httpCalls.incrementAndGet();
         if (address == null || address.isBlank()) {
             return Optional.empty();
         }

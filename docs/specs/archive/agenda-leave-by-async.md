@@ -1,8 +1,9 @@
 # Spec: agenda-leave-by-async
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-13  
 Approved: 2026-08-13  
+Updated: 2026-08-13 (`/pr`) 
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-leave-by-async`  
 Added: 2026-08-13 · enhancement
@@ -149,38 +150,38 @@ Sign-out / identity change still clears the calendar cache.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/family/circle/calendar` does **not** invoke Nominatim or OSRM
+- [x] `GET /api/family/circle/calendar` does **not** invoke Nominatim or OSRM
       HTTP (test double that fails if called). Cache-miss travel rows return
       `PENDING`; cache-hit dest+duration rows may return `OK` with computed
       `leaveByAt`.
-- [ ] Cheap list returns `UNAVAILABLE` + `NO_ORIGIN` / `NO_DESTINATION` without
+- [x] Cheap list returns `UNAVAILABLE` + `NO_ORIGIN` / `NO_DESTINATION` without
       fill-in; those rows do not require the leave-by endpoint to show recovery
       copy.
-- [ ] `GET /api/family/circle/calendar/leave-by?from&to` returns full enrich
+- [x] `GET /api/family/circle/calendar/leave-by?from&to` returns full enrich
       (`OK` or `UNAVAILABLE`, including `GEOCODE_FAILED` / OSRM-down fallback)
       for items in `[from, to)`; 400/401/404 match the list.
-- [ ] Two (or more) items with the same normalized `location` and same origin
+- [x] Two (or more) items with the same normalized `location` and same origin
       coords in one fill-in cause **at most one** Nominatim HTTP and **at most
       one** OSRM HTTP; further rows use cache / in-request reuse.
-- [ ] A second fill-in (or cheap list) after a successful dest+route lookup
+- [x] A second fill-in (or cheap list) after a successful dest+route lookup
       performs **zero** Nominatim/OSRM HTTP for that pair (DB cache hit).
-- [ ] OSRM-down fallback and geocode miss are **not** persisted; a later
+- [x] OSRM-down fallback and geocode miss are **not** persisted; a later
       fill-in may retry upstream.
-- [ ] Leave-from PUT and coverage mutation responses still return a fully
+- [x] Leave-from PUT and coverage mutation responses still return a fully
       enriched `CalendarItem` (one-row sync enrich).
-- [ ] **Web + Android + iOS:** Agenda rows from a cheap list (or cache) are
+- [x] **Web + Android + iOS:** Agenda rows from a cheap list (or cache) are
       visible **before** the leave-by request completes (observable: items on
       screen while fill-in in flight).
-- [ ] Near-term leave-by request (`localTodayStart` + 2 calendar days) is
+- [x] Near-term leave-by request (`localTodayStart` + 2 calendar days) is
       issued **before** any later-window leave-by request for that load.
-- [ ] `PENDING` shows **Estimating leave-by…** on the leave-by line; leave-from
+- [x] `PENDING` shows **Estimating leave-by…** on the leave-by line; leave-from
       and coverage stay interactive; fill-in replaces the line with existing OK
       / UNAVAILABLE copy.
-- [ ] Cheap revalidate that returns `PENDING` does not clobber a cached `OK`
+- [x] Cheap revalidate that returns `PENDING` does not clobber a cached `OK`
       for the same origin; fill-in then updates. Origin change on the cheap
       list drops stale `OK` to `PENDING`.
-- [ ] Fill-in failure after rows are shown leaves the list intact.
-- [ ] OpenAPI + web + Android + iOS clients updated together; `ModularityTests`
+- [x] Fill-in failure after rows are shown leaves the list intact.
+- [x] OpenAPI + web + Android + iOS clients updated together; `ModularityTests`
       passes; unit + integration tests cover cheap list isolation, fill-in
       enrich, and client paint-before-fill / near-term-first / cache merge.
 
@@ -203,7 +204,7 @@ Sign-out / identity change still clears the calendar cache.
 - [x] **Docs:** `docs/architecture.md` — cheap list + async fill-in; reuse
       `geocode_cache` + new duration cache; pointer at
       `calendar-conditional-get` for ETag on the cheap payload.
-- [ ] **Tests:** List GET never hits Nominatim/OSRM HTTP; fill-in integration;
+- [x] **Tests:** List GET never hits Nominatim/OSRM HTTP; fill-in integration;
       duplicate location/origin → one upstream each; second pass is cache-only;
       fallback/miss not cached; web + `FamilyUiModel` (+ iOS script if that is
       the repo pattern) for paint-before-fill, near-term-first, cache merge,

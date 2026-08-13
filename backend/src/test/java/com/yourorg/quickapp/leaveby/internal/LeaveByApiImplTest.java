@@ -332,6 +332,7 @@ class LeaveByApiImplTest {
 
     @Test
     void enrichCheapPendingDoesNotCallGeocodeOrOsrm() {
+        failIfUpstreamHttp();
         when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
                         adultId, LeaveByItemSource.MANUAL, itemId))
                 .thenReturn(Optional.empty());
@@ -355,6 +356,7 @@ class LeaveByApiImplTest {
 
     @Test
     void enrichCheapPendingWhenDurationCacheMisses() {
+        failIfUpstreamHttp();
         when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
                         adultId, LeaveByItemSource.MANUAL, itemId))
                 .thenReturn(Optional.empty());
@@ -377,6 +379,7 @@ class LeaveByApiImplTest {
 
     @Test
     void enrichCheapOkWhenDestAndDurationCached() {
+        failIfUpstreamHttp();
         String routeKey = "-74.100000,40.100000;-74.200000,40.200000";
         when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
                         adultId, LeaveByItemSource.MANUAL, itemId))
@@ -399,6 +402,7 @@ class LeaveByApiImplTest {
 
     @Test
     void enrichCheapUnavailableWhenBlankLocation() {
+        failIfUpstreamHttp();
         when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
                         adultId, LeaveByItemSource.MANUAL, itemId))
                 .thenReturn(Optional.empty());
@@ -453,5 +457,145 @@ class LeaveByApiImplTest {
         verify(osrmPort, times(1))
                 .drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
         verify(routeCacheRepository, times(1)).save(any());
+    }
+
+    @Test
+    void enrichCheapUnavailableWhenNoLocatedOrigin() {
+        failIfUpstreamHttp();
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.empty());
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
+
+        LeaveByEnrichmentDto result =
+                api.enrichCheap(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        "Rink");
+
+        assertThat(result.leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
+        assertThat(result.leaveByReason()).isEqualTo("NO_ORIGIN");
+        assertThat(result.leaveByAt()).isNull();
+        verify(geocodeApi, never()).findCachedLocation(any());
+        verify(geocodeApi, never()).resolveLocation(any());
+        verify(osrmPort, never()).drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void enrichRetriesGeocodeAfterMissIsNotCached() {
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.empty());
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("Rink")).thenReturn(Optional.empty());
+
+        LeaveByEnrichmentDto miss =
+                api.enrich(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        "Rink");
+
+        assertThat(miss.leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
+        assertThat(miss.leaveByReason()).isEqualTo("GEOCODE_FAILED");
+        verify(osrmPort, never()).drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(1200.0));
+
+        LeaveByEnrichmentDto retry =
+                api.enrich(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        "Rink");
+
+        assertThat(retry.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        verify(geocodeApi, times(2)).resolveLocation("Rink");
+    }
+
+    @Test
+    void enrichRetriesOsrmAfterFallbackIsNotCached() {
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.empty());
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(600.0));
+
+        Instant startsAt = Instant.parse("2026-08-15T14:00:00Z");
+        LeaveByEnrichmentDto fallback =
+                api.enrich(adultId, LeaveByItemSource.MANUAL, itemId, startsAt, "Rink");
+        assertThat(fallback.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(fallback.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T13:25:00Z"));
+        verify(routeCacheRepository, never()).save(any());
+
+        LeaveByEnrichmentDto retry =
+                api.enrich(adultId, LeaveByItemSource.MANUAL, itemId, startsAt, "Rink");
+        assertThat(retry.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(retry.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T13:45:00Z"));
+        verify(osrmPort, times(2)).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+        verify(routeCacheRepository, times(1)).save(any());
+    }
+
+    @Test
+    void enrichManySecondPassUsesRouteCacheWithoutOsrm() {
+        java.util.Map<String, RouteCacheEntity> store = new java.util.HashMap<>();
+        when(routeCacheRepository.findById(any()))
+                .thenAnswer(
+                        invocation ->
+                                Optional.ofNullable(store.get(invocation.getArgument(0))));
+        when(routeCacheRepository.save(any()))
+                .thenAnswer(
+                        invocation -> {
+                            RouteCacheEntity entity = invocation.getArgument(0);
+                            store.put(entity.routeKey(), entity);
+                            return entity;
+                        });
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.empty());
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(geocodeApi.findCachedLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(1200.0));
+
+        LeaveByItemInput input =
+                new LeaveByItemInput(
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        "Rink");
+        assertThat(api.enrichMany(adultId, List.of(input)).getFirst().leaveByStatus())
+                .isEqualTo(LeaveByStatus.OK);
+        verify(osrmPort, times(1)).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+
+        assertThat(api.enrichMany(adultId, List.of(input)).getFirst().leaveByStatus())
+                .isEqualTo(LeaveByStatus.OK);
+        assertThat(api.enrichCheap(adultId, input.source(), input.itemId(), input.startsAt(), input.location())
+                        .leaveByStatus())
+                .isEqualTo(LeaveByStatus.OK);
+        verify(osrmPort, times(1)).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+    }
+
+    private void failIfUpstreamHttp() {
+        lenient()
+                .when(geocodeApi.resolveLocation(any()))
+                .thenThrow(new AssertionError("Nominatim HTTP must not run on cheap path"));
+        lenient()
+                .when(osrmPort.drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new AssertionError("OSRM HTTP must not run on cheap path"));
     }
 }

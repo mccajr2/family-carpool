@@ -149,7 +149,7 @@ Adult --coverage assignment--> (source + itemId) + Kid(s)
 
 ### Leave-by estimate (detail)
 
-Locked for `event-leave-by-estimate` + [`agenda-leave-by-async`](specs/active/agenda-leave-by-async.md):
+Locked for `event-leave-by-estimate` + [`agenda-leave-by-async`](specs/archive/agenda-leave-by-async.md):
 
 | Topic | Decision |
 |--------|----------|
