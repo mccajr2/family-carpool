@@ -31,4 +31,17 @@ interface ActivityFeedEventRepository extends JpaRepository<ActivityFeedEventEnt
     List<ActivityFeedEventEntity>
             findByFeedIdInAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAscIdAsc(
                     Collection<UUID> feedIds, Instant from, Instant to);
+
+    @Query(
+            """
+            select e from ActivityFeedEventEntity e
+            where e.feedId in :feedIds
+              and e.startsAt < :windowEnd
+              and coalesce(e.endsAt, e.startsAt) > :windowStart
+            order by e.startsAt asc, e.id asc
+            """)
+    List<ActivityFeedEventEntity> findOverlapping(
+            @Param("feedIds") Collection<UUID> feedIds,
+            @Param("windowStart") Instant windowStart,
+            @Param("windowEnd") Instant windowEnd);
 }

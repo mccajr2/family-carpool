@@ -4,6 +4,7 @@ import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
 import com.yourorg.quickapp.coverage.CoverageStatus;
+import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -99,11 +101,17 @@ class CoverageApiImpl implements CoverageApi {
                         circleId, source, itemId, coveringAdultId, ACTIVE);
         if (existingActive.isPresent()) {
             CoverageAssignmentEntity row = existingActive.get();
+            if (status == CoverageStatus.CONFIRMED) {
+                assertNoConfirmedDoubleBook(circleId, coveringAdultId, source, itemId, row.id());
+            }
             assertNoKidConflict(circleId, source, itemId, kids, row.id());
             row.reassign(coveringAdultId, actorAdultId, status, kids, now);
             return toDto(assignments.save(row));
         }
 
+        if (status == CoverageStatus.CONFIRMED) {
+            assertNoConfirmedDoubleBook(circleId, coveringAdultId, source, itemId, null);
+        }
         assertNoKidConflict(circleId, source, itemId, kids, null);
         CoverageAssignmentEntity created =
                 new CoverageAssignmentEntity(
@@ -146,6 +154,11 @@ class CoverageApiImpl implements CoverageApi {
             status = row.status();
         }
 
+        if (status == CoverageStatus.CONFIRMED) {
+            assertNoConfirmedDoubleBook(
+                    circleId, coveringAdultId, row.itemSource(), row.itemId(), row.id());
+        }
+
         row.reassign(coveringAdultId, actorAdultId, status, kids, now);
         return toDto(assignments.save(row));
     }
@@ -182,8 +195,63 @@ class CoverageApiImpl implements CoverageApi {
             throw new FamilyAccessException(
                     HttpStatus.CONFLICT, "Assignment is not pending confirmation");
         }
+        if (next == CoverageStatus.CONFIRMED) {
+            assertNoConfirmedDoubleBook(
+                    circleId, row.coveringAdultId(), row.itemSource(), row.itemId(), row.id());
+        }
         row.setStatus(next, Instant.now());
         return toDto(assignments.save(row));
+    }
+
+    private void assertNoConfirmedDoubleBook(
+            UUID circleId,
+            UUID coveringAdultId,
+            CoverageItemSource source,
+            UUID itemId,
+            UUID excludeAssignmentId) {
+        Instant[] targetTimes =
+                findItemTimes(circleId, source, itemId)
+                        .orElseThrow(
+                                () ->
+                                        new FamilyAccessException(
+                                                HttpStatus.NOT_FOUND, "Calendar item not found"));
+        List<CoverageAssignmentEntity> confirmed =
+                assignments.findByCircleIdAndCoveringAdultIdAndStatus(
+                        circleId, coveringAdultId, CoverageStatus.CONFIRMED);
+        for (CoverageAssignmentEntity other : confirmed) {
+            if (excludeAssignmentId != null && other.id().equals(excludeAssignmentId)) {
+                continue;
+            }
+            if (other.itemSource() == source && other.itemId().equals(itemId)) {
+                continue;
+            }
+            // Skip stale rows whose calendar item was deleted (e.g. feed sync removed UID).
+            Instant[] otherTimes =
+                    findItemTimes(circleId, other.itemSource(), other.itemId()).orElse(null);
+            if (otherTimes == null) {
+                continue;
+            }
+            if (ScheduleIntervals.overlaps(
+                    targetTimes[0], targetTimes[1], otherTimes[0], otherTimes[1])) {
+                throw new FamilyAccessException(
+                        HttpStatus.CONFLICT,
+                        "Adult is already confirmed on an overlapping calendar item");
+            }
+        }
+    }
+
+    private Optional<Instant[]> findItemTimes(
+            UUID circleId, CoverageItemSource source, UUID itemId) {
+        return switch (source) {
+            case MANUAL ->
+                    manualEventCalendarApi
+                            .findInCircle(circleId, itemId)
+                            .map(event -> new Instant[] {event.startsAt(), event.endsAt()});
+            case FEED ->
+                    feedCalendarApi
+                            .findEventInCircle(circleId, itemId)
+                            .map(event -> new Instant[] {event.startsAt(), event.endsAt()});
+        };
     }
 
     private CoverageAssignmentEntity requireAssignmentInCircle(UUID assignmentId, UUID circleId) {

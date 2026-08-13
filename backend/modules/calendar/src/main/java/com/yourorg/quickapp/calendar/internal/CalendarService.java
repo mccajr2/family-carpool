@@ -3,6 +3,7 @@ package com.yourorg.quickapp.calendar.internal;
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
+import com.yourorg.quickapp.calendar.CalendarConflictResponse;
 import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
@@ -10,6 +11,7 @@ import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
 import com.yourorg.quickapp.coverage.CoverageStatus;
+import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +68,12 @@ public class CalendarService {
         List<ManualCalendarEventDto> manualEvents =
                 manualEventCalendarApi.listInRange(circleId, from, to);
 
+        Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem> detection =
+                buildDetectionSet(circleId, feedEvents, manualEvents);
+        Map<CalendarConflictDetector.ItemKey, List<CalendarConflictResponse>> conflictsByItem =
+                CalendarConflictDetector.detect(
+                        List.copyOf(detection.values()), adultNamesFor(detection.values()));
+
         Map<UUID, List<CoverageAssignmentDto>> feedCoverages =
                 groupCoverages(
                         coverageApi.listForItems(
@@ -87,7 +96,11 @@ public class CalendarService {
                             adult.id(),
                             feedEvent,
                             feedCoverages.getOrDefault(feedEvent.id(), List.of()),
-                            adultNames));
+                            adultNames,
+                            conflictsByItem.getOrDefault(
+                                    new CalendarConflictDetector.ItemKey(
+                                            CalendarItemSource.FEED, feedEvent.id()),
+                                    List.of())));
         }
         for (ManualCalendarEventDto manual : manualEvents) {
             items.add(
@@ -95,7 +108,11 @@ public class CalendarService {
                             adult.id(),
                             manual,
                             manualCoverages.getOrDefault(manual.id(), List.of()),
-                            adultNames));
+                            adultNames,
+                            conflictsByItem.getOrDefault(
+                                    new CalendarConflictDetector.ItemKey(
+                                            CalendarItemSource.MANUAL, manual.id()),
+                                    List.of())));
         }
 
         items.sort(
@@ -185,34 +202,231 @@ public class CalendarService {
 
     private CalendarItemResponse requireItem(
             UUID adultId, UUID circleId, CalendarItemSource source, UUID itemId) {
-        List<CoverageAssignmentDto> coverages =
-                coverageApi.listForItem(circleId, toCoverageSource(source), itemId);
-        Map<UUID, String> adultNames = displayNames(coverages);
         return switch (source) {
-            case MANUAL ->
-                    manualEventCalendarApi
-                            .findInCircle(circleId, itemId)
-                            .map(event -> fromManual(adultId, event, coverages, adultNames))
-                            .orElseThrow(
-                                    () ->
-                                            new CalendarException(
-                                                    HttpStatus.NOT_FOUND, "Calendar item not found"));
-            case FEED ->
-                    feedCalendarApi
-                            .findEventInCircle(circleId, itemId)
-                            .map(event -> fromFeed(adultId, event, coverages, adultNames))
-                            .orElseThrow(
-                                    () ->
-                                            new CalendarException(
-                                                    HttpStatus.NOT_FOUND, "Calendar item not found"));
+            case MANUAL -> {
+                ManualCalendarEventDto event =
+                        manualEventCalendarApi
+                                .findInCircle(circleId, itemId)
+                                .orElseThrow(
+                                        () ->
+                                                new CalendarException(
+                                                        HttpStatus.NOT_FOUND,
+                                                        "Calendar item not found"));
+                yield enrichSingle(adultId, circleId, event, null);
+            }
+            case FEED -> {
+                FeedCalendarEventDto event =
+                        feedCalendarApi
+                                .findEventInCircle(circleId, itemId)
+                                .orElseThrow(
+                                        () ->
+                                                new CalendarException(
+                                                        HttpStatus.NOT_FOUND,
+                                                        "Calendar item not found"));
+                yield enrichSingle(adultId, circleId, null, event);
+            }
         };
+    }
+
+    private CalendarItemResponse enrichSingle(
+            UUID adultId,
+            UUID circleId,
+            ManualCalendarEventDto manual,
+            FeedCalendarEventDto feed) {
+        List<FeedCalendarEventDto> feedSeed =
+                feed == null ? List.of() : List.of(feed);
+        List<ManualCalendarEventDto> manualSeed =
+                manual == null ? List.of() : List.of(manual);
+        Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem> detection =
+                buildDetectionSet(circleId, feedSeed, manualSeed);
+        Map<CalendarConflictDetector.ItemKey, List<CalendarConflictResponse>> conflictsByItem =
+                CalendarConflictDetector.detect(
+                        List.copyOf(detection.values()), adultNamesFor(detection.values()));
+
+        if (manual != null) {
+            List<CoverageAssignmentDto> coverages =
+                    coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, manual.id());
+            return fromManual(
+                    adultId,
+                    manual,
+                    coverages,
+                    displayNames(coverages),
+                    conflictsByItem.getOrDefault(
+                            new CalendarConflictDetector.ItemKey(
+                                    CalendarItemSource.MANUAL, manual.id()),
+                            List.of()));
+        }
+        List<CoverageAssignmentDto> coverages =
+                coverageApi.listForItem(circleId, CoverageItemSource.FEED, feed.id());
+        return fromFeed(
+                adultId,
+                feed,
+                coverages,
+                displayNames(coverages),
+                conflictsByItem.getOrDefault(
+                        new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, feed.id()),
+                        List.of()));
+    }
+
+    private Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem>
+            buildDetectionSet(
+                    UUID circleId,
+                    List<FeedCalendarEventDto> feedInPage,
+                    List<ManualCalendarEventDto> manualInPage) {
+        Instant windowStart = null;
+        Instant windowEnd = null;
+        for (FeedCalendarEventDto event : feedInPage) {
+            windowStart = minStart(windowStart, event.startsAt());
+            windowEnd = maxEnd(windowEnd, event.startsAt(), event.endsAt());
+        }
+        for (ManualCalendarEventDto event : manualInPage) {
+            windowStart = minStart(windowStart, event.startsAt());
+            windowEnd = maxEnd(windowEnd, event.startsAt(), event.endsAt());
+        }
+
+        Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem> byKey =
+                new LinkedHashMap<>();
+        for (FeedCalendarEventDto event : feedInPage) {
+            byKey.put(
+                    new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, event.id()),
+                    toScheduleItem(event, List.of()));
+        }
+        for (ManualCalendarEventDto event : manualInPage) {
+            byKey.put(
+                    new CalendarConflictDetector.ItemKey(CalendarItemSource.MANUAL, event.id()),
+                    toScheduleItem(event, List.of()));
+        }
+
+        if (windowStart != null && windowEnd != null) {
+            for (FeedCalendarEventDto event :
+                    feedCalendarApi.listEventsOverlapping(circleId, windowStart, windowEnd)) {
+                byKey.putIfAbsent(
+                        new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, event.id()),
+                        toScheduleItem(event, List.of()));
+            }
+            for (ManualCalendarEventDto event :
+                    manualEventCalendarApi.listOverlapping(circleId, windowStart, windowEnd)) {
+                byKey.putIfAbsent(
+                        new CalendarConflictDetector.ItemKey(
+                                CalendarItemSource.MANUAL, event.id()),
+                        toScheduleItem(event, List.of()));
+            }
+        }
+
+        List<UUID> feedIds =
+                byKey.keySet().stream()
+                        .filter(k -> k.source() == CalendarItemSource.FEED)
+                        .map(CalendarConflictDetector.ItemKey::id)
+                        .toList();
+        List<UUID> manualIds =
+                byKey.keySet().stream()
+                        .filter(k -> k.source() == CalendarItemSource.MANUAL)
+                        .map(CalendarConflictDetector.ItemKey::id)
+                        .toList();
+
+        Map<UUID, List<CoverageAssignmentDto>> feedCoverages =
+                groupCoverages(
+                        coverageApi.listForItems(circleId, CoverageItemSource.FEED, feedIds));
+        Map<UUID, List<CoverageAssignmentDto>> manualCoverages =
+                groupCoverages(
+                        coverageApi.listForItems(circleId, CoverageItemSource.MANUAL, manualIds));
+
+        Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem> withCoverage =
+                new LinkedHashMap<>();
+        for (var entry : byKey.entrySet()) {
+            CalendarConflictDetector.ScheduleItem base = entry.getValue();
+            List<CoverageAssignmentDto> coverages =
+                    base.source() == CalendarItemSource.FEED
+                            ? feedCoverages.getOrDefault(base.id(), List.of())
+                            : manualCoverages.getOrDefault(base.id(), List.of());
+            withCoverage.put(entry.getKey(), toScheduleItem(base, activeCoverages(coverages)));
+        }
+        return withCoverage;
+    }
+
+    private static CalendarConflictDetector.ScheduleItem toScheduleItem(
+            FeedCalendarEventDto event, List<CalendarConflictDetector.ActiveCoverage> coverages) {
+        return new CalendarConflictDetector.ScheduleItem(
+                event.id(),
+                CalendarItemSource.FEED,
+                event.title(),
+                event.startsAt(),
+                event.endsAt(),
+                event.kidIds(),
+                coverages);
+    }
+
+    private static CalendarConflictDetector.ScheduleItem toScheduleItem(
+            ManualCalendarEventDto event, List<CalendarConflictDetector.ActiveCoverage> coverages) {
+        return new CalendarConflictDetector.ScheduleItem(
+                event.id(),
+                CalendarItemSource.MANUAL,
+                event.title(),
+                event.startsAt(),
+                event.endsAt(),
+                event.kidIds(),
+                coverages);
+    }
+
+    private static CalendarConflictDetector.ScheduleItem toScheduleItem(
+            CalendarConflictDetector.ScheduleItem base,
+            List<CalendarConflictDetector.ActiveCoverage> coverages) {
+        return new CalendarConflictDetector.ScheduleItem(
+                base.id(),
+                base.source(),
+                base.title(),
+                base.startsAt(),
+                base.endsAt(),
+                base.kidIds(),
+                coverages);
+    }
+
+    private static List<CalendarConflictDetector.ActiveCoverage> activeCoverages(
+            List<CoverageAssignmentDto> coverages) {
+        List<CalendarConflictDetector.ActiveCoverage> active = new ArrayList<>();
+        for (CoverageAssignmentDto coverage : coverages) {
+            if (coverage.status() == CoverageStatus.PENDING
+                    || coverage.status() == CoverageStatus.CONFIRMED) {
+                active.add(
+                        new CalendarConflictDetector.ActiveCoverage(
+                                coverage.coveringAdultId(), coverage.status()));
+            }
+        }
+        return List.copyOf(active);
+    }
+
+    private Map<UUID, String> adultNamesFor(
+            Iterable<CalendarConflictDetector.ScheduleItem> items) {
+        Set<UUID> adultIds = new HashSet<>();
+        for (CalendarConflictDetector.ScheduleItem item : items) {
+            for (CalendarConflictDetector.ActiveCoverage coverage : item.activeCoverages()) {
+                adultIds.add(coverage.adultId());
+            }
+        }
+        return resolveDisplayNames(adultIds);
+    }
+
+    private static Instant minStart(Instant current, Instant startsAt) {
+        if (current == null || startsAt.isBefore(current)) {
+            return startsAt;
+        }
+        return current;
+    }
+
+    private static Instant maxEnd(Instant current, Instant startsAt, Instant endsAt) {
+        Instant end = ScheduleIntervals.endExclusive(startsAt, endsAt);
+        if (current == null || end.isAfter(current)) {
+            return end;
+        }
+        return current;
     }
 
     private CalendarItemResponse fromFeed(
             UUID adultId,
             FeedCalendarEventDto event,
             List<CoverageAssignmentDto> coverages,
-            Map<UUID, String> adultNames) {
+            Map<UUID, String> adultNames,
+            List<CalendarConflictResponse> conflicts) {
         LeaveByEnrichmentDto leaveBy =
                 leaveByApi.enrich(
                         adultId,
@@ -232,14 +446,16 @@ public class CalendarService {
                 event.feedName(),
                 leaveBy,
                 coverages,
-                adultNames);
+                adultNames,
+                conflicts);
     }
 
     private CalendarItemResponse fromManual(
             UUID adultId,
             ManualCalendarEventDto event,
             List<CoverageAssignmentDto> coverages,
-            Map<UUID, String> adultNames) {
+            Map<UUID, String> adultNames,
+            List<CalendarConflictResponse> conflicts) {
         LeaveByEnrichmentDto leaveBy =
                 leaveByApi.enrich(
                         adultId,
@@ -259,7 +475,8 @@ public class CalendarService {
                 null,
                 leaveBy,
                 coverages,
-                adultNames);
+                adultNames,
+                conflicts);
     }
 
     private static CalendarItemResponse toResponse(
@@ -274,7 +491,8 @@ public class CalendarService {
             String feedName,
             LeaveByEnrichmentDto leaveBy,
             List<CoverageAssignmentDto> coverages,
-            Map<UUID, String> adultNames) {
+            Map<UUID, String> adultNames,
+            List<CalendarConflictResponse> conflicts) {
         List<CalendarCoverageAssignmentResponse> coverageResponses =
                 coverages.stream()
                         .map(
@@ -303,7 +521,8 @@ public class CalendarService {
                 leaveBy.leaveByStatus(),
                 leaveBy.leaveByReason(),
                 coverageResponses,
-                uncoveredKidIds(kidIds, coverages));
+                uncoveredKidIds(kidIds, coverages),
+                conflicts == null ? List.of() : List.copyOf(conflicts));
     }
 
     static List<UUID> uncoveredKidIds(List<UUID> kidIds, List<CoverageAssignmentDto> coverages) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +59,9 @@ class CoverageApiImplTest {
         api =
                 new CoverageApiImpl(
                         membershipApi, manualEventCalendarApi, feedCalendarApi, assignments);
+        lenient()
+                .when(assignments.findByCircleIdAndCoveringAdultIdAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
     }
 
     @Test
@@ -220,11 +224,197 @@ class CoverageApiImplTest {
                         Instant.now());
         when(membershipApi.requireMemberCircleId(otherAdultId)).thenReturn(circleId);
         when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+        stubManualItem(List.of(kidA));
         when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         CoverageAssignmentDto result = api.confirm(otherAdultId, assignmentId);
 
         assertThat(result.status()).isEqualTo(CoverageStatus.CONFIRMED);
+    }
+
+    @Test
+    void confirmConflictsWhenAdultAlreadyConfirmedOnOverlappingItem() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID otherItemId = UUID.randomUUID();
+        CoverageAssignmentEntity pending =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        otherAdultId,
+                        CoverageStatus.PENDING,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        CoverageAssignmentEntity confirmedOther =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        otherItemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidB),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(pending));
+        stubManualItem(List.of(kidA));
+        when(manualEventCalendarApi.findInCircle(circleId, otherItemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        otherItemId,
+                                        "Other",
+                                        Instant.parse("2026-08-15T17:30:00Z"),
+                                        Instant.parse("2026-08-15T18:30:00Z"),
+                                        "Field",
+                                        List.of(kidB))));
+        when(assignments.findByCircleIdAndCoveringAdultIdAndStatus(
+                        circleId, actorId, CoverageStatus.CONFIRMED))
+                .thenReturn(List.of(confirmedOther));
+
+        assertThatThrownBy(() -> api.confirm(actorId, assignmentId))
+                .isInstanceOf(FamilyAccessException.class)
+                .satisfies(
+                        ex -> {
+                            FamilyAccessException access = (FamilyAccessException) ex;
+                            assertThat(access.status()).isEqualTo(HttpStatus.CONFLICT);
+                            assertThat(access.getMessage())
+                                    .contains("already confirmed on an overlapping");
+                        });
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void selfAssignConflictsWhenAdultAlreadyConfirmedOnOverlappingItem() {
+        UUID otherItemId = UUID.randomUUID();
+        CoverageAssignmentEntity confirmedOther =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        otherItemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidB),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        stubManualItem(List.of(kidA));
+        when(manualEventCalendarApi.findInCircle(circleId, otherItemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        otherItemId,
+                                        "Other",
+                                        Instant.parse("2026-08-15T17:30:00Z"),
+                                        Instant.parse("2026-08-15T18:30:00Z"),
+                                        "Field",
+                                        List.of(kidB))));
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndCoveringAdultIdAndStatusIn(
+                        eq(circleId),
+                        eq(CoverageItemSource.MANUAL),
+                        eq(itemId),
+                        eq(actorId),
+                        any()))
+                .thenReturn(Optional.empty());
+        when(assignments.findByCircleIdAndCoveringAdultIdAndStatus(
+                        circleId, actorId, CoverageStatus.CONFIRMED))
+                .thenReturn(List.of(confirmedOther));
+
+        assertThatThrownBy(
+                        () ->
+                                api.assign(
+                                        actorId,
+                                        CoverageItemSource.MANUAL,
+                                        itemId,
+                                        actorId,
+                                        List.of(kidA)))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.CONFLICT);
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void selfAssignIgnoresStaleConfirmedCoverageWhoseItemWasDeleted() {
+        UUID missingFeedItemId = UUID.randomUUID();
+        CoverageAssignmentEntity staleConfirmed =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.FEED,
+                        missingFeedItemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidB),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        stubManualItem(List.of(kidA));
+        when(feedCalendarApi.findEventInCircle(circleId, missingFeedItemId))
+                .thenReturn(Optional.empty());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndCoveringAdultIdAndStatusIn(
+                        eq(circleId),
+                        eq(CoverageItemSource.MANUAL),
+                        eq(itemId),
+                        eq(actorId),
+                        any()))
+                .thenReturn(Optional.empty());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.MANUAL), eq(itemId), any()))
+                .thenReturn(List.of());
+        when(assignments.findByCircleIdAndCoveringAdultIdAndStatus(
+                        circleId, actorId, CoverageStatus.CONFIRMED))
+                .thenReturn(List.of(staleConfirmed));
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CoverageAssignmentDto result =
+                api.assign(
+                        actorId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        List.of(kidA));
+
+        assertThat(result.status()).isEqualTo(CoverageStatus.CONFIRMED);
+        verify(assignments).save(any());
+    }
+
+    @Test
+    void assignPendingAllowedWhenAdultConfirmedOnOverlappingItem() {
+        UUID otherItemId = UUID.randomUUID();
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        stubManualItem(List.of(kidA));
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndCoveringAdultIdAndStatusIn(
+                        eq(circleId),
+                        eq(CoverageItemSource.MANUAL),
+                        eq(itemId),
+                        eq(otherAdultId),
+                        any()))
+                .thenReturn(Optional.empty());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.MANUAL), eq(itemId), any()))
+                .thenReturn(List.of());
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CoverageAssignmentDto result =
+                api.assign(
+                        actorId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        otherAdultId,
+                        List.of(kidA));
+
+        assertThat(result.status()).isEqualTo(CoverageStatus.PENDING);
+        verify(assignments, never())
+                .findByCircleIdAndCoveringAdultIdAndStatus(any(), any(), any());
     }
 
     @Test
@@ -317,7 +507,7 @@ class CoverageApiImplTest {
                                         itemId,
                                         "Practice",
                                         Instant.parse("2026-08-15T17:00:00Z"),
-                                        null,
+                                        Instant.parse("2026-08-15T18:00:00Z"),
                                         "Rink",
                                         kidIds)));
     }

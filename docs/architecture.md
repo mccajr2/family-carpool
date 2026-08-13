@@ -69,8 +69,8 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. Same cache path geocodes event free-text `location` for leave-by destinations (public `FamilyGeocodeApi`). **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
 | Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **upserts by iCal `UID`** (stable event UUIDs for Agenda / coverage / leave-from) and deletes only removed UIDs; null-UID rows matched by summary/starts/ends/location fingerprint when possible; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
-| Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; each row enriched for the **current adult** with leave-from + leave-by (see Leave-by below) and **circle-visible coverage** (`coverages` + `uncoveredKidIds`); clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
-| Coverage | **Responsibility** for kid(s) on a calendar item — not seats, vehicles, or trips (those → carpool). Many rows per item; each row = covering adult + non-empty kid subset + `PENDING`\|`CONFIRMED`\|`DECLINED`. Any member may assign / reassign / remove; assignee confirms or declines; **self-assign → `CONFIRMED`**. Kid exclusive across **active** (`PENDING`\|`CONFIRMED`) rows on the same item; multi-kid per adult OK. Declined kids count as uncovered. Modulith: `backend/modules/coverage/`; HTTP under `/api/family/circle/calendar/...` (calendar controllers call `CoverageApi`). Conflict amber UI → [`conflict-detection`](roadmap.md) |
+| Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; each row enriched for the **current adult** with leave-from + leave-by (see Leave-by below), **circle-visible coverage** (`coverages` + `uncoveredKidIds`), and **server-computed `conflicts`** (kid time-overlap + adult coverage-overlap amber; overlap on event `startsAt`/`endsAt` only — see Conflict detection below); clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; month grid → `family-calendar-grid` |
+| Coverage | **Responsibility** for kid(s) on a calendar item — not seats, vehicles, or trips (those → carpool). Many rows per item; each row = covering adult + non-empty kid subset + `PENDING`\|`CONFIRMED`\|`DECLINED`. Any member may assign / reassign / remove; assignee confirms or declines; **self-assign → `CONFIRMED`**. Kid exclusive across **active** (`PENDING`\|`CONFIRMED`) rows on the same item; multi-kid per adult OK. Declined kids count as uncovered. **409** if confirm / self-assign would leave the same adult with two **CONFIRMED** coverages on overlapping events. Modulith: `backend/modules/coverage/`; HTTP under `/api/family/circle/calendar/...` (calendar controllers call `CoverageApi`). Amber conflict chrome → Conflict detection below / [`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md) |
 | Leave-by | Per **signed-in adult** + calendar item (`source` + `id`): optional leave-from place override. Origin resolution order: **per-item override → membership default leave-from → first located place by name**. Estimate: `leaveBy ≈ startsAt − (travelDuration × TOD multiplier + fixedBuffer)`. Travel from **OSRM** when origin + destination coords exist; missing coords → `leaveByStatus=UNAVAILABLE` (soft-fail, calendar GET still succeeds); both coords OK but OSRM down → config **fallback duration**, still labeled **estimate**. Destination = geocode of item `location` (no destination place FK). Recovery: origin via leave-from / Places locate / default leave-from; MANUAL destination via edit `location`; no lat/lng editors; no FEED destination override in this slice. Activity-type arrival lead times → [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md). **OSRM is PoC-free routing**; upgrade path parked as [`paid-live-traffic`](roadmap.md) |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
 | Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; Carpool = reserved “Coming soon” placeholder (no flows yet); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places; Feeds for Organizers only — Caregiver row omitted) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
@@ -172,9 +172,23 @@ Locked for `coverage-confirm-decline`:
 | Kids | Non-empty subset of item kids; exclusive on active rows; multi-kid per adult OK |
 | Leave-from | Not on the coverage row — reuse leave-by (default + per-item override) |
 | Client UX | Web is the reference client — see [`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md) (stable). iOS/Android ports match that contract |
-| Out of scope | Conflict amber UI → `conflict-detection`; seats / vehicles / nonplayers → carpool |
+| Double-CONFIRMED | Confirm / self-assign auto-confirm that would create two CONFIRMED coverages for the same adult on overlapping events → **409**; PENDING overlaps stay allowed (amber) |
+| Out of scope | Travel/leave-by soft warn → `conflict-travel-margin`; seats / vehicles / nonplayers → carpool |
 
 Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`, buffer / multipliers / fallback env vars under `app.leaveby`. Tests force stub OSRM + stub geocode (no live public hosts).
+
+### Conflict detection (detail)
+
+Locked for [`conflict-detection`](specs/archive/conflict-detection.md):
+
+| Topic | Decision |
+|--------|----------|
+| Overlap | Event `startsAt` / `endsAt` only (null `endsAt` → zero-length at start); half-open intervals; not leave-by / travel |
+| Kid | Same kid on two overlapping items → amber `KID_TIME_OVERLAP` on both; creation still allowed |
+| Adult amber | Same adult active (`PENDING`\|`CONFIRMED`) on overlapping items with at least one PENDING → amber `ADULT_COVERAGE_OVERLAP` |
+| Adult hard | Two CONFIRMED on overlapping items never persisted → **409** on confirm / self-assign |
+| Truth | Server enriches `CalendarItem.conflicts`; clients render only — no client re-derivation of overlap rules |
+| UI | Amber status lines on the Agenda **item** (primary band); web contract is reference |
 
 ## Interaction UX
 
@@ -215,8 +229,8 @@ When a surface feels too dense:
 
 ### Forward-looking seams (structure only)
 
-- Agenda: schedule + coverage responsibility + leave-by.
-- Later conflict chrome attaches to the **item**, not a new control dump.
+- Agenda: schedule + coverage responsibility + leave-by + conflict amber on the item.
+- Conflict chrome attaches to the **item**, not a new control dump (shipped).
 - Per-coverage leave-from is a later product slice; don’t bury leave-from where
   it can’t grow.
 - Carpool stays the **Carpool** destination — do not absorb ride-share actions

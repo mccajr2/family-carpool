@@ -10,6 +10,14 @@ public interface ManualEventCalendarApi {
 
     List<ManualCalendarEventDto> listInRange(UUID circleId, Instant from, Instant to);
 
+    /**
+     * Events whose {@code [startsAt, endsAt||startsAt)} overlaps
+     * {@code [windowStart, windowEnd)}. Used for conflict peers outside an Agenda
+     * startsAt page.
+     */
+    List<ManualCalendarEventDto> listOverlapping(
+            UUID circleId, Instant windowStart, Instant windowEnd);
+
     /** Circle-scoped lookup for leave-from validation. */
     Optional<ManualCalendarEventDto> findInCircle(UUID circleId, UUID itemId);
 }

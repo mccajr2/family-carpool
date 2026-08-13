@@ -34,6 +34,9 @@ class AuthBridge {
     private fun encodeCoverages(coverages: List<CalendarCoverageAssignment>): String =
         json.encodeToString(ListSerializer(CalendarCoverageAssignment.serializer()), coverages)
 
+    private fun encodeConflicts(conflicts: List<CalendarConflict>): String =
+        json.encodeToString(ListSerializer(CalendarConflict.serializer()), conflicts)
+
     private fun calendarItemSuccessArgs(item: CalendarItem): CalendarItemBridgeArgs =
         CalendarItemBridgeArgs(
             id = item.id,
@@ -52,6 +55,7 @@ class AuthBridge {
             leaveByReason = item.leaveByReason.orEmpty(),
             coveragesJson = encodeCoverages(item.coverages),
             uncoveredKidIdsJoined = item.uncoveredKidIds.joinToString(","),
+            conflictsJson = encodeConflicts(item.conflicts),
         )
 
     private data class CalendarItemBridgeArgs(
@@ -71,6 +75,7 @@ class AuthBridge {
         val leaveByReason: String,
         val coveragesJson: String,
         val uncoveredKidIdsJoined: String,
+        val conflictsJson: String,
     )
 
     fun requestCode(
@@ -573,6 +578,7 @@ class AuthBridge {
             leaveByReasons: List<String>,
             coveragesJson: List<String>,
             uncoveredKidIdsJoined: List<String>,
+            conflictsJson: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -596,6 +602,7 @@ class AuthBridge {
                     items.map { it.leaveByReason.orEmpty() },
                     items.map { encodeCoverages(it.coverages) },
                     items.map { it.uncoveredKidIds.joinToString(",") },
+                    items.map { encodeConflicts(it.conflicts) },
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "List calendar failed")
@@ -624,6 +631,7 @@ class AuthBridge {
             leaveByReason: String,
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
+            conflictsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -654,6 +662,7 @@ class AuthBridge {
                     args.leaveByReason,
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Set leave-from failed")
@@ -705,6 +714,7 @@ class AuthBridge {
             leaveByReason: String,
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
+            conflictsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -738,6 +748,7 @@ class AuthBridge {
                     args.leaveByReason,
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Assign coverage failed")
@@ -764,6 +775,7 @@ class AuthBridge {
             leaveByReason: String,
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
+            conflictsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -792,6 +804,7 @@ class AuthBridge {
                     args.leaveByReason,
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Confirm coverage failed")
@@ -818,6 +831,7 @@ class AuthBridge {
             leaveByReason: String,
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
+            conflictsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -846,6 +860,7 @@ class AuthBridge {
                     args.leaveByReason,
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Decline coverage failed")
@@ -872,6 +887,7 @@ class AuthBridge {
             leaveByReason: String,
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
+            conflictsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -900,6 +916,7 @@ class AuthBridge {
                     args.leaveByReason,
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Remove coverage failed")

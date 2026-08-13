@@ -528,7 +528,7 @@ struct ContentView: View {
     @ViewBuilder
     private func agendaItemRow(item: FamilyCalendarItem, isLast: Bool) -> some View {
         VStack(alignment: .leading, spacing: UiTokens.Space.md) {
-            // Primary — title / when / location
+            // Primary — title / when / location (+ conflict status)
             VStack(alignment: .leading, spacing: UiTokens.Space.xs) {
                 Text(item.title)
                     .font(.headline)
@@ -539,6 +539,23 @@ struct ContentView: View {
                     Text(location)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                let conflictLines = ConflictDisplay.conflictDisplayLines(
+                    item.conflicts,
+                    kids: model.kids.map { ($0.id, $0.displayName) }
+                )
+                if !conflictLines.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(conflictLines, id: \.self) { line in
+                            Text(line)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color(red: 0xB4 / 255, green: 0x53 / 255, blue: 0x09 / 255))
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Schedule conflicts")
+                    .accessibilityIdentifier("agenda-conflicts-\(item.source)-\(item.id)")
                 }
             }
             .accessibilityElement(children: .contain)
@@ -615,6 +632,7 @@ struct ContentView: View {
                 currentAdultId: model.currentAdultId,
                 isLoading: model.isLoading,
                 isManual: item.isManual,
+                coverageActionError: model.coverageActionErrors["\(item.source)-\(item.id)"],
                 onRemove: { model.removeCoverage(assignmentId: $0) },
                 onConfirm: { model.confirmCoverage(assignmentId: $0) },
                 onDecline: { model.declineCoverage(assignmentId: $0) },
@@ -967,6 +985,7 @@ private struct AgendaCoverageSection: View {
     let currentAdultId: String
     let isLoading: Bool
     let isManual: Bool
+    let coverageActionError: String?
     let onRemove: (String) -> Void
     let onConfirm: (String) -> Void
     let onDecline: (String) -> Void
@@ -1129,6 +1148,13 @@ private struct AgendaCoverageSection: View {
                     .buttonStyle(.bordered)
                     .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
                 }
+            }
+
+            if let coverageActionError {
+                Text(coverageActionError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("agenda-coverage-error-\(item.source)-\(item.id)")
             }
 
             if isManual {

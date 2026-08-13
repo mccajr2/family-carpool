@@ -75,6 +75,12 @@ class CalendarServiceTest {
                 .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
         lenient().when(coverageApi.listForItems(any(), any(), any())).thenReturn(List.of());
         lenient().when(coverageApi.listForItem(any(), any(), any())).thenReturn(List.of());
+        lenient()
+                .when(feedCalendarApi.listEventsOverlapping(any(), any(), any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(manualEventCalendarApi.listOverlapping(any(), any(), any()))
+                .thenReturn(List.of());
     }
 
     @Test

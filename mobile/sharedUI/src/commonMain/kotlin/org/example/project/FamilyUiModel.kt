@@ -90,6 +90,8 @@ class FamilyUiModel(
             val moreScreen: MoreScreen = MoreScreen.LIST,
             val loading: Boolean = false,
             val error: String? = null,
+            /** Confirm/Assign failures keyed by `source-id` — shown on the item CTAs. */
+            val coverageActionErrors: Map<String, String> = emptyMap(),
         ) : State()
     }
 
@@ -1064,7 +1066,13 @@ class FamilyUiModel(
         kidIds: List<String>,
     ) {
         val current = _state as? State.Ready ?: return
-        _state = current.copy(loading = true, error = null)
+        val itemKey = agendaCoverageItemKey(item)
+        _state =
+            current.copy(
+                loading = true,
+                error = null,
+                coverageActionErrors = current.coverageActionErrors - itemKey,
+            )
         try {
             val token = session.requireAccessToken()
             val updated =
@@ -1081,18 +1089,30 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                    coverageActionErrors = current.coverageActionErrors - itemKey,
                 )
         } catch (e: Throwable) {
             _state =
                 current.copy(
                     loading = false,
-                    error = e.message ?: "Assign coverage failed",
+                    coverageActionErrors =
+                        current.coverageActionErrors +
+                            (
+                                itemKey to
+                                    coverageDoubleBookMessage(
+                                        e.message ?: "Assign coverage failed",
+                                    )
+                            ),
                 )
         }
     }
 
     suspend fun confirmCoverage(assignmentId: String) {
-        updateCalendarItemFromCoverageAction(assignmentId, "Confirm coverage failed") { token, id ->
+        updateCalendarItemFromCoverageAction(
+            assignmentId,
+            "Confirm coverage failed",
+            mapDoubleBook = true,
+        ) { token, id ->
             familyClient.confirmCalendarCoverage(token, id)
         }
     }
@@ -1112,10 +1132,25 @@ class FamilyUiModel(
     private suspend fun updateCalendarItemFromCoverageAction(
         assignmentId: String,
         failureMessage: String,
+        mapDoubleBook: Boolean = false,
         action: suspend (token: String, assignmentId: String) -> CalendarItem,
     ) {
         val current = _state as? State.Ready ?: return
-        _state = current.copy(loading = true, error = null)
+        val itemKey =
+            current.calendarItems
+                .firstOrNull { item -> item.coverages.any { it.id == assignmentId } }
+                ?.let { agendaCoverageItemKey(it) }
+        _state =
+            current.copy(
+                loading = true,
+                error = null,
+                coverageActionErrors =
+                    if (itemKey != null) {
+                        current.coverageActionErrors - itemKey
+                    } else {
+                        current.coverageActionErrors
+                    },
+            )
         try {
             val token = session.requireAccessToken()
             val updated = action(token, assignmentId)
@@ -1123,13 +1158,29 @@ class FamilyUiModel(
                 current.copy(
                     loading = false,
                     calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                    coverageActionErrors =
+                        if (itemKey != null) {
+                            current.coverageActionErrors - itemKey
+                        } else {
+                            current.coverageActionErrors
+                        },
                 )
         } catch (e: Throwable) {
+            val message =
+                if (mapDoubleBook) {
+                    coverageDoubleBookMessage(e.message ?: failureMessage)
+                } else {
+                    e.message ?: failureMessage
+                }
             _state =
-                current.copy(
-                    loading = false,
-                    error = e.message ?: failureMessage,
-                )
+                if (itemKey != null && mapDoubleBook) {
+                    current.copy(
+                        loading = false,
+                        coverageActionErrors = current.coverageActionErrors + (itemKey to message),
+                    )
+                } else {
+                    current.copy(loading = false, error = message)
+                }
         }
     }
 
@@ -1199,6 +1250,8 @@ private fun FamilyUiModel.State.Ready.withEventComposeClosed(): FamilyUiModel.St
         editingEventKidIds = emptyList(),
         error = null,
     )
+
+internal fun agendaCoverageItemKey(item: CalendarItem): String = "${item.source.name}-${item.id}"
 
 /** Clear ends when it would be before the new start (client ordering rule). */
 private fun coerceEndsAt(
