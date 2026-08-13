@@ -8,7 +8,10 @@ import {
   ensureCalendarWindowCovers,
   formatEventWhen,
   formatIsoForDisplay,
+  LEAVE_BY_NEAR_TERM_DAYS,
   mergeCalendarItems,
+  nearTermLeaveByWindow,
+  remainderAfterNearTermLeaveByWindow,
   validateManualEventTimes,
 } from "./eventTimes"
 
@@ -80,6 +83,32 @@ describe("calendarWindowThrough", () => {
     const window = calendarWindowThrough(loadedTo, new Date("2026-08-12T18:00:00"))
     expect(window.to).toBe(loadedTo)
     expect(new Date(window.from).getHours()).toBe(0)
+  })
+})
+
+describe("near-term leave-by windows", () => {
+  it("slices local today plus two days then the remainder of the loaded window", () => {
+    const now = new Date("2026-08-13T18:00:00")
+    const loaded = defaultCalendarWindow(now)
+    const near = nearTermLeaveByWindow(loaded.from, loaded.to, now)!
+    const rest = remainderAfterNearTermLeaveByWindow(loaded.from, loaded.to, now)!
+    expect(near.from).toBe(loaded.from)
+    expect(
+      (new Date(near.to).getTime() - new Date(near.from).getTime()) /
+        (24 * 60 * 60 * 1000),
+    ).toBe(LEAVE_BY_NEAR_TERM_DAYS)
+    expect(rest.from).toBe(near.to)
+    expect(rest.to).toBe(loaded.to)
+  })
+
+  it("returns null remainder when the loaded window is only near-term", () => {
+    const now = new Date("2026-08-13T18:00:00")
+    const near = advanceCalendarWindow(
+      defaultCalendarWindow(now).from,
+      LEAVE_BY_NEAR_TERM_DAYS,
+    )
+    expect(nearTermLeaveByWindow(near.from, near.to, now)).toEqual(near)
+    expect(remainderAfterNearTermLeaveByWindow(near.from, near.to, now)).toBeNull()
   })
 })
 

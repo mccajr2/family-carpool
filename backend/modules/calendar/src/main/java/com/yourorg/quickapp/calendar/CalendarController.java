@@ -42,6 +42,15 @@ public class CalendarController {
         return calendarService.list(adult, from, to);
     }
 
+    @GetMapping("/leave-by")
+    public List<CalendarLeaveByResponse> listLeaveBy(
+            @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.listLeaveBy(adult, from, to);
+    }
+
     @PutMapping("/{source}/{itemId}/leave-from")
     public CalendarItemResponse setLeaveFrom(
             @PathVariable("source") CalendarItemSource source,

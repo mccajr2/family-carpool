@@ -71,6 +71,9 @@ export function formatEventWhen(startsAt: string, endsAt: string | null | undefi
 /** Default agenda page size in local calendar days. */
 export const CALENDAR_PAGE_DAYS = 30
 
+/** Near-term leave-by fill-in: local today through +2 calendar days. */
+export const LEAVE_BY_NEAR_TERM_DAYS = 2
+
 function startOfLocalDay(now: Date): Date {
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)
@@ -102,6 +105,56 @@ export function calendarWindowThrough(
   now: Date = new Date(),
 ): { from: string; to: string } {
   return { from: startOfLocalDay(now).toISOString(), to: loadedToIso }
+}
+
+function laterIso(a: string, b: string): string {
+  return a >= b ? a : b
+}
+
+function earlierIso(a: string, b: string): string {
+  return a <= b ? a : b
+}
+
+export function intersectIsoWindows(
+  a: { from: string; to: string },
+  b: { from: string; to: string },
+): { from: string; to: string } | null {
+  const from = laterIso(a.from, b.from)
+  const to = earlierIso(a.to, b.to)
+  if (from >= to) {
+    return null
+  }
+  return { from, to }
+}
+
+/** `[localTodayStart, localTodayStart + 2d)` ∩ loaded window. */
+export function nearTermLeaveByWindow(
+  loadedFromIso: string,
+  loadedToIso: string,
+  now: Date = new Date(),
+): { from: string; to: string } | null {
+  const near = advanceCalendarWindow(
+    startOfLocalDay(now).toISOString(),
+    LEAVE_BY_NEAR_TERM_DAYS,
+  )
+  return intersectIsoWindows(near, { from: loadedFromIso, to: loadedToIso })
+}
+
+/** Remainder of the loaded window after the near-term slice. */
+export function remainderAfterNearTermLeaveByWindow(
+  loadedFromIso: string,
+  loadedToIso: string,
+  now: Date = new Date(),
+): { from: string; to: string } | null {
+  const near = advanceCalendarWindow(
+    startOfLocalDay(now).toISOString(),
+    LEAVE_BY_NEAR_TERM_DAYS,
+  )
+  const from = laterIso(loadedFromIso, near.to)
+  if (from >= loadedToIso) {
+    return null
+  }
+  return { from, to: loadedToIso }
 }
 
 /** Grow `loadedTo` until `instantIso` falls inside `[…, loadedTo)`. */

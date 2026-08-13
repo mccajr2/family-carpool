@@ -22,4 +22,10 @@ public record LeaveByEnrichmentDto(
         return new LeaveByEnrichmentDto(
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, LeaveByStatus.OK, null);
     }
+
+    public static LeaveByEnrichmentDto pending(
+            UUID leaveFromPlaceId, String leaveFromPlaceName) {
+        return new LeaveByEnrichmentDto(
+                leaveFromPlaceId, leaveFromPlaceName, null, LeaveByStatus.PENDING, null);
+    }
 }

@@ -11,6 +11,7 @@ import type {
   ManualEvent,
   CalendarItem,
   CalendarItemSource,
+  CalendarLeaveBy,
   Place,
   SetCalendarLeaveFromRequest,
   SetDefaultLeaveFromRequest,
@@ -398,6 +399,24 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "List calendar failed"))
     }
     return (await response.json()) as CalendarItem[]
+  }
+
+  async listCalendarLeaveBy(
+    accessToken: string,
+    from: string,
+    to: string,
+  ): Promise<CalendarLeaveBy[]> {
+    const params = new URLSearchParams({ from, to })
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/calendar/leave-by?${params}`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List calendar leave-by failed"))
+    }
+    return (await response.json()) as CalendarLeaveBy[]
   }
 
   async setCalendarLeaveFrom(

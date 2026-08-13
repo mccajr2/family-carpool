@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
+import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -26,6 +28,7 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
+import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveByStatus;
 import java.time.Instant;
@@ -73,6 +76,36 @@ class CalendarServiceTest {
         lenient()
                 .when(leaveByApi.enrich(any(), any(), any(), any(), any()))
                 .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
+        lenient()
+                .when(leaveByApi.enrichCheapMany(any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            List<LeaveByItemInput> inputs = invocation.getArgument(1);
+                            if (inputs == null) {
+                                return List.of();
+                            }
+                            return inputs.stream()
+                                    .map(
+                                            ignored ->
+                                                    LeaveByEnrichmentDto.unavailable(
+                                                            null, null, "NO_ORIGIN"))
+                                    .toList();
+                        });
+        lenient()
+                .when(leaveByApi.enrichMany(any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            List<LeaveByItemInput> inputs = invocation.getArgument(1);
+                            if (inputs == null) {
+                                return List.of();
+                            }
+                            return inputs.stream()
+                                    .map(
+                                            ignored ->
+                                                    LeaveByEnrichmentDto.unavailable(
+                                                            null, null, "NO_ORIGIN"))
+                                    .toList();
+                        });
         lenient().when(coverageApi.listForItems(any(), any(), any())).thenReturn(List.of());
         lenient().when(coverageApi.listForItem(any(), any(), any())).thenReturn(List.of());
         lenient()
@@ -130,13 +163,9 @@ class CalendarServiceTest {
         assertThat(items.get(1).feedName()).isEqualTo("U12");
         assertThat(items.get(1).kidIds()).containsExactly(kidId);
         verify(familyMembershipApi).requireMemberCircleId(adult.id());
-        verify(leaveByApi)
-                .enrich(
-                        eq(adult.id()),
-                        eq(LeaveByItemSource.MANUAL),
-                        eq(manualEarlierId),
-                        any(),
-                        eq("Clinic"));
+        verify(leaveByApi).enrichCheapMany(eq(adult.id()), any());
+        verify(leaveByApi, never()).enrich(any(), any(), any(), any(), any());
+        verify(leaveByApi, never()).enrichMany(any(), any());
     }
 
     @Test
@@ -246,6 +275,46 @@ class CalendarServiceTest {
     }
 
     @Test
+    void listLeaveByUsesFullEnrichMany() {
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-09-01T00:00:00Z");
+        UUID itemId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        Instant leaveByAt = Instant.parse("2026-08-15T16:30:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of());
+        when(manualEventCalendarApi.listInRange(circleId, from, to))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "Practice", startsAt, null, "Rink", List.of())));
+        when(leaveByApi.enrichMany(eq(adult.id()), any()))
+                .thenReturn(List.of(LeaveByEnrichmentDto.ok(placeId, "Mom's house", leaveByAt)));
+
+        List<CalendarLeaveByResponse> rows = calendarService.listLeaveBy(adult, from, to);
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().id()).isEqualTo(itemId);
+        assertThat(rows.getFirst().source()).isEqualTo(CalendarItemSource.MANUAL);
+        assertThat(rows.getFirst().leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(rows.getFirst().leaveByAt()).isEqualTo(leaveByAt);
+        verify(leaveByApi).enrichMany(eq(adult.id()), any());
+        verify(leaveByApi, never()).enrichCheapMany(any(), any());
+        verifyNoInteractions(coverageApi);
+    }
+
+    @Test
+    void listLeaveByFromNotBeforeToIsBadRequest() {
+        Instant instant = Instant.parse("2026-08-15T00:00:00Z");
+        assertThatThrownBy(() -> calendarService.listLeaveBy(adult, instant, instant))
+                .isInstanceOf(CalendarException.class)
+                .extracting(ex -> ((CalendarException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(familyMembershipApi, feedCalendarApi, manualEventCalendarApi);
+    }
+
+    @Test
     void assignCoverageDelegatesAndReturnsItem() {
         UUID itemId = UUID.randomUUID();
         UUID kidId = UUID.randomUUID();
@@ -287,6 +356,8 @@ class CalendarServiceTest {
 
         assertThat(response.coverages()).hasSize(1);
         assertThat(response.uncoveredKidIds()).isEmpty();
+        verify(leaveByApi).enrich(adult.id(), LeaveByItemSource.MANUAL, itemId, startsAt, "Rink");
+        verify(leaveByApi, never()).enrichCheapMany(any(), any());
         verify(coverageApi)
                 .assign(
                         adult.id(),

@@ -48,4 +48,18 @@ class LeaveByDisplayTest {
             )
         assertEquals("No leave-from place yet", leaveByAgendaLine(unavailable))
     }
+
+    @Test
+    fun agendaLineShowsPendingCopy() {
+        val pending =
+            CalendarItem(
+                id = "e1",
+                source = CalendarItemSource.MANUAL,
+                title = "Practice",
+                startsAt = "2026-08-15T17:00:00Z",
+                leaveByStatus = LeaveByStatus.PENDING,
+            )
+        assertEquals(LEAVE_BY_PENDING_LABEL, leaveByAgendaLine(pending))
+        assertEquals("Estimating leave-by…", LEAVE_BY_PENDING_LABEL)
+    }
 }

@@ -44,4 +44,19 @@ class GeocodeService {
                                         key, coords.latitude(), coords.longitude(), Instant.now())));
         return hit;
     }
+
+    /**
+     * Read {@code geocode_cache} only. Empty on invalid input or miss — does
+     * not call the geocoder.
+     */
+    @Transactional(readOnly = true)
+    Optional<GeoCoordinates> findCached(String address) {
+        String key = normalizeAddress(address);
+        if (key.isEmpty() || key.length() > 255) {
+            return Optional.empty();
+        }
+        return cacheRepository
+                .findById(key)
+                .map(row -> new GeoCoordinates(row.latitude(), row.longitude()));
+    }
 }

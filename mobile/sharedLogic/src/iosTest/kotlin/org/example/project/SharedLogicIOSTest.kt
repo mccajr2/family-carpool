@@ -335,6 +335,57 @@ class AuthBridgeTest {
             circleGate.complete(Unit)
             Unit
         }
+
+    @Test
+    fun listCalendarLeaveByViaCallbacks() =
+        runBlocking {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/calendar/leave-by" &&
+                            request.method == io.ktor.http.HttpMethod.Get -> {
+                            assertEquals("2026-08-13T00:00:00Z", request.url.parameters["from"])
+                            assertEquals("2026-08-15T00:00:00Z", request.url.parameters["to"])
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","leaveFromPlaceId":"p1","leaveFromPlaceName":"Home","leaveByAt":"2026-08-15T16:30:00Z","leaveByStatus":"OK","leaveByReason":null}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val httpClient =
+                HttpClient(mockEngine) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val bridge =
+                AuthBridge(
+                    session =
+                        AuthSession(
+                            client = AuthClient("http://localhost:8080", httpClient),
+                            tokenStore = InMemorySecureTokenStore().also { it.saveAccessToken("tok") },
+                        ),
+                    familyClient = FamilyClient("http://localhost:8080", httpClient),
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                )
+            val done = CompletableDeferred<List<String>>()
+            bridge.listCalendarLeaveBy(
+                from = "2026-08-13T00:00:00Z",
+                to = "2026-08-15T00:00:00Z",
+                onSuccess = { ids, _, _, _, leaveByAts, statuses, _ ->
+                    done.complete(listOf(ids.single(), leaveByAts.single(), statuses.single()))
+                },
+                onError = { done.completeExceptionally(IllegalStateException(it)) },
+            )
+            val row = done.await()
+            assertEquals("e1", row[0])
+            assertEquals("2026-08-15T16:30:00Z", row[1])
+            assertEquals("OK", row[2])
+        }
 }
 
 class SharedLogicIOSTest {

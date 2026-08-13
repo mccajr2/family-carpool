@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  agendaLeaveByLine,
   formatLeaveByEstimateLine,
   formatLeaveByTime,
+  LEAVE_BY_PENDING_LABEL,
   leaveByUnavailableLabel,
 } from "./leaveByDisplay"
 
@@ -27,5 +29,32 @@ describe("leaveByUnavailableLabel", () => {
       "Couldn't locate the destination",
     )
     expect(leaveByUnavailableLabel(null)).toBe("Leave-by estimate unavailable")
+  })
+})
+
+describe("agendaLeaveByLine", () => {
+  it("shows focused pending copy without blanking other leave-by states", () => {
+    expect(
+      agendaLeaveByLine({
+        leaveByStatus: "PENDING",
+        leaveByAt: null,
+        leaveByReason: null,
+      }),
+    ).toBe(LEAVE_BY_PENDING_LABEL)
+    expect(LEAVE_BY_PENDING_LABEL).toBe("Estimating leave-by…")
+    expect(
+      agendaLeaveByLine({
+        leaveByStatus: "OK",
+        leaveByAt: "2026-08-15T15:25:00Z",
+        leaveByReason: null,
+      }),
+    ).toMatch(/^Leave by ~/)
+    expect(
+      agendaLeaveByLine({
+        leaveByStatus: "UNAVAILABLE",
+        leaveByAt: null,
+        leaveByReason: "NO_DESTINATION",
+      }),
+    ).toBe("Add a location to estimate leave-by")
   })
 })

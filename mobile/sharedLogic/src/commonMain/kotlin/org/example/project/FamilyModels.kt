@@ -75,6 +75,7 @@ enum class CalendarItemSource {
 enum class LeaveByStatus {
     OK,
     UNAVAILABLE,
+    PENDING,
 }
 
 @Serializable
@@ -137,6 +138,18 @@ data class CalendarItem(
     val coverages: List<CalendarCoverageAssignment> = emptyList(),
     val uncoveredKidIds: List<String> = emptyList(),
     val conflicts: List<CalendarConflict> = emptyList(),
+)
+
+/** Fill-in row from GET …/calendar/leave-by (never PENDING). */
+@Serializable
+data class CalendarLeaveBy(
+    val id: String,
+    val source: CalendarItemSource,
+    val leaveFromPlaceId: String? = null,
+    val leaveFromPlaceName: String? = null,
+    val leaveByAt: String? = null,
+    val leaveByStatus: LeaveByStatus,
+    val leaveByReason: String? = null,
 )
 
 @Serializable

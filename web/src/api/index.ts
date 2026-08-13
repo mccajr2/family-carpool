@@ -17,6 +17,7 @@ export type {
   CalendarConflictType,
   CalendarCoverageAssignment,
   CalendarItem,
+  CalendarLeaveBy,
   CoverageStatus,
   CreateFamilyCircleRequest,
   FamilyCircle,

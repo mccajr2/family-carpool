@@ -80,6 +80,9 @@ fun formatEventWhen(startsAt: String, endsAt: String?): String {
 /** Default agenda page size in local calendar days. */
 const val CALENDAR_PAGE_DAYS = 30
 
+/** Near-term leave-by fill-in: local today through +2 calendar days. */
+const val LEAVE_BY_NEAR_TERM_DAYS = 2
+
 /** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
 data class CalendarWindow(
     val from: String,
@@ -134,6 +137,50 @@ fun calendarWindowThrough(
         from = epochMillisToIsoUtc(start.timeInMillis),
         to = loadedToIso,
     )
+}
+
+private fun laterIso(
+    a: String,
+    b: String,
+): String = if (a >= b) a else b
+
+private fun earlierIso(
+    a: String,
+    b: String,
+): String = if (a <= b) a else b
+
+fun intersectIsoWindows(
+    a: CalendarWindow,
+    b: CalendarWindow,
+): CalendarWindow? {
+    val from = laterIso(a.from, b.from)
+    val to = earlierIso(a.to, b.to)
+    if (from >= to) return null
+    return CalendarWindow(from = from, to = to)
+}
+
+/** `[localTodayStart, localTodayStart + 2d)` ∩ loaded window. */
+fun nearTermLeaveByWindow(
+    loadedFromIso: String,
+    loadedToIso: String,
+    nowMillis: Long = nowEpochMillis(),
+): CalendarWindow? {
+    val near =
+        advanceCalendarWindow(defaultCalendarWindow(nowMillis).from, LEAVE_BY_NEAR_TERM_DAYS)
+    return intersectIsoWindows(near, CalendarWindow(loadedFromIso, loadedToIso))
+}
+
+/** Remainder of the loaded window after the near-term slice. */
+fun remainderAfterNearTermLeaveByWindow(
+    loadedFromIso: String,
+    loadedToIso: String,
+    nowMillis: Long = nowEpochMillis(),
+): CalendarWindow? {
+    val near =
+        advanceCalendarWindow(defaultCalendarWindow(nowMillis).from, LEAVE_BY_NEAR_TERM_DAYS)
+    val from = laterIso(loadedFromIso, near.to)
+    if (from >= loadedToIso) return null
+    return CalendarWindow(from = from, to = loadedToIso)
 }
 
 fun ensureCalendarWindowCovers(

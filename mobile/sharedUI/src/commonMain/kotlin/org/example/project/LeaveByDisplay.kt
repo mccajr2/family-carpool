@@ -16,6 +16,8 @@ fun formatLeaveByTime(iso: String): String {
 }
 
 /** e.g. "Leave by ~3:40 PM · estimate" — never live traffic / ETA. */
+const val LEAVE_BY_PENDING_LABEL = "Estimating leave-by…"
+
 fun formatLeaveByEstimateLine(leaveByAtIso: String): String =
     "Leave by ~${formatLeaveByTime(leaveByAtIso)} · estimate"
 
@@ -29,8 +31,9 @@ fun leaveByUnavailableLabel(reason: String?): String =
     }
 
 fun leaveByAgendaLine(item: CalendarItem): String =
-    if (item.leaveByStatus == LeaveByStatus.OK && !item.leaveByAt.isNullOrBlank()) {
-        formatLeaveByEstimateLine(item.leaveByAt!!)
-    } else {
-        leaveByUnavailableLabel(item.leaveByReason)
+    when {
+        item.leaveByStatus == LeaveByStatus.PENDING -> LEAVE_BY_PENDING_LABEL
+        item.leaveByStatus == LeaveByStatus.OK && !item.leaveByAt.isNullOrBlank() ->
+            formatLeaveByEstimateLine(item.leaveByAt!!)
+        else -> leaveByUnavailableLabel(item.leaveByReason)
     }

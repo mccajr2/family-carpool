@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.12.0
+  version: 0.13.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -10,21 +10,23 @@ info:
     manual events (any member may CRUD one-off schedule items with 1+ kids),
     a unified circle calendar read (feed + manual items in a time window) with
     per-adult leave-from, per-adult default leave-from, estimated leave-by
-    (OSRM or fallback; never live traffic), coverage responsibility assignments
-    (assign / reassign / remove; assignee confirm or decline), server-computed
-    schedule conflicts on calendar items (kid time-overlaps and adult coverage
-    overlaps; confirm/self-assign that would create two overlapping CONFIRMED
-    coverages for one adult returns 409), and memberships (ORGANIZER /
-    CAREGIVER). Organizers share a short invite code; Caregivers join via that
-    code. Any member may manage named places (label + free-text address;
-    optional lat/lng from geocoding with soft-fail and retry locate), manual
-    events, read the calendar agenda, set their own leave-from place per
-    calendar item, set their default leave-from for the circle, and manage
-    coverage assignments on calendar items. Feed last-synced / error / event
-    count may update from Sync now or from the server poller — clients re-GET
-    the feeds list to observe changes. Magic links, passwords, multi-circle
-    membership, invite deep links, email/push invite delivery, HTTP-only web
-    cookies, and paid live-traffic routing are out of scope for this revision.
+    (OSRM or fallback; never live traffic; calendar list does not call
+    Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
+    coverage responsibility assignments (assign / reassign / remove; assignee
+    confirm or decline), server-computed schedule conflicts on calendar items
+    (kid time-overlaps and adult coverage overlaps; confirm/self-assign that
+    would create two overlapping CONFIRMED coverages for one adult returns 409),
+    and memberships (ORGANIZER / CAREGIVER). Organizers share a short invite
+    code; Caregivers join via that code. Any member may manage named places
+    (label + free-text address; optional lat/lng from geocoding with soft-fail
+    and retry locate), manual events, read the calendar agenda, set their own
+    leave-from place per calendar item, set their default leave-from for the
+    circle, and manage coverage assignments on calendar items. Feed last-synced
+    / error / event count may update from Sync now or from the server poller —
+    clients re-GET the feeds list to observe changes. Magic links, passwords,
+    multi-circle membership, invite deep links, email/push invite delivery,
+    HTTP-only web cookies, and paid live-traffic routing are out of scope for
+    this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -35,15 +37,16 @@ tags:
   - name: family
     description: >
       Family circle, kids, named places, activity feeds, manual events, unified
-      calendar read (with per-adult leave-by estimates, coverage assignments,
-      uncovered kid ids, and server-computed conflicts), per-adult default
-      leave-from, invite code, and memberships (one circle per adult in v1).
-      Organizer-only writes for invite regen, roles, remove, kids, circle rename,
-      and activity feed create/update/delete/sync. Any member may create/update/
-      delete places and manual events, retry place geocoding, list the circle
-      calendar, set their leave-from place per calendar item, set their default
-      leave-from for the circle, and assign / reassign / remove coverage on
-      calendar items (assignee confirm or decline).
+      calendar read (with per-adult leave-from, cheap leave-by status including
+      PENDING, coverage assignments, uncovered kid ids, and server-computed
+      conflicts), async leave-by fill-in, per-adult default leave-from, invite
+      code, and memberships (one circle per adult in v1). Organizer-only writes
+      for invite regen, roles, remove, kids, circle rename, and activity feed
+      create/update/delete/sync. Any member may create/update/delete places and
+      manual events, retry place geocoding, list the circle calendar, fill
+      leave-by estimates, set their leave-from place per calendar item, set
+      their default leave-from for the circle, and assign / reassign / remove
+      coverage on calendar items (assignee confirm or decline).
 
 paths:
   /api/auth/request-code:
@@ -1266,19 +1269,22 @@ paths:
         startsAt falls in the half-open interval [from, to), ordered by
         startsAt ascending, then source, then id. Feed items include feedId /
         feedName and kidIds from the feed; manual items omit feed fields.
-        Each item is enriched for the **current adult** with leave-from and
-        estimated leave-by (OSRM driving duration when origin and destination
-        coords resolve; UNAVAILABLE when location is blank/geocode fails or no
-        located leave-from; fallback duration when both coords exist but OSRM
-        is unreachable). Leave-by is always an estimate — never live traffic.
-        Each item also includes coverage assignments for the circle (all
-        members' assignments on that item), uncoveredKidIds (kids on the item
-        not covered by any active PENDING or CONFIRMED assignment), and
-        conflicts (server-computed kid time-overlaps and adult coverage
-        overlaps using event startsAt/endsAt only; peers may lie outside the
-        requested window). Empty array when none match. from must be strictly
-        before to (400 otherwise). Adults without a circle receive 404. Does
-        not mutate feed snapshots or manual events.
+        Each item is enriched for the **current adult** with leave-from
+        (database only). This list does **not** call Nominatim or OSRM.
+        leaveByStatus is UNAVAILABLE when origin or destination text is missing
+        (NO_ORIGIN / NO_DESTINATION), OK when destination geocode and driving
+        duration are already in server caches (computed in-process; still an
+        estimate — never live traffic), and PENDING when a live geocode or
+        OSRM lookup is still required. Clients must GET
+        /api/family/circle/calendar/leave-by to fill PENDING rows. Each item
+        also includes coverage assignments for the circle (all members'
+        assignments on that item), uncoveredKidIds (kids on the item not
+        covered by any active PENDING or CONFIRMED assignment), and conflicts
+        (server-computed kid time-overlaps and adult coverage overlaps using
+        event startsAt/endsAt only; peers may lie outside the requested
+        window). Empty array when none match. from must be strictly before to
+        (400 otherwise). Adults without a circle receive 404. Does not mutate
+        feed snapshots or manual events.
       security:
         - bearerAuth: []
       parameters:
@@ -1320,8 +1326,8 @@ paths:
                   feedName: null
                   leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
                   leaveFromPlaceName: Mom's house
-                  leaveByAt: "2026-08-15T15:25:00Z"
-                  leaveByStatus: OK
+                  leaveByAt: null
+                  leaveByStatus: PENDING
                   leaveByReason: null
                   coverages:
                     - id: 01900000-0000-7000-8000-000000000071
@@ -1379,6 +1385,85 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/calendar/leave-by:
+    get:
+      operationId: listCalendarLeaveBy
+      tags: [family]
+      summary: Fill estimated leave-by for calendar items in a time window
+      description: >
+        Any circle member. Returns leave-by enrichment for feed-imported and
+        manual events whose startsAt falls in the half-open interval [from, to).
+        Uses cached destination geocodes and driving durations when present;
+        otherwise may call Nominatim and OSRM. Duplicate locations and origin+
+        dest pairs in the window share one upstream lookup. Successful geocodes
+        and OSRM durations are persisted; misses, OSRM failures, and the
+        fallback duration are not. leaveByStatus is OK or UNAVAILABLE (never
+        PENDING). Leave-by is always an estimate — never live traffic. Empty
+        array when none match. from must be strictly before to (400 otherwise).
+        Adults without a circle receive 404. Does not mutate feed snapshots or
+        manual events.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive window start (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-08-01T00:00:00Z"
+        - name: to
+          in: query
+          required: true
+          description: Exclusive window end (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-09-01T00:00:00Z"
+      responses:
+        "200":
+          description: Leave-by rows in the window (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarLeaveBy"
+              example:
+                - id: 01900000-0000-7000-8000-000000000051
+                  source: MANUAL
+                  leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+                  leaveFromPlaceName: Mom's house
+                  leaveByAt: "2026-08-15T15:25:00Z"
+                  leaveByStatus: OK
+                  leaveByReason: null
+                - id: 01900000-0000-7000-8000-000000000061
+                  source: FEED
+                  leaveFromPlaceId: null
+                  leaveFromPlaceName: null
+                  leaveByAt: null
+                  leaveByStatus: UNAVAILABLE
+                  leaveByReason: NO_ORIGIN
+        "400":
+          description: Missing from/to, or from is not strictly before to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/family/circle/calendar/{source}/{itemId}/leave-from:
     put:
       operationId: setCalendarLeaveFrom
@@ -1390,8 +1475,10 @@ paths:
         adult's circle and must be located (non-null latitude/longitude); an
         unlocated place returns 400. Unknown item id for the given source,
         unknown place, or place in another circle returns 404. Adults without
-        a circle receive 404. Returns the calendar item enriched with leave-by
-        for the current adult (same shape as listCircleCalendar rows). Does not
+        a circle receive 404. Returns the calendar item fully enriched with
+        leave-by for the current adult (OK or UNAVAILABLE; may call Nominatim
+        or OSRM for this one row). Distinct from listCircleCalendar, which does
+        not perform live routing. Does not
         mutate the underlying manual event or feed snapshot.
       security:
         - bearerAuth: []
@@ -2506,12 +2593,60 @@ components:
       type: string
       description: >
         Whether an estimated leave-by could be computed for the current adult.
-        OK means leaveByAt is set (from OSRM or OSRM-down fallback). UNAVAILABLE
-        means leaveByAt is null (missing origin, blank location, or geocode
-        failure).
+        OK means leaveByAt is set (from OSRM, a cached driving duration, or
+        OSRM-down fallback). UNAVAILABLE means leaveByAt is null (missing
+        origin, blank location, or geocode failure). PENDING means the calendar
+        list did not call Nominatim or OSRM and dest/duration caches missed;
+        clients should GET …/calendar/leave-by. listCalendarLeaveBy never
+        returns PENDING.
       enum:
         - OK
         - UNAVAILABLE
+        - PENDING
+
+    CalendarLeaveBy:
+      type: object
+      required:
+        - id
+        - source
+        - leaveByStatus
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Manual event id or feed event id
+        source:
+          $ref: "#/components/schemas/CalendarItemSource"
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Current adult's leave-from place for this item (explicit override or
+            default located place). Null when no located place is available.
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+          description: Display name of leaveFromPlaceId when set
+          example: Mom's house
+        leaveByAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Estimated leave-by instant (UTC) for the current adult. Null when
+            leaveByStatus is UNAVAILABLE. Always an estimate — not live traffic.
+          example: "2026-08-15T15:25:00Z"
+        leaveByStatus:
+          $ref: "#/components/schemas/LeaveByStatus"
+        leaveByReason:
+          type: string
+          nullable: true
+          description: >
+            Machine-readable reason when leaveByStatus is UNAVAILABLE (e.g.
+            NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK. This
+            operation does not return PENDING.
+          example: NO_ORIGIN
 
     SetCalendarLeaveFromRequest:
       type: object
@@ -2678,7 +2813,8 @@ components:
           nullable: true
           description: >
             Estimated leave-by instant (UTC) for the current adult. Null when
-            leaveByStatus is UNAVAILABLE. Always an estimate — not live traffic.
+            leaveByStatus is UNAVAILABLE or PENDING. Always an estimate — not
+            live traffic.
           example: "2026-08-15T15:25:00Z"
         leaveByStatus:
           $ref: "#/components/schemas/LeaveByStatus"
@@ -2687,7 +2823,7 @@ components:
           nullable: true
           description: >
             Machine-readable reason when leaveByStatus is UNAVAILABLE (e.g.
-            NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK.
+            NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK or PENDING.
           example: NO_ORIGIN
         coverages:
           type: array

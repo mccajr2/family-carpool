@@ -7,6 +7,7 @@ import {
   CalendarCacheStore,
   maxIsoInstant,
 } from "@/api/calendarCacheStore"
+import { applyLeaveByFillIn, mergeCheapCalendarItems } from "@/api/calendarLeaveBy"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
 import {
@@ -46,12 +47,11 @@ import {
   ensureCalendarWindowCovers,
   formatEventWhen,
   mergeCalendarItems,
+  nearTermLeaveByWindow,
+  remainderAfterNearTermLeaveByWindow,
   validateManualEventTimes,
 } from "@/components/eventTimes"
-import {
-  formatLeaveByEstimateLine,
-  leaveByUnavailableLabel,
-} from "@/components/leaveByDisplay"
+import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import {
   conflictDisplayLines,
   coverageDoubleBookMessage,
@@ -264,6 +264,14 @@ export function FamilyScreen({
   >({})
   const circleRef = useRef(circle)
   circleRef.current = circle
+  const adultRef = useRef(adult)
+  adultRef.current = adult
+  const leaveByFillGenRef = useRef(0)
+  const nearTermGatePendingRef = useRef(false)
+  const nearTermGateRef = useRef<{ promise: Promise<void>; resolve: () => void }>({
+    promise: Promise.resolve(),
+    resolve: () => {},
+  })
 
   useEffect(() => {
     if (circle?.id) {
@@ -305,27 +313,106 @@ export function FamilyScreen({
     [calendarCache],
   )
 
-  async function fetchAndPersistCalendar(
-    token: string,
-    adultId: string,
-    circleId: string,
-    loadedTo: string,
-  ): Promise<CalendarItem[]> {
-    const window = calendarWindowThrough(loadedTo)
-    const items = await familyClient.listCalendar(token, window.from, window.to)
-    setCalendarItems(items)
-    setCalendarLoadedTo(loadedTo)
-    persistCalendarSnapshot(adultId, circleId, window.from, window.to, items)
-    return items
-  }
+  const armNearTermGate = useCallback(() => {
+    if (nearTermGatePendingRef.current) {
+      return
+    }
+    let resolve!: () => void
+    const promise = new Promise<void>((r) => {
+      resolve = r
+    })
+    nearTermGatePendingRef.current = true
+    nearTermGateRef.current = { promise, resolve }
+  }, [])
+
+  const resolveNearTermGate = useCallback(() => {
+    if (!nearTermGatePendingRef.current) {
+      return
+    }
+    nearTermGatePendingRef.current = false
+    nearTermGateRef.current.resolve()
+  }, [])
+
+  const fetchAndApplyLeaveBy = useCallback(
+    async (token: string, from: string, to: string, gen: number) => {
+      try {
+        const rows = await familyClient.listCalendarLeaveBy(token, from, to)
+        if (gen !== leaveByFillGenRef.current) {
+          return
+        }
+        setCalendarItems((current) => {
+          const next = applyLeaveByFillIn(current, rows)
+          const currentAdult = adultRef.current
+          const currentCircle = circleRef.current
+          if (currentAdult && currentCircle) {
+            const existing = calendarCache.load(currentAdult.id, currentCircle.id)
+            if (existing) {
+              calendarCache.save({ ...existing, items: next })
+            }
+          }
+          return next
+        })
+      } catch {
+        // Keep last known leave-by; do not wipe Agenda.
+      }
+    },
+    [calendarCache, familyClient],
+  )
+
+  const startLeaveByFill = useCallback(
+    (token: string, loadedFrom: string, loadedTo: string) => {
+      const gen = ++leaveByFillGenRef.current
+      armNearTermGate()
+      void (async () => {
+        try {
+          const near = nearTermLeaveByWindow(loadedFrom, loadedTo)
+          if (near) {
+            await fetchAndApplyLeaveBy(token, near.from, near.to, gen)
+          }
+        } finally {
+          resolveNearTermGate()
+        }
+        if (gen !== leaveByFillGenRef.current) {
+          return
+        }
+        const rest = remainderAfterNearTermLeaveByWindow(loadedFrom, loadedTo)
+        if (rest) {
+          await fetchAndApplyLeaveBy(token, rest.from, rest.to, gen)
+        }
+      })()
+    },
+    [armNearTermGate, fetchAndApplyLeaveBy, resolveNearTermGate],
+  )
+
+  const fetchAndPersistCalendar = useCallback(
+    async (
+      token: string,
+      adultId: string,
+      circleId: string,
+      loadedTo: string,
+    ): Promise<{ items: CalendarItem[]; from: string; to: string }> => {
+      const window = calendarWindowThrough(loadedTo)
+      const items = await familyClient.listCalendar(token, window.from, window.to)
+      const previous = calendarCache.load(adultId, circleId)?.items ?? []
+      const merged = mergeCheapCalendarItems(items, previous)
+      setCalendarItems(merged)
+      setCalendarLoadedTo(loadedTo)
+      persistCalendarSnapshot(adultId, circleId, window.from, window.to, merged)
+      return { items: merged, from: window.from, to: window.to }
+    },
+    [calendarCache, familyClient, persistCalendarSnapshot],
+  )
 
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
     if (!adult || !circle) {
       const window = calendarWindowThrough(loadedTo)
-      setCalendarItems(await familyClient.listCalendar(token, window.from, window.to))
+      const items = await familyClient.listCalendar(token, window.from, window.to)
+      setCalendarItems(items)
+      startLeaveByFill(token, window.from, window.to)
       return
     }
-    await fetchAndPersistCalendar(token, adult.id, circle.id, loadedTo)
+    const painted = await fetchAndPersistCalendar(token, adult.id, circle.id, loadedTo)
+    startLeaveByFill(token, painted.from, painted.to)
   }
 
   async function revalidateCalendarBackground(options?: { force?: boolean }) {
@@ -347,9 +434,11 @@ export function FamilyScreen({
     try {
       const today = defaultCalendarWindow()
       const to = maxIsoInstant(today.to, calendarLoadedTo)
-      await fetchAndPersistCalendar(token, adult.id, circle.id, to)
+      const painted = await fetchAndPersistCalendar(token, adult.id, circle.id, to)
+      startLeaveByFill(token, painted.from, painted.to)
       setStatus({ kind: "idle" })
     } catch (error) {
+      resolveNearTermGate()
       if (calendarItems.length > 0) {
         setStatus({
           kind: "error",
@@ -377,6 +466,9 @@ export function FamilyScreen({
       })
       setCalendarLoadedTo(page.to)
       setStatus({ kind: "idle" })
+      await nearTermGateRef.current.promise
+      const gen = leaveByFillGenRef.current
+      await fetchAndApplyLeaveBy(token, page.from, page.to, gen)
     } catch (error) {
       setStatus({
         kind: "error",
@@ -423,6 +515,7 @@ export function FamilyScreen({
           setCalendarItems(cached.items)
           setCalendarLoadedTo(cached.to)
           setCalendarFetchedAt(cached.fetchedAt)
+          armNearTermGate()
         }
         setCalendarRevalidating(true)
         setStatus({ kind: "idle" })
@@ -447,6 +540,7 @@ export function FamilyScreen({
             setCalendarItems(cached.items)
             setCalendarLoadedTo(cached.to)
             setCalendarFetchedAt(cached.fetchedAt)
+            armNearTermGate()
             setCalendarRevalidating(true)
             setStatus({ kind: "idle" })
           }
@@ -454,13 +548,14 @@ export function FamilyScreen({
           const today = defaultCalendarWindow()
           const to = cached ? maxIsoInstant(today.to, cached.to) : today.to
           try {
-            const items = await familyClient.listCalendar(token, today.from, to)
+            const painted = await fetchAndPersistCalendar(token, adultId, loaded.id, to)
             if (!cancelled) {
-              setCalendarItems(items)
-              setCalendarLoadedTo(to)
-              persistCalendarSnapshot(adultId, loaded.id, today.from, to, items)
+              startLeaveByFill(token, painted.from, painted.to)
+            } else {
+              resolveNearTermGate()
             }
           } catch (error) {
+            resolveNearTermGate()
             if (!cancelled) {
               if (!hadCache) {
                 setCalendarItems([])
@@ -543,6 +638,7 @@ export function FamilyScreen({
         if (circleRef.current) {
           setStatus({ kind: "error", message })
           setCalendarRevalidating(false)
+          resolveNearTermGate()
         } else {
           setLoadFailed(message)
           setStatus({ kind: "idle" })
@@ -552,6 +648,7 @@ export function FamilyScreen({
     void load()
     return () => {
       cancelled = true
+      leaveByFillGenRef.current += 1
     }
   }, [
     familyClient,
@@ -560,6 +657,10 @@ export function FamilyScreen({
     calendarCache,
     bootstrapCache,
     persistCalendarSnapshot,
+    fetchAndPersistCalendar,
+    startLeaveByFill,
+    armNearTermGate,
+    resolveNearTermGate,
   ])
 
   async function requireToken(): Promise<string> {
@@ -2028,10 +2129,7 @@ export function FamilyScreen({
                 const kidsLabel = eventKidNames(item, circle.kids)
                 const sourceLabel = calendarSourceLabel(item.source, item.feedName)
                 const isManual = item.source === "MANUAL"
-                const leaveByLine =
-                  item.leaveByStatus === "OK" && item.leaveByAt
-                    ? formatLeaveByEstimateLine(item.leaveByAt)
-                    : leaveByUnavailableLabel(item.leaveByReason)
+                const leaveByLine = agendaLeaveByLine(item)
                 const needsOrigin =
                   item.leaveByStatus === "UNAVAILABLE" &&
                   item.leaveByReason === "NO_ORIGIN"

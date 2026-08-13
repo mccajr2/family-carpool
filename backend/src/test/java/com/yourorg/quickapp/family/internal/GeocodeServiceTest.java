@@ -64,4 +64,26 @@ class GeocodeServiceTest {
         assertThat(geocodeService.resolve("Nowhere")).isEmpty();
         verify(cacheRepository, never()).save(any());
     }
+
+    @Test
+    void findCachedReturnsHitWithoutGeocoder() {
+        when(cacheRepository.findById("123 main st"))
+                .thenReturn(
+                        Optional.of(
+                                new GeocodeCacheEntity("123 main st", 40.0, -74.0, Instant.now())));
+
+        Optional<GeoCoordinates> result = geocodeService.findCached("  123 Main St  ");
+
+        assertThat(result).contains(new GeoCoordinates(40.0, -74.0));
+        verify(geocoder, never()).geocode(any());
+    }
+
+    @Test
+    void findCachedMissDoesNotCallGeocoder() {
+        when(cacheRepository.findById("nowhere")).thenReturn(Optional.empty());
+
+        assertThat(geocodeService.findCached("Nowhere")).isEmpty();
+        verify(geocoder, never()).geocode(any());
+        verify(cacheRepository, never()).save(any());
+    }
 }
