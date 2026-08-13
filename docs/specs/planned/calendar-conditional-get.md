@@ -32,7 +32,7 @@ local snapshot**.
 
 - **Depends on** shipped client cache so `ETag` is stored beside the snapshot
   and `304` is meaningful for “keep showing cache.” Prefer after
-  [`agenda-leave-by-async`](agenda-leave-by-async.md) so the cached/ETag’d
+  [`agenda-leave-by-async`](../active/agenda-leave-by-async.md) so the cached/ETag’d
   list is the cheap schedule payload, not per-row OSRM.
 - `/spec` should lock: how `ETag` is computed (payload hash vs circle revision),
   whether adult-specific enrichment forces per-adult ETags, OpenAPI

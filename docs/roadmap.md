@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-13 (`/roadmap` — next up `agenda-leave-by-async`; added `agenda-event-rsvp`)
+Updated: 2026-08-13 (`/spec agenda-leave-by-async`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -70,7 +70,7 @@ share the ride — without fighting the UI.
 | Carpool request          | **One request covering all attending kids who still need a ride** by default (seats = kid count); **override** to drop a kid (e.g. sick)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Feed vs carpool          | **Feed = calendar only**. **Carpool join = parent invite code/link** (first family enables space; members reshare/regenerate). No coach admin                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Auth                     | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups                                                                                                                                                                                                                                                                                                                                                                                             |
-| Leave-by                 | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic). Destination coords: **geocode event** `location` (soft-fail); origins = named places. Origin order: per-item override → **per-adult default leave-from** → first located by name. **Agenda must not wait on leave-by** — schedule first, estimates async, near-term before later days: `[agenda-leave-by-async](specs/planned/agenda-leave-by-async.md)`. **Follow-up:** when adults take separate cars/kids, leave-from may differ per coverage — `[coverage-leave-from](specs/planned/coverage-leave-from.md)`                                                                                                          |
+| Leave-by                 | Routed duration (OSRM) or fallback + **time-of-day multiplier** + **fixed buffer**; UI labeled **estimate** (not live traffic). Destination coords: **geocode event** `location` (soft-fail); origins = named places. Origin order: per-item override → **per-adult default leave-from** → first located by name. **Agenda must not wait on leave-by** — schedule first, estimates async, near-term before later days: `[agenda-leave-by-async](specs/active/agenda-leave-by-async.md)`. **Follow-up:** when adults take separate cars/kids, leave-from may differ per coverage — `[coverage-leave-from](specs/planned/coverage-leave-from.md)`                                                                                                          |
 | Coverage                 | **Responsibility** rows (adult + kid subset + PENDING/CONFIRMED/DECLINED); any member assigns; assignee confirms/declines; kid exclusive per item on active rows; not a trip/seat plan — carpool later. Done: `[coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)`                                                                                                                                                                                                                                                                                             |
 | Event RSVP               | Simple RSVP on Agenda items so adults can mark events they are **not covering**. Summary stays visible; row is deemphasized and leave-by / coverage / other dependent controls are hidden. Same record later feeds carpool + team rollups — `[agenda-event-rsvp](specs/planned/agenda-event-rsvp.md)` |
 | Arrival lead time        | Follow-up `[event-arrival-lead-time](specs/planned/event-arrival-lead-time.md)`: editable defaults — game **30m** early, practice **15m**, other **0** — after leave-by ships                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -88,7 +88,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                             | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ------------------------------ | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-leave-by-async          | planned | 2026-08-13 · enhancement                                         | Agenda paints schedule immediately; leave-by loads async (near-term first); never block list on Nominatim/OSRM                                                  |
+| 1    | agenda-leave-by-async          | active  | 2026-08-13 · enhancement                                         | Agenda paints schedule immediately; leave-by loads async (near-term first); never block list on Nominatim/OSRM                                                  |
 | 2    | agenda-event-rsvp              | planned | 2026-08-13 · enhancement                                         | Simple Agenda RSVP; skip-cover deemphasizes the row (summary stays; hide leave-by/coverage/other controls); foundation for carpool/team rollups                 |
 | 3    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)                                              |
 | 4    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
@@ -140,9 +140,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id | Branch | Spec |
-| -- | ------ | ---- |
-| —  | —      | _none_ |
+| Id                    | Branch                 | Spec                                                       |
+| --------------------- | ---------------------- | ---------------------------------------------------------- |
+| agenda-leave-by-async | `agenda-leave-by-async` | [active](specs/active/agenda-leave-by-async.md) |
 
 
 ## Done
@@ -240,5 +240,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-13 | `/pr calendar-client-cache` follow-up: family bootstrap cache paints Ready before `getCircle`; keep calendar cache across sign-out.                                                                                               |
 | 2026-08-13 | Enhancement: `agenda-leave-by-async` (Next up) — schedule first, leave-by async near-term-first; `calendar-conditional-get` → rank 2.                                                                                            |
 | 2026-08-13 | Enhancement: `agenda-event-rsvp` (rank 2) — simple Agenda RSVP + skip-cover deemphasis; carpool/team rollups consume later.                                                                                                      |
+| 2026-08-13 | `/spec agenda-leave-by-async`: cheap calendar GET + async leave-by fill-in (near-term first); `calendar-conditional-get` stays next after this PR.                                                                              |
 
 
