@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-12 (`/spec conflict-detection` — next up `calendar-client-cache`)
+Updated: 2026-08-12 (`/pr conflict-detection` — next up `calendar-client-cache`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -137,11 +137,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id                 | Branch               | Spec                                                     |
-| ------------------ | -------------------- | -------------------------------------------------------- |
-| conflict-detection | `conflict-detection` | [active](specs/active/conflict-detection.md) |
-
-
+| Id | Branch | Spec |
+| -- | ------ | ---- |
+| —  | —      | _none_ |
 
 
 ## Done
@@ -149,6 +147,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| conflict-detection         | 2026-08-12 | [archive](specs/archive/conflict-detection.md)         |
 | calendar-ux-flow           | 2026-08-12 | [archive](specs/archive/calendar-ux-flow.md)           |
 | coverage-confirm-decline   | 2026-08-12 | [archive](specs/archive/coverage-confirm-decline.md)   |
 | event-leave-by-estimate    | 2026-08-11 | [archive](specs/archive/event-leave-by-estimate.md)    |
@@ -231,5 +230,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-12 | Major re-rank: look-and-feel first — add `calendar-ux-flow` (Next up); lock Interaction UX tenets; pull `event-arrival-lead-time` before carpool; keep conflicts/coverage-leave-from next; grid/palette/adoption after Agenda UX. |
 | 2026-08-12 | `/pr calendar-ux-flow`: Agenda presentation hierarchy + Interaction UX tenets (web/Android/iOS); next up `conflict-detection`.                                                                                                    |
 | 2026-08-12 | `/spec conflict-detection`: server conflicts + amber Agenda + 409 double-CONFIRMED; add `calendar-client-cache` (Next up) + `conflict-travel-margin`.                                                                            |
+| 2026-08-12 | `/pr conflict-detection`: Agenda conflict amber + 409 double-CONFIRMED (web/Android/iOS); next up `calendar-client-cache`.                                                                                                        |
 
 

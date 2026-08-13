@@ -48,6 +48,32 @@ class FeedCalendarApiImpl implements FeedCalendarApi {
 
     @Override
     @Transactional(readOnly = true)
+    public List<FeedCalendarEventDto> listEventsOverlapping(
+            UUID circleId, Instant windowStart, Instant windowEnd) {
+        if (windowStart == null || windowEnd == null) {
+            return List.of();
+        }
+        List<ActivityFeedEntity> circleFeeds = feeds.findByCircleIdOrderByCreatedAtAsc(circleId);
+        if (circleFeeds.isEmpty()) {
+            return List.of();
+        }
+        Instant queryEnd =
+                windowStart.isBefore(windowEnd) ? windowEnd : windowStart.plusNanos(1);
+        Map<UUID, ActivityFeedEntity> byId =
+                circleFeeds.stream()
+                        .collect(Collectors.toMap(ActivityFeedEntity::id, Function.identity()));
+        List<UUID> feedIds = circleFeeds.stream().map(ActivityFeedEntity::id).toList();
+        return events.findOverlapping(feedIds, windowStart, queryEnd).stream()
+                .map(
+                        event -> {
+                            ActivityFeedEntity feed = byId.get(event.feedId());
+                            return toDto(event, feed);
+                        })
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<FeedCalendarEventDto> findEventInCircle(UUID circleId, UUID itemId) {
         return events
                 .findById(itemId)

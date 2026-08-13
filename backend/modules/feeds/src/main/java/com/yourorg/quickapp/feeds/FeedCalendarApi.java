@@ -12,6 +12,14 @@ public interface FeedCalendarApi {
 
     List<FeedCalendarEventDto> listEventsInRange(UUID circleId, Instant from, Instant to);
 
+    /**
+     * Events whose {@code [startsAt, endsAt||startsAt)} overlaps
+     * {@code [windowStart, windowEnd)}. Used for conflict peers outside an Agenda
+     * startsAt page.
+     */
+    List<FeedCalendarEventDto> listEventsOverlapping(
+            UUID circleId, Instant windowStart, Instant windowEnd);
+
     /** Circle-scoped lookup for leave-from validation (feed must belong to circle). */
     Optional<FeedCalendarEventDto> findEventInCircle(UUID circleId, UUID itemId);
 }

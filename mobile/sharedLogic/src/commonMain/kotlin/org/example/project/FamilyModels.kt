@@ -95,6 +95,24 @@ data class CalendarCoverageAssignment(
 )
 
 @Serializable
+enum class CalendarConflictType {
+    KID_TIME_OVERLAP,
+    ADULT_COVERAGE_OVERLAP,
+}
+
+@Serializable
+data class CalendarConflict(
+    val type: CalendarConflictType,
+    val kidId: String? = null,
+    val adultId: String? = null,
+    val adultDisplayName: String? = null,
+    val otherSource: CalendarItemSource,
+    val otherItemId: String,
+    val otherTitle: String,
+    val otherStartsAt: String,
+)
+
+@Serializable
 data class AssignCalendarCoverageRequest(
     val coveringAdultId: String,
     val kidIds: List<String>,
@@ -118,6 +136,7 @@ data class CalendarItem(
     val leaveByReason: String? = null,
     val coverages: List<CalendarCoverageAssignment> = emptyList(),
     val uncoveredKidIds: List<String> = emptyList(),
+    val conflicts: List<CalendarConflict> = emptyList(),
 )
 
 @Serializable

@@ -125,6 +125,10 @@ class OpenApiContractTest {
         assertThat(yaml).contains("UpdateManualEventRequest:");
         assertThat(yaml).contains("CalendarItem:");
         assertThat(yaml).contains("CalendarItemSource:");
+        assertThat(yaml).contains("CalendarConflict:");
+        assertThat(yaml).contains("CalendarConflictType:");
+        assertThat(yaml).contains("KID_TIME_OVERLAP");
+        assertThat(yaml).contains("ADULT_COVERAGE_OVERLAP");
         assertThat(yaml).contains("LeaveByStatus:");
         assertThat(yaml).contains("SetCalendarLeaveFromRequest:");
         assertThat(yaml).contains("SetDefaultLeaveFromRequest:");
@@ -133,6 +137,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("AssignCalendarCoverageRequest:");
         assertThat(yaml).contains("coverages:");
         assertThat(yaml).contains("uncoveredKidIds:");
+        assertThat(yaml).contains("conflicts:");
+        assertThat(yaml).contains("otherItemId:");
+        assertThat(yaml).contains("otherStartsAt:");
         assertThat(yaml).contains("defaultLeaveFromPlaceId:");
         assertThat(yaml).contains("defaultLeaveFromPlaceName:");
         assertThat(yaml).contains("leaveFromPlaceId:");
@@ -153,13 +160,15 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.11.0");
+        assertThat(yaml).contains("version: 0.12.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
         assertThat(yaml).contains("coverage responsibility");
         assertThat(yaml).contains("default leave-from");
+        assertThat(yaml).contains("schedule conflicts");
+        assertThat(yaml).contains("overlapping CONFIRMED");
         assertThat(yaml).contains("components:");
     }
 

@@ -1,8 +1,10 @@
 # Agenda coverage — web behavior contract (reference client)
 
 Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to this contract;
-presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md))  
-Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md)
+presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md);
+conflict amber via [`conflict-detection`](specs/archive/conflict-detection.md))  
+Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
+[conflict-detection](specs/archive/conflict-detection.md)
 
 Web Agenda is the **source of truth** for coverage + leave-from **client UX**.
 iOS and Android ports must match these rules and copy; do not invent parallel
@@ -83,15 +85,28 @@ kids sit between identity and leave-by, so “who” and “when to leave” blu
 
 | Band | Contents | Why |
 |------|----------|-----|
-| Primary | title, when, location | Event identity first; location belongs with “where is this,” not travel timing |
+| Primary | title, when, location, **conflict status lines** (when `conflicts` non-empty) | Event identity first; amber conflict copy attaches here as a status affordance — not a new control dump |
 | Travel / origin | leave-by, Leave from, Open Places (`NO_ORIGIN`) | Keep leave timing + origin together so adults answer “when do I leave / from where?” in one place; recovery stays with the gap |
 | People / source | source label, kids on the event | Who the event is about / where it came from — separate from travel |
 | Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign, Edit/Remove | Responsibility + situational CTAs as one proximity group; Edit/Remove stay secondary peers (never fake primary when Confirm/Assign exists) |
 
-**Forward-looking seams (not shipped here):** conflict chrome can attach to the
-item (primary or a future status affordance) without inventing a new dump;
-per-coverage leave-from can extend Travel later; carpool request/accept stays
-on the **Carpool** destination — not absorbed into Coverage / actions.
+### Conflict chrome (server-owned)
+
+- Render from `CalendarItem.conflicts` only — do **not** re-derive overlap
+  rules on the client for truth.
+- Amber status lines under the primary band (`data-testid` /
+  `agenda-conflicts-{source}-{id}` on web). Provisional warning color is OK
+  until token adoption.
+- Copy helpers (web reference: `conflictDisplay.ts`):
+  - Kid: `{kidName} overlaps {otherTitle}` or `Kid schedule overlaps {otherTitle}`
+  - Adult: `{adultDisplayName} also covering {otherTitle}`
+- Confirm / self-assign **409** for overlapping double-CONFIRMED: keep prior
+  Agenda state; show
+  `Already confirmed on an overlapping event — decline or reassign first.`
+  (web: `coverageDoubleBookMessage`) **on that Agenda item, immediately under
+  the Confirm / Assign controls** — not in the top-of-Agenda status banner.
+  Do not treat as success or retry as OK.
+- No auto-resolve UI.
 
 ## Field rows (single-value attributes)
 
@@ -216,7 +231,7 @@ Compose as dialog (web) vs sheet (iOS) vs destination swap (Android);
 
 ## Out of scope here
 
-- Conflict amber UI (`conflict-detection`).
 - Vehicle / seats / nonplayers / trip planning.
 - Redesigning Calendar onto full UI-token adoption (`ui-system-destination-adoption`).
 - Per-coverage leave-from (`coverage-leave-from`).
+- Travel / leave-by “cutting it close” soft warn (`conflict-travel-margin`).

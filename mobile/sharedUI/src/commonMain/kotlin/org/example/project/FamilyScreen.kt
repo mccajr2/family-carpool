@@ -37,9 +37,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -1181,6 +1183,26 @@ private fun CalendarDestination(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    val conflictLines = conflictDisplayLines(item.conflicts, current.circle.kids)
+                    if (conflictLines.isNotEmpty()) {
+                        Column(
+                            modifier =
+                                Modifier.semantics {
+                                    contentDescription =
+                                        "agenda-conflicts-${item.source}-${item.id}"
+                                },
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            conflictLines.forEach { line ->
+                                Text(
+                                    line,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFB45309),
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // agenda-band-travel — leave-by + Leave from (+ Open Places)
@@ -1494,6 +1516,18 @@ private fun CalendarDestination(
                                 Text("Assign coverage")
                             }
                         }
+                    }
+                    current.coverageActionErrors[agendaCoverageItemKey(item)]?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier =
+                                Modifier.semantics {
+                                    contentDescription =
+                                        "agenda-coverage-error-${item.source.name}-${item.id}"
+                                },
+                        )
                     }
                     if (isManual) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

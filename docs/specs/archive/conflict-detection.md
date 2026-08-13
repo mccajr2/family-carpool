@@ -1,8 +1,8 @@
 # Spec: conflict-detection
 
-Status: draft  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-12 (`/spec`)  
+Updated: 2026-08-12 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `conflict-detection`  
 Added: 2026-08-07 · re-rank split
@@ -114,40 +114,40 @@ current Agenda page.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: `CalendarItem` includes a `conflicts` array (typed kid vs adult
+- [x] OpenAPI: `CalendarItem` includes a `conflicts` array (typed kid vs adult
       overlap + peer item identity); version bumped; web + Android + iOS clients
       updated in the same change.
-- [ ] `GET …/calendar` marks both items when the same kid is on two
+- [x] `GET …/calendar` marks both items when the same kid is on two
       overlapping events (amber data present even if no coverage exists).
-- [ ] `GET …/calendar` marks both items for adult **PENDING+PENDING** and
+- [x] `GET …/calendar` marks both items for adult **PENDING+PENDING** and
       **PENDING+CONFIRMED** coverage on overlapping events.
-- [ ] Confirm (or self-assign auto-confirm) that would create **CONFIRMED+CONFIRMED**
+- [x] Confirm (or self-assign auto-confirm) that would create **CONFIRMED+CONFIRMED**
       on overlapping events returns **409** and leaves assignments unchanged.
-- [ ] Assigning **PENDING** coverage onto an adult who already has active
+- [x] Assigning **PENDING** coverage onto an adult who already has active
       coverage on an overlapping item succeeds (200) and surfaces amber.
-- [ ] `DECLINED` coverage does not participate in adult conflict detection or
+- [x] `DECLINED` coverage does not participate in adult conflict detection or
       the 409 guard.
-- [ ] Overlap uses event start/end only (null `endsAt` → zero-length at
+- [x] Overlap uses event start/end only (null `endsAt` → zero-length at
       `startsAt`); leave-by / travel gaps do **not** create conflicts in this PR.
-- [ ] Agenda (web + Android + iOS) shows amber conflict affordance on items with
+- [x] Agenda (web + Android + iOS) shows amber conflict affordance on items with
       conflicts; no auto-resolve UI; 409 confirm/self-assign shows a clear error.
-- [ ] Unit + integration tests cover kid overlap, adult amber cases, 409
+- [x] Unit + integration tests cover kid overlap, adult amber cases, 409
       double-CONFIRMED, DECLINED ignored; `ModularityTests` still passes.
-- [ ] Architecture + agenda web contract note conflict enrichment and the
+- [x] Architecture + agenda web contract note conflict enrichment and the
       CONFIRMED guard; roadmap Active → Done when shipped.
 
 ## Tasks
 
-- [ ] Backend: conflict detection helper; enrich calendar GET (+ item-returning
+- [x] Backend: conflict detection helper; enrich calendar GET (+ item-returning
       coverage responses); 409 on confirm / auto-confirm paths that would
       double-CONFIRMED; tests
-- [ ] Contract: OpenAPI `conflicts` on `CalendarItem` (+ any ErrorResponse code
+- [x] Contract: OpenAPI `conflicts` on `CalendarItem` (+ any ErrorResponse code
       clarity for coverage 409); bump version
-- [ ] Web: client types; Agenda amber chrome; 409 handling; agenda web contract
-- [ ] Android: sharedLogic + Agenda amber + 409
-- [ ] iOS: Agenda amber + 409
-- [ ] Docs: `docs/architecture.md` Calendar/Coverage rows; roadmap on `/pr`
-- [ ] Tests: backend unit/integration as above; client unit tests for rendering /
+- [x] Web: client types; Agenda amber chrome; 409 handling; agenda web contract
+- [x] Android: sharedLogic + Agenda amber + 409
+- [x] iOS: Agenda amber + 409
+- [x] Docs: `docs/architecture.md` Calendar/Coverage rows; roadmap on `/pr`
+- [x] Tests: backend unit/integration as above; client unit tests for rendering /
       409 messaging where the repo already tests Agenda chrome
 
 ## Open questions

@@ -406,6 +406,7 @@ describe("FamilyClient", () => {
         leaveByReason: null,
         coverages: [],
         uncoveredKidIds: [],
+        conflicts: [],
       },
       {
         id: "fe1",
@@ -424,6 +425,7 @@ describe("FamilyClient", () => {
         leaveByReason: "NO_ORIGIN",
         coverages: [],
         uncoveredKidIds: ["k1"],
+        conflicts: [],
       },
     ]
 
@@ -466,6 +468,7 @@ describe("FamilyClient", () => {
       leaveByReason: null,
       coverages: [],
       uncoveredKidIds: [],
+      conflicts: [],
     }
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -558,6 +561,7 @@ describe("FamilyClient", () => {
         },
       ],
       uncoveredKidIds: [],
+      conflicts: [],
     }
 
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item, 201))
@@ -571,6 +575,7 @@ describe("FamilyClient", () => {
     ).resolves.toMatchObject({
       coverages: [{ status: "PENDING", coveringAdultId: "2" }],
       uncoveredKidIds: [],
+      conflicts: [],
     })
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(

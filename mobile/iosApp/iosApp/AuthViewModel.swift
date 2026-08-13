@@ -61,6 +61,7 @@ struct FamilyCalendarItem: Identifiable, Equatable {
     var leaveByReason: String?
     var coverages: [FamilyCoverageAssignment] = []
     var uncoveredKidIds: [String] = []
+    var conflicts: [FamilyCalendarConflict] = []
 
     var isManual: Bool { source == "MANUAL" }
 
@@ -267,11 +268,30 @@ final class AuthViewModel: ObservableObject {
     @Published var shell = AppShellNavigationState()
     @Published var devHint: String?
     @Published var errorMessage: String?
+    /// Confirm/Assign failures keyed by `source-id` — shown on the Agenda item CTAs.
+    @Published var coverageActionErrors: [String: String] = [:]
     @Published var isLoading: Bool = false
 
     private let bridge: AuthBridge
 
     var isOrganizer: Bool { familyRole == "ORGANIZER" }
+
+    private static func coverageItemKey(source: String, id: String) -> String {
+        "\(source)-\(id)"
+    }
+
+    private func coverageItemKey(for item: FamilyCalendarItem) -> String {
+        Self.coverageItemKey(source: item.source, id: item.id)
+    }
+
+    private func coverageItemKey(forAssignmentId assignmentId: String) -> String? {
+        guard let item = calendarItems.first(where: { row in
+            row.coverages.contains(where: { $0.id == assignmentId })
+        }) else {
+            return nil
+        }
+        return coverageItemKey(for: item)
+    }
 
     var visibleCalendarItems: [FamilyCalendarItem] {
         guard let agendaKidFilter else { return calendarItems }
@@ -1088,7 +1108,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
                 leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1109,7 +1129,8 @@ final class AuthViewModel: ObservableObject {
                         leaveByStatuses: leaveByStatuses,
                         leaveByReasons: leaveByReasons,
                         coveragesJson: coveragesJson,
-                        uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                        conflictsJson: conflictsJson
                     )
                 }
             },
@@ -1127,7 +1148,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 ids, sources, titles, startsAts, endsAts, locations, kidIdsJoined, feedIds, feedNames,
                 leaveFromPlaceIds, leaveFromPlaceNames, leaveByAts, leaveByStatuses, leaveByReasons,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1147,7 +1168,8 @@ final class AuthViewModel: ObservableObject {
                         leaveByStatuses: leaveByStatuses,
                         leaveByReasons: leaveByReasons,
                         coveragesJson: coveragesJson,
-                        uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                        uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                        conflictsJson: conflictsJson
                     )
                     var seen = Set(self.calendarItems.map { "\($0.source):\($0.id)" })
                     for item in more where !seen.contains("\(item.source):\(item.id)") {
@@ -1178,7 +1200,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1199,7 +1221,8 @@ final class AuthViewModel: ObservableObject {
                             leaveByStatus: leaveByStatus,
                             leaveByReason: leaveByReason,
                             coveragesJson: coveragesJson,
-                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                            conflictsJson: conflictsJson
                         )
                     )
                 }
@@ -1228,8 +1251,10 @@ final class AuthViewModel: ObservableObject {
 
     func assignCoverage(item: FamilyCalendarItem, coveringAdultId: String, kidIds: [String]) {
         guard !coveringAdultId.isEmpty, !kidIds.isEmpty else { return }
+        let itemKey = coverageItemKey(for: item)
         isLoading = true
         errorMessage = nil
+        coverageActionErrors.removeValue(forKey: itemKey)
         bridge.assignCalendarCoverage(
             source: item.source,
             itemId: item.id,
@@ -1238,10 +1263,11 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
+                    self.coverageActionErrors.removeValue(forKey: itemKey)
                     self.replaceCalendarItem(
                         Self.calendarItem(
                             id: id,
@@ -1259,27 +1285,42 @@ final class AuthViewModel: ObservableObject {
                             leaveByStatus: leaveByStatus,
                             leaveByReason: leaveByReason,
                             coveragesJson: coveragesJson,
-                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                            conflictsJson: conflictsJson
                         )
                     )
                 }
             },
-            onError: eventError
+            onError: { [weak self] message in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isLoading = false
+                self.coverageActionErrors[itemKey] =
+                    ConflictDisplay.coverageDoubleBookMessage(message)
+            }
+        }
         )
     }
 
     func confirmCoverage(assignmentId: String) {
+        let itemKey = coverageItemKey(forAssignmentId: assignmentId)
         isLoading = true
         errorMessage = nil
+        if let itemKey {
+            coverageActionErrors.removeValue(forKey: itemKey)
+        }
         bridge.confirmCalendarCoverage(
             assignmentId: assignmentId,
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
+                    if let itemKey {
+                        self.coverageActionErrors.removeValue(forKey: itemKey)
+                    }
                     self.replaceCalendarItem(
                         Self.calendarItem(
                             id: id,
@@ -1297,12 +1338,24 @@ final class AuthViewModel: ObservableObject {
                             leaveByStatus: leaveByStatus,
                             leaveByReason: leaveByReason,
                             coveragesJson: coveragesJson,
-                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                            conflictsJson: conflictsJson
                         )
                     )
                 }
             },
-            onError: eventError
+            onError: { [weak self] message in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isLoading = false
+                let mapped = ConflictDisplay.coverageDoubleBookMessage(message)
+                if let itemKey {
+                    self.coverageActionErrors[itemKey] = mapped
+                } else {
+                    self.errorMessage = mapped
+                }
+            }
+        }
         )
     }
 
@@ -1314,7 +1367,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1335,7 +1388,8 @@ final class AuthViewModel: ObservableObject {
                             leaveByStatus: leaveByStatus,
                             leaveByReason: leaveByReason,
                             coveragesJson: coveragesJson,
-                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                            conflictsJson: conflictsJson
                         )
                     )
                 }
@@ -1352,7 +1406,7 @@ final class AuthViewModel: ObservableObject {
             onSuccess: { [weak self]
                 id, source, title, startsAt, endsAt, location, kidIdsJoined, feedId, feedName,
                 leaveFromPlaceId, leaveFromPlaceName, leaveByAt, leaveByStatus, leaveByReason,
-                coveragesJson, uncoveredKidIdsJoined in
+                coveragesJson, uncoveredKidIdsJoined, conflictsJson in
                 Task { @MainActor in
                     guard let self else { return }
                     self.isLoading = false
@@ -1373,7 +1427,8 @@ final class AuthViewModel: ObservableObject {
                             leaveByStatus: leaveByStatus,
                             leaveByReason: leaveByReason,
                             coveragesJson: coveragesJson,
-                            uncoveredKidIdsJoined: uncoveredKidIdsJoined
+                            uncoveredKidIdsJoined: uncoveredKidIdsJoined,
+                            conflictsJson: conflictsJson
                         )
                     )
                 }
@@ -1568,7 +1623,8 @@ final class AuthViewModel: ObservableObject {
         leaveByStatuses: [String],
         leaveByReasons: [String],
         coveragesJson: [String],
-        uncoveredKidIdsJoined: [String]
+        uncoveredKidIdsJoined: [String],
+        conflictsJson: [String]
     ) -> [FamilyCalendarItem] {
         (0..<ids.count).map { index in
             calendarItem(
@@ -1587,7 +1643,8 @@ final class AuthViewModel: ObservableObject {
                 leaveByStatus: leaveByStatuses[index],
                 leaveByReason: leaveByReasons[index],
                 coveragesJson: coveragesJson[index],
-                uncoveredKidIdsJoined: uncoveredKidIdsJoined[index]
+                uncoveredKidIdsJoined: uncoveredKidIdsJoined[index],
+                conflictsJson: conflictsJson[index]
             )
         }
     }
@@ -1608,7 +1665,8 @@ final class AuthViewModel: ObservableObject {
         leaveByStatus: String,
         leaveByReason: String,
         coveragesJson: String,
-        uncoveredKidIdsJoined: String
+        uncoveredKidIdsJoined: String,
+        conflictsJson: String
     ) -> FamilyCalendarItem {
         FamilyCalendarItem(
             id: id,
@@ -1626,7 +1684,8 @@ final class AuthViewModel: ObservableObject {
             leaveByStatus: leaveByStatus,
             leaveByReason: leaveByReason.isEmpty ? nil : leaveByReason,
             coverages: parseCoveragesJson(coveragesJson),
-            uncoveredKidIds: splitJoinedIds(uncoveredKidIdsJoined)
+            uncoveredKidIds: splitJoinedIds(uncoveredKidIdsJoined),
+            conflicts: parseConflictsJson(conflictsJson)
         )
     }
 
@@ -1644,6 +1703,12 @@ final class AuthViewModel: ObservableObject {
         return (try? JSONDecoder().decode([FamilyCoverageAssignment].self, from: data)) ?? []
     }
 
+    private static func parseConflictsJson(_ json: String) -> [FamilyCalendarConflict] {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([FamilyCalendarConflict].self, from: data)) ?? []
+    }
+
     private static func splitJoinedIds(_ joined: String) -> [String] {
         joined
             .split(separator: ",", omittingEmptySubsequences: true)
@@ -1658,6 +1723,7 @@ final class AuthViewModel: ObservableObject {
             }
         }
     }
+
 
     private var eventError: (String) -> Void {
         { [weak self] message in

@@ -47,6 +47,10 @@ import {
   formatLeaveByEstimateLine,
   leaveByUnavailableLabel,
 } from "@/components/leaveByDisplay"
+import {
+  conflictDisplayLines,
+  coverageDoubleBookMessage,
+} from "@/components/conflictDisplay"
 
 type ShellDestination = "calendar" | "carpool" | "family" | "places" | "feeds"
 
@@ -216,6 +220,10 @@ export function FamilyScreen({
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
     Record<string, { adultId: string; kidIds?: string[] }>
+  >({})
+  /** Confirm/Assign failures — keyed by agenda item so the alert sits on the control. */
+  const [coverageActionErrors, setCoverageActionErrors] = useState<
+    Record<string, string>
   >({})
 
   useEffect(() => {
@@ -894,11 +902,28 @@ export function FamilyScreen({
     }
   }
 
+  function clearCoverageActionError(itemKey: string) {
+    setCoverageActionErrors((current) => {
+      if (!(itemKey in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[itemKey]
+      return next
+    })
+  }
+
+  function setCoverageActionError(itemKey: string, message: string) {
+    setCoverageActionErrors((current) => ({ ...current, [itemKey]: message }))
+  }
+
   async function onAssignCoverage(
     item: CalendarItem,
     coveringAdultId: string,
     kidIds: string[],
   ) {
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -911,19 +936,24 @@ export function FamilyScreen({
       replaceCalendarItem(updated)
       setAssignCoverageDrafts((current) => {
         const next = { ...current }
-        delete next[calendarItemKey(item)]
+        delete next[itemKey]
         return next
       })
       setStatus({ kind: "idle" })
     } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
+      setStatus({ kind: "idle" })
+      setCoverageActionError(
+        itemKey,
+        error instanceof Error
+          ? coverageDoubleBookMessage(error.message)
+          : "Something went wrong",
+      )
     }
   }
 
-  async function onConfirmCoverage(assignmentId: string) {
+  async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
@@ -931,10 +961,13 @@ export function FamilyScreen({
       replaceCalendarItem(updated)
       setStatus({ kind: "idle" })
     } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
+      setStatus({ kind: "idle" })
+      setCoverageActionError(
+        itemKey,
+        error instanceof Error
+          ? coverageDoubleBookMessage(error.message)
+          : "Something went wrong",
+      )
     }
   }
 
@@ -1745,13 +1778,15 @@ export function FamilyScreen({
                   { kidIds: item.uncoveredKidIds },
                   circle.kids,
                 )
+                const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
+                const coverageActionError = coverageActionErrors[itemKey]
                 return (
                   <li
                     key={`${item.source}-${item.id}`}
                     data-testid={`agenda-item-${item.source}-${item.id}`}
                     className="flex flex-col gap-3 border-b border-[var(--fc-border)] pb-[var(--fc-space-xl)] last:border-b-0 last:pb-0"
                   >
-                    {/* Primary — title / when / location */}
+                    {/* Primary — title / when / location (+ conflict status) */}
                     <div
                       data-testid="agenda-band-primary"
                       className="flex flex-col gap-1"
@@ -1766,6 +1801,22 @@ export function FamilyScreen({
                         <span className="text-xs text-muted-foreground">
                           {item.location}
                         </span>
+                      ) : null}
+                      {conflictLines.length > 0 ? (
+                        <ul
+                          data-testid={`agenda-conflicts-${item.source}-${item.id}`}
+                          className="mt-1 flex flex-col gap-0.5"
+                          aria-label="Schedule conflicts"
+                        >
+                          {conflictLines.map((line) => (
+                            <li
+                              key={line}
+                              className="text-xs font-medium text-[#B45309]"
+                            >
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
                     </div>
 
@@ -1899,7 +1950,9 @@ export function FamilyScreen({
                             type="button"
                             size="sm"
                             data-testid="agenda-cta-primary"
-                            onClick={() => void onConfirmCoverage(pendingForSelf.id)}
+                            onClick={() =>
+                              void onConfirmCoverage(item, pendingForSelf.id)
+                            }
                             disabled={status.kind === "loading"}
                           >
                             Confirm coverage
@@ -1996,6 +2049,15 @@ export function FamilyScreen({
                             Assign coverage
                           </Button>
                         </div>
+                      ) : null}
+                      {coverageActionError ? (
+                        <p
+                          role="alert"
+                          data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
+                          className="text-sm text-destructive"
+                        >
+                          {coverageActionError}
+                        </p>
                       ) : null}
                       {isManual ? (
                         <div className="flex flex-col gap-2 sm:flex-row">

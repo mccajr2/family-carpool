@@ -31,6 +31,20 @@ class ManualEventCalendarApiImpl implements ManualEventCalendarApi {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ManualCalendarEventDto> listOverlapping(
+            UUID circleId, Instant windowStart, Instant windowEnd) {
+        if (windowStart == null || windowEnd == null) {
+            return List.of();
+        }
+        Instant queryEnd =
+                windowStart.isBefore(windowEnd) ? windowEnd : windowStart.plusNanos(1);
+        return events.findOverlapping(circleId, windowStart, queryEnd).stream()
+                .map(ManualEventCalendarApiImpl::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<ManualCalendarEventDto> findInCircle(UUID circleId, UUID itemId) {
         return events.findByIdAndCircleId(itemId, circleId).map(ManualEventCalendarApiImpl::toDto);
     }

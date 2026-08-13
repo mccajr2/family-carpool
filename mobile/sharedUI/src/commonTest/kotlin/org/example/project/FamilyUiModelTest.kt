@@ -1467,6 +1467,62 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun confirmCoverageMapsOverlappingDoubleConfirmed409() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"sam@example.com","displayName":"Sam"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"sam@example.com","displayName":"Sam","role":"CAREGIVER"}],"kids":[{"id":"k1","displayName":"Alex"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Practice","startsAt":"2030-08-15T17:00:00Z","kidIds":["k1"],"coverages":[{"id":"a1","coveringAdultId":"2","coveringAdultDisplayName":"Sam","assignedByAdultId":"1","kidIds":["k1"],"status":"PENDING"}],"uncoveredKidIds":[],"conflicts":[]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/coverages/a1/confirm" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"message":"Adult is already confirmed on an overlapping calendar item"}""",
+                                status = HttpStatusCode.Conflict,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            model.confirmCoverage("a1")
+            val updated = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(
+                "Already confirmed on an overlapping event — decline or reassign first.",
+                updated.coverageActionErrors["MANUAL-e1"],
+            )
+            assertEquals(null, updated.error)
+            assertEquals(
+                CoverageStatus.PENDING,
+                updated.calendarItems.single().coverages.single().status,
+            )
+        }
+
+    @Test
     fun setDefaultLeaveFromUpdatesCircle() =
         runTest {
             val mockEngine =

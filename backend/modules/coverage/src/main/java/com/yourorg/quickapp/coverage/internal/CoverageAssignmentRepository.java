@@ -29,4 +29,7 @@ interface CoverageAssignmentRepository extends JpaRepository<CoverageAssignmentE
             CoverageItemSource itemSource,
             UUID itemId,
             Collection<CoverageStatus> statuses);
+
+    List<CoverageAssignmentEntity> findByCircleIdAndCoveringAdultIdAndStatus(
+            UUID circleId, UUID coveringAdultId, CoverageStatus status);
 }

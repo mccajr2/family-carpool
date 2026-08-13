@@ -21,4 +21,5 @@ public record CalendarItemResponse(
         LeaveByStatus leaveByStatus,
         String leaveByReason,
         List<CalendarCoverageAssignmentResponse> coverages,
-        List<UUID> uncoveredKidIds) {}
+        List<UUID> uncoveredKidIds,
+        List<CalendarConflictResponse> conflicts) {}

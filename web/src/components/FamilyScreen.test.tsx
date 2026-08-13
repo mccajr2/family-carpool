@@ -33,6 +33,7 @@ function calendarItem(
     leaveByReason: "NO_ORIGIN",
     coverages: [],
     uncoveredKidIds: [],
+    conflicts: [],
     ...partial,
   }
 }
@@ -2221,6 +2222,153 @@ describe("FamilyScreen", () => {
     expect(
       within(agenda).queryByRole("button", { name: "Confirm coverage" }),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows amber conflict lines from server conflicts on Agenda items", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              endsAt: "2030-08-15T18:00:00.000Z",
+              kidIds: ["k1"],
+              conflicts: [
+                {
+                  type: "KID_TIME_OVERLAP",
+                  kidId: "k1",
+                  adultId: null,
+                  adultDisplayName: null,
+                  otherSource: "MANUAL",
+                  otherItemId: "e2",
+                  otherTitle: "Game",
+                  otherStartsAt: "2030-08-15T17:30:00.000Z",
+                },
+              ],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const conflicts = within(agenda).getByTestId("agenda-conflicts-MANUAL-e1")
+    expect(within(conflicts).getByText("Sam overlaps Game")).toBeInTheDocument()
+  })
+
+  it("surfaces friendly copy when confirm hits overlapping double-CONFIRMED 409", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "2",
+          coveringAdultDisplayName: "Jordan",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    const confirmCalendarCoverage = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("Adult is already confirmed on an overlapping calendar item"),
+      )
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "CAREGIVER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          confirmCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await user.click(within(agenda).getByRole("button", { name: "Confirm coverage" }))
+
+    await waitFor(() => {
+      expect(
+        within(agenda).getByTestId("agenda-coverage-error-MANUAL-e1"),
+      ).toHaveTextContent(
+        "Already confirmed on an overlapping event — decline or reassign first.",
+      )
+    })
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    expect(
+      within(item).getByText(
+        "Already confirmed on an overlapping event — decline or reassign first.",
+      ),
+    ).toBeInTheDocument()
+    expect(within(agenda).getByText(/Jordan · Sam · Pending/)).toBeInTheDocument()
   })
 
   it("groups Agenda item bands and emphasizes Confirm as the primary CTA", async () => {

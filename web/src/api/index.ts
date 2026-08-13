@@ -5,6 +5,8 @@ export type {
   Adult,
   AssignCalendarCoverageRequest,
   AuthSessionResponse,
+  CalendarConflict,
+  CalendarConflictType,
   CalendarCoverageAssignment,
   CalendarItem,
   CoverageStatus,

@@ -86,6 +86,19 @@ export type CalendarCoverageAssignment = {
   status: CoverageStatus
 }
 
+export type CalendarConflictType = "KID_TIME_OVERLAP" | "ADULT_COVERAGE_OVERLAP"
+
+export type CalendarConflict = {
+  type: CalendarConflictType
+  kidId: string | null
+  adultId: string | null
+  adultDisplayName: string | null
+  otherSource: CalendarItemSource
+  otherItemId: string
+  otherTitle: string
+  otherStartsAt: string
+}
+
 export type AssignCalendarCoverageRequest = {
   coveringAdultId: string
   kidIds: string[]
@@ -108,6 +121,7 @@ export type CalendarItem = {
   leaveByReason: string | null
   coverages: CalendarCoverageAssignment[]
   uncoveredKidIds: string[]
+  conflicts: CalendarConflict[]
 }
 
 export type SetCalendarLeaveFromRequest = {

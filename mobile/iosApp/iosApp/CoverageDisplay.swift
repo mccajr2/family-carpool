@@ -9,6 +9,17 @@ struct FamilyCoverageAssignment: Identifiable, Equatable, Codable {
     var status: String
 }
 
+struct FamilyCalendarConflict: Equatable, Codable {
+    let type: String
+    var kidId: String?
+    var adultId: String?
+    var adultDisplayName: String?
+    let otherSource: String
+    let otherItemId: String
+    let otherTitle: String
+    let otherStartsAt: String
+}
+
 /// Agenda coverage copy / filter helpers (mirrors sharedUI CoverageDisplay.kt).
 enum CoverageDisplay {
     static func coverageStatusLabel(_ status: String) -> String {

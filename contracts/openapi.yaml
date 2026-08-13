@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.11.0
+  version: 0.12.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -11,11 +11,14 @@ info:
     a unified circle calendar read (feed + manual items in a time window) with
     per-adult leave-from, per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic), coverage responsibility assignments
-    (assign / reassign / remove; assignee confirm or decline), and memberships
-    (ORGANIZER / CAREGIVER). Organizers share a short invite code; Caregivers
-    join via that code. Any member may manage named places (label + free-text
-    address; optional lat/lng from geocoding with soft-fail and retry locate),
-    manual events, read the calendar agenda, set their own leave-from place per
+    (assign / reassign / remove; assignee confirm or decline), server-computed
+    schedule conflicts on calendar items (kid time-overlaps and adult coverage
+    overlaps; confirm/self-assign that would create two overlapping CONFIRMED
+    coverages for one adult returns 409), and memberships (ORGANIZER /
+    CAREGIVER). Organizers share a short invite code; Caregivers join via that
+    code. Any member may manage named places (label + free-text address;
+    optional lat/lng from geocoding with soft-fail and retry locate), manual
+    events, read the calendar agenda, set their own leave-from place per
     calendar item, set their default leave-from for the circle, and manage
     coverage assignments on calendar items. Feed last-synced / error / event
     count may update from Sync now or from the server poller — clients re-GET
@@ -33,14 +36,14 @@ tags:
     description: >
       Family circle, kids, named places, activity feeds, manual events, unified
       calendar read (with per-adult leave-by estimates, coverage assignments,
-      and uncovered kid ids), per-adult default leave-from, invite code, and
-      memberships (one circle per adult in v1). Organizer-only writes for invite
-      regen, roles, remove, kids, circle rename, and activity feed
-      create/update/delete/sync. Any member may create/update/delete places and
-      manual events, retry place geocoding, list the circle calendar, set their
-      leave-from place per calendar item, set their default leave-from for the
-      circle, and assign / reassign / remove coverage on calendar items
-      (assignee confirm or decline).
+      uncovered kid ids, and server-computed conflicts), per-adult default
+      leave-from, invite code, and memberships (one circle per adult in v1).
+      Organizer-only writes for invite regen, roles, remove, kids, circle rename,
+      and activity feed create/update/delete/sync. Any member may create/update/
+      delete places and manual events, retry place geocoding, list the circle
+      calendar, set their leave-from place per calendar item, set their default
+      leave-from for the circle, and assign / reassign / remove coverage on
+      calendar items (assignee confirm or decline).
 
 paths:
   /api/auth/request-code:
@@ -1269,11 +1272,13 @@ paths:
         located leave-from; fallback duration when both coords exist but OSRM
         is unreachable). Leave-by is always an estimate — never live traffic.
         Each item also includes coverage assignments for the circle (all
-        members' assignments on that item) and uncoveredKidIds (kids on the
-        item not covered by any active PENDING or CONFIRMED assignment).
-        Empty array when none match. from must be strictly before to (400
-        otherwise). Adults without a circle receive 404. Does not mutate
-        feed snapshots or manual events.
+        members' assignments on that item), uncoveredKidIds (kids on the item
+        not covered by any active PENDING or CONFIRMED assignment), and
+        conflicts (server-computed kid time-overlaps and adult coverage
+        overlaps using event startsAt/endsAt only; peers may lie outside the
+        requested window). Empty array when none match. from must be strictly
+        before to (400 otherwise). Adults without a circle receive 404. Does
+        not mutate feed snapshots or manual events.
       security:
         - bearerAuth: []
       parameters:
@@ -1327,6 +1332,7 @@ paths:
                         - 01900000-0000-7000-8000-000000000021
                       status: CONFIRMED
                   uncoveredKidIds: []
+                  conflicts: []
                 - id: 01900000-0000-7000-8000-000000000061
                   source: FEED
                   title: Practice
@@ -1345,6 +1351,15 @@ paths:
                   coverages: []
                   uncoveredKidIds:
                     - 01900000-0000-7000-8000-000000000021
+                  conflicts:
+                    - type: KID_TIME_OVERLAP
+                      kidId: 01900000-0000-7000-8000-000000000021
+                      adultId: null
+                      adultDisplayName: null
+                      otherSource: MANUAL
+                      otherItemId: 01900000-0000-7000-8000-000000000051
+                      otherTitle: Dentist
+                      otherStartsAt: "2026-08-15T16:00:00Z"
         "400":
           description: Missing from/to, or from is not strictly before to
           content:
@@ -1457,7 +1472,9 @@ paths:
         assigning another adult creates a PENDING assignment they must confirm or
         decline. Empty kidIds, kids not on the item, or kid already covered by
         another active (PENDING or CONFIRMED) assignment returns 400 or 409.
-        Unknown item id for the given source returns 404.
+        Self-assign (auto-CONFIRMED) that would leave the adult with two
+        CONFIRMED coverages on overlapping events also returns 409. Unknown item
+        id for the given source returns 404.
       security:
         - bearerAuth: []
       requestBody:
@@ -1496,7 +1513,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Kid already covered by another active assignment
+          description: >
+            Kid already covered by another active assignment, or self-assign
+            would create overlapping CONFIRMED coverages for the adult
           content:
             application/json:
               schema:
@@ -1517,7 +1536,9 @@ paths:
       description: >
         Any circle member. Updates the covering adult and/or kid list on an
         existing assignment. Same validation as assign (empty kidIds, kid not on
-        item, kid conflict). Unknown assignment id returns 404.
+        item, kid conflict). Reassign that auto-CONFIRMs (self) and would create
+        overlapping CONFIRMED coverages for that adult returns 409. Unknown
+        assignment id returns 404.
       security:
         - bearerAuth: []
       requestBody:
@@ -1552,7 +1573,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Kid already covered by another active assignment
+          description: >
+            Kid already covered by another active assignment, or reassign that
+            auto-CONFIRMs would create overlapping CONFIRMED coverages for the
+            adult
           content:
             application/json:
               schema:
@@ -1602,7 +1626,9 @@ paths:
       description: >
         The covering adult named on the assignment only. Sets status to
         CONFIRMED. Non-assignee receives 403. Assignment must be PENDING;
-        already confirmed or declined may return 409.
+        already confirmed or declined may return 409. Confirm that would leave
+        the adult with two CONFIRMED coverages on overlapping events returns
+        409 (assignments unchanged).
       security:
         - bearerAuth: []
       responses:
@@ -1631,7 +1657,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Assignment is not in PENDING state
+          description: >
+            Assignment is not in PENDING state, or confirm would create
+            overlapping CONFIRMED coverages for the adult
           content:
             application/json:
               schema:
@@ -2417,6 +2445,63 @@ components:
         - MANUAL
         - FEED
 
+    CalendarConflictType:
+      type: string
+      description: >
+        Server-computed schedule conflict on a calendar item. KID_TIME_OVERLAP:
+        the same kid appears on two overlapping events (amber only; creation is
+        allowed). ADULT_COVERAGE_OVERLAP: the same adult has active
+        (PENDING/CONFIRMED) coverage on two overlapping events with at least one
+        PENDING (or anomalous CONFIRMED+CONFIRMED). Overlap uses event
+        startsAt/endsAt only (null endsAt → zero-length at startsAt).
+      enum:
+        - KID_TIME_OVERLAP
+        - ADULT_COVERAGE_OVERLAP
+
+    CalendarConflict:
+      type: object
+      required:
+        - type
+        - otherSource
+        - otherItemId
+        - otherTitle
+        - otherStartsAt
+      properties:
+        type:
+          $ref: "#/components/schemas/CalendarConflictType"
+        kidId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present when type is KID_TIME_OVERLAP; null otherwise
+        adultId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present when type is ADULT_COVERAGE_OVERLAP; null otherwise
+        adultDisplayName:
+          type: string
+          nullable: true
+          description: >
+            Display name for adultId when type is ADULT_COVERAGE_OVERLAP; null
+            otherwise
+          example: Jordan
+        otherSource:
+          $ref: "#/components/schemas/CalendarItemSource"
+        otherItemId:
+          type: string
+          format: uuid
+          description: Conflicting peer calendar item id
+        otherTitle:
+          type: string
+          description: Title/summary of the conflicting peer item
+          example: Game
+        otherStartsAt:
+          type: string
+          format: date-time
+          description: startsAt of the conflicting peer item (UTC)
+          example: "2026-08-15T17:30:00Z"
+
     LeaveByStatus:
       type: string
       description: >
@@ -2529,6 +2614,7 @@ components:
         - leaveByStatus
         - coverages
         - uncoveredKidIds
+        - conflicts
       properties:
         id:
           type: string
@@ -2616,6 +2702,16 @@ components:
           items:
             type: string
             format: uuid
+        conflicts:
+          type: array
+          description: >
+            Server-computed conflicts for this item (kid time-overlaps and adult
+            coverage overlaps). Empty when none. Clients should render amber
+            chrome from this list; do not re-derive overlap rules for truth.
+            Travel / leave-by “cutting it close” is out of scope for this
+            revision.
+          items:
+            $ref: "#/components/schemas/CalendarConflict"
 
     CreateManualEventRequest:
       type: object
