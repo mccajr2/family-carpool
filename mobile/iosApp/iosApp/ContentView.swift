@@ -75,7 +75,7 @@ struct ContentView: View {
         switch model.familyPhase {
         case .ready:
             readyShell
-        case .loading, .choose, .create, .join:
+        case .loading, .loadFailed, .choose, .create, .join:
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     membershipContent
@@ -93,6 +93,19 @@ struct ContentView: View {
             Text("Your family")
                 .font(.title2.bold())
             ProgressView()
+        case .loadFailed:
+            Text("Your family")
+                .font(.title2.bold())
+            Text("Could not load your family.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.footnote)
+            }
+            Button("Retry") { model.loadFamily() }
+                .disabled(model.isLoading)
+            Button("Sign out") { model.signOut() }
+                .disabled(model.isLoading)
         case .choose:
             Text("Your family")
                 .font(.title2.bold())

@@ -50,36 +50,64 @@ android {
 
 /**
  * Host-side port forward so the app's `http://127.0.0.1:8080` reaches the
- * machine's backend. Reverse dies when the emulator/USB session resets or when
- * adb restarts — re-running install/run restores it. No-ops when adb or a
- * device is missing (CI / offline builds).
+ * machine's backend. Needed because modern emulator Wi‑Fi makes `10.0.2.2`
+ * unreliable for app sockets. Reverse dies when the emulator/USB session
+ * resets or when adb restarts — re-running install/run restores it. No-ops
+ * when adb or a device is missing (CI / offline builds).
  */
 val adbReverse =
     tasks.register("adbReverse") {
         group = "install"
         description = "adb reverse tcp:8080 tcp:8080 for local backend dogfood"
-        // Host ProcessBuilder + env lookup are not config-cache friendly.
         notCompatibleWithConfigurationCache("runs host adb")
+        val localPropertiesPath = rootProject.file("local.properties").absolutePath
         doLast {
-            val adb =
-                sequenceOf(
-                    System.getenv("ANDROID_HOME"),
-                    System.getenv("ANDROID_SDK_ROOT"),
-                ).filterNotNull()
-                    .map { "$it/platform-tools/adb" }
-                    .firstOrNull { File(it).canExecute() || File(it).exists() }
-                    ?: "adb"
+            fun sdkAdb(sdkRoot: String?): String? =
+                sdkRoot
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { "$it/platform-tools/adb" }
+                    ?.takeIf { path -> File(path).canExecute() || File(path).exists() }
 
-            fun runAdb(vararg args: String): Pair<Int, String> {
-                val proc =
-                    ProcessBuilder(listOf(adb) + args.toList())
-                        .redirectErrorStream(true)
-                        .start()
-                val out = proc.inputStream.bufferedReader().readText().trim()
-                return proc.waitFor() to out
+            fun localPropertiesSdkDir(): String? {
+                val propsFile = File(localPropertiesPath)
+                if (!propsFile.isFile) return null
+                return propsFile
+                    .readLines()
+                    .map { it.trim() }
+                    .firstOrNull { it.startsWith("sdk.dir=") }
+                    ?.substringAfter("sdk.dir=")
+                    ?.trim()
+                    ?.removeSurrounding("\"")
+                    ?.removeSurrounding("'")
+                    ?.replace("\\:", ":")
             }
 
-            val (devicesCode, devicesOut) = runAdb("devices")
+            val home = System.getProperty("user.home")
+            val adb =
+                sequenceOf(
+                    sdkAdb(System.getenv("ANDROID_HOME")),
+                    sdkAdb(System.getenv("ANDROID_SDK_ROOT")),
+                    sdkAdb(localPropertiesSdkDir()),
+                    sdkAdb("$home/Library/Android/sdk"),
+                    sdkAdb("$home/Android/Sdk"),
+                ).filterNotNull().firstOrNull() ?: "adb"
+
+            fun runAdb(vararg args: String): Pair<Int, String>? {
+                return try {
+                    val proc =
+                        ProcessBuilder(listOf(adb) + args.toList())
+                            .redirectErrorStream(true)
+                            .start()
+                    val out = proc.inputStream.bufferedReader().readText().trim()
+                    proc.waitFor() to out
+                } catch (e: java.io.IOException) {
+                    logger.lifecycle("adbReverse: skipped (adb not found at '$adb': ${e.message})")
+                    null
+                }
+            }
+
+            val devices = runAdb("devices") ?: return@doLast
+            val (devicesCode, devicesOut) = devices
             if (devicesCode != 0) {
                 logger.lifecycle("adbReverse: skipped (adb not usable: $devicesOut)")
                 return@doLast
@@ -96,9 +124,10 @@ val adbReverse =
                 logger.lifecycle("adbReverse: skipped (no device/emulator)")
                 return@doLast
             }
-            val (code, out) = runAdb("reverse", "tcp:8080", "tcp:8080")
+            val reverse = runAdb("reverse", "tcp:8080", "tcp:8080") ?: return@doLast
+            val (code, out) = reverse
             if (code == 0) {
-                logger.lifecycle("adbReverse: tcp:8080 -> host:8080")
+                logger.lifecycle("adbReverse: tcp:8080 -> host:8080 (via $adb)")
             } else {
                 logger.warn("adbReverse: failed ($code): $out")
             }

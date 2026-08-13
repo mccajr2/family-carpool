@@ -205,6 +205,9 @@ final class AuthViewModel: ObservableObject {
 
     enum FamilyPhase {
         case loading
+        /// Circle load failed — whether a circle exists is unknown. Distinct from
+        /// [choose] so we do not offer Create family after a transport/server error.
+        case loadFailed
         case choose
         case create
         case join
@@ -385,18 +388,15 @@ final class AuthViewModel: ObservableObject {
         bridge.logout(
             onSuccess: { [weak self] in
                 Task { @MainActor in
-                    guard let self else { return }
-                    self.isLoading = false
-                    self.phase = .signedOut
-                    self.resetFamilyFields()
-                    self.code = ""
-                    self.devHint = nil
+                    self?.finishSignedOut()
                 }
             },
             onError: { [weak self] message in
                 Task { @MainActor in
-                    self?.isLoading = false
-                    self?.errorMessage = message
+                    // Token is cleared in AuthSession.logout even when the server call fails.
+                    // Staying signed-in would leave a signed-in screen with no token.
+                    guard let self else { return }
+                    self.finishSignedOut(error: message)
                 }
             }
         )
@@ -440,7 +440,7 @@ final class AuthViewModel: ObservableObject {
             },
             onError: { [weak self] message in
                 Task { @MainActor in
-                    self?.familyPhase = .choose
+                    self?.familyPhase = .loadFailed
                     self?.errorMessage = message
                 }
             }
@@ -1724,6 +1724,15 @@ final class AuthViewModel: ObservableObject {
         shell.resetToCalendar()
         loadFeeds()
         loadCalendar()
+    }
+
+    private func finishSignedOut(error: String? = nil) {
+        isLoading = false
+        phase = .signedOut
+        resetFamilyFields()
+        code = ""
+        devHint = nil
+        errorMessage = error
     }
 
     private func resetFamilyFields() {

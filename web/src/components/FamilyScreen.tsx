@@ -215,7 +215,7 @@ export function FamilyScreen({
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
-    Record<string, { adultId: string; kidIds: string[] }>
+    Record<string, { adultId: string; kidIds?: string[] }>
   >({})
 
   useEffect(() => {
@@ -849,7 +849,9 @@ export function FamilyScreen({
     patch: Partial<{ adultId: string; kidIds: string[] }>,
   ) {
     setAssignCoverageDrafts((current) => {
-      const existing = current[itemKey] ?? { adultId: "", kidIds: [] as string[] }
+      // Adult-only patches must not invent kidIds: [] — coverageAssignState falls back to
+      // uncovered kids only when kidIds is absent (pre-select all uncovered by default).
+      const existing = current[itemKey] ?? { adultId: "" }
       return { ...current, [itemKey]: { ...existing, ...patch } }
     })
   }

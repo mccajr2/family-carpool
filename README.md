@@ -2,13 +2,15 @@
 
 Family scheduling and carpool app — built from the quickapp SDD starter.
 
-| Layer | Stack |
-|-------|--------|
-| Backend | Java 25, Spring Boot 4.1, Spring Modulith (`auth` + `family`) |
-| Mobile | Kotlin Multiplatform — shared logic, Android (Compose) + iOS (SwiftUI) |
-| Web | Vite + React + TypeScript + Tailwind (shadcn-style UI) |
-| Contract | OpenAPI (`contracts/openapi.yaml`) |
-| Workflow | `/roadmap` → `/spec` → `/implement` → `/pr` → merge |
+
+| Layer    | Stack                                                                  |
+| -------- | ---------------------------------------------------------------------- |
+| Backend  | Java 25, Spring Boot 4.1, Spring Modulith (`auth` + `family`)          |
+| Mobile   | Kotlin Multiplatform — shared logic, Android (Compose) + iOS (SwiftUI) |
+| Web      | Vite + React + TypeScript + Tailwind (shadcn-style UI)                 |
+| Contract | OpenAPI (`contracts/openapi.yaml`)                                     |
+| Workflow | `/roadmap` → `/spec` → `/implement` → `/pr` → merge                    |
+
 
 Product path so far: **email OTP + Bearer auth**, then **family circle + kids**
 (one circle per adult; Organizer on create). Greeting harness removed.
@@ -73,18 +75,15 @@ Open the app → email OTP → **Create family** or **Have an invite code?** →
 members / invite code (Organizer) → add/rename/remove kids (Organizer) →
 Leave family or Sign out. Unnamed circles show as **Your family**.
 
-**Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator
-or USB device. With the backend on the host, `./gradlew :androidApp:installDebug`
-(and Android Studio's install) runs `adb reverse tcp:8080 tcp:8080` automatically.
-You can also run it alone:
+**Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator.
+The app calls `http://127.0.0.1:8080`; `./gradlew :androidApp:installDebug` (and
+Studio install) runs `adb reverse tcp:8080 tcp:8080` so that reaches your Mac.
+Re-run install/`adbReverse` after an emulator restart (modern AVDs use Wi‑Fi,
+so the old `10.0.2.2` host alias is unreliable for app traffic).
 
 ```bash
 cd mobile && ./gradlew :androidApp:adbReverse
-# or: adb reverse tcp:8080 tcp:8080
 ```
-
-The app calls `http://127.0.0.1:8080` (same as iOS localhost after reverse).
-Re-run install/`adbReverse` after an emulator restart or a host `adb kill-server`.
 
 **iOS:** open `mobile/iosApp/iosApp.xcodeproj` in Xcode → run on a simulator.
 
@@ -93,14 +92,18 @@ responses). Real SMTP is Upcoming `auth-email-delivery`.
 
 ## Docs
 
-| Doc | Purpose |
-|-----|---------|
-| [AGENTS.md](AGENTS.md) | Constitution for humans and coding agents |
-| [docs/roadmap.md](docs/roadmap.md) | Product backlog — carve-up, re-rank, Next up |
-| [docs/architecture.md](docs/architecture.md) | SDD workflow, auth/family decisions, how to add features |
-| [docs/specs/](docs/specs/) | Planned stubs, active, and archived feature specs |
-| [contracts/openapi.yaml](contracts/openapi.yaml) | API source of truth |
+
+| Doc                                                    | Purpose                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------ |
+| [AGENTS.md](AGENTS.md)                                 | Constitution for humans and coding agents                    |
+| [docs/roadmap.md](docs/roadmap.md)                     | Product backlog — carve-up, re-rank, Next up                 |
+| [docs/architecture.md](docs/architecture.md)           | SDD workflow, auth/family decisions, how to add features     |
+| [docs/specs/](docs/specs/)                             | Planned stubs, active, and archived feature specs            |
+| [contracts/openapi.yaml](contracts/openapi.yaml)       | API source of truth                                          |
 | [docs/using-as-template.md](docs/using-as-template.md) | Upstream template notes (this repo already deleted greeting) |
+
+
+
 
 ## Tests
 
@@ -116,6 +119,8 @@ cd mobile
 cd web
 npm test
 ```
+
+
 
 ## Status
 

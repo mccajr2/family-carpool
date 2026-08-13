@@ -166,6 +166,35 @@ class AuthSessionTest {
         }
 
     @Test
+    fun logoutClearsTokenEvenWhenServerCallFails() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/api/auth/logout" -> throw RuntimeException("Failed to connect")
+                        else -> error("Unexpected ${request.url.encodedPath}")
+                    }
+                }
+            val httpClient =
+                HttpClient(mockEngine) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val store = InMemorySecureTokenStore().also { it.saveAccessToken("tok") }
+            val session =
+                AuthSession(
+                    client = AuthClient("http://localhost:8080", httpClient),
+                    tokenStore = store,
+                )
+
+            val error = assertFailsWith<Throwable> { session.logout() }
+            assertTrue(error.message?.contains("Failed to connect") == true)
+            assertNull(store.loadAccessToken())
+            assertFalse(session.isSignedIn())
+        }
+
+    @Test
     fun clearLocalSessionDropsTokenWithoutCallingServer() {
         val mockEngine = MockEngine { error("clearLocalSession must not call the server") }
         val httpClient = HttpClient(mockEngine)

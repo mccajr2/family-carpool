@@ -250,6 +250,19 @@ struct CoverageDisplayTestMain {
         )
         expect(content.contains("soleAdult"), "sole adult hides covering-adult picker")
         expect(content.contains("soleKid"), "sole kid hides uncovered-kid checkboxes")
+        expect(content.contains("case .loadFailed:"), "membership load failure has loadFailed phase")
+        expect(
+            content.contains("Button(\"Retry\") { model.loadFamily() }"),
+            "loadFailed offers Retry that reloads family"
+        )
+        expect(
+            auth.contains("familyPhase = .loadFailed"),
+            "loadFamily onError sets loadFailed, not choose"
+        )
+        expect(
+            auth.contains("finishSignedOut(error: message)"),
+            "signOut onError still transitions to signedOut"
+        )
 
         print("CoverageDisplay tests passed")
     }
