@@ -578,4 +578,21 @@ describe("FamilyClient", () => {
     )
     expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "POST" })
   })
+
+  it("includes source and itemId when assign coverage fails", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: "Calendar item not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.assignCalendarCoverage("tok", "FEED", "stale-id", {
+        coveringAdultId: "2",
+        kidIds: ["k1"],
+      }),
+    ).rejects.toThrow("Calendar item not found (FEED/stale-id)")
+  })
 })

@@ -963,6 +963,7 @@ private struct AgendaCoverageSection: View {
 
     @State private var assignAdultId: String = ""
     @State private var assignKidIds: Set<String> = []
+    @State private var didInitAssignDraft = false
 
     private var memberTuples: [(adultId: String, displayName: String, email: String)] {
         members.map { ($0.adultId, $0.displayName, $0.email) }
@@ -987,6 +988,16 @@ private struct AgendaCoverageSection: View {
     private var effectiveKidIds: [String] {
         if soleKid { return item.uncoveredKidIds }
         return Array(assignKidIds)
+    }
+
+    private func syncAssignDraftFromItem() {
+        if assignAdultId.isEmpty {
+            assignAdultId = CoverageDisplay.defaultCoverageAdultId(
+                currentAdultId: currentAdultId,
+                memberAdultIds: members.map(\.adultId)
+            )
+        }
+        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
     }
 
     var body: some View {
@@ -1086,13 +1097,25 @@ private struct AgendaCoverageSection: View {
                     }
                 }
 
-                Button("Assign coverage") {
-                    onAssign(effectiveAdultId, effectiveKidIds)
-                    assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
-                }
                 // Assign is filled primary only when Confirm is absent.
-                .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
-                .modifier(AgendaPrimaryAssignStyle(isPrimary: pending == nil))
+                // Apply buttonStyle on the Button itself (not via if/else ViewModifier) —
+                // conditional ViewModifier styles can swallow taps on some OS versions.
+                if pending == nil {
+                    Button("Assign coverage") {
+                        onAssign(effectiveAdultId, effectiveKidIds)
+                        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier(AgendaBands.ctaPrimary)
+                    .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
+                } else {
+                    Button("Assign coverage") {
+                        onAssign(effectiveAdultId, effectiveKidIds)
+                        assignKidIds = CoverageDisplay.defaultCoverageKidIds(item.uncoveredKidIds)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoading || effectiveAdultId.isEmpty || effectiveKidIds.isEmpty)
+                }
             }
 
             if isManual {
@@ -1106,21 +1129,14 @@ private struct AgendaCoverageSection: View {
                 }
             }
         }
-    }
-}
-
-private struct AgendaPrimaryAssignStyle: ViewModifier {
-    let isPrimary: Bool
-
-    func body(content: Content) -> some View {
-        if isPrimary {
-            content
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier(AgendaBands.ctaPrimary)
-        } else {
-            content
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("agenda-cta-assign-secondary")
+        .onAppear {
+            if !didInitAssignDraft {
+                syncAssignDraftFromItem()
+                didInitAssignDraft = true
+            }
+        }
+        .onChange(of: item.uncoveredKidIds) { _, _ in
+            syncAssignDraftFromItem()
         }
     }
 }

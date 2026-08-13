@@ -102,7 +102,9 @@ enum CoverageDisplay {
         return memberAdultIds.first ?? ""
     }
 
+    /// Pre-select every uncovered kid so Assign is enabled immediately;
+    /// the chooser (when shown) still allows deselect.
     static func defaultCoverageKidIds(_ uncoveredKidIds: [String]) -> Set<String> {
-        uncoveredKidIds.count == 1 ? Set(uncoveredKidIds) : []
+        Set(uncoveredKidIds)
     }
 }

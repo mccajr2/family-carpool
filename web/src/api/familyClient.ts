@@ -447,7 +447,8 @@ export class FamilyClient {
       },
     )
     if (!response.ok) {
-      throw new Error(await readErrorMessage(response, "Assign coverage failed"))
+      const detail = await readErrorMessage(response, "Assign coverage failed")
+      throw new Error(`${detail} (${source}/${itemId})`)
     }
     return (await response.json()) as CalendarItem
   }

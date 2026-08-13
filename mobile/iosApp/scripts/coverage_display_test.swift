@@ -115,8 +115,8 @@ struct CoverageDisplayTestMain {
             "sole uncovered kid is auto-selected"
         )
         expect(
-            CoverageDisplay.defaultCoverageKidIds(["k1", "k2"]).isEmpty,
-            "multiple uncovered kids stay unselected"
+            CoverageDisplay.defaultCoverageKidIds(["k1", "k2"]) == Set(["k1", "k2"]),
+            "multiple uncovered kids are pre-selected for Assign"
         )
 
         let contentViewURL = URL(fileURLWithPath: #filePath)

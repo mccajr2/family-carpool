@@ -184,8 +184,9 @@ Toolkit chrome may differ; **layout and strings** must not.
 - **Sole circle adult** → no covering-adult picker; that adult is implicit.
 - Otherwise covering adult **defaults to the signed-in member** when they are
   in the circle (do not wipe that default when toggling kids).
-- Multiple uncovered kids → checkboxes; Assign disabled until ≥1 kid selected
-  (and a covering adult is set).
+- Multiple uncovered kids → checkboxes **pre-checked for all uncovered**;
+  Assign enabled when ≥1 kid remains selected (and a covering adult is set).
+  Adults can deselect kids before assigning.
 - Button label: **Assign coverage**.
 - Self-assign (covering adult === signed-in adult) → API returns `CONFIRMED`;
   UI must not imply a confirm step is still required for that assignment.
