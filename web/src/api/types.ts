@@ -88,6 +88,17 @@ export type CalendarLeaveBy = {
 
 export type CoverageStatus = "PENDING" | "CONFIRMED" | "DECLINED"
 
+export type RsvpStatus = "YES" | "NO" | "NO_RESPONSE"
+
+export type CalendarRsvp = {
+  kidId: string
+  status: RsvpStatus
+}
+
+export type SetCalendarRsvpRequest = {
+  status: RsvpStatus
+}
+
 export type CalendarCoverageAssignment = {
   id: string
   coveringAdultId: string
@@ -133,6 +144,7 @@ export type CalendarItem = {
   coverages: CalendarCoverageAssignment[]
   uncoveredKidIds: string[]
   conflicts: CalendarConflict[]
+  rsvps: CalendarRsvp[]
 }
 
 export type SetCalendarLeaveFromRequest = {

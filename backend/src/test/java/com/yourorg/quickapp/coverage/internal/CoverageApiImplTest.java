@@ -499,6 +499,100 @@ class CoverageApiImplTest {
         verify(assignments).delete(row);
     }
 
+    @Test
+    void releaseKidDropsKidAndKeepsOtherKidsOnRow() {
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA, kidB),
+                        Instant.now(),
+                        Instant.now());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.MANUAL), eq(itemId), any()))
+                .thenReturn(List.of(row));
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        api.releaseKidFromActiveRows(circleId, CoverageItemSource.MANUAL, itemId, kidA);
+
+        ArgumentCaptor<CoverageAssignmentEntity> saved =
+                ArgumentCaptor.forClass(CoverageAssignmentEntity.class);
+        verify(assignments).save(saved.capture());
+        assertThat(saved.getValue().kidIds()).containsExactly(kidB);
+        verify(assignments, never()).delete(any());
+    }
+
+    @Test
+    void releaseKidDeletesRowWhenLastKidRemoved() {
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.FEED,
+                        itemId,
+                        otherAdultId,
+                        actorId,
+                        CoverageStatus.PENDING,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.FEED), eq(itemId), any()))
+                .thenReturn(List.of(row));
+
+        api.releaseKidFromActiveRows(circleId, CoverageItemSource.FEED, itemId, kidA);
+
+        verify(assignments).delete(row);
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void releaseKidNoOpWhenKidNotOnActiveRow() {
+        CoverageAssignmentEntity otherKid =
+                new CoverageAssignmentEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidB),
+                        Instant.now(),
+                        Instant.now());
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.MANUAL), eq(itemId), any()))
+                .thenReturn(List.of(otherKid));
+
+        api.releaseKidFromActiveRows(circleId, CoverageItemSource.MANUAL, itemId, kidA);
+
+        verify(assignments, never()).save(any());
+        verify(assignments, never()).delete(any());
+    }
+
+    @Test
+    void releaseKidIgnoresDeclinedRows() {
+        when(assignments.findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId), eq(CoverageItemSource.MANUAL), eq(itemId), any()))
+                .thenReturn(List.of());
+
+        api.releaseKidFromActiveRows(circleId, CoverageItemSource.MANUAL, itemId, kidA);
+
+        verify(assignments)
+                .findByCircleIdAndItemSourceAndItemIdAndStatusIn(
+                        eq(circleId),
+                        eq(CoverageItemSource.MANUAL),
+                        eq(itemId),
+                        eq(Set.of(CoverageStatus.PENDING, CoverageStatus.CONFIRMED)));
+        verify(assignments, never()).save(any());
+        verify(assignments, never()).delete(any());
+    }
+
     private void stubManualItem(List<UUID> kidIds) {
         when(manualEventCalendarApi.findInCircle(circleId, itemId))
                 .thenReturn(

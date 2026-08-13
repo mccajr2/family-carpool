@@ -31,6 +31,10 @@ import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveByStatus;
+import com.yourorg.quickapp.rsvp.RsvpApi;
+import com.yourorg.quickapp.rsvp.RsvpDto;
+import com.yourorg.quickapp.rsvp.RsvpItemSource;
+import com.yourorg.quickapp.rsvp.RsvpStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +64,9 @@ class CalendarServiceTest {
 
     @Mock
     private CoverageApi coverageApi;
+
+    @Mock
+    private RsvpApi rsvpApi;
 
     @Mock
     private AdultSessionApi adultSessionApi;
@@ -108,6 +115,16 @@ class CalendarServiceTest {
                         });
         lenient().when(coverageApi.listForItems(any(), any(), any())).thenReturn(List.of());
         lenient().when(coverageApi.listForItem(any(), any(), any())).thenReturn(List.of());
+        lenient().when(rsvpApi.listForItems(any(), any(), any())).thenReturn(List.of());
+        lenient()
+                .when(rsvpApi.setStatus(any(), any(), any(), any(), any(), any()))
+                .thenAnswer(
+                        inv ->
+                                new RsvpDto(
+                                        inv.getArgument(1),
+                                        inv.getArgument(2),
+                                        inv.getArgument(3),
+                                        inv.getArgument(4)));
         lenient()
                 .when(feedCalendarApi.listEventsOverlapping(any(), any(), any()))
                 .thenReturn(List.of());
@@ -159,6 +176,13 @@ class CalendarServiceTest {
         assertThat(items.get(0).leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
         assertThat(items.get(0).uncoveredKidIds()).containsExactly(kidId);
         assertThat(items.get(0).coverages()).isEmpty();
+        assertThat(items.get(0).rsvps())
+                .singleElement()
+                .satisfies(
+                        rsvp -> {
+                            assertThat(rsvp.kidId()).isEqualTo(kidId);
+                            assertThat(rsvp.status()).isEqualTo(RsvpStatus.NO_RESPONSE);
+                        });
         assertThat(items.get(1).source()).isEqualTo(CalendarItemSource.FEED);
         assertThat(items.get(1).feedName()).isEqualTo("U12");
         assertThat(items.get(1).kidIds()).containsExactly(kidId);
@@ -365,6 +389,82 @@ class CalendarServiceTest {
                         itemId,
                         adult.id(),
                         List.of(kidId));
+        verify(rsvpApi)
+                .setStatus(
+                        circleId,
+                        RsvpItemSource.MANUAL,
+                        itemId,
+                        kidId,
+                        RsvpStatus.YES,
+                        adult.id());
+    }
+
+    @Test
+    void assignCoverageRejectsKidWithRsvpNo() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.MANUAL), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.NO)));
+
+        assertThatThrownBy(
+                        () ->
+                                calendarService.assignCoverage(
+                                        adult,
+                                        CalendarItemSource.MANUAL,
+                                        itemId,
+                                        new AssignCalendarCoverageRequest(
+                                                adult.id(), List.of(kidId))))
+                .isInstanceOf(CalendarException.class)
+                .extracting(ex -> ((CalendarException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(coverageApi, never()).assign(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void setRsvpNoReleasesCoverageThenSaves() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId,
+                                        "Practice",
+                                        startsAt,
+                                        null,
+                                        "Rink",
+                                        List.of(kidId))));
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.MANUAL), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.NO)));
+
+        CalendarItemResponse response =
+                calendarService.setRsvp(
+                        adult, CalendarItemSource.MANUAL, itemId, kidId, RsvpStatus.NO);
+
+        verify(coverageApi)
+                .releaseKidFromActiveRows(
+                        circleId, CoverageItemSource.MANUAL, itemId, kidId);
+        verify(rsvpApi)
+                .setStatus(
+                        circleId,
+                        RsvpItemSource.MANUAL,
+                        itemId,
+                        kidId,
+                        RsvpStatus.NO,
+                        adult.id());
+        assertThat(response.rsvps())
+                .singleElement()
+                .satisfies(rsvp -> assertThat(rsvp.status()).isEqualTo(RsvpStatus.NO));
+        assertThat(response.uncoveredKidIds()).isEmpty();
     }
 
     @Test
@@ -382,7 +482,42 @@ class CalendarServiceTest {
                         CoverageStatus.DECLINED,
                         Instant.now(),
                         Instant.now());
-        assertThat(CalendarService.uncoveredKidIds(List.of(kidA, kidB), List.of(declined)))
+        assertThat(CalendarService.uncoveredKidIds(List.of(kidA, kidB), List.of(declined), List.of()))
                 .containsExactly(kidA, kidB);
+    }
+
+    @Test
+    void uncoveredKidIdsExcludesRsvpNo() {
+        UUID kidYes = UUID.randomUUID();
+        UUID kidNo = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        assertThat(
+                        CalendarService.uncoveredKidIds(
+                                List.of(kidYes, kidNo),
+                                List.of(),
+                                List.of(
+                                        new RsvpDto(
+                                                RsvpItemSource.MANUAL,
+                                                itemId,
+                                                kidNo,
+                                                RsvpStatus.NO))))
+                .containsExactly(kidYes);
+    }
+
+    @Test
+    void inPlayKidIdsExcludesNo() {
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        assertThat(
+                        CalendarService.inPlayKidIds(
+                                List.of(kidA, kidB),
+                                List.of(
+                                        new RsvpDto(
+                                                RsvpItemSource.MANUAL,
+                                                itemId,
+                                                kidA,
+                                                RsvpStatus.NO))))
+                .containsExactly(kidB);
     }
 }

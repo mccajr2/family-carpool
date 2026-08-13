@@ -42,6 +42,7 @@ class CalendarCoverageDecodeTest {
         assertEquals(CoverageStatus.CONFIRMED, items[0].coverages.single().status)
         assertEquals(emptyList(), items[0].uncoveredKidIds)
         assertEquals(emptyList(), items[0].conflicts)
+        assertEquals(emptyList(), items[0].rsvps)
     }
 
     @Test
@@ -72,5 +73,31 @@ class CalendarCoverageDecodeTest {
         val item = json.decodeFromString<CalendarItem>(payload)
         assertEquals(CalendarConflictType.KID_TIME_OVERLAP, item.conflicts.single().type)
         assertEquals("Game", item.conflicts.single().otherTitle)
+    }
+
+    @Test
+    fun decodesRsvpsOnCalendarItem() {
+        val payload =
+            """
+            {
+              "id":"11111111-1111-1111-1111-111111111111",
+              "source":"MANUAL",
+              "title":"Practice",
+              "startsAt":"2030-08-15T17:00:00Z",
+              "kidIds":["22222222-2222-2222-2222-222222222222","66666666-6666-6666-6666-666666666666"],
+              "leaveByStatus":"UNAVAILABLE",
+              "coverages":[],
+              "uncoveredKidIds":["22222222-2222-2222-2222-222222222222"],
+              "conflicts":[],
+              "rsvps":[
+                {"kidId":"22222222-2222-2222-2222-222222222222","status":"YES"},
+                {"kidId":"66666666-6666-6666-6666-666666666666","status":"NO"}
+              ]
+            }
+            """.trimIndent()
+        val item = json.decodeFromString<CalendarItem>(payload)
+        assertEquals(2, item.rsvps.size)
+        assertEquals(RsvpStatus.YES, item.rsvps[0].status)
+        assertEquals(RsvpStatus.NO, item.rsvps[1].status)
     }
 }

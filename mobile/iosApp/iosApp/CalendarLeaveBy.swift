@@ -18,6 +18,7 @@ struct FamilyCalendarItem: Identifiable, Equatable {
     var coverages: [FamilyCoverageAssignment] = []
     var uncoveredKidIds: [String] = []
     var conflicts: [FamilyCalendarConflict] = []
+    var rsvps: [FamilyCalendarRsvp] = []
 
     var isManual: Bool { source == "MANUAL" }
 

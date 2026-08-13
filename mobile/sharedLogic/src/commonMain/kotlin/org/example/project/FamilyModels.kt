@@ -86,6 +86,24 @@ enum class CoverageStatus {
 }
 
 @Serializable
+enum class RsvpStatus {
+    YES,
+    NO,
+    NO_RESPONSE,
+}
+
+@Serializable
+data class CalendarRsvp(
+    val kidId: String,
+    val status: RsvpStatus,
+)
+
+@Serializable
+data class SetCalendarRsvpRequest(
+    val status: RsvpStatus,
+)
+
+@Serializable
 data class CalendarCoverageAssignment(
     val id: String,
     val coveringAdultId: String,
@@ -138,6 +156,7 @@ data class CalendarItem(
     val coverages: List<CalendarCoverageAssignment> = emptyList(),
     val uncoveredKidIds: List<String> = emptyList(),
     val conflicts: List<CalendarConflict> = emptyList(),
+    val rsvps: List<CalendarRsvp> = emptyList(),
 )
 
 /** Fill-in row from GET …/calendar/leave-by (never PENDING). */

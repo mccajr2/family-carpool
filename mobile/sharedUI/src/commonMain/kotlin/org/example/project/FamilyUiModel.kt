@@ -1137,6 +1137,38 @@ class FamilyUiModel(
         }
     }
 
+    suspend fun setCalendarRsvp(
+        item: CalendarItem,
+        kidId: String,
+        status: RsvpStatus,
+    ) {
+        if (rsvpStatusForKid(item, kidId) == status) return
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val updated =
+                familyClient.setCalendarRsvp(
+                    token,
+                    item.source,
+                    item.id,
+                    kidId,
+                    SetCalendarRsvpRequest(status = status),
+                )
+            _state =
+                current.copy(
+                    loading = false,
+                    calendarItems = applyPatchedCalendarItem(current, updated),
+                )
+        } catch (e: Throwable) {
+            _state =
+                current.copy(
+                    loading = false,
+                    error = e.message ?: "Set RSVP failed",
+                )
+        }
+    }
+
     suspend fun setDefaultLeaveFrom(placeId: String?) {
         val current = _state as? State.Ready ?: return
         if (current.circle.defaultLeaveFromPlaceId == placeId) return

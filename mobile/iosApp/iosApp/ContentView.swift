@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = AuthViewModel()
+    @State private var pendingRsvpConfirm: PendingRsvpConfirm?
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -18,6 +19,29 @@ struct ContentView: View {
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            }
+        }
+        .alert(
+            pendingRsvpConfirm.map {
+                RsvpDisplay.coverageReleaseMessage(kidName: $0.kidName)
+            } ?? "",
+            isPresented: Binding(
+                get: { pendingRsvpConfirm != nil },
+                set: { if !$0 { pendingRsvpConfirm = nil } }
+            )
+        ) {
+            Button("OK") {
+                if let pending = pendingRsvpConfirm {
+                    model.setCalendarRsvp(
+                        item: pending.item,
+                        kidId: pending.kidId,
+                        status: pending.status
+                    )
+                }
+                pendingRsvpConfirm = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingRsvpConfirm = nil
             }
         }
     }
@@ -538,11 +562,13 @@ struct ContentView: View {
 
     @ViewBuilder
     private func agendaItemRow(item: FamilyCalendarItem, isLast: Bool) -> some View {
+        let outOfPlay = RsvpDisplay.isAgendaItemOutOfPlay(item)
         VStack(alignment: .leading, spacing: UiTokens.Space.md) {
-            // Primary — title / when / location (+ conflict status)
+            // Primary — title / when / location (+ conflict status when in play)
             VStack(alignment: .leading, spacing: UiTokens.Space.xs) {
                 Text(item.title)
                     .font(.headline)
+                    .foregroundStyle(outOfPlay ? .secondary : .primary)
                 Text(item.whenLabel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -555,7 +581,7 @@ struct ContentView: View {
                     item.conflicts,
                     kids: model.kids.map { ($0.id, $0.displayName) }
                 )
-                if !conflictLines.isEmpty {
+                if !outOfPlay, !conflictLines.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(conflictLines, id: \.self) { line in
                             Text(line)
@@ -573,94 +599,126 @@ struct ContentView: View {
             .accessibilityIdentifier(AgendaBands.primary)
 
             // Travel / origin — leave-by + Leave from (+ Open Places)
-            VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
-                Text(item.leaveByAgendaLine)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                let locatedPlaces = model.places.filter(\.isLocated)
-                if locatedPlaces.count <= 1 {
-                    FieldValueRow(
-                        label: "Leave from",
-                        valueText: item.leaveFromPlaceName
-                            ?? locatedPlaces.first?.name
-                            ?? (model.places.isEmpty
-                                ? "No places yet"
-                                : "No located places yet")
-                    )
-                } else {
-                    FieldMenuRow(
-                        label: "Leave from",
-                        valueText: item.leaveFromPlaceName
-                            ?? "Choose a located place",
-                        disabled: model.isLoading || model.places.isEmpty
-                    ) {
-                        ForEach(model.places) { place in
-                            Button {
-                                if place.isLocated {
-                                    model.setCalendarLeaveFrom(item: item, placeId: place.id)
+            if !outOfPlay {
+                VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
+                    Text(item.leaveByAgendaLine)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    let locatedPlaces = model.places.filter(\.isLocated)
+                    if locatedPlaces.count <= 1 {
+                        FieldValueRow(
+                            label: "Leave from",
+                            valueText: item.leaveFromPlaceName
+                                ?? locatedPlaces.first?.name
+                                ?? (model.places.isEmpty
+                                    ? "No places yet"
+                                    : "No located places yet")
+                        )
+                    } else {
+                        FieldMenuRow(
+                            label: "Leave from",
+                            valueText: item.leaveFromPlaceName
+                                ?? "Choose a located place",
+                            disabled: model.isLoading || model.places.isEmpty
+                        ) {
+                            ForEach(model.places) { place in
+                                Button {
+                                    if place.isLocated {
+                                        model.setCalendarLeaveFrom(item: item, placeId: place.id)
+                                    }
+                                } label: {
+                                    Text(
+                                        place.isLocated
+                                            ? place.name
+                                            : "\(place.name) (not located)"
+                                    )
                                 }
-                            } label: {
-                                Text(
-                                    place.isLocated
-                                        ? place.name
-                                        : "\(place.name) (not located)"
-                                )
+                                .disabled(!place.isLocated)
                             }
-                            .disabled(!place.isLocated)
                         }
                     }
+                    if item.leaveByStatus == "UNAVAILABLE",
+                       item.leaveByReason == "NO_ORIGIN"
+                    {
+                        Button("Open Places") { model.openMorePlaces() }
+                            .buttonStyle(.bordered)
+                    }
                 }
-                if item.leaveByStatus == "UNAVAILABLE",
-                   item.leaveByReason == "NO_ORIGIN"
-                {
-                    Button("Open Places") { model.openMorePlaces() }
-                        .buttonStyle(.bordered)
-                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AgendaBands.travel)
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier(AgendaBands.travel)
 
-            // People / source
-            VStack(alignment: .leading, spacing: UiTokens.Space.xs) {
+            // People / source — RSVP field rows
+            VStack(alignment: .leading, spacing: UiTokens.Space.sm) {
                 Text(item.sourceLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                let kidsLabel = item.kidNamesLabel(kids: model.kids)
-                if !kidsLabel.isEmpty {
-                    Text(kidsLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                ForEach(item.kidIds, id: \.self) { kidId in
+                    let kidName = model.kids.first(where: { $0.id == kidId })?.displayName
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    let label = (kidName?.isEmpty == false) ? kidName! : "Kid"
+                    let currentStatus = RsvpDisplay.statusForKid(item: item, kidId: kidId)
+                    FieldMenuRow(
+                        label: label,
+                        valueText: RsvpDisplay.statusLabel(currentStatus),
+                        disabled: model.isLoading
+                    ) {
+                        ForEach(["NO_RESPONSE", "YES", "NO"], id: \.self) { status in
+                            Button(RsvpDisplay.statusLabel(status)) {
+                                requestRsvpChange(
+                                    item: item,
+                                    kidId: kidId,
+                                    kidName: label,
+                                    status: status
+                                )
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("rsvp-\(item.source)-\(item.id)-\(kidId)")
                 }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(AgendaBands.people)
 
-            // Coverage / actions
-            AgendaCoverageSection(
-                item: item,
-                members: model.members,
-                kids: model.kids,
-                currentAdultId: model.currentAdultId,
-                isLoading: model.isLoading,
-                isManual: item.isManual,
-                coverageActionError: model.coverageActionErrors["\(item.source)-\(item.id)"],
-                onRemove: { model.removeCoverage(assignmentId: $0) },
-                onConfirm: { model.confirmCoverage(assignmentId: $0) },
-                onDecline: { model.declineCoverage(assignmentId: $0) },
-                onAssign: { adultId, kidIds in
-                    model.assignCoverage(
-                        item: item,
-                        coveringAdultId: adultId,
-                        kidIds: kidIds
-                    )
-                },
-                onEdit: { model.beginEditEvent(item) },
-                onRemoveEvent: { model.removeEvent(item.id) }
-            )
-            .id("\(item.source)-\(item.id)-coverage")
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier(AgendaBands.coverage)
+            // Coverage / actions — hidden when out of play
+            if !outOfPlay {
+                AgendaCoverageSection(
+                    item: item,
+                    members: model.members,
+                    kids: model.kids,
+                    currentAdultId: model.currentAdultId,
+                    isLoading: model.isLoading,
+                    coverageActionError: model.coverageActionErrors["\(item.source)-\(item.id)"],
+                    onRemove: { model.removeCoverage(assignmentId: $0) },
+                    onConfirm: { model.confirmCoverage(assignmentId: $0) },
+                    onDecline: { model.declineCoverage(assignmentId: $0) },
+                    onAssign: { adultId, kidIds in
+                        model.assignCoverage(
+                            item: item,
+                            coveringAdultId: adultId,
+                            kidIds: kidIds
+                        )
+                    }
+                )
+                .id("\(item.source)-\(item.id)-coverage")
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AgendaBands.coverage)
+            }
+
+            if item.isManual {
+                HStack {
+                    Button("Edit") { model.beginEditEvent(item) }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isLoading)
+                    Button("Remove event") { model.removeEvent(item.id) }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isLoading)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AgendaBands.manualActions)
+            }
         }
+        .opacity(outOfPlay ? 0.7 : 1)
         .padding(.bottom, isLast ? 0 : UiTokens.Space.xl)
         .overlay(alignment: .bottom) {
             if !isLast {
@@ -668,6 +726,28 @@ struct ContentView: View {
                     .fill(FcTheme.border(colorScheme))
                     .frame(height: 1)
             }
+        }
+    }
+
+    private func requestRsvpChange(
+        item: FamilyCalendarItem,
+        kidId: String,
+        kidName: String,
+        status: String
+    ) {
+        if RsvpDisplay.statusForKid(item: item, kidId: kidId) == status { return }
+        let releasesCoverage =
+            (status == "NO" || status == "NO_RESPONSE")
+                && RsvpDisplay.kidHasActiveCoverage(item: item, kidId: kidId)
+        if releasesCoverage {
+            pendingRsvpConfirm = PendingRsvpConfirm(
+                item: item,
+                kidId: kidId,
+                status: status,
+                kidName: kidName
+            )
+        } else {
+            model.setCalendarRsvp(item: item, kidId: kidId, status: status)
         }
     }
 
@@ -986,7 +1066,16 @@ private enum AgendaBands {
     static let travel = "agenda-band-travel"
     static let people = "agenda-band-people"
     static let coverage = "agenda-band-coverage"
+    static let manualActions = "agenda-band-manual-actions"
     static let ctaPrimary = "agenda-cta-primary"
+}
+
+private struct PendingRsvpConfirm: Identifiable {
+    var id: String { "\(item.source)-\(item.id)-\(kidId)-\(status)" }
+    let item: FamilyCalendarItem
+    let kidId: String
+    let status: String
+    let kidName: String
 }
 
 private struct AgendaCoverageSection: View {
@@ -995,14 +1084,11 @@ private struct AgendaCoverageSection: View {
     let kids: [FamilyKidItem]
     let currentAdultId: String
     let isLoading: Bool
-    let isManual: Bool
     let coverageActionError: String?
     let onRemove: (String) -> Void
     let onConfirm: (String) -> Void
     let onDecline: (String) -> Void
     let onAssign: (String, [String]) -> Void
-    let onEdit: () -> Void
-    let onRemoveEvent: () -> Void
 
     @State private var assignAdultId: String = ""
     @State private var assignKidIds: Set<String> = []
@@ -1166,17 +1252,6 @@ private struct AgendaCoverageSection: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .accessibilityIdentifier("agenda-coverage-error-\(item.source)-\(item.id)")
-            }
-
-            if isManual {
-                HStack {
-                    Button("Edit") { onEdit() }
-                        .buttonStyle(.bordered)
-                        .disabled(isLoading)
-                    Button("Remove event") { onRemoveEvent() }
-                        .buttonStyle(.bordered)
-                        .disabled(isLoading)
-                }
             }
         }
         .onAppear {

@@ -379,6 +379,37 @@ class FamilyClientTest {
         }
 
     @Test
+    fun setCalendarRsvp() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/MANUAL/e1/rsvps/k1" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Dentist","startsAt":"2026-08-15T16:00:00Z","endsAt":null,"location":"Clinic","kidIds":["k1"],"feedId":null,"feedName":null,"leaveFromPlaceId":null,"leaveFromPlaceName":null,"leaveByAt":null,"leaveByStatus":"UNAVAILABLE","leaveByReason":"NO_ORIGIN","coverages":[],"uncoveredKidIds":[],"conflicts":[],"rsvps":[{"kidId":"k1","status":"NO"}]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val item =
+                client.setCalendarRsvp(
+                    "tok",
+                    CalendarItemSource.MANUAL,
+                    "e1",
+                    "k1",
+                    SetCalendarRsvpRequest(status = RsvpStatus.NO),
+                )
+            assertEquals(RsvpStatus.NO, item.rsvps.single().status)
+            assertEquals("k1", item.rsvps.single().kidId)
+        }
+
+    @Test
     fun setCalendarLeaveFrom() =
         runTest {
             val mockEngine =

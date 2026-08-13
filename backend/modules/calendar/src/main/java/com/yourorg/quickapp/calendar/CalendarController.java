@@ -72,6 +72,17 @@ public class CalendarController {
         return calendarService.assignCoverage(adult, source, itemId, request);
     }
 
+    @PutMapping("/{source}/{itemId}/rsvps/{kidId}")
+    public CalendarItemResponse setRsvp(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            @PathVariable("kidId") UUID kidId,
+            @Valid @RequestBody SetCalendarRsvpRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.setRsvp(adult, source, itemId, kidId, request.status());
+    }
+
     @PutMapping("/coverages/{assignmentId}")
     public CalendarItemResponse reassignCoverage(
             @PathVariable("assignmentId") UUID assignmentId,

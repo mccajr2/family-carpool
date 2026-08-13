@@ -54,6 +54,9 @@ class AuthBridge {
     private fun encodeConflicts(conflicts: List<CalendarConflict>): String =
         json.encodeToString(ListSerializer(CalendarConflict.serializer()), conflicts)
 
+    private fun encodeRsvps(rsvps: List<CalendarRsvp>): String =
+        json.encodeToString(ListSerializer(CalendarRsvp.serializer()), rsvps)
+
     private fun calendarItemSuccessArgs(item: CalendarItem): CalendarItemBridgeArgs =
         CalendarItemBridgeArgs(
             id = item.id,
@@ -73,6 +76,7 @@ class AuthBridge {
             coveragesJson = encodeCoverages(item.coverages),
             uncoveredKidIdsJoined = item.uncoveredKidIds.joinToString(","),
             conflictsJson = encodeConflicts(item.conflicts),
+            rsvpsJson = encodeRsvps(item.rsvps),
         )
 
     private data class CalendarItemBridgeArgs(
@@ -93,6 +97,7 @@ class AuthBridge {
         val coveragesJson: String,
         val uncoveredKidIdsJoined: String,
         val conflictsJson: String,
+        val rsvpsJson: String,
     )
 
     fun requestCode(
@@ -720,6 +725,7 @@ class AuthBridge {
             coveragesJson: List<String>,
             uncoveredKidIdsJoined: List<String>,
             conflictsJson: List<String>,
+            rsvpsJson: List<String>,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -744,6 +750,7 @@ class AuthBridge {
                     items.map { encodeCoverages(it.coverages) },
                     items.map { it.uncoveredKidIds.joinToString(",") },
                     items.map { encodeConflicts(it.conflicts) },
+                    items.map { encodeRsvps(it.rsvps) },
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "List calendar failed")
@@ -805,6 +812,7 @@ class AuthBridge {
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
             conflictsJson: String,
+            rsvpsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -836,9 +844,75 @@ class AuthBridge {
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
                     args.conflictsJson,
+                    args.rsvpsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Set leave-from failed")
+            }
+        }
+    }
+
+
+    fun setCalendarRsvp(
+        source: String,
+        itemId: String,
+        kidId: String,
+        status: String,
+        onSuccess: (
+            id: String,
+            source: String,
+            title: String,
+            startsAt: String,
+            endsAt: String,
+            location: String,
+            kidIdsJoined: String,
+            feedId: String,
+            feedName: String,
+            leaveFromPlaceId: String,
+            leaveFromPlaceName: String,
+            leaveByAt: String,
+            leaveByStatus: String,
+            leaveByReason: String,
+            coveragesJson: String,
+            uncoveredKidIdsJoined: String,
+            conflictsJson: String,
+            rsvpsJson: String,
+        ) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val item =
+                    familyClient.setCalendarRsvp(
+                        session.requireAccessToken(),
+                        CalendarItemSource.valueOf(source),
+                        itemId,
+                        kidId,
+                        SetCalendarRsvpRequest(status = RsvpStatus.valueOf(status)),
+                    )
+                val args = calendarItemSuccessArgs(item)
+                onSuccess(
+                    args.id,
+                    args.source,
+                    args.title,
+                    args.startsAt,
+                    args.endsAt,
+                    args.location,
+                    args.kidIdsJoined,
+                    args.feedId,
+                    args.feedName,
+                    args.leaveFromPlaceId,
+                    args.leaveFromPlaceName,
+                    args.leaveByAt,
+                    args.leaveByStatus,
+                    args.leaveByReason,
+                    args.coveragesJson,
+                    args.uncoveredKidIdsJoined,
+                    args.conflictsJson,
+                    args.rsvpsJson,
+                )
+            } catch (e: Throwable) {
+                onError(e.message ?: "Set RSVP failed")
             }
         }
     }
@@ -888,6 +962,7 @@ class AuthBridge {
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
             conflictsJson: String,
+            rsvpsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -922,6 +997,7 @@ class AuthBridge {
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
                     args.conflictsJson,
+                    args.rsvpsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Assign coverage failed")
@@ -949,6 +1025,7 @@ class AuthBridge {
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
             conflictsJson: String,
+            rsvpsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -978,6 +1055,7 @@ class AuthBridge {
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
                     args.conflictsJson,
+                    args.rsvpsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Confirm coverage failed")
@@ -1005,6 +1083,7 @@ class AuthBridge {
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
             conflictsJson: String,
+            rsvpsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -1034,6 +1113,7 @@ class AuthBridge {
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
                     args.conflictsJson,
+                    args.rsvpsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Decline coverage failed")
@@ -1061,6 +1141,7 @@ class AuthBridge {
             coveragesJson: String,
             uncoveredKidIdsJoined: String,
             conflictsJson: String,
+            rsvpsJson: String,
         ) -> Unit,
         onError: (String) -> Unit,
     ) {
@@ -1090,6 +1171,7 @@ class AuthBridge {
                     args.coveragesJson,
                     args.uncoveredKidIdsJoined,
                     args.conflictsJson,
+                    args.rsvpsJson,
                 )
             } catch (e: Throwable) {
                 onError(e.message ?: "Remove coverage failed")
@@ -1341,6 +1423,7 @@ class AuthBridge {
             coveragesJson: List<String>,
             uncoveredKidIdsJoined: List<String>,
             conflictsJson: List<String>,
+            rsvpsJson: List<String>,
         ) -> Unit,
     ): Boolean {
         val adultId = activeAdultId ?: return false
@@ -1368,6 +1451,7 @@ class AuthBridge {
             hit.coveragesJson,
             hit.uncoveredKidIdsJoined,
             hit.conflictsJson,
+            hit.rsvpsJson,
         )
         return true
     }
@@ -1393,6 +1477,7 @@ class AuthBridge {
         coveragesJson: List<String>,
         uncoveredKidIdsJoined: List<String>,
         conflictsJson: List<String>,
+        rsvpsJson: List<String>,
     ): Boolean {
         val adultId = activeAdultId ?: return false
         val circleId = activeCircleId ?: return false
@@ -1416,6 +1501,7 @@ class AuthBridge {
                     coveragesJson,
                     uncoveredKidIdsJoined,
                     conflictsJson,
+                    rsvpsJson,
                 )
             calendarCache.save(
                 CalendarCacheSnapshot(
@@ -1451,6 +1537,7 @@ class AuthBridge {
         coveragesJson: String,
         uncoveredKidIdsJoined: String,
         conflictsJson: String,
+        rsvpsJson: String,
     ) {
         val adultId = activeAdultId ?: return
         val circleId = activeCircleId ?: return
@@ -1473,6 +1560,7 @@ class AuthBridge {
                 listOf(coveragesJson),
                 listOf(uncoveredKidIdsJoined),
                 listOf(conflictsJson),
+                listOf(rsvpsJson),
             ).single()
         calendarCache.patchItem(adultId, circleId, updated)
     }
@@ -1499,6 +1587,7 @@ class AuthBridge {
             coveragesJson = items.map { encodeCoverages(it.coverages) },
             uncoveredKidIdsJoined = items.map { it.uncoveredKidIds.joinToString(",") },
             conflictsJson = items.map { encodeConflicts(it.conflicts) },
+            rsvpsJson = items.map { encodeRsvps(it.rsvps) },
         )
 
     private fun itemsFromParallel(
@@ -1519,6 +1608,7 @@ class AuthBridge {
         coveragesJson: List<String>,
         uncoveredKidIdsJoined: List<String>,
         conflictsJson: List<String>,
+        rsvpsJson: List<String>,
     ): List<CalendarItem> =
         ids.indices.map { index ->
             CalendarItem(
@@ -1559,6 +1649,13 @@ class AuthBridge {
                             conflictsJson[index],
                         )
                     }.getOrDefault(emptyList()),
+                rsvps =
+                    runCatching {
+                        json.decodeFromString(
+                            ListSerializer(CalendarRsvp.serializer()),
+                            rsvpsJson[index],
+                        )
+                    }.getOrDefault(emptyList()),
             )
         }
 }
@@ -1585,4 +1682,5 @@ class CalendarCacheBridgeHit(
     val coveragesJson: List<String>,
     val uncoveredKidIdsJoined: List<String>,
     val conflictsJson: List<String>,
+    val rsvpsJson: List<String>,
 )

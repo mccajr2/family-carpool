@@ -72,7 +72,14 @@ class AgendaCoverageContractTest {
         assertTrue(source.contains("AgendaBands.TRAVEL"), "Agenda travel band")
         assertTrue(source.contains("AgendaBands.PEOPLE"), "Agenda people/source band")
         assertTrue(source.contains("AgendaBands.COVERAGE"), "Agenda coverage/actions band")
+        assertTrue(
+            source.contains("AgendaBands.MANUAL_ACTIONS"),
+            "manual Edit/Remove outside coverage band",
+        )
         assertTrue(source.contains("AgendaBands.CTA_PRIMARY"), "situational primary CTA marker")
+        assertTrue(source.contains("isAgendaItemOutOfPlay"), "out-of-play chrome")
+        assertTrue(source.contains("requestRsvpChange"), "per-kid RSVP chooser")
+        assertTrue(source.contains("rsvpCoverageReleaseMessage"), "coverage release confirm copy")
         assertTrue(
             source.contains("pendingForSelf == null"),
             "Assign is filled primary only when Confirm is absent",
@@ -80,8 +87,10 @@ class AgendaCoverageContractTest {
         assertTrue(
             source.indexOf("AgendaBands.PRIMARY") < source.indexOf("AgendaBands.TRAVEL") &&
                 source.indexOf("AgendaBands.TRAVEL") < source.indexOf("AgendaBands.PEOPLE") &&
-                source.indexOf("AgendaBands.PEOPLE") < source.indexOf("AgendaBands.COVERAGE"),
-            "Agenda bands appear in Primary → Travel → People → Coverage order",
+                source.indexOf("AgendaBands.PEOPLE") < source.indexOf("AgendaBands.COVERAGE") &&
+                source.indexOf("AgendaBands.COVERAGE") <
+                source.indexOf("AgendaBands.MANUAL_ACTIONS"),
+            "Agenda bands appear in Primary → Travel → People → Coverage → Manual actions order",
         )
     }
 
@@ -91,6 +100,7 @@ class AgendaCoverageContractTest {
         assertTrue(AgendaBands.TRAVEL == "agenda-band-travel")
         assertTrue(AgendaBands.PEOPLE == "agenda-band-people")
         assertTrue(AgendaBands.COVERAGE == "agenda-band-coverage")
+        assertTrue(AgendaBands.MANUAL_ACTIONS == "agenda-band-manual-actions")
         assertTrue(AgendaBands.CTA_PRIMARY == "agenda-cta-primary")
     }
 

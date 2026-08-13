@@ -139,4 +139,9 @@ class CoverageAssignmentEntity {
         this.status = status;
         this.updatedAt = updatedAt;
     }
+
+    void setKids(Set<UUID> kidIds, Instant updatedAt) {
+        this.kidIds = new HashSet<>(kidIds);
+        this.updatedAt = updatedAt;
+    }
 }

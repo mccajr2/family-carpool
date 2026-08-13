@@ -41,6 +41,7 @@ function calendarItem(
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
+    rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "NO_RESPONSE" as const })),
     ...partial,
   }
 }
@@ -2557,8 +2558,10 @@ describe("FamilyScreen", () => {
 
     const primaryCta = within(coverage).getByTestId("agenda-cta-primary")
     expect(primaryCta).toHaveTextContent("Confirm coverage")
-    expect(within(coverage).getByRole("button", { name: "Edit" })).toBeInTheDocument()
-    expect(within(coverage).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
+    const manualActions = within(item).getByTestId("agenda-band-manual-actions")
+    expect(coverage.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+    expect(within(manualActions).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
   })
 
   it("emphasizes Assign coverage as primary when Confirm is not shown", async () => {
@@ -3585,5 +3588,325 @@ describe("FamilyScreen", () => {
     expect(pageCall?.[1]).toBe(listCalendar.mock.calls[1]?.[1])
     expect(pageCall?.[2]).toBe(listCalendar.mock.calls[1]?.[2])
     expect(listCalendarLeaveBy.mock.calls[0]?.[2]).toBe(nearTermTo)
+  })
+
+  it("sets RSVP Yes and patches the Agenda item", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+    })
+    const setCalendarRsvp = vi.fn().mockResolvedValue({
+      ...baseItem,
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      uncoveredKidIds: ["k1"],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const rsvp = within(agenda).getByTestId("rsvp-MANUAL-e1-k1")
+    await user.selectOptions(rsvp, "YES")
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k1", {
+        status: "YES",
+      })
+    })
+    expect(rsvp).toHaveValue("YES")
+    expect(within(agenda).getByText(/Needs coverage/)).toBeInTheDocument()
+  })
+
+  it("deemphasizes out-of-play rows and hides leave-by and coverage", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              rsvps: [{ kidId: "k1", status: "NO" }],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const item = await screen.findByTestId("agenda-item-MANUAL-e1")
+    expect(item).toHaveAttribute("data-out-of-play", "true")
+    expect(within(item).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
+    expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
+    expect(within(item).getByTestId("rsvp-MANUAL-e1-k1")).toHaveValue("NO")
+    expect(within(item).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+  })
+
+  it("confirms before No when the kid has active coverage", async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+    const setCalendarRsvp = vi.fn().mockResolvedValue({
+      ...baseItem,
+      coverages: [],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "NO" }],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await user.selectOptions(within(agenda).getByTestId("rsvp-MANUAL-e1-k1"), "NO")
+
+    expect(confirmSpy).toHaveBeenCalledWith("This will remove coverage for Sam.")
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k1", {
+        status: "NO",
+      })
+    })
+    expect(within(agenda).queryByText(/Alex · Sam · Confirmed/)).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it("does not set RSVP No when coverage release confirm is cancelled", async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+    const setCalendarRsvp = vi.fn()
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await user.selectOptions(within(agenda).getByTestId("rsvp-MANUAL-e1-k1"), "NO")
+
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(setCalendarRsvp).not.toHaveBeenCalled()
+    expect(within(agenda).getByTestId("rsvp-MANUAL-e1-k1")).toHaveValue("YES")
+    confirmSpy.mockRestore()
+  })
+
+  it("keeps mixed Yes/No rows in play and only shows uncovered Yes kids", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Game",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1", "k2"],
+              uncoveredKidIds: ["k1"],
+              rsvps: [
+                { kidId: "k1", status: "YES" },
+                { kidId: "k2", status: "NO" },
+              ],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const item = await screen.findByTestId("agenda-item-MANUAL-e1")
+    expect(item).toHaveAttribute("data-out-of-play", "false")
+    expect(within(item).getByTestId("agenda-band-travel")).toBeInTheDocument()
+    expect(within(item).getByText(/Needs coverage: Sam/)).toBeInTheDocument()
+    expect(within(item).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
   })
 })

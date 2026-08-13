@@ -407,6 +407,7 @@ describe("FamilyClient", () => {
         coverages: [],
         uncoveredKidIds: [],
         conflicts: [],
+        rsvps: [],
       },
       {
         id: "fe1",
@@ -426,6 +427,7 @@ describe("FamilyClient", () => {
         coverages: [],
         uncoveredKidIds: ["k1"],
         conflicts: [],
+        rsvps: [],
       },
     ]
 
@@ -500,6 +502,7 @@ describe("FamilyClient", () => {
       coverages: [],
       uncoveredKidIds: [],
       conflicts: [],
+      rsvps: [],
     }
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -593,6 +596,7 @@ describe("FamilyClient", () => {
       ],
       uncoveredKidIds: [],
       conflicts: [],
+      rsvps: [],
     }
 
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item, 201))
@@ -607,6 +611,7 @@ describe("FamilyClient", () => {
       coverages: [{ status: "PENDING", coveringAdultId: "2" }],
       uncoveredKidIds: [],
       conflicts: [],
+      rsvps: [],
     })
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(
@@ -630,5 +635,51 @@ describe("FamilyClient", () => {
         kidIds: ["k1"],
       }),
     ).rejects.toThrow("Calendar item not found (FEED/stale-id)")
+  })
+
+  it("sets calendar RSVP", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const item = {
+      id: "e1",
+      source: "MANUAL" as const,
+      title: "Dentist",
+      startsAt: "2026-08-15T16:00:00Z",
+      endsAt: null,
+      location: "Clinic",
+      kidIds: ["k1"],
+      feedId: null,
+      feedName: null,
+      leaveFromPlaceId: null,
+      leaveFromPlaceName: null,
+      leaveByAt: null,
+      leaveByStatus: "UNAVAILABLE" as const,
+      leaveByReason: "NO_ORIGIN",
+      coverages: [],
+      uncoveredKidIds: [],
+      conflicts: [],
+      rsvps: [{ kidId: "k1", status: "NO" as const }],
+    }
+
+    const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.setCalendarRsvp("tok", "MANUAL", "e1", "k1", { status: "NO" }),
+    ).resolves.toMatchObject({
+      rsvps: [{ kidId: "k1", status: "NO" }],
+    })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/rsvps/k1",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PUT" })
+    expect(JSON.parse(String(fetchFn.mock.calls[0]?.[1]?.body))).toEqual({
+      status: "NO",
+    })
   })
 })

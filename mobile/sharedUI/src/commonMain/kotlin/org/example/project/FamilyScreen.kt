@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
@@ -61,8 +64,16 @@ internal object AgendaBands {
     const val TRAVEL = "agenda-band-travel"
     const val PEOPLE = "agenda-band-people"
     const val COVERAGE = "agenda-band-coverage"
+    const val MANUAL_ACTIONS = "agenda-band-manual-actions"
     const val CTA_PRIMARY = "agenda-cta-primary"
 }
+
+private data class PendingRsvpConfirm(
+    val item: CalendarItem,
+    val kidId: String,
+    val status: RsvpStatus,
+    val kidName: String,
+)
 
 @Composable
 fun FamilyScreen(
@@ -1162,8 +1173,38 @@ private fun CalendarDestination(
                     .padding(top = FcSpaceMd),
             verticalArrangement = Arrangement.spacedBy(FcSpace2xl),
         ) {
+        var pendingRsvpConfirm by remember { mutableStateOf<PendingRsvpConfirm?>(null) }
+        pendingRsvpConfirm?.let { pending ->
+            AlertDialog(
+                onDismissRequest = { pendingRsvpConfirm = null },
+                text = { Text(rsvpCoverageReleaseMessage(pending.kidName)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                model.setCalendarRsvp(
+                                    pending.item,
+                                    pending.kidId,
+                                    pending.status,
+                                )
+                                pendingRsvpConfirm = null
+                                refresh()
+                            }
+                        },
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingRsvpConfirm = null }) {
+                        Text("Cancel")
+                    }
+                },
+            )
+        }
         visibleItems.forEachIndexed { index, item ->
             val isManual = item.source == CalendarItemSource.MANUAL
+            val outOfPlay = isAgendaItemOutOfPlay(item)
             val needsOrigin =
                 item.leaveByStatus == LeaveByStatus.UNAVAILABLE &&
                     item.leaveByReason == "NO_ORIGIN"
@@ -1180,10 +1221,38 @@ private fun CalendarDestination(
                 remember(item.source, item.id, item.uncoveredKidIds.joinToString(",")) {
                     mutableStateOf(defaultCoverageKidIds(item.uncoveredKidIds))
                 }
+            fun requestRsvpChange(
+                kidId: String,
+                kidName: String,
+                status: RsvpStatus,
+            ) {
+                if (rsvpStatusForKid(item, kidId) == status) return
+                val releasesCoverage =
+                    (
+                        status == RsvpStatus.NO ||
+                            status == RsvpStatus.NO_RESPONSE
+                    ) &&
+                        kidHasActiveCoverage(item, kidId)
+                if (releasesCoverage) {
+                    pendingRsvpConfirm =
+                        PendingRsvpConfirm(
+                            item = item,
+                            kidId = kidId,
+                            status = status,
+                            kidName = kidName,
+                        )
+                } else {
+                    scope.launch {
+                        model.setCalendarRsvp(item, kidId, status)
+                        refresh()
+                    }
+                }
+            }
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .alpha(if (outOfPlay) 0.7f else 1f)
                         .padding(bottom = if (index == visibleItems.lastIndex) 0.dp else FcSpaceXl),
                 verticalArrangement = Arrangement.spacedBy(FcSpaceMd),
             ) {
@@ -1195,6 +1264,12 @@ private fun CalendarDestination(
                     Text(
                         item.title,
                         style = MaterialTheme.typography.titleSmall,
+                        color =
+                            if (outOfPlay) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                     )
                     Text(
                         formatEventWhen(item.startsAt, item.endsAt),
@@ -1209,7 +1284,7 @@ private fun CalendarDestination(
                         )
                     }
                     val conflictLines = conflictDisplayLines(item.conflicts, current.circle.kids)
-                    if (conflictLines.isNotEmpty()) {
+                    if (!outOfPlay && conflictLines.isNotEmpty()) {
                         Column(
                             modifier =
                                 Modifier.semantics {
@@ -1231,6 +1306,7 @@ private fun CalendarDestination(
                 }
 
                 // agenda-band-travel — leave-by + Leave from (+ Open Places)
+                if (!outOfPlay) {
                 Column(
                     modifier = Modifier.semantics { contentDescription = AgendaBands.TRAVEL },
                     verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
@@ -1316,31 +1392,74 @@ private fun CalendarDestination(
                         }
                     }
                 }
+                }
 
-                // agenda-band-people — source + kids
+                // agenda-band-people — source + per-kid RSVP field rows
                 Column(
                     modifier = Modifier.semantics { contentDescription = AgendaBands.PEOPLE },
-                    verticalArrangement = Arrangement.spacedBy(FcSpaceXs),
+                    verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
                 ) {
                     Text(
                         calendarSourceLabel(item.source, item.feedName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    val kidNames =
-                        item.kidIds.mapNotNull { id ->
-                            current.circle.kids.find { it.id == id }?.displayName
-                        }.joinToString(", ")
-                    if (kidNames.isNotEmpty()) {
-                        Text(
-                            kidNames,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    item.kidIds.forEach { kidId ->
+                        val kidName =
+                            current.circle.kids
+                                .find { it.id == kidId }
+                                ?.displayName
+                                ?.trim()
+                                ?.takeIf { it.isNotEmpty() }
+                                ?: "Kid"
+                        val currentStatus = rsvpStatusForKid(item, kidId)
+                        var rsvpExpanded by remember(item.source, item.id, kidId) {
+                            mutableStateOf(false)
+                        }
+                        FieldRow(label = kidName) {
+                            Box {
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .clickable(enabled = !current.loading) {
+                                                rsvpExpanded = true
+                                            }
+                                            .semantics {
+                                                contentDescription =
+                                                    "rsvp-${item.source}-${item.id}-$kidId"
+                                            },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    FieldRowValueText(rsvpStatusLabel(currentStatus))
+                                    FieldRowChevron()
+                                }
+                                DropdownMenu(
+                                    expanded = rsvpExpanded,
+                                    onDismissRequest = { rsvpExpanded = false },
+                                ) {
+                                    listOf(
+                                        RsvpStatus.NO_RESPONSE,
+                                        RsvpStatus.YES,
+                                        RsvpStatus.NO,
+                                    ).forEach { status ->
+                                        DropdownMenuItem(
+                                            text = { Text(rsvpStatusLabel(status)) },
+                                            onClick = {
+                                                rsvpExpanded = false
+                                                requestRsvpChange(kidId, kidName, status)
+                                            },
+                                            enabled = !current.loading,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
-                // agenda-band-coverage — responsibility + situational CTAs + Edit/Remove
+                // agenda-band-coverage — responsibility + situational CTAs
+                if (!outOfPlay) {
                 Column(
                     modifier = Modifier.semantics { contentDescription = AgendaBands.COVERAGE },
                     verticalArrangement = Arrangement.spacedBy(FcSpaceSm),
@@ -1554,28 +1673,36 @@ private fun CalendarDestination(
                                 },
                         )
                     }
-                    if (isManual) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    model.beginEditEvent(item)
+                }
+                }
+
+                if (isManual) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier =
+                            Modifier.semantics {
+                                contentDescription = AgendaBands.MANUAL_ACTIONS
+                            },
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                model.beginEditEvent(item)
+                                refresh()
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    model.removeEvent(item.id)
                                     refresh()
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Edit")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        model.removeEvent(item.id)
-                                        refresh()
-                                    }
-                                },
-                                enabled = !current.loading,
-                            ) {
-                                Text("Remove event")
-                            }
+                                }
+                            },
+                            enabled = !current.loading,
+                        ) {
+                            Text("Remove event")
                         }
                     }
                 }

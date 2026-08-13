@@ -1291,6 +1291,72 @@ class FamilyUiModelTest {
         }
 
     @Test
+    fun setCalendarRsvpUpdatesMatchingAgendaRow() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[{"id":"k1","displayName":"Sam"}],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """[{"id":"e1","source":"MANUAL","title":"Practice","startsAt":"2030-08-15T17:00:00Z","location":"Rink","kidIds":["k1"],"leaveByStatus":"UNAVAILABLE","coverages":[],"uncoveredKidIds":["k1"],"conflicts":[],"rsvps":[{"kidId":"k1","status":"NO_RESPONSE"}]}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath ==
+                            "/api/family/circle/calendar/MANUAL/e1/rsvps/k1" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content =
+                                    """{"id":"e1","source":"MANUAL","title":"Practice","startsAt":"2030-08-15T17:00:00Z","location":"Rink","kidIds":["k1"],"leaveByStatus":"UNAVAILABLE","coverages":[],"uncoveredKidIds":[],"conflicts":[],"rsvps":[{"kidId":"k1","status":"NO"}]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val item = ready.calendarItems.first()
+            assertEquals(RsvpStatus.NO_RESPONSE, item.rsvps.single().status)
+
+            model.setCalendarRsvp(item, "k1", RsvpStatus.NO)
+            val updated = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(RsvpStatus.NO, updated.calendarItems.first().rsvps.single().status)
+            assertEquals(emptyList(), updated.calendarItems.first().uncoveredKidIds)
+            assertNull(updated.error)
+        }
+
+    @Test
     fun calendarLoadsCoverageAndUncoveredKids() =
         runTest {
             val mockEngine =
