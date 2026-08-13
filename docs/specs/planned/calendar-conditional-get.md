@@ -22,7 +22,7 @@ local snapshot**.
 ## Non-goals (sketch)
 
 - Replacing local persist / SWR paint-first UX (owned by
-  [`calendar-client-cache`](../active/calendar-client-cache.md))
+  [`calendar-client-cache`](../archive/calendar-client-cache.md))
 - Offline write queue
 - CDN / shared HTTP cache across users (calendar is Bearer-authenticated and
   adult-enriched)

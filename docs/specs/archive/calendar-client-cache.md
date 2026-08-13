@@ -1,8 +1,9 @@
 # Spec: calendar-client-cache
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-12  
 Approved: 2026-08-12  
+Updated: 2026-08-12 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `calendar-client-cache`  
 Added: 2026-08-12 · enhancement (split: conditional GET deferred)
@@ -108,42 +109,42 @@ items and the new `to` (`calendarLoadedTo`).
 
 ## Acceptance criteria
 
-- [ ] **Web + Android + iOS:** With a prior successful calendar fetch for the
+- [x] **Web + Android + iOS:** With a prior successful calendar fetch for the
       same adult+circle, signing in / reaching Ready paints Agenda from cache
       **before** the network revalidate completes (observable: items visible
       while request in flight).
-- [ ] Background revalidate on Ready always runs; on 200, Agenda matches the
+- [x] Background revalidate on Ready always runs; on 200, Agenda matches the
       server payload and the persisted snapshot is updated.
-- [ ] Revalidate failure after a cache hit leaves cached items on screen and
+- [x] Revalidate failure after a cache hit leaves cached items on screen and
       does not wipe Agenda to empty.
-- [ ] Soft-stale refresh UI appears while revalidating over cached rows and
+- [x] Soft-stale refresh UI appears while revalidating over cached rows and
       clears when settled — no full-screen blanking of the list.
-- [ ] Returning to Calendar with `fetchedAt` older than 5 minutes triggers
+- [x] Returning to Calendar with `fetchedAt` older than 5 minutes triggers
       revalidate; fresher visits do not force an extra fetch solely due to
       navigation (mutations/Sync still refresh as today).
-- [ ] Single-item mutation responses that update in-memory Agenda also update
+- [x] Single-item mutation responses that update in-memory Agenda also update
       the persisted snapshot for that adult+circle.
-- [ ] Successful Sync now / range reload / Load more persists the new window +
+- [x] Successful Sync now / range reload / Load more persists the new window +
       items.
-- [ ] Sign-out (and circle leave / identity change) clears the calendar cache
+- [x] Sign-out (and circle leave / identity change) clears the calendar cache
       for that client.
-- [ ] **No** OpenAPI or backend changes in this PR.
-- [ ] Unit/component tests cover: cache hit paints before fetch; fetch
+- [x] **No** OpenAPI or backend changes in this PR.
+- [x] Unit/component tests cover: cache hit paints before fetch; fetch
       failure keeps cache; mutation patches persist; sign-out clears (per
       client layer that owns the store).
 
 ## Tasks
 
-- [ ] Web: `CalendarCacheStore` (localStorage) + wire `FamilyScreen` Ready /
+- [x] Web: `CalendarCacheStore` (localStorage) + wire `FamilyScreen` Ready /
       reload / Load more / single-item patch / sign-out; soft-stale indicator
-- [ ] Android / sharedLogic: `CalendarCacheStore` expect/actual +
+- [x] Android / sharedLogic: `CalendarCacheStore` expect/actual +
       `FamilyUiModel` SWR bootstrap, TTL on Calendar focus, persist hooks,
       clear on sign-out
-- [ ] iOS: same SWR behavior in `AuthViewModel` / Calendar UI (shared store or
+- [x] iOS: same SWR behavior in `AuthViewModel` / Calendar UI (shared store or
       schema-identical Swift store); soft-stale indicator; clear on sign-out
-- [ ] Docs: note client cache in `docs/architecture.md` Calendar agenda row;
+- [x] Docs: note client cache in `docs/architecture.md` Calendar agenda row;
       point at follow-up conditional GET
-- [ ] Tests: web + sharedLogic/UI (+ iOS script if that is the repo pattern)
+- [x] Tests: web + sharedLogic/UI (+ iOS script if that is the repo pattern)
       for hit/miss, failure-keeps-cache, patch, clear
 
 ## Open questions

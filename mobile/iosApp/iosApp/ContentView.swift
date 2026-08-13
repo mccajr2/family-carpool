@@ -472,6 +472,15 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: UiTokens.Space.xl) {
             Text("Agenda")
                 .font(.headline)
+            if model.calendarRevalidating {
+                HStack(spacing: UiTokens.Space.sm) {
+                    ProgressView()
+                    Text("Updating…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityIdentifier("agenda-revalidating")
+            }
             if let errorMessage = model.errorMessage, !model.eventCompose.isOpen {
                 Text(errorMessage)
                     .foregroundStyle(.red)

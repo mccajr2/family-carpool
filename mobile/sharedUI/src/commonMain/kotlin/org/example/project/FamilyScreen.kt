@@ -69,8 +69,12 @@ fun FamilyScreen(
     session: AuthSession,
     onSignOut: () -> Unit,
     familyClient: FamilyClient = remember { FamilyClient.create() },
+    calendarCacheStore: CalendarCacheStore = remember { InMemoryCalendarCacheStore() },
 ) {
-    val model = remember(session, familyClient) { FamilyUiModel(session, familyClient) }
+    val model =
+        remember(session, familyClient, calendarCacheStore) {
+            FamilyUiModel(session, familyClient, calendarCacheStore)
+        }
     var state by remember { mutableStateOf(model.state) }
     val scope = rememberCoroutineScope()
 
@@ -84,9 +88,17 @@ fun FamilyScreen(
         onDispose { model.stateListener = null }
     }
 
-    LaunchedEffect(session, familyClient) {
+    LaunchedEffect(session, familyClient, calendarCacheStore) {
         model.load()
         refresh()
+    }
+
+    val readyShellTab = (state as? FamilyUiModel.State.Ready)?.shellTab
+    LaunchedEffect(readyShellTab) {
+        if (readyShellTab == FamilyUiModel.ShellTab.CALENDAR) {
+            model.revalidateCalendarIfStale()
+            refresh()
+        }
     }
 
     when (val current = state) {
@@ -1058,6 +1070,17 @@ private fun CalendarDestination(
         verticalArrangement = Arrangement.spacedBy(FcSpaceXl),
     ) {
     Text("Agenda", style = MaterialTheme.typography.titleSmall)
+    if (current.calendarRevalidating) {
+        Text(
+            text = "Updating…",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier.semantics {
+                    contentDescription = "agenda-revalidating"
+                },
+        )
+    }
     if (current.error != null) {
         Text(text = current.error, color = MaterialTheme.colorScheme.error)
     }

@@ -6,6 +6,8 @@ package org.example.project
 class FamilyUiModel(
     private val session: AuthSession,
     private val familyClient: FamilyClient = FamilyClient.create(),
+    private val calendarCache: CalendarCacheStore = InMemoryCalendarCacheStore(),
+    private val nowMs: () -> Long = { nowEpochMillis() },
 ) {
     enum class EmptyMode {
         CHOOSE,
@@ -73,6 +75,8 @@ class FamilyUiModel(
             val editingFeedKidIds: List<String> = emptyList(),
             val calendarItems: List<CalendarItem> = emptyList(),
             val calendarLoadedTo: String = defaultCalendarWindow().to,
+            val calendarFetchedAt: Long? = null,
+            val calendarRevalidating: Boolean = false,
             val agendaKidFilter: String? = null,
             val newEventTitle: String = "",
             val newEventStartsAt: String = defaultNewEventStartsAtIso(),
@@ -177,6 +181,24 @@ class FamilyUiModel(
                     error = null,
                 )
             }
+    }
+
+    /** Clear persisted calendar snapshots (call on sign-out). */
+    fun clearCalendarCache() {
+        calendarCache.clearAll()
+    }
+
+    /**
+     * Soft-TTL revalidate when Calendar becomes visible again. No-op when fresh or already
+     * revalidating.
+     */
+    suspend fun revalidateCalendarIfStale() {
+        val current = _state as? State.Ready ?: return
+        if (current.shellTab != ShellTab.CALENDAR) return
+        val fetchedAt = current.calendarFetchedAt ?: return
+        if (!calendarCache.isStale(fetchedAt, nowMs())) return
+        if (current.calendarRevalidating) return
+        revalidateCalendar(current, force = true)
     }
 
     fun openMorePlaces() {
@@ -526,6 +548,7 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             familyClient.leaveCircle(token)
+            calendarCache.clear(current.adultId, current.circle.id)
             val adult = session.currentAdult()
             _state =
                 State.NeedsMembership(
@@ -781,6 +804,8 @@ class FamilyUiModel(
                     current.newFeedUrl.trim(),
                     current.newFeedKidIds,
                 )
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, current.calendarLoadedTo)
             _state =
                 current.copy(
                     loading = false,
@@ -788,7 +813,8 @@ class FamilyUiModel(
                     newFeedName = "",
                     newFeedUrl = "",
                     newFeedKidIds = emptyList(),
-                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Add feed failed")
@@ -810,6 +836,8 @@ class FamilyUiModel(
                     current.editingFeedUrl.trim(),
                     current.editingFeedKidIds,
                 )
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, current.calendarLoadedTo)
             _state =
                 current.copy(
                     loading = false,
@@ -818,7 +846,8 @@ class FamilyUiModel(
                     editingFeedName = "",
                     editingFeedUrl = "",
                     editingFeedKidIds = emptyList(),
-                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Update feed failed")
@@ -832,11 +861,14 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             familyClient.deleteFeed(token, feedId)
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, current.calendarLoadedTo)
             _state =
                 current.copy(
                     loading = false,
                     feeds = current.feeds.filterNot { it.id == feedId },
-                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Remove feed failed")
@@ -850,11 +882,14 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             val updated = familyClient.syncFeed(token, feedId)
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, current.calendarLoadedTo)
             _state =
                 current.copy(
                     loading = false,
                     feeds = current.feeds.map { if (it.id == feedId) updated else it },
-                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                 )
         } catch (e: Throwable) {
             _state = current.copy(loading = false, error = e.message ?: "Sync feed failed")
@@ -881,11 +916,14 @@ class FamilyUiModel(
             val token = session.requireAccessToken()
             val page = advanceCalendarWindow(current.calendarLoadedTo)
             val more = familyClient.listCalendar(token, page.from, page.to)
+            val merged = mergeCalendarItems(current.calendarItems, more)
+            val fetchedAt = persistCalendarSnapshot(current.adultId, current.circle.id, page.to, merged)
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = mergeCalendarItems(current.calendarItems, more),
+                    calendarItems = merged,
                     calendarLoadedTo = page.to,
+                    calendarFetchedAt = fetchedAt,
                 )
         } catch (e: Throwable) {
             _state =
@@ -919,6 +957,8 @@ class FamilyUiModel(
                 location,
             )
             val loadedTo = ensureCalendarWindowCovers(current.calendarLoadedTo, startsAt)
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, loadedTo)
             _state =
                 current.copy(
                     loading = false,
@@ -929,7 +969,8 @@ class FamilyUiModel(
                     newEventLocation = "",
                     newEventKidIds = emptyList(),
                     calendarLoadedTo = loadedTo,
-                    calendarItems = loadCalendarItems(token, loadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                     error = null,
                 )
         } catch (e: Throwable) {
@@ -966,6 +1007,8 @@ class FamilyUiModel(
                 location,
             )
             val loadedTo = ensureCalendarWindowCovers(current.calendarLoadedTo, startsAt)
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, loadedTo)
             _state =
                 current.copy(
                     loading = false,
@@ -977,7 +1020,8 @@ class FamilyUiModel(
                     editingEventLocation = "",
                     editingEventKidIds = emptyList(),
                     calendarLoadedTo = loadedTo,
-                    calendarItems = loadCalendarItems(token, loadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                     error = null,
                 )
         } catch (e: Throwable) {
@@ -995,10 +1039,13 @@ class FamilyUiModel(
         try {
             val token = session.requireAccessToken()
             familyClient.deleteEvent(token, eventId)
+            val (calendarItems, calendarFetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, current.calendarLoadedTo)
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = loadCalendarItems(token, current.calendarLoadedTo),
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
                 )
         } catch (e: Throwable) {
             _state =
@@ -1028,7 +1075,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                    calendarItems = applyPatchedCalendarItem(current, updated),
                 )
         } catch (e: Throwable) {
             _state =
@@ -1088,7 +1135,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                    calendarItems = applyPatchedCalendarItem(current, updated),
                     coverageActionErrors = current.coverageActionErrors - itemKey,
                 )
         } catch (e: Throwable) {
@@ -1157,7 +1204,7 @@ class FamilyUiModel(
             _state =
                 current.copy(
                     loading = false,
-                    calendarItems = replaceCalendarItem(current.calendarItems, updated),
+                    calendarItems = applyPatchedCalendarItem(current, updated),
                     coverageActionErrors =
                         if (itemKey != null) {
                             current.coverageActionErrors - itemKey
@@ -1192,12 +1239,91 @@ class FamilyUiModel(
             if (row.source == updated.source && row.id == updated.id) updated else row
         }
 
+    private fun applyPatchedCalendarItem(
+        current: State.Ready,
+        updated: CalendarItem,
+    ): List<CalendarItem> {
+        calendarCache.patchItem(current.adultId, current.circle.id, updated)
+        return replaceCalendarItem(current.calendarItems, updated)
+    }
+
+    private fun persistCalendarSnapshot(
+        adultId: String,
+        circleId: String,
+        loadedTo: String,
+        items: List<CalendarItem>,
+        fetchedAt: Long = nowMs(),
+    ): Long {
+        val window = calendarWindowThrough(loadedTo)
+        calendarCache.save(
+            CalendarCacheSnapshot(
+                adultId = adultId,
+                circleId = circleId,
+                from = window.from,
+                to = window.to,
+                items = items,
+                fetchedAt = fetchedAt,
+            ),
+        )
+        return fetchedAt
+    }
+
     private suspend fun loadCalendarItems(
         token: String,
         loadedTo: String = defaultCalendarWindow().to,
     ): List<CalendarItem> {
         val window = calendarWindowThrough(loadedTo)
         return familyClient.listCalendar(token, window.from, window.to)
+    }
+
+    private suspend fun loadAndPersistCalendarItems(
+        token: String,
+        adultId: String,
+        circleId: String,
+        loadedTo: String,
+    ): Pair<List<CalendarItem>, Long> {
+        val items = loadCalendarItems(token, loadedTo)
+        val fetchedAt = persistCalendarSnapshot(adultId, circleId, loadedTo, items)
+        return items to fetchedAt
+    }
+
+    private suspend fun revalidateCalendar(
+        current: State.Ready,
+        force: Boolean,
+    ) {
+        if (!force) {
+            val fetchedAt = current.calendarFetchedAt ?: return
+            if (!calendarCache.isStale(fetchedAt, nowMs())) return
+        }
+        _state = current.copy(calendarRevalidating = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val today = defaultCalendarWindow()
+            val to = maxIsoInstant(today.to, current.calendarLoadedTo)
+            val (items, fetchedAt) =
+                loadAndPersistCalendarItems(token, current.adultId, current.circle.id, to)
+            val latest = _state as? State.Ready ?: return
+            _state =
+                latest.copy(
+                    calendarItems = items,
+                    calendarLoadedTo = to,
+                    calendarFetchedAt = fetchedAt,
+                    calendarRevalidating = false,
+                    error = null,
+                )
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state =
+                latest.copy(
+                    calendarRevalidating = false,
+                    error =
+                        if (latest.calendarItems.isNotEmpty()) {
+                            e.message ?: "Calendar refresh failed"
+                        } else {
+                            e.message ?: "Calendar refresh failed"
+                        },
+                )
+        }
     }
 
     private suspend fun readyState(
@@ -1217,9 +1343,39 @@ class FamilyUiModel(
             } else {
                 emptyList()
             }
-        val initialWindow = defaultCalendarWindow()
+        val cached = calendarCache.load(adult.id, circle.id)
+        if (cached != null) {
+            _state =
+                State.Ready(
+                    email = adult.email,
+                    adultId = adult.id,
+                    adultDisplayName = adult.displayName,
+                    circle = circle,
+                    inviteCode = inviteCode,
+                    feeds = feeds,
+                    calendarItems = cached.items,
+                    calendarLoadedTo = cached.to,
+                    calendarFetchedAt = cached.fetchedAt,
+                    calendarRevalidating = true,
+                )
+        }
+        val today = defaultCalendarWindow()
+        val to = if (cached != null) maxIsoInstant(today.to, cached.to) else today.to
         val calendarResult =
-            runCatching { loadCalendarItems(token, initialWindow.to) }
+            runCatching { loadAndPersistCalendarItems(token, adult.id, circle.id, to) }
+        val items: List<CalendarItem>
+        val fetchedAt: Long?
+        if (calendarResult.isSuccess) {
+            val pair = calendarResult.getOrThrow()
+            items = pair.first
+            fetchedAt = pair.second
+        } else if (cached != null) {
+            items = cached.items
+            fetchedAt = cached.fetchedAt
+        } else {
+            items = emptyList()
+            fetchedAt = null
+        }
         return State.Ready(
             email = adult.email,
             adultId = adult.id,
@@ -1227,9 +1383,16 @@ class FamilyUiModel(
             circle = circle,
             inviteCode = inviteCode,
             feeds = feeds,
-            calendarItems = calendarResult.getOrElse { emptyList() },
-            calendarLoadedTo = initialWindow.to,
-            error = calendarResult.exceptionOrNull()?.message,
+            calendarItems = items,
+            calendarLoadedTo = if (calendarResult.isSuccess || cached != null) to else today.to,
+            calendarFetchedAt = fetchedAt,
+            calendarRevalidating = false,
+            error =
+                if (calendarResult.isFailure) {
+                    calendarResult.exceptionOrNull()?.message
+                } else {
+                    null
+                },
         )
     }
 }

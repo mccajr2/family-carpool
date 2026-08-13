@@ -1,8 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
 import type { AuthSessionHolder } from "@/api/authSession"
+import {
+  CalendarCacheStore,
+  maxIsoInstant,
+} from "@/api/calendarCacheStore"
 import { FamilyClient } from "@/api/familyClient"
 import {
   isPlaceLocated,
@@ -65,6 +69,7 @@ type FamilyScreenProps = {
   session: AuthSessionHolder
   authClient?: AuthClient
   familyClient?: FamilyClient
+  calendarCacheStore?: CalendarCacheStore
   onSignedOut: () => void
 }
 
@@ -167,11 +172,15 @@ export function FamilyScreen({
   session,
   authClient,
   familyClient: familyClientProp,
+  calendarCacheStore: calendarCacheStoreProp,
   onSignedOut,
 }: FamilyScreenProps) {
   // Default param `new FamilyClient()` would be a new instance every render and
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
+  const [calendarCache] = useState(
+    () => calendarCacheStoreProp ?? new CalendarCacheStore(),
+  )
   const [status, setStatus] = useState<Status>({ kind: "loading" })
   const [circle, setCircle] = useState<FamilyCircle | null>(null)
   // Kept apart from `circle === null` (which means "no circle yet"): after a failed load we do
@@ -204,6 +213,8 @@ export function FamilyScreen({
   const [calendarLoadedTo, setCalendarLoadedTo] = useState(
     () => defaultCalendarWindow().to,
   )
+  const [calendarFetchedAt, setCalendarFetchedAt] = useState<number | null>(null)
+  const [calendarRevalidating, setCalendarRevalidating] = useState(false)
   const [agendaKidFilter, setAgendaKidFilter] = useState<string | null>(null)
   const [newEventTitle, setNewEventTitle] = useState("")
   const [newEventStartsAt, setNewEventStartsAt] = useState(defaultNewEventStartsLocal)
@@ -244,9 +255,82 @@ export function FamilyScreen({
     }
   }, [destination])
 
-  async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
+  const persistCalendarSnapshot = useCallback(
+    (
+      adultId: string,
+      circleId: string,
+      from: string,
+      to: string,
+      items: CalendarItem[],
+      fetchedAt: number = Date.now(),
+    ) => {
+      setCalendarFetchedAt(fetchedAt)
+      calendarCache.save({
+        adultId,
+        circleId,
+        from,
+        to,
+        items,
+        fetchedAt,
+      })
+    },
+    [calendarCache],
+  )
+
+  async function fetchAndPersistCalendar(
+    token: string,
+    adultId: string,
+    circleId: string,
+    loadedTo: string,
+  ): Promise<CalendarItem[]> {
     const window = calendarWindowThrough(loadedTo)
-    setCalendarItems(await familyClient.listCalendar(token, window.from, window.to))
+    const items = await familyClient.listCalendar(token, window.from, window.to)
+    setCalendarItems(items)
+    setCalendarLoadedTo(loadedTo)
+    persistCalendarSnapshot(adultId, circleId, window.from, window.to, items)
+    return items
+  }
+
+  async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
+    if (!adult || !circle) {
+      const window = calendarWindowThrough(loadedTo)
+      setCalendarItems(await familyClient.listCalendar(token, window.from, window.to))
+      return
+    }
+    await fetchAndPersistCalendar(token, adult.id, circle.id, loadedTo)
+  }
+
+  async function revalidateCalendarBackground(options?: { force?: boolean }) {
+    if (!circle || !adult) {
+      return
+    }
+    if (
+      !options?.force &&
+      calendarFetchedAt != null &&
+      !calendarCache.isStale({ fetchedAt: calendarFetchedAt })
+    ) {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    setCalendarRevalidating(true)
+    try {
+      const today = defaultCalendarWindow()
+      const to = maxIsoInstant(today.to, calendarLoadedTo)
+      await fetchAndPersistCalendar(token, adult.id, circle.id, to)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      if (calendarItems.length > 0) {
+        setStatus({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Something went wrong",
+        })
+      }
+    } finally {
+      setCalendarRevalidating(false)
+    }
   }
 
   async function loadMoreCalendar() {
@@ -255,7 +339,14 @@ export function FamilyScreen({
       const token = await requireToken()
       const page = advanceCalendarWindow(calendarLoadedTo)
       const more = await familyClient.listCalendar(token, page.from, page.to)
-      setCalendarItems((current) => mergeCalendarItems(current, more))
+      setCalendarItems((current) => {
+        const merged = mergeCalendarItems(current, more)
+        if (adult && circle) {
+          const window = calendarWindowThrough(page.to)
+          persistCalendarSnapshot(adult.id, circle.id, window.from, page.to, merged)
+        }
+        return merged
+      })
       setCalendarLoadedTo(page.to)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -265,6 +356,21 @@ export function FamilyScreen({
       })
     }
   }
+
+  useEffect(() => {
+    if (destination !== "calendar") {
+      return
+    }
+    if (calendarFetchedAt == null) {
+      return
+    }
+    if (!calendarCache.isStale({ fetchedAt: calendarFetchedAt })) {
+      return
+    }
+    void revalidateCalendarBackground({ force: true })
+    // Only when navigating back to Calendar (destination flips), not on every fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional soft-TTL trigger
+  }, [destination])
 
   useEffect(() => {
     let cancelled = false
@@ -283,22 +389,50 @@ export function FamilyScreen({
         }
         setLoadFailed(null)
         setCircle(loaded)
-        if (loaded) {
+        const adultId = session.getAdult()?.id
+        let hadCache = false
+        let softCalendarError: string | null = null
+        const cached =
+          loaded && adultId ? calendarCache.load(adultId, loaded.id) : null
+
+        if (loaded && adultId) {
+          if (cached) {
+            hadCache = true
+            setCalendarItems(cached.items)
+            setCalendarLoadedTo(cached.to)
+            setCalendarFetchedAt(cached.fetchedAt)
+            setStatus({ kind: "idle" })
+            setCalendarRevalidating(true)
+          }
+
+          const today = defaultCalendarWindow()
+          const to = cached ? maxIsoInstant(today.to, cached.to) : today.to
           try {
-            const window = defaultCalendarWindow()
-            const items = await familyClient.listCalendar(token, window.from, window.to)
+            const items = await familyClient.listCalendar(token, today.from, to)
             if (!cancelled) {
               setCalendarItems(items)
-              setCalendarLoadedTo(window.to)
+              setCalendarLoadedTo(to)
+              persistCalendarSnapshot(adultId, loaded.id, today.from, to, items)
             }
-          } catch {
+          } catch (error) {
             if (!cancelled) {
-              setCalendarItems([])
-              setCalendarLoadedTo(defaultCalendarWindow().to)
+              if (!hadCache) {
+                setCalendarItems([])
+                setCalendarLoadedTo(defaultCalendarWindow().to)
+                setCalendarFetchedAt(null)
+              } else {
+                softCalendarError =
+                  error instanceof Error ? error.message : "Something went wrong"
+              }
+            }
+          } finally {
+            if (!cancelled) {
+              setCalendarRevalidating(false)
             }
           }
         } else {
           setCalendarItems([])
+          setCalendarFetchedAt(null)
         }
         if (loaded?.role === "ORGANIZER") {
           try {
@@ -325,7 +459,13 @@ export function FamilyScreen({
           setInviteCode(null)
           setFeeds([])
         }
-        setStatus({ kind: "idle" })
+        if (!cancelled) {
+          if (softCalendarError) {
+            setStatus({ kind: "error", message: softCalendarError })
+          } else {
+            setStatus({ kind: "idle" })
+          }
+        }
       } catch (error) {
         if (cancelled) {
           return
@@ -338,7 +478,7 @@ export function FamilyScreen({
     return () => {
       cancelled = true
     }
-  }, [familyClient, session, loadAttempt])
+  }, [familyClient, session, loadAttempt, calendarCache, persistCalendarSnapshot])
 
   async function requireToken(): Promise<string> {
     const token = session.getAccessToken()
@@ -423,10 +563,17 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
+      const previousAdultId = adult?.id
+      const previousCircleId = circle?.id
       await familyClient.leaveCircle(token)
+      if (previousAdultId && previousCircleId) {
+        calendarCache.clear(previousAdultId, previousCircleId)
+      }
       setCircle(null)
       setInviteCode(null)
       setFeeds([])
+      setCalendarItems([])
+      setCalendarFetchedAt(null)
       setEmptyMode("choose")
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -845,11 +992,15 @@ export function FamilyScreen({
   }
 
   function replaceCalendarItem(updated: CalendarItem) {
-    setCalendarItems((current) =>
-      current.map((row) =>
+    setCalendarItems((current) => {
+      const next = current.map((row) =>
         row.source === updated.source && row.id === updated.id ? updated : row,
-      ),
-    )
+      )
+      if (adult && circle) {
+        calendarCache.patchItem(adult.id, circle.id, updated)
+      }
+      return next
+    })
   }
 
   function updateAssignCoverageDraft(
@@ -1011,11 +1162,7 @@ export function FamilyScreen({
       const updated = await familyClient.setCalendarLeaveFrom(token, item.source, item.id, {
         leaveFromPlaceId: placeId,
       })
-      setCalendarItems((current) =>
-        current.map((row) =>
-          row.source === item.source && row.id === item.id ? updated : row,
-        ),
-      )
+      replaceCalendarItem(updated)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -1046,6 +1193,7 @@ export function FamilyScreen({
       // Telling the server is best-effort: dropping the local session must still happen, or
       // Sign out does nothing at all whenever the backend is unreachable.
     }
+    calendarCache.clearAll()
     session.clear()
     onSignedOut()
   }
@@ -1704,6 +1852,15 @@ export function FamilyScreen({
             <>
 <section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
           <p className="text-sm font-medium">Agenda</p>
+          {calendarRevalidating ? (
+            <p
+              data-testid="agenda-revalidating"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            >
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+              Updating…
+            </p>
+          ) : null}
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
               {status.message}
