@@ -53,7 +53,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 `activity-feed-poller` + `manual-events` + `family-calendar-surface` +
 `app-shell-navigation` (client shell IA) + `event-leave-by-estimate` +
 `coverage-confirm-decline` + `conflict-detection` + `calendar-client-cache` +
-`agenda-leave-by-async`:
+`agenda-leave-by-async` + `team-carpool-space-invite`:
 
 | Topic | Decision |
 |--------|----------|
@@ -64,25 +64,27 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Join | Signed-in adult with no membership accepts code → **CAREGIVER**; already a member → **409** |
 | Promote / demote | Organizer may change roles; circle always keeps **≥1 Organizer** |
 | Leave | Caregiver anytime; Organizer only if another Organizer remains; sole Organizer only if alone + **zero kids** |
-| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now. **Any member:** named places (+ retry locate), **manual events**, **calendar agenda read**, **own leave-from** per calendar item, **own default leave-from**, **RSVP** per kid on a calendar item, **coverage** assign/reassign/remove (any member) + confirm/decline (assignee only). All members may read circle (Caregivers omit feed manage UI) |
+| Writes | **Organizer-only:** invite regen, members/roles, rename circle, kids CRUD, **activity feed** CRUD + Sync now, **Enable carpool** on a circle feed. **Any member:** named places (+ retry locate), **manual events**, **calendar agenda read**, **own leave-from** per calendar item, **own default leave-from**, **RSVP** per kid on a calendar item, **coverage** assign/reassign/remove (any member) + confirm/decline (assignee only), **carpool** join-by-code / request / leave (owner leave only if sole member circle; owning-circle adults regenerate invite). All members may read circle (Caregivers omit feed manage UI) |
 | Kid | Stable id + display name only (no birth year / player vs sibling type) |
 | Place | Circle-scoped label + free-text address; **unique name per circle** (trim + case-insensitive); optional WGS84 `latitude`/`longitude` |
 | Geocoding | **Nominatim** (OSM) via `GeocoderPort`; address→coords **cache**; ~1 req/s + identifying User-Agent; create/update **soft-fail** (place saved, coords null on miss/error); `POST .../places/{id}/locate` retries; clients show Located / Not located + Retry locate. Same cache path geocodes event free-text `location` for leave-by destinations (public `FamilyGeocodeApi`). **Prod deploy:** set `GEOCODE_USER_AGENT` to a real contact (email or public app URL) — placeholder/`example.com` contacts get **403** from public Nominatim |
-| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **upserts by iCal `UID`** (stable event UUIDs for Agenda / coverage / leave-from) and deletes only removed UIDs; null-UID rows matched by summary/starts/ends/location fingerprint when possible; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
+| Activity feeds | Circle-scoped iCal/webcal subscription (`name`, normalized `sourceUrl`, 0+ `kidIds`); **auto-sync** on create and URL change + explicit **Sync now**; soft-fail writes `lastSyncError` (prior event snapshot kept); successful sync **upserts by iCal `UID`** (stable event UUIDs for Agenda / coverage / leave-from) and deletes only removed UIDs; null-UID rows matched by summary/starts/ends/location fingerprint when possible; duplicate normalized URL → **409**; invalid kid id → **400**; `webcal://` → `https://` for fetch. **Import never joins a carpool space** and never returns other families’ membership. **Background poll** (`FeedsPoller`): default **30 minutes** (`FEEDS_POLL_INTERVAL_MS`); toggle with `FEEDS_POLL_ENABLED` (off in CI/tests); sequential sync with short inter-feed delay; reuses the Sync now path; **single app instance assumed** for v1 (no multi-replica lease). Clients: Organizer **Refresh** re-GETs the feeds list only (does not sync-all); Sync now stays per-feed. Public `FeedsApi` (`listByCircle`, `findByCircleAndNormalizedUrl`, `ensureFeed` create-if-absent + sync) for other modules — HTTP mutations stay Organizer-only. CI uses stub fetch + fixture `.ics` files — no live vendor hosts. **Prod:** set `FEEDS_USER_AGENT` to a real contact (same spirit as geocoding) |
 | Manual events | Circle-scoped one-offs (`title`, `startsAt`, optional `endsAt`/`location`, **1+ `kidIds`**); any member CRUD via `/events`; hard delete; list API remains; separate from feed snapshots (`events` module). Primary client UX is **Agenda** (not a dedicated manage-events list) |
 | Calendar agenda | Unified `GET /api/family/circle/calendar?from&to` (`[from, to)`); any member; merges manual + feed items ordered by `startsAt`; feed rows carry feed kid links + `feedName`; each row has **cheap** leave-from + leave-by for the current adult (DB / cache only — **no Nominatim or OSRM HTTP**; see Leave-by below), **circle-visible `rsvps`** (Yes / No / No response per kid; missing ≡ No response), **circle-visible coverage** (`coverages` + `uncoveredKidIds` — in-play kids only; **No** kids never uncovered), and **server-computed `conflicts`** (kid time-overlap ignores No kids + adult coverage-overlap amber; overlap on event `startsAt`/`endsAt` only — see Conflict detection below); clients load **local today → +30d**, then **Load more** appends the next 30-day page (same API); optional kid filter; manual writes from agenda; Sync now / feed writes reload the loaded range; **client calendar cache** (web `localStorage` / mobile `CalendarCacheStore`) persists the last successful window per `(adultId, circleId)`, paints Agenda immediately on Ready / re-sign-in for the same adult (stale-while-revalidate), soft-TTL refresh when returning to Calendar (~5m), patches snapshot on single-item mutations (leave-from, RSVP, coverage), clears on **leave circle** (not sign-out); **family bootstrap cache** (last Ready shell: circle + invite + feeds per adult) paints the signed-in shell **before** `getCircle` so Agenda is never blocked on a full-screen spinner — follow-up **`ETag` / `304` on this cheap list** (not live OSRM) → [`calendar-conditional-get`](specs/planned/calendar-conditional-get.md); month grid → `family-calendar-grid` |
 | RSVP | Per **kid** + calendar item (`MANUAL` \| `FEED` + item id): `YES` \| `NO` \| `NO_RESPONSE` (missing row ≡ No response; no implied Yes). Any member may set. Out of play when **every** kid is No — clients deemphasize and hide leave-by / leave-from / coverage / conflict chrome; RSVP + manual Edit/Remove stay. Assign / confirm coverage → `ensureYes` for those kids; cannot assign a No kid (**400**). PUT No / No response with active coverage → **hard-release** that kid (client confirm: `This will remove coverage for {kidName}.`). Modulith: `backend/modules/rsvp/`; HTTP under calendar (`PUT …/rsvps/{kidId}`) |
 | Coverage | **Responsibility** for kid(s) on a calendar item — not seats, vehicles, or trips (those → carpool). Many rows per item; each row = covering adult + non-empty kid subset + `PENDING`\|`CONFIRMED`\|`DECLINED`. Any member may assign / reassign / remove; assignee confirms or declines; **self-assign → `CONFIRMED`**. Kid exclusive across **active** (`PENDING`\|`CONFIRMED`) rows on the same item; multi-kid per adult OK. Declined kids count as uncovered. **409** if confirm / self-assign would leave the same adult with two **CONFIRMED** coverages on overlapping events. Assign/confirm also set RSVP Yes (calendar orchestrates). Modulith: `backend/modules/coverage/`; HTTP under `/api/family/circle/calendar/...` (calendar controllers call `CoverageApi`). Amber conflict chrome → Conflict detection below / [`agenda-coverage-web-contract.md`](agenda-coverage-web-contract.md) |
+| Carpool | Opt-in **team space** keyed **one per normalized feed URL**. Membership is the **circle**. Organizer **Enable** owns; join by **code** (`ensureFeed` if URL missing) or **request** (owner admit/decline, in-app). HTTP `/api/carpool/*`. See Team carpool space below |
 | Leave-by | Per **signed-in adult** + calendar item (`source` + `id`): optional leave-from place override. Origin resolution order: **per-item override → membership default leave-from → first located place by name**. Estimate: `leaveBy ≈ startsAt − (travelDuration × TOD multiplier + fixedBuffer)` — math is in-process; **not** stored on the event. **Cheap list** never calls Nominatim/OSRM HTTP (`PENDING` on cache miss; `OK` when dest + duration are already in DB; `UNAVAILABLE` + `NO_ORIGIN` / `NO_DESTINATION` without fill-in). **Fill-in** is `GET /api/family/circle/calendar/leave-by?from&to` (full enrich, `OK` \| `UNAVAILABLE` only). Single-item mutation responses (leave-from PUT, RSVP PUT, coverage writes) still **fully enrich that one row**. Clients paint Agenda from the cheap list/cache **before** fill-in; near-term `[localTodayStart, +2 calendar days)` first, then the rest of the loaded window; Load more fills that page after near-term. Destination geocode reuses **`geocode_cache`** (`FamilyGeocodeApi`); driving duration is **`leaveby_route_cache`** (successful OSRM only). Recovery: origin via leave-from / Places locate / default leave-from; MANUAL destination via edit `location`; no lat/lng editors; no FEED destination override in this slice. Activity-type arrival lead times → [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md). **OSRM is PoC-free routing**; upgrade path parked as [`paid-live-traffic`](roadmap.md) |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
-| Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; Carpool = reserved “Coming soon” placeholder (no flows yet); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places; Feeds for Organizers only — Caregiver row omitted) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
+| Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; **Carpool** = team spaces (per-feed status, Enable for Organizers, Have a code, request/admit/decline, member **circle names**); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places; Feeds for Organizers only — Caregiver row omitted, with the same per-feed carpool chrome as the Carpool tab) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
 
 **Write authorization (two intentional categories):**
 
 1. **Organizer plumbing** — who is in the circle and how external calendars are
    wired: kids, invite/roles, circle rename, **activity feeds** (+ Sync now /
-   poller). Caregivers consume synced feed events via the **calendar Agenda**;
-   they do not manage subscribe URLs.
+   poller), **Enable carpool** (first family owns the team space). Caregivers
+   consume synced feed events via the **calendar Agenda**; they do not manage
+   subscribe URLs. They may join a carpool by code (which can `ensureFeed`).
 2. **Any-member household content** — day-to-day shared facts everyone may
    contribute: **named places** (+ retry locate) and **manual events**. Same
    write policy for both; no creator-only edit rules in v1. **Leave-from**
@@ -96,17 +98,20 @@ API + public `FamilyPlaceApi` / `FamilyGeocodeApi`), `backend/modules/feeds/`
 `backend/modules/leaveby/` (OSRM port, leave-from persistence, estimate math),
 `backend/modules/coverage/` (assignment rows + confirm/decline rules),
 `backend/modules/rsvp/` (per-kid attendance Yes/No/No response),
-and `backend/modules/calendar/` (orchestrates feeds + events public APIs into
+`backend/modules/calendar/` (orchestrates feeds + events public APIs into
 the unified agenda read and composes leave-by + coverage + RSVP enrichment — no
-imports of other modules’ `internal` packages). Contract paths under
-`/api/family/*`. Family public surface used by feeds, events, calendar,
-leaveby, coverage, and rsvp: `FamilyMembershipApi` (`requireOrganizerCircleId` /
-`requireMemberCircleId` / adult-in-circle checks, validate kids),
-`FamilyPlaceApi` (includes `findDefaultLeaveFromForMember`),
-`FamilyGeocodeApi`. Auth public surface used by family: `AdultSessionApi`
-(`requireCurrentAdult`, `requireAdult`, `updateDisplayName`). Leaveby public
-surface used by calendar: `LeaveByApi`. Coverage public surface used by
-calendar: `CoverageApi`. Rsvp public surface used by calendar: `RsvpApi`.
+imports of other modules’ `internal` packages), and `backend/modules/carpool/`
+(team spaces keyed by normalized feed URL). Family/calendar contract paths under
+`/api/family/*`; carpool HTTP under `/api/carpool/*`. Family public surface used
+by feeds, events, calendar, leaveby, coverage, rsvp, and carpool:
+`FamilyMembershipApi` (`requireOrganizerCircleId` / `requireMemberCircleId` /
+`requireMemberRole` / `findCircles` → `FamilyCircleName`, adult-in-circle
+checks, validate kids), `FamilyPlaceApi` (includes `findDefaultLeaveFromForMember`),
+`FamilyGeocodeApi`. Feeds public surface used by carpool: `FeedsApi`. Auth
+public surface used by family: `AdultSessionApi` (`requireCurrentAdult`,
+`requireAdult`, `updateDisplayName`). Leaveby public surface used by calendar:
+`LeaveByApi`. Coverage public surface used by calendar: `CoverageApi`. Rsvp
+public surface used by calendar: `RsvpApi`.
 
 **How objects link (extensible):**
 
@@ -117,9 +122,11 @@ calendar: `CoverageApi`. Rsvp public surface used by calendar: `RsvpApi`.
   coords come from geocoding the address, not manual entry
 - **ActivityFeed** belongs to a **circle**; **feed↔kid** links mean “on this
   team / calendar.” Sibling vs player is not a kid kind — it falls out of whether
-  a kid has feed links. Carpool spaces stay separate from feeds (parent invite).
-  Synced **FeedEvent** rows are feed-scoped storage composed into the Agenda via
-  `family-calendar-surface`; manage-feeds only exposes sync status + event count.
+  a kid has feed links. **CarpoolSpace** is a separate opt-in (parent invite),
+  keyed by the same **normalized feed URL** (not the feed UUID); membership is
+  the circle. Synced **FeedEvent** rows are feed-scoped storage composed into the
+  Agenda via `family-calendar-surface`; manage-feeds only exposes sync status +
+  event count.
 - **ManualEvent** belongs to a **circle** with **1+ kids**; not owned by a feed;
   not touched by Sync now / poller.
 - **Leave-from override** is per **adult** + calendar item (`MANUAL`|`FEED` +
@@ -145,11 +152,31 @@ Adult --membership(+role, default leave-from?)--> FamilyCircle <-- Kid
                                   |
                             FeedEvent (UID snapshot)
                                   |
+                    CarpoolSpace --normalized URL--> (same URL as a feed)
+                    CarpoolSpace --membership(+OWNER|MEMBER)--> FamilyCircle
+                                  |
                              ManualEvent --event↔kid--> Kid
                                   |
 Adult --leave-from override--> (source + itemId) --> Place
 Adult --coverage assignment--> (source + itemId) + Kid(s)
 ```
+
+### Team carpool space (detail)
+
+Locked for [`team-carpool-space-invite`](specs/archive/team-carpool-space-invite.md):
+
+| Topic | Decision |
+|--------|----------|
+| Identity | **One space per normalized feed URL** (trim; `webcal://` → `https://`). Same real-world team under two URLs → two spaces (no merge). Feed UUID is not the key |
+| Membership | The **family circle** (every adult in the household). A circle may belong to many spaces |
+| Enable | **Organizer-only** on a circle feed with no space yet; that circle **owns**; client confirms ownership first. Caregiver → **403**. Duplicate URL → **409** |
+| Code join | Admit the circle as MEMBER; `FeedsApi.ensureFeed` if the URL is missing (space name, **0 kids**, then auto-sync). Caregiver redeem OK. Already a member → **409**. Unknown / regenerated code or no circle → **404**. Clients reload Feeds + the current Agenda window after join |
+| Request | Same-URL subscriber, not a member (`AVAILABLE`); owner-circle adults Admit / Decline in-app (no email/push). Duplicate PENDING → **409**. After Decline they may request again |
+| Invite | Short **code** (same alphabet/length as family invites); any member may copy; owning circle regenerates (old code stops working); no TTL |
+| Leave | Member anytime. Owner only if they are the **sole** member circle (space is then deleted). Otherwise **409** |
+| Existence | Same-URL non-members may see **that a space exists** (name + Request / Have a code). They do not see members, code, or rides until joined |
+| Clients | **Carpool tab** is the product home (not “Coming soon”). **Feeds** (Organizer) shows the same per-feed Enable / Request / Owned chrome. Caregivers never gain Feeds manage; they use Carpool |
+| Out of scope | Ride request/accept/seats → `carpool-request-accept`; vehicles → `garage-vehicles`; least-privilege nanny/grandparent roster → parked `carpool-least-privilege` |
 
 ### Leave-by estimate (detail)
 
@@ -263,9 +290,10 @@ family-carpool/
 │       ├── leaveby/      # Leave-from + OSRM estimate + route duration cache
 │       ├── coverage/     # Who covers which kids on a calendar item
 │       ├── rsvp/         # Per-kid Yes / No / No response on a calendar item
-│       └── calendar/     # Cheap agenda list + leave-by fill-in + coverage + RSVP
+│       ├── calendar/     # Cheap agenda list + leave-by fill-in + coverage + RSVP
+│       └── carpool/      # Team spaces (one per feed URL; circle membership)
 ├── mobile/               # Separate Gradle build (KMP)
-│   ├── sharedLogic/      # Auth + family clients + token + calendar cache stores
+│   ├── sharedLogic/      # Auth + family + carpool clients + token + calendar cache stores
 │   ├── sharedUI/         # Compose Multiplatform (Android signed-in shell + destinations)
 │   ├── androidApp/       # Jetpack Compose entry
 │   └── iosApp/           # Native SwiftUI TabView shell (Xcode project)

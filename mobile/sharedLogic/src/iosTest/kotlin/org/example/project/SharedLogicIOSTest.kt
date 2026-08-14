@@ -91,6 +91,78 @@ class AuthBridgeTest {
         }
 
     @Test
+    fun getCarpoolSummaryReturnsJsonAndEnableReloadsOwner() =
+        runBlocking {
+            var enabled = false
+            val mockEngine =
+                MockEngine { request ->
+                    when (request.url.encodedPath) {
+                        "/api/carpool" ->
+                            respond(
+                                content =
+                                    if (enabled) {
+                                        """{"circleRole":"ORGANIZER","feeds":[{"feedId":"f1","feedName":"Soccer","status":"OWNER","spaceId":"s1","spaceName":"Soccer"}],"spaces":[{"id":"s1","name":"Soccer","membership":"OWNER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House A","membership":"OWNER"}],"pendingRequests":[]}]}"""
+                                    } else {
+                                        """{"circleRole":"ORGANIZER","feeds":[{"feedId":"f1","feedName":"Soccer","status":"NONE","spaceId":null,"spaceName":null}],"spaces":[]}"""
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        "/api/carpool/enable" -> {
+                            enabled = true
+                            respond(
+                                content =
+                                    """{"id":"s1","name":"Soccer","membership":"OWNER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House A","membership":"OWNER"}],"pendingRequests":[]}""",
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.url.encodedPath}")
+                    }
+                }
+            val httpClient =
+                HttpClient(mockEngine) {
+                    install(ContentNegotiation) {
+                        json(Json { ignoreUnknownKeys = true })
+                    }
+                }
+            val store = InMemorySecureTokenStore().also { it.saveAccessToken("tok") }
+            val bridge =
+                AuthBridge(
+                    session =
+                        AuthSession(
+                            client = AuthClient("http://localhost:8080", httpClient),
+                            tokenStore = store,
+                        ),
+                    familyClient = FamilyClient("http://localhost:8080", httpClient),
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                    calendarCache = InMemoryCalendarCacheStore(),
+                    bootstrapCache = InMemoryFamilyBootstrapCache(),
+                    carpoolClient = CarpoolClient("http://localhost:8080", httpClient),
+                )
+
+            val summaryDeferred = CompletableDeferred<String>()
+            bridge.getCarpoolSummary(
+                onSuccess = { summaryDeferred.complete(it) },
+                onError = { summaryDeferred.completeExceptionally(IllegalStateException(it)) },
+            )
+            val summaryJson = summaryDeferred.await()
+            assertTrue(summaryJson.contains("\"status\":\"NONE\""))
+            assertEquals("No carpool", bridge.carpoolFeedStatusLabel("NONE"))
+            assertFalse(bridge.carpoolEmptyHint("CAREGIVER").contains("Feeds"))
+
+            val enabledDeferred = CompletableDeferred<String>()
+            bridge.enableCarpool(
+                feedId = "f1",
+                onSuccess = { enabledDeferred.complete(it) },
+                onError = { enabledDeferred.completeExceptionally(IllegalStateException(it)) },
+            )
+            val enabledJson = enabledDeferred.await()
+            assertTrue(enabledJson.contains("\"status\":\"OWNER\""))
+            assertTrue(enabledJson.contains("AB12CD34"))
+        }
+
+    @Test
     fun calendarCacheRoundTripAndClearsOnLogout() =
         runBlocking {
             val mockEngine =

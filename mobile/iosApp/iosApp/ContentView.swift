@@ -1,5 +1,6 @@
 import SharedLogic
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var model = AuthViewModel()
@@ -251,15 +252,13 @@ struct ContentView: View {
             .tag(AppShellTab.calendar)
 
             NavigationStack {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Carpool")
-                        .font(.title2.bold())
-                    Text("Coming soon")
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        carpoolDestination
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .tabItem { Label(AppShellTab.carpool.title, systemImage: AppShellTab.carpool.systemImage) }
             .tag(AppShellTab.carpool)
@@ -319,6 +318,26 @@ struct ContentView: View {
             }
             .tabItem { Label(AppShellTab.more.title, systemImage: AppShellTab.more.systemImage) }
             .tag(AppShellTab.more)
+        }
+        .alert(
+            "Enable",
+            isPresented: Binding(
+                get: { model.pendingEnableFeed != nil },
+                set: { if !$0 { model.pendingEnableFeed = nil } }
+            )
+        ) {
+            Button("Enable") {
+                if let feed = model.pendingEnableFeed {
+                    model.enableCarpool(feedId: feed.feedId)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                model.pendingEnableFeed = nil
+            }
+        } message: {
+            if let feed = model.pendingEnableFeed {
+                Text(CarpoolDisplay.enableConfirmMessage(feedName: feed.feedName))
+            }
         }
     }
 
@@ -860,6 +879,144 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var carpoolDestination: some View {
+        Text("Carpool")
+            .font(.title2.bold())
+        if model.carpoolSummary == nil && model.carpoolError == nil {
+            Text("Loading carpool…")
+                .foregroundStyle(.secondary)
+        }
+        if let summary = model.carpoolSummary, summary.hasNoCarpools {
+            Text(CarpoolDisplay.emptyHint(circleRole: summary.circleRole))
+                .foregroundStyle(.secondary)
+        }
+        if let summary = model.carpoolSummary {
+            ForEach(summary.feeds) { feed in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(feed.feedName)
+                        .font(.headline)
+                    carpoolFeedActions(feed: feed, isOrganizer: summary.circleRole == "ORGANIZER")
+                }
+            }
+        }
+        if model.showCarpoolCodeForm {
+            TextField("Carpool invite code", text: $model.carpoolCodeInput)
+                .disabled(model.carpoolLoading)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Button("Join") { model.joinCarpool() }
+                    .disabled(model.carpoolLoading || model.carpoolCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Cancel") { model.showCarpoolCodeForm = false }
+                    .disabled(model.carpoolLoading)
+            }
+        } else {
+            Button("Have a code?") { model.showCarpoolCodeForm = true }
+                .disabled(model.carpoolLoading)
+        }
+        if let summary = model.carpoolSummary, !summary.spaces.isEmpty {
+            Text("Your carpools")
+                .font(.headline)
+            ForEach(summary.spaces) { space in
+                carpoolSpaceCard(space)
+            }
+        }
+        if let error = model.carpoolError {
+            Text(error)
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
+    private func carpoolFeedActions(for feed: FamilyFeedItem) -> some View {
+        let row = model.carpoolSummary?.feeds.first(where: { $0.feedId == feed.id })
+            ?? CarpoolFeedStatusView(
+                feedId: feed.id,
+                feedName: feed.name,
+                status: "NONE",
+                spaceId: nil,
+                spaceName: nil
+            )
+        if model.carpoolSummary != nil {
+            carpoolFeedActions(feed: row, isOrganizer: model.isOrganizer)
+        }
+    }
+
+    @ViewBuilder
+    private func carpoolFeedActions(feed: CarpoolFeedStatusView, isOrganizer: Bool) -> some View {
+        HStack {
+            Text(CarpoolDisplay.feedStatusLabel(feed.status))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            switch CarpoolDisplay.primaryAction(
+                status: feed.status,
+                spaceId: feed.spaceId,
+                isOrganizer: isOrganizer
+            ) {
+            case .enable:
+                Button("Enable") { model.pendingEnableFeed = feed }
+                    .disabled(model.carpoolLoading)
+            case .request:
+                Button("Request") {
+                    if let spaceId = feed.spaceId {
+                        model.requestCarpool(spaceId: spaceId)
+                    }
+                }
+                .disabled(model.carpoolLoading)
+            case .open:
+                Button("Open") { model.selectShellTab(.carpool) }
+                    .disabled(model.carpoolLoading)
+            case .none:
+                EmptyView()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func carpoolSpaceCard(_ space: CarpoolSpaceView) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(space.name)
+                .font(.headline)
+            Text(space.membership == "OWNER" ? "Owned by this family" : "Member")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(
+                "Families: "
+                    + space.members.map { CarpoolDisplay.circleDisplayName($0.circleName) }.joined(separator: ", ")
+            )
+            .font(.caption)
+            HStack {
+                Text(space.inviteCode)
+                    .font(.body.monospaced())
+                Button("Copy code") {
+                    UIPasteboard.general.string = space.inviteCode
+                }
+                .disabled(model.carpoolLoading)
+                if space.membership == "OWNER" {
+                    Button("Regenerate") { model.regenerateCarpoolInvite(spaceId: space.id) }
+                        .disabled(model.carpoolLoading)
+                }
+                Button("Leave") { model.leaveCarpool(spaceId: space.id) }
+                    .disabled(model.carpoolLoading)
+            }
+            if space.membership == "OWNER" {
+                ForEach(space.pendingRequests) { request in
+                    Text(CarpoolDisplay.joinRequestLabel(request))
+                    HStack {
+                        Button("Admit") {
+                            model.admitCarpoolRequest(spaceId: space.id, requestId: request.id)
+                        }
+                        .disabled(model.carpoolLoading)
+                        Button("Decline") {
+                            model.declineCarpoolRequest(spaceId: space.id, requestId: request.id)
+                        }
+                        .disabled(model.carpoolLoading)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private var feedsDestination: some View {
 
             HStack {
@@ -868,6 +1025,11 @@ struct ContentView: View {
                 Spacer()
                 Button("Refresh") { model.refreshFeeds() }
                     .disabled(model.isLoading)
+            }
+            if let error = model.carpoolError {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
             }
             if model.feeds.isEmpty {
                 Text("No feeds yet.")
@@ -903,6 +1065,7 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
+                            carpoolFeedActions(for: feed)
                             ViewThatFits(in: .horizontal) {
                                 HStack {
                                     Button("Sync now") { model.syncFeed(feed.id) }

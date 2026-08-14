@@ -9,6 +9,7 @@ export type { CalendarCacheSnapshot } from "@/api/calendarCacheStore"
 export { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 export type { FamilyBootstrapSnapshot } from "@/api/familyBootstrapStore"
 export { FamilyClient } from "@/api/familyClient"
+export { CarpoolClient } from "@/api/carpoolClient"
 export type {
   Adult,
   AssignCalendarCoverageRequest,
@@ -28,4 +29,9 @@ export type {
   RsvpStatus,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
+  CarpoolFeedStatus,
+  CarpoolInvite,
+  CarpoolJoinRequest,
+  CarpoolSpace,
+  CarpoolSummary,
 } from "@/api/types"

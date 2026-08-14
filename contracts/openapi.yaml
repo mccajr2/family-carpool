@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.14.0
+  version: 0.15.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -26,7 +26,15 @@ info:
     per-kid RSVPs on calendar items, and manage coverage assignments on
     calendar items. Feed last-synced / error / event count may update from
     Sync now or from the server poller — clients re-GET the feeds list to
-    observe changes. Magic links, passwords, multi-circle membership, invite
+    observe changes. Team carpool spaces (HTTP under `/api/carpool/*`) are
+    keyed one per normalized feed URL (same normalize as feeds: trim;
+    `webcal://` → `https://`). Importing a feed never joins a space and never
+    returns other families' membership. An Organizer whose circle already has
+    the feed may enable a space (that circle owns it). Other families join by
+    invite code (admits the circle immediately and ensureFeed if the URL is
+    missing) or request to join (same-URL subscriber; owner-circle adults
+    admit or decline in-app — no email/push). Membership is the family
+    circle. Magic links, passwords, multi-circle membership, invite
     deep links, email/push invite delivery, HTTP-only web cookies, and paid
     live-traffic routing are out of scope for this revision.
 servers:
@@ -50,6 +58,19 @@ tags:
       place per calendar item, set their default leave-from for the circle,
       set per-kid RSVPs on calendar items, and assign / reassign / remove
       coverage on calendar items (assignee confirm or decline).
+  - name: carpool
+    description: >
+      Team carpool spaces — one space per normalized feed URL, membership by
+      family circle (OWNER or MEMBER). Importing a feed does not join a space;
+      at most a subscriber sees that a space exists (name + Request / Have a
+      code). Enable is Organizer-only and makes that circle the owner.
+      Join-by-code admits immediately (Caregiver OK) and ensureFeed if the
+      circle lacks that URL. Same-URL subscribers without a code may request;
+      owner-circle adults admit or decline in-app (no push). Any space member
+      may view/copy the invite code; only the owning circle may regenerate.
+      Member circles may leave anytime; the owner may leave only as the sole
+      member circle (space is then removed). Paths are under `/api/carpool/*`,
+      not nested under `/api/family`.
 
 paths:
   /api/auth/request-code:
@@ -2110,6 +2131,465 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/carpool:
+    get:
+      operationId: getCarpoolSummary
+      tags: [carpool]
+      summary: Carpool tab summary for the current adult's circle
+      description: >
+        Any circle member. Returns per-feed carpool status (so Organizers can
+        Enable, and any member can Request / open a space they belong to),
+        spaces this circle already belongs to (invite code, member circle
+        names, owner pending requests), and never other families' kids or
+        rides. Importing a feed never auto-joins a space. A feed with no space
+        for that normalized URL has status NONE (Enable is Organizer-only on
+        the client). A space that exists for a subscriber who is not a member
+        has status AVAILABLE or REQUESTED — name only, no member list, invite
+        code, or rides. Adults without a circle receive 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Summary for the circle (feeds and spaces may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolSummary"
+              example:
+                circleRole: ORGANIZER
+                feeds:
+                  - feedId: 01900000-0000-7000-8000-000000000041
+                    feedName: Soccer - Crossbar
+                    status: NONE
+                    spaceId: null
+                    spaceName: null
+                spaces: []
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/enable:
+    post:
+      operationId: enableCarpoolSpace
+      tags: [carpool]
+      summary: Enable a team carpool space on a circle feed
+      description: >
+        Organizer-only. The circle must already have the given feed. Creates a
+        space named after the feed, keyed to that feed's normalized source URL,
+        marks this circle OWNER, and issues an invite code. Clients must
+        confirm that this family will own the space (admit / decline requests)
+        before calling. Caregiver Enable returns 403. A second Enable for the
+        same normalized URL (this circle or another) returns 409 — refresh
+        summary; the other circle sees AVAILABLE (Request + Have a code), not
+        a second Enable.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableCarpoolSpaceRequest"
+            example:
+              feedId: 01900000-0000-7000-8000-000000000041
+      responses:
+        "201":
+          description: Space created; caller circle is OWNER
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolSpace"
+              example:
+                id: 01900000-0000-7000-8000-000000000080
+                name: Soccer - Crossbar
+                membership: OWNER
+                inviteCode: AB12CD34
+                callerFeedId: 01900000-0000-7000-8000-000000000041
+                members:
+                  - circleId: 01900000-0000-7000-8000-000000000010
+                    circleName: McCarthy house
+                    membership: OWNER
+                pendingRequests: []
+        "400":
+          description: Invalid request (e.g. missing feedId)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is a Caregiver (Organizer-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle, or feedId is not a feed in the caller's circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: A space already exists for this feed's normalized URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/join:
+    post:
+      operationId: joinCarpoolSpace
+      tags: [carpool]
+      summary: Join a team carpool space with an invite code
+      description: >
+        Signed-in adult with a family circle. Invalid or regenerated-away codes
+        return 404 (no existence leak). Already a member (OWNER or MEMBER)
+        returns 409. Otherwise the circle is admitted as MEMBER immediately.
+        Caregiver redeem is allowed. If the circle has no feed with that
+        normalized URL, the server ensureFeed (name copied from the space,
+        zero kid links, then the existing auto-sync path) — a duplicate-URL
+        409 must not fire; this is join-only when the feed already exists.
+        No circle yet returns 404; a carpool code does not create a household.
+        Lookup is on this endpoint only (not the family invite join path).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinCarpoolSpaceRequest"
+            example:
+              code: AB12CD34
+      responses:
+        "200":
+          description: Circle admitted as MEMBER (feed created if the URL was missing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolSpace"
+        "400":
+          description: Invalid request (e.g. blank code)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invite code unknown or no longer valid, or adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Caller's circle is already a member of this space
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}:
+    parameters:
+      - name: spaceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getCarpoolSpace
+      tags: [carpool]
+      summary: Get a team carpool space the circle belongs to
+      description: >
+        Any adult in a member circle (OWNER or MEMBER). Includes the current
+        invite code (any member may view/copy), member circle names (not
+        other families' kids), and pending join requests when the caller
+        circle is OWNER. Non-member GET — including a same-URL subscriber
+        who only sees AVAILABLE — returns 404 (no existence leak of members
+        or the code).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Space detail for a member circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolSpace"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/invite/regenerate:
+    post:
+      operationId: regenerateCarpoolInvite
+      tags: [carpool]
+      summary: Regenerate the space invite code
+      description: >
+        Owning-circle adults only (any role in that circle). Replaces the
+        active invite code; the previous code no longer accepts joins. No
+        TTL. Member-but-not-owner returns 403. Non-member returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: New invite code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolInvite"
+              example:
+                code: XY98ZW76
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is a member but not the owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/leave:
+    post:
+      operationId: leaveCarpoolSpace
+      tags: [carpool]
+      summary: Leave a team carpool space
+      description: >
+        Acts for the whole household. A MEMBER circle may leave anytime.
+        The OWNER circle may leave only if it is the only member circle —
+        the space is then removed (that URL may be Enabled again). Owner
+        leave while other member circles remain returns 409. Non-member
+        returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Left the space (sole-owner leave also deletes the space)
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Owner cannot leave while other member circles remain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/requests:
+    post:
+      operationId: createCarpoolJoinRequest
+      tags: [carpool]
+      summary: Request to join a team carpool space
+      description: >
+        Caller's circle must already have a feed with this space's normalized
+        URL, must not be a member, and the space must exist (summary status
+        AVAILABLE). Creates a PENDING request; owner-circle adults see it
+        in-app (circle name + requester display name) — no email/push.
+        Duplicate PENDING from the same circle returns 409. Already a member
+        returns 409. Circle lacks the matching feed, or unknown space,
+        returns 404. After Decline, a new request is allowed. Caregiver
+        request is allowed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Join request created (PENDING)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolJoinRequest"
+              example:
+                id: 01900000-0000-7000-8000-000000000090
+                spaceId: 01900000-0000-7000-8000-000000000080
+                circleId: 01900000-0000-7000-8000-000000000011
+                circleName: The other house
+                requestedByAdultId: 01900000-0000-7000-8000-000000000002
+                requestedByDisplayName: Jordan
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: >
+            Unknown space, no circle, or caller's circle has no feed matching
+            this space's normalized URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already a member, or a PENDING request from this circle already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/requests/{requestId}/admit:
+    post:
+      operationId: admitCarpoolJoinRequest
+      tags: [carpool]
+      summary: Admit a pending join request
+      description: >
+        Owning-circle adults only. The requesting circle becomes MEMBER.
+        Does not add a feed — they already have the matching URL. Non-owner
+        member returns 403. Non-member returns 404. Unknown request returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Requesting circle admitted as MEMBER
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolSpace"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is a member but not the owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or request, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/requests/{requestId}/decline:
+    post:
+      operationId: declineCarpoolJoinRequest
+      tags: [carpool]
+      summary: Decline a pending join request
+      description: >
+        Owning-circle adults only. Closes the request; the requesting circle
+        may request again. Non-owner member returns 403. Non-member or
+        unknown request returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Request declined (they may request again)
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is a member but not the owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or request, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3041,6 +3521,210 @@ components:
           items:
             type: string
             format: uuid
+
+    CarpoolSpaceMembership:
+      type: string
+      enum: [OWNER, MEMBER]
+      description: >
+        OWNER is the circle that Enabled the space. MEMBER is any later
+        admitted circle (code join or owner Admit). Membership is the family
+        circle, not the individual adult.
+
+    CarpoolFeedStatusKind:
+      type: string
+      enum: [NONE, AVAILABLE, REQUESTED, MEMBER, OWNER]
+      description: >
+        NONE — no space for this feed's normalized URL (Organizer may Enable).
+        AVAILABLE — space exists, this circle is not a member and has no
+        PENDING request (Request + Have a code; no member list, invite code,
+        or rides). REQUESTED — PENDING join request from this circle. MEMBER
+        / OWNER — this circle belongs to the space (details on `spaces`).
+
+    CarpoolFeedStatus:
+      type: object
+      required:
+        - feedId
+        - feedName
+        - status
+      properties:
+        feedId:
+          type: string
+          format: uuid
+        feedName:
+          type: string
+          example: Soccer - Crossbar
+        status:
+          $ref: "#/components/schemas/CarpoolFeedStatusKind"
+        spaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null when status is NONE
+        spaceName:
+          type: string
+          nullable: true
+          description: >
+            Space name when a space exists for this URL (including AVAILABLE
+            / REQUESTED). Null when status is NONE. Not a member list.
+
+    CarpoolSpaceMember:
+      type: object
+      required:
+        - circleId
+        - membership
+      properties:
+        circleId:
+          type: string
+          format: uuid
+        circleName:
+          type: string
+          nullable: true
+          description: Null when unnamed; clients should show "Your family"
+        membership:
+          $ref: "#/components/schemas/CarpoolSpaceMembership"
+
+    CarpoolJoinRequest:
+      type: object
+      required:
+        - id
+        - spaceId
+        - circleId
+        - requestedByAdultId
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        circleId:
+          type: string
+          format: uuid
+        circleName:
+          type: string
+          nullable: true
+          description: Requesting circle's name
+        requestedByAdultId:
+          type: string
+          format: uuid
+          description: Adult who submitted the request
+        requestedByDisplayName:
+          type: string
+          nullable: true
+          description: Display name of the adult who submitted the request
+
+    CarpoolInvite:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 8
+          maxLength: 8
+          description: >
+            Human-shareable invite code for the space. Same alphabet and
+            length as family invites (8 chars,
+            `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`). Case-insensitive on join;
+            one active code per space until the owning circle regenerates.
+            No TTL. Share out of band (no email/push).
+          example: AB12CD34
+
+    CarpoolSpace:
+      type: object
+      required:
+        - id
+        - name
+        - membership
+        - inviteCode
+        - members
+        - pendingRequests
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Copied from the enabling feed (or space name on code-join ensureFeed)
+          example: Soccer - Crossbar
+        membership:
+          $ref: "#/components/schemas/CarpoolSpaceMembership"
+          description: Caller's circle membership in this space
+        inviteCode:
+          type: string
+          minLength: 8
+          maxLength: 8
+          description: Current invite code (any space member may view/copy)
+          example: AB12CD34
+        callerFeedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            This circle's feed for the space's normalized URL, when present.
+            Null if the circle later deleted that feed (space stays).
+        members:
+          type: array
+          description: Member circles by name only — not other families' kids
+          items:
+            $ref: "#/components/schemas/CarpoolSpaceMember"
+        pendingRequests:
+          type: array
+          description: >
+            PENDING join requests. Populated for OWNER-circle callers; empty
+            for MEMBER. In-app only (no push).
+          items:
+            $ref: "#/components/schemas/CarpoolJoinRequest"
+
+    CarpoolSummary:
+      type: object
+      required:
+        - circleRole
+        - feeds
+        - spaces
+      properties:
+        circleRole:
+          $ref: "#/components/schemas/FamilyRole"
+          description: >
+            Caller's role in their family circle. Enable is shown only when
+            this is ORGANIZER and a feed row has status NONE. Caregivers
+            omit Enable.
+        feeds:
+          type: array
+          description: One row per circle feed (empty when the circle has no feeds)
+          items:
+            $ref: "#/components/schemas/CarpoolFeedStatus"
+        spaces:
+          type: array
+          description: >
+            Spaces this circle belongs to (OWNER or MEMBER). Does not include
+            AVAILABLE / REQUESTED spaces — those appear only as feed status.
+            A circle may belong to many spaces (one per team / feed).
+          items:
+            $ref: "#/components/schemas/CarpoolSpace"
+
+    EnableCarpoolSpaceRequest:
+      type: object
+      required:
+        - feedId
+      properties:
+        feedId:
+          type: string
+          format: uuid
+          description: Circle feed to enable a space on (must already exist)
+          example: 01900000-0000-7000-8000-000000000041
+
+    JoinCarpoolSpaceRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+          description: Invite code from a space member (listserv shortcut)
+          example: AB12CD34
 
     ErrorResponse:
       type: object

@@ -1,8 +1,8 @@
 # Spec: team-carpool-space-invite
 
-Status: draft  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-13 (Enable = Organizer-only)  
+Updated: 2026-08-14 (`/pr`)  
 Approved: 2026-08-13  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `team-carpool-space-invite`  
@@ -136,70 +136,70 @@ Do not change Agenda, RSVP, coverage, or leave-by in this PR.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents carpool summary, enable, join-by-code, space detail,
+- [x] OpenAPI documents carpool summary, enable, join-by-code, space detail,
       regenerate invite, leave, create request, admit, decline; Bearer on all;
       401 / 403 / 404 / 409 behaviors below. Hand-written web + mobile clients
       updated in the same change.
-- [ ] **Enable** is **Organizer-only**. On a circle feed with no space for that
+- [x] **Enable** is **Organizer-only**. On a circle feed with no space for that
       normalized URL it creates a space named after the feed, OWNER membership
       for that circle, and an invite code. Client shows a confirmation that
       this family will **own** the space before the call. Caregiver Enable →
       **403**; Caregiver UI omits Enable.
-- [ ] Second Enable for the same normalized URL (same or other circle) → **409**.
+- [x] Second Enable for the same normalized URL (same or other circle) → **409**.
       The other circle’s summary shows **AVAILABLE** (space exists, not a member)
       with Request + Have a code — **not** member list, rides, or invite code.
-- [ ] Importing a feed never auto-joins a space and never returns other families’
+- [x] Importing a feed never auto-joins a space and never returns other families’
       membership or rides.
-- [ ] **Join by valid code:** circle becomes MEMBER (or already OWNER); if the
+- [x] **Join by valid code:** circle becomes MEMBER (or already OWNER); if the
       circle lacked that URL, a feed is created (space name, 0 kids) and synced;
       if it already had the URL, no duplicate feed (**409** on duplicate URL
       must not fire — join-only). Caregiver redeem succeeds. Already a member →
       **409**. Unknown code → **404**. No circle → **404**.
-- [ ] **Request:** circle with matching feed, not a member, space exists →
+- [x] **Request:** circle with matching feed, not a member, space exists →
       PENDING request. Owner-circle adults see it in-app (circle name +
       requester display name) and can **Admit** (MEMBER, no new feed) or
       **Decline**. Duplicate PENDING → **409**. Non-owner admit/decline → **403**.
       After Decline, a new request is allowed.
-- [ ] Any **space member** can view/copy the current invite code. Only the
+- [x] Any **space member** can view/copy the current invite code. Only the
       **owning circle** can regenerate; previous code no longer joins.
       Non-member GET of space detail / code → **404**.
-- [ ] Member leave removes that circle. Owner leave with other member circles
+- [x] Member leave removes that circle. Owner leave with other member circles
       → **409**. Owner leave as sole member removes the space (that URL may be
       Enabled again).
-- [ ] A circle can be OWNER or MEMBER of **multiple** spaces (two feeds → two
+- [x] A circle can be OWNER or MEMBER of **multiple** spaces (two feeds → two
       teams).
-- [ ] **Carpool tab** (web + Android + iOS): “Coming soon” gone; summary +
+- [x] **Carpool tab** (web + Android + iOS): “Coming soon” gone; summary +
       code / request / admit-decline / member list of **circle names**
       (not other families’ kids). **Enable** on Carpool + Feeds for
       **Organizers only**. Errors surfaced. Empty: add a feed or paste a
       code (Caregiver copy does not send them to Feeds).
-- [ ] Backend unit + Testcontainers integration cover enable (including
+- [x] Backend unit + Testcontainers integration cover enable (including
       Caregiver **403**), URL uniqueness, code join ± feed ensure, request
       admit/decline, authz, leave; client tests cover new API paths + Carpool
       UI (Enable hidden for Caregiver); `ModularityTests` still green.
 
 ## Tasks
 
-- [ ] **Contract:** `/api/carpool/*` paths + schemas in `contracts/openapi.yaml`;
+- [x] **Contract:** `/api/carpool/*` paths + schemas in `contracts/openapi.yaml`;
       `carpool` tag; version bump; description notes feed-URL key, owner vs
       member, **Organizer-only enable**, code shortcut, in-app requests (no
       push).
-- [ ] **Backend (`feeds`):** public `FeedsApi` — list by circle, find by
+- [x] **Backend (`feeds`):** public `FeedsApi` — list by circle, find by
       normalized URL, `ensureFeed` + sync; keep HTTP create/update/delete/sync
       Organizer-only.
-- [ ] **Backend (`family`):** public circle name (and adult display name already
+- [x] **Backend (`family`):** public circle name (and adult display name already
       on `AdultSessionApi.requireAdult`) for member/request rendering.
-- [ ] **Backend (`carpool`):** new module (`quickapp.module-conventions` + JPA +
+- [x] **Backend (`carpool`):** new module (`quickapp.module-conventions` + JPA +
       web); Flyway for spaces, memberships, invite code, join requests; enable /
       join / request / admit / decline / regenerate / leave; unique URL +
       membership constraints.
-- [ ] **Web:** `web/src/api/` client; replace Carpool placeholder; Organizer
+- [x] **Web:** `web/src/api/` client; replace Carpool placeholder; Organizer
       Feeds per-feed carpool chrome; loading / error / empty.
-- [ ] **Mobile (`sharedLogic`):** client methods + models.
-- [ ] **Android / iOS:** same flows via sharedUI / SwiftUI.
-- [ ] **Tests:** backend unit + integration; web + sharedLogic (+ iOS script
+- [x] **Mobile (`sharedLogic`):** client methods + models.
+- [x] **Android / iOS:** same flows via sharedUI / SwiftUI.
+- [x] **Tests:** backend unit + integration; web + sharedLogic (+ iOS script
       tests as elsewhere); ModularityTests.
-- [ ] **Docs:** architecture — carpool module, space-per-URL, circle membership,
+- [x] **Docs:** architecture — carpool module, space-per-URL, circle membership,
       owner, code shortcut vs request, Carpool tab vs Feeds; README smoke:
       enable + second family join by code.
 

@@ -15,8 +15,10 @@ class AppShellTest {
     }
 
     @Test
-    fun carpoolPlaceholderIsComingSoon() {
-        assertEquals("Coming soon", AppShell.CARPOOL_PLACEHOLDER)
+    fun carpoolTabLabelsAreNotComingSoon() {
+        assertEquals("Loading carpool…", AppShell.CARPOOL_LOADING)
+        assertEquals("Have a code?", AppShell.CARPOOL_HAVE_A_CODE)
+        assertEquals("Enable", AppShell.CARPOOL_ENABLE)
     }
 
     @Test

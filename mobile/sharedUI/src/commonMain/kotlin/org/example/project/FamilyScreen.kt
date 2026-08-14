@@ -82,10 +82,17 @@ fun FamilyScreen(
     familyClient: FamilyClient = remember { FamilyClient.create() },
     calendarCacheStore: CalendarCacheStore = remember { InMemoryCalendarCacheStore() },
     bootstrapCacheStore: FamilyBootstrapCache = remember { InMemoryFamilyBootstrapCache() },
+    carpoolClient: CarpoolClient = remember { CarpoolClient.create() },
 ) {
     val model =
-        remember(session, familyClient, calendarCacheStore, bootstrapCacheStore) {
-            FamilyUiModel(session, familyClient, calendarCacheStore, bootstrapCacheStore)
+        remember(session, familyClient, calendarCacheStore, bootstrapCacheStore, carpoolClient) {
+            FamilyUiModel(
+                session = session,
+                familyClient = familyClient,
+                calendarCache = calendarCacheStore,
+                bootstrapCache = bootstrapCacheStore,
+                carpoolClient = carpoolClient,
+            )
         }
     var state by remember { mutableStateOf(model.state) }
     val scope = rememberCoroutineScope()
@@ -106,9 +113,18 @@ fun FamilyScreen(
     }
 
     val readyShellTab = (state as? FamilyUiModel.State.Ready)?.shellTab
+    val readyMoreScreen = (state as? FamilyUiModel.State.Ready)?.moreScreen
     LaunchedEffect(readyShellTab) {
         if (readyShellTab == FamilyUiModel.ShellTab.CALENDAR) {
             model.revalidateCalendarIfStale()
+            refresh()
+        }
+    }
+    LaunchedEffect(readyShellTab, readyMoreScreen) {
+        if (readyShellTab == FamilyUiModel.ShellTab.CARPOOL ||
+            readyMoreScreen == FamilyUiModel.MoreScreen.FEEDS
+        ) {
+            model.loadCarpoolSummary()
             refresh()
         }
     }
@@ -441,8 +457,12 @@ private fun ReadyContent(
                     }
                 }
                 FamilyUiModel.ShellTab.CARPOOL -> {
-                    Text(AppShell.TAB_CARPOOL, style = MaterialTheme.typography.headlineSmall)
-                    Text(AppShell.CARPOOL_PLACEHOLDER, style = MaterialTheme.typography.bodyMedium)
+                    CarpoolDestination(
+                        current = current,
+                        model = model,
+                        refresh = refresh,
+                        scope = scope,
+                    )
                 }
                 FamilyUiModel.ShellTab.FAMILY -> {
                     Text(current.circle.displayTitle(), style = MaterialTheme.typography.headlineSmall)
@@ -1978,6 +1998,9 @@ private fun FeedsDestination(
             Text("Refresh")
         }
     }
+    current.carpoolError?.let { message ->
+        Text(text = message, color = MaterialTheme.colorScheme.error)
+    }
     if (current.feeds.isEmpty()) {
         Text("No feeds yet.", style = MaterialTheme.typography.bodySmall)
     } else {
@@ -2055,6 +2078,34 @@ private fun FeedsDestination(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (current.carpoolSummary != null) {
+                        CarpoolFeedActionsRow(
+                            feed =
+                                carpoolStatusForFeed(
+                                    current.carpoolSummary,
+                                    feed.id,
+                                    feed.name,
+                                ),
+                            circleRole = current.circle.role,
+                            disabled = current.loading || current.carpoolLoading,
+                            onEnable = {
+                                scope.launch {
+                                    model.enableCarpool(feed.id)
+                                    refresh()
+                                }
+                            },
+                            onRequest = { spaceId ->
+                                scope.launch {
+                                    model.requestCarpool(spaceId)
+                                    refresh()
+                                }
+                            },
+                            onOpen = {
+                                model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
+                                refresh()
+                            },
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),

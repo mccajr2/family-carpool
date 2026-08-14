@@ -1146,7 +1146,7 @@ class FamilyUiModelTest {
             assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
             assertEquals(AppShell.primaryTabs, listOf("Calendar", "Carpool", "Family", "More"))
-            assertEquals(AppShell.CARPOOL_PLACEHOLDER, "Coming soon")
+            assertEquals(AppShell.CARPOOL_HAVE_A_CODE, "Have a code?")
 
             model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
             assertEquals(
@@ -1220,6 +1220,290 @@ class FamilyUiModelTest {
                 FamilyUiModel.MoreScreen.PLACES,
                 assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
             )
+        }
+
+    @Test
+    fun organizerEnablesCarpoolAndCaregiverOmitsEnable() =
+        runTest {
+            var enabled = false
+            val noneSummary =
+                """{"circleRole":"ORGANIZER","feeds":[{"feedId":"f1","feedName":"Soccer","status":"NONE","spaceId":null,"spaceName":null}],"spaces":[]}"""
+            val ownerSummary =
+                """{"circleRole":"ORGANIZER","feeds":[{"feedId":"f1","feedName":"Soccer","status":"OWNER","spaceId":"s1","spaceName":"Soccer"}],"spaces":[{"id":"s1","name":"Soccer","membership":"OWNER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House A","membership":"OWNER"}],"pendingRequests":[]}]}"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = if (enabled) ownerSummary else noneSummary,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/enable" &&
+                            request.method == HttpMethod.Post -> {
+                            enabled = true
+                            respond(
+                                content =
+                                    """{"id":"s1","name":"Soccer","membership":"OWNER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House A","membership":"OWNER"}],"pendingRequests":[]}""",
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertIs<FamilyUiModel.State.Ready>(model.state)
+            model.loadCarpoolSummary()
+            val before = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val noneFeed = before.carpoolSummary?.feeds?.single()
+            assertEquals(CarpoolFeedStatusKind.NONE, noneFeed?.status)
+            assertEquals(
+                CarpoolPrimaryAction.ENABLE,
+                noneFeed?.primaryAction(before.circle.role),
+            )
+            model.enableCarpool("f1")
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals(CarpoolFeedStatusKind.OWNER, after.carpoolSummary?.feeds?.single()?.status)
+            assertEquals("AB12CD34", after.carpoolSummary?.spaces?.single()?.inviteCode)
+        }
+
+    @Test
+    fun joinCarpoolReloadsFeedsAndCalendar() =
+        runTest {
+            var joined = false
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Alex"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"ZZ99YY88"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    if (joined) {
+                                        """[{"id":"f1","name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":[],"lastSyncedAt":"2026-08-10T12:00:00Z","lastSyncError":null,"eventCount":3}]"""
+                                    } else {
+                                        "[]"
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    if (joined) {
+                                        """[{"id":"e1","source":"FEED","title":"Practice","startsAt":"2026-08-20T16:00:00Z","endsAt":null,"location":null,"kidIds":[],"feedId":"f1","feedName":"Soccer"}]"""
+                                    } else {
+                                        "[]"
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    if (joined) {
+                                        """{"circleRole":"ORGANIZER","feeds":[{"feedId":"f1","feedName":"Soccer","status":"MEMBER","spaceId":"s1","spaceName":"Soccer"}],"spaces":[{"id":"s1","name":"Soccer","membership":"MEMBER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House","membership":"MEMBER"}],"pendingRequests":[]}]}"""
+                                    } else {
+                                        """{"circleRole":"ORGANIZER","feeds":[],"spaces":[]}"""
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/join" &&
+                            request.method == HttpMethod.Post -> {
+                            joined = true
+                            respond(
+                                content =
+                                    """{"id":"s1","name":"Soccer","membership":"MEMBER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House","membership":"MEMBER"}],"pendingRequests":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            val before = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(before.feeds.isEmpty())
+            assertTrue(before.calendarItems.isEmpty())
+            model.updateCarpoolCodeInput("AB12CD34")
+            model.joinCarpool()
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("Soccer", after.feeds.single().name)
+            assertEquals("Practice", after.calendarItems.single().title)
+            assertEquals(CarpoolSpaceMembership.MEMBER, after.carpoolSummary?.spaces?.single()?.membership)
+            assertEquals("", after.carpoolCodeInput)
+            assertFalse(after.carpoolShowCodeForm)
+        }
+
+    @Test
+    fun caregiverJoinCarpoolReloadsCalendarWithoutListingFeeds() =
+        runTest {
+            var joined = false
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            error("Caregiver must not list feeds")
+                        request.url.encodedPath == "/api/family/circle/calendar" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    if (joined) {
+                                        """[{"id":"e1","source":"FEED","title":"Practice","startsAt":"2026-08-20T16:00:00Z","endsAt":null,"location":null,"kidIds":[],"feedId":"f1","feedName":"Soccer"}]"""
+                                    } else {
+                                        "[]"
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    if (joined) {
+                                        """{"circleRole":"CAREGIVER","feeds":[],"spaces":[{"id":"s1","name":"Soccer","membership":"MEMBER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House","membership":"MEMBER"}],"pendingRequests":[]}]}"""
+                                    } else {
+                                        """{"circleRole":"CAREGIVER","feeds":[],"spaces":[]}"""
+                                    },
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/join" &&
+                            request.method == HttpMethod.Post -> {
+                            joined = true
+                            respond(
+                                content =
+                                    """{"id":"s1","name":"Soccer","membership":"MEMBER","inviteCode":"AB12CD34","callerFeedId":"f1","members":[{"circleId":"c1","circleName":"House","membership":"MEMBER"}],"pendingRequests":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            assertTrue(assertIs<FamilyUiModel.State.Ready>(model.state).calendarItems.isEmpty())
+            model.updateCarpoolCodeInput("AB12CD34")
+            model.joinCarpool()
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertEquals("Practice", after.calendarItems.single().title)
+            assertTrue(after.feeds.isEmpty())
+        }
+
+    @Test
+    fun caregiverCarpoolEmptyHintDoesNotMentionFeedsAndEnableIsIgnored() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"2","email":"other@example.com","displayName":"Jordan"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"CAREGIVER","members":[{"adultId":"1","email":"parent@example.com","displayName":"Alex","role":"ORGANIZER"},{"adultId":"2","email":"other@example.com","displayName":"Jordan","role":"CAREGIVER"}],"kids":[],"places":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = """{"circleRole":"CAREGIVER","feeds":[],"spaces":[]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/enable" ->
+                            error("Caregiver must not call enable")
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            model.loadCarpoolSummary()
+            val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val summary = ready.carpoolSummary
+            assertNotNull(summary)
+            assertTrue(summary.hasNoCarpools())
+            assertFalse(summary.emptyHint().contains("Feeds"))
+            model.enableCarpool("f1")
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertTrue(after.carpoolSummary?.hasNoCarpools() == true)
         }
 
     @Test
@@ -2873,5 +3157,6 @@ private fun familyUiModel(
         calendarCache = calendarCache,
         bootstrapCache = bootstrapCache,
         nowMs = nowMs,
+        carpoolClient = CarpoolClient("http://localhost:8080", httpClient),
     )
 }

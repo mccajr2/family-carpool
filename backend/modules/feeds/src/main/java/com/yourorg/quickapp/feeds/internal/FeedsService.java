@@ -4,6 +4,7 @@ import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.CreateFeedRequest;
 import com.yourorg.quickapp.feeds.FeedResponse;
+import com.yourorg.quickapp.feeds.FeedsApi;
 import com.yourorg.quickapp.feeds.UpdateFeedRequest;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -20,7 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class FeedsService {
+public class FeedsService implements FeedsApi {
 
     private final FamilyMembershipApi familyMembershipApi;
     private final ActivityFeedRepository feeds;
@@ -44,9 +46,7 @@ public class FeedsService {
     @Transactional(readOnly = true)
     public List<FeedResponse> list(AdultResponse adult) {
         UUID circleId = familyMembershipApi.requireOrganizerCircleId(adult.id());
-        return feeds.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
-                .map(this::toResponse)
-                .toList();
+        return listByCircle(circleId);
     }
 
     @Transactional
@@ -59,6 +59,39 @@ public class FeedsService {
         if (feeds.existsByCircleIdAndSourceUrl(circleId, sourceUrl)) {
             throw new FeedsException(HttpStatus.CONFLICT, "Feed URL already exists in this circle");
         }
+        return persistAndSync(circleId, name, sourceUrl, kidIds);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FeedResponse> listByCircle(UUID circleId) {
+        return feeds.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<FeedResponse> findByCircleAndNormalizedUrl(UUID circleId, String sourceUrl) {
+        String normalized = normalizeSourceUrl(sourceUrl);
+        return feeds.findByCircleIdAndSourceUrl(circleId, normalized).map(this::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public FeedResponse ensureFeed(UUID circleId, String sourceUrl, String name) {
+        String normalizedName = normalizeRequired(name, "name");
+        String normalizedUrl = normalizeSourceUrl(sourceUrl);
+        Optional<ActivityFeedEntity> existing =
+                feeds.findByCircleIdAndSourceUrl(circleId, normalizedUrl);
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
+        }
+        return persistAndSync(circleId, normalizedName, normalizedUrl, Set.of());
+    }
+
+    private FeedResponse persistAndSync(
+            UUID circleId, String name, String sourceUrl, Set<UUID> kidIds) {
         ActivityFeedEntity feed =
                 new ActivityFeedEntity(UUID.randomUUID(), circleId, name, sourceUrl, Instant.now());
         feed.setKidIds(kidIds);

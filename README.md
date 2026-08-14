@@ -5,15 +5,16 @@ Family scheduling and carpool app — built from the quickapp SDD starter.
 
 | Layer    | Stack                                                                  |
 | -------- | ---------------------------------------------------------------------- |
-| Backend  | Java 25, Spring Boot 4.1, Spring Modulith (`auth` + `family`)          |
+| Backend  | Java 25, Spring Boot 4.1, Spring Modulith (`auth` + `family` + `carpool`) |
 | Mobile   | Kotlin Multiplatform — shared logic, Android (Compose) + iOS (SwiftUI) |
 | Web      | Vite + React + TypeScript + Tailwind (shadcn-style UI)                 |
 | Contract | OpenAPI (`contracts/openapi.yaml`)                                     |
 | Workflow | `/roadmap` → `/spec` → `/implement` → `/pr` → merge                    |
 
 
-Product path so far: **email OTP + Bearer auth**, then **family circle + kids**
-(one circle per adult; Organizer on create). Greeting harness removed.
+Product path so far: **email OTP + Bearer auth**, **family circle + kids**,
+unified **Agenda**, then **opt-in team carpool spaces** (one per feed URL;
+Organizer Enable; join by code or request). Greeting harness removed.
 
 ## Quick start (auth + family smoke)
 
@@ -63,6 +64,43 @@ curl -s -X POST http://localhost:8080/api/family/circle/kids \
   -d '{"displayName":"Sam"}'
 ```
 
+## Team carpool smoke (enable + second family join by code)
+
+Same backend and `$TOKEN` (family A Organizer) as above. A second household
+needs its own circle — a carpool code does not create a family.
+
+```bash
+# Family A: subscribe a team calendar (Organizer), then Enable carpool
+FEED_ID=$(curl -s -X POST http://localhost:8080/api/family/circle/feeds \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Soccer","sourceUrl":"https://example.com/team.ics","kidIds":[]}' \
+  | jq -r .id)
+
+CARPOOL_CODE=$(curl -s -X POST http://localhost:8080/api/carpool/enable \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"feedId\":\"$FEED_ID\"}" | jq -r .inviteCode)
+
+# Family B: new adult, new circle, then join by carpool code (Caregiver OK too)
+curl -s -X POST http://localhost:8080/api/auth/request-code \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"other-family@example.com"}'
+TOKEN_B=$(curl -s -X POST http://localhost:8080/api/auth/verify-code \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"other-family@example.com","code":"123456"}' | jq -r .accessToken)
+curl -s -X POST http://localhost:8080/api/family/circle \
+  -H "Authorization: Bearer $TOKEN_B" \
+  -H 'Content-Type: application/json' \
+  -d '{"adultDisplayName":"Sam","name":"House B"}'
+curl -s -X POST http://localhost:8080/api/carpool/join \
+  -H "Authorization: Bearer $TOKEN_B" \
+  -H 'Content-Type: application/json' \
+  -d "{\"code\":\"$CARPOOL_CODE\"}"
+# Join creates the feed for House B if they lacked that URL, then syncs.
+# Clients reload Feeds + Agenda after join — no manual Refresh required.
+```
+
 **Web:**
 
 ```bash
@@ -73,7 +111,8 @@ npm run dev
 
 Open the app → email OTP → **Create family** or **Have an invite code?** →
 members / invite code (Organizer) → add/rename/remove kids (Organizer) →
-Leave family or Sign out. Unnamed circles show as **Your family**.
+**Carpool** (Enable on a feed, paste a code, request/admit) → Leave family or
+Sign out. Unnamed circles show as **Your family**.
 
 **Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator.
 The app calls `http://127.0.0.1:8080`; `./gradlew :androidApp:installDebug` (and
@@ -124,7 +163,8 @@ npm test
 
 ## Status
 
-Active product: family calendar + carpool roadmap. Auth and family-circle slices
-shipped on feature branches via PR. `main` is PR-protected. Next up after
-`family-circle-and-kids`: `family-adult-invites-roles`. Pre-beta gates later:
-`auth-email-delivery`, `web-auth-session-hardening`, `adult-optional-password`.
+Active product: family calendar + carpool roadmap. Auth, family-circle, Agenda,
+and team carpool spaces shipped on feature branches via PR. `main` is
+PR-protected. Next up after `team-carpool-space-invite`: `garage-vehicles`.
+Pre-beta gates later: `auth-email-delivery`, `web-auth-session-hardening`,
+`adult-optional-password`.
