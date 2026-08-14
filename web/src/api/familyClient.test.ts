@@ -682,4 +682,99 @@ describe("FamilyClient", () => {
       status: "NO",
     })
   })
+
+  it("gets garage, patches drives, lists makes/models, suggests seats, and CRUDs vehicles", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+    const vehicle = {
+      id: "v1",
+      ownerAdultId: "1",
+      driverAdultIds: ["1"],
+      keptAtPlaceId: "p1",
+      label: "Blue van",
+      year: 2019,
+      make: "HONDA",
+      model: "Odyssey",
+      seats: 8,
+      suggestedSeats: 8,
+    }
+    const garage = {
+      members: [{ adultId: "1", displayName: "Alex", drives: true }],
+      vehicles: [vehicle],
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(garage))
+      .mockResolvedValueOnce(json({ ...garage, members: [{ ...garage.members[0], drives: false }] }))
+      .mockResolvedValueOnce(json([{ name: "HONDA" }]))
+      .mockResolvedValueOnce(json([{ name: "Odyssey" }]))
+      .mockResolvedValueOnce(json({ seats: 8 }))
+      .mockResolvedValueOnce(json(vehicle, 201))
+      .mockResolvedValueOnce(json({ ...vehicle, seats: 7 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json({ seats: null }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await expect(client.getGarage("tok")).resolves.toMatchObject({ vehicles: [vehicle] })
+    await expect(client.patchGarageDrives("tok", false)).resolves.toMatchObject({
+      members: [{ adultId: "1", drives: false }],
+    })
+    await expect(client.listGarageMakes("tok")).resolves.toEqual([{ name: "HONDA" }])
+    await expect(client.listGarageModels("tok", 2019, "HONDA")).resolves.toEqual([
+      { name: "Odyssey" },
+    ])
+    await expect(
+      client.suggestGarageSeats("tok", { year: 2019, make: "HONDA", model: "Odyssey" }),
+    ).resolves.toEqual({ seats: 8 })
+    await expect(
+      client.addVehicle("tok", {
+        label: "Blue van",
+        year: 2019,
+        make: "HONDA",
+        model: "Odyssey",
+        seats: 8,
+      }),
+    ).resolves.toMatchObject({ id: "v1" })
+    await expect(
+      client.updateVehicle("tok", "v1", {
+        label: "Blue van",
+        year: 2019,
+        make: "HONDA",
+        model: "Odyssey",
+        seats: 7,
+        driverAdultIds: ["1"],
+      }),
+    ).resolves.toMatchObject({ seats: 7 })
+    await client.deleteVehicle("tok", "v1")
+    await expect(client.suggestVehicleSeats("tok", "v1")).resolves.toEqual({ seats: null })
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/garage")
+    expect(fetchFn.mock.calls[1]?.[0]).toBe("http://localhost:8080/api/family/circle/garage/me")
+    expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "PATCH" })
+    expect(JSON.parse(String(fetchFn.mock.calls[1]?.[1]?.body))).toEqual({ drives: false })
+    expect(fetchFn.mock.calls[2]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/makes",
+    )
+    expect(fetchFn.mock.calls[3]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/models?year=2019&make=HONDA",
+    )
+    expect(fetchFn.mock.calls[4]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/suggest-seats",
+    )
+    expect(JSON.parse(String(fetchFn.mock.calls[4]?.[1]?.body))).not.toHaveProperty("vin")
+    expect(fetchFn.mock.calls[5]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/vehicles",
+    )
+    expect(JSON.parse(String(fetchFn.mock.calls[5]?.[1]?.body))).not.toHaveProperty("vin")
+    expect(fetchFn.mock.calls[6]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/vehicles/v1",
+    )
+    expect(fetchFn.mock.calls[7]?.[1]).toMatchObject({ method: "DELETE" })
+    expect(fetchFn.mock.calls[8]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/garage/vehicles/v1/suggest-seats",
+    )
+  })
 })

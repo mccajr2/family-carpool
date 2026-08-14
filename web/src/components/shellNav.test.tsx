@@ -74,6 +74,7 @@ describe("shellNav", () => {
 describe("uiIcons", () => {
   it("maps required semantic names to Lucide icons", () => {
     expect(semanticIcons["icon.places"]).toBeTruthy()
+    expect(semanticIcons["icon.garage"]).toBeTruthy()
     expect(semanticIcons["icon.feeds"]).toBeTruthy()
     expect(semanticIcons["icon.signout"]).toBeTruthy()
     expect(resolveSemanticIcon("icon.chevron")).toBe(

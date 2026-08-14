@@ -24,6 +24,7 @@ export type {
   CreateFamilyCircleRequest,
   FamilyCircle,
   FamilyRole,
+  Garage,
   Kid,
   RequestAuthCodeResponse,
   RsvpStatus,

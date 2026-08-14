@@ -2,7 +2,7 @@
 
 Status: in-progress  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` contract)  
+Updated: 2026-08-14 (`/implement` web)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -203,7 +203,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
       driver unassign); public `FamilyGarageApi`; fake port for tests.
 - [x] **Contract:** OpenAPI garage schemas/paths; bump version; description
       notes including-driver seats and make/model/year hints (no VIN).
-- [ ] **Web:** types + `familyClient` garage methods; More → Garage screen;
+- [x] **Web:** types + `familyClient` garage methods; More → Garage screen;
       year/make/model + overridable seats; who-can-drive; kept-at place;
       `icon.garage`; tests.
 - [ ] **Mobile:** `sharedLogic` models/client; `sharedUI` Garage panel +
