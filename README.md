@@ -200,7 +200,7 @@ npm test
 ## Status
 
 Active product: family calendar + carpool roadmap. Auth, family-circle, Agenda,
-and team carpool spaces shipped on feature branches via PR. `main` is
-PR-protected. Next up after `team-carpool-space-invite`: `garage-vehicles`.
+team carpool spaces, and circle garage shipped on feature branches via PR.
+`main` is PR-protected. Next up after `garage-vehicles`: `carpool-request-accept`.
 Pre-beta gates later: `auth-email-delivery`, `web-auth-session-hardening`,
 `adult-optional-password`.

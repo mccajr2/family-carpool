@@ -1,8 +1,8 @@
 # Spec: garage-vehicles
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` docs)  
+Updated: 2026-08-14 (`/pr`)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -161,34 +161,34 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
       outside 2–18 / driver list missing owner or non-member / unknown place →
       **400**; duplicate label for the same **owner** → **409**. **No VIN**
       in schemas or paths.
-- [ ] Authenticated member **GETs** the circle garage: every member’s `drives`
+- [x] Authenticated member **GETs** the circle garage: every member’s `drives`
       (default true) and a **flat vehicle list** with owner, `driverAdultIds`,
       optional `keptAtPlaceId`. Non-member → **404**; unauthenticated → **401**.
-- [ ] A member can **PATCH own `drives`**. Setting false does not delete
+- [x] A member can **PATCH own `drives`**. Setting false does not delete
       vehicles or driver lists and does not change role. Other adult’s `drives`
       cannot be patched (**404**).
-- [ ] A member can **add / edit / delete vehicles they own** (`label` + `year`
+- [x] A member can **add / edit / delete vehicles they own** (`label` + `year`
       + `make` + `model` + `seats` required; `driverAdultIds` default
       `[owner]`; optional place). Listed driver who is not the owner → **404**
       on write. Caregiver and Organizer have the same garage write rules.
-- [ ] Owner can add another circle member as a driver (shared household cars)
+- [x] Owner can add another circle member as a driver (shared household cars)
       and can omit them (Grandma/Grandpa / nanny personal cars). Place does not
       auto-add drivers.
-- [ ] Makes and models lists come from vPIC via the backend (fake port in
+- [x] Makes and models lists come from vPIC via the backend (fake port in
       tests). Suggest-seats for a known year/make/model returns parseable
       seats from the port when available; miss returns **200** with null
       `seats`. Client `seats` on create/update is kept even when a hint
       differs (overridable).
-- [ ] Unit tests never call live vPIC; cache is used for the same normalized
+- [x] Unit tests never call live vPIC; cache is used for the same normalized
       make/model/year. Integration tests use a fake/stub port.
-- [ ] Adult **leave** or Organizer **remove** deletes vehicles they **own**
+- [x] Adult **leave** or Organizer **remove** deletes vehicles they **own**
       and removes them from other vehicles’ driver lists.
-- [ ] Web + Android + iOS: More → Garage; own don’t-drive toggle + Add
+- [x] Web + Android + iOS: More → Garage; own don’t-drive toggle + Add
       vehicle; year → make → model then suggested seats (editable); **who can
       drive** (default me); optional kept-at place; list grouped by place with
       driver names; edit only if owner; no VIN field; errors surfaced;
       Caregiver sees Garage (not Feeds).
-- [ ] Backend unit + Testcontainers integration cover authz, uniqueness,
+- [x] Backend unit + Testcontainers integration cover authz, uniqueness,
       seats/year range, driver-list 400s, suggest soft-fail, leave cascade
       (owned vs driver-only); client tests cover API + Garage UI (don’t-drive
       hides Add; non-owner read-only; default drivers = me; no VIN);
@@ -213,7 +213,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
       `docs/ui-system.md` mapping; regenerate checked-in outputs.
 - [x] **Docs:** `docs/architecture.md` garage row + write policy; README
       smoke.
-- [ ] **Tests:** backend unit + integration; web + sharedLogic/sharedUI;
+- [x] **Tests:** backend unit + integration; web + sharedLogic/sharedUI;
       `ModularityTests`; token generate `--check` if icons change.
 
 ## Open questions

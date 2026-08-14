@@ -183,7 +183,7 @@ Adult --coverage assignment--> (source + itemId) + Kid(s)
 
 ### Circle garage (detail)
 
-Locked for [`garage-vehicles`](specs/active/garage-vehicles.md) (lives in the
+Locked for [`garage-vehicles`](specs/archive/garage-vehicles.md) (lives in the
 **`family`** module — no separate garage module):
 
 | Topic | Decision |

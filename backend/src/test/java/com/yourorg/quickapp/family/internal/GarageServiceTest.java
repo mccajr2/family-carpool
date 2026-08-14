@@ -189,6 +189,52 @@ class GarageServiceTest {
     }
 
     @Test
+    void createRejectsYearOutOfRange() {
+        when(memberships.findByAdultId(momId))
+                .thenReturn(Optional.of(membership(momId, FamilyRole.ORGANIZER)));
+
+        assertThatThrownBy(
+                        () ->
+                                garageService.create(
+                                        mom,
+                                        new CreateVehicleRequest(
+                                                "Van", 1995, "HONDA", "Odyssey", 8, null, null)))
+                .isInstanceOf(FamilyException.class)
+                .extracting(ex -> ((FamilyException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void createRejectsUnknownKeptAtPlace() {
+        FamilyMembershipEntity membership = membership(momId, FamilyRole.ORGANIZER);
+        when(memberships.findByAdultId(momId)).thenReturn(Optional.of(membership));
+        when(memberships.findByCircleIdAndAdultId(circleId, momId)).thenReturn(Optional.of(membership));
+        when(vehicles.existsByCircleIdAndOwnerAdultIdAndLabelNormalized(any(), any(), any()))
+                .thenReturn(false);
+        when(places.findByIdAndCircleId(any(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                garageService.create(
+                                        mom,
+                                        new CreateVehicleRequest(
+                                                "Van",
+                                                2020,
+                                                "HONDA",
+                                                "Odyssey",
+                                                8,
+                                                null,
+                                                UUID.randomUUID())))
+                .isInstanceOf(FamilyException.class)
+                .satisfies(
+                        ex -> {
+                            FamilyException fe = (FamilyException) ex;
+                            assertThat(fe.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(fe.getMessage()).contains("keptAtPlaceId");
+                        });
+    }
+
+    @Test
     void nonOwnerUpdateIsNotFound() {
         FamilyVehicleEntity van = ownedVan();
         when(memberships.findByAdultId(dadId))

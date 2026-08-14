@@ -155,7 +155,10 @@ class FamilyGarageControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(dadToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.vehicles.length()").value(2))
-                .andExpect(jsonPath("$.members.length()").value(3));
+                .andExpect(jsonPath("$.members.length()").value(3))
+                .andExpect(jsonPath("$.members[0].drives").value(true))
+                .andExpect(jsonPath("$.vehicles[0].ownerAdultId").exists())
+                .andExpect(jsonPath("$.vehicles[0].driverAdultIds").isArray());
 
         mockMvc.perform(
                         patch("/api/family/circle/garage/me")
