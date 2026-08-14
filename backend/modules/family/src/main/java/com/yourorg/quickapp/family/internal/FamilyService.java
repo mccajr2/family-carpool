@@ -39,6 +39,7 @@ public class FamilyService {
     private final FamilyKidRepository kids;
     private final FamilyPlaceRepository places;
     private final GeocodeService geocodeService;
+    private final GarageService garageService;
 
     public FamilyService(
             AdultSessionApi adultSessionApi,
@@ -46,13 +47,15 @@ public class FamilyService {
             FamilyMembershipRepository memberships,
             FamilyKidRepository kids,
             FamilyPlaceRepository places,
-            GeocodeService geocodeService) {
+            GeocodeService geocodeService,
+            GarageService garageService) {
         this.adultSessionApi = adultSessionApi;
         this.circles = circles;
         this.memberships = memberships;
         this.kids = kids;
         this.places = places;
         this.geocodeService = geocodeService;
+        this.garageService = garageService;
     }
 
     @Transactional
@@ -150,12 +153,14 @@ public class FamilyService {
                             HttpStatus.CONFLICT,
                             "Sole Organizer cannot leave while other members or kids remain");
                 }
+                garageService.removeAdult(circleId, adult.id());
                 memberships.delete(loaded.membership());
                 circles.delete(loaded.circle());
                 return;
             }
         }
 
+        garageService.removeAdult(circleId, adult.id());
         memberships.delete(loaded.membership());
     }
 
@@ -203,6 +208,7 @@ public class FamilyService {
                     HttpStatus.CONFLICT, "Circle must keep at least one Organizer");
         }
 
+        garageService.removeAdult(loaded.circle().id(), memberAdultId);
         memberships.delete(member);
     }
 

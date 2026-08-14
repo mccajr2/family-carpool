@@ -196,7 +196,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
 
 ## Tasks
 
-- [ ] **Backend:** Flyway `drives` on membership (default true) +
+- [x] **Backend:** Flyway `drives` on membership (default true) +
       `family_vehicles` (owner, optional place, no VIN) + vehicle-drivers
       join + vPIC cache table; `VpicPort` + adapter (makes, models, seat
       hint); garage service/controller; leave/remove cascade (owned delete +

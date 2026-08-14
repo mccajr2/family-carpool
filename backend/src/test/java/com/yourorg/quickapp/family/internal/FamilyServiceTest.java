@@ -46,6 +46,9 @@ class FamilyServiceTest {
     @Mock
     private GeocodeService geocodeService;
 
+    @Mock
+    private GarageService garageService;
+
     @InjectMocks
     private FamilyService familyService;
 
