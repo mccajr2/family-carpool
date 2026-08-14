@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.15.0
+  version: 0.16.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -17,17 +17,20 @@ info:
     assign/confirm set RSVP Yes and reject No kids), server-computed schedule conflicts
     on calendar items (kid time-overlaps ignore RSVP No; adult
     coverage overlaps; confirm/self-assign that would create two overlapping
-    CONFIRMED coverages for one adult returns 409), and memberships
-    (ORGANIZER / CAREGIVER). Organizers share a short invite code; Caregivers
-    join via that code. Any member may manage named places (label + free-text
-    address; optional lat/lng from geocoding with soft-fail and retry locate),
-    manual events, read the calendar agenda, set their own leave-from place
-    per calendar item, set their default leave-from for the circle, set
-    per-kid RSVPs on calendar items, and manage coverage assignments on
-    calendar items. Feed last-synced / error / event count may update from
-    Sync now or from the server poller — clients re-GET the feeds list to
-    observe changes. Team carpool spaces (HTTP under `/api/carpool/*`) are
-    keyed one per normalized feed URL (same normalize as feeds: trim;
+    CONFIRMED coverages for one adult returns 409), a circle garage
+    (vehicles with owner + who may drive; including-driver seat counts;
+    year/make/model from server-side vPIC lists; seat hints by make/model/year
+    — no VIN), and memberships (ORGANIZER / CAREGIVER). Organizers share a
+    short invite code; Caregivers join via that code. Any member may manage
+    named places (label + free-text address; optional lat/lng from geocoding
+    with soft-fail and retry locate), garage vehicles they own, their own
+    drives flag, manual events, read the calendar agenda, set their own
+    leave-from place per calendar item, set their default leave-from for the
+    circle, set per-kid RSVPs on calendar items, and manage coverage
+    assignments on calendar items. Feed last-synced / error / event count may
+    update from Sync now or from the server poller — clients re-GET the feeds
+    list to observe changes. Team carpool spaces (HTTP under `/api/carpool/*`)
+    are keyed one per normalized feed URL (same normalize as feeds: trim;
     `webcal://` → `https://`). Importing a feed never joins a space and never
     returns other families' membership. An Organizer whose circle already has
     the feed may enable a space (that circle owns it). Other families join by
@@ -46,18 +49,21 @@ tags:
     description: Email OTP sign-in and Bearer sessions
   - name: family
     description: >
-      Family circle, kids, named places, activity feeds, manual events, unified
-      calendar read (with per-adult leave-from, cheap leave-by status including
-      PENDING, per-kid RSVPs, coverage assignments, uncovered kid ids, and
-      server-computed conflicts), async leave-by fill-in, per-adult default
-      leave-from, invite code, and memberships (one circle per adult in v1).
+      Family circle, kids, named places, circle garage (vehicles + drives
+      flag), activity feeds, manual events, unified calendar read (with
+      per-adult leave-from, cheap leave-by status including PENDING, per-kid
+      RSVPs, coverage assignments, uncovered kid ids, and server-computed
+      conflicts), async leave-by fill-in, per-adult default leave-from,
+      invite code, and memberships (one circle per adult in v1).
       Organizer-only writes for invite regen, roles, remove, kids, circle
       rename, and activity feed create/update/delete/sync. Any member may
-      create/update/delete places and manual events, retry place geocoding,
-      list the circle calendar, fill leave-by estimates, set their leave-from
-      place per calendar item, set their default leave-from for the circle,
-      set per-kid RSVPs on calendar items, and assign / reassign / remove
-      coverage on calendar items (assignee confirm or decline).
+      create/update/delete places and vehicles they own, patch their own
+      drives flag, retry place geocoding, list the circle calendar, fill
+      leave-by estimates, set their leave-from place per calendar item, set
+      their default leave-from for the circle, set per-kid RSVPs on calendar
+      items, and assign / reassign / remove coverage on calendar items
+      (assignee confirm or decline). Garage writes are owner-only (not
+      Organizer-gated); listed drivers who are not the owner cannot edit.
   - name: carpool
     description: >
       Team carpool spaces — one space per normalized feed URL, membership by
@@ -962,6 +968,450 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Place not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage:
+    get:
+      operationId: getFamilyGarage
+      tags: [family]
+      summary: Get the circle garage (vehicles and member drives flags)
+      description: >
+        Any circle member. Returns every member's `drives` flag (default true)
+        and a **flat** `vehicles` array (not nested under the owner). Each
+        vehicle includes owner, `driverAdultIds` (who may take that car), and
+        optional `keptAtPlaceId`. Same named place does not imply shared
+        drivers. Seats are total capacity **including the driver**. Make,
+        model, and year come from server-side vPIC lists; clients never send
+        or receive a VIN. Non-member or no circle → 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Circle garage snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Garage"
+              example:
+                members:
+                  - adultId: 01900000-0000-7000-8000-000000000001
+                    displayName: Alex
+                    drives: true
+                vehicles:
+                  - id: 01900000-0000-7000-8000-000000000041
+                    ownerAdultId: 01900000-0000-7000-8000-000000000001
+                    driverAdultIds:
+                      - 01900000-0000-7000-8000-000000000001
+                    keptAtPlaceId: 01900000-0000-7000-8000-000000000031
+                    label: Blue van
+                    year: 2019
+                    make: HONDA
+                    model: Odyssey
+                    seats: 8
+                    suggestedSeats: 8
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/me:
+    patch:
+      operationId: patchGarageDrives
+      tags: [family]
+      summary: Set whether the current adult drives
+      description: >
+        Own `drives` flag only. `false` means "I don't drive" without changing
+        role. Does not delete owned vehicles or strip the caller from other
+        vehicles' driver lists. There is no path to patch another adult's
+        flag.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchGarageDrivesRequest"
+            example:
+              drives: false
+      responses:
+        "200":
+          description: Flag updated; returns the circle garage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Garage"
+        "400":
+          description: Invalid request (e.g. missing `drives`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/makes:
+    get:
+      operationId: listGarageMakes
+      tags: [family]
+      summary: List vehicle makes from server-side vPIC
+      description: >
+        Any circle member. Returns make names from the backend vPIC port
+        (cached). Clients must not call NHTSA directly. Never includes VIN.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Makes list (may be empty if vPIC soft-failed)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleMake"
+              example:
+                - name: HONDA
+                - name: TOYOTA
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/models:
+    get:
+      operationId: listGarageModels
+      tags: [family]
+      summary: List vehicle models for a make and year from server-side vPIC
+      description: >
+        Any circle member. Year must be 1996 through the current UTC calendar
+        year plus one. Soft-fail returns an empty list, not 5xx. Never
+        includes VIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1996
+        - name: make
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 140
+      responses:
+        "200":
+          description: Models list (may be empty if vPIC soft-failed)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleModel"
+              example:
+                - name: Odyssey
+                - name: Civic
+        "400":
+          description: Invalid request (blank make, or year outside 1996–current UTC year + 1)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/suggest-seats:
+    post:
+      operationId: suggestGarageSeats
+      tags: [family]
+      summary: Suggest seating capacity for year, make, and model
+      description: >
+        Any circle member. Looks up a seat hint from server-side vPIC by
+        year, make, and model (the port may decode internally; clients never
+        send a VIN). Returns 200 with nullable `seats` — null on miss,
+        timeout, or incomplete decode (soft-fail; never 4xx/5xx for a miss).
+        Hint does not create or update a vehicle.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestSeatsRequest"
+            example:
+              year: 2019
+              make: HONDA
+              model: Odyssey
+      responses:
+        "200":
+          description: Hint finished (`seats` may be null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestSeatsResponse"
+              example:
+                seats: 8
+        "400":
+          description: Invalid request (blank make/model, or year outside range)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/vehicles:
+    post:
+      operationId: addVehicle
+      tags: [family]
+      summary: Add a vehicle owned by the current adult
+      description: >
+        Caller becomes owner (only they may later edit or delete). Required
+        `label` (unique per owner in the circle, case-insensitive), `year`
+        (1996–current UTC year + 1), `make`, `model`, and `seats` (2–18,
+        total including the driver). `driverAdultIds` defaults to `[owner]`;
+        if sent, must include the owner and only current circle members.
+        Optional `keptAtPlaceId` defaults to the creator's default leave-from
+        when set. Same place does not auto-add drivers. No VIN. Client
+        `seats` is kept even when a vPIC hint differs; `suggestedSeats` on
+        the response is the last hint only.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVehicleRequest"
+            example:
+              label: Blue van
+              year: 2019
+              make: HONDA
+              model: Odyssey
+              seats: 8
+              driverAdultIds:
+                - 01900000-0000-7000-8000-000000000001
+              keptAtPlaceId: 01900000-0000-7000-8000-000000000031
+      responses:
+        "201":
+          description: Vehicle created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "400":
+          description: >
+            Invalid request (blank label, missing make/model, year outside
+            range, seats outside 2–18, driver list missing owner or
+            non-member, or kept-at place not in this circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Adult has no family circle yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Vehicle label already exists for this owner (case-insensitive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/vehicles/{vehicleId}:
+    parameters:
+      - name: vehicleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: updateVehicle
+      tags: [family]
+      summary: Update a vehicle the current adult owns
+      description: >
+        Owner only. Non-owner (including a listed driver) and Organizer
+        editing someone else's car → 404. Same validation as create. Omitting
+        `driverAdultIds` leaves the current driver list unchanged; sending it
+        replaces it (must still include the owner). Passing null
+        `keptAtPlaceId` clears the place. Does not overwrite `seats` from a
+        vPIC hint. No VIN.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVehicleRequest"
+            example:
+              label: Blue van
+              year: 2019
+              make: HONDA
+              model: Odyssey
+              seats: 7
+              driverAdultIds:
+                - 01900000-0000-7000-8000-000000000001
+                - 01900000-0000-7000-8000-000000000002
+              keptAtPlaceId: 01900000-0000-7000-8000-000000000031
+      responses:
+        "200":
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "400":
+          description: >
+            Invalid request (blank label, missing make/model, year outside
+            range, seats outside 2–18, driver list missing owner or
+            non-member, or kept-at place not in this circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Vehicle not found, not owned by the caller, or no circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Vehicle label already exists for this owner (case-insensitive)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteVehicle
+      tags: [family]
+      summary: Delete a vehicle the current adult owns
+      description: >
+        Owner only. Non-owner (including a listed driver) → 404. Hard delete.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Vehicle removed
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Vehicle not found, not owned by the caller, or no circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/garage/vehicles/{vehicleId}/suggest-seats:
+    post:
+      operationId: suggestVehicleSeats
+      tags: [family]
+      summary: Retry a seat hint for a saved vehicle
+      description: >
+        Any circle member. Returns the vPIC hint for the vehicle's year,
+        make, and model (nullable `seats` on miss; never 4xx/5xx for a miss).
+        Does **not** overwrite the vehicle's `seats`; the owner must PUT to
+        change capacity. If the caller is the owner and a hint is found,
+        `suggestedSeats` on the stored vehicle is updated. Clients never send
+        a VIN.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Hint finished (`seats` may be null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestSeatsResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Vehicle not in this circle, or adult has no circle
           content:
             application/json:
               schema:
@@ -2945,6 +3395,280 @@ components:
           minLength: 1
           maxLength: 255
           example: 456 Oak Ave
+
+    Garage:
+      type: object
+      required:
+        - members
+        - vehicles
+      properties:
+        members:
+          type: array
+          description: Every circle member's `drives` flag (default true)
+          items:
+            $ref: "#/components/schemas/GarageMemberDrives"
+        vehicles:
+          type: array
+          description: >
+            Flat list of circle vehicles (not nested under the owner). Each
+            row includes who owns it and who may drive it.
+          items:
+            $ref: "#/components/schemas/Vehicle"
+
+    GarageMemberDrives:
+      type: object
+      required:
+        - adultId
+        - displayName
+        - drives
+      properties:
+        adultId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          example: Alex
+        drives:
+          type: boolean
+          description: >
+            False means this adult does not drive. Does not change role or
+            delete vehicles.
+          example: true
+
+    Vehicle:
+      type: object
+      required:
+        - id
+        - ownerAdultId
+        - driverAdultIds
+        - label
+        - year
+        - make
+        - model
+        - seats
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable vehicle identifier
+        ownerAdultId:
+          type: string
+          format: uuid
+          description: Creator; only they may edit or delete
+        driverAdultIds:
+          type: array
+          minItems: 1
+          description: >
+            Circle members allowed to take this car. Always includes the
+            owner. Same named place does not imply membership on this list.
+          items:
+            type: string
+            format: uuid
+        keptAtPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional named place where the car lives (grouping only). Does
+            not grant driving rights.
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Nickname unique per owner in the circle (case-insensitive)
+          example: Blue van
+        year:
+          type: integer
+          minimum: 1996
+          description: Model year; 1996 through the current UTC calendar year plus one
+          example: 2019
+        make:
+          type: string
+          minLength: 1
+          maxLength: 140
+          description: vPIC make name from the garage makes list (no VIN)
+          example: HONDA
+        model:
+          type: string
+          minLength: 1
+          maxLength: 140
+          description: vPIC model name from the garage models list for that make+year (no VIN)
+          example: Odyssey
+        seats:
+          type: integer
+          minimum: 2
+          maximum: 18
+          description: >
+            Total seating capacity **including the driver**. Source of truth;
+            always overridable. A vPIC hint never overwrites this unless the
+            client sends the new value.
+          example: 8
+        suggestedSeats:
+          type: integer
+          minimum: 2
+          maximum: 18
+          nullable: true
+          description: Last vPIC seat hint; null when no hint is stored
+
+    CreateVehicleRequest:
+      type: object
+      required:
+        - label
+        - year
+        - make
+        - model
+        - seats
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Blue van
+        year:
+          type: integer
+          minimum: 1996
+          example: 2019
+        make:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: HONDA
+        model:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: Odyssey
+        seats:
+          type: integer
+          minimum: 2
+          maximum: 18
+          description: Total seating capacity including the driver
+          example: 8
+        driverAdultIds:
+          type: array
+          description: >
+            Defaults to `[owner]` when omitted or empty. Must include the
+            owner; all ids must be current circle members.
+          items:
+            type: string
+            format: uuid
+        keptAtPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional circle named place. When omitted on create, defaults to
+            the creator's default leave-from if set.
+
+    UpdateVehicleRequest:
+      type: object
+      required:
+        - label
+        - year
+        - make
+        - model
+        - seats
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Blue van
+        year:
+          type: integer
+          minimum: 1996
+          example: 2019
+        make:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: HONDA
+        model:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: Odyssey
+        seats:
+          type: integer
+          minimum: 2
+          maximum: 18
+          description: Total seating capacity including the driver
+          example: 7
+        driverAdultIds:
+          type: array
+          description: >
+            When omitted, the current driver list is kept. When sent, must
+            include the owner; all ids must be current circle members.
+          items:
+            type: string
+            format: uuid
+        keptAtPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional circle named place; null clears it
+
+    PatchGarageDrivesRequest:
+      type: object
+      required:
+        - drives
+      properties:
+        drives:
+          type: boolean
+          description: False means the current adult does not drive
+          example: false
+
+    SuggestSeatsRequest:
+      type: object
+      required:
+        - year
+        - make
+        - model
+      properties:
+        year:
+          type: integer
+          minimum: 1996
+          example: 2019
+        make:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: HONDA
+        model:
+          type: string
+          minLength: 1
+          maxLength: 140
+          example: Odyssey
+
+    SuggestSeatsResponse:
+      type: object
+      properties:
+        seats:
+          type: integer
+          minimum: 2
+          maximum: 18
+          nullable: true
+          description: >
+            vPIC hint for total seats including the driver; null on miss.
+            Never a VIN.
+
+    VehicleMake:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: HONDA
+
+    VehicleModel:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Odyssey
 
     ActivityFeed:
       type: object

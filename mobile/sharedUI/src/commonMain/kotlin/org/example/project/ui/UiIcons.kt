@@ -20,6 +20,7 @@ object UiIcons {
             UiTokens.Icon.family -> MaterialVectors.people
             UiTokens.Icon.more -> MaterialVectors.moreHoriz
             UiTokens.Icon.places -> MaterialVectors.place
+            UiTokens.Icon.garage -> MaterialVectors.directionsCar
             UiTokens.Icon.feeds -> MaterialVectors.rssFeed
             UiTokens.Icon.signout -> MaterialVectors.exitToApp
             UiTokens.Icon.add -> MaterialVectors.add
@@ -35,6 +36,7 @@ object UiIcons {
             UiTokens.Icon.family -> "People"
             UiTokens.Icon.more -> "MoreHoriz"
             UiTokens.Icon.places -> "Place"
+            UiTokens.Icon.garage -> "DirectionsCar"
             UiTokens.Icon.feeds -> "RssFeed"
             UiTokens.Icon.signout -> "ExitToApp"
             UiTokens.Icon.add -> "Add"

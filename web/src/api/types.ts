@@ -187,6 +187,68 @@ export type JoinFamilyCircleRequest = {
   adultDisplayName?: string | null
 }
 
+export type GarageMemberDrives = {
+  adultId: string
+  displayName: string
+  drives: boolean
+}
+
+export type Vehicle = {
+  id: string
+  ownerAdultId: string
+  driverAdultIds: string[]
+  keptAtPlaceId: string | null
+  label: string
+  year: number
+  make: string
+  model: string
+  seats: number
+  suggestedSeats: number | null
+}
+
+export type Garage = {
+  members: GarageMemberDrives[]
+  vehicles: Vehicle[]
+}
+
+export type CreateVehicleRequest = {
+  label: string
+  year: number
+  make: string
+  model: string
+  seats: number
+  driverAdultIds?: string[]
+  keptAtPlaceId?: string | null
+}
+
+export type UpdateVehicleRequest = {
+  label: string
+  year: number
+  make: string
+  model: string
+  seats: number
+  driverAdultIds?: string[]
+  keptAtPlaceId?: string | null
+}
+
+export type SuggestSeatsRequest = {
+  year: number
+  make: string
+  model: string
+}
+
+export type SuggestSeatsResponse = {
+  seats: number | null
+}
+
+export type VehicleMake = {
+  name: string
+}
+
+export type VehicleModel = {
+  name: string
+}
+
 export type ErrorResponse = {
   message: string
 }

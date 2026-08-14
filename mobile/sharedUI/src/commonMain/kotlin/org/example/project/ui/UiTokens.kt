@@ -78,6 +78,7 @@ object UiTokens {
         const val family: String = "icon.family"
         const val more: String = "icon.more"
         const val places: String = "icon.places"
+        const val garage: String = "icon.garage"
         const val feeds: String = "icon.feeds"
         const val signout: String = "icon.signout"
         const val add: String = "icon.add"

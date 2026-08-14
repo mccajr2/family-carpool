@@ -27,11 +27,13 @@ enum AppShellTab: String, Hashable, CaseIterable {
 
 enum MoreDestination: String, Hashable {
     case places
+    case garage
     case feeds
 
     var title: String {
         switch self {
         case .places: return "Places"
+        case .garage: return "Garage"
         case .feeds: return "Feeds"
         }
     }
@@ -52,6 +54,11 @@ struct AppShellNavigationState: Equatable {
     mutating func openPlaces() {
         tab = .more
         morePath = [.places]
+    }
+
+    mutating func openGarage() {
+        tab = .more
+        morePath = [.garage]
     }
 
     mutating func openFeeds(isOrganizer: Bool) {

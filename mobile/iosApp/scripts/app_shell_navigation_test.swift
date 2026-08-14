@@ -25,6 +25,10 @@ struct AppShellNavigationTestMain {
         state.openPlaces()
         expect(state.tab == .more && state.morePath == [.places], "opens places under more")
 
+        state.openGarage()
+        expect(state.tab == .more && state.morePath == [.garage], "opens garage under more")
+        expect(MoreDestination.garage.title == "Garage", "garage destination label")
+
         state.selectTab(.more)
         expect(state.morePath.isEmpty, "selecting more clears push path")
 

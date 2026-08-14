@@ -9,6 +9,7 @@ import {
   Plus,
   Rss,
   Users,
+  Warehouse,
 } from "lucide-react"
 
 /** Semantic icon names from design-tokens → Lucide (web). */
@@ -18,6 +19,7 @@ export const semanticIcons = {
   "icon.family": Users,
   "icon.more": CircleEllipsis,
   "icon.places": MapPin,
+  "icon.garage": Warehouse,
   "icon.feeds": Rss,
   "icon.signout": LogOut,
   "icon.add": Plus,

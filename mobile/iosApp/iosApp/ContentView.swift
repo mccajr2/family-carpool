@@ -301,6 +301,11 @@ struct ContentView: View {
                                     .font(.title2.bold())
                                     .foregroundStyle(FcTheme.textPrimary(colorScheme))
                                 placesDestination
+                            case .garage:
+                                Text("Garage")
+                                    .font(.title2.bold())
+                                    .foregroundStyle(FcTheme.textPrimary(colorScheme))
+                                garageDestination
                             case .feeds:
                                 Text("Feeds")
                                     .font(.title2.bold())
@@ -427,6 +432,135 @@ struct ContentView: View {
         }
         if model.isLoading {
             ProgressView()
+        }
+            }
+
+    @ViewBuilder
+    private var garageDestination: some View {
+        if model.garage == nil, model.isLoading {
+            Text("Loading garage…")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        Toggle(
+            "I don’t drive",
+            isOn: Binding(
+                get: { !model.ownGarageDrives },
+                set: { model.patchOwnDrives(!$0) }
+            )
+        )
+        .disabled(model.isLoading)
+        Text("You can still request rides later. This does not remove cars you own.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        if model.ownGarageDrives, !model.garageDraftOpen {
+            Button("Add vehicle") { model.beginAddVehicle() }
+                .disabled(model.isLoading)
+        }
+        if model.garageDraftOpen {
+            Picker("Year", selection: Binding(
+                get: { model.garageYear },
+                set: { model.selectGarageYear($0) }
+            )) {
+                Text("Select year").tag("")
+                ForEach(GarageDisplay.yearOptions().map(String.init), id: \.self) { year in
+                    Text(year).tag(year)
+                }
+            }
+            Picker("Make", selection: Binding(
+                get: { model.garageMake },
+                set: { model.selectGarageMake($0) }
+            )) {
+                Text("Select make").tag("")
+                ForEach(model.garageMakes.map(\.name), id: \.self) { name in
+                    Text(name).tag(name)
+                }
+            }
+            .disabled(model.garageYear.isEmpty)
+            Picker("Model", selection: Binding(
+                get: { model.garageModel },
+                set: { model.selectGarageModel($0) }
+            )) {
+                Text("Select model").tag("")
+                ForEach(model.garageModels.map(\.name), id: \.self) { name in
+                    Text(name).tag(name)
+                }
+            }
+            .disabled(model.garageMake.isEmpty)
+            TextField(
+                "Seats (including driver)",
+                text: Binding(
+                    get: { model.garageSeats },
+                    set: {
+                        model.garageSeats = $0
+                        model.garageSeatsTouched = true
+                    }
+                )
+            )
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+            TextField("Nickname", text: $model.garageLabel)
+                .textFieldStyle(.roundedBorder)
+            Text("Who can drive this?")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ForEach(model.garage?.members ?? []) { member in
+                let isOwner = member.adultId == model.currentAdultId
+                Toggle(
+                    isOwner ? "\(member.displayName) (you)" : member.displayName,
+                    isOn: Binding(
+                        get: { model.garageDriverAdultIds.contains(member.adultId) },
+                        set: { model.toggleGarageDriver(adultId: member.adultId, selected: $0) }
+                    )
+                )
+                .disabled(model.isLoading || isOwner)
+            }
+            Picker("Kept at", selection: $model.garageKeptAtPlaceId) {
+                Text("None").tag("")
+                ForEach(model.places) { place in
+                    Text(place.name).tag(place.id)
+                }
+            }
+            HStack {
+                Button("Save vehicle") { model.saveVehicle() }
+                    .disabled(model.isLoading || !model.garageFormValid)
+                Button("Cancel") { model.cancelGarageDraft() }
+                    .disabled(model.isLoading)
+            }
+        }
+        if let garage = model.garage, garage.vehicles.isEmpty, !model.garageDraftOpen {
+            Text("Add a vehicle, or mark that you don’t drive.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        if let garage = model.garage {
+            let groups = GarageDisplay.groupVehicles(
+                garage.vehicles,
+                places: model.places.map { ($0.id, $0.name) }
+            )
+            ForEach(groups, id: \.heading) { group in
+                Text(group.heading)
+                    .font(.headline)
+                ForEach(group.vehicles) { vehicle in
+                    VStack(alignment: .leading) {
+                        Text(vehicle.label)
+                        Text("\(vehicle.year) \(vehicle.make) \(vehicle.model) · \(vehicle.seats) seats")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Text(GarageDisplay.drivenByLabel(vehicle, members: garage.members))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if vehicle.ownerAdultId == model.currentAdultId, !model.garageDraftOpen {
+                            HStack {
+                                Button("Edit") { model.beginEditVehicle(vehicle) }
+                                    .disabled(model.isLoading)
+                                Button("Remove vehicle") { model.removeVehicle(vehicle.id) }
+                                    .disabled(model.isLoading)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1117,6 +1251,13 @@ struct ContentView: View {
             showChevron: true
         ) {
             model.openMorePlaces()
+        }
+        moreRow(
+            title: "Garage",
+            icon: UiTokens.Icon.garage,
+            showChevron: true
+        ) {
+            model.openMoreGarage()
         }
         if AppShellNavigationState.showsFeedsRow(isOrganizer: model.isOrganizer) {
             moreRow(

@@ -48,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.TimeZone
 import org.example.project.ui.FcRadiusMd
 import org.example.project.ui.FcSpace2xl
 import org.example.project.ui.FcSpaceMd
@@ -507,6 +509,7 @@ private fun ReadyContent(
                                         refresh = refresh,
                                         onSignOut = onSignOut,
                                         isOrganizer = isOrganizer,
+                                        scope = scope,
                                     )
                                 }
                             }
@@ -523,6 +526,24 @@ private fun ReadyContent(
                             }
                             Text(AppShell.ROW_PLACES, style = MaterialTheme.typography.headlineSmall)
                             PlacesDestination(
+                                current = current,
+                                model = model,
+                                refresh = refresh,
+                                scope = scope,
+                            )
+                        }
+                        FamilyUiModel.MoreScreen.GARAGE -> {
+                            OutlinedButton(
+                                onClick = {
+                                    model.openMoreList()
+                                    refresh()
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Back")
+                            }
+                            Text(AppShell.ROW_GARAGE, style = MaterialTheme.typography.headlineSmall)
+                            GarageDestination(
                                 current = current,
                                 model = model,
                                 refresh = refresh,
@@ -585,6 +606,7 @@ private fun MoreListDestination(
     refresh: () -> Unit,
     onSignOut: () -> Unit,
     isOrganizer: Boolean,
+    scope: kotlinx.coroutines.CoroutineScope,
 ) {
     Text(
         AppShell.MORE_GROUP_GENERAL,
@@ -598,6 +620,19 @@ private fun MoreListDestination(
         onClick = {
             model.openMorePlaces()
             refresh()
+        },
+    )
+    MoreSettingsRow(
+        label = AppShell.ROW_GARAGE,
+        icon = UiIcons.imageVector(UiTokens.Icon.garage),
+        showChevron = true,
+        onClick = {
+            model.openMoreGarage()
+            refresh()
+            scope.launch {
+                model.loadGarage()
+                refresh()
+            }
         },
     )
     if (AppShell.showsFeedsRow(isOrganizer)) {
@@ -1083,6 +1118,303 @@ private fun PlacesDestination(
                         },
                         enabled = !current.loading,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GarageDestination(
+    current: FamilyUiModel.State.Ready,
+    model: FamilyUiModel,
+    refresh: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    val garage = current.garage
+    val me = garage?.members?.find { it.adultId == current.adultId }
+    val drives = me?.drives ?: true
+    val draft = current.garageDraft
+    val utcYear = Calendar.getInstance(TimeZone.getTimeZone("UTC")).get(Calendar.YEAR)
+    val years = vehicleYearOptions(utcYear)
+
+    if (garage == null && current.loading) {
+        Text("Loading garage…", style = MaterialTheme.typography.bodySmall)
+        return
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(
+            checked = !drives,
+            onCheckedChange = { checked ->
+                scope.launch {
+                    model.patchOwnDrives(!checked)
+                    refresh()
+                }
+            },
+            enabled = !current.loading,
+        )
+        Text("I don’t drive")
+    }
+    Text(
+        "You can still request rides later. This does not remove cars you own.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (drives && draft == null) {
+        Button(
+            onClick = {
+                scope.launch {
+                    model.beginAddVehicle()
+                    refresh()
+                }
+            },
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Add vehicle")
+        }
+    }
+
+    if (draft != null) {
+        var yearExpanded by remember { mutableStateOf(false) }
+        var makeExpanded by remember { mutableStateOf(false) }
+        var modelExpanded by remember { mutableStateOf(false) }
+        var keptAtExpanded by remember { mutableStateOf(false) }
+        FieldRow(label = "Year") {
+            Box {
+                Row(
+                    modifier =
+                        Modifier.clickable(enabled = !current.loading) { yearExpanded = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FieldRowValueText(draft.year.ifBlank { "Select year" })
+                    FieldRowChevron()
+                }
+                DropdownMenu(expanded = yearExpanded, onDismissRequest = { yearExpanded = false }) {
+                    years.forEach { year ->
+                        DropdownMenuItem(
+                            text = { Text(year.toString()) },
+                            onClick = {
+                                yearExpanded = false
+                                scope.launch {
+                                    model.selectGarageYear(year.toString())
+                                    refresh()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        FieldRow(label = "Make") {
+            Box {
+                Row(
+                    modifier =
+                        Modifier.clickable(enabled = !current.loading && draft.year.isNotBlank()) {
+                            makeExpanded = true
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FieldRowValueText(draft.make.ifBlank { "Select make" })
+                    FieldRowChevron()
+                }
+                DropdownMenu(expanded = makeExpanded, onDismissRequest = { makeExpanded = false }) {
+                    current.garageMakes.forEach { make ->
+                        DropdownMenuItem(
+                            text = { Text(make.name) },
+                            onClick = {
+                                makeExpanded = false
+                                scope.launch {
+                                    model.selectGarageMake(make.name)
+                                    refresh()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        FieldRow(label = "Model") {
+            Box {
+                Row(
+                    modifier =
+                        Modifier.clickable(enabled = !current.loading && draft.make.isNotBlank()) {
+                            modelExpanded = true
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FieldRowValueText(draft.model.ifBlank { "Select model" })
+                    FieldRowChevron()
+                }
+                DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
+                    current.garageModels.forEach { vehicleModel ->
+                        DropdownMenuItem(
+                            text = { Text(vehicleModel.name) },
+                            onClick = {
+                                modelExpanded = false
+                                scope.launch {
+                                    model.selectGarageModel(vehicleModel.name)
+                                    refresh()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        OutlinedTextField(
+            value = draft.seats,
+            onValueChange = {
+                model.updateGarageSeats(it)
+                refresh()
+            },
+            label = { Text("Seats (including driver)") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = draft.label,
+            onValueChange = {
+                model.updateGarageLabel(it)
+                refresh()
+            },
+            label = { Text("Nickname") },
+            singleLine = true,
+            enabled = !current.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text("Who can drive this?", style = MaterialTheme.typography.bodySmall)
+        (garage?.members ?: emptyList()).forEach { member ->
+            val isOwner = member.adultId == current.adultId
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = draft.driverAdultIds.contains(member.adultId),
+                    onCheckedChange = { checked ->
+                        model.toggleGarageDriver(member.adultId, checked)
+                        refresh()
+                    },
+                    enabled = !current.loading && !isOwner,
+                )
+                Text(if (isOwner) "${member.displayName} (you)" else member.displayName)
+            }
+        }
+        FieldRow(label = "Kept at") {
+            Box {
+                val keptName =
+                    current.circle.places.find { it.id == draft.keptAtPlaceId }?.name ?: "None"
+                Row(
+                    modifier =
+                        Modifier.clickable(enabled = !current.loading) { keptAtExpanded = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FieldRowValueText(keptName)
+                    FieldRowChevron()
+                }
+                DropdownMenu(expanded = keptAtExpanded, onDismissRequest = { keptAtExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("None") },
+                        onClick = {
+                            keptAtExpanded = false
+                            model.updateGarageKeptAt("")
+                            refresh()
+                        },
+                    )
+                    current.circle.places.forEach { place ->
+                        DropdownMenuItem(
+                            text = { Text(place.name) },
+                            onClick = {
+                                keptAtExpanded = false
+                                model.updateGarageKeptAt(place.id)
+                                refresh()
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        val seatsNumber = draft.seats.toIntOrNull()
+        val formValid =
+            draft.label.isNotBlank() &&
+                draft.year.isNotBlank() &&
+                draft.make.isNotBlank() &&
+                draft.model.isNotBlank() &&
+                seatsNumber != null &&
+                seatsNumber in MIN_SEATS..MAX_SEATS
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    scope.launch {
+                        model.saveVehicle()
+                        refresh()
+                    }
+                },
+                enabled = !current.loading && formValid,
+            ) {
+                Text("Save vehicle")
+            }
+            OutlinedButton(
+                onClick = {
+                    model.cancelGarageDraft()
+                    refresh()
+                },
+                enabled = !current.loading,
+            ) {
+                Text("Cancel")
+            }
+        }
+    }
+
+    if (garage != null && garage.vehicles.isEmpty() && draft == null) {
+        Text(
+            "Add a vehicle, or mark that you don’t drive.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+
+    if (garage != null) {
+        groupVehiclesByKeptAt(garage.vehicles, current.circle.places).forEach { group ->
+            Text(group.heading, style = MaterialTheme.typography.titleSmall)
+            group.vehicles.forEach { vehicle ->
+                val owned = vehicle.ownerAdultId == current.adultId
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(vehicle.label)
+                    Text(
+                        "${vehicle.year} ${vehicle.make} ${vehicle.model} · ${vehicle.seats} seats",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        drivenByLabel(vehicle, garage.members),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (owned && draft == null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.beginEditVehicle(vehicle)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Edit")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        model.removeVehicle(vehicle.id)
+                                        refresh()
+                                    }
+                                },
+                                enabled = !current.loading,
+                            ) {
+                                Text("Remove vehicle")
+                            }
+                        }
+                    }
                 }
             }
         }

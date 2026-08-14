@@ -42,6 +42,8 @@ public final class PostgresTestcontainers {
         registry.add("app.feeds.poll-enabled", () -> "false");
         // Never hit live OSRM from CI / local SpringBootTests.
         registry.add("app.leaveby.osrm.provider", () -> "stub");
+        // Never hit live NHTSA vPIC from CI / local SpringBootTests.
+        registry.add("app.vpic.provider", () -> "stub");
     }
 
     public static boolean dockerAvailable() {

@@ -36,6 +36,7 @@ test("ui-system.md lists required component parity primitives", () => {
 test("ui-system.md documents semantic icons and native mapping", () => {
   for (const icon of [
     "icon.places",
+    "icon.garage",
     "icon.feeds",
     "icon.signout",
     "icon.calendar",

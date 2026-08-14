@@ -29,6 +29,7 @@ class FamilyUiModel(
     enum class MoreScreen {
         LIST,
         PLACES,
+        GARAGE,
         FEEDS,
     }
 
@@ -105,8 +106,24 @@ class FamilyUiModel(
             val carpoolError: String? = null,
             val carpoolCodeInput: String = "",
             val carpoolShowCodeForm: Boolean = false,
+            val garage: Garage? = null,
+            val garageDraft: GarageDraft? = null,
+            val garageMakes: List<VehicleMake> = emptyList(),
+            val garageModels: List<VehicleModel> = emptyList(),
         ) : State()
     }
+
+    data class GarageDraft(
+        val vehicleId: String? = null,
+        val label: String = "",
+        val year: String = "",
+        val make: String = "",
+        val model: String = "",
+        val seats: String = "",
+        val driverAdultIds: List<String> = emptyList(),
+        val keptAtPlaceId: String = "",
+        val seatsTouched: Boolean = false,
+    )
 
     /**
      * Invoked after every [_state] assignment so Compose can show mid-request busy
@@ -385,6 +402,16 @@ class FamilyUiModel(
             )
     }
 
+    fun openMoreGarage() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                shellTab = ShellTab.MORE,
+                moreScreen = MoreScreen.GARAGE,
+                error = null,
+            )
+    }
+
     fun openMoreFeeds() {
         val current = _state as? State.Ready ?: return
         if (!AppShell.showsFeedsRow(current.circle.role == FamilyRole.ORGANIZER)) {
@@ -406,6 +433,274 @@ class FamilyUiModel(
                 moreScreen = MoreScreen.LIST,
                 error = null,
             )
+    }
+
+    suspend fun loadGarage() {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val garage = familyClient.getGarage(session.requireAccessToken())
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, garage = garage)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, error = e.message ?: "Get garage failed")
+        }
+    }
+
+    suspend fun patchOwnDrives(drives: Boolean) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null, garageDraft = if (drives) current.garageDraft else null)
+        try {
+            val garage = familyClient.patchGarageDrives(session.requireAccessToken(), drives)
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, garage = garage)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, error = e.message ?: "Update drives failed")
+        }
+    }
+
+    suspend fun beginAddVehicle() {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                garageDraft =
+                    GarageDraft(
+                        driverAdultIds = listOf(current.adultId),
+                        keptAtPlaceId = current.circle.defaultLeaveFromPlaceId.orEmpty(),
+                    ),
+                garageModels = emptyList(),
+                error = null,
+            )
+        try {
+            val makes = familyClient.listGarageMakes(session.requireAccessToken())
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(garageMakes = makes)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(error = e.message ?: "List vehicle makes failed")
+        }
+    }
+
+    suspend fun beginEditVehicle(vehicle: Vehicle) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                garageDraft =
+                    GarageDraft(
+                        vehicleId = vehicle.id,
+                        label = vehicle.label,
+                        year = vehicle.year.toString(),
+                        make = vehicle.make,
+                        model = vehicle.model,
+                        seats = vehicle.seats.toString(),
+                        driverAdultIds = vehicle.driverAdultIds,
+                        keptAtPlaceId = vehicle.keptAtPlaceId.orEmpty(),
+                        seatsTouched = true,
+                    ),
+                error = null,
+            )
+        try {
+            val token = session.requireAccessToken()
+            val makes = familyClient.listGarageMakes(token)
+            val models = familyClient.listGarageModels(token, vehicle.year, vehicle.make)
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(garageMakes = makes, garageModels = models)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(error = e.message ?: "Load vehicle options failed")
+        }
+    }
+
+    fun cancelGarageDraft() {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(garageDraft = null, garageModels = emptyList(), error = null)
+    }
+
+    fun updateGarageLabel(value: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        _state = current.copy(garageDraft = draft.copy(label = value), error = null)
+    }
+
+    fun updateGarageSeats(value: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        _state = current.copy(garageDraft = draft.copy(seats = value, seatsTouched = true), error = null)
+    }
+
+    fun updateGarageKeptAt(placeId: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        _state = current.copy(garageDraft = draft.copy(keptAtPlaceId = placeId), error = null)
+    }
+
+    fun toggleGarageDriver(adultId: String, selected: Boolean) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        if (adultId == current.adultId) {
+            return
+        }
+        val ids = draft.driverAdultIds.toMutableSet()
+        if (selected) ids.add(adultId) else ids.remove(adultId)
+        ids.add(current.adultId)
+        _state = current.copy(garageDraft = draft.copy(driverAdultIds = ids.toList()), error = null)
+    }
+
+    suspend fun selectGarageYear(year: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        _state =
+            current.copy(
+                garageDraft =
+                    draft.copy(
+                        year = year,
+                        make = "",
+                        model = "",
+                        seats = if (draft.seatsTouched) draft.seats else "",
+                    ),
+                garageModels = emptyList(),
+                error = null,
+            )
+        if (current.garageMakes.isEmpty()) {
+            try {
+                val makes = familyClient.listGarageMakes(session.requireAccessToken())
+                val latest = _state as? State.Ready ?: return
+                _state = latest.copy(garageMakes = makes)
+            } catch (e: Throwable) {
+                val latest = _state as? State.Ready ?: return
+                _state = latest.copy(error = e.message ?: "List vehicle makes failed")
+            }
+        }
+    }
+
+    suspend fun selectGarageMake(make: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        val year = draft.year.toIntOrNull()
+        _state =
+            current.copy(
+                garageDraft =
+                    draft.copy(
+                        make = make,
+                        model = "",
+                        seats = if (draft.seatsTouched) draft.seats else "",
+                    ),
+                garageModels = emptyList(),
+                error = null,
+            )
+        if (year == null || make.isBlank()) {
+            return
+        }
+        try {
+            val models = familyClient.listGarageModels(session.requireAccessToken(), year, make)
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(garageModels = models)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(error = e.message ?: "List vehicle models failed")
+        }
+    }
+
+    suspend fun selectGarageModel(model: String) {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        val year = draft.year.toIntOrNull()
+        _state = current.copy(garageDraft = draft.copy(model = model), error = null)
+        if (year == null || draft.make.isBlank() || model.isBlank()) {
+            return
+        }
+        try {
+            val hint =
+                familyClient.suggestGarageSeats(
+                    session.requireAccessToken(),
+                    year,
+                    draft.make,
+                    model,
+                )
+            val latest = _state as? State.Ready ?: return
+            val latestDraft = latest.garageDraft ?: return
+            if (hint.seats != null && !latestDraft.seatsTouched) {
+                _state = latest.copy(garageDraft = latestDraft.copy(seats = hint.seats.toString()))
+            }
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(error = e.message ?: "Suggest seats failed")
+        }
+    }
+
+    suspend fun saveVehicle() {
+        val current = _state as? State.Ready ?: return
+        val draft = current.garageDraft ?: return
+        val year = draft.year.toIntOrNull() ?: return
+        val seats = draft.seats.toIntOrNull() ?: return
+        if (draft.label.isBlank() || draft.make.isBlank() || draft.model.isBlank()) {
+            return
+        }
+        if (seats !in MIN_SEATS..MAX_SEATS) {
+            return
+        }
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            val keptAt = draft.keptAtPlaceId.takeIf { it.isNotBlank() }
+            if (draft.vehicleId == null) {
+                familyClient.addVehicle(
+                    token,
+                    CreateVehicleRequest(
+                        label = draft.label.trim(),
+                        year = year,
+                        make = draft.make,
+                        model = draft.model,
+                        seats = seats,
+                        driverAdultIds = draft.driverAdultIds,
+                        keptAtPlaceId = keptAt,
+                    ),
+                )
+            } else {
+                familyClient.updateVehicle(
+                    token,
+                    draft.vehicleId,
+                    UpdateVehicleRequest(
+                        label = draft.label.trim(),
+                        year = year,
+                        make = draft.make,
+                        model = draft.model,
+                        seats = seats,
+                        driverAdultIds = draft.driverAdultIds,
+                        keptAtPlaceId = keptAt,
+                    ),
+                )
+            }
+            val garage = familyClient.getGarage(token)
+            val latest = _state as? State.Ready ?: return
+            _state =
+                latest.copy(
+                    loading = false,
+                    garage = garage,
+                    garageDraft = null,
+                    garageModels = emptyList(),
+                )
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, error = e.message ?: "Save vehicle failed")
+        }
+    }
+
+    suspend fun removeVehicle(vehicleId: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(loading = true, error = null)
+        try {
+            val token = session.requireAccessToken()
+            familyClient.deleteVehicle(token, vehicleId)
+            val garage = familyClient.getGarage(token)
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, garage = garage)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(loading = false, error = e.message ?: "Delete vehicle failed")
+        }
     }
 
     fun updateNewKidName(value: String) {

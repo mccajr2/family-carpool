@@ -12,7 +12,15 @@ import type {
   CalendarItem,
   CalendarItemSource,
   CalendarLeaveBy,
+  CreateVehicleRequest,
+  Garage,
   Place,
+  SuggestSeatsRequest,
+  SuggestSeatsResponse,
+  UpdateVehicleRequest,
+  Vehicle,
+  VehicleMake,
+  VehicleModel,
   SetCalendarLeaveFromRequest,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
@@ -280,6 +288,153 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Locate place failed"))
     }
     return (await response.json()) as Place
+  }
+
+  async getGarage(accessToken: string): Promise<Garage> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/garage"), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Get garage failed"))
+    }
+    return (await response.json()) as Garage
+  }
+
+  async patchGarageDrives(accessToken: string, drives: boolean): Promise<Garage> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/garage/me"), {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ drives }),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update drives failed"))
+    }
+    return (await response.json()) as Garage
+  }
+
+  async listGarageMakes(accessToken: string): Promise<VehicleMake[]> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/garage/makes"),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List vehicle makes failed"))
+    }
+    return (await response.json()) as VehicleMake[]
+  }
+
+  async listGarageModels(
+    accessToken: string,
+    year: number,
+    make: string,
+  ): Promise<VehicleModel[]> {
+    const params = new URLSearchParams({ year: String(year), make })
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/garage/models?${params}`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List vehicle models failed"))
+    }
+    return (await response.json()) as VehicleModel[]
+  }
+
+  async suggestGarageSeats(
+    accessToken: string,
+    body: SuggestSeatsRequest,
+  ): Promise<SuggestSeatsResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/garage/suggest-seats"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Suggest seats failed"))
+    }
+    return (await response.json()) as SuggestSeatsResponse
+  }
+
+  async addVehicle(accessToken: string, body: CreateVehicleRequest): Promise<Vehicle> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/garage/vehicles"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Add vehicle failed"))
+    }
+    return (await response.json()) as Vehicle
+  }
+
+  async updateVehicle(
+    accessToken: string,
+    vehicleId: string,
+    body: UpdateVehicleRequest,
+  ): Promise<Vehicle> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/garage/vehicles/${vehicleId}`),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Update vehicle failed"))
+    }
+    return (await response.json()) as Vehicle
+  }
+
+  async deleteVehicle(accessToken: string, vehicleId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/garage/vehicles/${vehicleId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok && response.status !== 204) {
+      throw new Error(await readErrorMessage(response, "Delete vehicle failed"))
+    }
+  }
+
+  async suggestVehicleSeats(
+    accessToken: string,
+    vehicleId: string,
+  ): Promise<SuggestSeatsResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/family/circle/garage/vehicles/${vehicleId}/suggest-seats`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Suggest vehicle seats failed"))
+    }
+    return (await response.json()) as SuggestSeatsResponse
   }
 
   async setDefaultLeaveFrom(

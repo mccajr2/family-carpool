@@ -19,6 +19,7 @@ object AppShell {
     const val MORE_GROUP_GENERAL = "General"
     const val MORE_GROUP_ACCOUNT = "Account"
     const val ROW_PLACES = "Places"
+    const val ROW_GARAGE = "Garage"
     const val ROW_FEEDS = "Feeds"
     const val ROW_SIGN_OUT = "Sign out"
 
@@ -32,6 +33,7 @@ object AppShell {
     fun moreGeneralRows(isOrganizer: Boolean): List<String> =
         buildList {
             add(ROW_PLACES)
+            add(ROW_GARAGE)
             if (isOrganizer) {
                 add(ROW_FEEDS)
             }

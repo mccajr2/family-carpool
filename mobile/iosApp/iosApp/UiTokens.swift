@@ -85,6 +85,7 @@ enum UiTokens {
         static let family: String = "icon.family"
         static let more: String = "icon.more"
         static let places: String = "icon.places"
+        static let garage: String = "icon.garage"
         static let feeds: String = "icon.feeds"
         static let signout: String = "icon.signout"
         static let add: String = "icon.add"

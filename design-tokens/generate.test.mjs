@@ -42,6 +42,7 @@ test("tokens.json declares light and dark color roles and icons", async () => {
   assert.ok(tokens.radius.md)
   assert.ok(tokens.typography.scale.body)
   assert.ok(tokens.icons.includes("icon.places"))
+  assert.ok(tokens.icons.includes("icon.garage"))
   assert.ok(tokens.icons.includes("icon.feeds"))
   assert.ok(tokens.icons.includes("icon.signout"))
 })

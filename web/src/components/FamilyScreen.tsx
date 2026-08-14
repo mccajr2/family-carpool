@@ -29,6 +29,7 @@ import {
 } from "@/api/types"
 import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
+import { GaragePanel } from "@/components/GaragePanel"
 import {
   AccountSummaryRow,
   SettingsGroupLabel,
@@ -70,7 +71,7 @@ import {
   rsvpStatusLabel,
 } from "@/components/rsvpDisplay"
 
-type ShellDestination = "calendar" | "carpool" | "family" | "places" | "feeds"
+type ShellDestination = "calendar" | "carpool" | "family" | "places" | "garage" | "feeds"
 
 type Status =
   | { kind: "idle" }
@@ -1759,7 +1760,9 @@ export function FamilyScreen({
           ? circleTitle(circle)
           : destination === "places"
             ? "Places"
-            : "Feeds"
+            : destination === "garage"
+              ? "Garage"
+              : "Feeds"
 
   return (
     <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
@@ -1797,6 +1800,12 @@ export function FamilyScreen({
               icon="icon.places"
               active={destination === "places"}
               onClick={() => setDestination("places")}
+            />
+            <SettingsRow
+              label="Garage"
+              icon="icon.garage"
+              active={destination === "garage"}
+              onClick={() => setDestination("garage")}
             />
             {isOrganizer ? (
               <SettingsRow
@@ -2886,6 +2895,24 @@ export function FamilyScreen({
         ) : null}
 
                     </>
+          ) : null}
+
+          {destination === "garage" ? (
+            carpoolAccessToken && adult ? (
+              <GaragePanel
+                accessToken={carpoolAccessToken}
+                adultId={adult.id}
+                familyClient={familyClient}
+                places={circle.places}
+                defaultLeaveFromPlaceId={circle.defaultLeaveFromPlaceId}
+              />
+            ) : (
+              <section aria-label="Garage" className="flex flex-col gap-2">
+                <p role="alert" className="text-sm text-destructive">
+                  Not signed in
+                </p>
+              </section>
+            )
           ) : null}
 
           {destination === "carpool" ? (

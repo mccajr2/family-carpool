@@ -16,6 +16,7 @@ import { FamilyScreen } from "@/components/FamilyScreen"
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
+    getGarage: vi.fn().mockResolvedValue({ members: [], vehicles: [] }),
     ...partial,
   } as FamilyClient
 }
@@ -91,7 +92,7 @@ function circleFixture(
 
 async function goTo(
   user: ReturnType<typeof userEvent.setup>,
-  destination: "Calendar" | "Carpool" | "Family" | "Places" | "Feeds",
+  destination: "Calendar" | "Carpool" | "Family" | "Places" | "Garage" | "Feeds",
 ) {
   await user.click(await screen.findByRole("button", { name: destination }))
 }
@@ -1351,6 +1352,7 @@ describe("FamilyScreen", () => {
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Garage" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Feeds" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Activity feeds")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Add feed" })).not.toBeInTheDocument()
@@ -1690,10 +1692,15 @@ describe("FamilyScreen", () => {
     expect(within(nav).getByLabelText("Settings")).toBeInTheDocument()
     expect(within(nav).getByLabelText("General")).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Places" })).toBeInTheDocument()
+    expect(within(nav).getByRole("button", { name: "Garage" })).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Feeds" })).toBeInTheDocument()
     expect(within(nav).getByLabelText("Account")).toBeInTheDocument()
     expect(within(nav).getByText("parent@example.com")).toBeInTheDocument()
     expect(within(nav).getByText("ORGANIZER")).toBeInTheDocument()
+
+    await goTo(user, "Garage")
+    expect(await screen.findByRole("heading", { name: "Garage" })).toBeInTheDocument()
+    expect(await screen.findByLabelText("Garage")).toBeInTheDocument()
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
