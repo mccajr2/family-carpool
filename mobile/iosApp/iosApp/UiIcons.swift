@@ -10,7 +10,7 @@ enum UiIcons {
         case UiTokens.Icon.family: return "person.3"
         case UiTokens.Icon.more: return "ellipsis.circle"
         case UiTokens.Icon.places: return "mappin.and.ellipse"
-        case "icon.garage": return "door.garage.closed"
+        case UiTokens.Icon.garage: return "door.garage.closed"
         case UiTokens.Icon.feeds: return "dot.radiowaves.up.forward"
         case UiTokens.Icon.signout: return "rectangle.portrait.and.arrow.right"
         case UiTokens.Icon.add: return "plus"

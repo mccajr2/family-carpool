@@ -24,8 +24,8 @@ class UiTokensAndroidTest {
         assertEquals("DateRange", UiIcons.imageVector(UiTokens.Icon.calendar).name)
         assertEquals("DirectionsCar", UiIcons.imageVector(UiTokens.Icon.carpool).name)
         assertEquals("People", UiIcons.imageVector(UiTokens.Icon.family).name)
-        assertEquals("DirectionsCar", UiIcons.materialIconName("icon.garage"))
-        assertEquals("DirectionsCar", UiIcons.imageVector("icon.garage").name)
+        assertEquals("DirectionsCar", UiIcons.materialIconName(UiTokens.Icon.garage))
+        assertEquals("DirectionsCar", UiIcons.imageVector(UiTokens.Icon.garage).name)
     }
 
     @Test

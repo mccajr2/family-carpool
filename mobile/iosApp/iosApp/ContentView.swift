@@ -1254,7 +1254,7 @@ struct ContentView: View {
         }
         moreRow(
             title: "Garage",
-            icon: "icon.garage",
+            icon: UiTokens.Icon.garage,
             showChevron: true
         ) {
             model.openMoreGarage()

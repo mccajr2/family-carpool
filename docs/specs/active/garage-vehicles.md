@@ -2,7 +2,7 @@
 
 Status: in-progress  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` mobile)  
+Updated: 2026-08-14 (`/implement` tokens)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -209,7 +209,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
 - [x] **Mobile:** `sharedLogic` models/client; `sharedUI` Garage panel +
       More row; Android via sharedUI; iOS AuthBridge / ContentView; script
       tests as elsewhere.
-- [ ] **Tokens:** add `icon.garage` to `design-tokens/tokens.json` +
+- [x] **Tokens:** add `icon.garage` to `design-tokens/tokens.json` +
       `docs/ui-system.md` mapping; regenerate checked-in outputs.
 - [ ] **Docs:** `docs/architecture.md` garage row + write policy; README
       smoke.

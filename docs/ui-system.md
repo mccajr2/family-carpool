@@ -88,13 +88,14 @@ its native set. **No** shared SVG/font icon pack across platforms.
 | `icon.family` | Family tab | `Users` | `Icons.Default.People` | `person.3` |
 | `icon.more` | More tab | `Ellipsis` / `CircleEllipsis` | `Icons.Default.MoreHoriz` | `ellipsis.circle` |
 | `icon.places` | Places row | `MapPin` | `Icons.Default.Place` | `mappin.and.ellipse` |
+| `icon.garage` | Garage row | `Warehouse` | `Icons.Default.DirectionsCar` (car-side) | `door.garage.closed` |
 | `icon.feeds` | Feeds row | `Rss` | `Icons.Default.RssFeed` | `dot.radiowaves.up.forward` |
 | `icon.signout` | Sign out | `LogOut` | `Icons.Default.ExitToApp` | `rectangle.portrait.and.arrow.right` |
 | `icon.add` | Add / create | `Plus` | `Icons.Default.Add` | `plus` |
 | `icon.chevron` | Forward disclosure | `ChevronRight` | `Icons.Default.ChevronRight` | `chevron.right` |
 
 Exact Material / SF Symbol identifiers may be adjusted for availability; keep
-the **semantic name** stable in code (`UiTokens.Icon.places`, etc.).
+the **semantic name** stable in code (`UiTokens.Icon.places`, `UiTokens.Icon.garage`, etc.).
 
 ## Reference screen: More
 

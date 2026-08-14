@@ -11,7 +11,7 @@ struct UiIconsTestMain {
         }
 
         expect(
-            UiIcons.systemName("icon.garage") == "door.garage.closed",
+            UiIcons.systemName(UiTokens.Icon.garage) == "door.garage.closed",
             "garage maps to SF Symbol"
         )
         expect(
@@ -42,7 +42,7 @@ struct UiIconsTestMain {
             .appendingPathComponent("iosApp/ContentView.swift")
         let content = try! String(contentsOf: contentURL, encoding: .utf8)
         expect(content.contains("UiTokens.Icon.places"), "More Places uses semantic icon")
-        expect(content.contains("icon.garage"), "More Garage uses semantic icon")
+        expect(content.contains("UiTokens.Icon.garage"), "More Garage uses semantic icon")
         expect(content.contains("UiTokens.Icon.feeds"), "More Feeds uses semantic icon")
         expect(content.contains("UiTokens.Icon.signout"), "More Sign out uses semantic icon")
         expect(content.contains("FcTheme."), "More uses FcTheme token colors")

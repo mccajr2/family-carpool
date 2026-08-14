@@ -624,7 +624,7 @@ private fun MoreListDestination(
     )
     MoreSettingsRow(
         label = AppShell.ROW_GARAGE,
-        icon = UiIcons.imageVector("icon.garage"),
+        icon = UiIcons.imageVector(UiTokens.Icon.garage),
         showChevron = true,
         onClick = {
             model.openMoreGarage()
