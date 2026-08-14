@@ -27,3 +27,7 @@ not live traffic.
 
 - Depends on `carpool-request-accept` + `origins-and-leave-by`.
 - May demote to parking after slice 10 if single-origin leave-by is enough for beta.
+- Parked `[carpool-meet-at](carpool-meet-at.md)` and
+  `[carpool-leg-to-from](carpool-leg-to-from.md)` change what “a pickup” means
+  (drop-off at the driver’s house; to-only vs from-only). Keep this slice on
+  v1’s pickup-at-requester + both-legs model unless those promote first.

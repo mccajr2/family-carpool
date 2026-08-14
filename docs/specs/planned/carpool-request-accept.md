@@ -23,10 +23,17 @@ available seats after family occupants + accepted riders.
 - Heavy public marketplace board
 - Multi-stop leave-by for pickups (next slice if still needed)
 - In-app chat
+- To XOR from (only one leg) — parked `[carpool-leg-to-from](carpool-leg-to-from.md)`
+- Pickup vs drop-off at a teammate house — parked `[carpool-meet-at](carpool-meet-at.md)`
+- Early/late time windows the driver must approve — parked
+  `[carpool-early-late-window](carpool-early-late-window.md)`
 
 ## Notes
 
 - Depends on `team-carpool-space-invite` + `garage-vehicles`.
 - Request/accept only — explicit confirms over automation.
+- v1 is **both legs** (to and from) and **pickup at the requester’s house**.
+- One-or-more kids is this slice (default all attending; deselect override) —
+  do not reopen that in the parked richer-request items.
 - Before exposing teammate pickup addresses, consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)`.
