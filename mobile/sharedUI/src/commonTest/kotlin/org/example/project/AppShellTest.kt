@@ -23,8 +23,8 @@ class AppShellTest {
 
     @Test
     fun moreGeneralRowsOmitFeedsForCaregiver() {
-        assertEquals(listOf("Places", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
-        assertEquals(listOf("Places"), AppShell.moreGeneralRows(isOrganizer = false))
+        assertEquals(listOf("Places", "Garage", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
+        assertEquals(listOf("Places", "Garage"), AppShell.moreGeneralRows(isOrganizer = false))
         assertTrue(AppShell.showsFeedsRow(isOrganizer = true))
         assertFalse(AppShell.showsFeedsRow(isOrganizer = false))
     }

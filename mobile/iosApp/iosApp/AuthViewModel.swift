@@ -175,6 +175,19 @@ final class AuthViewModel: ObservableObject {
     @Published var carpoolCodeInput: String = ""
     @Published var showCarpoolCodeForm: Bool = false
     @Published var pendingEnableFeed: CarpoolFeedStatusView?
+    @Published var garage: GarageView?
+    @Published var garageDraftOpen = false
+    @Published var garageEditingVehicleId: String?
+    @Published var garageLabel: String = ""
+    @Published var garageYear: String = ""
+    @Published var garageMake: String = ""
+    @Published var garageModel: String = ""
+    @Published var garageSeats: String = ""
+    @Published var garageDriverAdultIds: [String] = []
+    @Published var garageKeptAtPlaceId: String = ""
+    @Published var garageMakes: [VehicleMakeView] = []
+    @Published var garageModels: [VehicleModelView] = []
+    @Published var garageSeatsTouched = false
 
     private let bridge: AuthBridge
     private var leaveByFillGen = 0
@@ -245,6 +258,13 @@ final class AuthViewModel: ObservableObject {
         shell = next
     }
 
+    func openMoreGarage() {
+        var next = shell
+        next.openGarage()
+        shell = next
+        loadGarage()
+    }
+
     func openMoreFeeds() {
         var next = shell
         next.openFeeds(isOrganizer: isOrganizer)
@@ -252,6 +272,257 @@ final class AuthViewModel: ObservableObject {
         if next.morePath.contains(.feeds) {
             loadCarpoolSummary()
         }
+    }
+
+    func loadGarage() {
+        isLoading = true
+        errorMessage = nil
+        bridge.getGarage(
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.garage = GarageView.decode(json)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    var ownGarageDrives: Bool {
+        garage?.members.first(where: { $0.adultId == currentAdultId })?.drives ?? true
+    }
+
+    func patchOwnDrives(_ drives: Bool) {
+        isLoading = true
+        errorMessage = nil
+        if !drives {
+            cancelGarageDraft()
+        }
+        bridge.patchGarageDrives(
+            drives: drives,
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.garage = GarageView.decode(json)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    func beginAddVehicle() {
+        garageDraftOpen = true
+        garageEditingVehicleId = nil
+        garageLabel = ""
+        garageYear = ""
+        garageMake = ""
+        garageModel = ""
+        garageSeats = ""
+        garageDriverAdultIds = currentAdultId.isEmpty ? [] : [currentAdultId]
+        garageKeptAtPlaceId = defaultLeaveFromPlaceId ?? ""
+        garageModels = []
+        garageSeatsTouched = false
+        loadGarageMakes()
+    }
+
+    func beginEditVehicle(_ vehicle: GarageVehicleView) {
+        garageDraftOpen = true
+        garageEditingVehicleId = vehicle.id
+        garageLabel = vehicle.label
+        garageYear = String(vehicle.year)
+        garageMake = vehicle.make
+        garageModel = vehicle.model
+        garageSeats = String(vehicle.seats)
+        garageDriverAdultIds = vehicle.driverAdultIds
+        garageKeptAtPlaceId = vehicle.keptAtPlaceId ?? ""
+        garageSeatsTouched = true
+        loadGarageMakes()
+        loadGarageModels(year: vehicle.year, make: vehicle.make)
+    }
+
+    func cancelGarageDraft() {
+        garageDraftOpen = false
+        garageEditingVehicleId = nil
+        garageModels = []
+    }
+
+    func selectGarageYear(_ year: String) {
+        garageYear = year
+        garageMake = ""
+        garageModel = ""
+        if !garageSeatsTouched { garageSeats = "" }
+        garageModels = []
+        if garageMakes.isEmpty { loadGarageMakes() }
+    }
+
+    func selectGarageMake(_ make: String) {
+        garageMake = make
+        garageModel = ""
+        if !garageSeatsTouched { garageSeats = "" }
+        garageModels = []
+        guard let year = Int32(garageYear), !make.isEmpty else { return }
+        loadGarageModels(year: year, make: make)
+    }
+
+    func selectGarageModel(_ model: String) {
+        garageModel = model
+        guard let year = Int32(garageYear), !garageMake.isEmpty, !model.isEmpty else { return }
+        bridge.suggestGarageSeats(
+            year: year,
+            make: garageMake,
+            model: model,
+            onSuccess: { [weak self] seats in
+                Task { @MainActor in
+                    guard let self, !seats.isEmpty, !self.garageSeatsTouched else { return }
+                    self.garageSeats = seats
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    func toggleGarageDriver(adultId: String, selected: Bool) {
+        guard adultId != currentAdultId else { return }
+        if selected {
+            if !garageDriverAdultIds.contains(adultId) {
+                garageDriverAdultIds.append(adultId)
+            }
+        } else {
+            garageDriverAdultIds.removeAll { $0 == adultId }
+        }
+        if !garageDriverAdultIds.contains(currentAdultId), !currentAdultId.isEmpty {
+            garageDriverAdultIds.insert(currentAdultId, at: 0)
+        }
+    }
+
+    var garageFormValid: Bool {
+        guard let seats = Int(garageSeats) else { return false }
+        return !garageLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !garageYear.isEmpty
+            && !garageMake.isEmpty
+            && !garageModel.isEmpty
+            && seats >= GarageDisplay.minSeats
+            && seats <= GarageDisplay.maxSeats
+    }
+
+    func saveVehicle() {
+        guard garageFormValid,
+              let year = Int32(garageYear),
+              let seats = Int32(garageSeats)
+        else { return }
+        isLoading = true
+        errorMessage = nil
+        let kept = garageKeptAtPlaceId.isEmpty ? nil : garageKeptAtPlaceId
+        let onSuccess: (String) -> Void = { [weak self] json in
+            Task { @MainActor in
+                self?.isLoading = false
+                self?.garage = GarageView.decode(json)
+                self?.cancelGarageDraft()
+            }
+        }
+        let onError: (String) -> Void = { [weak self] message in
+            Task { @MainActor in
+                self?.isLoading = false
+                self?.errorMessage = message
+            }
+        }
+        if let vehicleId = garageEditingVehicleId {
+            bridge.updateVehicle(
+                vehicleId: vehicleId,
+                label: garageLabel,
+                year: year,
+                make: garageMake,
+                model: garageModel,
+                seats: seats,
+                driverAdultIds: garageDriverAdultIds,
+                keptAtPlaceId: kept,
+                onSuccess: onSuccess,
+                onError: onError
+            )
+        } else {
+            bridge.addVehicle(
+                label: garageLabel,
+                year: year,
+                make: garageMake,
+                model: garageModel,
+                seats: seats,
+                driverAdultIds: garageDriverAdultIds,
+                keptAtPlaceId: kept,
+                onSuccess: onSuccess,
+                onError: onError
+            )
+        }
+    }
+
+    func removeVehicle(_ vehicleId: String) {
+        isLoading = true
+        errorMessage = nil
+        bridge.deleteVehicle(
+            vehicleId: vehicleId,
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.garage = GarageView.decode(json)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.isLoading = false
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    private func loadGarageMakes() {
+        bridge.listGarageMakes(
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.garageMakes = Self.decodeNames(json, as: VehicleMakeView.self)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    private func loadGarageModels(year: Int32, make: String) {
+        bridge.listGarageModels(
+            year: year,
+            make: make,
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.garageModels = Self.decodeNames(json, as: VehicleModelView.self)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.errorMessage = message
+                }
+            }
+        )
+    }
+
+    private static func decodeNames<T: Decodable>(_ json: String, as: T.Type) -> [T] {
+        guard let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([T].self, from: data)) ?? []
     }
 
     init(bridge: AuthBridge = AuthBridge()) {

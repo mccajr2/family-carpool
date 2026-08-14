@@ -12,6 +12,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -131,6 +132,137 @@ class FamilyClientTest {
             val located = client.locatePlace("tok", "p2")
             assertEquals(null, located.latitude)
             assertTrue(!located.isLocated())
+        }
+
+    @Test
+    fun garageCrudMakesModelsAndSuggestSeats() =
+        runTest {
+            val vehicleJson =
+                """{"id":"v1","ownerAdultId":"1","driverAdultIds":["1"],"keptAtPlaceId":"p1","label":"Blue van","year":2019,"make":"HONDA","model":"Odyssey","seats":8,"suggestedSeats":8}"""
+            val garageJson =
+                """{"members":[{"adultId":"1","displayName":"Alex","drives":true}],"vehicles":[$vehicleJson]}"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/family/circle/garage" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = garageJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/me" &&
+                            request.method == HttpMethod.Patch ->
+                            respond(
+                                content =
+                                    """{"members":[{"adultId":"1","displayName":"Alex","drives":false}],"vehicles":[$vehicleJson]}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/makes" ->
+                            respond(
+                                content = """[{"name":"HONDA"}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/models" -> {
+                            assertEquals("2019", request.url.parameters["year"])
+                            assertEquals("HONDA", request.url.parameters["make"])
+                            respond(
+                                content = """[{"name":"Odyssey"}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/family/circle/garage/suggest-seats" ->
+                            respond(
+                                content = """{"seats":8}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/vehicles" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = vehicleJson,
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/vehicles/v1" &&
+                            request.method == HttpMethod.Put ->
+                            respond(
+                                content = vehicleJson.replace("\"seats\":8", "\"seats\":7"),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/vehicles/v1" &&
+                            request.method == HttpMethod.Delete ->
+                            respond(content = "", status = HttpStatusCode.NoContent)
+                        request.url.encodedPath ==
+                            "/api/family/circle/garage/vehicles/v1/suggest-seats" ->
+                            respond(
+                                content = """{"seats":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val client = FamilyClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val garage = client.getGarage("tok")
+            assertEquals(1, garage.vehicles.size)
+            assertEquals("Blue van", garage.vehicles.first().label)
+            assertEquals(false, client.patchGarageDrives("tok", false).members.first().drives)
+            assertEquals("HONDA", client.listGarageMakes("tok").first().name)
+            assertEquals("Odyssey", client.listGarageModels("tok", 2019, "HONDA").first().name)
+            assertEquals(8, client.suggestGarageSeats("tok", 2019, "HONDA", "Odyssey").seats)
+            val created =
+                client.addVehicle(
+                    "tok",
+                    CreateVehicleRequest(
+                        label = "Blue van",
+                        year = 2019,
+                        make = "HONDA",
+                        model = "Odyssey",
+                        seats = 8,
+                    ),
+                )
+            assertEquals("v1", created.id)
+            assertFalse(
+                Json.encodeToString(Vehicle.serializer(), created).contains("vin", ignoreCase = true),
+                "vehicle JSON has no VIN",
+            )
+            assertFalse(
+                Json.encodeToString(
+                        CreateVehicleRequest.serializer(),
+                        CreateVehicleRequest(
+                            label = "Blue van",
+                            year = 2019,
+                            make = "HONDA",
+                            model = "Odyssey",
+                            seats = 8,
+                        ),
+                    )
+                    .contains("vin", ignoreCase = true),
+                "create body has no VIN",
+            )
+            assertEquals(
+                7,
+                client
+                    .updateVehicle(
+                        "tok",
+                        "v1",
+                        UpdateVehicleRequest(
+                            label = "Blue van",
+                            year = 2019,
+                            make = "HONDA",
+                            model = "Odyssey",
+                            seats = 7,
+                            driverAdultIds = listOf("1"),
+                        ),
+                    ).seats,
+            )
+            client.deleteVehicle("tok", "v1")
+            assertNull(client.suggestVehicleSeats("tok", "v1").seats)
         }
 
     @Test
@@ -576,6 +708,70 @@ class FamilyModelsTest {
                 role = FamilyRole.CAREGIVER,
             )
         assertEquals("b@example.com", unnamed.displayLabel())
+    }
+
+    @Test
+    fun vehicleYearsRunThroughNextUtcYear() {
+        val years = vehicleYearOptions(utcYear = 2026)
+        assertEquals(2027, years.first())
+        assertEquals(1996, years.last())
+        assertEquals(2027 - 1996 + 1, years.size)
+    }
+
+    @Test
+    fun groupsVehiclesByKeptAtThenOther() {
+        fun vehicle(
+            id: String,
+            label: String,
+            keptAt: String?,
+            owner: String = "1",
+        ) = Vehicle(
+            id = id,
+            ownerAdultId = owner,
+            driverAdultIds = listOf(owner),
+            keptAtPlaceId = keptAt,
+            label = label,
+            year = 2019,
+            make = "HONDA",
+            model = "Civic",
+            seats = 5,
+        )
+        val mom = Place(id = "p1", name = "Mom's house", address = "1 Rd")
+        val grandma = Place(id = "p2", name = "Grandma's house", address = "2 Rd")
+        val groups =
+            groupVehiclesByKeptAt(
+                listOf(
+                    vehicle("van", "Blue van", "p1"),
+                    vehicle("camry", "Camry", "p2", "g"),
+                    vehicle("truck", "Truck", "p2", "gp"),
+                    vehicle("civic", "Civic", null, "n"),
+                ),
+                listOf(mom, grandma),
+            )
+        assertEquals(listOf("Mom's house", "Grandma's house", "Other"), groups.map { it.heading })
+        assertEquals(listOf("Camry", "Truck"), groups[1].vehicles.map { it.label })
+        assertEquals(listOf("Civic"), groups[2].vehicles.map { it.label })
+    }
+
+    @Test
+    fun drivenByUsesDisplayNames() {
+        val vehicle =
+            Vehicle(
+                id = "v",
+                ownerAdultId = "1",
+                driverAdultIds = listOf("1", "2"),
+                label = "Van",
+                year = 2019,
+                make = "HONDA",
+                model = "Odyssey",
+                seats = 8,
+            )
+        val members =
+            listOf(
+                GarageMemberDrives("1", "Mom", true),
+                GarageMemberDrives("2", "Dad", true),
+            )
+        assertEquals("Driven by Mom, Dad", drivenByLabel(vehicle, members))
     }
 }
 

@@ -24,6 +24,7 @@ object UiIcons {
             UiTokens.Icon.signout -> MaterialVectors.exitToApp
             UiTokens.Icon.add -> MaterialVectors.add
             UiTokens.Icon.chevron -> MaterialVectors.chevronRight
+            "icon.garage" -> MaterialVectors.directionsCar
             else -> error("Unknown semantic icon: $semanticName")
         }
 
@@ -39,6 +40,7 @@ object UiIcons {
             UiTokens.Icon.signout -> "ExitToApp"
             UiTokens.Icon.add -> "Add"
             UiTokens.Icon.chevron -> "KeyboardArrowRight"
+            "icon.garage" -> "DirectionsCar"
             else -> error("Unknown semantic icon: $semanticName")
         }
 }

@@ -2,7 +2,7 @@
 
 Status: in-progress  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` web)  
+Updated: 2026-08-14 (`/implement` mobile)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -206,7 +206,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
 - [x] **Web:** types + `familyClient` garage methods; More → Garage screen;
       year/make/model + overridable seats; who-can-drive; kept-at place;
       `icon.garage`; tests.
-- [ ] **Mobile:** `sharedLogic` models/client; `sharedUI` Garage panel +
+- [x] **Mobile:** `sharedLogic` models/client; `sharedUI` Garage panel +
       More row; Android via sharedUI; iOS AuthBridge / ContentView; script
       tests as elsewhere.
 - [ ] **Tokens:** add `icon.garage` to `design-tokens/tokens.json` +

@@ -627,6 +627,180 @@ class AuthBridge {
         }
     }
 
+    fun getGarage(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val garage = familyClient.getGarage(session.requireAccessToken())
+                onSuccess(json.encodeToString(Garage.serializer(), garage))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Get garage failed")
+            }
+        }
+    }
+
+    fun patchGarageDrives(
+        drives: Boolean,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val garage = familyClient.patchGarageDrives(session.requireAccessToken(), drives)
+                onSuccess(json.encodeToString(Garage.serializer(), garage))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Update drives failed")
+            }
+        }
+    }
+
+    fun listGarageMakes(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val makes = familyClient.listGarageMakes(session.requireAccessToken())
+                onSuccess(json.encodeToString(ListSerializer(VehicleMake.serializer()), makes))
+            } catch (e: Throwable) {
+                onError(e.message ?: "List vehicle makes failed")
+            }
+        }
+    }
+
+    fun listGarageModels(
+        year: Int,
+        make: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val models = familyClient.listGarageModels(session.requireAccessToken(), year, make)
+                onSuccess(json.encodeToString(ListSerializer(VehicleModel.serializer()), models))
+            } catch (e: Throwable) {
+                onError(e.message ?: "List vehicle models failed")
+            }
+        }
+    }
+
+    fun suggestGarageSeats(
+        year: Int,
+        make: String,
+        model: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val hint =
+                    familyClient.suggestGarageSeats(
+                        session.requireAccessToken(),
+                        year,
+                        make,
+                        model,
+                    )
+                onSuccess(hint.seats?.toString() ?: "")
+            } catch (e: Throwable) {
+                onError(e.message ?: "Suggest seats failed")
+            }
+        }
+    }
+
+    fun addVehicle(
+        label: String,
+        year: Int,
+        make: String,
+        model: String,
+        seats: Int,
+        driverAdultIds: List<String>,
+        keptAtPlaceId: String?,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = vehicleMutation(
+        {
+            familyClient.addVehicle(
+                session.requireAccessToken(),
+                CreateVehicleRequest(
+                    label = label.trim(),
+                    year = year,
+                    make = make,
+                    model = model,
+                    seats = seats,
+                    driverAdultIds = driverAdultIds,
+                    keptAtPlaceId = keptAtPlaceId?.takeIf { it.isNotBlank() },
+                ),
+            )
+        },
+        onSuccess,
+        onError,
+    )
+
+    fun updateVehicle(
+        vehicleId: String,
+        label: String,
+        year: Int,
+        make: String,
+        model: String,
+        seats: Int,
+        driverAdultIds: List<String>,
+        keptAtPlaceId: String?,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = vehicleMutation(
+        {
+            familyClient.updateVehicle(
+                session.requireAccessToken(),
+                vehicleId,
+                UpdateVehicleRequest(
+                    label = label.trim(),
+                    year = year,
+                    make = make,
+                    model = model,
+                    seats = seats,
+                    driverAdultIds = driverAdultIds,
+                    keptAtPlaceId = keptAtPlaceId?.takeIf { it.isNotBlank() },
+                ),
+            )
+        },
+        onSuccess,
+        onError,
+    )
+
+    fun deleteVehicle(
+        vehicleId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                familyClient.deleteVehicle(session.requireAccessToken(), vehicleId)
+                val garage = familyClient.getGarage(session.requireAccessToken())
+                onSuccess(json.encodeToString(Garage.serializer(), garage))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Delete vehicle failed")
+            }
+        }
+    }
+
+    private fun vehicleMutation(
+        action: suspend () -> Vehicle,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                action()
+                val garage = familyClient.getGarage(session.requireAccessToken())
+                onSuccess(json.encodeToString(Garage.serializer(), garage))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Save vehicle failed")
+            }
+        }
+    }
+
     fun listFeeds(
         onSuccess: (
             ids: List<String>,

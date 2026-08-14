@@ -1158,7 +1158,13 @@ class FamilyUiModelTest {
             val places = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(FamilyUiModel.ShellTab.MORE, places.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.PLACES, places.moreScreen)
-            assertEquals(listOf("Places", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
+            assertEquals(listOf("Places", "Garage", "Feeds"), AppShell.moreGeneralRows(isOrganizer = true))
+
+            model.openMoreGarage()
+            assertEquals(
+                FamilyUiModel.MoreScreen.GARAGE,
+                assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
+            )
 
             model.openMoreFeeds()
             val feeds = assertIs<FamilyUiModel.State.Ready>(model.state)
@@ -1208,7 +1214,7 @@ class FamilyUiModelTest {
             val ready = assertIs<FamilyUiModel.State.Ready>(model.state)
             assertEquals(FamilyUiModel.ShellTab.CALENDAR, ready.shellTab)
             assertEquals(FamilyUiModel.MoreScreen.LIST, ready.moreScreen)
-            assertEquals(listOf("Places"), AppShell.moreGeneralRows(isOrganizer = false))
+            assertEquals(listOf("Places", "Garage"), AppShell.moreGeneralRows(isOrganizer = false))
             assertFalse(AppShell.showsFeedsRow(isOrganizer = false))
             model.selectShellTab(FamilyUiModel.ShellTab.CARPOOL)
             assertEquals(
@@ -1220,6 +1226,88 @@ class FamilyUiModelTest {
                 FamilyUiModel.MoreScreen.PLACES,
                 assertIs<FamilyUiModel.State.Ready>(model.state).moreScreen,
             )
+        }
+
+    @Test
+    fun garageAddDefaultsDriversToMeAndDontDriveClearsDraft() =
+        runTest {
+            var drives = true
+            fun garageJson() =
+                """{"members":[{"adultId":"1","displayName":"Mom","drives":$drives},{"adultId":"2","displayName":"Dad","drives":true}],"vehicles":[]}"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/auth/me" ->
+                            respond(
+                                content =
+                                    """{"id":"1","email":"parent@example.com","displayName":"Mom"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content =
+                                    """{"id":"c1","name":"House","role":"ORGANIZER","members":[{"adultId":"1","email":"mom@example.com","displayName":"Mom","role":"ORGANIZER"},{"adultId":"2","email":"dad@example.com","displayName":"Dad","role":"CAREGIVER"}],"kids":[],"places":[{"id":"p1","name":"Mom's house","address":"1 Rd","latitude":1.0,"longitude":2.0}],"defaultLeaveFromPlaceId":"p1","defaultLeaveFromPlaceName":"Mom's house"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/invite" ->
+                            respond(
+                                content = """{"code":"AB12CD34"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/feeds" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/calendar" ->
+                            respond(
+                                content = "[]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage" &&
+                            request.method == HttpMethod.Get ->
+                            respond(
+                                content = garageJson(),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/makes" ->
+                            respond(
+                                content = """[{"name":"HONDA"}]""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/family/circle/garage/me" -> {
+                            drives = false
+                            respond(
+                                content = garageJson(),
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+            val model = familyUiModel(mockEngine, token = "tok")
+            model.load()
+            model.openMoreGarage()
+            model.loadGarage()
+            model.beginAddVehicle()
+            val drafting = assertIs<FamilyUiModel.State.Ready>(model.state)
+            val draft = assertNotNull(drafting.garageDraft)
+            assertEquals(listOf("1"), draft.driverAdultIds)
+            assertEquals("p1", draft.keptAtPlaceId)
+            assertNull(draft.vehicleId)
+            model.patchOwnDrives(false)
+            val after = assertIs<FamilyUiModel.State.Ready>(model.state)
+            assertNull(after.garageDraft)
+            assertEquals(false, after.garage?.members?.first { it.adultId == "1" }?.drives)
         }
 
     @Test

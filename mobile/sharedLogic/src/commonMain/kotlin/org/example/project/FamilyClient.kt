@@ -240,6 +240,125 @@ class FamilyClient(
         return response.body()
     }
 
+    suspend fun getGarage(accessToken: String): Garage {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/garage") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Get garage failed")
+        return response.body()
+    }
+
+    suspend fun patchGarageDrives(
+        accessToken: String,
+        drives: Boolean,
+    ): Garage {
+        val response =
+            httpClient.patch("$baseUrl/api/family/circle/garage/me") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(PatchGarageDrivesRequest(drives))
+            }
+        ensureSuccess(response, "Update drives failed")
+        return response.body()
+    }
+
+    suspend fun listGarageMakes(accessToken: String): List<VehicleMake> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/garage/makes") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "List vehicle makes failed")
+        return response.body()
+    }
+
+    suspend fun listGarageModels(
+        accessToken: String,
+        year: Int,
+        make: String,
+    ): List<VehicleModel> {
+        val response =
+            httpClient.get("$baseUrl/api/family/circle/garage/models") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                parameter("year", year)
+                parameter("make", make)
+            }
+        ensureSuccess(response, "List vehicle models failed")
+        return response.body()
+    }
+
+    suspend fun suggestGarageSeats(
+        accessToken: String,
+        year: Int,
+        make: String,
+        model: String,
+    ): SuggestSeatsResponse {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/garage/suggest-seats") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(SuggestSeatsRequest(year, make, model))
+            }
+        ensureSuccess(response, "Suggest seats failed")
+        return response.body()
+    }
+
+    suspend fun addVehicle(
+        accessToken: String,
+        body: CreateVehicleRequest,
+    ): Vehicle {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/garage/vehicles") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Add vehicle failed")
+        return response.body()
+    }
+
+    suspend fun updateVehicle(
+        accessToken: String,
+        vehicleId: String,
+        body: UpdateVehicleRequest,
+    ): Vehicle {
+        val response =
+            httpClient.put("$baseUrl/api/family/circle/garage/vehicles/$vehicleId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        ensureSuccess(response, "Update vehicle failed")
+        return response.body()
+    }
+
+    suspend fun deleteVehicle(
+        accessToken: String,
+        vehicleId: String,
+    ) {
+        val response =
+            httpClient.delete("$baseUrl/api/family/circle/garage/vehicles/$vehicleId") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        if (response.status != HttpStatusCode.NoContent &&
+            response.status.value !in 200..299
+        ) {
+            throw AuthApiException(awaitMessage(response, "Delete vehicle failed"))
+        }
+    }
+
+    suspend fun suggestVehicleSeats(
+        accessToken: String,
+        vehicleId: String,
+    ): SuggestSeatsResponse {
+        val response =
+            httpClient.post("$baseUrl/api/family/circle/garage/vehicles/$vehicleId/suggest-seats") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Suggest vehicle seats failed")
+        return response.body()
+    }
+
     suspend fun setDefaultLeaveFrom(
         accessToken: String,
         body: SetDefaultLeaveFromRequest,

@@ -219,6 +219,82 @@ data class JoinFamilyCircleRequest(
 )
 
 @Serializable
+data class GarageMemberDrives(
+    val adultId: String,
+    val displayName: String,
+    val drives: Boolean,
+)
+
+@Serializable
+data class Vehicle(
+    val id: String,
+    val ownerAdultId: String,
+    val driverAdultIds: List<String> = emptyList(),
+    val keptAtPlaceId: String? = null,
+    val label: String,
+    val year: Int,
+    val make: String,
+    val model: String,
+    val seats: Int,
+    val suggestedSeats: Int? = null,
+)
+
+@Serializable
+data class Garage(
+    val members: List<GarageMemberDrives> = emptyList(),
+    val vehicles: List<Vehicle> = emptyList(),
+)
+
+@Serializable
+data class CreateVehicleRequest(
+    val label: String,
+    val year: Int,
+    val make: String,
+    val model: String,
+    val seats: Int,
+    val driverAdultIds: List<String>? = null,
+    val keptAtPlaceId: String? = null,
+)
+
+@Serializable
+data class UpdateVehicleRequest(
+    val label: String,
+    val year: Int,
+    val make: String,
+    val model: String,
+    val seats: Int,
+    val driverAdultIds: List<String>? = null,
+    val keptAtPlaceId: String? = null,
+)
+
+@Serializable
+data class PatchGarageDrivesRequest(
+    val drives: Boolean,
+)
+
+@Serializable
+data class SuggestSeatsRequest(
+    val year: Int,
+    val make: String,
+    val model: String,
+)
+
+@Serializable
+data class SuggestSeatsResponse(
+    val seats: Int? = null,
+)
+
+@Serializable
+data class VehicleMake(
+    val name: String,
+)
+
+@Serializable
+data class VehicleModel(
+    val name: String,
+)
+
+@Serializable
 data class UpdateFamilyCircleRequest(
     val name: String? = null,
 )
