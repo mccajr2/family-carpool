@@ -2,7 +2,7 @@
 
 Status: in-progress  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` tokens)  
+Updated: 2026-08-14 (`/implement` docs)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -211,7 +211,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
       tests as elsewhere.
 - [x] **Tokens:** add `icon.garage` to `design-tokens/tokens.json` +
       `docs/ui-system.md` mapping; regenerate checked-in outputs.
-- [ ] **Docs:** `docs/architecture.md` garage row + write policy; README
+- [x] **Docs:** `docs/architecture.md` garage row + write policy; README
       smoke.
 - [ ] **Tests:** backend unit + integration; web + sharedLogic/sharedUI;
       `ModularityTests`; token generate `--check` if icons change.
