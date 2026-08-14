@@ -175,7 +175,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.15.0");
+        assertThat(yaml).contains("version: 0.16.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,52 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.15.0");
+        assertThat(yaml).contains("version: 0.16.0");
+    }
+
+    @Test
+    void garageContractDocumentsVehiclesMakesModelsAndNoVin() throws IOException {
+        String yaml = Files.readString(resolveOpenApi());
+
+        assertThat(yaml).contains("/api/family/circle/garage");
+        assertThat(yaml).contains("/api/family/circle/garage/me");
+        assertThat(yaml).contains("/api/family/circle/garage/makes");
+        assertThat(yaml).contains("/api/family/circle/garage/models");
+        assertThat(yaml).contains("/api/family/circle/garage/suggest-seats");
+        assertThat(yaml).contains("/api/family/circle/garage/vehicles");
+        assertThat(yaml).contains("/api/family/circle/garage/vehicles/{vehicleId}");
+        assertThat(yaml).contains("/api/family/circle/garage/vehicles/{vehicleId}/suggest-seats");
+
+        assertThat(yaml).contains("operationId: getFamilyGarage");
+        assertThat(yaml).contains("operationId: patchGarageDrives");
+        assertThat(yaml).contains("operationId: listGarageMakes");
+        assertThat(yaml).contains("operationId: listGarageModels");
+        assertThat(yaml).contains("operationId: suggestGarageSeats");
+        assertThat(yaml).contains("operationId: addVehicle");
+        assertThat(yaml).contains("operationId: updateVehicle");
+        assertThat(yaml).contains("operationId: deleteVehicle");
+        assertThat(yaml).contains("operationId: suggestVehicleSeats");
+
+        assertThat(yaml).contains("Garage:");
+        assertThat(yaml).contains("GarageMemberDrives:");
+        assertThat(yaml).contains("Vehicle:");
+        assertThat(yaml).contains("CreateVehicleRequest:");
+        assertThat(yaml).contains("UpdateVehicleRequest:");
+        assertThat(yaml).contains("PatchGarageDrivesRequest:");
+        assertThat(yaml).contains("SuggestSeatsRequest:");
+        assertThat(yaml).contains("SuggestSeatsResponse:");
+        assertThat(yaml).contains("VehicleMake:");
+        assertThat(yaml).contains("VehicleModel:");
+        assertThat(yaml).contains("driverAdultIds:");
+        assertThat(yaml).contains("keptAtPlaceId:");
+        assertThat(yaml).contains("suggestedSeats:");
+        assertThat(yaml).contains("including the driver");
+        assertThat(yaml).contains("no VIN");
+        assertThat(yaml).contains("Vehicle label already exists for this owner");
+        assertThat(yaml).contains("driver list missing owner or");
+        assertThat(yaml).contains("seats outside 2–18");
+        assertThat(yaml).doesNotContain("\n        vin:");
+        assertThat(yaml).doesNotContain("/vin");
     }
 
     private static Path resolveOpenApi() {

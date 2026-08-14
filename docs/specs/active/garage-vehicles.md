@@ -2,7 +2,7 @@
 
 Status: in-progress  
 Created: 2026-08-07  
-Updated: 2026-08-14 (`/implement` backend)  
+Updated: 2026-08-14 (`/implement` contract)  
 Approved: 2026-08-14  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `garage-vehicles`  
@@ -155,7 +155,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents garage GET, PATCH `drives`, vehicle create/update/delete,
+- [x] OpenAPI documents garage GET, PATCH `drives`, vehicle create/update/delete,
       makes, models, suggest-seats (by year/make/model and by saved id); Bearer
       on all; blank label / missing make/model / year outside range / seats
       outside 2–18 / driver list missing owner or non-member / unknown place →
@@ -201,7 +201,7 @@ smoke: add a vehicle, add a second driver, toggle don’t drive.
       join + vPIC cache table; `VpicPort` + adapter (makes, models, seat
       hint); garage service/controller; leave/remove cascade (owned delete +
       driver unassign); public `FamilyGarageApi`; fake port for tests.
-- [ ] **Contract:** OpenAPI garage schemas/paths; bump version; description
+- [x] **Contract:** OpenAPI garage schemas/paths; bump version; description
       notes including-driver seats and make/model/year hints (no VIN).
 - [ ] **Web:** types + `familyClient` garage methods; More → Garage screen;
       year/make/model + overridable seats; who-can-drive; kept-at place;
