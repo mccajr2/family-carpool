@@ -28,3 +28,5 @@ available seats after family occupants + accepted riders.
 
 - Depends on `team-carpool-space-invite` + `garage-vehicles`.
 - Request/accept only — explicit confirms over automation.
+- Before exposing teammate pickup addresses, consider parked
+  `[carpool-least-privilege](carpool-least-privilege.md)`.

@@ -25,6 +25,8 @@ interface ActivityFeedRepository extends JpaRepository<ActivityFeedEntity, UUID>
     @Query("select f from ActivityFeedEntity f where f.id = :id")
     Optional<ActivityFeedEntity> findByIdForUpdate(@Param("id") UUID id);
 
+    Optional<ActivityFeedEntity> findByCircleIdAndSourceUrl(UUID circleId, String sourceUrl);
+
     boolean existsByCircleIdAndSourceUrl(UUID circleId, String sourceUrl);
 
     boolean existsByCircleIdAndSourceUrlAndIdNot(UUID circleId, String sourceUrl, UUID id);

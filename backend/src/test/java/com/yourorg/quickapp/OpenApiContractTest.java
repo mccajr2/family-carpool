@@ -175,7 +175,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.14.0");
+        assertThat(yaml).contains("version: 0.15.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -186,6 +186,63 @@ class OpenApiContractTest {
         assertThat(yaml).contains("schedule conflicts");
         assertThat(yaml).contains("overlapping CONFIRMED");
         assertThat(yaml).contains("components:");
+    }
+
+    @Test
+    void carpoolContractDocumentsSpaceInviteJoinAndRequests() throws IOException {
+        String yaml = Files.readString(resolveOpenApi());
+
+        assertThat(yaml).contains("  - name: carpool");
+        assertThat(yaml).contains("/api/carpool:");
+        assertThat(yaml).contains("/api/carpool/enable");
+        assertThat(yaml).contains("/api/carpool/join");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/invite/regenerate");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/leave");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/requests");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/requests/{requestId}/admit");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/requests/{requestId}/decline");
+
+        assertThat(yaml).contains("operationId: getCarpoolSummary");
+        assertThat(yaml).contains("operationId: enableCarpoolSpace");
+        assertThat(yaml).contains("operationId: joinCarpoolSpace");
+        assertThat(yaml).contains("operationId: getCarpoolSpace");
+        assertThat(yaml).contains("operationId: regenerateCarpoolInvite");
+        assertThat(yaml).contains("operationId: leaveCarpoolSpace");
+        assertThat(yaml).contains("operationId: createCarpoolJoinRequest");
+        assertThat(yaml).contains("operationId: admitCarpoolJoinRequest");
+        assertThat(yaml).contains("operationId: declineCarpoolJoinRequest");
+
+        assertThat(yaml).contains("CarpoolSummary:");
+        assertThat(yaml).contains("CarpoolFeedStatus:");
+        assertThat(yaml).contains("CarpoolFeedStatusKind:");
+        assertThat(yaml).contains("CarpoolSpace:");
+        assertThat(yaml).contains("CarpoolSpaceMember:");
+        assertThat(yaml).contains("CarpoolSpaceMembership:");
+        assertThat(yaml).contains("CarpoolJoinRequest:");
+        assertThat(yaml).contains("CarpoolInvite:");
+        assertThat(yaml).contains("EnableCarpoolSpaceRequest:");
+        assertThat(yaml).contains("JoinCarpoolSpaceRequest:");
+        assertThat(yaml).contains("circleRole:");
+        assertThat(yaml).contains("inviteCode:");
+        assertThat(yaml).contains("pendingRequests:");
+        assertThat(yaml).contains("requestedByDisplayName:");
+        assertThat(yaml).contains("callerFeedId:");
+        assertThat(yaml).contains("[NONE, AVAILABLE, REQUESTED, MEMBER, OWNER]");
+        assertThat(yaml).contains("[OWNER, MEMBER]");
+
+        assertThat(yaml).contains("one per normalized feed URL");
+        assertThat(yaml).contains("Organizer-only");
+        assertThat(yaml).contains("Caller is a Caregiver (Organizer-only)");
+        assertThat(yaml).contains("ensureFeed");
+        assertThat(yaml).contains("in-app");
+        assertThat(yaml).contains("no email/push");
+        assertThat(yaml).contains("No TTL");
+        assertThat(yaml).contains("Owner cannot leave while other member circles remain");
+        assertThat(yaml).contains("A space already exists for this feed's normalized URL");
+        assertThat(yaml).contains("Invite code unknown or no longer valid");
+        assertThat(yaml).contains("Does not add a feed");
+        assertThat(yaml).contains("version: 0.15.0");
     }
 
     private static Path resolveOpenApi() {

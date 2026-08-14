@@ -1,12 +1,19 @@
 package com.yourorg.quickapp.family.internal;
 
 import com.yourorg.quickapp.family.FamilyAccessException;
+import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyRole;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -41,6 +48,11 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
     }
 
     @Override
+    public FamilyRole requireMemberRole(UUID adultId) {
+        return requireMembership(adultId).role();
+    }
+
+    @Override
     public void requireKidsInCircle(UUID circleId, Collection<UUID> kidIds) {
         if (kidIds == null || kidIds.isEmpty()) {
             return;
@@ -60,6 +72,34 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
         }
     }
 
+    @Override
+    public Optional<FamilyCircleName> findCircle(UUID circleId) {
+        if (circleId == null) {
+            return Optional.empty();
+        }
+        return circles.findById(circleId).map(FamilyMembershipApiImpl::toName);
+    }
+
+    @Override
+    public List<FamilyCircleName> findCircles(Collection<UUID> circleIds) {
+        if (circleIds == null || circleIds.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> unique =
+                circleIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (unique.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, FamilyCircleEntity> byId =
+                circles.findAllById(unique).stream()
+                        .collect(Collectors.toMap(FamilyCircleEntity::id, Function.identity()));
+        return unique.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .map(FamilyMembershipApiImpl::toName)
+                .toList();
+    }
+
     private FamilyMembershipEntity requireMembership(UUID adultId) {
         FamilyMembershipEntity membership =
                 memberships
@@ -75,5 +115,9 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
                                 new FamilyAccessException(
                                         HttpStatus.NOT_FOUND, "Family circle not found"));
         return membership;
+    }
+
+    private static FamilyCircleName toName(FamilyCircleEntity circle) {
+        return new FamilyCircleName(circle.id(), circle.name());
     }
 }

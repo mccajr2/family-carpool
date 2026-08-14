@@ -10,7 +10,11 @@ object AppShell {
     const val TAB_FAMILY = "Family"
     const val TAB_MORE = "More"
 
-    const val CARPOOL_PLACEHOLDER = "Coming soon"
+    const val CARPOOL_LOADING = "Loading carpool…"
+    const val CARPOOL_HAVE_A_CODE = "Have a code?"
+    const val CARPOOL_ENABLE = "Enable"
+    const val CARPOOL_REQUEST = "Request"
+    const val CARPOOL_OPEN = "Open"
 
     const val MORE_GROUP_GENERAL = "General"
     const val MORE_GROUP_ACCOUNT = "Account"

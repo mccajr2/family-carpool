@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 class AuthBridge {
     private val session: AuthSession
     private val familyClient: FamilyClient
+    private val carpoolClient: CarpoolClient
     private val scope: CoroutineScope
     private val calendarCache: CalendarCacheStore
     private val bootstrapCache: FamilyBootstrapCache
@@ -26,6 +27,7 @@ class AuthBridge {
                 tokenStore = IosSecureTokenStore(),
             )
         familyClient = FamilyClient.create()
+        carpoolClient = CarpoolClient.create()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         calendarCache = IosCalendarCacheStore()
         bootstrapCache = IosFamilyBootstrapCache()
@@ -40,9 +42,11 @@ class AuthBridge {
         scope: CoroutineScope,
         calendarCache: CalendarCacheStore,
         bootstrapCache: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
+        carpoolClient: CarpoolClient = CarpoolClient.create(),
     ) {
         this.session = session
         this.familyClient = familyClient
+        this.carpoolClient = carpoolClient
         this.scope = scope
         this.calendarCache = calendarCache
         this.bootstrapCache = bootstrapCache
@@ -703,6 +707,118 @@ class AuthBridge {
         onSuccess,
         onError,
     )
+
+    fun getCarpoolSummary(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                val summary = carpoolClient.getSummary(session.requireAccessToken())
+                onSuccess(encodeCarpoolSummary(summary))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Get carpool summary failed")
+            }
+        }
+    }
+
+    fun enableCarpool(
+        feedId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation({ carpoolClient.enable(session.requireAccessToken(), feedId) }, onSuccess, onError)
+
+    fun joinCarpool(
+        code: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation({ carpoolClient.join(session.requireAccessToken(), code.trim()) }, onSuccess, onError)
+
+    fun requestCarpool(
+        spaceId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation(
+        { carpoolClient.createRequest(session.requireAccessToken(), spaceId) },
+        onSuccess,
+        onError,
+    )
+
+    fun admitCarpoolRequest(
+        spaceId: String,
+        requestId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation(
+        { carpoolClient.admit(session.requireAccessToken(), spaceId, requestId) },
+        onSuccess,
+        onError,
+    )
+
+    fun declineCarpoolRequest(
+        spaceId: String,
+        requestId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation(
+        { carpoolClient.decline(session.requireAccessToken(), spaceId, requestId) },
+        onSuccess,
+        onError,
+    )
+
+    fun regenerateCarpoolInvite(
+        spaceId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation(
+        { carpoolClient.regenerateInvite(session.requireAccessToken(), spaceId) },
+        onSuccess,
+        onError,
+    )
+
+    fun leaveCarpool(
+        spaceId: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) = carpoolMutation(
+        { carpoolClient.leave(session.requireAccessToken(), spaceId) },
+        onSuccess,
+        onError,
+    )
+
+    fun carpoolFeedStatusLabel(status: String): String =
+        runCatching { CarpoolFeedStatusKind.valueOf(status).statusLabel() }
+            .getOrDefault(status)
+
+    fun carpoolEmptyHint(circleRole: String): String =
+        if (circleRole == FamilyRole.ORGANIZER.name) {
+            CarpoolSummary(circleRole = FamilyRole.ORGANIZER).emptyHint()
+        } else {
+            CarpoolSummary(circleRole = FamilyRole.CAREGIVER).emptyHint()
+        }
+
+    fun enableCarpoolConfirmMessageBridge(feedName: String): String = enableCarpoolConfirmMessage(feedName)
+
+    fun circleDisplayNameBridge(name: String?): String = circleDisplayName(name)
+
+    private fun carpoolMutation(
+        action: suspend () -> Unit,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        scope.launch {
+            try {
+                action()
+                val summary = carpoolClient.getSummary(session.requireAccessToken())
+                onSuccess(encodeCarpoolSummary(summary))
+            } catch (e: Throwable) {
+                onError(e.message ?: "Carpool request failed")
+            }
+        }
+    }
+
+    private fun encodeCarpoolSummary(summary: CarpoolSummary): String =
+        json.encodeToString(CarpoolSummary.serializer(), summary)
 
     fun listCalendar(
         from: String,

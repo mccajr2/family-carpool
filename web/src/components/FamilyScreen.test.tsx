@@ -6,6 +6,7 @@ import type { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder } from "@/api/authSession"
 import { CalendarCacheStore, CALENDAR_CACHE_SOFT_TTL_MS } from "@/api/calendarCacheStore"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
+import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
 import { defaultCalendarWindow, nearTermLeaveByWindow, remainderAfterNearTermLeaveByWindow } from "@/components/eventTimes"
@@ -17,6 +18,17 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
     ...partial,
   } as FamilyClient
+}
+
+function mockCarpoolClient(partial: Partial<CarpoolClient> = {}): CarpoolClient {
+  return {
+    getSummary: vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [],
+      spaces: [],
+    }),
+    ...partial,
+  } as CarpoolClient
 }
 
 function mockAuthClient(partial: Partial<AuthClient>): AuthClient {
@@ -1187,6 +1199,7 @@ describe("FamilyScreen", () => {
           syncFeed,
           deleteFeed,
         })}
+        carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
       />,
     )
@@ -1268,6 +1281,7 @@ describe("FamilyScreen", () => {
             },
           ]),
         })}
+        carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
       />,
     )
@@ -1323,6 +1337,13 @@ describe("FamilyScreen", () => {
             places: [],
           }),
         })}
+        carpoolClient={mockCarpoolClient({
+          getSummary: vi.fn().mockResolvedValue({
+            circleRole: "CAREGIVER",
+            feeds: [],
+            spaces: [],
+          }),
+        })}
         onSignedOut={vi.fn()}
       />,
     )
@@ -1336,7 +1357,213 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
-    expect(screen.getByLabelText("Carpool")).toHaveTextContent("Coming soon")
+    expect(
+      await screen.findByText("Paste an invite code to join a team carpool."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Coming soon")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Enable" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Have a code?" })).toBeInTheDocument()
+  })
+
+  it("lets organizers enable carpool from Feeds after confirming ownership", async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const noneSummary = {
+      circleRole: "ORGANIZER" as const,
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "U12 Travel",
+          status: "NONE" as const,
+          spaceId: null,
+          spaceName: null,
+        },
+      ],
+      spaces: [],
+    }
+    const ownerSummary = {
+      circleRole: "ORGANIZER" as const,
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "U12 Travel",
+          status: "OWNER" as const,
+          spaceId: "s1",
+          spaceName: "U12 Travel",
+        },
+      ],
+      spaces: [],
+    }
+    const getSummary = vi.fn().mockResolvedValue(noneSummary)
+    const enable = vi.fn().mockImplementation(async () => {
+      getSummary.mockResolvedValue(ownerSummary)
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([
+            {
+              id: "f1",
+              name: "U12 Travel",
+              sourceUrl: "https://example.com/team.ics",
+              kidIds: [],
+              lastSyncedAt: "2026-08-10T12:00:00Z",
+              lastSyncError: null,
+              eventCount: 4,
+            },
+          ]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, enable })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    await goTo(user, "Feeds")
+    const feeds = await screen.findByLabelText("Activity feeds")
+    await user.click(await within(feeds).findByRole("button", { name: "Enable" }))
+    expect(enable).toHaveBeenCalledWith("tok", "f1")
+    expect(await within(feeds).findByRole("button", { name: "Open" })).toBeInTheDocument()
+    expect(within(feeds).getByText("Owned")).toBeInTheDocument()
+  })
+
+  it("reloads feeds and calendar after joining a carpool by code", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    let joined = false
+    const soccerFeed = {
+      id: "f1",
+      name: "Soccer",
+      sourceUrl: "https://example.com/team.ics",
+      kidIds: [] as string[],
+      lastSyncedAt: "2026-08-10T12:00:00Z",
+      lastSyncError: null,
+      eventCount: 3,
+    }
+    const practice = calendarItem({
+      id: "e1",
+      source: "FEED",
+      title: "Practice",
+      startsAt: "2026-08-20T16:00:00Z",
+      kidIds: [],
+      feedId: "f1",
+      feedName: "Soccer",
+    })
+    const emptySummary = {
+      circleRole: "ORGANIZER" as const,
+      feeds: [] as const,
+      spaces: [] as const,
+    }
+    const memberSummary = {
+      circleRole: "ORGANIZER" as const,
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "Soccer",
+          status: "MEMBER" as const,
+          spaceId: "s1",
+          spaceName: "Soccer",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "Soccer",
+          membership: "MEMBER" as const,
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [
+            { circleId: "c1", circleName: "House A", membership: "OWNER" as const },
+            { circleId: "c2", circleName: "House B", membership: "MEMBER" as const },
+          ],
+          pendingRequests: [],
+        },
+      ],
+    }
+    const listFeeds = vi.fn().mockImplementation(async () => (joined ? [soccerFeed] : []))
+    const listCalendar = vi.fn().mockImplementation(async () => (joined ? [practice] : []))
+    const getSummary = vi.fn().mockImplementation(async () =>
+      joined ? memberSummary : emptySummary,
+    )
+    const join = vi.fn().mockImplementation(async () => {
+      joined = true
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c2",
+            name: "House B",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "ZZ99YY88" }),
+          listFeeds,
+          listCalendar,
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, join })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(screen.queryByText("Practice")).not.toBeInTheDocument()
+
+    await goTo(user, "Carpool")
+    await user.click(await screen.findByRole("button", { name: "Have a code?" }))
+    await user.type(screen.getByLabelText("Carpool invite code"), "AB12CD34")
+    await user.click(screen.getByRole("button", { name: "Join" }))
+    await waitFor(() => {
+      expect(join).toHaveBeenCalledWith("tok", "AB12CD34")
+    })
+
+    await goTo(user, "Feeds")
+    const feeds = await screen.findByLabelText("Activity feeds")
+    expect(await within(feeds).findByText("Soccer")).toBeInTheDocument()
+    expect(listFeeds.mock.calls.length).toBeGreaterThanOrEqual(2)
+
+    await goTo(user, "Calendar")
+    expect(await screen.findByText("Practice")).toBeInTheDocument()
+    expect(listCalendar.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
   it("refreshes feeds from the list endpoint without syncing", async () => {
@@ -1397,6 +1624,7 @@ describe("FamilyScreen", () => {
           listFeeds,
           syncFeed,
         })}
+        carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
       />,
     )
@@ -1412,7 +1640,7 @@ describe("FamilyScreen", () => {
     expect(syncFeed).not.toHaveBeenCalled()
   })
 
-  it("shows sidebar destinations with Settings groups and carpool placeholder", async () => {
+  it("shows sidebar destinations with Settings groups and a live Carpool tab", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -1447,6 +1675,7 @@ describe("FamilyScreen", () => {
           listFeeds: vi.fn().mockResolvedValue([]),
           listCalendar: vi.fn().mockResolvedValue([]),
         })}
+        carpoolClient={mockCarpoolClient()}
         onSignedOut={onSignedOut}
       />,
     )
@@ -1468,7 +1697,10 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
-    expect(screen.getByLabelText("Carpool")).toHaveTextContent("Coming soon")
+    expect(
+      await screen.findByText("Add a team calendar in Feeds, or paste an invite code."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Coming soon")).not.toBeInTheDocument()
 
     await user.click(within(nav).getByRole("button", { name: "Sign out" }))
     await waitFor(() => {

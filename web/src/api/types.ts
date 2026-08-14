@@ -190,3 +190,55 @@ export type JoinFamilyCircleRequest = {
 export type ErrorResponse = {
   message: string
 }
+
+export type CarpoolSpaceMembership = "OWNER" | "MEMBER"
+
+export type CarpoolFeedStatusKind =
+  | "NONE"
+  | "AVAILABLE"
+  | "REQUESTED"
+  | "MEMBER"
+  | "OWNER"
+
+export type CarpoolFeedStatus = {
+  feedId: string
+  feedName: string
+  status: CarpoolFeedStatusKind
+  spaceId: string | null
+  spaceName: string | null
+}
+
+export type CarpoolSpaceMember = {
+  circleId: string
+  circleName: string | null
+  membership: CarpoolSpaceMembership
+}
+
+export type CarpoolJoinRequest = {
+  id: string
+  spaceId: string
+  circleId: string
+  circleName: string | null
+  requestedByAdultId: string
+  requestedByDisplayName: string | null
+}
+
+export type CarpoolInvite = {
+  code: string
+}
+
+export type CarpoolSpace = {
+  id: string
+  name: string
+  membership: CarpoolSpaceMembership
+  inviteCode: string
+  callerFeedId: string | null
+  members: CarpoolSpaceMember[]
+  pendingRequests: CarpoolJoinRequest[]
+}
+
+export type CarpoolSummary = {
+  circleRole: FamilyRole
+  feeds: CarpoolFeedStatus[]
+  spaces: CarpoolSpace[]
+}

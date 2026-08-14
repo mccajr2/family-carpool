@@ -11,6 +11,7 @@ class FamilyUiModel(
     private val calendarCache: CalendarCacheStore = InMemoryCalendarCacheStore(),
     private val bootstrapCache: FamilyBootstrapCache = InMemoryFamilyBootstrapCache(),
     private val nowMs: () -> Long = { nowEpochMillis() },
+    private val carpoolClient: CarpoolClient = CarpoolClient.create(),
 ) {
     enum class EmptyMode {
         CHOOSE,
@@ -99,6 +100,11 @@ class FamilyUiModel(
             val error: String? = null,
             /** Confirm/Assign failures keyed by `source-id` — shown on the item CTAs. */
             val coverageActionErrors: Map<String, String> = emptyMap(),
+            val carpoolSummary: CarpoolSummary? = null,
+            val carpoolLoading: Boolean = false,
+            val carpoolError: String? = null,
+            val carpoolCodeInput: String = "",
+            val carpoolShowCodeForm: Boolean = false,
         ) : State()
     }
 
@@ -240,6 +246,133 @@ class FamilyUiModel(
         if (!calendarCache.isStale(fetchedAt, nowMs())) return
         if (current.calendarRevalidating) return
         revalidateCalendar(current, force = true)
+    }
+
+    fun updateCarpoolCodeInput(value: String) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(carpoolCodeInput = value, carpoolError = null)
+    }
+
+    fun setCarpoolShowCodeForm(show: Boolean) {
+        val current = _state as? State.Ready ?: return
+        _state =
+            current.copy(
+                carpoolShowCodeForm = show,
+                carpoolCodeInput = if (show) current.carpoolCodeInput else "",
+                carpoolError = null,
+            )
+    }
+
+    suspend fun loadCarpoolSummary() {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(carpoolLoading = true, carpoolError = null)
+        try {
+            val summary = carpoolClient.getSummary(session.requireAccessToken())
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(carpoolLoading = false, carpoolSummary = summary, carpoolError = null)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state =
+                latest.copy(
+                    carpoolLoading = false,
+                    carpoolError = e.message ?: "Get carpool summary failed",
+                )
+        }
+    }
+
+    suspend fun enableCarpool(feedId: String) {
+        val current = _state as? State.Ready ?: return
+        if (current.circle.role != FamilyRole.ORGANIZER) return
+        runCarpoolAction { carpoolClient.enable(session.requireAccessToken(), feedId) }
+    }
+
+    suspend fun joinCarpool() {
+        val current = _state as? State.Ready ?: return
+        val code = current.carpoolCodeInput.trim()
+        if (code.isEmpty()) return
+        runCarpoolAction { carpoolClient.join(session.requireAccessToken(), code) }
+        val after = _state as? State.Ready ?: return
+        if (after.carpoolError != null) return
+        _state = after.copy(carpoolCodeInput = "", carpoolShowCodeForm = false)
+        refreshFeedsAndCalendarAfterJoin()
+    }
+
+    /** Join may `ensureFeed` + sync; keep Feeds and Agenda in sync without a manual refresh. */
+    private suspend fun refreshFeedsAndCalendarAfterJoin() {
+        val current = _state as? State.Ready ?: return
+        val token = session.requireAccessToken()
+        val feeds =
+            if (current.circle.role == FamilyRole.ORGANIZER) {
+                runCatching { familyClient.listFeeds(token) }.getOrElse { current.feeds }
+            } else {
+                current.feeds
+            }
+        val calendarResult =
+            runCatching {
+                loadAndPersistCalendarItems(
+                    token,
+                    current.adultId,
+                    current.circle.id,
+                    current.calendarLoadedTo,
+                )
+            }
+        val latest = _state as? State.Ready ?: return
+        if (calendarResult.isSuccess) {
+            val (calendarItems, calendarFetchedAt) = calendarResult.getOrThrow()
+            _state =
+                latest.copy(
+                    feeds = feeds,
+                    calendarItems = calendarItems,
+                    calendarFetchedAt = calendarFetchedAt,
+                )
+            fillLeaveByForLoadedTo(token, latest.calendarLoadedTo)
+        } else {
+            _state = latest.copy(feeds = feeds)
+        }
+    }
+
+    suspend fun requestCarpool(spaceId: String) {
+        runCarpoolAction { carpoolClient.createRequest(session.requireAccessToken(), spaceId) }
+    }
+
+    suspend fun admitCarpoolRequest(
+        spaceId: String,
+        requestId: String,
+    ) {
+        runCarpoolAction { carpoolClient.admit(session.requireAccessToken(), spaceId, requestId) }
+    }
+
+    suspend fun declineCarpoolRequest(
+        spaceId: String,
+        requestId: String,
+    ) {
+        runCarpoolAction { carpoolClient.decline(session.requireAccessToken(), spaceId, requestId) }
+    }
+
+    suspend fun regenerateCarpoolInvite(spaceId: String) {
+        runCarpoolAction { carpoolClient.regenerateInvite(session.requireAccessToken(), spaceId) }
+    }
+
+    suspend fun leaveCarpool(spaceId: String) {
+        runCarpoolAction { carpoolClient.leave(session.requireAccessToken(), spaceId) }
+    }
+
+    private suspend fun runCarpoolAction(action: suspend () -> Unit) {
+        val current = _state as? State.Ready ?: return
+        _state = current.copy(carpoolLoading = true, carpoolError = null)
+        try {
+            action()
+            val summary = carpoolClient.getSummary(session.requireAccessToken())
+            val latest = _state as? State.Ready ?: return
+            _state = latest.copy(carpoolLoading = false, carpoolSummary = summary, carpoolError = null)
+        } catch (e: Throwable) {
+            val latest = _state as? State.Ready ?: return
+            _state =
+                latest.copy(
+                    carpoolLoading = false,
+                    carpoolError = e.message ?: "Carpool request failed",
+                )
+        }
     }
 
     fun openMorePlaces() {

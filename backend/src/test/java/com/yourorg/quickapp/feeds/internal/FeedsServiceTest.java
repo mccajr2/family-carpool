@@ -359,4 +359,113 @@ class FeedsServiceTest {
         verify(icalFetchPort, never()).fetch(any());
         verify(feeds, never()).save(any());
     }
+
+    @Test
+    void listByCircleDoesNotRequireOrganizer() {
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        ActivityFeedEntity feed =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+        when(feeds.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of(feed));
+        when(events.countByFeedId(feedId)).thenReturn(3L);
+
+        var listed = feedsService.listByCircle(circleId);
+
+        assertThat(listed).hasSize(1);
+        assertThat(listed.getFirst().id()).isEqualTo(feedId);
+        assertThat(listed.getFirst().eventCount()).isEqualTo(3);
+        verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+    }
+
+    @Test
+    void findByCircleAndNormalizedUrlNormalizesWebcal() {
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        ActivityFeedEntity feed =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+        when(feeds.findByCircleIdAndSourceUrl(circleId, "https://example.com/cal.ics"))
+                .thenReturn(Optional.of(feed));
+        when(events.countByFeedId(feedId)).thenReturn(0L);
+
+        var found =
+                feedsService.findByCircleAndNormalizedUrl(
+                        circleId, "webcal://example.com/cal.ics");
+
+        assertThat(found).isPresent();
+        assertThat(found.get().id()).isEqualTo(feedId);
+        verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+    }
+
+    @Test
+    void findByCircleAndNormalizedUrlEmptyWhenMissing() {
+        UUID circleId = UUID.randomUUID();
+        when(feeds.findByCircleIdAndSourceUrl(circleId, "https://example.com/missing.ics"))
+                .thenReturn(Optional.empty());
+
+        assertThat(
+                        feedsService.findByCircleAndNormalizedUrl(
+                                circleId, "https://example.com/missing.ics"))
+                .isEmpty();
+    }
+
+    @Test
+    void ensureFeedCreatesWithZeroKidsAndSyncsWithoutOrganizer() {
+        UUID circleId = UUID.randomUUID();
+        when(feeds.findByCircleIdAndSourceUrl(circleId, "https://example.com/cal.ics"))
+                .thenReturn(Optional.empty());
+        when(feeds.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(icalFetchPort.fetch("https://example.com/cal.ics")).thenReturn("ICS");
+        when(icalParser.parse("ICS"))
+                .thenReturn(
+                        List.of(
+                                new ParsedIcalEvent(
+                                        "u1",
+                                        "Game",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        null)));
+        when(events.findByFeedId(any())).thenReturn(List.of());
+        when(events.countByFeedId(any())).thenReturn(1L);
+
+        var response =
+                feedsService.ensureFeed(circleId, "webcal://example.com/cal.ics", "Soccer");
+
+        assertThat(response.name()).isEqualTo("Soccer");
+        assertThat(response.sourceUrl()).isEqualTo("https://example.com/cal.ics");
+        assertThat(response.kidIds()).isEmpty();
+        assertThat(response.lastSyncedAt()).isNotNull();
+        assertThat(response.eventCount()).isEqualTo(1);
+        ArgumentCaptor<ActivityFeedEntity> saved = ArgumentCaptor.forClass(ActivityFeedEntity.class);
+        verify(feeds, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues().getFirst().kidIds()).isEmpty();
+        verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+        verify(familyMembershipApi, never()).requireKidsInCircle(any(), any());
+    }
+
+    @Test
+    void ensureFeedReturnsExistingWithoutDuplicateOrResync() {
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        ActivityFeedEntity existing =
+                new ActivityFeedEntity(
+                        feedId, circleId, "U12", "https://example.com/cal.ics", Instant.now());
+        existing.setKidIds(Set.of(UUID.randomUUID()));
+        existing.markSyncSuccess(Instant.parse("2026-08-01T00:00:00Z"));
+        when(feeds.findByCircleIdAndSourceUrl(circleId, "https://example.com/cal.ics"))
+                .thenReturn(Optional.of(existing));
+        when(events.countByFeedId(feedId)).thenReturn(4L);
+
+        var response =
+                feedsService.ensureFeed(circleId, "https://example.com/cal.ics", "Ignored name");
+
+        assertThat(response.id()).isEqualTo(feedId);
+        assertThat(response.name()).isEqualTo("U12");
+        assertThat(response.kidIds()).hasSize(1);
+        assertThat(response.eventCount()).isEqualTo(4);
+        verify(feeds, never()).save(any());
+        verify(icalFetchPort, never()).fetch(any());
+        verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+    }
 }

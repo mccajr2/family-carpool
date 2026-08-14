@@ -8,6 +8,7 @@ import {
   maxIsoInstant,
 } from "@/api/calendarCacheStore"
 import { applyLeaveByFillIn, mergeCheapCalendarItems } from "@/api/calendarLeaveBy"
+import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
 import {
@@ -16,6 +17,8 @@ import {
   type Adult,
   type CalendarCoverageAssignment,
   type CalendarItem,
+  type CarpoolFeedStatus,
+  type CarpoolSummary,
   type CoverageStatus,
   type FamilyCircle,
   type FamilyMember,
@@ -24,6 +27,8 @@ import {
   type RsvpStatus,
   feedSyncStatusLabel,
 } from "@/api/types"
+import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
+import { CarpoolPanel } from "@/components/CarpoolPanel"
 import {
   AccountSummaryRow,
   SettingsGroupLabel,
@@ -78,6 +83,7 @@ type FamilyScreenProps = {
   session: AuthSessionHolder
   authClient?: AuthClient
   familyClient?: FamilyClient
+  carpoolClient?: CarpoolClient
   calendarCacheStore?: CalendarCacheStore
   bootstrapCacheStore?: FamilyBootstrapStore
   onSignedOut: () => void
@@ -109,6 +115,18 @@ function FieldRow({
         {children}
       </div>
     </div>
+  )
+}
+
+function carpoolFeedRow(summary: CarpoolSummary, feed: ActivityFeed): CarpoolFeedStatus {
+  return (
+    summary.feeds.find((row) => row.feedId === feed.id) ?? {
+      feedId: feed.id,
+      feedName: feed.name,
+      status: "NONE",
+      spaceId: null,
+      spaceName: null,
+    }
   )
 }
 
@@ -182,6 +200,7 @@ export function FamilyScreen({
   session,
   authClient,
   familyClient: familyClientProp,
+  carpoolClient: carpoolClientProp,
   calendarCacheStore: calendarCacheStoreProp,
   bootstrapCacheStore: bootstrapCacheStoreProp,
   onSignedOut,
@@ -189,6 +208,7 @@ export function FamilyScreen({
   // Default param `new FamilyClient()` would be a new instance every render and
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
+  const [carpoolClient] = useState(() => carpoolClientProp ?? new CarpoolClient())
   const [calendarCache] = useState(
     () => calendarCacheStoreProp ?? new CalendarCacheStore(),
   )
@@ -262,6 +282,11 @@ export function FamilyScreen({
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
   const [destination, setDestination] = useState<ShellDestination>("calendar")
+  const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
+    null,
+  )
+  const [feedsCarpoolError, setFeedsCarpoolError] = useState<string | null>(null)
+  const [feedsCarpoolBusy, setFeedsCarpoolBusy] = useState(false)
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
     Record<string, { adultId: string; kidIds?: string[] }>
@@ -292,6 +317,44 @@ export function FamilyScreen({
       setDestination("calendar")
     }
   }, [destination, circle?.role])
+
+  const feedIdsKey = feeds.map((feed) => feed.id).join(",")
+  useEffect(() => {
+    if (destination !== "feeds") {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    let cancelled = false
+    setFeedsCarpoolBusy(true)
+    void carpoolClient
+      .getSummary(token)
+      .then((next) => {
+        if (cancelled) {
+          return
+        }
+        setFeedsCarpoolSummary(next)
+        setFeedsCarpoolError(null)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setFeedsCarpoolError(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setFeedsCarpoolBusy(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [destination, carpoolClient, feedIdsKey, session])
 
   useEffect(() => {
     if (destination !== "calendar") {
@@ -1018,6 +1081,37 @@ export function FamilyScreen({
     )
   }
 
+  async function runFeedsCarpool(action: (token: string) => Promise<void>) {
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    setFeedsCarpoolBusy(true)
+    try {
+      await action(token)
+      setFeedsCarpoolSummary(await carpoolClient.getSummary(token))
+      setFeedsCarpoolError(null)
+    } catch (error) {
+      setFeedsCarpoolError(
+        error instanceof Error ? error.message : "Something went wrong",
+      )
+    } finally {
+      setFeedsCarpoolBusy(false)
+    }
+  }
+
+  /** Join may create+sync a feed; refresh Feeds and Agenda like Add feed does. */
+  async function refreshFeedsAndCalendarAfterCarpoolJoin() {
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    if (circle?.role === "ORGANIZER") {
+      setFeeds(await familyClient.listFeeds(token))
+    }
+    await reloadCalendar(token)
+  }
+
   async function onAddFeed() {
     setStatus({ kind: "loading" })
     try {
@@ -1654,6 +1748,7 @@ export function FamilyScreen({
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
   const locatedPlaces = circle.places.filter(isPlaceLocated)
+  const carpoolAccessToken = session.getAccessToken()
 
   const contentTitle =
     destination === "calendar"
@@ -2794,9 +2889,19 @@ export function FamilyScreen({
           ) : null}
 
           {destination === "carpool" ? (
-            <section aria-label="Carpool" className="flex flex-col gap-2">
-              <p className="text-sm text-muted-foreground">Coming soon</p>
-            </section>
+            carpoolAccessToken ? (
+              <CarpoolPanel
+                accessToken={carpoolAccessToken}
+                carpoolClient={carpoolClient}
+                onJoined={() => refreshFeedsAndCalendarAfterCarpoolJoin()}
+              />
+            ) : (
+              <section aria-label="Carpool" className="flex flex-col gap-2">
+                <p role="alert" className="text-sm text-destructive">
+                  Not signed in
+                </p>
+              </section>
+            )
           ) : null}
 
           {destination === "feeds" ? (
@@ -2815,6 +2920,16 @@ export function FamilyScreen({
                 Refresh
               </Button>
             </div>
+            {feedsCarpoolError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {feedsCarpoolError}
+              </p>
+            ) : null}
+            {feedsCarpoolSummary == null &&
+            feedsCarpoolError == null &&
+            feeds.length > 0 ? (
+              <p className="text-sm text-muted-foreground">Loading carpool…</p>
+            ) : null}
             {feeds.length === 0 ? (
               <p className="text-sm text-muted-foreground">No feeds yet.</p>
             ) : (
@@ -2903,6 +3018,26 @@ export function FamilyScreen({
                             {statusLabel}
                           </span>
                         </span>
+                        {feedsCarpoolSummary != null ? (
+                          <CarpoolFeedActions
+                            feed={carpoolFeedRow(feedsCarpoolSummary, feed)}
+                            circleRole={circle.role}
+                            disabled={status.kind === "loading" || feedsCarpoolBusy}
+                            onEnable={(feedId) =>
+                              void runFeedsCarpool((token) =>
+                                carpoolClient.enable(token, feedId).then(() => undefined),
+                              )
+                            }
+                            onRequest={(spaceId) =>
+                              void runFeedsCarpool((token) =>
+                                carpoolClient
+                                  .createRequest(token, spaceId)
+                                  .then(() => undefined),
+                              )
+                            }
+                            onOpen={() => setDestination("carpool")}
+                          />
+                        ) : null}
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"

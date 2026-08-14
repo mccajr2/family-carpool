@@ -169,6 +169,12 @@ final class AuthViewModel: ObservableObject {
     /// Confirm/Assign failures keyed by `source-id` — shown on the Agenda item CTAs.
     @Published var coverageActionErrors: [String: String] = [:]
     @Published var isLoading: Bool = false
+    @Published var carpoolSummary: CarpoolSummaryView?
+    @Published var carpoolLoading: Bool = false
+    @Published var carpoolError: String?
+    @Published var carpoolCodeInput: String = ""
+    @Published var showCarpoolCodeForm: Bool = false
+    @Published var pendingEnableFeed: CarpoolFeedStatusView?
 
     private let bridge: AuthBridge
     private var leaveByFillGen = 0
@@ -212,6 +218,9 @@ final class AuthViewModel: ObservableObject {
         if tab == .calendar {
             revalidateCalendarIfStale()
         }
+        if tab == .carpool {
+            loadCarpoolSummary()
+        }
     }
 
     func openCreateEventCompose() {
@@ -240,6 +249,9 @@ final class AuthViewModel: ObservableObject {
         var next = shell
         next.openFeeds(isOrganizer: isOrganizer)
         shell = next
+        if next.morePath.contains(.feeds) {
+            loadCarpoolSummary()
+        }
     }
 
     init(bridge: AuthBridge = AuthBridge()) {
@@ -896,6 +908,118 @@ final class AuthViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         loadFeeds(clearLoadingWhenDone: true)
+    }
+
+    func loadCarpoolSummary() {
+        carpoolLoading = true
+        carpoolError = nil
+        bridge.getCarpoolSummary(
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    self?.applyCarpoolSummary(json)
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.carpoolLoading = false
+                    self?.carpoolError = message
+                }
+            }
+        )
+    }
+
+    func enableCarpool(feedId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.enableCarpool(feedId: feedId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    func joinCarpool() {
+        let code = carpoolCodeInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { return }
+        carpoolLoading = true
+        carpoolError = nil
+        bridge.joinCarpool(
+            code: code,
+            onSuccess: { [weak self] json in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.applyCarpoolSummary(json)
+                    self.carpoolCodeInput = ""
+                    self.showCarpoolCodeForm = false
+                    // Join may create+sync a feed; refresh like addFeed so Agenda/Feeds
+                    // are not stuck on the empty bootstrap cache until Refresh / Load more.
+                    self.loadFeeds()
+                    self.loadCalendar()
+                }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in
+                    self?.carpoolLoading = false
+                    self?.carpoolError = message
+                }
+            }
+        )
+    }
+
+    func requestCarpool(spaceId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.requestCarpool(spaceId: spaceId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    func admitCarpoolRequest(spaceId: String, requestId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.admitCarpoolRequest(spaceId: spaceId, requestId: requestId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    func declineCarpoolRequest(spaceId: String, requestId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.declineCarpoolRequest(spaceId: spaceId, requestId: requestId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    func regenerateCarpoolInvite(spaceId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.regenerateCarpoolInvite(spaceId: spaceId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    func leaveCarpool(spaceId: String) {
+        runCarpoolMutation { bridge, onSuccess, onError in
+            bridge.leaveCarpool(spaceId: spaceId, onSuccess: onSuccess, onError: onError)
+        }
+    }
+
+    private func applyCarpoolSummary(_ json: String) {
+        carpoolSummary = CarpoolSummaryView.decode(json)
+        carpoolLoading = false
+        carpoolError = nil
+    }
+
+    private func runCarpoolMutation(
+        _ call: (AuthBridge, @escaping (String) -> Void, @escaping (String) -> Void) -> Void
+    ) {
+        carpoolLoading = true
+        carpoolError = nil
+        call(
+            bridge,
+            { [weak self] json in
+                Task { @MainActor in
+                    self?.applyCarpoolSummary(json)
+                    self?.carpoolCodeInput = ""
+                    self?.showCarpoolCodeForm = false
+                    self?.pendingEnableFeed = nil
+                }
+            },
+            { [weak self] message in
+                Task { @MainActor in
+                    self?.carpoolLoading = false
+                    self?.carpoolError = message
+                }
+            }
+        )
     }
 
     func toggleNewFeedKid(_ kidId: String) {
