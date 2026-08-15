@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-14 (`/pr garage-vehicles`)
+Updated: 2026-08-15 (`/pr agenda-focus-card`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -96,11 +96,14 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | 6    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)                                              |
 | 7    | driver-leave-by-pickups        | planned | 2026-08-07 · initial                                             | Leave-by when teammate pickups are part of the plan (multi-stop estimate)                                                                                       |
 | 8    | family-calendar-grid           | planned | 2026-08-10 · re-rank split                                       | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid)                                                                |
-| 9    | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
-| 10   | ui-palette-refresh             | planned | 2026-08-10 · enhancement                                         | Replace provisional teal/slate hex values with a more distinctive brand palette; keep token roles; re-verify screenshots + WCAG AA (after destination adoption) |
-| 11   | auth-email-delivery            | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
-| 12   | web-auth-session-hardening     | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
-| 13   | adult-optional-password        | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
+| 9    | agenda-focus-card-mobile       | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the Agenda Focus card (selection logic + copy match web; native chrome OK)                                                                |
+| 10   | destination-design-pass        | planned | 2026-08-14 · enhancement                                         | Design pass on Carpool / Family / Places / Garage / Feeds destinations                                                                                          |
+| 11   | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
+| 12   | ui-palette-refresh             | planned | 2026-08-10 · enhancement                                         | Hex values landed in `agenda-focus-card` `tokens.json`; remaining: generate/check + WCAG AA on surfaces not covered by that slice                                |
+| 13   | typography-font-family         | planned | 2026-08-14 · enhancement                                         | Typography change (font family) — requires font asset bundling on iOS/Android, not just a token edit                                                            |
+| 14   | auth-email-delivery            | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
+| 15   | web-auth-session-hardening     | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
+| 16   | adult-optional-password        | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -154,6 +157,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| agenda-focus-card          | 2026-08-15 | [archive](specs/archive/agenda-focus-card.md)          |
 | garage-vehicles            | 2026-08-14 | [archive](specs/archive/garage-vehicles.md)            |
 | team-carpool-space-invite  | 2026-08-14 | [archive](specs/archive/team-carpool-space-invite.md)  |
 | agenda-event-rsvp          | 2026-08-13 | [archive](specs/archive/agenda-event-rsvp.md)          |
@@ -260,4 +264,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-14 | Amend `garage-vehicles`: year/make/model only (no VIN); vPIC seat hint stays overridable; park `garage-seat-kinds`. |
 | 2026-08-14 | Amend `garage-vehicles`: explicit per-car drivers (shared vs personal); optional kept-at place; house ≠ sharing. |
 | 2026-08-14 | `/pr garage-vehicles`: circle garage (owner + drivers, no VIN) shipped (web/Android/iOS); next up `carpool-request-accept`. |
+| 2026-08-14 | `/roadmap agenda-focus-card`: first visual/UX differentiation slice (web Focus card + token refresh) promoted to Active; follow-ups `agenda-focus-card-mobile`, `destination-design-pass`, `typography-font-family` ranked after the carpool/grid cluster; next up `/implement agenda-focus-card`. |
+| 2026-08-15 | `/pr agenda-focus-card`: web Focus card + WCAG AA token refresh shipped; iOS/Android port remains `agenda-focus-card-mobile`; next up `carpool-request-accept`. |
 
