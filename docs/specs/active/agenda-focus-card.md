@@ -26,7 +26,9 @@ starting).
 These five files already exist at the paths below. Do not regenerate their
 contents — read them, understand them, and wire them up.
 
-- `design-tokens/tokens.json` (replaced — new color/radius/typography values)
+- `design-tokens/tokens.json` (replaced — new color/radius/typography values;
+  WCAG AA amendment 2026-08-14: light `textSecondary` `#686F79`, `danger`
+  `#A9590C`, `success` `#187D58`; dark `danger` remains `#F2994A`)
 - `docs/agenda-focus-card-addendum.md` (new)
 - `web/src/components/coverageDisplay.ts` (new)
 - `web/src/components/agendaFocusSelection.ts` (new)
@@ -34,7 +36,7 @@ contents — read them, understand them, and wire them up.
 
 ## Tasks
 
-### 1. Regenerate platform tokens
+### 1. [x] Regenerate platform tokens
 
 Run:
 
@@ -47,6 +49,11 @@ Confirm `web/src/styles/tokens.generated.css`,
 `mobile/sharedUI/.../ui/UiTokens.kt`, and `mobile/iosApp/iosApp/UiTokens.swift`
 are all rewritten and the `--check` run passes clean. Commit the regenerated
 files alongside `tokens.json` — they must never drift from it.
+
+`tokens.json` is the adopted palette after the 2026-08-14 WCAG AA amendment
+(light `textSecondary` `#686F79`, `danger` `#A9590C`, `success` `#187D58`;
+dark `danger` remains `#F2994A`). Do not restore the first-pass light hex
+values.
 
 ### 2. Deduplicate helpers in `web/src/components/FamilyScreen.tsx`
 
@@ -150,7 +157,7 @@ files):
 
 ## Acceptance criteria
 
-- [ ] `node design-tokens/generate.mjs --check` passes with no diff after
+- [x] `node design-tokens/generate.mjs --check` passes with no diff after
       running generate.
 - [ ] Exactly one Agenda item renders as a Focus card at a time; never zero
       when at least one attending item exists, never more than one.

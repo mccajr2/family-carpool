@@ -24,7 +24,11 @@ test("generated token outputs match tokens.json (no drift)", () => {
 test("tokens.json declares light and dark color roles and icons", async () => {
   const { readFileSync } = await import("node:fs")
   const tokens = JSON.parse(readFileSync(join(__dirname, "tokens.json"), "utf8"))
-  assert.equal(tokens.meta.provisional, true)
+  assert.equal(tokens.meta.provisional, false)
+  assert.equal(tokens.color.light.textSecondary, "#686F79")
+  assert.equal(tokens.color.light.danger, "#A9590C")
+  assert.equal(tokens.color.light.success, "#187D58")
+  assert.equal(tokens.color.dark.danger, "#F2994A")
   for (const role of [
     "accent",
     "danger",
@@ -40,7 +44,9 @@ test("tokens.json declares light and dark color roles and icons", async () => {
   }
   assert.ok(tokens.spacing.md)
   assert.ok(tokens.radius.md)
+  assert.ok(tokens.radius.xl)
   assert.ok(tokens.typography.scale.body)
+  assert.ok(tokens.typography.scale.hero)
   assert.ok(tokens.icons.includes("icon.places"))
   assert.ok(tokens.icons.includes("icon.garage"))
   assert.ok(tokens.icons.includes("icon.feeds"))

@@ -53,6 +53,10 @@ No new business rules. No accordion. No card chrome on any other item.
 `radius.xl` (new — added for this pattern; existing `sm/md/lg` unchanged for
 everything else), `spacing.xl`/`spacing.lg` for card padding.
 
+Adopted hex (WCAG AA amendment 2026-08-14): light `textSecondary` `#686F79`,
+`danger` `#A9590C`, `success` `#187D58`; dark `danger` remains `#F2994A`.
+Other roles unchanged from the 2026-08 palette.
+
 ## Port checklist addition
 
 Add to the existing iOS/Android port checklist: "Focus card selection logic

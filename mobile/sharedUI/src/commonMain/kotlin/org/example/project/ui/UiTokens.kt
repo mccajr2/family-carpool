@@ -19,30 +19,30 @@ object UiTokens {
 
     object Color {
         val light = ColorRoles(
-            accent = "#0D6E6E",
+            accent = "#3547E0",
             accentOn = "#FFFFFF",
-            danger = "#B42318",
+            danger = "#A9590C",
             dangerOn = "#FFFFFF",
-            success = "#1B7A4E",
+            success = "#187D58",
             successOn = "#FFFFFF",
-            surface = "#F4F7F6",
+            surface = "#F6F5F2",
             surfaceRaised = "#FFFFFF",
-            border = "#D5DEDA",
-            textPrimary = "#1A2421",
-            textSecondary = "#5A6B66"
+            border = "#E7E5DF",
+            textPrimary = "#16181A",
+            textSecondary = "#686F79"
         )
         val dark = ColorRoles(
-            accent = "#3DB8B0",
-            accentOn = "#0A1A18",
-            danger = "#F97066",
-            dangerOn = "#1A0A08",
+            accent = "#5E6DFF",
+            accentOn = "#0A0C1A",
+            danger = "#F2994A",
+            dangerOn = "#1A1206",
             success = "#3DCF8E",
-            successOn = "#0A1A12",
-            surface = "#121A18",
-            surfaceRaised = "#1C2623",
-            border = "#2E3B37",
-            textPrimary = "#E8EFEC",
-            textSecondary = "#9AABA5"
+            successOn = "#08170F",
+            surface = "#15171A",
+            surfaceRaised = "#1E2124",
+            border = "#2C3033",
+            textPrimary = "#EDEEF0",
+            textSecondary = "#9AA0A8"
         )
     }
 
@@ -59,6 +59,7 @@ object UiTokens {
         const val sm: Int = 4
         const val md: Int = 8
         const val lg: Int = 12
+        const val xl: Int = 20
     }
 
     data class TypeScale(val size: Int, val lineHeight: Int, val weight: String)
@@ -68,6 +69,7 @@ object UiTokens {
         val body = TypeScale(size = 15, lineHeight = 22, weight = "400")
         val title = TypeScale(size = 17, lineHeight = 24, weight = "600")
         val headline = TypeScale(size = 22, lineHeight = 28, weight = "700")
+        val hero = TypeScale(size = 26, lineHeight = 32, weight = "700")
         const val fontFamily: String = "system-ui"
     }
 
