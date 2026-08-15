@@ -15,11 +15,9 @@ import {
   isPlaceLocated,
   type ActivityFeed,
   type Adult,
-  type CalendarCoverageAssignment,
   type CalendarItem,
   type CarpoolFeedStatus,
   type CarpoolSummary,
-  type CoverageStatus,
   type FamilyCircle,
   type FamilyMember,
   type Kid,
@@ -45,9 +43,19 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { AgendaFocusCard } from "@/components/AgendaFocusCard"
+import { selectFocusItem } from "@/components/agendaFocusSelection"
+import {
+  calendarItemKey,
+  calendarSourceLabel,
+  coverageAdultLabel,
+  coverageKidNames,
+  coverageStatusLabel,
+  eventKidNames,
+  memberLabel,
+} from "@/components/coverageDisplay"
 import {
   advanceCalendarWindow,
-  calendarSourceLabel,
   calendarWindowThrough,
   coerceEndsAfterStart,
   defaultCalendarWindow,
@@ -94,10 +102,6 @@ function circleTitle(circle: FamilyCircle): string {
   return circle.name?.trim() ? circle.name : "Your family"
 }
 
-function memberLabel(member: FamilyMember): string {
-  return member.displayName?.trim() ? member.displayName : member.email
-}
-
 /** Horizontal single-value field: label leading, control/value trailing. */
 function FieldRow({
   label,
@@ -140,44 +144,6 @@ function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
     .map((id) => namesById.get(id))
     .filter((name): name is string => Boolean(name?.trim()))
     .join(", ")
-}
-
-function eventKidNames(event: { kidIds: string[] }, kids: Kid[]): string {
-  const namesById = new Map(kids.map((kid) => [kid.id, kid.displayName]))
-  return event.kidIds
-    .map((id) => namesById.get(id))
-    .filter((name): name is string => Boolean(name?.trim()))
-    .join(", ")
-}
-
-function calendarItemKey(item: CalendarItem): string {
-  return `${item.source}-${item.id}`
-}
-
-function coverageStatusLabel(status: CoverageStatus): string {
-  switch (status) {
-    case "PENDING":
-      return "Pending"
-    case "CONFIRMED":
-      return "Confirmed"
-    case "DECLINED":
-      return "Declined"
-  }
-}
-
-function coverageAdultLabel(
-  coverage: CalendarCoverageAssignment,
-  members: FamilyMember[],
-): string {
-  if (coverage.coveringAdultDisplayName?.trim()) {
-    return coverage.coveringAdultDisplayName.trim()
-  }
-  const member = members.find((m) => m.adultId === coverage.coveringAdultId)
-  return member ? memberLabel(member) : "Adult"
-}
-
-function coverageKidNames(coverage: CalendarCoverageAssignment, kids: Kid[]): string {
-  return eventKidNames({ kidIds: coverage.kidIds }, kids)
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -1748,6 +1714,8 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
+  const focusItem = selectFocusItem(visibleCalendarItems)
+  const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const carpoolAccessToken = session.getAccessToken()
 
@@ -2271,11 +2239,52 @@ export function FamilyScreen({
               </p>
             )
           ) : (
+            <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]">
+              {focusItem ? (
+                <AgendaFocusCard
+                  item={focusItem}
+                  circle={circle}
+                  currentAdultId={adult?.id ?? ""}
+                  loading={status.kind === "loading"}
+                  assignDraft={coverageAssignState(
+                    focusItem,
+                    calendarItemKey(focusItem),
+                  )}
+                  coverageActionError={
+                    coverageActionErrors[calendarItemKey(focusItem)]
+                  }
+                  onUpdateAssignDraft={(patch) =>
+                    updateAssignCoverageDraft(calendarItemKey(focusItem), patch)
+                  }
+                  onAssignCoverage={(coveringAdultId, kidIds) =>
+                    void onAssignCoverage(focusItem, coveringAdultId, kidIds)
+                  }
+                  onConfirmCoverage={(assignmentId) =>
+                    void onConfirmCoverage(focusItem, assignmentId)
+                  }
+                  onDeclineCoverage={(assignmentId) =>
+                    void onDeclineCoverage(assignmentId)
+                  }
+                  onRemoveCoverage={(assignmentId) =>
+                    void onRemoveCoverage(assignmentId)
+                  }
+                  onSetLeaveFrom={(placeId) =>
+                    void onSetCalendarLeaveFrom(focusItem, placeId)
+                  }
+                  onSetRsvp={(kidId, rsvpStatus) =>
+                    void onSetCalendarRsvp(focusItem, kidId, rsvpStatus)
+                  }
+                  onOpenPlaces={() => setDestination("places")}
+                  onEdit={() => openEditEvent(focusItem)}
+                  onRemoveEvent={() => void onRemoveEvent(focusItem.id)}
+                />
+              ) : null}
+              {restItems.length > 0 ? (
             <ul
               data-testid="agenda-list"
-              className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]"
+              className="flex flex-col gap-[var(--fc-space-2xl)]"
             >
-              {visibleCalendarItems.map((item) => {
+              {restItems.map((item) => {
                 const sourceLabel = calendarSourceLabel(item.source, item.feedName)
                 const isManual = item.source === "MANUAL"
                 const leaveByLine = agendaLeaveByLine(item)
@@ -2295,7 +2304,7 @@ export function FamilyScreen({
                 const assignDraft = coverageAssignState(item, itemKey)
                 const locatedForItem = circle.places.filter(isPlaceLocated)
                 const uncoveredKidNames = eventKidNames(
-                  { kidIds: item.uncoveredKidIds },
+                  item.uncoveredKidIds,
                   circle.kids,
                 )
                 const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
@@ -2645,6 +2654,8 @@ export function FamilyScreen({
                 )
               })}
             </ul>
+              ) : null}
+            </div>
           )}
           <Button
             type="button"

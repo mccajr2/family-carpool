@@ -1,7 +1,8 @@
 # Spec: Agenda Focus card (design slice)
 
-Status: ready for implementation  
+Status: done  
 Created: 2026-08-14  
+Updated: 2026-08-15 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-card`  
 Added: 2026-08-14 · enhancement  
@@ -55,7 +56,7 @@ files alongside `tokens.json` — they must never drift from it.
 dark `danger` remains `#F2994A`). Do not restore the first-pass light hex
 values.
 
-### 2. Deduplicate helpers in `web/src/components/FamilyScreen.tsx`
+### 2. [x] Deduplicate helpers in `web/src/components/FamilyScreen.tsx`
 
 `coverageDisplay.ts` re-implements several functions that currently exist
 inline in `FamilyScreen.tsx`: `coverageStatusLabel`, `coverageAdultLabel`,
@@ -68,7 +69,7 @@ inline in `FamilyScreen.tsx`: `coverageStatusLabel`, `coverageAdultLabel`,
   old inline implementation against `coverageDisplay.ts` if anything looks
   different before deleting.
 
-### 3. Wire in the Focus card
+### 3. [x] Wire in the Focus card
 
 In the Agenda section of `FamilyScreen.tsx`, immediately before the
 `visibleCalendarItems.map(...)` that renders the flat agenda list:
@@ -97,7 +98,7 @@ const restItems = visibleCalendarItems.filter((i) => i !== focusItem)
   with the item's `data-testid` — `agenda-focus-{source}-{id}` should be the
   only rendered instance when that item is the focus item.
 
-### 4. Update `docs/agenda-coverage-web-contract.md`
+### 4. [x] Update `docs/agenda-coverage-web-contract.md`
 
 - In the "Presentation hierarchy" section, add a note directly under the
   "Selection A" heading: `Superseded for the Focus card item only — see
@@ -109,7 +110,7 @@ const restItems = visibleCalendarItems.filter((i) => i !== focusItem)
   table, status "web only — not yet ported," so iOS/Android tracking isn't
   silently dropped.
 
-### 5. Tests
+### 5. [x] Tests
 
 Find and update (search for `agenda`, `FamilyScreen`, `coverage`, in test
 files):
@@ -131,7 +132,7 @@ files):
   indicate a real mismatch between the old inline logic and
   `coverageDisplay.ts`, not just a snapshot diff to update blindly.
 
-### 6. Manual smoke test before calling this done
+### 6. [x] Manual smoke test before calling this done
 
 - Load Agenda with a conflicted/uncovered item present — confirm it renders
   as the Focus card, not a flat row.
@@ -159,9 +160,9 @@ files):
 
 - [x] `node design-tokens/generate.mjs --check` passes with no diff after
       running generate.
-- [ ] Exactly one Agenda item renders as a Focus card at a time; never zero
+- [x] Exactly one Agenda item renders as a Focus card at a time; never zero
       when at least one attending item exists, never more than one.
-- [ ] No duplicate rendering of the focus item in the flat list.
-- [ ] Full test suite passes; new tests from step 5 are present and passing.
-- [ ] `docs/agenda-coverage-web-contract.md` updated per step 4.
-- [ ] Manual smoke test checklist above completed.
+- [x] No duplicate rendering of the focus item in the flat list.
+- [x] Full test suite passes; new tests from step 5 are present and passing.
+- [x] `docs/agenda-coverage-web-contract.md` updated per step 4.
+- [x] Manual smoke test checklist above completed.

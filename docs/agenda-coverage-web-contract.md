@@ -41,6 +41,10 @@ and spacing. Do **not** add card, muted band, or bordered subsection chrome
 inside an Agenda item. Critical regroup of attribute **order / proximity** is
 allowed; behavior and copy in this contract stay authoritative.
 
+Superseded for the Focus card item only — see
+`docs/agenda-focus-card-addendum.md`. Flat items below the Focus card still
+follow Selection A unchanged.
+
 **No accordion / nested Agenda screens** in this slice. If still too dense after
 dogfood, escalate via the busy ladder (architecture) — possible follow-up
 `calendar-ux-disclosure`, not ad-hoc chrome.
@@ -246,6 +250,7 @@ Match this contract for each item before calling the port done:
    kids RSVP No; coverage-release confirm copy.
 9. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
+10. Focus card selection + rendering — web only — not yet ported.
 
 ## Toolkit differences (OK)
 

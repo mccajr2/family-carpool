@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-14 (`/roadmap agenda-focus-card`)
+Updated: 2026-08-15 (`/pr agenda-focus-card`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -148,9 +148,8 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id                 | Branch               | Spec                                                       |
-| ------------------ | -------------------- | ---------------------------------------------------------- |
-| agenda-focus-card  | `agenda-focus-card`  | [active](specs/active/agenda-focus-card.md)                |
+| Id | Branch | Spec |
+| -- | ------ | ---- |
 
 
 ## Done
@@ -158,6 +157,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| agenda-focus-card          | 2026-08-15 | [archive](specs/archive/agenda-focus-card.md)          |
 | garage-vehicles            | 2026-08-14 | [archive](specs/archive/garage-vehicles.md)            |
 | team-carpool-space-invite  | 2026-08-14 | [archive](specs/archive/team-carpool-space-invite.md)  |
 | agenda-event-rsvp          | 2026-08-13 | [archive](specs/archive/agenda-event-rsvp.md)          |
@@ -265,4 +265,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-14 | Amend `garage-vehicles`: explicit per-car drivers (shared vs personal); optional kept-at place; house ≠ sharing. |
 | 2026-08-14 | `/pr garage-vehicles`: circle garage (owner + drivers, no VIN) shipped (web/Android/iOS); next up `carpool-request-accept`. |
 | 2026-08-14 | `/roadmap agenda-focus-card`: first visual/UX differentiation slice (web Focus card + token refresh) promoted to Active; follow-ups `agenda-focus-card-mobile`, `destination-design-pass`, `typography-font-family` ranked after the carpool/grid cluster; next up `/implement agenda-focus-card`. |
+| 2026-08-15 | `/pr agenda-focus-card`: web Focus card + WCAG AA token refresh shipped; iOS/Android port remains `agenda-focus-card-mobile`; next up `carpool-request-accept`. |
 

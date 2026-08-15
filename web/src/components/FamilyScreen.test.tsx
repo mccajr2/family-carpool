@@ -59,6 +59,19 @@ function calendarItem(
   }
 }
 
+/** Earlier uncovered item so a later fixture stays a flat Agenda row. */
+function earlierFocusDecoy(kidId = "k1"): CalendarItem {
+  return calendarItem({
+    id: "focus-decoy",
+    source: "FEED",
+    title: "Focus decoy",
+    startsAt: "2030-08-01T12:00:00.000Z",
+    kidIds: [kidId],
+    uncoveredKidIds: [kidId],
+    feedName: "Decoy",
+  })
+}
+
 function circleFixture(
   partial: {
     id: string
@@ -1895,13 +1908,14 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const leaveBy = await within(agenda).findByTestId("leave-by-MANUAL-e1")
+    const card = await within(agenda).findByTestId("agenda-focus-MANUAL-e1")
+    const leaveBy = within(card).getByText(/^Leave by ~/)
     expect(leaveBy.textContent).toMatch(/^Leave by ~/)
     expect(leaveBy.textContent).toMatch(/ · estimate$/)
     expect(leaveBy.textContent?.toLowerCase()).not.toMatch(/\beta\b/)
     expect(leaveBy.textContent?.toLowerCase()).not.toContain("live traffic")
 
-    const leaveFrom = within(agenda).getByLabelText("Leave from for Practice")
+    const leaveFrom = within(card).getByLabelText("Leave from for Practice")
     expect(leaveFrom).toHaveValue("p1")
     expect(within(leaveFrom).getByRole("option", { name: "Unlocated (not located)" })).toBeDisabled()
 
@@ -1982,9 +1996,9 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(within(agenda).getByTestId("leave-by-MANUAL-e-origin")).toHaveTextContent(
-      "No leave-from place yet",
-    )
+    expect(
+      within(agenda).getByTestId("agenda-focus-MANUAL-e-origin"),
+    ).toHaveTextContent("No leave-from place yet")
     expect(within(agenda).getByTestId("leave-by-MANUAL-e-dest")).toHaveTextContent(
       "Add a location to estimate leave-by",
     )
@@ -2110,15 +2124,75 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     expect(agenda.className).toContain("--fc-space-xl")
     expect(within(agenda).getByTestId("agenda-kid-filter")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")
     expect(list.className).toContain("--fc-space-2xl")
-    expect(list.className).toContain("mt-[var(--fc-space-md)]")
     const rows = within(list).getAllByRole("listitem")
-    expect(rows).toHaveLength(2)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e2")
     expect(rows[0].className).toContain("border-b")
-    expect(within(agenda).getAllByTestId("field-row").length).toBeGreaterThanOrEqual(1)
-    expect(rows[0].className).toContain("--fc-space-xl")
-    expect(rows[1].className).toContain("last:border-b-0")
+    expect(rows[0].className).toContain("last:border-b-0")
+    expect(within(list).getAllByTestId("field-row").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("does not also render the focus item as a flat row", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Covered practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+            }),
+            calendarItem({
+              id: "e2",
+              source: "MANUAL",
+              title: "Uncovered game",
+              startsAt: "2030-08-16T17:00:00.000Z",
+              kidIds: ["k1"],
+              uncoveredKidIds: ["k1"],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(agenda).getAllByTestId(/^agenda-focus-/)).toHaveLength(1)
+    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e2")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-focus-MANUAL-e1")).not.toBeInTheDocument()
   })
 
   it("assigns coverage for uncovered kids", async () => {
@@ -2273,7 +2347,7 @@ describe("FamilyScreen", () => {
               places: [],
             }),
           ),
-          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), baseItem]),
           assignCalendarCoverage,
         })}
         onSignedOut={vi.fn()}
@@ -2281,12 +2355,13 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const assignButton = within(agenda).getByRole("button", { name: "Assign coverage" })
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    const assignButton = within(item).getByRole("button", { name: "Assign coverage" })
     expect(assignButton).toBeEnabled()
-    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
     // Deselect Riley — Assign stays enabled and must not clear default adult.
-    await user.click(within(agenda).getByLabelText("Cover Riley for Practice"))
+    await user.click(within(item).getByLabelText("Cover Riley for Practice"))
     expect(assignButton).toBeEnabled()
     await user.click(assignButton)
 
@@ -2361,7 +2436,7 @@ describe("FamilyScreen", () => {
               places: [],
             }),
           ),
-          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), baseItem]),
           assignCalendarCoverage,
         })}
         onSignedOut={vi.fn()}
@@ -2369,17 +2444,18 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const assignButton = within(agenda).getByRole("button", { name: "Assign coverage" })
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    const assignButton = within(item).getByRole("button", { name: "Assign coverage" })
     expect(assignButton).toBeEnabled()
-    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
 
     await user.selectOptions(
-      within(agenda).getByLabelText("Covering adult for Practice"),
+      within(item).getByLabelText("Covering adult for Practice"),
       "2",
     )
-    expect(within(agenda).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(agenda).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
     expect(assignButton).toBeEnabled()
 
     await user.click(assignButton)
@@ -2610,7 +2686,7 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const conflicts = within(agenda).getByTestId("agenda-conflicts-MANUAL-e1")
+    const conflicts = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
     expect(within(conflicts).getByText("Sam overlaps Game")).toBeInTheDocument()
   })
 
@@ -2685,13 +2761,11 @@ describe("FamilyScreen", () => {
     await user.click(within(agenda).getByRole("button", { name: "Confirm coverage" }))
 
     await waitFor(() => {
-      expect(
-        within(agenda).getByTestId("agenda-coverage-error-MANUAL-e1"),
-      ).toHaveTextContent(
+      expect(within(agenda).getByRole("alert")).toHaveTextContent(
         "Already confirmed on an overlapping event — decline or reassign first.",
       )
     })
-    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    const item = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
     expect(
       within(item).getByText(
         "Already confirmed on an overlapping event — decline or reassign first.",
@@ -2744,6 +2818,7 @@ describe("FamilyScreen", () => {
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([
+            earlierFocusDecoy(),
             calendarItem({
               id: "e1",
               source: "MANUAL",
@@ -2848,10 +2923,8 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const coverage = within(agenda).getByTestId("agenda-band-coverage")
-    expect(within(coverage).getByTestId("agenda-cta-primary")).toHaveTextContent(
-      "Assign coverage",
-    )
+    const coverage = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
+    expect(within(coverage).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
   })
 
   it("sets default leave-from from the Places screen", async () => {
@@ -3383,14 +3456,11 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
-    expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
-      LEAVE_BY_PENDING_LABEL,
-    )
+    const card = screen.getByTestId("agenda-focus-MANUAL-e1")
+    expect(within(card).getByText(LEAVE_BY_PENDING_LABEL)).toBeInTheDocument()
     const leaveFrom = screen.getByLabelText("Leave from for Practice")
     expect(leaveFrom).toBeEnabled()
-    expect(
-      within(screen.getByTestId("agenda-item-MANUAL-e1")).getByText("Sam"),
-    ).toBeInTheDocument()
+    expect(within(card).getByText("Sam")).toBeInTheDocument()
     expect(listCalendarLeaveBy).toHaveBeenCalled()
     expect(screen.queryByText(/^Leave by ~/)).not.toBeInTheDocument()
 
@@ -3407,9 +3477,9 @@ describe("FamilyScreen", () => {
     ])
 
     await waitFor(() => {
-      expect(screen.getByTestId("leave-by-MANUAL-e1").textContent).toMatch(
-        /^Leave by ~/,
-      )
+      expect(
+        within(screen.getByTestId("agenda-focus-MANUAL-e1")).getByText(/^Leave by ~/),
+      ).toBeInTheDocument()
     })
     expect(screen.getByText("Practice")).toBeInTheDocument()
   })
@@ -3582,7 +3652,9 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(listCalendarLeaveBy).toHaveBeenCalled()
     })
-    expect(screen.getByTestId("leave-by-MANUAL-e1").textContent).toMatch(/^Leave by ~/)
+    expect(
+      within(screen.getByTestId("agenda-focus-MANUAL-e1")).getByText(/^Leave by ~/),
+    ).toBeInTheDocument()
     expect(screen.queryByText(LEAVE_BY_PENDING_LABEL)).not.toBeInTheDocument()
 
     releaseFill([
@@ -3689,7 +3761,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
+      expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent(
         LEAVE_BY_PENDING_LABEL,
       )
     })
@@ -3743,7 +3815,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId("leave-by-MANUAL-e1")).toHaveTextContent(
+      expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent(
         LEAVE_BY_PENDING_LABEL,
       )
     })
@@ -4142,9 +4214,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    const item = await screen.findByTestId("agenda-item-MANUAL-e1")
-    expect(item).toHaveAttribute("data-out-of-play", "false")
-    expect(within(item).getByTestId("agenda-band-travel")).toBeInTheDocument()
+    const item = await screen.findByTestId("agenda-focus-MANUAL-e1")
     expect(within(item).getByText(/Needs coverage: Sam/)).toBeInTheDocument()
     expect(within(item).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
   })
