@@ -18,6 +18,12 @@ enum UiTokens {
         let border: String
         let textPrimary: String
         let textSecondary: String
+        let heroSurface: String
+        let heroOn: String
+        let heroOnSecondary: String
+        let heroDanger: String
+        let heroSuccess: String
+        let heroAccent: String
     }
 
     enum Color {
@@ -32,7 +38,13 @@ enum UiTokens {
             surfaceRaised: "#FFFFFF",
             border: "#E7E5DF",
             textPrimary: "#16181A",
-            textSecondary: "#686F79"
+            textSecondary: "#686F79",
+            heroSurface: "#16181A",
+            heroOn: "#FFFFFF",
+            heroOnSecondary: "#9AA0A8",
+            heroDanger: "#F2994A",
+            heroSuccess: "#3DCF8E",
+            heroAccent: "#5E6DFF"
         )
         static let dark = ColorRoles(
             accent: "#5E6DFF",
@@ -45,7 +57,13 @@ enum UiTokens {
             surfaceRaised: "#1E2124",
             border: "#2C3033",
             textPrimary: "#EDEEF0",
-            textSecondary: "#9AA0A8"
+            textSecondary: "#9AA0A8",
+            heroSurface: "#242832",
+            heroOn: "#FFFFFF",
+            heroOnSecondary: "#9AA0A8",
+            heroDanger: "#F2994A",
+            heroSuccess: "#3DCF8E",
+            heroAccent: "#5E6DFF"
         )
     }
 

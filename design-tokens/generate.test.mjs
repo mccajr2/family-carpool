@@ -38,6 +38,12 @@ test("tokens.json declares light and dark color roles and icons", async () => {
     "border",
     "textPrimary",
     "textSecondary",
+    "heroSurface",
+    "heroOn",
+    "heroOnSecondary",
+    "heroDanger",
+    "heroSuccess",
+    "heroAccent",
   ]) {
     assert.ok(tokens.color.light[role], `missing light.${role}`)
     assert.ok(tokens.color.dark[role], `missing dark.${role}`)

@@ -50,9 +50,31 @@ function morePairings(scheme) {
   ]
 }
 
+/** Focus card urgent spotlight — theme-independent hero* surface. */
+function heroPairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    { name: "heroOn on heroSurface", fg: c.heroOn, bg: c.heroSurface, min: 4.5 },
+    { name: "heroOnSecondary on heroSurface", fg: c.heroOnSecondary, bg: c.heroSurface, min: 4.5 },
+    { name: "heroDanger on heroSurface", fg: c.heroDanger, bg: c.heroSurface, min: 4.5 },
+    { name: "heroSuccess on heroSurface", fg: c.heroSuccess, bg: c.heroSurface, min: 4.5 },
+    { name: "heroAccent on heroSurface (icon)", fg: c.heroAccent, bg: c.heroSurface, min: 3 },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Focus card hero* WCAG AA pairings (${scheme})`, () => {
+    for (const p of heroPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

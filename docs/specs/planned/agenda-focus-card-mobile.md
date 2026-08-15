@@ -25,6 +25,10 @@ visual hierarchy will drift across clients after the web slice ships.
 
 ## Notes
 
-- Depends on shipped [`agenda-focus-card`](../active/agenda-focus-card.md)
+- Depends on shipped [`agenda-focus-card`](../archive/agenda-focus-card.md)
   (web) and [`docs/agenda-focus-card-addendum.md`](../../agenda-focus-card-addendum.md).
 - Card chrome may use native components; selection logic and copy must not.
+- Day-grouping + expandable rows are a separate web slice
+  ([`agenda-full-page-redesign`](agenda-full-page-redesign.md)) with mobile
+  follow-up [`agenda-full-page-redesign-mobile`](agenda-full-page-redesign-mobile.md).
+  Combine this id with that mobile port at `/spec` time if one PR is cheaper.
