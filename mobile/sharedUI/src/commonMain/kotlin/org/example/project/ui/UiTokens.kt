@@ -14,7 +14,13 @@ object UiTokens {
         val surfaceRaised: String,
         val border: String,
         val textPrimary: String,
-        val textSecondary: String
+        val textSecondary: String,
+        val heroSurface: String,
+        val heroOn: String,
+        val heroOnSecondary: String,
+        val heroDanger: String,
+        val heroSuccess: String,
+        val heroAccent: String
     )
 
     object Color {
@@ -29,7 +35,13 @@ object UiTokens {
             surfaceRaised = "#FFFFFF",
             border = "#E7E5DF",
             textPrimary = "#16181A",
-            textSecondary = "#686F79"
+            textSecondary = "#686F79",
+            heroSurface = "#16181A",
+            heroOn = "#FFFFFF",
+            heroOnSecondary = "#9AA0A8",
+            heroDanger = "#F2994A",
+            heroSuccess = "#3DCF8E",
+            heroAccent = "#5E6DFF"
         )
         val dark = ColorRoles(
             accent = "#5E6DFF",
@@ -42,7 +54,13 @@ object UiTokens {
             surfaceRaised = "#1E2124",
             border = "#2C3033",
             textPrimary = "#EDEEF0",
-            textSecondary = "#9AA0A8"
+            textSecondary = "#9AA0A8",
+            heroSurface = "#242832",
+            heroOn = "#FFFFFF",
+            heroOnSecondary = "#9AA0A8",
+            heroDanger = "#F2994A",
+            heroSuccess = "#3DCF8E",
+            heroAccent = "#5E6DFF"
         )
     }
 

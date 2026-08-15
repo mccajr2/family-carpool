@@ -1,7 +1,8 @@
 # Spec: Agenda Focus card hero* surface
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-15  
+Updated: 2026-08-15 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-hero-surface`  
 Added: 2026-08-15 · enhancement
@@ -40,23 +41,24 @@ Do not use `hero*` outside the Focus card’s urgent state.
 
 ## Acceptance criteria
 
-- [ ] The three files match the redesign intake (not a paraphrase).
-- [ ] `node design-tokens/generate.mjs --check` passes after generate.
-- [ ] `hero*` pairings in `design-tokens/contrast.test.mjs` meet WCAG AA.
-- [ ] Urgent Focus card uses `heroSurface`; resolved/"all set" uses
+- [x] The three files match the redesign intake (not a paraphrase).
+- [x] `node design-tokens/generate.mjs --check` passes after generate.
+- [x] `hero*` pairings in `design-tokens/contrast.test.mjs` meet WCAG AA.
+- [x] Urgent Focus card uses `heroSurface`; resolved/"all set" uses
       `surfaceRaised`.
-- [ ] Handlers/copy unchanged; web tests pass.
+- [x] Handlers/copy unchanged; web tests pass.
 
 ## Tasks
 
-- [ ] Overwrite `tokens.json`, `AgendaFocusCard.tsx`, and the addendum from
+- [x] Overwrite `tokens.json`, `AgendaFocusCard.tsx`, and the addendum from
       the intake.
-- [ ] Run `node design-tokens/generate.mjs` then `--check`.
-- [ ] Extend contrast + token declaration tests for `hero*` roles.
-- [ ] Add a Focus card test: urgent vs resolved surface tokens; handlers
+- [x] Run `node design-tokens/generate.mjs` then `--check`.
+- [x] Extend contrast + token declaration tests for `hero*` roles.
+- [x] Add a Focus card test: urgent vs resolved surface tokens; handlers
       still fire.
-- [ ] Run web tests + token tests; fix real regressions.
+- [x] Run web tests + token tests; fix real regressions.
 
 ## Open questions
 
 None — intake files are the source of truth.
+

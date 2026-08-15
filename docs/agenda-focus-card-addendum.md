@@ -49,13 +49,37 @@ No new business rules. No accordion. No card chrome on any other item.
 
 ## Tokens used (from `design-tokens/tokens.json`)
 
-`surfaceRaised` (card fill), `border`, `accent`/`danger`/`success` per status,
-`radius.xl` (new — added for this pattern; existing `sm/md/lg` unchanged for
-everything else), `spacing.xl`/`spacing.lg` for card padding.
+The Focus card has two visual states that use **different token families** —
+this is deliberate, not an inconsistency:
 
-Adopted hex (WCAG AA amendment 2026-08-14): light `textSecondary` `#686F79`,
-`danger` `#A9590C`, `success` `#187D58`; dark `danger` remains `#F2994A`.
-Other roles unchanged from the 2026-08 palette.
+- **Resolved / "all set" state** — normal theme-following tokens:
+  `surfaceRaised` (card fill), `border`, `accent`/`success` per status.
+  Looks like an elevated card in whichever theme the page is in.
+- **Needs-decision / urgent state** — the `hero*` role family:
+  `heroSurface`, `heroOn`, `heroOnSecondary`, `heroDanger`, `heroSuccess`,
+  `heroAccent`. These are **intentionally not the same as the page's
+  light/dark surface** — they define a fixed "spotlight" surface so the
+  urgent item reads as urgent regardless of site theme. In light mode this
+  produces the dramatic dark-card-on-light-page effect; in dark mode it's a
+  deliberately lighter/more saturated card than an ordinary dark-mode
+  surface, so it still visibly pops rather than blending into an
+  already-dark page. Do not substitute plain `surface`/`textPrimary` for
+  `hero*` roles in this state, and do not use `hero*` roles anywhere outside
+  the Focus card's urgent state — they exist for this one purpose.
+
+Every `hero*` pairing is WCAG AA verified the same way as the base palette
+(4.5:1 text, 3.0:1 for `heroAccent` as an icon/ring color) — see the
+`meta.description` note in `tokens.json` for when these were added.
+
+Also: `radius.xl` (added for this pattern; existing `sm/md/lg` unchanged for
+everything else), `spacing.xl`/`spacing.lg` for card padding, and the new
+`typography.scale.hero` entry for the card's title size.
+
+The countdown ring is a **decorative urgency cue**, not a literal
+minutes-remaining guarantee — it fills based on time until `leaveByAt` (or
+`startsAt` if leave-by is unavailable), capped at a 3-hour window, and reads
+as visually "full" for anything further out or when the time can't be
+determined. Do not present it as a precise estimate in copy or a11y labels.
 
 ## Port checklist addition
 

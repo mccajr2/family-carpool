@@ -31,8 +31,7 @@ visual distinctiveness for the whole list, not one promoted item.
 - Intake already has a full spec + verbatim `agendaDayGroups.ts`,
   `AgendaRow.tsx`, and `docs/agenda-full-redesign-addendum.md` — copy at
   `/spec` time; do not invent a parallel design.
-- Prerequisite: [`agenda-focus-hero-surface`](../active/agenda-focus-hero-surface.md)
-  lands the intake `hero*` Focus card before this slice. Do not rewrite those
-  three files here.
+- Prerequisite: [`agenda-focus-hero-surface`](../archive/agenda-focus-hero-surface.md)
+  shipped the intake `hero*` Focus card. Do not rewrite those three files here.
 - Mobile port: [`agenda-full-page-redesign-mobile`](agenda-full-page-redesign-mobile.md)
   (Focus card port stays [`agenda-focus-card-mobile`](agenda-focus-card-mobile.md)).

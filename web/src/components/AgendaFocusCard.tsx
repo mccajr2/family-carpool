@@ -1,13 +1,11 @@
-import type { CalendarItem, FamilyCircle } from "@/api/types"
+import { useMemo } from "react"
+import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
-import {
-  rsvpStatusForKid,
-  rsvpStatusLabel,
-} from "@/components/rsvpDisplay"
+import { rsvpStatusForKid, rsvpStatusLabel } from "@/components/rsvpDisplay"
 import {
   activeCoverages,
   calendarSourceLabel,
@@ -17,7 +15,6 @@ import {
   eventKidNames,
   pendingCoverageForAdult,
 } from "@/components/coverageDisplay"
-import type { RsvpStatus } from "@/api/types"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -40,11 +37,36 @@ type AgendaFocusCardProps = {
   onRemoveEvent: () => void
 }
 
+const RING_RADIUS = 27
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+/** Ring reads full at 3+ hours out, empty at 0 — a decorative urgency cue, not a literal countdown. */
+const RING_MAX_MINUTES = 180
+
+function minutesUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const target = new Date(iso).getTime()
+  if (Number.isNaN(target)) return null
+  return Math.max(0, Math.round((target - Date.now()) / 60000))
+}
+
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes}`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h}` : `${h}h ${m}`
+}
+
 /**
  * Exactly one item at a time renders this way — selection logic lives in
  * agendaFocusSelection.ts. See docs/agenda-focus-card-addendum.md.
- * Same data, same handlers as a flat Agenda row; this is a visual
- * promotion only, not new functionality.
+ *
+ * Two visual states, same layout/bands, deliberately different surface:
+ * - needsDecision → the theme-independent dark "hero*" tokens (a fixed
+ *   spotlight surface, not the page's normal dark-mode card) so the item
+ *   reads as urgent regardless of site theme.
+ * - resolved/"all set" → normal theme-following surfaceRaised card.
+ * Same data, same handlers as a flat Agenda row in either case — this is a
+ * visual promotion only, not new functionality.
  */
 export function AgendaFocusCard({
   item,
@@ -66,10 +88,6 @@ export function AgendaFocusCard({
 }: AgendaFocusCardProps) {
   const isManual = item.source === "MANUAL"
   const needsDecision = item.uncoveredKidIds.length > 0 || item.conflicts.length > 0
-  const statusColor = needsDecision ? "var(--fc-danger)" : "var(--fc-success)"
-  const statusBg = needsDecision
-    ? "color-mix(in srgb, var(--fc-danger) 14%, transparent)"
-    : "color-mix(in srgb, var(--fc-success) 14%, transparent)"
 
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
@@ -82,50 +100,142 @@ export function AgendaFocusCard({
       (uncoveredKidNames ? `Needs coverage: ${uncoveredKidNames}` : "Needs coverage"))
     : "All set"
 
+  const mins = useMemo(() => minutesUntil(item.leaveByAt ?? item.startsAt), [item.leaveByAt, item.startsAt])
+  const ringFraction = mins == null ? 1 : Math.min(1, mins / RING_MAX_MINUTES)
+  const ringDashoffset = RING_CIRCUMFERENCE * (1 - ringFraction)
+  const ringLabel = mins == null ? "—" : formatMinutes(mins)
+  const ringUnit = mins == null ? "" : mins < 60 ? "min" : "hr"
+
+  // Surface + accent role names swap by state, not by page theme — see the
+  // component doc comment above. "hero*" is always used for the urgent
+  // state; plain tokens for the resolved/calm state.
+  const surfaceVar = needsDecision ? "var(--fc-hero-surface)" : "var(--fc-surface-raised)"
+  const onVar = needsDecision ? "var(--fc-hero-on)" : "var(--fc-text-primary)"
+  const onSecondaryVar = needsDecision ? "var(--fc-hero-on-secondary)" : "var(--fc-text-secondary)"
+  const statusColorVar = needsDecision ? "var(--fc-hero-danger)" : "var(--fc-hero-success)"
+  // Error text is always an error, independent of the card's calm/urgent state —
+  // do not reuse the success color here just because the card happens to be calm.
+  const errorColorVar = needsDecision ? "var(--fc-hero-danger)" : "var(--fc-danger)"
+  const ringColorVar = needsDecision ? "var(--fc-hero-danger)" : "var(--fc-hero-success)"
+  const borderVar = needsDecision ? "transparent" : "var(--fc-border)"
+  const dividerVar = needsDecision ? "rgba(255,255,255,0.12)" : "var(--fc-border)"
+  const ringTrackVar = needsDecision ? "rgba(255,255,255,0.14)" : "var(--fc-border)"
+
   return (
     <div
       data-testid={`agenda-focus-${item.source}-${item.id}`}
-      className="flex flex-col gap-[var(--fc-space-lg)] rounded-[var(--fc-radius-xl)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] p-[var(--fc-space-xl)] shadow-sm"
+      className="relative overflow-hidden rounded-[var(--fc-radius-xl)] p-[var(--fc-space-xl)]"
+      style={{
+        backgroundColor: surfaceVar,
+        color: onVar,
+        border: `1px solid ${borderVar}`,
+        boxShadow: needsDecision ? "0 20px 40px -24px rgba(0,0,0,0.45)" : "none",
+      }}
     >
+      {needsDecision ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--fc-hero-accent) 45%, transparent), transparent 70%)",
+          }}
+        />
+      ) : null}
+
       {/* Primary */}
-      <div className="flex flex-col gap-[var(--fc-space-xs)]">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
-          {formatEventWhen(item.startsAt, item.endsAt)}
-        </span>
-        <span className="text-[length:var(--fc-font-hero-size)] font-bold leading-[var(--fc-font-hero-line)] text-[var(--fc-text-primary)]">
-          {item.title}
-        </span>
-        {item.location ? (
-          <span className="text-sm text-[var(--fc-text-secondary)]">{item.location}</span>
-        ) : null}
-        <span
-          className="mt-[var(--fc-space-xs)] inline-flex w-fit items-center gap-[var(--fc-space-xs)] rounded-full px-[var(--fc-space-md)] py-[var(--fc-space-xs)] text-sm font-semibold"
-          style={{ color: statusColor, backgroundColor: statusBg }}
-        >
-          {statusLine}
-        </span>
-        {conflictLines.length > 1
-          ? conflictLines.slice(1).map((line) => (
-              <span key={line} className="text-xs font-medium" style={{ color: statusColor }}>
-                {line}
+      <div className="relative flex items-start justify-between gap-[var(--fc-space-lg)]">
+        <div className="flex min-w-0 flex-col gap-[var(--fc-space-xs)]">
+          <span
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: onSecondaryVar }}
+          >
+            {formatEventWhen(item.startsAt, item.endsAt)}
+          </span>
+          <span
+            className="text-[length:var(--fc-font-hero-size)] font-bold leading-[var(--fc-font-hero-line)]"
+            style={{ color: onVar }}
+          >
+            {item.title}
+          </span>
+          {item.location ? (
+            <span className="text-sm" style={{ color: onSecondaryVar }}>
+              {item.location}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Countdown ring — decorative urgency cue, see RING_MAX_MINUTES note above */}
+        <div className="relative h-16 w-16 flex-shrink-0">
+          <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
+            <circle cx="32" cy="32" r={RING_RADIUS} fill="none" stroke={ringTrackVar} strokeWidth={5} />
+            <circle
+              cx="32"
+              cy="32"
+              r={RING_RADIUS}
+              fill="none"
+              stroke={ringColorVar}
+              strokeWidth={5}
+              strokeLinecap="round"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={ringDashoffset}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-xs font-bold" style={{ color: onVar }}>
+              {ringLabel}
+            </span>
+            {ringUnit ? (
+              <span className="text-[9px] font-semibold uppercase" style={{ color: onSecondaryVar }}>
+                {ringUnit}
               </span>
-            ))
-          : null}
+            ) : null}
+          </div>
+        </div>
       </div>
 
+      <span
+        className="relative mt-[var(--fc-space-md)] inline-flex w-fit items-center gap-[var(--fc-space-xs)] rounded-full px-[var(--fc-space-md)] py-[var(--fc-space-xs)] text-sm font-semibold"
+        style={{
+          color: statusColorVar,
+          backgroundColor: `color-mix(in srgb, ${statusColorVar} 16%, transparent)`,
+        }}
+      >
+        {statusLine}
+      </span>
+      {conflictLines.length > 1
+        ? conflictLines.slice(1).map((line) => (
+            <span
+              key={line}
+              className="relative mt-[var(--fc-space-xs)] block text-xs font-medium"
+              style={{ color: statusColorVar }}
+            >
+              {line}
+            </span>
+          ))
+        : null}
+
       {/* Travel / origin */}
-      <div className="flex flex-col gap-[var(--fc-space-sm)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
-        <span className="text-xs text-[var(--fc-text-secondary)]">{agendaLeaveByLine(item)}</span>
+      <div
+        className="relative mt-[var(--fc-space-lg)] flex flex-col gap-[var(--fc-space-sm)] pt-[var(--fc-space-md)]"
+        style={{ borderTop: `1px solid ${dividerVar}` }}
+      >
+        <span className="text-xs" style={{ color: onSecondaryVar }}>
+          {agendaLeaveByLine(item)}
+        </span>
         <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
-          <span className="text-xs text-[var(--fc-text-secondary)]">Leave from</span>
+          <span className="text-xs" style={{ color: onSecondaryVar }}>
+            Leave from
+          </span>
           {locatedPlaces.length <= 1 ? (
-            <span className="text-sm font-medium text-[var(--fc-text-primary)]">
+            <span className="text-sm font-medium" style={{ color: onVar }}>
               {item.leaveFromPlaceName ?? locatedPlaces[0]?.name ?? "No located places yet"}
             </span>
           ) : (
             <select
               aria-label={`Leave from for ${item.title}`}
-              className="h-9 rounded-md border border-[var(--fc-border)] bg-transparent px-2 text-sm"
+              className="h-9 rounded-md border bg-transparent px-2 text-sm"
+              style={{ borderColor: dividerVar, color: onVar }}
               value={item.leaveFromPlaceId ?? ""}
               onChange={(e) => e.target.value && onSetLeaveFrom(e.target.value)}
               disabled={loading}
@@ -147,8 +257,11 @@ export function AgendaFocusCard({
       </div>
 
       {/* People / source */}
-      <div className="flex flex-col gap-[var(--fc-space-sm)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
-        <span className="text-xs text-[var(--fc-text-secondary)]">
+      <div
+        className="relative mt-[var(--fc-space-lg)] flex flex-col gap-[var(--fc-space-sm)] pt-[var(--fc-space-md)]"
+        style={{ borderTop: `1px solid ${dividerVar}` }}
+      >
+        <span className="text-xs" style={{ color: onSecondaryVar }}>
           {calendarSourceLabel(item.source, item.feedName)}
         </span>
         {item.kidIds.map((kidId) => {
@@ -157,11 +270,14 @@ export function AgendaFocusCard({
           const status = rsvpStatusForKid(item, kidId)
           return (
             <div key={kidId} className="flex items-center justify-between gap-[var(--fc-space-md)]">
-              <span className="text-sm text-[var(--fc-text-secondary)]">{kidName}</span>
+              <span className="text-sm" style={{ color: onSecondaryVar }}>
+                {kidName}
+              </span>
               <select
                 aria-label={`RSVP for ${kidName} on ${item.title}`}
                 data-testid={`rsvp-${item.source}-${item.id}-${kidId}`}
-                className="h-9 rounded-md border border-[var(--fc-border)] bg-transparent px-2 text-sm"
+                className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                style={{ borderColor: dividerVar, color: onVar }}
                 value={status}
                 onChange={(e) => onSetRsvp(kidId, e.target.value as RsvpStatus)}
                 disabled={loading}
@@ -176,17 +292,20 @@ export function AgendaFocusCard({
       </div>
 
       {/* Coverage / actions */}
-      <div className="flex flex-col gap-[var(--fc-space-sm)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
+      <div
+        className="relative mt-[var(--fc-space-lg)] flex flex-col gap-[var(--fc-space-sm)] pt-[var(--fc-space-md)]"
+        style={{ borderTop: `1px solid ${dividerVar}` }}
+      >
         {active.map((coverage) => (
           <div key={coverage.id} className="flex items-center justify-between gap-[var(--fc-space-md)]">
-            <span className="text-xs text-[var(--fc-text-secondary)]">
+            <span className="text-xs" style={{ color: onSecondaryVar }}>
               {coverageAdultLabel(coverage, circle.members)} ·{" "}
               {coverageKidNames(coverage, circle.kids)} · {coverageStatusLabel(coverage.status)}
             </span>
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant={needsDecision ? "secondary" : "outline"}
               onClick={() => onRemoveCoverage(coverage.id)}
               disabled={loading}
             >
@@ -200,6 +319,7 @@ export function AgendaFocusCard({
             <Button
               type="button"
               size="sm"
+              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
               onClick={() => onConfirmCoverage(pendingForSelf.id)}
               disabled={loading}
             >
@@ -208,7 +328,7 @@ export function AgendaFocusCard({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant={needsDecision ? "secondary" : "outline"}
               onClick={() => onDeclineCoverage(pendingForSelf.id)}
               disabled={loading}
             >
@@ -221,10 +341,13 @@ export function AgendaFocusCard({
           <div className="flex flex-col gap-[var(--fc-space-sm)]">
             {!assignDraft.soleAdult ? (
               <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
-                <span className="text-xs text-[var(--fc-text-secondary)]">Covering adult</span>
+                <span className="text-xs" style={{ color: onSecondaryVar }}>
+                  Covering adult
+                </span>
                 <select
                   aria-label={`Covering adult for ${item.title}`}
-                  className="h-9 rounded-md border border-[var(--fc-border)] bg-transparent px-2 text-sm"
+                  className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                  style={{ borderColor: dividerVar, color: onVar }}
                   value={assignDraft.adultId}
                   onChange={(e) => onUpdateAssignDraft({ adultId: e.target.value })}
                   disabled={loading}
@@ -240,7 +363,12 @@ export function AgendaFocusCard({
             <Button
               type="button"
               size="sm"
-              variant={pendingForSelf ? "outline" : "default"}
+              style={
+                needsDecision && !pendingForSelf
+                  ? { backgroundColor: onVar, color: surfaceVar }
+                  : undefined
+              }
+              variant={!needsDecision ? (pendingForSelf ? "outline" : "default") : undefined}
               onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
               disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
             >
@@ -250,21 +378,30 @@ export function AgendaFocusCard({
         ) : null}
 
         {coverageActionError ? (
-          <p role="alert" className="text-sm" style={{ color: "var(--fc-danger)" }}>
+          <p role="alert" className="text-sm" style={{ color: errorColorVar }}>
             {coverageActionError}
           </p>
         ) : null}
       </div>
 
       {isManual ? (
-        <div className="flex gap-[var(--fc-space-sm)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
-          <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
+        <div
+          className="relative mt-[var(--fc-space-lg)] flex gap-[var(--fc-space-sm)] pt-[var(--fc-space-md)]"
+          style={{ borderTop: `1px solid ${dividerVar}` }}
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant={needsDecision ? "secondary" : "outline"}
+            onClick={onEdit}
+            disabled={loading}
+          >
             Edit
           </Button>
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant={needsDecision ? "secondary" : "outline"}
             onClick={onRemoveEvent}
             disabled={loading}
           >
