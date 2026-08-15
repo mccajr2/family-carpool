@@ -1,30 +1,26 @@
 # Spec stub: destination-design-pass
 
-Status: planned  
+Status: cancelled (split 2026-08-15)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
 Added: 2026-08-14 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec destination-design-pass`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Split — do not `/spec` this id. Siblings:
 
-If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
-(`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
+- [`feeds-page-redesign`](feeds-page-redesign.md) (web; designed)
+- [`family-places-garage-redesign`](family-places-garage-redesign.md)
+  (parking; needs mockups)
+- [`carpool-multi-stop`](carpool-multi-stop.md) (parking; separate intake)
 
 ## Problem
 
-After the Agenda Focus card, Carpool / Family / Places / Garage / Feeds still
-read as utilitarian relative to Calendar; visual distinctiveness needs a
-design pass on those destinations.
+Was a mega-item: design pass on Carpool / Family / Places / Garage / Feeds.
 
 ## Non-goals (sketch)
 
-- Agenda Focus card (web) and its iOS/Android port
-- Typography font-family swap (`typography-font-family`)
-- Coverage / RSVP / carpool business rules
+- Do not revive this as one PR.
 
 ## Notes
 
-- Related to [`ui-system-destination-adoption`](ui-system-destination-adoption.md);
-  this slice is visual design, not only token plumbing.
-- Prefer one destination per `/spec` if this grows past one PR.
+- Typography stays [`typography-font-family`](typography-font-family.md).
+- Focus card mobile stays [`agenda-focus-card-mobile`](agenda-focus-card-mobile.md).

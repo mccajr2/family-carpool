@@ -20,7 +20,7 @@ font assets bundled on iOS and Android, not just a token string edit.
 
 - Color / radius / spacing token churn
 - Focus card chrome (`agenda-focus-card` / `agenda-focus-card-mobile`)
-- Destination restyles (`destination-design-pass`)
+- Destination restyles (`feeds-page-redesign`, `family-places-garage-redesign`)
 
 ## Notes
 

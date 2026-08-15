@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-15 (`/pr agenda-focus-card`)
+Updated: 2026-08-15 (`/spec agenda-focus-hero-surface`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -77,6 +77,7 @@ share the ride — without fighting the UI.
 | Vehicle specs            | User picks **year / make / model** (vPIC lists); **no VIN**. vPIC suggests **total seats including driver**; always overridable. Kid vs adult vs booster kinds → parking `[garage-seat-kinds](specs/planned/garage-seat-kinds.md)`. Done: `[garage-vehicles](specs/archive/garage-vehicles.md)`                                                                                                                                                                                                                                                                              |
 | UI token adoption        | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See `[ui-system-destination-adoption](specs/planned/ui-system-destination-adoption.md)`                                                                                                                                                                                                                                                                                                                |
 | Interaction UX           | Distinct custom UI guided by UX-law tenets (not a rideshare clone): **Aesthetic-Usability** (polish reads as usable), **Doherty** (focused busy feedback feels instant), **Fitts** (primary actions large/reachable), **Hick** (few choices per step; sole-option defaults), **Proximity / Similarity** (group related controls; consistent patterns). Calendar/Agenda is the living reference: `[calendar-ux-flow](specs/archive/calendar-ux-flow.md)`. Inspired by [Laws of UX that Uber follows](https://medium.com/design-bootcamp/laws-of-ux-that-uber-follows-fa7c6619748b) |
+| Visual language          | **One visual priority per screen**; everything else calmer. Every color pairing **WCAG AA** before use (4.5:1 text, 3.0:1 icons) — don't eyeball. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Typography stays `system-ui` until `[typography-font-family](specs/planned/typography-font-family.md)`. Token roles in `design-tokens/tokens.json` are the contract; `hero*` color roles are Focus-card urgent spotlight only. |
 
 
 
@@ -86,24 +87,28 @@ share the ride — without fighting the UI.
 Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 
-| Rank | Id                             | Status  | Added                                                            | Summary                                                                                                                                                         |
-| ---- | ------------------------------ | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-request-accept         | planned | 2026-08-07 · initial                                             | Multi-kid default ride request + deselect override; accept; seat updates                                                                                        |
-| 2    | manual-event-team-link         | planned | 2026-08-13 · re-rank split                                       | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only)                                                              |
-| 3    | event-arrival-lead-time        | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
-| 4    | coverage-leave-from            | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
-| 5    | conflict-travel-margin         | planned | 2026-08-12 · enhancement                                         | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                                                         |
-| 6    | calendar-conditional-get       | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)                                              |
-| 7    | driver-leave-by-pickups        | planned | 2026-08-07 · initial                                             | Leave-by when teammate pickups are part of the plan (multi-stop estimate)                                                                                       |
-| 8    | family-calendar-grid           | planned | 2026-08-10 · re-rank split                                       | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid)                                                                |
-| 9    | agenda-focus-card-mobile       | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the Agenda Focus card (selection logic + copy match web; native chrome OK)                                                                |
-| 10   | destination-design-pass        | planned | 2026-08-14 · enhancement                                         | Design pass on Carpool / Family / Places / Garage / Feeds destinations                                                                                          |
-| 11   | ui-system-destination-adoption | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
-| 12   | ui-palette-refresh             | planned | 2026-08-10 · enhancement                                         | Hex values landed in `agenda-focus-card` `tokens.json`; remaining: generate/check + WCAG AA on surfaces not covered by that slice                                |
-| 13   | typography-font-family         | planned | 2026-08-14 · enhancement                                         | Typography change (font family) — requires font asset bundling on iOS/Android, not just a token edit                                                            |
-| 14   | auth-email-delivery            | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
-| 15   | web-auth-session-hardening     | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
-| 16   | adult-optional-password        | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
+| Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
+| ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | agenda-focus-hero-surface          | active  | 2026-08-15 · enhancement                                         | Web Focus card: `hero*` spotlight tokens + countdown ring (prerequisite for full-page redesign)                                                                 |
+| 2    | agenda-full-page-redesign          | planned | 2026-08-15 · enhancement                                         | Web Agenda: day-grouping + collapsed card rows below the Focus card; retires Selection A                                                                        |
+| 3    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds restyle onto Agenda card/token language; zero behavior change (`CarpoolFeedActions` as-is)                                                            |
+| 4    | carpool-request-accept             | planned | 2026-08-07 · initial                                             | Multi-kid default ride request + deselect override; accept; seat updates                                                                                        |
+| 5    | manual-event-team-link             | planned | 2026-08-13 · re-rank split                                       | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only)                                                              |
+| 6    | event-arrival-lead-time            | planned | 2026-08-11 · enhancement                                         | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                                                            |
+| 7    | coverage-leave-from                | planned | 2026-08-12 · enhancement                                         | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                                                      |
+| 8    | conflict-travel-margin             | planned | 2026-08-12 · enhancement                                         | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                                                         |
+| 9    | calendar-conditional-get           | planned | 2026-08-12 · re-rank split                                       | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)                                              |
+| 10   | driver-leave-by-pickups            | planned | 2026-08-07 · initial                                             | Leave-by when teammate pickups are part of the plan (multi-stop estimate)                                                                                       |
+| 11   | family-calendar-grid               | planned | 2026-08-10 · re-rank split                                       | iOS-style **month/week calendar grid** on top of the unified schedule (after Agenda UX is solid)                                                                |
+| 12   | agenda-focus-card-mobile           | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the Agenda Focus card (selection logic + copy match web; native chrome OK)                                                                |
+| 13   | agenda-full-page-redesign-mobile   | planned | 2026-08-15 · enhancement                                         | iOS + Android port of day-grouped Agenda card rows (after web `agenda-full-page-redesign`)                                                                      |
+| 14   | feeds-page-redesign-mobile         | planned | 2026-08-15 · enhancement                                         | iOS + Android port of Feeds card restyle (after web `feeds-page-redesign`)                                                                                      |
+| 15   | ui-system-destination-adoption     | planned | 2026-08-10 · note carried from cross-platform-ui-system approval | Adopt shared tokens on destinations after their product UI exists (grid, carpool, etc.); re-run screenshots + WCAG AA per surface                               |
+| 16   | ui-palette-refresh                 | planned | 2026-08-10 · enhancement                                         | Hex values landed in `agenda-focus-card` `tokens.json`; remaining: generate/check + WCAG AA on surfaces not covered by that slice                                |
+| 17   | typography-font-family             | planned | 2026-08-14 · enhancement                                         | Typography change (font family) — requires font asset bundling on iOS/Android, not just a token edit                                                            |
+| 18   | auth-email-delivery                | planned | 2026-08-07 · enhancement                                         | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                                                        |
+| 19   | web-auth-session-hardening         | planned | 2026-08-07 · enhancement                                         | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                                                   |
+| 20   | adult-optional-password            | planned | 2026-08-07 · re-rank split                                       | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                                                               |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -122,7 +127,7 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 | caregiver-attention-balance | 2026-08-08 · enhancement | Surface which kids get more caregiver attention so adults (e.g. grandparents) can rebalance                                                                       |
 | carpool-least-privilege     | 2026-08-13 · enhancement | Some circle adults (nanny, grandparent) get own-kids calendar/coverage without teammate carpool roster, codes, or addresses — after invite v1                     |
 | app-identity-rename         | 2026-08-07 · initial     | Rename packages/clients from quickapp template identity before public beta                                                                                        |
-| push-notifications          | 2026-08-07 · initial     | Push for coverage asks, ride request/accept, conflict alerts                                                                                                      |
+| push-notifications          | 2026-08-07 · initial     | Push for coverage asks, ride request/accept, conflict alerts (native iOS included; stays parking — not part of Agenda/Feeds redesign)                             |
 | sign-in-apple-google        | 2026-08-07 · initial     | Sign in with Apple / Google (deferred from auth v1)                                                                                                               |
 | driver-only-role            | 2026-08-07 · initial     | Narrow Driver-only role (orthogonal driving stays in garage for now)                                                                                              |
 | rss-atom-schedule-feeds     | 2026-08-09 · enhancement | RSS/Atom schedule import (superseded for v1 by iCal/webcal)                                                                                                       |
@@ -139,6 +144,8 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 | playlist-open-in-streaming  | 2026-08-14 · enhancement | Free song lookup + open/export in Apple Music or Spotify (no paid music API)                                                                                      |
 | locker-room-mix             | 2026-08-14 · enhancement | Team pump-up mix using the same playlist engine as ride merge                                                                                                     |
 | garage-seat-kinds           | 2026-08-14 · enhancement | Distinguish adult seats, kid seats, and boosters (v1 garage is one total including driver)                                                                        |
+| family-places-garage-redesign | 2026-08-15 · re-rank split | Family / Places / Garage visual restyle — needs a mockup pass before `/spec` (split from `destination-design-pass`)                                             |
+| carpool-multi-stop          | 2026-08-15 · enhancement | Carpool multi-stop screen (ordered pickups, Open in Maps) + Agenda "N stops" data-model field — separate future intake                                            |
 
 
 
@@ -150,6 +157,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
+| agenda-focus-hero-surface | `agenda-focus-hero-surface` | [active](specs/active/agenda-focus-hero-surface.md) |
 
 
 ## Done
@@ -266,4 +274,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-14 | `/pr garage-vehicles`: circle garage (owner + drivers, no VIN) shipped (web/Android/iOS); next up `carpool-request-accept`. |
 | 2026-08-14 | `/roadmap agenda-focus-card`: first visual/UX differentiation slice (web Focus card + token refresh) promoted to Active; follow-ups `agenda-focus-card-mobile`, `destination-design-pass`, `typography-font-family` ranked after the carpool/grid cluster; next up `/implement agenda-focus-card`. |
 | 2026-08-15 | `/pr agenda-focus-card`: web Focus card + WCAG AA token refresh shipped; iOS/Android port remains `agenda-focus-card-mobile`; next up `carpool-request-accept`. |
+| 2026-08-15 | `/roadmap` Agenda + Feeds redesign: split `destination-design-pass`; web `agenda-full-page-redesign` then `feeds-page-redesign` ahead of `carpool-request-accept`; park Family/Places/Garage (needs mockups) and `carpool-multi-stop`. |
+| 2026-08-15 | `/spec agenda-focus-hero-surface`: land intake `hero*` Focus-card spotlight as a prerequisite slice before `/spec agenda-full-page-redesign`. |
 
