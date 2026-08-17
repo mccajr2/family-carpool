@@ -70,17 +70,10 @@ Confirm `web/src/styles/tokens.generated.css` now has both
 
 ## Task 3 — Load the fonts
 
-In `web/index.html` `<head>`, add preconnect + stylesheet `<link>`s
-(faster than a CSS `@import`):
-
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  rel="stylesheet"
-  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap"
-/>
-```
+Self-host latin static `.woff2` files under `web/src/fonts/` and declare
+`@font-face` in `web/src/index.css`. Do **not** load from Google Fonts —
+the CSS2 API 404s Plus Jakarta Sans italic/variable subset files
+(`LDIWaom-*.woff2` on `fonts.gstatic.com`).
 
 The existing `body { font-family: var(--fc-font-family); }` rule in
 `index.css` needs **no change** — it already references the token variable,
@@ -142,7 +135,7 @@ system and may not want the same treatment yet.
 - [x] `tokens.json` has both `fontFamily` and `displayFontFamily`.
 - [x] `generate.mjs` emits both `--fc-font-family` and
       `--fc-font-family-display`; `--check` passes.
-- [x] Fonts load (Google Fonts stylesheet in `index.html`; URL returns 200).
+- [x] Fonts load from self-hosted `web/src/fonts/*.woff2` (no Google Fonts 404s).
 - [x] Body text uses `--fc-font-family` (Plus Jakarta Sans); Task 4
       headline-scope elements use `fc-display` (Space Grotesk).
 - [x] No mobile UI or font-asset changes. Generated `UiTokens.kt` /
