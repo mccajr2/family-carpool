@@ -25,9 +25,11 @@ visual hierarchy will drift across clients after the web slice ships.
 
 ## Notes
 
-- Depends on shipped [`agenda-focus-card`](../archive/agenda-focus-card.md)
-  plus web [`agenda-focus-card-polish`](agenda-focus-card-polish.md) — port the
-  polished hero, not the pre-polish chrome.
+- Depends on shipped [`agenda-focus-card`](../archive/agenda-focus-card.md),
+  web [`agenda-focus-next-action`](agenda-focus-next-action.md), and
+  [`agenda-focus-card-polish`](agenda-focus-card-polish.md) — port the
+  polished hero **and** the next-action ranking, not the pre-horizon
+  `selectFocusItem`.
 - [`docs/agenda-focus-card-addendum.md`](../../agenda-focus-card-addendum.md).
 - Card chrome may use native components; selection logic and copy must not.
 - Day-grouping + expandable rows are a separate web slice
