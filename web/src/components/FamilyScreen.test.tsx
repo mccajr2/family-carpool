@@ -1716,11 +1716,11 @@ describe("FamilyScreen", () => {
 
     const nav = await screen.findByLabelText("App navigation")
     expect(nav.className).toMatch(/--fc-rail-surface/)
-    expect(nav.className).toMatch(/min-h-svh/)
-    expect(nav.className).toMatch(/md:h-svh/)
-    expect(nav.className).toMatch(/md:w-60/)
+    expect(nav.className).toMatch(/h-svh/)
+    expect(nav.className).toMatch(/w-60/)
+    expect(nav.className).not.toMatch(/w-full/)
     expect(nav.className).not.toMatch(/md:w-56/)
-    expect(nav.className).toMatch(/md:sticky/)
+    expect(nav.className).toMatch(/sticky/)
     expect(nav.className).not.toMatch(/fixed/)
     expect(nav.className).not.toMatch(/--fc-hero-/)
     expect(nav.className).not.toMatch(/--fc-surface-raised/)
@@ -1823,21 +1823,22 @@ describe("FamilyScreen", () => {
     const main = heading.closest("main")
     expect(main).not.toBeNull()
     expect(main?.className).toMatch(/max-w-\[820px\]/)
-    expect(main?.className).toMatch(/md:justify-self-start/)
-    expect(main?.className).toMatch(/md:min-w-auto/)
+    expect(main?.className).toMatch(/justify-self-start/)
+    expect(main?.className).not.toMatch(/min-w-0/)
     expect(main?.className).not.toMatch(/md:min-w-\[820px\]/)
     expect(main?.className).not.toMatch(/flex-1/)
     expect(main?.className).not.toMatch(/shadow-sm/)
     expect(main?.className).not.toMatch(/border-border/)
     const shell = main?.parentElement
-    expect(shell?.className).toMatch(/md:grid/)
-    expect(shell?.className).toMatch(/md:grid-cols-\[15rem_1fr_20rem\]/)
+    expect(shell?.className).toMatch(/(?:^|\s)grid(?:\s|$)/)
+    expect(shell?.className).toMatch(/min-w-min/)
+    expect(shell?.className).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
+    expect(shell?.className).not.toMatch(/flex-col/)
 
     const context = screen.getByLabelText("Context")
     expect(context.tagName).toBe("ASIDE")
-    expect(context.className).toMatch(/hidden/)
-    expect(context.className).toMatch(/md:w-80/)
-    expect(context.className).toMatch(/md:flex/)
+    expect(context.className).not.toMatch(/hidden/)
+    expect(context.className).toMatch(/w-80/)
     expect(context.className).toMatch(/--fc-border/)
     expect(context).toBeEmptyDOMElement()
     expect(screen.queryByText(/week at a glance/i)).not.toBeInTheDocument()
@@ -1850,7 +1851,7 @@ describe("FamilyScreen", () => {
         name: destination === "Family" ? "House" : destination,
       })
       expect(destHeading.closest("main")?.parentElement?.className).toMatch(
-        /md:grid-cols-\[15rem_1fr\]/,
+        /grid-cols-\[15rem_1fr\]/,
       )
       expect(destHeading.closest("main")?.parentElement?.className).not.toMatch(
         /1fr_20rem/,
@@ -1862,7 +1863,7 @@ describe("FamilyScreen", () => {
     expect(
       screen.getByRole("heading", { name: "Calendar" }).closest("main")?.parentElement
         ?.className,
-    ).toMatch(/md:grid-cols-\[15rem_1fr_20rem\]/)
+    ).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
   })
 
   it("offers Retry instead of Create family when the circle load fails", async () => {

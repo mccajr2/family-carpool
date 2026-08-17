@@ -1734,13 +1734,13 @@ export function FamilyScreen({
     <div
       className={
         destination === "calendar"
-          ? "flex w-full flex-col md:grid md:min-h-svh md:grid-cols-[15rem_1fr_20rem] md:items-stretch"
-          : "flex w-full flex-col md:grid md:min-h-svh md:grid-cols-[15rem_1fr] md:items-stretch"
+          ? "grid min-h-svh w-full min-w-min grid-cols-[15rem_1fr_20rem]"
+          : "grid min-h-svh w-full min-w-min grid-cols-[15rem_1fr]"
       }
     >
       <aside
         aria-label="App navigation"
-        className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-60"
+        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)]"
       >
         <div
           aria-label="Wordmark"
@@ -1827,7 +1827,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="flex w-full min-w-0 max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:min-w-auto md:justify-self-start md:px-[var(--fc-space-2xl)]">
+      <main className="flex w-full max-w-[820px] flex-col gap-4 justify-self-start px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
         <header
           className={
             destination === "calendar"
@@ -2904,7 +2904,7 @@ export function FamilyScreen({
       {destination === "calendar" ? (
         <aside
           aria-label="Context"
-          className="hidden shrink-0 border-l border-[var(--fc-border)] p-[var(--fc-space-xl)] md:flex md:w-80 md:flex-col"
+          className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] p-[var(--fc-space-xl)]"
         />
       ) : null}
     </div>
