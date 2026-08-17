@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest"
 
 import type { CalendarItem } from "@/api/types"
-import { selectFocusItem } from "@/components/agendaFocusSelection"
+import {
+  agendaDayBucketForStartsAt,
+  agendaDayBoundaries,
+} from "@/components/agendaDayGroups"
+import { focusItemNeedsDecision, selectFocusItem } from "@/components/agendaFocusSelection"
 
 function item(
   partial: Pick<CalendarItem, "id" | "startsAt"> &
-    Partial<Pick<CalendarItem, "kidIds" | "rsvps" | "uncoveredKidIds" | "conflicts">>,
+    Partial<Pick<CalendarItem, "kidIds" | "rsvps" | "uncoveredKidIds" | "conflicts" | "coverages">>,
 ): CalendarItem {
   const kidIds = partial.kidIds ?? ["k1"]
   return {
@@ -23,13 +27,18 @@ function item(
     leaveByAt: null,
     leaveByStatus: "UNAVAILABLE",
     leaveByReason: "NO_ORIGIN",
-    coverages: [],
+    coverages: partial.coverages ?? [],
     uncoveredKidIds: partial.uncoveredKidIds ?? [],
     conflicts: partial.conflicts ?? [],
     rsvps:
       partial.rsvps ??
       kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
   }
+}
+
+/** Local calendar time so buckets are independent of UTC offset. */
+function localIso(year: number, month: number, day: number, hour = 12): string {
+  return new Date(year, month - 1, day, hour, 0, 0, 0).toISOString()
 }
 
 const conflict = {
@@ -43,49 +52,222 @@ const conflict = {
   otherStartsAt: "2030-08-15T18:00:00Z",
 }
 
+const now = new Date(2026, 7, 15, 12, 0, 0, 0)
+const adultId = "adult-1"
+
+describe("agendaDayBucketForStartsAt", () => {
+  it("matches groupAgendaByDay boundaries", () => {
+    const { tomorrowStart, dayAfterTomorrowStart, weekEnd } = agendaDayBoundaries(now)
+    expect(agendaDayBucketForStartsAt(localIso(2026, 8, 15, 18), now)).toBe("today")
+    expect(agendaDayBucketForStartsAt(tomorrowStart, now)).toBe("tomorrow")
+    expect(agendaDayBucketForStartsAt(dayAfterTomorrowStart, now)).toBe("this-week")
+    expect(agendaDayBucketForStartsAt(weekEnd, now)).toBe("later")
+    expect(agendaDayBucketForStartsAt("not-a-date", now)).toBe("later")
+  })
+})
+
+describe("focusItemNeedsDecision", () => {
+  it("includes pending coverage confirm for the signed-in adult", () => {
+    const pending = item({
+      id: "pending",
+      startsAt: localIso(2026, 8, 15, 18),
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: adultId,
+          coveringAdultDisplayName: null,
+          assignedByAdultId: "other",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    expect(focusItemNeedsDecision(pending, adultId)).toBe(true)
+    expect(focusItemNeedsDecision(pending, "other-adult")).toBe(false)
+  })
+})
+
 describe("selectFocusItem", () => {
-  it("picks the earliest uncovered or conflicted item over a calmer earlier one", () => {
+  it("picks the earliest today decision over a calmer earlier today item", () => {
     const calmEarly = item({
       id: "calm",
-      startsAt: "2030-08-15T16:00:00Z",
+      startsAt: localIso(2026, 8, 15, 16),
     })
     const uncoveredLater = item({
       id: "uncovered",
-      startsAt: "2030-08-15T17:00:00Z",
+      startsAt: localIso(2026, 8, 15, 17),
       uncoveredKidIds: ["k1"],
     })
-    expect(selectFocusItem([calmEarly, uncoveredLater])?.id).toBe("uncovered")
+    expect(selectFocusItem([calmEarly, uncoveredLater], now, adultId)?.id).toBe("uncovered")
 
     const conflictedLater = item({
       id: "conflicted",
-      startsAt: "2030-08-15T17:00:00Z",
+      startsAt: localIso(2026, 8, 15, 17),
       conflicts: [conflict],
     })
-    expect(selectFocusItem([calmEarly, conflictedLater])?.id).toBe("conflicted")
+    expect(selectFocusItem([calmEarly, conflictedLater], now, adultId)?.id).toBe("conflicted")
+  })
+
+  it("prefers tomorrow decisions over all-set today", () => {
+    const todayCalm = item({
+      id: "today",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const tomorrowUncovered = item({
+      id: "tomorrow",
+      startsAt: localIso(2026, 8, 16, 10),
+      uncoveredKidIds: ["k1"],
+    })
+    expect(selectFocusItem([todayCalm, tomorrowUncovered], now, adultId)?.id).toBe("tomorrow")
+  })
+
+  it("prefers pending confirm today over an earlier all-set item today", () => {
+    const calmEarly = item({
+      id: "calm",
+      startsAt: localIso(2026, 8, 15, 16),
+    })
+    const pendingLater = item({
+      id: "pending",
+      startsAt: localIso(2026, 8, 15, 18),
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: adultId,
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "other",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    expect(selectFocusItem([calmEarly, pendingLater], now, adultId)?.id).toBe("pending")
+  })
+
+  it("prefers pending confirm tomorrow over all-set today", () => {
+    const todayCalm = item({
+      id: "today",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const tomorrowPending = item({
+      id: "tomorrow-pending",
+      startsAt: localIso(2026, 8, 16, 10),
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: adultId,
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "other",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    expect(selectFocusItem([todayCalm, tomorrowPending], now, adultId)?.id).toBe(
+      "tomorrow-pending",
+    )
+  })
+
+  it("does not prefer pending confirm for someone else", () => {
+    const todayCalm = item({
+      id: "today",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const tomorrowPendingOther = item({
+      id: "tomorrow-other",
+      startsAt: localIso(2026, 8, 16, 10),
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "other-adult",
+          coveringAdultDisplayName: "Jordan",
+          assignedByAdultId: adultId,
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    expect(selectFocusItem([todayCalm, tomorrowPendingOther], now, adultId)?.id).toBe("today")
+  })
+
+  it("prefers all-set today over pending confirm rest-of-week", () => {
+    const todayCalm = item({
+      id: "today",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const fridayPending = item({
+      id: "friday-pending",
+      startsAt: localIso(2026, 8, 21, 10),
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: adultId,
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "other",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+    expect(selectFocusItem([todayCalm, fridayPending], now, adultId)?.id).toBe("today")
+  })
+
+  it("prefers all-set tonight over uncovered far in the future", () => {
+    const tonight = item({
+      id: "tonight",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const farUncovered = item({
+      id: "far",
+      startsAt: localIso(2026, 9, 15, 10),
+      uncoveredKidIds: ["k1"],
+    })
+    expect(selectFocusItem([tonight, farUncovered], now, adultId)?.id).toBe("tonight")
+  })
+
+  it("prefers all-set today over uncovered rest-of-week", () => {
+    const todayCalm = item({
+      id: "today",
+      startsAt: localIso(2026, 8, 15, 18),
+    })
+    const fridayUncovered = item({
+      id: "friday",
+      startsAt: localIso(2026, 8, 21, 10),
+      uncoveredKidIds: ["k1"],
+    })
+    expect(selectFocusItem([todayCalm, fridayUncovered], now, adultId)?.id).toBe("today")
   })
 
   it("never selects an all-RSVP-No item", () => {
     const allNo = item({
       id: "no",
-      startsAt: "2030-08-15T16:00:00Z",
+      startsAt: localIso(2026, 8, 15, 16),
       rsvps: [{ kidId: "k1", status: "NO" }],
       uncoveredKidIds: ["k1"],
     })
     const attending = item({
       id: "yes",
-      startsAt: "2030-08-15T17:00:00Z",
+      startsAt: localIso(2026, 8, 15, 17),
     })
-    expect(selectFocusItem([allNo, attending])?.id).toBe("yes")
-    expect(selectFocusItem([allNo])).toBeNull()
+    expect(selectFocusItem([allNo, attending], now, adultId)?.id).toBe("yes")
+    expect(selectFocusItem([allNo], now, adultId)).toBeNull()
   })
 
   it("returns null for an empty agenda", () => {
-    expect(selectFocusItem([])).toBeNull()
+    expect(selectFocusItem([], now, adultId)).toBeNull()
   })
 
   it("returns the earliest item when every attending item is covered", () => {
-    const first = item({ id: "first", startsAt: "2030-08-15T16:00:00Z" })
-    const second = item({ id: "second", startsAt: "2030-08-15T17:00:00Z" })
-    expect(selectFocusItem([first, second])?.id).toBe("first")
+    const first = item({ id: "first", startsAt: localIso(2026, 8, 15, 16) })
+    const second = item({ id: "second", startsAt: localIso(2026, 8, 15, 17) })
+    expect(selectFocusItem([first, second], now, adultId)?.id).toBe("first")
+  })
+
+  it("returns rest-of-week uncovered when it is the only in-play item", () => {
+    const fridayUncovered = item({
+      id: "friday",
+      startsAt: localIso(2026, 8, 21, 10),
+      uncoveredKidIds: ["k1"],
+    })
+    expect(selectFocusItem([fridayUncovered], now, adultId)?.id).toBe("friday")
   })
 })

@@ -1713,7 +1713,7 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
-  const focusItem = selectFocusItem(visibleCalendarItems)
+  const focusItem = selectFocusItem(visibleCalendarItems, new Date(), adult?.id ?? "")
   const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const carpoolAccessToken = session.getAccessToken()

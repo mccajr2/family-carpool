@@ -107,6 +107,50 @@ describe("AgendaFocusCard hero surface", () => {
     expect(screen.getByText("All set")).toBeInTheDocument()
   })
 
+  it("uses heroSurface when pending coverage confirm is for the signed-in adult", () => {
+    renderCard(
+      item({
+        id: "pending-self",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+          },
+        ],
+      }),
+    )
+    const card = screen.getByTestId("agenda-focus-MANUAL-pending-self")
+    expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
+    expect(screen.queryByText("All set")).not.toBeInTheDocument()
+  })
+
+  it("uses surfaceRaised when pending coverage confirm is for someone else", () => {
+    renderCard(
+      item({
+        id: "pending-other",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a2",
+            coveringAdultDisplayName: "Jordan",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "PENDING",
+          },
+        ],
+      }),
+    )
+    const card = screen.getByTestId("agenda-focus-MANUAL-pending-other")
+    expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
+    expect(screen.getByText("All set")).toBeInTheDocument()
+  })
+
   it("applies the display font to the hero title", () => {
     renderCard(
       item({
