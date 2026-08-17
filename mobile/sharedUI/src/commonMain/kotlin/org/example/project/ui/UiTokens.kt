@@ -88,7 +88,7 @@ object UiTokens {
         val title = TypeScale(size = 17, lineHeight = 24, weight = "600")
         val headline = TypeScale(size = 22, lineHeight = 28, weight = "700")
         val hero = TypeScale(size = 26, lineHeight = 32, weight = "700")
-        const val fontFamily: String = "system-ui"
+        const val fontFamily: String = "Plus Jakarta Sans"
     }
 
     /** Semantic icon names — map to Material Icons / Symbols in UI code. */

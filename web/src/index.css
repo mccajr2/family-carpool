@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
 @import "tailwindcss";
 @import "./styles/tokens.generated.css";
 
@@ -58,5 +59,9 @@
 .fc-more {
   color: var(--fc-text-primary);
   font-family: var(--fc-font-family);
+}
+
+.fc-display {
+  font-family: var(--fc-font-family-display);
 }
 

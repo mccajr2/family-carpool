@@ -1802,7 +1802,7 @@ export function FamilyScreen({
           }
         >
           <div className="flex min-w-0 flex-col gap-1.5">
-            <CardTitle>{contentTitle}</CardTitle>
+            <CardTitle className="fc-display">{contentTitle}</CardTitle>
             {destination === "family" ? (
               <CardDescription>
                 {adult?.displayName ? `${adult.displayName} · ` : null}

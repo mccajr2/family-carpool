@@ -77,6 +77,11 @@ function renderRow(calendarItem: CalendarItem) {
 }
 
 describe("AgendaRow", () => {
+  it("applies the display font to the row title", () => {
+    renderRow(item({ id: "a", title: "Practice" }))
+    expect(screen.getByText("Practice")).toHaveClass("fc-display")
+  })
+
   it("renders an out-of-play item muted with only a Not going tag and no coverage/travel when expanded", async () => {
     const user = userEvent.setup()
     renderRow(

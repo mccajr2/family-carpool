@@ -95,7 +95,7 @@ enum UiTokens {
         static let title = TypeScale(size: 17, lineHeight: 24, weight: "600")
         static let headline = TypeScale(size: 22, lineHeight: 28, weight: "700")
         static let hero = TypeScale(size: 26, lineHeight: 32, weight: "700")
-        static let fontFamily: String = "system-ui"
+        static let fontFamily: String = "Plus Jakarta Sans"
     }
 
     /// Semantic icon names — map to SF Symbols in UI code.
