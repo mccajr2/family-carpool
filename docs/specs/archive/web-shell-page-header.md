@@ -1,8 +1,8 @@
 # Spec: web-shell-page-header
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17 (amend: mock type/spacing, `.main` 36×44, rail 28×20)  
+Updated: 2026-08-17 (`/pr`)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-page-header`  

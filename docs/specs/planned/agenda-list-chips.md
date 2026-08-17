@@ -24,7 +24,7 @@ Same filter and expand/collapse handlers — presentation only.
 - Changing expand bands, coverage, RSVP, or leave-by
 - A “3 STOPS” / “N stops” tag ([`carpool-multi-stop`](carpool-multi-stop.md))
 - Week-at-a-glance rail
-- Destination page header type/copy ([`web-shell-page-header`](../active/web-shell-page-header.md))
+- Destination page header type/copy ([`web-shell-page-header`](../archive/web-shell-page-header.md))
 - iOS / Android (fold into [`agenda-full-page-redesign-mobile`](agenda-full-page-redesign-mobile.md))
 
 ## Notes

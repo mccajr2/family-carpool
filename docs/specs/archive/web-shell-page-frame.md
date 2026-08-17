@@ -58,7 +58,7 @@ no `width: 100%`, no `min-width`, no `justify-self`. Default stretch fills
 the `1fr` track up to 820; leftover space sits between Agenda and Context.
 The floor is implicit min-content, not 820. Padding was nearest
 `--fc-space-*` in this slice; mock `.main` `padding: 36px 44px` landed in
-[`web-shell-page-header`](../active/web-shell-page-header.md) (`mainY` /
+[`web-shell-page-header`](web-shell-page-header.md) (`mainY` /
 `mainX`). Nowrap / `truncate` inside `.main` (Agenda titles) raises
 that floor to ~820, so the column never follows `1fr` down — titles wrap,
 like the mock `.row-main`. `App` is a `div`, not a nested `<main>`.
@@ -111,5 +111,5 @@ None. Mock `.shell` is `grid-template-columns: 240px 1fr 320px`; `.main` is
 chrome vs filling it is the split with `agenda-week-glance`. Destination
 header type, Calendar Today/date copy, ink/slate colors, and header↔content
 gap are deferred to
-[`web-shell-page-header`](../active/web-shell-page-header.md) — not this
+[`web-shell-page-header`](web-shell-page-header.md) — not this
 slice.
