@@ -24,6 +24,12 @@ test("generated token outputs match tokens.json (no drift)", () => {
   const css = readFileSync(join(__dirname, "..", "web/src/styles/tokens.generated.css"), "utf8")
   assert.match(css, /--fc-font-family: Plus Jakarta Sans, system-ui, sans-serif;/)
   assert.match(css, /--fc-font-family-display: Space Grotesk, system-ui, sans-serif;/)
+  assert.match(css, /:root \{[\s\S]*--fc-rail-surface: #16181A;/)
+  assert.match(css, /\.dark, \[data-theme="dark"\] \{[\s\S]*--fc-rail-surface: #16181A;/)
+  assert.match(css, /--fc-rail-on: #FFFFFF;/)
+  assert.match(css, /--fc-rail-active: #242832;/)
+  assert.match(css, /--fc-rail-accent: #5E6DFF;/)
+  assert.match(css, /--fc-rail-danger: #F2994A;/)
 })
 
 test("web self-hosts the pairing and defines fc-display", () => {
@@ -71,6 +77,12 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "heroDanger",
     "heroSuccess",
     "heroAccent",
+    "railSurface",
+    "railOn",
+    "railOnSecondary",
+    "railActive",
+    "railAccent",
+    "railDanger",
   ]) {
     assert.ok(tokens.color.light[role], `missing light.${role}`)
     assert.ok(tokens.color.dark[role], `missing dark.${role}`)
@@ -86,4 +98,18 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.ok(tokens.icons.includes("icon.garage"))
   assert.ok(tokens.icons.includes("icon.feeds"))
   assert.ok(tokens.icons.includes("icon.signout"))
+  for (const role of [
+    "railSurface",
+    "railOn",
+    "railOnSecondary",
+    "railActive",
+    "railAccent",
+    "railDanger",
+  ]) {
+    assert.equal(
+      tokens.color.light[role],
+      tokens.color.dark[role],
+      `rail* must be theme-independent (${role})`,
+    )
+  }
 })

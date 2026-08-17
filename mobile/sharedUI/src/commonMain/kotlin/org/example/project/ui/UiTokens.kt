@@ -20,7 +20,13 @@ object UiTokens {
         val heroOnSecondary: String,
         val heroDanger: String,
         val heroSuccess: String,
-        val heroAccent: String
+        val heroAccent: String,
+        val railSurface: String,
+        val railOn: String,
+        val railOnSecondary: String,
+        val railActive: String,
+        val railAccent: String,
+        val railDanger: String
     )
 
     object Color {
@@ -41,7 +47,13 @@ object UiTokens {
             heroOnSecondary = "#9AA0A8",
             heroDanger = "#F2994A",
             heroSuccess = "#3DCF8E",
-            heroAccent = "#5E6DFF"
+            heroAccent = "#5E6DFF",
+            railSurface = "#16181A",
+            railOn = "#FFFFFF",
+            railOnSecondary = "#9AA0A8",
+            railActive = "#242832",
+            railAccent = "#5E6DFF",
+            railDanger = "#F2994A"
         )
         val dark = ColorRoles(
             accent = "#5E6DFF",
@@ -60,7 +72,13 @@ object UiTokens {
             heroOnSecondary = "#9AA0A8",
             heroDanger = "#F2994A",
             heroSuccess = "#3DCF8E",
-            heroAccent = "#5E6DFF"
+            heroAccent = "#5E6DFF",
+            railSurface = "#16181A",
+            railOn = "#FFFFFF",
+            railOnSecondary = "#9AA0A8",
+            railActive = "#242832",
+            railAccent = "#5E6DFF",
+            railDanger = "#F2994A"
         )
     }
 

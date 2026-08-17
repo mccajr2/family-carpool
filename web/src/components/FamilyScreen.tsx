@@ -1727,33 +1727,51 @@ export function FamilyScreen({
     <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
       <aside
         aria-label="App navigation"
-        className="flex w-full shrink-0 flex-col gap-[var(--fc-space-lg)] rounded-[var(--fc-radius-lg)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] p-[var(--fc-space-md)] md:w-56"
+        className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-56"
       >
-        <nav aria-label="Primary" className="flex flex-col gap-[var(--fc-space-xs)]">
-          <ShellNavButton
-            label="Calendar"
-            active={destination === "calendar"}
-            onClick={() => setDestination("calendar")}
-          />
-          <ShellNavButton
-            label="Carpool"
-            active={destination === "carpool"}
-            onClick={() => setDestination("carpool")}
-          />
-          <ShellNavButton
-            label="Family"
-            active={destination === "family"}
-            onClick={() => setDestination("family")}
-          />
-        </nav>
-
-        <section
-          aria-label="Settings"
-          className="fc-more flex flex-col gap-[var(--fc-space-md)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]"
+        <div
+          aria-label="Wordmark"
+          className="flex shrink-0 items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-sm)]"
         >
-          <SettingsGroupLabel>Settings</SettingsGroupLabel>
-          <div aria-label="General" className="flex flex-col gap-[var(--fc-space-xs)]">
-            <SettingsGroupLabel>General</SettingsGroupLabel>
+          <span
+            aria-hidden
+            className="size-3 shrink-0 rounded-[var(--fc-radius-sm)] bg-[var(--fc-rail-accent)]"
+          />
+          <span
+            aria-hidden
+            className="fc-display text-[length:var(--fc-font-title-size)] leading-[var(--fc-font-title-line)] font-[number:var(--fc-font-headline-weight)] text-[var(--fc-rail-on)]"
+          >
+            App
+          </span>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-[var(--fc-space-lg)] overflow-y-auto">
+          <nav aria-label="Primary" className="flex flex-col gap-[var(--fc-space-xs)]">
+            <ShellNavButton
+              label="Calendar"
+              icon="icon.calendar"
+              active={destination === "calendar"}
+              onClick={() => setDestination("calendar")}
+            />
+            <ShellNavButton
+              label="Carpool"
+              icon="icon.carpool"
+              active={destination === "carpool"}
+              onClick={() => setDestination("carpool")}
+            />
+            <ShellNavButton
+              label="Family"
+              icon="icon.family"
+              active={destination === "family"}
+              onClick={() => setDestination("family")}
+            />
+          </nav>
+
+          <section
+            aria-label="Settings"
+            className="flex flex-col gap-[var(--fc-space-xs)]"
+          >
+            <SettingsGroupLabel>Settings</SettingsGroupLabel>
             <SettingsRow
               label="Places"
               icon="icon.places"
@@ -1774,22 +1792,25 @@ export function FamilyScreen({
                 onClick={() => setDestination("feeds")}
               />
             ) : null}
-          </div>
-          <div aria-label="Account" className="flex flex-col gap-[var(--fc-space-xs)]">
-            <SettingsGroupLabel>Account</SettingsGroupLabel>
-            <AccountSummaryRow
-              email={adult?.email ?? ""}
-              role={circle.role}
-              icon="icon.family"
-            />
-            <SettingsRow
-              label="Sign out"
-              icon="icon.signout"
-              onClick={() => void onSignOut()}
-              chevron={false}
-              danger
-            />
-          </div>
+          </section>
+        </div>
+
+        <section
+          aria-label="Account"
+          className="flex shrink-0 flex-col gap-[var(--fc-space-xs)] border-t border-[color-mix(in_srgb,var(--fc-rail-on)_12%,transparent)] pt-[var(--fc-space-md)]"
+        >
+          <SettingsGroupLabel>Account</SettingsGroupLabel>
+          <AccountSummaryRow
+            email={adult?.email ?? ""}
+            role={circle.role}
+            displayName={adult?.displayName}
+          />
+          <SettingsRow
+            label="Sign out"
+            icon="icon.signout"
+            onClick={() => void onSignOut()}
+            danger
+          />
         </section>
       </aside>
 

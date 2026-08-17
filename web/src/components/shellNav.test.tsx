@@ -11,23 +11,43 @@ import {
 import { resolveSemanticIcon, semanticIcons } from "@/components/uiIcons"
 
 describe("shellNav", () => {
-  it("marks the active destination with aria-current", () => {
+  it("marks the active destination with aria-current and a quiet rail fill", () => {
     render(
       <>
-        <ShellNavButton label="Calendar" active onClick={() => undefined} />
-        <ShellNavButton label="Carpool" active={false} onClick={() => undefined} />
+        <ShellNavButton
+          label="Calendar"
+          icon="icon.calendar"
+          active
+          onClick={() => undefined}
+        />
+        <ShellNavButton
+          label="Carpool"
+          icon="icon.carpool"
+          active={false}
+          onClick={() => undefined}
+        />
       </>,
     )
-    expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    )
-    expect(screen.getByRole("button", { name: "Carpool" })).not.toHaveAttribute(
-      "aria-current",
-    )
+    const calendar = screen.getByRole("button", { name: "Calendar" })
+    expect(calendar).toHaveAttribute("aria-current", "page")
+    expect(calendar.className).toMatch(/--fc-rail-active/)
+    expect(calendar.className).toMatch(/text-\[var\(--fc-rail-on\)\]/)
+    expect(calendar.className).not.toMatch(/--fc-rail-on-secondary/)
+    expect(calendar.className).not.toMatch(/--fc-accent/)
+    expect(calendar.className).not.toMatch(/--fc-hero-/)
+    expect(calendar.querySelector("svg")).not.toBeNull()
+    const carpool = screen.getByRole("button", { name: "Carpool" })
+    expect(carpool).not.toHaveAttribute("aria-current")
+    expect(carpool.className).toMatch(/--fc-rail-on-secondary/)
+    expect(carpool.className).not.toMatch(/text-\[var\(--fc-rail-on\)\]/)
+    const carpoolIcon = carpool.querySelector("svg")
+    expect(carpoolIcon).not.toBeNull()
+    expect(carpoolIcon?.getAttribute("stroke")).toBe("currentColor")
+    expect(carpoolIcon?.getAttribute("class") ?? "").not.toMatch(/--fc-rail-accent/)
+    expect(carpoolIcon?.getAttribute("class") ?? "").not.toMatch(/--fc-rail-on/)
   })
 
-  it("uses semantic icons and token classes on settings rows", async () => {
+  it("uses icon+label settings rows without chips or chevrons", async () => {
     const user = userEvent.setup()
     const onPlaces = vi.fn()
     const onSignOut = vi.fn()
@@ -39,35 +59,68 @@ describe("shellNav", () => {
           label="Sign out"
           icon="icon.signout"
           onClick={onSignOut}
-          chevron={false}
           danger
         />
       </section>,
     )
-    expect(screen.getByText("Settings")).toBeInTheDocument()
+    expect(screen.getByText("Settings").className).toMatch(/--fc-rail-on-secondary/)
     expect(container.querySelector(".fc-more")).not.toBeNull()
-    expect(container.querySelectorAll("svg").length).toBeGreaterThan(2)
     const places = screen.getByRole("button", { name: "Places" })
-    expect(places.className).toMatch(/--fc-/)
+    expect(places.className).toMatch(/--fc-rail-on-secondary/)
+    expect(places.className).not.toMatch(/text-\[var\(--fc-rail-on\)\]/)
+    expect(places.className).not.toMatch(/--fc-accent/)
+    expect(places.querySelectorAll("svg")).toHaveLength(1)
+    expect(places.querySelector("svg")?.getAttribute("stroke")).toBe("currentColor")
+    expect(places.querySelector("svg")?.getAttribute("class") ?? "").not.toMatch(
+      /--fc-rail-accent/,
+    )
     await user.click(places)
     expect(onPlaces).toHaveBeenCalled()
     const signOut = screen.getByRole("button", { name: "Sign out" })
-    expect(signOut.className).toMatch(/--fc-danger/)
+    expect(signOut.className).toMatch(/--fc-rail-danger/)
+    expect(signOut.className).not.toMatch(/--fc-danger[^-]/)
+    expect(signOut.querySelectorAll("svg")).toHaveLength(1)
     await user.click(signOut)
     expect(onSignOut).toHaveBeenCalled()
   })
 
-  it("renders account email and role without a button", () => {
+  it("marks an active settings row with a quiet rail fill, not an accent pill", () => {
+    render(
+      <SettingsRow
+        label="Garage"
+        icon="icon.garage"
+        active
+        onClick={() => undefined}
+      />,
+    )
+    const garage = screen.getByRole("button", { name: "Garage" })
+    expect(garage).toHaveAttribute("aria-current", "page")
+    expect(garage.className).toMatch(/--fc-rail-active/)
+    expect(garage.className).toMatch(/text-\[var\(--fc-rail-on\)\]/)
+    expect(garage.className).not.toMatch(/--fc-rail-on-secondary/)
+    expect(garage.className).not.toMatch(/--fc-accent/)
+    expect(garage.className).not.toMatch(/--fc-hero-/)
+  })
+
+  it("renders initials, truncated email, and a humanized role without a button", () => {
     render(
       <AccountSummaryRow
         email="parent@example.com"
         role="ORGANIZER"
-        icon="icon.family"
+        displayName="Alex Rivera"
       />,
     )
+    expect(screen.getByText("AR")).toBeInTheDocument()
     expect(screen.getByText("parent@example.com")).toBeInTheDocument()
-    expect(screen.getByText("ORGANIZER")).toBeInTheDocument()
+    expect(screen.getByText("Organizer")).toBeInTheDocument()
+    expect(screen.queryByText("ORGANIZER")).not.toBeInTheDocument()
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
+  })
+
+  it("falls back to the email local-part for initials when display name is missing", () => {
+    render(<AccountSummaryRow email="parent@example.com" role="CAREGIVER" />)
+    expect(screen.getByText("P")).toBeInTheDocument()
+    expect(screen.getByText("Caregiver")).toBeInTheDocument()
   })
 })
 

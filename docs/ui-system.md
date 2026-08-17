@@ -28,7 +28,7 @@ glow-heavy dark-only chrome.
 
 | Category | Roles / keys |
 |----------|----------------|
-| Color (light + dark) | `accent`, `accentOn`, `danger`, `dangerOn`, `success`, `successOn`, `surface`, `surfaceRaised`, `border`, `textPrimary`, `textSecondary`, plus Focus-card urgent `heroSurface`, `heroOn`, `heroOnSecondary`, `heroDanger`, `heroSuccess`, `heroAccent` |
+| Color (light + dark) | `accent`, `accentOn`, `danger`, `dangerOn`, `success`, `successOn`, `surface`, `surfaceRaised`, `border`, `textPrimary`, `textSecondary`, plus Focus-card urgent `heroSurface`, `heroOn`, `heroOnSecondary`, `heroDanger`, `heroSuccess`, `heroAccent`, plus web-shell always-dark `railSurface`, `railOn`, `railOnSecondary`, `railActive`, `railAccent`, `railDanger` |
 | Spacing | `xs` … `2xl` (4 → 32 px) |
 | Radius | `sm`, `md`, `lg` |
 | Typography | `caption`, `body`, `title`, `headline` (size / lineHeight / weight) |
