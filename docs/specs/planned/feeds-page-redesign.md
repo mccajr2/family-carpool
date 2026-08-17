@@ -13,21 +13,24 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-Feeds is still a utilitarian settings list. Restyle it onto the same
-card/token language as Agenda (raised cards, quieter Remove) with **zero**
-behavior change — same handlers, validation, and `CarpoolFeedActions`.
+Feeds is still a utilitarian settings list. Restyle it to the Claude Feeds
+dark mock: raised cards, **OWNED** / **NO CARPOOL** chips, kid · synced ·
+event-count metadata, Sync now / Edit quieter, Open carpool or Enable
+carpool as the primary action, Remove as text, ADD A FEED form below.
+**Zero behavior change** — same handlers, validation, and
+`CarpoolFeedActions` outcomes.
 
 ## Non-goals (sketch)
 
-- Redesigning `CarpoolFeedActions` itself
+- Changing Enable / Open / join / request carpool rules
 - Carpool destination / multi-stop screen
-- iOS / Android
-- Notification system
+- iOS / Android ([`feeds-page-redesign-mobile`](feeds-page-redesign-mobile.md))
+- Web shell rail (`web-shell-nav-rail`)
 
 ## Notes
 
+- Intake: Feeds dark screenshot (2026-08-17). Older verbatim `FeedCard.tsx`
+  intake is superseded by this shot at `/spec` time.
 - Split from [`destination-design-pass`](destination-design-pass.md).
-- Intake already has a full spec + verbatim `FeedCard.tsx` /
-  `AddFeedCard.tsx` — copy at `/spec` time; do not invent a parallel design.
-- Reuse `eventKidNames` from `coverageDisplay.ts`; do not duplicate helpers.
+- Reuse `eventKidNames` from `coverageDisplay.ts`.
 - Mobile port: [`feeds-page-redesign-mobile`](feeds-page-redesign-mobile.md).

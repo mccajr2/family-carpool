@@ -15,7 +15,8 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 Agenda shows what’s next, but adults also expect an **iOS-style month/week
 calendar grid** to scan the month, jump by day, and see density of activities
-across kids.
+across kids. This is **not** the five-day status strip
+([`agenda-week-glance`](agenda-week-glance.md)).
 
 ## Non-goals (sketch)
 
