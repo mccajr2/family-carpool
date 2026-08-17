@@ -1720,7 +1720,7 @@ describe("FamilyScreen", () => {
     expect(within(nav).getByRole("button", { name: "Feeds" })).toBeInTheDocument()
     const account = within(nav).getByLabelText("Account")
     expect(within(account).getByText("parent@example.com")).toBeInTheDocument()
-    expect(within(account).getByText("ORGANIZER")).toBeInTheDocument()
+    expect(within(account).getByText("Organizer")).toBeInTheDocument()
     expect(within(account).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
     expect(
       within(within(nav).getByLabelText("Settings")).queryByRole("button", {

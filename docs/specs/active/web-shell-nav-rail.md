@@ -153,7 +153,7 @@ crop simply cuts them off.
 - [x] Web: restyle `FamilyScreen` aside — three-zone flex (wordmark /
       scrollable nav / pinned ACCOUNT footer), docked `md+`, `min-h-svh`
       narrow, flatten Settings. Pass icons into `ShellNavButton`.
-- [ ] Web: restyle `shellNav.tsx` — `rail*` classes; primary + settings
+- [x] Web: restyle `shellNav.tsx` — `rail*` classes; primary + settings
       rows as icon+label (no chips/chevrons); `AccountSummaryRow` initials
       + humanized role. Extract a tiny initials helper next to the
       component (Fast Refresh: not in the same file as a React export if

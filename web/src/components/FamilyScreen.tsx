@@ -1777,14 +1777,12 @@ export function FamilyScreen({
               icon="icon.places"
               active={destination === "places"}
               onClick={() => setDestination("places")}
-              chevron={false}
             />
             <SettingsRow
               label="Garage"
               icon="icon.garage"
               active={destination === "garage"}
               onClick={() => setDestination("garage")}
-              chevron={false}
             />
             {isOrganizer ? (
               <SettingsRow
@@ -1792,7 +1790,6 @@ export function FamilyScreen({
                 icon="icon.feeds"
                 active={destination === "feeds"}
                 onClick={() => setDestination("feeds")}
-                chevron={false}
               />
             ) : null}
           </section>
@@ -1806,13 +1803,12 @@ export function FamilyScreen({
           <AccountSummaryRow
             email={adult?.email ?? ""}
             role={circle.role}
-            icon="icon.family"
+            displayName={adult?.displayName}
           />
           <SettingsRow
             label="Sign out"
             icon="icon.signout"
             onClick={() => void onSignOut()}
-            chevron={false}
             danger
           />
         </section>
