@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-17 (`/roadmap web-shell-page-frame`)
+Updated: 2026-08-17 (`/spec web-shell-page-frame`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -93,7 +93,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | web-shell-page-frame               | planned | 2026-08-17 · enhancement                                         | Signed-in web: flush-left ~240px rail, fluid center (no Card border), Calendar-only empty right rail                                                            |
+| 1    | web-shell-page-frame               | active  | 2026-08-17 · enhancement                                         | Signed-in web: flush-left ~240px rail, fluid center (no Card border), Calendar-only empty right rail                                                            |
 | 2    | agenda-focus-card-polish           | planned | 2026-08-17 · enhancement                                         | Web Focus card: larger isolated ring, covering under ring, overlap chip; same handlers                                                                          |
 | 3    | agenda-list-chips                  | planned | 2026-08-17 · enhancement                                         | Web kid-filter + collapsed row status as chips/avatars (no “3 STOPS” until multi-stop)                                                                          |
 | 4    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
@@ -169,6 +169,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
+| web-shell-page-frame | `web-shell-page-frame` | [active](specs/active/web-shell-page-frame.md) |
 
 
 ## Done
@@ -305,4 +306,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-17 | `/spec web-shell-nav-rail`: always-dark `rail*` tokens (not `hero*`); placeholder wordmark (no locked copy); icons; ACCOUNT footer always visible; same destinations/handlers. |
 | 2026-08-17 | `/pr web-shell-nav-rail`: always-dark web rail + pinned ACCOUNT footer; spec archived. Next up `agenda-focus-card-polish`. |
 | 2026-08-17 | `/roadmap web-shell-page-frame`: deferred rail PR layout (flush-left ~240px, fluid center, Calendar-only empty right rail) ranked Next up so Focus polish / week-glance land in the mock frame. |
+| 2026-08-17 | `/spec web-shell-page-frame`: signed-in flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only empty Context aside; signed-out/empty states keep `max-w-5xl`. |
 
