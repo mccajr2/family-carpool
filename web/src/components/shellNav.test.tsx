@@ -58,7 +58,7 @@ describe("shellNav", () => {
         />
       </section>,
     )
-    expect(screen.getByText("Settings")).toBeInTheDocument()
+    expect(screen.getByText("Settings").className).toMatch(/--fc-rail-on-secondary/)
     expect(container.querySelector(".fc-more")).not.toBeNull()
     const places = screen.getByRole("button", { name: "Places" })
     expect(places.className).toMatch(/--fc-rail-on/)
@@ -72,6 +72,22 @@ describe("shellNav", () => {
     expect(signOut.querySelectorAll("svg")).toHaveLength(1)
     await user.click(signOut)
     expect(onSignOut).toHaveBeenCalled()
+  })
+
+  it("marks an active settings row with a quiet rail fill, not an accent pill", () => {
+    render(
+      <SettingsRow
+        label="Garage"
+        icon="icon.garage"
+        active
+        onClick={() => undefined}
+      />,
+    )
+    const garage = screen.getByRole("button", { name: "Garage" })
+    expect(garage).toHaveAttribute("aria-current", "page")
+    expect(garage.className).toMatch(/--fc-rail-active/)
+    expect(garage.className).not.toMatch(/--fc-accent/)
+    expect(garage.className).not.toMatch(/--fc-hero-/)
   })
 
   it("renders initials, truncated email, and a humanized role without a button", () => {

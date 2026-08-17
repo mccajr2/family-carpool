@@ -115,29 +115,29 @@ crop simply cuts them off.
 
 ## Acceptance criteria
 
-- [ ] Signed-in web rail uses `rail*` tokens only (no `hero*`, no
+- [x] Signed-in web rail uses `rail*` tokens only (no `hero*`, no
       theme-following `surfaceRaised` / `textPrimary` / `accent` fill on
       the aside). Light and dark page themes both show the same charcoal
       rail.
-- [ ] ACCOUNT + Sign out are always visible without scrolling the rail
+- [x] ACCOUNT + Sign out are always visible without scrolling the rail
       (pinned footer, `shrink-0`). Primary + SETTINGS may scroll inside
       the rail if they overflow. `md+`: docked `h-svh`. Narrow: stacked,
       `min-h-svh`, still always-dark; no fixed overlay over Agenda.
-- [ ] Rail has a non-interactive wordmark (accent square + display-font
+- [x] Rail has a non-interactive wordmark (accent square + display-font
       label). It is not a destination control. Packages / API identity
       unchanged. Tests must **not** assert any particular wordmark string.
-- [ ] Primary rows have leading icons; active state is a quiet
+- [x] Primary rows have leading icons; active state is a quiet
       `railActive` rect (`aria-current="page"`), not a bright accent pill.
-- [ ] Settings: Places, Garage, Feeds (Organizer); no **General** label;
+- [x] Settings: Places, Garage, Feeds (Organizer); no **General** label;
       Caregiver still omits Feeds. Same `setDestination` handlers.
-- [ ] ACCOUNT: initials avatar, truncated email, humanized role, Sign out
+- [x] ACCOUNT: initials avatar, truncated email, humanized role, Sign out
       (`railDanger`, no chevron). Sign out still calls `onSignOut`.
       FamilyScreen test: Sign out is in the rail footer, **not** nested
       in the scrolling primary/SETTINGS region.
-- [ ] `node design-tokens/generate.mjs --check` passes. `rail*` pairings
+- [x] `node design-tokens/generate.mjs --check` passes. `rail*` pairings
       in `contrast.test.mjs` meet WCAG AA (4.5:1 text, 3.0:1 `railAccent`
       as icon) in **both** schemes.
-- [ ] Web tests updated: `shellNav.test.tsx` (icons, rail classes, avatar
+- [x] Web tests updated: `shellNav.test.tsx` (icons, rail classes, avatar
       initials, humanized role) and FamilyScreen sidebar test (no General
       label, wordmark present and not a button, ACCOUNT visible,
       destinations unchanged — **no** wordmark-string assertion).
@@ -158,7 +158,7 @@ crop simply cuts them off.
       + humanized role. Extract a tiny initials helper next to the
       component (Fast Refresh: not in the same file as a React export if
       that would break HMR — follow `agendaFocusRing.ts`).
-- [ ] Tests: `shellNav.test.tsx` + FamilyScreen sidebar assertions; token
+- [x] Tests: `shellNav.test.tsx` + FamilyScreen sidebar assertions; token
       contrast/declaration tests. Run `npm test` in `web/` and
       `node --test design-tokens/*.test.mjs`. Fix real regressions.
 
