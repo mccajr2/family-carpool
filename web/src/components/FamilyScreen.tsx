@@ -1734,8 +1734,8 @@ export function FamilyScreen({
     <div
       className={
         destination === "calendar"
-          ? "grid min-h-svh w-full min-w-min grid-cols-[15rem_1fr_20rem]"
-          : "grid min-h-svh w-full min-w-min grid-cols-[15rem_1fr]"
+          ? "grid min-h-svh w-full grid-cols-[15rem_1fr_20rem]"
+          : "grid min-h-svh w-full grid-cols-[15rem_1fr]"
       }
     >
       <aside
@@ -1827,7 +1827,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="flex w-full max-w-[820px] flex-col gap-4 justify-self-start px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+      <main className="flex max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
         <header
           className={
             destination === "calendar"

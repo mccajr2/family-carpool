@@ -2,7 +2,7 @@
 
 Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17 (`/pr` amend: always-on mock grid, no stacked rail)  
+Updated: 2026-08-17 (`/pr` amend: `.main` max 820 only, implicit min-content)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-page-frame`  
@@ -50,13 +50,14 @@ Calendar mock (no stacked breakpoint — the mock has none):
 | Column | Width | Role |
 |--------|--------|------|
 | Rail | `w-60` (240px) | Always docked `sticky top-0 h-svh` — **not** `w-full min-h-svh` |
-| Main track | `1fr` (`minmax(auto, 1fr)`) | Shrinks with the window; **content min** is the floor (no `min-w-0` / `minmax(0, 1fr)` / `min-w-[820px]`). Shell `min-w-min` so past that floor the page scrolls horizontally |
+| Main track | `1fr` (`minmax(auto, 1fr)`) | Shrinks with the window. Floor is default `min-width: auto` (min-content of `.main`’s contents — about half of 820 in the mock). No `min-w-0` / `minmax(0, 1fr)` / `min-w-[820px]` / shell `min-w-min` |
 | Context | `w-80` (320px) | **Calendar only**, always in this grid. Empty chrome: left border from `--fc-border`. `aria-label="Context"` |
 
-`.main` is the grid item (same as the mock): `max-width: 820px`,
-`justify-self: start`. The **track** is still `1fr` so leftover space sits
-between Agenda and the Context aside. 820px is a **max**, not a min.
-Padding: nearest existing `--fc-space-*`.
+`.main` is the grid item (same as the mock): **`max-width: 820px` only** —
+no `width: 100%`, no `min-width`, no `justify-self`. Default stretch fills
+the `1fr` track up to 820; leftover space sits between Agenda and Context.
+The floor is implicit min-content, not 820. Padding: nearest existing
+`--fc-space-*`.
 
 **Do not** switch to a column stack that paints the dark rail across the
 viewport. That is what made the page go black while dragging the window in.
@@ -76,9 +77,9 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
       does **not**.
 - [x] Signed-in rail is always `w-60` + `sticky top-0 h-svh` (not `w-full`,
       not inside `max-w-5xl`). `rail*` chrome unchanged.
-- [x] Destination column is uncarded. `.main` `max-w-[820px]` inside a `1fr`
-      track (`justify-self: start`); no `min-w-[820px]`; no `min-w-0` on the
-      grid item. Destinations and handlers unchanged.
+- [x] Destination column is uncarded. `.main` `max-w-[820px]` only (no
+      `w-full`, no `min-w-0`, no `min-w-[820px]`) inside a `1fr` track.
+      Destinations and handlers unchanged.
 - [x] Calendar shows an empty Context aside (`w-80`, left border) in the
       grid at all widths. No week-glance copy. Absent on other destinations.
       Caregiver Calendar still gets it.
@@ -101,9 +102,10 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 ## Open questions
 
 None. Mock `.shell` is `grid-template-columns: 240px 1fr 320px`; `.main` is
-`max-width: 820px` only. The middle floor is grid `1fr` = `minmax(auto, 1fr)`
-(content min), not 820px. Empty Context chrome vs filling it is the split
-with `agenda-week-glance`. Destination header type, Calendar Today/date copy,
-ink/slate colors, and header↔content gap are deferred to
+`max-width: 820px` only (no min-width, no width). The floor is default
+`min-width: auto` = min-content of the panel’s contents. Empty Context
+chrome vs filling it is the split with `agenda-week-glance`. Destination
+header type, Calendar Today/date copy, ink/slate colors, and header↔content
+gap are deferred to
 [`web-shell-page-header`](../planned/web-shell-page-header.md) — not this
 slice.
