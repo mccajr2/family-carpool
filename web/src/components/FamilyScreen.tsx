@@ -1731,10 +1731,10 @@ export function FamilyScreen({
               : "Feeds"
 
   return (
-    <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
+    <div className="flex w-full flex-col md:flex-row md:items-stretch">
       <aside
         aria-label="App navigation"
-        className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-56"
+        className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-60"
       >
         <div
           aria-label="Wordmark"
@@ -1821,12 +1821,13 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <Card className="min-w-0 flex-1">
-        <CardHeader
+      <main className="min-w-0 flex-1">
+        <div className="flex max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+        <header
           className={
             destination === "calendar"
-              ? "flex flex-row items-start justify-between gap-3 space-y-0"
-              : undefined
+              ? "flex flex-row items-start justify-between gap-3"
+              : "flex flex-col gap-1.5"
           }
         >
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -1863,8 +1864,8 @@ export function FamilyScreen({
               Add
             </Button>
           ) : null}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        </header>
+        <div className="flex flex-col gap-4">
           {destination === "family" ? (
             <>
 {isOrganizer && inviteCode ? (
@@ -2893,8 +2894,15 @@ export function FamilyScreen({
               {status.message}
             </p>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+        </div>
+      </main>
+      {destination === "calendar" ? (
+        <aside
+          aria-label="Context"
+          className="hidden shrink-0 border-l border-[var(--fc-border)] p-[var(--fc-space-xl)] md:flex md:w-80 md:flex-col"
+        />
+      ) : null}
     </div>
   )
 }

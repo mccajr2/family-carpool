@@ -1375,6 +1375,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
     const nav = screen.getByLabelText("App navigation")
+    expect(screen.getByLabelText("Context")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Garage" })).toBeInTheDocument()
@@ -1388,6 +1389,7 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
     expect(
       await screen.findByText("Paste an invite code to join a team carpool."),
     ).toBeInTheDocument()
@@ -1715,6 +1717,8 @@ describe("FamilyScreen", () => {
     expect(nav.className).toMatch(/--fc-rail-surface/)
     expect(nav.className).toMatch(/min-h-svh/)
     expect(nav.className).toMatch(/md:h-svh/)
+    expect(nav.className).toMatch(/md:w-60/)
+    expect(nav.className).not.toMatch(/md:w-56/)
     expect(nav.className).toMatch(/md:sticky/)
     expect(nav.className).not.toMatch(/fixed/)
     expect(nav.className).not.toMatch(/--fc-hero-/)
@@ -1775,6 +1779,68 @@ describe("FamilyScreen", () => {
       expect(logout).toHaveBeenCalled()
       expect(onSignedOut).toHaveBeenCalled()
     })
+  })
+
+  it("uses an uncarded page frame with a Calendar-only Context aside", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const heading = await screen.findByRole("heading", { name: "Calendar" })
+    const main = heading.closest("main")
+    expect(main).not.toBeNull()
+    expect(main?.className).toMatch(/flex-1/)
+    expect(main?.className).not.toMatch(/shadow-sm/)
+    expect(main?.className).not.toMatch(/border-border/)
+    expect(main?.firstElementChild?.className).toMatch(/max-w-\[820px\]/)
+
+    const context = screen.getByLabelText("Context")
+    expect(context.tagName).toBe("ASIDE")
+    expect(context.className).toMatch(/hidden/)
+    expect(context.className).toMatch(/md:w-80/)
+    expect(context.className).toMatch(/md:flex/)
+    expect(context.className).toMatch(/--fc-border/)
+    expect(context).toBeEmptyDOMElement()
+
+    for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
+      await goTo(user, destination)
+      expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
+    }
+
+    await goTo(user, "Calendar")
+    expect(screen.getByLabelText("Context")).toBeInTheDocument()
   })
 
   it("offers Retry instead of Create family when the circle load fails", async () => {

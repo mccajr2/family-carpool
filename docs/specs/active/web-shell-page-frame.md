@@ -95,7 +95,7 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 
 - [x] Web: `App.tsx` drops `max-w-5xl`; `AuthScreen` signed-out (and
       FamilyScreen empty/loading/error Cards) keep the centered column.
-- [ ] Web: circle-ready `FamilyScreen` — `md` grid, rail `md:w-60`, uncarded
+- [x] Web: circle-ready `FamilyScreen` — `md` grid, rail `md:w-60`, uncarded
       main with `max-w-[820px]`, Calendar-only Context aside (`md:w-80`).
 - [ ] Tests: AuthScreen/App layout; FamilyScreen frame + destination
       presence/absence of Context; no wordmark-string or week-glance-string
@@ -105,4 +105,7 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 
 None. Mock main `max-width: 820px` inside `1fr` is locked (content left,
 context docked right). Empty Context chrome vs filling it is the split with
-`agenda-week-glance`.
+`agenda-week-glance`. Destination header type, Calendar Today/date copy,
+ink/slate colors, and header↔content gap are deferred to
+[`web-shell-page-header`](../planned/web-shell-page-header.md) — not this
+slice.
