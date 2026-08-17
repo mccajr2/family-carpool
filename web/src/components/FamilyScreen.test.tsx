@@ -170,6 +170,7 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create family" }).closest("[class*='max-w-5xl']")).not.toBeNull()
     expect(screen.getByRole("button", { name: "Have an invite code?" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Create family" }))
@@ -182,6 +183,7 @@ describe("FamilyScreen", () => {
     expect(calendarHeading).toHaveClass("fc-display")
     await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
+    expect(screen.getByLabelText("App navigation").closest("[class*='max-w-5xl']")).toBeNull()
     expect(await screen.findByText(/Invite code:/)).toHaveTextContent("AB12CD34")
     expect(createCircle).toHaveBeenCalledWith("tok", {
       adultDisplayName: "Alex",
@@ -249,6 +251,7 @@ describe("FamilyScreen", () => {
     )
 
     await user.click(await screen.findByRole("button", { name: "Have an invite code?" }))
+    expect(screen.getByRole("heading", { name: "Join a family" }).closest("[class*='max-w-5xl']")).not.toBeNull()
     await user.type(screen.getByLabelText("Invite code"), "AB12CD34")
     await user.type(screen.getByLabelText("Your name"), "Jordan")
     await user.click(screen.getByRole("button", { name: "Join family" }))
@@ -1373,6 +1376,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
     const nav = screen.getByLabelText("App navigation")
+    expect(screen.getByLabelText("Context")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Garage" })).toBeInTheDocument()
@@ -1386,6 +1390,7 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
+    expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
     expect(
       await screen.findByText("Paste an invite code to join a team carpool."),
     ).toBeInTheDocument()
@@ -1711,9 +1716,11 @@ describe("FamilyScreen", () => {
 
     const nav = await screen.findByLabelText("App navigation")
     expect(nav.className).toMatch(/--fc-rail-surface/)
-    expect(nav.className).toMatch(/min-h-svh/)
-    expect(nav.className).toMatch(/md:h-svh/)
-    expect(nav.className).toMatch(/md:sticky/)
+    expect(nav.className).toMatch(/h-svh/)
+    expect(nav.className).toMatch(/w-60/)
+    expect(nav.className).not.toMatch(/w-full/)
+    expect(nav.className).not.toMatch(/md:w-56/)
+    expect(nav.className).toMatch(/sticky/)
     expect(nav.className).not.toMatch(/fixed/)
     expect(nav.className).not.toMatch(/--fc-hero-/)
     expect(nav.className).not.toMatch(/--fc-surface-raised/)
@@ -1775,6 +1782,95 @@ describe("FamilyScreen", () => {
     })
   })
 
+  it("uses an uncarded page frame with a Calendar-only Context aside", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const heading = await screen.findByRole("heading", { name: "Calendar" })
+    const main = heading.closest("main")
+    expect(main).not.toBeNull()
+    // Grid item is a block with max-width 820 only. These bans are the
+    // reverted wrong turns: nested App <main>, flex-on-main, w-full,
+    // min-w-0 / min-w-[820px], md:flex-col rail stack.
+    expect(main?.className).toMatch(/max-w-\[820px\]/)
+    expect(main?.className).not.toMatch(/w-full/)
+    expect(main?.className).not.toMatch(/min-w-/)
+    expect(main?.className).not.toMatch(/\bflex\b/)
+    expect(main?.className).not.toMatch(/flex-1/)
+    expect(main?.className).not.toMatch(/shadow-sm/)
+    expect(main?.className).not.toMatch(/border-border/)
+    expect(main?.parentElement?.tagName).not.toBe("MAIN")
+    const shell = main?.parentElement
+    expect(shell?.className).toMatch(/(?:^|\s)grid(?:\s|$)/)
+    expect(shell?.className).not.toMatch(/w-full/)
+    expect(shell?.className).not.toMatch(/min-w-min/)
+    expect(shell?.className).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
+    expect(shell?.className).not.toMatch(/flex-col/)
+
+    const context = screen.getByLabelText("Context")
+    expect(context.tagName).toBe("ASIDE")
+    expect(context.className).not.toMatch(/hidden/)
+    expect(context.className).toMatch(/w-80/)
+    expect(context.className).toMatch(/--fc-border/)
+    expect(context).toBeEmptyDOMElement()
+    expect(screen.queryByText(/week at a glance/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/open in maps/i)).not.toBeInTheDocument()
+
+    for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
+      await goTo(user, destination)
+      expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
+      const destHeading = screen.getByRole("heading", {
+        name: destination === "Family" ? "House" : destination,
+      })
+      expect(destHeading.closest("main")?.parentElement?.className).toMatch(
+        /grid-cols-\[15rem_1fr\]/,
+      )
+      expect(destHeading.closest("main")?.parentElement?.className).not.toMatch(
+        /1fr_20rem/,
+      )
+    }
+
+    await goTo(user, "Calendar")
+    expect(screen.getByLabelText("Context")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Calendar" }).closest("main")?.parentElement
+        ?.className,
+    ).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
+  })
+
   it("offers Retry instead of Create family when the circle load fails", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
@@ -1807,6 +1903,7 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch")
+    expect(screen.getByRole("alert").closest("[class*='max-w-5xl']")).not.toBeNull()
     expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Have an invite code?" })).not.toBeInTheDocument()
 
@@ -1814,6 +1911,32 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
     expect(getCircle).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps the circle-loading Card in the centered column", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockReturnValue(new Promise(() => {})),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const heading = await screen.findByRole("heading", { name: "Your family" })
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
+    })
+    expect(heading.closest("[class*='max-w-5xl']")).not.toBeNull()
+    expect(screen.queryByLabelText("App navigation")).not.toBeInTheDocument()
   })
 
   it("signs out locally when the backend cannot be reached", async () => {

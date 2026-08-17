@@ -2,9 +2,9 @@ import { AuthScreen } from "@/components/AuthScreen"
 
 function App() {
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col justify-center px-4 py-10">
+    <div className="min-h-svh w-full">
       <AuthScreen />
-    </main>
+    </div>
   )
 }
 

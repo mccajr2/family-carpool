@@ -8,10 +8,15 @@ import { fileURLToPath } from "node:url"
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const doc = readFileSync(join(root, "docs/ui-system.md"), "utf8")
 
-test("ui-system.md flags provisional palette", () => {
-  assert.match(doc, /provisional/i)
-  assert.match(doc, /expected to\s+churn/i)
-  assert.match(doc, /Do not\*\*|Do not\b|must not treat first-pass/i)
+test("ui-system.md documents adopted palette and mock-as-intake", () => {
+  assert.match(doc, /meta\.provisional/)
+  assert.match(doc, /\bfalse\b/)
+  assert.match(doc, /lagoon teal/)
+  assert.match(doc, /not `hero\*`/)
+  assert.match(doc, /intake for layout/)
+  assert.match(doc, /specs\/archive\/cross-platform-ui-system/)
+  assert.doesNotMatch(doc, /specs\/active\/cross-platform-ui-system/)
+  assert.doesNotMatch(doc, /expected to\s+churn/)
 })
 
 test("ui-system.md lists required component parity primitives", () => {

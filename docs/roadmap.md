@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-17 (`/roadmap web-shell-page-frame`)
+Updated: 2026-08-17 (`/pr web-shell-page-frame`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -80,7 +80,7 @@ the recent Agenda/Feeds design push.
 | UI token adoption        | When a destination adopts `cross-platform-ui-system` tokens, **re-verify** light/dark screenshots + WCAG AA for **that** surface — More’s pass does not certify elsewhere. See `[ui-system-destination-adoption](specs/planned/ui-system-destination-adoption.md)`                                                                                                                                                                                                                                                                                                                |
 | Interaction UX           | Distinct custom UI guided by UX-law tenets (not a rideshare clone): **Aesthetic-Usability** (polish reads as usable), **Doherty** (focused busy feedback feels instant), **Fitts** (primary actions large/reachable), **Hick** (few choices per step; sole-option defaults), **Proximity / Similarity** (group related controls; consistent patterns). Calendar/Agenda is the living reference: `[calendar-ux-flow](specs/archive/calendar-ux-flow.md)`. Inspired by [Laws of UX that Uber follows](https://medium.com/design-bootcamp/laws-of-ux-that-uber-follows-fa7c6619748b) |
 | Visual language          | **One visual priority per screen**; everything else calmer. Every color pairing **WCAG AA** before use (4.5:1 text, 3.0:1 icons) — don't eyeball. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Web typography: Space Grotesk (display) + Plus Jakarta Sans (body) — `[typography-web](specs/archive/typography-web.md)`. Mobile stays `system-ui` until `[typography-font-family](specs/planned/typography-font-family.md)` (asset bundling). Token roles in `design-tokens/tokens.json` are the contract; `hero*` color roles are Focus-card urgent spotlight only. **Filters and states prefer chips** over body-copy labels on restyled surfaces. |
-| Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. iOS/Android keep bottom tabs. Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Follow-up:** flush-left ~240px rail, fluid center (no destination `Card` border), Calendar-only empty right rail — `[web-shell-page-frame](specs/planned/web-shell-page-frame.md)` |
+| Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. iOS/Android keep bottom tabs. Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Page frame:** flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only empty Context aside — `[web-shell-page-frame](specs/archive/web-shell-page-frame.md)`. **Follow-up:** destination header type/copy (token scale, not mock 34px) — `[web-shell-page-header](specs/planned/web-shell-page-header.md)` |
 | Agenda week strip        | **Five-day coverage/driver status** rail (`agenda-week-glance`) — not the month/week grid (`family-calendar-grid`). The mock’s numbered-stop **carpool card** + Open in Maps stays parked `[carpool-multi-stop](specs/planned/carpool-multi-stop.md)`. |
 
 
@@ -93,7 +93,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | web-shell-page-frame               | planned | 2026-08-17 · enhancement                                         | Signed-in web: flush-left ~240px rail, fluid center (no Card border), Calendar-only empty right rail                                                            |
+| 1    | web-shell-page-header              | planned | 2026-08-17 · enhancement                                         | Web destination header: token type + ink/slate; Calendar Today/date subtitle; no new 34px/36/44 roles                                                           |
 | 2    | agenda-focus-card-polish           | planned | 2026-08-17 · enhancement                                         | Web Focus card: larger isolated ring, covering under ring, overlap chip; same handlers                                                                          |
 | 3    | agenda-list-chips                  | planned | 2026-08-17 · enhancement                                         | Web kid-filter + collapsed row status as chips/avatars (no “3 STOPS” until multi-stop)                                                                          |
 | 4    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
@@ -166,9 +166,7 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-
-| Id | Branch | Spec |
-| -- | ------ | ---- |
+None.
 
 
 ## Done
@@ -176,6 +174,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| web-shell-page-frame       | 2026-08-17 | [archive](specs/archive/web-shell-page-frame.md)       |
 | web-shell-nav-rail         | 2026-08-17 | [archive](specs/archive/web-shell-nav-rail.md)         |
 | agenda-focus-card-bugs     | 2026-08-17 | [archive](specs/archive/agenda-focus-card-bugs.md)     |
 | typography-web             | 2026-08-16 | [archive](specs/archive/typography-web.md)             |
@@ -305,4 +304,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-17 | `/spec web-shell-nav-rail`: always-dark `rail*` tokens (not `hero*`); placeholder wordmark (no locked copy); icons; ACCOUNT footer always visible; same destinations/handlers. |
 | 2026-08-17 | `/pr web-shell-nav-rail`: always-dark web rail + pinned ACCOUNT footer; spec archived. Next up `agenda-focus-card-polish`. |
 | 2026-08-17 | `/roadmap web-shell-page-frame`: deferred rail PR layout (flush-left ~240px, fluid center, Calendar-only empty right rail) ranked Next up so Focus polish / week-glance land in the mock frame. |
+| 2026-08-17 | `/spec web-shell-page-frame`: signed-in flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only empty Context aside; signed-out/empty states keep `max-w-5xl`. |
+| 2026-08-17 | `/roadmap web-shell-page-header`: deferred from page-frame review (header type/copy/color/gap; no new 34px/36/44 roles). Rank 2 after page-frame, before Focus polish. |
+| 2026-08-17 | `/pr web-shell-page-frame`: flush-left `md:w-60` rail, uncarded main, Calendar-only empty Context aside; spec archived. Next up `web-shell-page-header`. |
 

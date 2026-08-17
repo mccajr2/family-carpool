@@ -27,6 +27,7 @@ import {
 } from "@/api/types"
 import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
+import { CenteredColumn } from "@/components/CenteredColumn"
 import { GaragePanel } from "@/components/GaragePanel"
 import {
   AccountSummaryRow,
@@ -1514,17 +1515,20 @@ export function FamilyScreen({
 
   if (!circle && status.kind === "loading") {
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>Your family</CardTitle>
           {/* Quiet wait for getCircle — never a spinner-only page. */}
         </CardHeader>
       </Card>
+      </CenteredColumn>
     )
   }
 
   if (!circle && loadFailed) {
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>Your family</CardTitle>
@@ -1551,12 +1555,14 @@ export function FamilyScreen({
           </Button>
         </CardContent>
       </Card>
+      </CenteredColumn>
     )
   }
 
   if (!circle) {
     const needsName = !adult?.displayName
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>
@@ -1688,6 +1694,7 @@ export function FamilyScreen({
           </Button>
         </CardContent>
       </Card>
+      </CenteredColumn>
     )
   }
 
@@ -1723,11 +1730,19 @@ export function FamilyScreen({
               ? "Garage"
               : "Feeds"
 
+  // Mock frame: grid 240 | 1fr | 320; this <main> is a block with max-width
+  // 820 only. Flex / w-full / min-w-* here, or nowrap in the column, freeze 1fr.
   return (
-    <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
+    <div
+      className={
+        destination === "calendar"
+          ? "grid min-h-svh grid-cols-[15rem_1fr_20rem]"
+          : "grid min-h-svh grid-cols-[15rem_1fr]"
+      }
+    >
       <aside
         aria-label="App navigation"
-        className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-56"
+        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)]"
       >
         <div
           aria-label="Wordmark"
@@ -1814,12 +1829,12 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <Card className="min-w-0 flex-1">
-        <CardHeader
+      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+        <header
           className={
             destination === "calendar"
-              ? "flex flex-row items-start justify-between gap-3 space-y-0"
-              : undefined
+              ? "flex flex-row items-start justify-between gap-3"
+              : "flex flex-col gap-1.5"
           }
         >
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -1856,11 +1871,10 @@ export function FamilyScreen({
               Add
             </Button>
           ) : null}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {destination === "family" ? (
-            <>
-{isOrganizer && inviteCode ? (
+        </header>
+        {destination === "family" ? (
+          <>
+            {isOrganizer && inviteCode ? (
           <section aria-label="Invite code" className="flex flex-col gap-2">
             <p className="text-sm">
               Invite code: <span className="font-mono">{inviteCode}</span>
@@ -2191,12 +2205,12 @@ export function FamilyScreen({
           </Button>
         </div>
 
-                    </>
+          </>
           ) : null}
 
           {destination === "calendar" ? (
             <>
-<section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
+              <section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
           <p className="text-sm font-medium">Agenda</p>
           {calendarRevalidating ? (
             <p
@@ -2656,7 +2670,7 @@ export function FamilyScreen({
 
           {destination === "feeds" ? (
             <>
-{isOrganizer ? (
+              {isOrganizer ? (
           <section aria-label="Activity feeds" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium">Activity feeds</p>
@@ -2886,8 +2900,13 @@ export function FamilyScreen({
               {status.message}
             </p>
           ) : null}
-        </CardContent>
-      </Card>
+      </main>
+      {destination === "calendar" ? (
+        <aside
+          aria-label="Context"
+          className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] p-[var(--fc-space-xl)]"
+        />
+      ) : null}
     </div>
   )
 }

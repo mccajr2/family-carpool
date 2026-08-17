@@ -4,6 +4,7 @@ import { AuthClient } from "@/api/authClient"
 import { AuthSessionHolder, authSession } from "@/api/authSession"
 import { FamilyClient } from "@/api/familyClient"
 import type { Adult } from "@/api/types"
+import { CenteredColumn } from "@/components/CenteredColumn"
 import { FamilyScreen } from "@/components/FamilyScreen"
 import { Button } from "@/components/ui/button"
 import {
@@ -94,6 +95,7 @@ export function AuthScreen({
   }
 
   return (
+    <CenteredColumn>
     <Card>
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
@@ -159,5 +161,6 @@ export function AuthScreen({
         ) : null}
       </CardContent>
     </Card>
+    </CenteredColumn>
   )
 }
