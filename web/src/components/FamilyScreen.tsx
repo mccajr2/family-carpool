@@ -44,14 +44,11 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
+import { AgendaRow } from "@/components/AgendaRow"
+import { groupAgendaByDay } from "@/components/agendaDayGroups"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
 import {
   calendarItemKey,
-  calendarSourceLabel,
-  coverageAdultLabel,
-  coverageKidNames,
-  coverageStatusLabel,
-  eventKidNames,
   memberLabel,
 } from "@/components/coverageDisplay"
 import {
@@ -60,23 +57,17 @@ import {
   coerceEndsAfterStart,
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
-  formatEventWhen,
   mergeCalendarItems,
   nearTermLeaveByWindow,
   remainderAfterNearTermLeaveByWindow,
   validateManualEventTimes,
 } from "@/components/eventTimes"
-import { agendaLeaveByLine } from "@/components/leaveByDisplay"
-import {
-  conflictDisplayLines,
-  coverageDoubleBookMessage,
-} from "@/components/conflictDisplay"
+import { coverageDoubleBookMessage } from "@/components/conflictDisplay"
 import {
   isAgendaItemOutOfPlay,
   kidHasActiveCoverage,
   rsvpCoverageReleaseMessage,
   rsvpStatusForKid,
-  rsvpStatusLabel,
 } from "@/components/rsvpDisplay"
 
 type ShellDestination = "calendar" | "carpool" | "family" | "places" | "garage" | "feeds"
@@ -2280,380 +2271,80 @@ export function FamilyScreen({
                 />
               ) : null}
               {restItems.length > 0 ? (
-            <ul
+            <div
               data-testid="agenda-list"
               className="flex flex-col gap-[var(--fc-space-2xl)]"
             >
-              {restItems.map((item) => {
-                const sourceLabel = calendarSourceLabel(item.source, item.feedName)
-                const isManual = item.source === "MANUAL"
-                const leaveByLine = agendaLeaveByLine(item)
-                const needsOrigin =
-                  item.leaveByStatus === "UNAVAILABLE" &&
-                  item.leaveByReason === "NO_ORIGIN"
-                const itemKey = calendarItemKey(item)
-                const outOfPlay = isAgendaItemOutOfPlay(item)
-                const activeCoverages = item.coverages.filter(
-                  (coverage) =>
-                    coverage.status === "PENDING" || coverage.status === "CONFIRMED",
-                )
-                const pendingForSelf = activeCoverages.find(
-                  (coverage) =>
-                    coverage.status === "PENDING" && coverage.coveringAdultId === adult?.id,
-                )
-                const assignDraft = coverageAssignState(item, itemKey)
-                const locatedForItem = circle.places.filter(isPlaceLocated)
-                const uncoveredKidNames = eventKidNames(
-                  item.uncoveredKidIds,
-                  circle.kids,
-                )
-                const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-                const coverageActionError = coverageActionErrors[itemKey]
-                return (
-                  <li
-                    key={`${item.source}-${item.id}`}
-                    data-testid={`agenda-item-${item.source}-${item.id}`}
-                    data-out-of-play={outOfPlay ? "true" : "false"}
-                    className={`flex flex-col gap-3 border-b border-[var(--fc-border)] pb-[var(--fc-space-xl)] last:border-b-0 last:pb-0${
-                      outOfPlay ? " opacity-70" : ""
-                    }`}
-                  >
-                    {/* Primary — title / when / location (+ conflict status when in play) */}
-                    <div
-                      data-testid="agenda-band-primary"
-                      className="flex flex-col gap-1"
-                    >
-                      <span
-                        className={`text-sm font-medium ${
-                          outOfPlay ? "text-muted-foreground" : "text-foreground"
-                        }`}
-                      >
-                        {item.title}
+              {groupAgendaByDay(restItems).map((group) => (
+                <section
+                  key={group.label}
+                  aria-label={
+                    group.dateLabel
+                      ? `${group.label}, ${group.dateLabel}`
+                      : group.label
+                  }
+                  className="flex flex-col gap-[var(--fc-space-lg)]"
+                >
+                  <header className="flex items-baseline gap-[var(--fc-space-sm)]">
+                    <h3 className="text-sm font-semibold text-[var(--fc-text-primary)]">
+                      {group.label}
+                    </h3>
+                    {group.dateLabel ? (
+                      <span className="text-xs text-[var(--fc-text-secondary)]">
+                        {group.dateLabel}
                       </span>
-                      <span className="text-sm text-muted-foreground">
-                        {formatEventWhen(item.startsAt, item.endsAt)}
-                      </span>
-                      {item.location ? (
-                        <span className="text-xs text-muted-foreground">
-                          {item.location}
-                        </span>
-                      ) : null}
-                      {!outOfPlay && conflictLines.length > 0 ? (
-                        <ul
-                          data-testid={`agenda-conflicts-${item.source}-${item.id}`}
-                          className="mt-1 flex flex-col gap-0.5"
-                          aria-label="Schedule conflicts"
-                        >
-                          {conflictLines.map((line) => (
-                            <li
-                              key={line}
-                              className="text-xs font-medium text-[#B45309]"
-                            >
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-
-                    {/* Travel / origin — leave-by + Leave from (+ Open Places) */}
-                    {!outOfPlay ? (
-                      <div
-                        data-testid="agenda-band-travel"
-                        className="flex flex-col gap-2"
-                      >
-                        <span
-                          className="text-xs text-muted-foreground"
-                          data-testid={`leave-by-${item.source}-${item.id}`}
-                        >
-                          {leaveByLine}
-                        </span>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <div className="flex-1">
-                            <FieldRow label="Leave from">
-                              {locatedForItem.length <= 1 ? (
-                                <span
-                                  className="flex h-9 max-w-xs items-center justify-end px-1 text-sm text-foreground"
-                                  data-testid={`leave-from-label-${item.source}-${item.id}`}
-                                >
-                                  {item.leaveFromPlaceName ??
-                                    locatedForItem[0]?.name ??
-                                    (circle.places.length === 0
-                                      ? "No places yet"
-                                      : "No located places yet")}
-                                </span>
-                              ) : (
-                                <select
-                                  aria-label={`Leave from for ${item.title}`}
-                                  className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                                  value={item.leaveFromPlaceId ?? ""}
-                                  onChange={(event) => {
-                                    const placeId = event.target.value
-                                    if (placeId) {
-                                      void onSetCalendarLeaveFrom(item, placeId)
-                                    }
-                                  }}
-                                  disabled={
-                                    status.kind === "loading" || circle.places.length === 0
-                                  }
-                                >
-                                  {!item.leaveFromPlaceId ? (
-                                    <option value="">Choose a located place</option>
-                                  ) : null}
-                                  {circle.places.map((place) => (
-                                    <option
-                                      key={place.id}
-                                      value={place.id}
-                                      disabled={!isPlaceLocated(place)}
-                                    >
-                                      {isPlaceLocated(place)
-                                        ? place.name
-                                        : `${place.name} (not located)`}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            </FieldRow>
-                          </div>
-                          {needsOrigin ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setDestination("places")}
-                            >
-                              Open Places
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
                     ) : null}
-
-                    {/* People / source — RSVP field rows */}
-                    <div
-                      data-testid="agenda-band-people"
-                      className="flex flex-col gap-2"
-                    >
-                      <span className="text-xs text-muted-foreground">
-                        {sourceLabel}
-                      </span>
-                      {item.kidIds.map((kidId) => {
-                        const kid = circle.kids.find((entry) => entry.id === kidId)
-                        const kidName = kid?.displayName?.trim() || "Kid"
-                        const currentStatus = rsvpStatusForKid(item, kidId)
-                        return (
-                          <FieldRow key={kidId} label={kidName}>
-                            <select
-                              aria-label={`RSVP for ${kidName} on ${item.title}`}
-                              data-testid={`rsvp-${item.source}-${item.id}-${kidId}`}
-                              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                              value={currentStatus}
-                              onChange={(event) => {
-                                void onSetCalendarRsvp(
-                                  item,
-                                  kidId,
-                                  event.target.value as RsvpStatus,
-                                )
-                              }}
-                              disabled={status.kind === "loading"}
-                            >
-                              <option value="NO_RESPONSE">
-                                {rsvpStatusLabel("NO_RESPONSE")}
-                              </option>
-                              <option value="YES">{rsvpStatusLabel("YES")}</option>
-                              <option value="NO">{rsvpStatusLabel("NO")}</option>
-                            </select>
-                          </FieldRow>
-                        )
-                      })}
-                    </div>
-
-                    {/* Coverage / actions — hidden when out of play */}
-                    {!outOfPlay ? (
-                      <div
-                        data-testid="agenda-band-coverage"
-                        className="flex flex-col gap-2"
-                      >
-                        {activeCoverages.length > 0 ? (
-                          <ul className="flex flex-col gap-2">
-                            {activeCoverages.map((coverage) => (
-                              <li
-                                key={coverage.id}
-                                className="flex flex-col gap-2 sm:flex-row sm:items-center"
-                              >
-                                <span className="flex-1 text-xs text-muted-foreground">
-                                  {coverageAdultLabel(coverage, circle.members)} ·{" "}
-                                  {coverageKidNames(coverage, circle.kids)} ·{" "}
-                                  {coverageStatusLabel(coverage.status)}
-                                </span>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => void onRemoveCoverage(coverage.id)}
-                                  disabled={status.kind === "loading"}
-                                >
-                                  Remove coverage
-                                </Button>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        {item.uncoveredKidIds.length > 0 ? (
-                          <p className="text-xs text-destructive">
-                            Needs coverage
-                            {item.uncoveredKidIds.length > 0 && uncoveredKidNames
-                              ? `: ${uncoveredKidNames}`
-                              : ""}
-                          </p>
-                        ) : null}
-                        {pendingForSelf ? (
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <Button
-                              type="button"
-                              size="sm"
-                              data-testid="agenda-cta-primary"
-                              onClick={() =>
-                                void onConfirmCoverage(item, pendingForSelf.id)
-                              }
-                              disabled={status.kind === "loading"}
-                            >
-                              Confirm coverage
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void onDeclineCoverage(pendingForSelf.id)}
-                              disabled={status.kind === "loading"}
-                            >
-                              Decline coverage
-                            </Button>
-                          </div>
-                        ) : null}
-                        {item.uncoveredKidIds.length > 0 &&
-                        circle.members.length > 0 ? (
-                          <div className="flex flex-col gap-2">
-                            {assignDraft.soleAdult ? null : (
-                              <FieldRow label="Covering adult">
-                                <select
-                                  aria-label={`Covering adult for ${item.title}`}
-                                  className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                                  value={assignDraft.adultId}
-                                  onChange={(event) =>
-                                    updateAssignCoverageDraft(itemKey, {
-                                      adultId: event.target.value,
-                                    })
-                                  }
-                                  disabled={status.kind === "loading"}
-                                >
-                                  {circle.members.map((member) => (
-                                    <option key={member.adultId} value={member.adultId}>
-                                      {memberLabel(member)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </FieldRow>
-                            )}
-                            {assignDraft.soleKid ? null : (
-                              <fieldset className="flex flex-col gap-1">
-                                <legend className="text-xs text-muted-foreground">
-                                  Uncovered kids
-                                </legend>
-                                {item.uncoveredKidIds.map((kidId) => {
-                                  const kid = circle.kids.find((entry) => entry.id === kidId)
-                                  if (!kid) {
-                                    return null
-                                  }
-                                  return (
-                                    <label
-                                      key={kidId}
-                                      className="flex items-center gap-2 text-sm"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        aria-label={`Cover ${kid.displayName} for ${item.title}`}
-                                        checked={assignDraft.kidIds.includes(kidId)}
-                                        onChange={() =>
-                                          updateAssignCoverageDraft(itemKey, {
-                                            kidIds: assignDraft.kidIds.includes(kidId)
-                                              ? assignDraft.kidIds.filter((id) => id !== kidId)
-                                              : [...assignDraft.kidIds, kidId],
-                                          })
-                                        }
-                                        disabled={status.kind === "loading"}
-                                      />
-                                      {kid.displayName}
-                                    </label>
-                                  )
-                                })}
-                              </fieldset>
-                            )}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={pendingForSelf ? "outline" : "default"}
-                              data-testid={
-                                pendingForSelf ? undefined : "agenda-cta-primary"
-                              }
-                              onClick={() =>
-                                void onAssignCoverage(
-                                  item,
-                                  assignDraft.adultId,
-                                  assignDraft.kidIds,
-                                )
-                              }
-                              disabled={
-                                status.kind === "loading" ||
-                                !assignDraft.adultId ||
-                                assignDraft.kidIds.length === 0
-                              }
-                            >
-                              Assign coverage
-                            </Button>
-                          </div>
-                        ) : null}
-                        {coverageActionError ? (
-                          <p
-                            role="alert"
-                            data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
-                            className="text-sm text-destructive"
-                          >
-                            {coverageActionError}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {isManual ? (
-                      <div
-                        data-testid="agenda-band-manual-actions"
-                        className="flex flex-col gap-2 sm:flex-row"
-                      >
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditEvent(item)}
-                          disabled={status.kind === "loading"}
+                  </header>
+                  <ul className="flex flex-col gap-[var(--fc-space-md)]">
+                    {group.items.map((item) => {
+                      const itemKey = calendarItemKey(item)
+                      return (
+                        <li
+                          key={`${item.source}-${item.id}`}
+                          data-testid={`agenda-item-${item.source}-${item.id}`}
+                          data-out-of-play={
+                            isAgendaItemOutOfPlay(item) ? "true" : "false"
+                          }
                         >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onRemoveEvent(item.id)}
-                          disabled={status.kind === "loading"}
-                        >
-                          Remove event
-                        </Button>
-                      </div>
-                    ) : null}
-                  </li>
-                )
-              })}
-            </ul>
+                          <AgendaRow
+                            item={item}
+                            circle={circle}
+                            currentAdultId={adult?.id ?? ""}
+                            loading={status.kind === "loading"}
+                            assignDraft={coverageAssignState(item, itemKey)}
+                            coverageActionError={coverageActionErrors[itemKey]}
+                            onUpdateAssignDraft={(patch) =>
+                              updateAssignCoverageDraft(itemKey, patch)
+                            }
+                            onAssignCoverage={(coveringAdultId, kidIds) =>
+                              void onAssignCoverage(item, coveringAdultId, kidIds)
+                            }
+                            onConfirmCoverage={(assignmentId) =>
+                              void onConfirmCoverage(item, assignmentId)
+                            }
+                            onDeclineCoverage={(assignmentId) =>
+                              void onDeclineCoverage(assignmentId)
+                            }
+                            onRemoveCoverage={(assignmentId) =>
+                              void onRemoveCoverage(assignmentId)
+                            }
+                            onSetLeaveFrom={(placeId) =>
+                              void onSetCalendarLeaveFrom(item, placeId)
+                            }
+                            onSetRsvp={(kidId, rsvpStatus) =>
+                              void onSetCalendarRsvp(item, kidId, rsvpStatus)
+                            }
+                            onOpenPlaces={() => setDestination("places")}
+                            onEdit={() => openEditEvent(item)}
+                            onRemoveEvent={() => void onRemoveEvent(item.id)}
+                          />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
               ) : null}
             </div>
           )}

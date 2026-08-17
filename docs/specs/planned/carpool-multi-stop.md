@@ -28,5 +28,8 @@ stop/pickup-order field. Neither is in this redesign pass.
 - `docs/carpool-design-intent.md` is **not** in the repo yet; treat Carpool
   as untouched until a dedicated `/roadmap` intake lands that file (or
   equivalent).
-- Related later: [`driver-leave-by-pickups`](driver-leave-by-pickups.md),
-  [`maps-deep-links`](../../roadmap.md) (parking).
+- Related later: [`driver-leave-by-pickups`](driver-leave-by-pickups.md)
+  (estimate math once pickup order exists),
+  [`maps-deep-links`](../../roadmap.md) (parking),
+  [`carpool-page-redesign`](carpool-page-redesign.md) (visual pass; not this
+  data-model slice).

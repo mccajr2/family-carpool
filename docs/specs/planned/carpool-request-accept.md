@@ -37,3 +37,6 @@ available seats after family occupants + accepted riders.
   do not reopen that in the parked richer-request items.
 - Before exposing teammate pickup addresses, consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)`.
+- Standing Tuesday-style rotations are **not** this slice —
+  `[carpool-recurring-rotation](carpool-recurring-rotation.md)` after this
+  and `[manual-event-team-link](manual-event-team-link.md)`.
