@@ -37,6 +37,9 @@ available seats after family occupants + accepted riders.
   do not reopen that in the parked richer-request items.
 - Before exposing teammate pickup addresses, consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)`.
+- Focus-card ride accept/decline ranking is **not** this slice — parked
+  [`agenda-focus-carpool-actions`](agenda-focus-carpool-actions.md) after this
+  ships.
 - Standing Tuesday-style rotations are **not** this slice —
   `[carpool-recurring-rotation](carpool-recurring-rotation.md)` after this
   and `[manual-event-team-link](manual-event-team-link.md)`.

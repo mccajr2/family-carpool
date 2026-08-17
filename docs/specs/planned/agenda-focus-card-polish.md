@@ -20,8 +20,9 @@ type is less bold. Same selection logic and handlers — chrome only.
 
 ## Non-goals (sketch)
 
-- Changing `selectFocusItem`, coverage / RSVP / leave-by handlers, or ring
-  unit rules (`agenda-focus-card-bugs`)
+- Changing `selectFocusItem` ranking ([`agenda-focus-next-action`](agenda-focus-next-action.md)
+  ships first), coverage / RSVP / leave-by handlers, or ring unit rules
+  (`agenda-focus-card-bugs`)
 - Changing `RING_MAX_MINUTES` fill cap
 - iOS / Android (`agenda-focus-card-mobile` ports this polish)
 - Week-at-a-glance or carpool right rail
@@ -33,3 +34,5 @@ type is less bold. Same selection logic and handlers — chrome only.
 - Intake: Calendar light screenshot, Focus card (“Hang with Arthur”, 72 MIN,
   Covering: Jay, Overlaps chip, Assign coverage + Edit).
 - Do not reconstruct `agendaFocusSelection.ts` / `coverageDisplay.ts`.
+- Ranked after [`agenda-focus-next-action`](agenda-focus-next-action.md) so
+  polish lands on the right item.
