@@ -93,7 +93,7 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 
 ## Tasks
 
-- [ ] Web: `App.tsx` drops `max-w-5xl`; `AuthScreen` signed-out (and
+- [x] Web: `App.tsx` drops `max-w-5xl`; `AuthScreen` signed-out (and
       FamilyScreen empty/loading/error Cards) keep the centered column.
 - [ ] Web: circle-ready `FamilyScreen` — `md` grid, rail `md:w-60`, uncarded
       main with `max-w-[820px]`, Calendar-only Context aside (`md:w-80`).

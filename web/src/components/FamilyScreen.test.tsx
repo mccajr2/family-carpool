@@ -170,6 +170,7 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create family" }).closest("[class*='max-w-5xl']")).not.toBeNull()
     expect(screen.getByRole("button", { name: "Have an invite code?" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Create family" }))
@@ -182,6 +183,7 @@ describe("FamilyScreen", () => {
     expect(calendarHeading).toHaveClass("fc-display")
     await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
+    expect(screen.getByLabelText("App navigation").closest("[class*='max-w-5xl']")).toBeNull()
     expect(await screen.findByText(/Invite code:/)).toHaveTextContent("AB12CD34")
     expect(createCircle).toHaveBeenCalledWith("tok", {
       adultDisplayName: "Alex",
@@ -1807,6 +1809,7 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch")
+    expect(screen.getByRole("alert").closest("[class*='max-w-5xl']")).not.toBeNull()
     expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Have an invite code?" })).not.toBeInTheDocument()
 

@@ -27,6 +27,7 @@ import {
 } from "@/api/types"
 import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
+import { CenteredColumn } from "@/components/CenteredColumn"
 import { GaragePanel } from "@/components/GaragePanel"
 import {
   AccountSummaryRow,
@@ -1514,17 +1515,20 @@ export function FamilyScreen({
 
   if (!circle && status.kind === "loading") {
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>Your family</CardTitle>
           {/* Quiet wait for getCircle — never a spinner-only page. */}
         </CardHeader>
       </Card>
+      </CenteredColumn>
     )
   }
 
   if (!circle && loadFailed) {
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>Your family</CardTitle>
@@ -1551,12 +1555,14 @@ export function FamilyScreen({
           </Button>
         </CardContent>
       </Card>
+      </CenteredColumn>
     )
   }
 
   if (!circle) {
     const needsName = !adult?.displayName
     return (
+      <CenteredColumn>
       <Card>
         <CardHeader>
           <CardTitle>
@@ -1688,6 +1694,7 @@ export function FamilyScreen({
           </Button>
         </CardContent>
       </Card>
+      </CenteredColumn>
     )
   }
 

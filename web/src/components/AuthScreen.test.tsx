@@ -40,6 +40,8 @@ describe("AuthScreen", () => {
       />,
     )
 
+    expect(screen.getByRole("heading", { name: "Sign in" }).closest("[class*='max-w-5xl']")).not.toBeNull()
+
     await user.type(screen.getByLabelText("Email"), "parent@example.com")
     await user.click(screen.getByRole("button", { name: "Send code" }))
 
@@ -48,6 +50,7 @@ describe("AuthScreen", () => {
 
     expect(session.getAccessToken()).toBe("tok")
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Create family" }).closest("[class*='max-w-5xl']")).not.toBeNull()
     expect(screen.getByText(/parent@example.com/)).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Sign out" }))
