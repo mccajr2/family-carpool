@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-17 (`/pr agenda-focus-next-action`)
+Updated: 2026-08-17 (`/spec agenda-focus-card-polish`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -82,7 +82,7 @@ the recent Agenda/Feeds design push.
 | Visual language          | Destination mocks are the visual source of truth for **size, weight, spacing, and color** — tokens absorb those values (new/updated roles in the same PR); do not snap to a nearby existing role. **WCAG AA** (4.5:1 text, 3.0:1 icons) is the only allowed mock-hex exception. See `[docs/ui-system.md](ui-system.md)`. **One visual priority per screen**; everything else calmer. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Web typography: Space Grotesk (display) + Plus Jakarta Sans (body) — `[typography-web](specs/archive/typography-web.md)`. Mobile stays `system-ui` until `[typography-font-family](specs/planned/typography-font-family.md)` (asset bundling). `hero*` **color** roles are Focus-card urgent spotlight only. **Filters and states prefer chips** over body-copy labels on restyled surfaces. |
 | Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. iOS/Android keep bottom tabs. Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Page frame:** flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only empty Context aside — `[web-shell-page-frame](specs/archive/web-shell-page-frame.md)`. **Page header:** Calendar mock Today/date, `page`/`subtitle` type, main 36×44 / rail 28×20 padding — `[web-shell-page-header](specs/archive/web-shell-page-header.md)`. |
 | Agenda week strip        | **Five-day coverage/driver status** rail (`agenda-week-glance`) — not the month/week grid (`family-calendar-grid`). The mock’s numbered-stop **carpool card** + Open in Maps stays parked `[carpool-multi-stop](specs/planned/carpool-multi-stop.md)`. |
-| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/planned/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. Ride accept/decline waits for carpool — `[agenda-focus-carpool-actions](specs/planned/agenda-focus-carpool-actions.md)`. Chrome-only restyle is `[agenda-focus-card-polish](specs/planned/agenda-focus-card-polish.md)`. |
+| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/planned/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. Ride accept/decline waits for carpool — `[agenda-focus-carpool-actions](specs/planned/agenda-focus-carpool-actions.md)`. Chrome polish in flight — `[agenda-focus-card-polish](specs/active/agenda-focus-card-polish.md)`. |
 
 
 
@@ -94,7 +94,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-focus-card-polish           | planned | 2026-08-17 · enhancement                                         | Web Focus card: larger isolated ring, covering under ring, overlap chip; same handlers (after next-action ranking)                                              |
+| 1    | agenda-focus-card-polish           | active  | 2026-08-17 · enhancement                                         | Web Focus card: larger isolated ring, covering under ring, overlap chip; same handlers (after next-action ranking)                                              |
 | 2    | agenda-list-chips                  | planned | 2026-08-17 · enhancement                                         | Web kid-filter + collapsed row status as chips/avatars (no “3 STOPS” until multi-stop)                                                                          |
 | 3    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
 | 4    | agenda-week-glance                 | planned | 2026-08-17 · enhancement                                         | Web five-day coverage/driver strip; not the month grid; no carpool stop card                                                                                    |
@@ -169,6 +169,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| agenda-focus-card-polish | `agenda-focus-card-polish` | [active](specs/active/agenda-focus-card-polish.md) |
 
 
 ## Done
@@ -317,4 +318,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-17 | `/roadmap agenda-focus-next-action`: Focus card was missing a next-action ranking (3-week RSVP stole the hero). Rank 1 ahead of polish; park ride accept/decline as `agenda-focus-carpool-actions`. Next up `agenda-focus-next-action`. |
 | 2026-08-17 | `/spec agenda-focus-next-action`: today/tomorrow decisions else next in-play event; pending-for-self on the same urgent predicate; no OpenAPI. |
 | 2026-08-17 | `/pr agenda-focus-next-action`: web Focus next-action ranking (today/tomorrow else next event); spec archived. Next up `agenda-focus-card-polish`. |
+| 2026-08-17 | `/spec agenda-focus-card-polish`: mock-aligned Focus header — isolated ring, covering under ring, status chips; no selection/handler changes. |
 
