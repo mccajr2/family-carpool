@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
@@ -134,5 +134,69 @@ describe("AgendaFocusCard hero surface", () => {
     )
     await user.click(screen.getByRole("button", { name: "Edit" }))
     expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("AgendaFocusCard countdown ring", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-16T12:00:00.000Z"))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("renders a day count for a far-future off-season event, not hours or an em dash", () => {
+    renderCard(
+      item({
+        id: "far",
+        title: "Team Meeting",
+        uncoveredKidIds: ["k1"],
+        leaveByAt: "2026-08-26T08:39:00.000Z",
+      }),
+    )
+    expect(screen.getByText("10")).toBeInTheDocument()
+    expect(screen.getByText("days")).toBeInTheDocument()
+    expect(screen.queryByText("236h 39")).not.toBeInTheDocument()
+  })
+
+  it("renders minutes when the event is under an hour away", () => {
+    renderCard(
+      item({
+        id: "soon",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+        leaveByAt: "2026-08-16T12:42:00.000Z",
+      }),
+    )
+    expect(screen.getByText("42")).toBeInTheDocument()
+    expect(screen.getByText("min")).toBeInTheDocument()
+  })
+
+  it("renders hours when the event is under a day away", () => {
+    renderCard(
+      item({
+        id: "today",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+        leaveByAt: "2026-08-16T14:00:00.000Z",
+      }),
+    )
+    expect(screen.getByText("2")).toBeInTheDocument()
+    expect(screen.getByText("hr")).toBeInTheDocument()
+  })
+})
+
+describe("AgendaFocusCard title", () => {
+  it("renders feed titles as given without HTML-decoding", () => {
+    renderCard(
+      item({
+        id: "entities",
+        title: "Team &amp; Family Meeting",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    expect(screen.getByText("Team &amp; Family Meeting")).toBeInTheDocument()
   })
 })

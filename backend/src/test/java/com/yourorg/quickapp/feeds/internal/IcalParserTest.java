@@ -120,6 +120,40 @@ class IcalParserTest {
         assertThat(IcalParser.unescapeText("plain")).isEqualTo("plain");
     }
 
+    @Test
+    void normalizeIcalText_decodesHtmlEntitiesAndIcalEscapes() {
+        assertThat(IcalParser.normalizeIcalText("Team &amp; Family Meeting"))
+                .isEqualTo("Team & Family Meeting");
+        assertThat(IcalParser.normalizeIcalText("A &lt; B")).isEqualTo("A < B");
+        assertThat(IcalParser.normalizeIcalText("it&#39;s")).isEqualTo("it's");
+        assertThat(IcalParser.normalizeIcalText("&quot;quoted&quot;")).isEqualTo("\"quoted\"");
+        assertThat(IcalParser.normalizeIcalText("155 Gore St\\, Cambridge"))
+                .isEqualTo("155 Gore St, Cambridge");
+        assertThat(IcalParser.normalizeIcalText("A & B")).isEqualTo("A & B");
+        assertThat(IcalParser.normalizeIcalText(null)).isNull();
+        assertThat(IcalParser.normalizeIcalText("plain")).isEqualTo("plain");
+    }
+
+    @Test
+    void decodesHtmlEntitiesInSummaryAndLocation() {
+        String ical =
+                """
+                BEGIN:VCALENDAR
+                BEGIN:VEVENT
+                UID:html-1
+                DTSTART:20260905T080000Z
+                SUMMARY:2016/2017 (BILL): Team &amp; Family Meeting
+                LOCATION:Rink &lt;A&gt; &#39;Main&#39;
+                END:VEVENT
+                END:VCALENDAR
+                """;
+        List<ParsedIcalEvent> events = parser.parse(ical);
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().summary())
+                .isEqualTo("2016/2017 (BILL): Team & Family Meeting");
+        assertThat(events.getFirst().location()).isEqualTo("Rink <A> 'Main'");
+    }
+
     private static String readFixture(String classpathPath) throws IOException {
         try (var in =
                 Objects.requireNonNull(

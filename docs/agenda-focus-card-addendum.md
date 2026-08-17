@@ -79,7 +79,10 @@ The countdown ring is a **decorative urgency cue**, not a literal
 minutes-remaining guarantee — it fills based on time until `leaveByAt` (or
 `startsAt` if leave-by is unavailable), capped at a 3-hour window, and reads
 as visually "full" for anything further out or when the time can't be
-determined. Do not present it as a precise estimate in copy or a11y labels.
+determined. The numeric label uses an adaptive unit (minutes, hours, or
+nearest whole day) so far-future events stay glanceable; `"—"` only when the
+time can't be determined. Do not present it as a precise estimate in copy or
+a11y labels.
 
 ## Port checklist addition
 
