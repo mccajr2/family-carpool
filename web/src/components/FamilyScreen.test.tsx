@@ -1822,17 +1822,20 @@ describe("FamilyScreen", () => {
     const heading = await screen.findByRole("heading", { name: "Calendar" })
     const main = heading.closest("main")
     expect(main).not.toBeNull()
+    // Grid item is a block with max-width 820 only. These bans are the
+    // reverted wrong turns: nested App <main>, flex-on-main, w-full,
+    // min-w-0 / min-w-[820px], md:flex-col rail stack.
     expect(main?.className).toMatch(/max-w-\[820px\]/)
     expect(main?.className).not.toMatch(/w-full/)
-    expect(main?.className).not.toMatch(/min-w-0/)
-    expect(main?.className).not.toMatch(/min-w-\[820px\]/)
-    expect(main?.className).not.toMatch(/min-w-min/)
+    expect(main?.className).not.toMatch(/min-w-/)
+    expect(main?.className).not.toMatch(/\bflex\b/)
     expect(main?.className).not.toMatch(/flex-1/)
-    expect(main?.className).not.toMatch(/justify-self/)
     expect(main?.className).not.toMatch(/shadow-sm/)
     expect(main?.className).not.toMatch(/border-border/)
+    expect(main?.parentElement?.tagName).not.toBe("MAIN")
     const shell = main?.parentElement
     expect(shell?.className).toMatch(/(?:^|\s)grid(?:\s|$)/)
+    expect(shell?.className).not.toMatch(/w-full/)
     expect(shell?.className).not.toMatch(/min-w-min/)
     expect(shell?.className).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
     expect(shell?.className).not.toMatch(/flex-col/)

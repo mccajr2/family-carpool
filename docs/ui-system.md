@@ -1,28 +1,32 @@
 # UI system (family-carpool)
 
-Status: active (provisional)  
+Status: active  
 Source of truth: [`design-tokens/tokens.json`](../design-tokens/tokens.json)  
-Spec: [`cross-platform-ui-system`](specs/active/cross-platform-ui-system.md)  
+Spec: [`cross-platform-ui-system`](specs/archive/cross-platform-ui-system.md)  
 Follow-up: [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md)
 
 Shared look and interaction vocabulary for **web**, **Android**, and **iOS**.
 Clients consume generated token outputs — they do not invent one-off hex or
 spacing values for surfaces that have adopted this system.
 
-## Provisional palette (read this first)
+## Palette
 
-The first-pass palette in `tokens.json` is **provisional and expected to
-churn**. Token **roles** (`accent`, `surface`, `textPrimary`, …) are the stable
-contract. Concrete hex values may revise before Calendar, Family, Carpool, or
-other destinations adopt the system.
+Brand hex landed with [`agenda-focus-card`](specs/archive/agenda-focus-card.md)
+(`tokens.json` `meta.provisional` is **false**). Token **roles** (`accent`,
+`surface`, `textPrimary`, `rail*`, `hero*`, …) are the stable contract. Screen
+mocks (Claude Calendar / Feeds HTML) are **intake for layout and chrome** —
+map mock px and hex to existing roles; do not add one-off type/spacing tokens
+or raw hex in adopted UI. Parked
+[`ui-palette-refresh`](specs/planned/ui-palette-refresh.md) is not a second
+palette PR.
 
-**Do not** treat first-pass colors as final brand. When adopting tokens on a
-new screen, expect a possible palette revision and plan for re-checking
-contrast (see destination-adoption stub).
+Visual direction: cream paper surface, ink text, route-blue accent — not
+lagoon teal, not purple-on-white gradients. Always-dark web rail uses `rail*`
+(not `hero*`). Focus urgent state uses `hero*` only.
 
-Visual direction (first pass): cool slate–green surfaces with a **lagoon teal**
-accent — not purple-on-white gradients, not cream + terracotta broadsheet, not
-glow-heavy dark-only chrome.
+When a destination restyles, re-check WCAG AA for **that** surface (see
+destination-adoption). Remainder: Carpool, Family, Places, Garage. Agenda and
+Feeds already adopt tokens.
 
 ## Tokens
 
@@ -103,9 +107,9 @@ the **semantic name** stable in code (`UiTokens.Icon.places`, `UiTokens.Icon.gar
 destination only (web Settings/More list, Android More tab, iOS More tab) as
 the proof surface — including light and dark.
 
-A pass on More does **not** certify Calendar, Family, Carpool, or other
-surfaces. When those adopt tokens later, re-run light/dark screenshots and
-WCAG AA for **that** destination’s pairings
+A pass on More does **not** certify other destinations. Agenda and Feeds
+already adopt tokens. Remainder (Carpool, Family, Places, Garage) still
+re-runs light/dark screenshots and WCAG AA for **that** surface
 ([`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md)).
 
 ### Contrast target (More and later adopters)

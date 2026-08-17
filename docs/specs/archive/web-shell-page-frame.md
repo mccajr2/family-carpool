@@ -57,7 +57,9 @@ Calendar mock (no stacked breakpoint — the mock has none):
 no `width: 100%`, no `min-width`, no `justify-self`. Default stretch fills
 the `1fr` track up to 820; leftover space sits between Agenda and Context.
 The floor is implicit min-content, not 820. Padding: nearest existing
-`--fc-space-*`.
+`--fc-space-*`. Nowrap / `truncate` inside `.main` (Agenda titles) raises
+that floor to ~820, so the column never follows `1fr` down — titles wrap,
+like the mock `.row-main`. `App` is a `div`, not a nested `<main>`.
 
 **Do not** switch to a column stack that paints the dark rail across the
 viewport. That is what made the page go black while dragging the window in.

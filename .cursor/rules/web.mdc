@@ -30,3 +30,11 @@ alwaysApply: false
   an afterthought — write them in the same pass as the happy path.
 - Run `npm run lint` + `npm test` (and `npm run build` before PR) from `web/`
   before calling frontend work done.
+- **Signed-in page frame** (`FamilyScreen` circle-ready): CSS grid
+  `15rem 1fr 20rem` (Calendar) / `15rem 1fr` otherwise. Destination `<main>` is
+  a **block** with `max-w-[820px]` only — not `flex`, not `w-full`, not
+  `min-w-0` / `min-w-[820px]` / `min-w-min`. `App` is a `div`, not `<main>`.
+  Do not stack the rail to `w-full min-h-svh` below `md` (that paints the dark
+  rail across the viewport). The `1fr` floor is implicit min-content of
+  `.main`'s contents; `truncate` / `whitespace-nowrap` in that column (Agenda
+  titles) freezes the track at ~820px so it never follows the window down.

@@ -82,6 +82,22 @@ describe("AgendaRow", () => {
     expect(screen.getByText("Practice")).toHaveClass("fc-display")
   })
 
+  it("lets the title and time wrap instead of nowrap truncate, so the page-frame 1fr track can shrink", () => {
+    renderRow(
+      item({
+        id: "a",
+        title: "Birthday Party — Maya at the Community Center",
+        location: "450 Huron Ave, Cambridge",
+      }),
+    )
+    const title = screen.getByText("Birthday Party — Maya at the Community Center")
+    expect(title.className).not.toMatch(/truncate/)
+    expect(title.className).not.toMatch(/whitespace-nowrap/)
+    const time = screen.getByText(/450 Huron Ave/)
+    expect(time.className).not.toMatch(/truncate/)
+    expect(time.className).not.toMatch(/whitespace-nowrap/)
+  })
+
   it("renders an out-of-play item muted with only a Not going tag and no coverage/travel when expanded", async () => {
     const user = userEvent.setup()
     renderRow(

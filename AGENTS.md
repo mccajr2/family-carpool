@@ -100,3 +100,9 @@ see `docs/using-as-template.md`.
 ## Conventions
 
 [FILL IN AS YOU GO — add an entry only after the same mistake happens twice.]
+
+- Web signed-in circle-ready shell (`FamilyScreen`): CSS grid
+  `15rem 1fr [20rem]`. Destination `<main>` is a **block** with `max-w-[820px]`
+  only (not `flex`, `w-full`, `min-w-0`, or `min-w-[820px]`). `App` is a `div`,
+  not `<main>`. Do not stack the rail to `w-full` below `md`. Do not `truncate`
+  / nowrap titles in that column — that freezes `1fr` at ~820px.

@@ -1730,12 +1730,14 @@ export function FamilyScreen({
               ? "Garage"
               : "Feeds"
 
+  // Mock frame: grid 240 | 1fr | 320; this <main> is a block with max-width
+  // 820 only. Flex / w-full / min-w-* here, or nowrap in the column, freeze 1fr.
   return (
     <div
       className={
         destination === "calendar"
-          ? "grid min-h-svh w-full grid-cols-[15rem_1fr_20rem]"
-          : "grid min-h-svh w-full grid-cols-[15rem_1fr]"
+          ? "grid min-h-svh grid-cols-[15rem_1fr_20rem]"
+          : "grid min-h-svh grid-cols-[15rem_1fr]"
       }
     >
       <aside
@@ -1827,7 +1829,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="flex max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
         <header
           className={
             destination === "calendar"
@@ -1870,10 +1872,9 @@ export function FamilyScreen({
             </Button>
           ) : null}
         </header>
-        <div className="flex flex-col gap-4">
-          {destination === "family" ? (
-            <>
-{isOrganizer && inviteCode ? (
+        {destination === "family" ? (
+          <>
+            {isOrganizer && inviteCode ? (
           <section aria-label="Invite code" className="flex flex-col gap-2">
             <p className="text-sm">
               Invite code: <span className="font-mono">{inviteCode}</span>
@@ -2204,12 +2205,12 @@ export function FamilyScreen({
           </Button>
         </div>
 
-                    </>
+          </>
           ) : null}
 
           {destination === "calendar" ? (
             <>
-<section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
+              <section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
           <p className="text-sm font-medium">Agenda</p>
           {calendarRevalidating ? (
             <p
@@ -2669,7 +2670,7 @@ export function FamilyScreen({
 
           {destination === "feeds" ? (
             <>
-{isOrganizer ? (
+              {isOrganizer ? (
           <section aria-label="Activity feeds" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium">Activity feeds</p>
@@ -2899,7 +2900,6 @@ export function FamilyScreen({
               {status.message}
             </p>
           ) : null}
-        </div>
       </main>
       {destination === "calendar" ? (
         <aside

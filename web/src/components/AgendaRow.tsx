@@ -51,6 +51,10 @@ type Tag = { label: string; tone: "mint" | "amber" | "route" | "muted" }
  * Out-of-play items (every kid RSVP No) render muted and start collapsed
  * with no auto-expand affordance beyond the summary + "Not going" tag.
  *
+ * Title and time wrap — do not add `truncate` / `whitespace-nowrap`. Ellipsis
+ * here sets the page-frame grid item's min-content to ~820px, so Calendar's
+ * `1fr` column cannot shrink with the window (mock `.row-main` wraps).
+ *
  * NOTE: a "N stops" carpool tag was part of the original mockup but is not
  * included here — CalendarItem has no per-event stop/pickup-order field in
  * the current data model (see api/types). Do not fabricate one; this needs
@@ -117,18 +121,18 @@ export function AgendaRow({
       <div data-testid="agenda-band-primary">
       <button
         type="button"
-        className="flex w-full items-center gap-[var(--fc-space-md)] text-left"
+        className="flex min-w-0 w-full items-center gap-[var(--fc-space-md)] text-left"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
         <span className={`h-[9px] w-[9px] flex-shrink-0 rounded-full ${dotToneClass[statusDot]}`} />
         <span className="min-w-0 flex-1">
           <span
-            className={`fc-display block truncate text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
+            className={`fc-display block text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
           >
             {item.title}
           </span>
-          <span className="block truncate text-xs text-[var(--fc-text-secondary)]">
+          <span className="block text-xs text-[var(--fc-text-secondary)]">
             {formatEventWhen(item.startsAt, item.endsAt)}
             {item.location ? ` · ${item.location}` : ""}
           </span>
