@@ -58,6 +58,7 @@ import {
   coerceEndsAfterStart,
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
+  formatLocalTodayLabel,
   mergeCalendarItems,
   nearTermLeaveByWindow,
   remainderAfterNearTermLeaveByWindow,
@@ -1719,7 +1720,7 @@ export function FamilyScreen({
 
   const contentTitle =
     destination === "calendar"
-      ? "Calendar"
+      ? "Today"
       : destination === "carpool"
         ? "Carpool"
         : destination === "family"
@@ -1742,11 +1743,11 @@ export function FamilyScreen({
     >
       <aside
         aria-label="App navigation"
-        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)]"
+        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] px-[var(--fc-space-railX)] py-[var(--fc-space-railY)] text-[var(--fc-rail-on)]"
       >
         <div
           aria-label="Wordmark"
-          className="flex shrink-0 items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-sm)]"
+          className="flex shrink-0 items-center gap-[var(--fc-space-sm)]"
         >
           <span
             aria-hidden
@@ -1829,21 +1830,28 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-mainX)] py-[var(--fc-space-mainY)] [&>header+*]:!mt-0">
         <header
           className={
             destination === "calendar"
-              ? "flex flex-row items-start justify-between gap-3"
-              : "flex flex-col gap-1.5"
+              ? "mb-[var(--fc-space-header)] flex flex-row items-start justify-between gap-[var(--fc-space-md)]"
+              : "mb-[var(--fc-space-header)] flex flex-col gap-[var(--fc-space-sm)]"
           }
         >
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <CardTitle className="fc-display">{contentTitle}</CardTitle>
+          <div className="flex min-w-0 flex-col gap-[var(--fc-space-sm)]">
+            <h1 className="fc-display text-[length:var(--fc-font-page-size)] leading-[var(--fc-font-page-line)] font-[number:var(--fc-font-page-weight)] text-[var(--fc-text-primary)]">
+              {contentTitle}
+            </h1>
+            {destination === "calendar" ? (
+              <p className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)]">
+                {formatLocalTodayLabel()}
+              </p>
+            ) : null}
             {destination === "family" ? (
-              <CardDescription>
+              <p className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)]">
                 {adult?.displayName ? `${adult.displayName} · ` : null}
                 {adult?.email} · {circle.role}
-              </CardDescription>
+              </p>
             ) : null}
           </div>
           {destination === "calendar" ? (

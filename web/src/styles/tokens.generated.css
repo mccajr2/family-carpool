@@ -30,6 +30,11 @@
   --fc-space-lg: 16px;
   --fc-space-xl: 24px;
   --fc-space-2xl: 32px;
+  --fc-space-header: 26px;
+  --fc-space-mainY: 36px;
+  --fc-space-mainX: 44px;
+  --fc-space-railY: 28px;
+  --fc-space-railX: 20px;
   --fc-radius-sm: 4px;
   --fc-radius-md: 8px;
   --fc-radius-lg: 12px;
@@ -49,6 +54,12 @@
   --fc-font-hero-size: 26px;
   --fc-font-hero-line: 32px;
   --fc-font-hero-weight: 700;
+  --fc-font-page-size: 34px;
+  --fc-font-page-line: 40px;
+  --fc-font-page-weight: 700;
+  --fc-font-subtitle-size: 14px;
+  --fc-font-subtitle-line: 20px;
+  --fc-font-subtitle-weight: 500;
   --fc-font-family: Plus Jakarta Sans, system-ui, sans-serif;
   --fc-font-family-display: Space Grotesk, system-ui, sans-serif;
 }

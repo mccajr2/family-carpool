@@ -9,7 +9,12 @@ import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
-import { defaultCalendarWindow, nearTermLeaveByWindow, remainderAfterNearTermLeaveByWindow } from "@/components/eventTimes"
+import {
+  defaultCalendarWindow,
+  formatLocalTodayLabel,
+  nearTermLeaveByWindow,
+  remainderAfterNearTermLeaveByWindow,
+} from "@/components/eventTimes"
 import { LEAVE_BY_PENDING_LABEL } from "@/components/leaveByDisplay"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
@@ -117,6 +122,14 @@ async function goTo(
   await user.click(await screen.findByRole("button", { name: destination }))
 }
 
+function calendarPageHeading() {
+  return screen.getByRole("heading", { level: 1, name: "Today" })
+}
+
+function findCalendarPageHeading() {
+  return screen.findByRole("heading", { level: 1, name: "Today" })
+}
+
 describe("FamilyScreen", () => {
   it("creates a circle then adds and removes a kid", async () => {
     const user = userEvent.setup()
@@ -179,7 +192,7 @@ describe("FamilyScreen", () => {
     await user.type(screen.getByLabelText("Your name"), "Alex")
     await user.click(screen.getByRole("button", { name: "Create family" }))
 
-    const calendarHeading = await screen.findByRole("heading", { name: "Calendar" })
+    const calendarHeading = await findCalendarPageHeading()
     expect(calendarHeading).toHaveClass("fc-display")
     await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
@@ -256,7 +269,7 @@ describe("FamilyScreen", () => {
     await user.type(screen.getByLabelText("Your name"), "Jordan")
     await user.click(screen.getByRole("button", { name: "Join family" }))
 
-    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
     await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "House" })).toBeInTheDocument()
     expect(screen.getByText(/other@example.com · CAREGIVER/)).toBeInTheDocument()
@@ -1374,7 +1387,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
     const nav = screen.getByLabelText("App navigation")
     expect(screen.getByLabelText("Context")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
@@ -1579,7 +1592,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
     expect(screen.queryByText("Practice")).not.toBeInTheDocument()
 
     await goTo(user, "Carpool")
@@ -1718,6 +1731,8 @@ describe("FamilyScreen", () => {
     expect(nav.className).toMatch(/--fc-rail-surface/)
     expect(nav.className).toMatch(/h-svh/)
     expect(nav.className).toMatch(/w-60/)
+    expect(nav.className).toMatch(/--fc-space-railX/)
+    expect(nav.className).toMatch(/--fc-space-railY/)
     expect(nav.className).not.toMatch(/w-full/)
     expect(nav.className).not.toMatch(/md:w-56/)
     expect(nav.className).toMatch(/sticky/)
@@ -1819,7 +1834,7 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    const heading = await screen.findByRole("heading", { name: "Calendar" })
+    const heading = await findCalendarPageHeading()
     const main = heading.closest("main")
     expect(main).not.toBeNull()
     // Grid item is a block with max-width 820 only. These bans are the
@@ -1866,9 +1881,96 @@ describe("FamilyScreen", () => {
     await goTo(user, "Calendar")
     expect(screen.getByLabelText("Context")).toBeInTheDocument()
     expect(
-      screen.getByRole("heading", { name: "Calendar" }).closest("main")?.parentElement
+      calendarPageHeading().closest("main")?.parentElement
         ?.className,
     ).toMatch(/grid-cols-\[15rem_1fr_20rem\]/)
+  })
+
+  it("styles destination headers with token type and Calendar Today/date", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const heading = await findCalendarPageHeading()
+    expect(heading.tagName).toBe("H1")
+    expect(heading).toHaveClass("fc-display")
+    expect(heading.className).toMatch(/--fc-font-page-size/)
+    expect(heading.className).toMatch(/--fc-text-primary/)
+    expect(heading.className).not.toMatch(/text-2xl/)
+    expect(heading.className).not.toMatch(/--fc-hero-on/)
+    expect(heading.className).not.toMatch(/--fc-hero-surface/)
+    expect(heading.className).not.toMatch(/--fc-font-hero-size/)
+    const header = heading.closest("header")
+    expect(header).not.toBeNull()
+    expect(header?.className).toMatch(/mb-\[var\(--fc-space-header\)\]/)
+    const date = within(header!).getByText(formatLocalTodayLabel())
+    expect(date.tagName).toBe("P")
+    expect(date.className).toMatch(/--fc-font-subtitle-size/)
+    expect(date.className).toMatch(/--fc-text-secondary/)
+    const main = heading.closest("main")
+    expect(main?.className).toMatch(/max-w-\[820px\]/)
+    expect(main?.className).toMatch(/space-y-4/)
+    expect(main?.className).toMatch(/\[&>header\+\*\]:!mt-0/)
+    expect(main?.className).toMatch(/--fc-space-mainX/)
+    expect(main?.className).toMatch(/--fc-space-mainY/)
+    expect(main?.className).not.toMatch(/md:px-/)
+    expect(screen.getByRole("button", { name: "Add event" })).toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText("App navigation")).getByRole("button", {
+        name: "Calendar",
+      }),
+    ).toBeInTheDocument()
+
+    for (const destination of ["Carpool", "Places", "Garage", "Feeds"] as const) {
+      await goTo(user, destination)
+      const destHeading = screen.getByRole("heading", { level: 1, name: destination })
+      expect(destHeading).toHaveClass("fc-display")
+      expect(destHeading.className).toMatch(/--fc-font-page-size/)
+      expect(destHeading.className).toMatch(/--fc-text-primary/)
+      expect(destHeading.closest("header")?.querySelectorAll("p")).toHaveLength(0)
+      expect(screen.queryByRole("button", { name: "Add event" })).not.toBeInTheDocument()
+    }
+
+    await goTo(user, "Family")
+    const familyHeading = screen.getByRole("heading", { level: 1, name: "House" })
+    expect(familyHeading.className).toMatch(/--fc-font-page-size/)
+    const familyHeader = familyHeading.closest("header")
+    const familySub = within(familyHeader!).getByText("Alex · parent@example.com · ORGANIZER")
+    expect(familySub.className).toMatch(/--fc-font-subtitle-size/)
+    expect(familySub.className).toMatch(/--fc-text-secondary/)
+    expect(screen.queryByRole("heading", { level: 1, name: "Today" })).not.toBeInTheDocument()
   })
 
   it("offers Retry instead of Create family when the circle load fails", async () => {
@@ -1909,7 +2011,7 @@ describe("FamilyScreen", () => {
 
     await user.click(screen.getByRole("button", { name: "Retry" }))
 
-    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
     expect(getCircle).toHaveBeenCalledTimes(2)
   })
 

@@ -8,6 +8,7 @@ import {
   ensureCalendarWindowCovers,
   formatEventWhen,
   formatIsoForDisplay,
+  formatLocalTodayLabel,
   LEAVE_BY_NEAR_TERM_DAYS,
   mergeCalendarItems,
   nearTermLeaveByWindow,
@@ -51,6 +52,21 @@ describe("formatIsoForDisplay", () => {
     expect(formatEventWhen("2026-08-12T16:30:00Z", "2026-08-12T21:30:00Z")).toMatch(
       /Aug 12, 2026 at .+ → Aug 12, 2026 at .+/,
     )
+  })
+})
+
+describe("formatLocalTodayLabel", () => {
+  it("uses weekday long, month long, and day numeric with no year", () => {
+    const now = new Date(2026, 7, 13)
+    const label = formatLocalTodayLabel(now)
+    expect(label).toBe(
+      now.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    )
+    expect(label).not.toMatch(/\d{4}/)
   })
 })
 

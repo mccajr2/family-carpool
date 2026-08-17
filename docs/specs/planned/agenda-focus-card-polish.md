@@ -26,7 +26,7 @@ type is less bold. Same selection logic and handlers — chrome only.
 - iOS / Android (`agenda-focus-card-mobile` ports this polish)
 - Week-at-a-glance or carpool right rail
 - “3 STOPS” (needs [`carpool-multi-stop`](carpool-multi-stop.md))
-- Destination page header type/copy ([`web-shell-page-header`](web-shell-page-header.md))
+- Destination page header type/copy ([`web-shell-page-header`](../archive/web-shell-page-header.md))
 
 ## Notes
 

@@ -7,22 +7,39 @@ Follow-up: [`ui-system-destination-adoption`](specs/planned/ui-system-destinatio
 
 Shared look and interaction vocabulary for **web**, **Android**, and **iOS**.
 Clients consume generated token outputs — they do not invent one-off hex or
-spacing values for surfaces that have adopted this system.
+spacing values in components. **Where those token values come from:**
+destination mocks, not a frozen pre-mock scale.
 
-## Palette
+## Visual source of truth
 
-Brand hex landed with [`agenda-focus-card`](specs/archive/agenda-focus-card.md)
-(`tokens.json` `meta.provisional` is **false**). Token **roles** (`accent`,
-`surface`, `textPrimary`, `rail*`, `hero*`, …) are the stable contract. Screen
-mocks (Claude Calendar / Feeds HTML) are **intake for layout and chrome** —
-map mock px and hex to existing roles; do not add one-off type/spacing tokens
-or raw hex in adopted UI. Parked
-[`ui-palette-refresh`](specs/planned/ui-palette-refresh.md) is not a second
-palette PR.
+**Destination mocks** (Claude Calendar + Feeds HTML 2026-08-17, and later
+per-destination mocks) are the source of truth for **size, weight, spacing,
+and color** on surfaces we restyle. Put mock values into
+[`design-tokens/tokens.json`](../design-tokens/tokens.json) as new or updated
+roles in the **same PR**, then consume the generated `--fc-*` / Kotlin /
+Swift outputs.
+
+Do **not** snap a mock measurement to a nearby existing role (34px heading
+→ `hero` 26px, 26px gap → `space-xl` 24px, 14px/500 subtitle → `body`
+15px/400). That “nearest token” rule was premature — it predates the
+mocks.
+
+**Exception:** WCAG AA (4.5:1 body text, 3.0:1 icons). Mock hex that fails
+contrast is adjusted (already done for several light-mode pairings). Do not
+use that exception to ignore mock type size, weight, or spacing.
+
+If a mock conflicts with an older lock, **ask** before implementing; the
+expected answer is defer to the mock.
+
+Parked [`ui-palette-refresh`](specs/planned/ui-palette-refresh.md) is not a
+second palette PR — brand hex already landed
+([`agenda-focus-card`](specs/archive/agenda-focus-card.md);
+`tokens.json` `meta.provisional` is **false**).
 
 Visual direction: cream paper surface, ink text, route-blue accent — not
 lagoon teal, not purple-on-white gradients. Always-dark web rail uses `rail*`
-(not `hero*`). Focus urgent state uses `hero*` only.
+(not `hero*`). Focus urgent state uses `hero*` **color** roles only (`hero`
+type-scale is a size role and may differ from page titles).
 
 When a destination restyles, re-check WCAG AA for **that** surface (see
 destination-adoption). Remainder: Carpool, Family, Places, Garage. Agenda and
@@ -33,9 +50,9 @@ Feeds already adopt tokens.
 | Category | Roles / keys |
 |----------|----------------|
 | Color (light + dark) | `accent`, `accentOn`, `danger`, `dangerOn`, `success`, `successOn`, `surface`, `surfaceRaised`, `border`, `textPrimary`, `textSecondary`, plus Focus-card urgent `heroSurface`, `heroOn`, `heroOnSecondary`, `heroDanger`, `heroSuccess`, `heroAccent`, plus web-shell always-dark `railSurface`, `railOn`, `railOnSecondary`, `railActive`, `railAccent`, `railDanger` |
-| Spacing | `xs` … `2xl` (4 → 32 px) |
-| Radius | `sm`, `md`, `lg` |
-| Typography | `caption`, `body`, `title`, `headline` (size / lineHeight / weight) |
+| Spacing | `xs` … `2xl` (4 → 32 px) plus mock-named steps (`header` = 26, `mainY` = 36, `mainX` = 44, `railY` = 28, `railX` = 20) |
+| Radius | `sm`, `md`, `lg`, `xl` |
+| Typography | `caption`, `body`, `subtitle`, `title`, `headline`, `hero`, `page` (size / lineHeight / weight). Scale **grows** when a mock introduces a new size/weight. |
 | Icons | Semantic names only (see below) |
 
 ### Generate / drift
@@ -56,11 +73,15 @@ Outputs (do not edit by hand):
 
 ### Usage rules
 
-1. Prefer token roles over raw hex / magic padding in adopted UI.
-2. Pair text with surfaces intentionally (`textPrimary` / `textSecondary` on
+1. Mock size / weight / spacing / color → `tokens.json` (new or updated role)
+   in the same PR as the surface. Then use the generated variable — no raw
+   px or hex in adopted UI.
+2. Do not snap to a nearby existing role because it is “close enough.”
+3. Pair text with surfaces intentionally (`textPrimary` / `textSecondary` on
    `surface` / `surfaceRaised`; `accentOn` on `accent`).
-3. Light and dark values live in the JSON — avoid per-screen color overrides.
-4. Shell **navigation chrome** may diverge by platform (tabs vs sidebar); content
+4. Light and dark values live in the JSON — avoid per-screen color overrides
+   except WCAG AA adjustments recorded in tokens.
+5. Shell **navigation chrome** may diverge by platform (tabs vs sidebar); content
    inside a destination should still use the same tokens.
 
 ## Component parity

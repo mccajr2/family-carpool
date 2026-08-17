@@ -36,7 +36,11 @@ Steps:
    acceptance criteria until scope is clear enough for real (not vague) criteria.
 7. Fill in Problem, Non-goals, Approach, Acceptance Criteria, and a Tasks checklist
    broken down by layer (backend/contract/web/iOS/tests) — omit layers this feature
-   doesn't touch.
+   doesn't touch. **Visual restyles:** lock size, weight, spacing, and color from
+   the destination mock into `design-tokens/tokens.json` (new/updated roles). Do
+   not snap to a nearby existing role. WCAG AA is the only mock-hex exception.
+   If that conflicts with an older lock, ask; expected answer is defer to the
+   mock (`docs/ui-system.md`).
 8. **Split if too big (while fleshing out).** If full AC/tasks reveal multiple
    independent shippable capabilities (or the task list no longer fits one PR):
    - Stop — do not publish a mega-spec for approval.

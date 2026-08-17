@@ -299,7 +299,8 @@ Inspiration only: [Laws of UX that Uber follows](https://medium.com/design-bootc
 When a surface feels too dense:
 
 1. Regroup + hierarchy (proximity, type weight, one primary CTA)
-2. Slight type/spacing tuning within existing tokens
+2. Slight type/spacing tuning — **from the destination mock**, via tokens
+   (`docs/ui-system.md`); not “nearest existing role”
 3. Expand/collapse dense blocks — **not** until dogfood says hierarchy failed
    (possible follow-up id, e.g. `calendar-ux-disclosure`)
 4. Navigate away — only for real destination jobs (event compose; Open Places
