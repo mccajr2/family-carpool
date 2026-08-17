@@ -17,10 +17,10 @@ function railRowClassName({
     danger
       ? "font-[number:var(--fc-font-body-weight)] text-[var(--fc-rail-danger)] hover:bg-[color-mix(in_srgb,var(--fc-rail-on)_8%,transparent)]"
       : cn(
-          "font-[number:var(--fc-font-title-weight)] text-[var(--fc-rail-on)]",
+          "font-[number:var(--fc-font-title-weight)]",
           active
-            ? "bg-[var(--fc-rail-active)]"
-            : "hover:bg-[color-mix(in_srgb,var(--fc-rail-on)_8%,transparent)]",
+            ? "bg-[var(--fc-rail-active)] text-[var(--fc-rail-on)]"
+            : "text-[var(--fc-rail-on-secondary)] hover:bg-[color-mix(in_srgb,var(--fc-rail-on)_8%,transparent)]",
         ),
   )
 }

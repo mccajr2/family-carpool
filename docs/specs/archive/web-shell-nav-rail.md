@@ -1,8 +1,8 @@
 # Spec: web-shell-nav-rail
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17  
+Updated: 2026-08-17 (`/pr`)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-nav-rail`  
@@ -54,8 +54,8 @@ dedicated roles with the **same hex in light and dark**:
 | Role | Hex | Use |
 |------|-----|-----|
 | `railSurface` | `#16181A` | Rail background |
-| `railOn` | `#FFFFFF` | Primary labels, wordmark, initials |
-| `railOnSecondary` | `#9AA0A8` | SETTINGS / ACCOUNT captions, email/role meta |
+| `railOn` | `#FFFFFF` | Selected labels, wordmark, initials |
+| `railOnSecondary` | `#9AA0A8` | Idle labels + icons, SETTINGS / ACCOUNT captions, email/role meta |
 | `railActive` | `#242832` | Selected-row fill (quiet darker rect, **not** bright `accent`) |
 | `railAccent` | `#5E6DFF` | Wordmark square only (3:1 on `railSurface`) |
 | `railDanger` | `#F2994A` | Sign out text/icon (light `--fc-danger` fails on charcoal) |
@@ -94,8 +94,9 @@ flex zones inside the aside, at **every** breakpoint:
    button). Real naming is `[app-identity-rename](../planned/app-identity-rename.md)`.
 2. **Primary** — Calendar / Carpool / Family: leading semantic icon +
    label. Active = `railActive` rounded rect spanning icon+label and
-   `aria-current="page"`. Idle = `railOn` text **and** icon (`currentColor`,
-   same as the label — not `railAccent`). No tinted square chips.
+   `aria-current="page"`. Idle = `railOnSecondary` text **and** icon
+   (`currentColor`, same as the label — not `railAccent` / not `railOn`).
+   No tinted square chips.
 3. **SETTINGS** — drop the nested **General** group label. Keep Places,
    **Garage**, Feeds (Organizer only). Same icon+label treatment as
    primary; **no chevrons**. Active uses `railActive`, not `accent`.
@@ -127,7 +128,9 @@ crop simply cuts them off.
       label). It is not a destination control. Packages / API identity
       unchanged. Tests must **not** assert any particular wordmark string.
 - [x] Primary rows have leading icons; active state is a quiet
-      `railActive` rect (`aria-current="page"`), not a bright accent pill.
+      `railActive` rect (`aria-current="page"`) with `railOn` type;
+      idle rows use `railOnSecondary` (icons inherit via `currentColor`).
+      Not a bright accent pill.
 - [x] Settings: Places, Garage, Feeds (Organizer); no **General** label;
       Caregiver still omits Feeds. Same `setDestination` handlers.
 - [x] ACCOUNT: initials avatar, truncated email, humanized role, Sign out
