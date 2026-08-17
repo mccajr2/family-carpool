@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 /** Minimal VEVENT extractor — no third-party iCal dependency. */
 @Component
@@ -66,7 +67,7 @@ class IcalParser {
             return null;
         }
         Instant end = parseDateTime(props.get("DTEND_RAW"), props.get("DTEND"), calendarTimeZone);
-        String summary = unescapeText(props.getOrDefault("SUMMARY", "(no title)"));
+        String summary = normalizeIcalText(props.getOrDefault("SUMMARY", "(no title)"));
         if (summary.length() > 500) {
             summary = summary.substring(0, 500);
         }
@@ -74,11 +75,23 @@ class IcalParser {
         if (uid != null && uid.length() > 255) {
             uid = uid.substring(0, 255);
         }
-        String location = blankToNull(unescapeText(props.get("LOCATION")));
+        String location = blankToNull(normalizeIcalText(props.get("LOCATION")));
         if (location != null && location.length() > 500) {
             location = location.substring(0, 500);
         }
         return new ParsedIcalEvent(uid, summary, start, end, location);
+    }
+
+    /**
+     * RFC 5545 TEXT unescape, then HTML-entity decode. SportsEngine-style feeds put
+     * {@code &amp;} in SUMMARY/LOCATION; RFC unescape alone leaves that literal.
+     */
+    static String normalizeIcalText(String value) {
+        String unescaped = unescapeText(value);
+        if (unescaped == null || unescaped.isEmpty()) {
+            return unescaped;
+        }
+        return HtmlUtils.htmlUnescape(unescaped);
     }
 
     /**

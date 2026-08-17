@@ -2,10 +2,8 @@ import { useMemo } from "react"
 import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
 import { Button } from "@/components/ui/button"
-import { formatEventWhen } from "@/components/eventTimes"
-import { agendaLeaveByLine } from "@/components/leaveByDisplay"
+import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
-import { rsvpStatusForKid, rsvpStatusLabel } from "@/components/rsvpDisplay"
 import {
   activeCoverages,
   calendarSourceLabel,
@@ -15,6 +13,9 @@ import {
   eventKidNames,
   pendingCoverageForAdult,
 } from "@/components/coverageDisplay"
+import { formatEventWhen } from "@/components/eventTimes"
+import { agendaLeaveByLine } from "@/components/leaveByDisplay"
+import { rsvpStatusForKid, rsvpStatusLabel } from "@/components/rsvpDisplay"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -47,13 +48,6 @@ function minutesUntil(iso: string | null | undefined): number | null {
   const target = new Date(iso).getTime()
   if (Number.isNaN(target)) return null
   return Math.max(0, Math.round((target - Date.now()) / 60000))
-}
-
-function formatMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes}`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m === 0 ? `${h}` : `${h}h ${m}`
 }
 
 /**
@@ -103,8 +97,7 @@ export function AgendaFocusCard({
   const mins = useMemo(() => minutesUntil(item.leaveByAt ?? item.startsAt), [item.leaveByAt, item.startsAt])
   const ringFraction = mins == null ? 1 : Math.min(1, mins / RING_MAX_MINUTES)
   const ringDashoffset = RING_CIRCUMFERENCE * (1 - ringFraction)
-  const ringLabel = mins == null ? "—" : formatMinutes(mins)
-  const ringUnit = mins == null ? "" : mins < 60 ? "min" : "hr"
+  const { label: ringLabel, unit: ringUnit } = formatRingCountdown(mins)
 
   // Surface + accent role names swap by state, not by page theme — see the
   // component doc comment above. "hero*" is always used for the urgent

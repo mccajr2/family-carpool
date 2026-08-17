@@ -1,8 +1,8 @@
 # Spec: agenda-focus-card-bugs
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-16  
-Updated: 2026-08-16 (`/implement`)  
+Updated: 2026-08-17 (`/pr`)  
 Approved: 2026-08-16  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-card-bugs`  
@@ -11,7 +11,7 @@ Added: 2026-08-16 · enhancement
 ## Problem
 
 Two display bugs found while screenshot-smoking the shipped web Focus card
-(PR #38 / [`agenda-focus-hero-surface`](../archive/agenda-focus-hero-surface.md)).
+(PR #38 / [`agenda-focus-hero-surface`](agenda-focus-hero-surface.md)).
 Not new design work.
 
 1. **Feed titles show HTML entities literally** (`2016/2017 (BILL): Team &amp;
@@ -24,7 +24,7 @@ Not new design work.
 2. **Countdown ring label always uses hours past 60 minutes.** Fill already
    caps at `RING_MAX_MINUTES = 180`. `formatMinutes` does not, so a ~10-day-out
    off-season event prints `236h 39`. The ring answers “how excited should I
-   be right now,” and the **unit is part of that signal** — `10` / `day` and
+   be right now,” and the **unit is part of that signal** — `10` / `days` and
    `42` / `min` should both be glanceable. Hours at that range are neither.
 
 ## Non-goals
@@ -67,17 +67,17 @@ and must be called out in the PR plus a real follow-up; that is not the plan
 here.
 
 **Bug 2 — adaptive ring unit, not cap-and-hide.** Replace `formatMinutes` +
-the `min`/`hr` ternary with a small helper (same file, exported for tests)
+the `min`/`hr` ternary with `formatRingCountdown` in `agendaFocusRing.ts`
 that picks one unit from remaining minutes:
 
-| Remaining | Label | Unit (existing `uppercase` chrome → MIN / HR / DAY) |
+| Remaining | Label | Unit (existing `uppercase` chrome → MIN / HR / DAY / DAYS) |
 | --------- | ----- | --------------------------------------------------- |
 | `mins == null` | `"—"` | (none) |
 | `< 60` | integer minutes (unchanged) | `min` |
 | `< 24h` | existing hour form (`2` or `2h 30`) | `hr` |
-| `≥ 24h` | nearest whole day, minimum 1 | `day` (same abbreviated style as `hr`, not `days`) |
+| `≥ 24h` | nearest whole day, minimum 1 | `day` / `days` (English plural; `min`/`hr` stay abbreviated) |
 
-The screenshot case (~236h 39 ≈ 9.86 days) rounds to **10** / `day`. `"—"`
+The screenshot case (~236h 39 ≈ 9.86 days) rounds to **10** / `days`. `"—"`
 only when the timestamp is missing/invalid — never because the event is far
 away.
 
@@ -94,36 +94,36 @@ fixed. No mobile code in this PR.
 
 ## Acceptance criteria
 
-- [ ] `IcalParser` turns `SUMMARY:Team &amp; Family Meeting` into
+- [x] `IcalParser` turns `SUMMARY:Team &amp; Family Meeting` into
       `Team & Family Meeting` (and the same for LOCATION). `&lt;`, `&#39;`,
       `&quot;` decode; RFC 5545 `\,` in LOCATION still becomes a comma.
-- [ ] Calendar GET for an already-stored feed event whose DB summary is
+- [x] Calendar GET for an already-stored feed event whose DB summary is
       `Team &amp; Family Meeting` returns `Team & Family Meeting` without
       waiting for a re-sync (read-time helper on `toDto`).
-- [ ] No OpenAPI change. No `item.title` HTML decode in web/mobile UI.
-- [ ] Focus-card ring label is adaptive: minutes when `< 60`; hours when
+- [x] No OpenAPI change. No `item.title` HTML decode in web/mobile UI.
+- [x] Focus-card ring label is adaptive: minutes when `< 60`; hours when
       `< 24h`; nearest whole day when `≥ 24h`. `"—"` only when `mins` is null.
-      A ~10-day-out event shows `10` / `day`, not `236h 39` and not `"—"`.
+      A ~10-day-out event shows `10` / `days`, not `236h 39` and not `"—"`.
       Fill still caps at 180 minutes.
-- [ ] Automated tests above would fail if the parser helper or the adaptive
+- [x] Automated tests above would fail if the parser helper or the adaptive
       unit were reverted. Manual smoke of the screenshot scenario is extra,
       not a substitute.
 
 ## Tasks
 
-- [ ] Backend: `normalizeIcalText` (RFC 5545 then `HtmlUtils.htmlUnescape`) on
+- [x] Backend: `normalizeIcalText` (RFC 5545 then `HtmlUtils.htmlUnescape`) on
       parser SUMMARY/LOCATION and on `FeedCalendarApiImpl.toDto` title + location
-- [ ] Web: adaptive ring unit helper (min / hr / day); leave fill at 180;
+- [x] Web: adaptive ring unit helper (min / hr / day(s)); leave fill at 180;
       addendum sentence for the ring label
-- [ ] Tests: `IcalParserTest` entity + iCal-escape cases; helper/unit tests
+- [x] Tests: `IcalParserTest` entity + iCal-escape cases; helper/unit tests
       for the three breakpoints plus the ~10-day screenshot case; Focus-card
       render with fake timers. Extend `toDto` coverage if an existing test can
       assert stored `&amp;` → decoded title; otherwise the package-private
       helper test is the gate for read-time decode.
-- [ ] Run `IcalParserTest` + web `AgendaFocusCard` tests; report actual results
+- [x] Run `IcalParserTest` + web `AgendaFocusCard` tests; report actual results
 
 ## Open questions
 
-None — adaptive min / hr / day is locked; 24h cap-and-hide is rejected.
+None — adaptive min / hr / day(s) is locked; 24h cap-and-hide is rejected.
 Display-layer title decode is not in scope unless implement investigation
 disproves the ingest path.
