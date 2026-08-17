@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import test from "node:test"
@@ -26,18 +26,27 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-font-family-display: Space Grotesk, system-ui, sans-serif;/)
 })
 
-test("web loads the pairing from index.html and defines fc-display", () => {
+test("web self-hosts the pairing and defines fc-display", () => {
   const html = readFileSync(join(__dirname, "..", "web/index.html"), "utf8")
-  assert.match(html, /rel="preconnect" href="https:\/\/fonts\.googleapis\.com"/)
-  assert.match(html, /rel="preconnect" href="https:\/\/fonts\.gstatic\.com"/)
-  assert.match(
-    html,
-    /fonts\.googleapis\.com\/css2\?family=Space\+Grotesk.*family=Plus\+Jakarta\+Sans/,
-  )
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/)
   const css = readFileSync(join(__dirname, "..", "web/src/index.css"), "utf8")
   assert.doesNotMatch(css, /fonts\.googleapis\.com/)
+  assert.match(css, /font-family: "Plus Jakarta Sans"/)
+  assert.match(css, /font-family: "Space Grotesk"/)
+  assert.match(css, /plus-jakarta-sans-latin-400-normal\.woff2/)
+  assert.match(css, /space-grotesk-latin-700-normal\.woff2/)
   assert.match(css, /body\s*\{[\s\S]*font-family:\s*var\(--fc-font-family\);/)
   assert.match(css, /\.fc-display\s*\{[\s\S]*font-family:\s*var\(--fc-font-family-display\);/)
+  const fontsDir = join(__dirname, "..", "web/src/fonts")
+  for (const file of [
+    "plus-jakarta-sans-latin-400-normal.woff2",
+    "plus-jakarta-sans-latin-700-normal.woff2",
+    "space-grotesk-latin-700-normal.woff2",
+    "OFL-PlusJakartaSans.txt",
+    "OFL-SpaceGrotesk.txt",
+  ]) {
+    assert.ok(existsSync(join(fontsDir, file)), `missing ${file}`)
+  }
 })
 
 test("tokens.json declares light and dark color roles and icons", () => {
