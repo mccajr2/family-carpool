@@ -13,7 +13,7 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-Web display/body pairing shipped as [`typography-web`](../active/typography-web.md)
+Web display/body pairing shipped as [`typography-web`](../archive/typography-web.md)
 (Space Grotesk + Plus Jakarta Sans). iOS and Android still use `system-ui`
 because a distinctive typeface needs font assets bundled per platform, not
 just a token string edit.

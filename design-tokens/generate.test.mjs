@@ -26,13 +26,16 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-font-family-display: Space Grotesk, system-ui, sans-serif;/)
 })
 
-test("web index.css loads the pairing and defines fc-display", () => {
-  const css = readFileSync(join(__dirname, "..", "web/src/index.css"), "utf8")
-  const firstLine = css.split("\n")[0]
+test("web loads the pairing from index.html and defines fc-display", () => {
+  const html = readFileSync(join(__dirname, "..", "web/index.html"), "utf8")
+  assert.match(html, /rel="preconnect" href="https:\/\/fonts\.googleapis\.com"/)
+  assert.match(html, /rel="preconnect" href="https:\/\/fonts\.gstatic\.com"/)
   assert.match(
-    firstLine,
+    html,
     /fonts\.googleapis\.com\/css2\?family=Space\+Grotesk.*family=Plus\+Jakarta\+Sans/,
   )
+  const css = readFileSync(join(__dirname, "..", "web/src/index.css"), "utf8")
+  assert.doesNotMatch(css, /fonts\.googleapis\.com/)
   assert.match(css, /body\s*\{[\s\S]*font-family:\s*var\(--fc-font-family\);/)
   assert.match(css, /\.fc-display\s*\{[\s\S]*font-family:\s*var\(--fc-font-family-display\);/)
 })

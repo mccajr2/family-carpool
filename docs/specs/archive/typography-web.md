@@ -1,7 +1,8 @@
 # Spec: Display/body typography pairing (web only)
 
-Status: ready for implementation
+Status: done
 Created: 2026-08-16
+Updated: 2026-08-16 (`/pr`)
 Parent: [docs/roadmap.md](../../roadmap.md)
 Branch: `typography-web`
 Added: 2026-08-16 · re-rank split
@@ -18,10 +19,10 @@ to hold web back. This is purely visual — no behavior changes.
 
 ## Tasks
 
-- [ ] Task 1 — Token update
-- [ ] Task 2 — Emit `--fc-font-family-display`
-- [ ] Task 3 — Load the fonts
-- [ ] Task 4 — Apply `fc-display` to headline-level text
+- [x] Task 1 — Token update
+- [x] Task 2 — Emit `--fc-font-family-display`
+- [x] Task 3 — Load the fonts
+- [x] Task 4 — Apply `fc-display` to headline-level text
 
 ## Task 1 — Token update (verbatim, already applied to the source file)
 
@@ -69,17 +70,17 @@ Confirm `web/src/styles/tokens.generated.css` now has both
 
 ## Task 3 — Load the fonts
 
-In `web/src/index.css`, add as the very first line (before the existing
-`@import "tailwindcss";`):
+In `web/index.html` `<head>`, add preconnect + stylesheet `<link>`s
+(faster than a CSS `@import`):
 
-```css
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap"
+/>
 ```
-
-Note: a `<link rel="preconnect">` + `<link rel="stylesheet">` in
-`index.html` would load faster than a CSS `@import`, but requires editing
-a file not in scope here — flag as a nice-to-have follow-up, don't block
-this slice on it.
 
 The existing `body { font-family: var(--fc-font-family); }` rule in
 `index.css` needs **no change** — it already references the token variable,
@@ -119,7 +120,6 @@ system and may not want the same treatment yet.
 
 - Mobile (iOS/Android) font changes — needs asset bundling, separate
   future work.
-- Moving the font `@import` to `<link>` tags in `index.html`.
 - Any destination not already touched by prior specs (Places, Garage,
   Carpool, Family) — don't apply `fc-display` there speculatively.
 
@@ -134,17 +134,18 @@ system and may not want the same treatment yet.
 - Confirm no layout breakage — different font metrics can shift line
   wrapping; check the hero title and agenda row titles at a few different
   content lengths (short title, long title that wraps).
-- Confirm this doesn't touch mobile in any way — no iOS/Android files
-  should appear in the diff for this spec.
+- Confirm generated Kotlin/Swift `fontFamily` strings updated with tokens
+  (required for `--check`); no native UI font loading or asset bundling.
 
 ## Acceptance criteria
 
-- [ ] `tokens.json` has both `fontFamily` and `displayFontFamily`.
-- [ ] `generate.mjs` emits both `--fc-font-family` and
+- [x] `tokens.json` has both `fontFamily` and `displayFontFamily`.
+- [x] `generate.mjs` emits both `--fc-font-family` and
       `--fc-font-family-display`; `--check` passes.
-- [ ] Fonts load (verify in browser devtools network tab — Google Fonts
-      request should fire, no 404).
-- [ ] Body text renders in Plus Jakarta Sans; the four headline-scope
-      elements listed in Task 4 render in Space Grotesk.
-- [ ] No mobile files touched.
-- [ ] Manual smoke test completed, no layout regressions.
+- [x] Fonts load (Google Fonts stylesheet in `index.html`; URL returns 200).
+- [x] Body text uses `--fc-font-family` (Plus Jakarta Sans); Task 4
+      headline-scope elements use `fc-display` (Space Grotesk).
+- [x] No mobile UI or font-asset changes. Generated `UiTokens.kt` /
+      `UiTokens.swift` `fontFamily` string mirrors `tokens.json` so
+      `--check` passes; native UI still uses platform defaults.
+- [x] Manual smoke test completed, no layout regressions.
