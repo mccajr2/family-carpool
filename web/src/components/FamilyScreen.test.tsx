@@ -1823,6 +1823,8 @@ describe("FamilyScreen", () => {
     const main = heading.closest("main")
     expect(main).not.toBeNull()
     expect(main?.className).toMatch(/flex-1/)
+    expect(main?.className).toMatch(/min-w-0/)
+    expect(main?.className).toMatch(/md:min-w-\[820px\]/)
     expect(main?.className).not.toMatch(/shadow-sm/)
     expect(main?.className).not.toMatch(/border-border/)
     expect(main?.firstElementChild?.className).toMatch(/max-w-\[820px\]/)

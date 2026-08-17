@@ -2,7 +2,7 @@
 
 Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17 (`/pr`)  
+Updated: 2026-08-17 (`/pr` amend: `md:min-w-[820px]`)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-page-frame`  
@@ -50,13 +50,15 @@ shell:
 | Column | Width | Role |
 |--------|--------|------|
 | Rail | `md:w-60` (240px, mock) | Existing aside; still `sticky top-0 h-svh` |
-| Main | `1fr` / `min-w-0` | Destination; **not** a `Card` (no `border` / `shadow-sm` / raised fill) |
+| Main | `1fr` / `min-w-0`; `md:min-w-[820px]` | Destination; **not** a `Card` (no `border` / `shadow-sm` / raised fill) |
 | Context | `md:w-80` (320px) | **Calendar only.** Empty chrome: left border from `--fc-border`, padding from existing space tokens. `aria-label="Context"`. No heading, no week-strip copy, no carpool card |
 
 Main inner measure matches the mock: content `max-w-[820px]` so Agenda stays
 left-of-center on ultrawide; the **column** is still `1fr` so the context
-aside docks to the viewport right. Padding: nearest existing `--fc-space-*`
-(do not add 28/36/44px roles).
+aside docks to the viewport right. At `md+` the column also has
+`min-w-[820px]` so the Focus card / Agenda cannot crush below that measure
+(narrow still uses `min-w-0` and stacks). Padding: nearest existing
+`--fc-space-*` (do not add 28/36/44px roles).
 
 **Narrow.** Rail stacks above content (`min-h-svh` as today). **Do not**
 render the context aside. Do not `position: fixed` a third pane over Agenda.
@@ -78,8 +80,8 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
       not inside `max-w-5xl`). Still `sticky top-0 h-svh`, `rail*` chrome
       unchanged.
 - [x] Destination column is uncarded (no shell `Card` border/shadow). Inner
-      content `max-w-[820px]`. Destinations and `setDestination` / `onSignOut`
-      handlers unchanged.
+      content `max-w-[820px]`; `md+` column `min-w-[820px]`. Destinations and
+      `setDestination` / `onSignOut` handlers unchanged.
 - [x] Calendar `md+` shows an empty `aside` labelled Context (`w-80`, left
       border). No week-glance or carpool-card copy. Tests must **not** assert
       “Week at a glance” or stop-list strings.
@@ -104,8 +106,9 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 ## Open questions
 
 None. Mock main `max-width: 820px` inside `1fr` is locked (content left,
-context docked right). Empty Context chrome vs filling it is the split with
-`agenda-week-glance`. Destination header type, Calendar Today/date copy,
-ink/slate colors, and header↔content gap are deferred to
+context docked right); `md+` column min is the same 820px so the middle
+track can grow but not crush. Empty Context chrome vs filling it is the
+split with `agenda-week-glance`. Destination header type, Calendar
+Today/date copy, ink/slate colors, and header↔content gap are deferred to
 [`web-shell-page-header`](../planned/web-shell-page-header.md) — not this
 slice.

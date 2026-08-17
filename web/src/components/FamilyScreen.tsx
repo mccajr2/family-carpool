@@ -1821,7 +1821,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="min-w-0 flex-1">
+      <main className="min-w-0 flex-1 md:min-w-[820px]">
         <div className="flex max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
         <header
           className={
