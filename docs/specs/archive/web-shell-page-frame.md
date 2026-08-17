@@ -56,8 +56,10 @@ Calendar mock (no stacked breakpoint — the mock has none):
 `.main` is the grid item (same as the mock): **`max-width: 820px` only** —
 no `width: 100%`, no `min-width`, no `justify-self`. Default stretch fills
 the `1fr` track up to 820; leftover space sits between Agenda and Context.
-The floor is implicit min-content, not 820. Padding: nearest existing
-`--fc-space-*`. Nowrap / `truncate` inside `.main` (Agenda titles) raises
+The floor is implicit min-content, not 820. Padding was nearest
+`--fc-space-*` in this slice; mock `.main` `padding: 36px 44px` landed in
+[`web-shell-page-header`](../active/web-shell-page-header.md) (`mainY` /
+`mainX`). Nowrap / `truncate` inside `.main` (Agenda titles) raises
 that floor to ~820, so the column never follows `1fr` down — titles wrap,
 like the mock `.row-main`. `App` is a `div`, not a nested `<main>`.
 

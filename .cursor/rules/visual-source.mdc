@@ -1,0 +1,18 @@
+---
+description: Destination mocks are the visual source of truth for size, spacing, and color.
+alwaysApply: true
+---
+
+# Visual source of truth
+
+Destination mocks (Claude Calendar / Feeds HTML, later per-screen mocks) lock
+**size, weight, spacing, and color**. Put those values in
+`design-tokens/tokens.json` (new or updated roles) in the same PR and consume
+generated tokens. Do **not** snap to a nearby existing role (34px → `hero` 26,
+26px gap → `space-xl` 24, 14/500 → `body` 15/400).
+
+**Exception:** WCAG AA (4.5:1 text, 3.0:1 icons) may adjust a mock hex. That
+does not authorize ignoring mock type or spacing.
+
+If a mock conflicts with an older lock, ask; expected answer is defer to the
+mock. Details: `docs/ui-system.md`.

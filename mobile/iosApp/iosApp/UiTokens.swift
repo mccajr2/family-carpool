@@ -92,6 +92,11 @@ enum UiTokens {
         static let lg: CGFloat = 16
         static let xl: CGFloat = 24
         static let _2xl: CGFloat = 32
+        static let header: CGFloat = 26
+        static let mainY: CGFloat = 36
+        static let mainX: CGFloat = 44
+        static let railY: CGFloat = 28
+        static let railX: CGFloat = 20
     }
 
     enum Radius {
@@ -113,6 +118,8 @@ enum UiTokens {
         static let title = TypeScale(size: 17, lineHeight: 24, weight: "600")
         static let headline = TypeScale(size: 22, lineHeight: 28, weight: "700")
         static let hero = TypeScale(size: 26, lineHeight: 32, weight: "700")
+        static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
+        static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
         static let fontFamily: String = "Plus Jakarta Sans"
     }
 

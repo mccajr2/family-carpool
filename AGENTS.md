@@ -101,6 +101,11 @@ see `docs/using-as-template.md`.
 
 [FILL IN AS YOU GO — add an entry only after the same mistake happens twice.]
 
+- Visual restyles: destination mocks are the source of truth for size, weight,
+  spacing, and color. Put those values in `design-tokens/tokens.json` in the
+  same PR — do not snap to a nearby existing role. Only exception is WCAG AA
+  contrast on mock hex. If a mock conflicts with an older lock, ask; default
+  is defer to the mock (`docs/ui-system.md`).
 - Web signed-in circle-ready shell (`FamilyScreen`): CSS grid
   `15rem 1fr [20rem]`. Destination `<main>` is a **block** with `max-w-[820px]`
   only (not `flex`, `w-full`, `min-w-0`, or `min-w-[820px]`). `App` is a `div`,

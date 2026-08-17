@@ -89,6 +89,11 @@ object UiTokens {
         const val lg: Int = 16
         const val xl: Int = 24
         const val _2xl: Int = 32
+        const val header: Int = 26
+        const val mainY: Int = 36
+        const val mainX: Int = 44
+        const val railY: Int = 28
+        const val railX: Int = 20
     }
 
     object Radius {
@@ -106,6 +111,8 @@ object UiTokens {
         val title = TypeScale(size = 17, lineHeight = 24, weight = "600")
         val headline = TypeScale(size = 22, lineHeight = 28, weight = "700")
         val hero = TypeScale(size = 26, lineHeight = 32, weight = "700")
+        val page = TypeScale(size = 34, lineHeight = 40, weight = "700")
+        val subtitle = TypeScale(size = 14, lineHeight = 20, weight = "500")
         const val fontFamily: String = "Plus Jakarta Sans"
     }
 

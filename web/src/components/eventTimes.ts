@@ -68,6 +68,15 @@ export function formatEventWhen(startsAt: string, endsAt: string | null | undefi
   return start
 }
 
+/** Calendar page subtitle: local today, e.g. "Wednesday, August 13" (no year). */
+export function formatLocalTodayLabel(now: Date = new Date()): string {
+  return now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  })
+}
+
 /** Default agenda page size in local calendar days. */
 export const CALENDAR_PAGE_DAYS = 30
 
