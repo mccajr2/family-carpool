@@ -14,14 +14,23 @@ describe("shellNav", () => {
   it("marks the active destination with aria-current", () => {
     render(
       <>
-        <ShellNavButton label="Calendar" active onClick={() => undefined} />
-        <ShellNavButton label="Carpool" active={false} onClick={() => undefined} />
+        <ShellNavButton
+          label="Calendar"
+          icon="icon.calendar"
+          active
+          onClick={() => undefined}
+        />
+        <ShellNavButton
+          label="Carpool"
+          icon="icon.carpool"
+          active={false}
+          onClick={() => undefined}
+        />
       </>,
     )
-    expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    )
+    const calendar = screen.getByRole("button", { name: "Calendar" })
+    expect(calendar).toHaveAttribute("aria-current", "page")
+    expect(calendar.querySelector("svg")).not.toBeNull()
     expect(screen.getByRole("button", { name: "Carpool" })).not.toHaveAttribute(
       "aria-current",
     )

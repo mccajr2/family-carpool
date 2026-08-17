@@ -1705,20 +1705,29 @@ describe("FamilyScreen", () => {
     )
 
     const nav = await screen.findByLabelText("App navigation")
-    expect(within(nav).getByRole("button", { name: "Calendar" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    )
+    const wordmark = within(nav).getByLabelText("Wordmark")
+    expect(wordmark.tagName).not.toBe("BUTTON")
+    expect(wordmark.querySelector("button")).toBeNull()
+    const calendar = within(nav).getByRole("button", { name: "Calendar" })
+    expect(calendar).toHaveAttribute("aria-current", "page")
+    expect(calendar.querySelector("svg")).not.toBeNull()
     expect(within(nav).getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Family" })).toBeInTheDocument()
     expect(within(nav).getByLabelText("Settings")).toBeInTheDocument()
-    expect(within(nav).getByLabelText("General")).toBeInTheDocument()
+    expect(within(nav).queryByLabelText("General")).not.toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Places" })).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Garage" })).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Feeds" })).toBeInTheDocument()
-    expect(within(nav).getByLabelText("Account")).toBeInTheDocument()
-    expect(within(nav).getByText("parent@example.com")).toBeInTheDocument()
-    expect(within(nav).getByText("ORGANIZER")).toBeInTheDocument()
+    const account = within(nav).getByLabelText("Account")
+    expect(within(account).getByText("parent@example.com")).toBeInTheDocument()
+    expect(within(account).getByText("ORGANIZER")).toBeInTheDocument()
+    expect(within(account).getByRole("button", { name: "Sign out" })).toBeInTheDocument()
+    expect(
+      within(within(nav).getByLabelText("Settings")).queryByRole("button", {
+        name: "Sign out",
+      }),
+    ).not.toBeInTheDocument()
+    expect(nav.className).toMatch(/--fc-rail-surface/)
 
     await goTo(user, "Garage")
     expect(await screen.findByRole("heading", { name: "Garage" })).toBeInTheDocument()

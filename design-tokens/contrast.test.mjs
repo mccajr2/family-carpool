@@ -62,6 +62,19 @@ function heroPairings(scheme) {
   ]
 }
 
+/** Signed-in web shell rail — always-dark, independent of page theme. */
+function railPairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    { name: "railOn on railSurface", fg: c.railOn, bg: c.railSurface, min: 4.5 },
+    { name: "railOnSecondary on railSurface", fg: c.railOnSecondary, bg: c.railSurface, min: 4.5 },
+    { name: "railDanger on railSurface", fg: c.railDanger, bg: c.railSurface, min: 4.5 },
+    { name: "railOn on railActive", fg: c.railOn, bg: c.railActive, min: 4.5 },
+    { name: "railOnSecondary on railActive", fg: c.railOnSecondary, bg: c.railActive, min: 4.5 },
+    { name: "railAccent on railSurface (icon)", fg: c.railAccent, bg: c.railSurface, min: 3 },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
@@ -75,6 +88,16 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Focus card hero* WCAG AA pairings (${scheme})`, () => {
     for (const p of heroPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Web shell rail* WCAG AA pairings (${scheme})`, () => {
+    for (const p of railPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

@@ -71,6 +71,12 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "heroDanger",
     "heroSuccess",
     "heroAccent",
+    "railSurface",
+    "railOn",
+    "railOnSecondary",
+    "railActive",
+    "railAccent",
+    "railDanger",
   ]) {
     assert.ok(tokens.color.light[role], `missing light.${role}`)
     assert.ok(tokens.color.dark[role], `missing dark.${role}`)
@@ -86,4 +92,18 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.ok(tokens.icons.includes("icon.garage"))
   assert.ok(tokens.icons.includes("icon.feeds"))
   assert.ok(tokens.icons.includes("icon.signout"))
+  for (const role of [
+    "railSurface",
+    "railOn",
+    "railOnSecondary",
+    "railActive",
+    "railAccent",
+    "railDanger",
+  ]) {
+    assert.equal(
+      tokens.color.light[role],
+      tokens.color.dark[role],
+      `rail* must be theme-independent (${role})`,
+    )
+  }
 })

@@ -145,12 +145,12 @@ crop simply cuts them off.
 
 ## Tasks
 
-- [ ] Tokens: add `rail*` roles (same hex light + dark) to
+- [x] Tokens: add `rail*` roles (same hex light + dark) to
       `design-tokens/tokens.json`; note them in `meta.description`. Run
       `node design-tokens/generate.mjs` then `--check`. Extend
       `generate.test.mjs` + `contrast.test.mjs`. Update
       `docs/ui-system.md` color-role table.
-- [ ] Web: restyle `FamilyScreen` aside — three-zone flex (wordmark /
+- [x] Web: restyle `FamilyScreen` aside — three-zone flex (wordmark /
       scrollable nav / pinned ACCOUNT footer), docked `md+`, `min-h-svh`
       narrow, flatten Settings. Pass icons into `ShellNavButton`.
 - [ ] Web: restyle `shellNav.tsx` — `rail*` classes; primary + settings

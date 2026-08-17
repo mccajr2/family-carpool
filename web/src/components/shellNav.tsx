@@ -8,25 +8,29 @@ import { cn } from "@/lib/utils"
 
 export function ShellNavButton({
   label,
+  icon,
   active,
   onClick,
 }: {
   label: string
+  icon: SemanticIconName
   active: boolean
   onClick: () => void
 }) {
+  const Icon = resolveSemanticIcon(icon)
   return (
     <button
       type="button"
       aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "w-full rounded-[var(--fc-radius-md)] px-[var(--fc-space-md)] py-[var(--fc-space-sm)] text-left font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-body-size)] font-[number:var(--fc-font-title-weight)] leading-[var(--fc-font-body-line)] transition-colors",
+        "flex w-full items-center gap-[var(--fc-space-md)] rounded-[var(--fc-radius-md)] px-[var(--fc-space-md)] py-[var(--fc-space-sm)] text-left font-[family-name:var(--fc-font-family)] text-[length:var(--fc-font-body-size)] font-[number:var(--fc-font-title-weight)] leading-[var(--fc-font-body-line)] transition-colors",
         active
           ? "bg-[var(--fc-accent)] text-[var(--fc-accent-on)]"
           : "text-[var(--fc-text-primary)] hover:bg-[color-mix(in_srgb,var(--fc-accent)_12%,transparent)]",
       )}
     >
+      <Icon className="size-4 shrink-0" aria-hidden />
       {label}
     </button>
   )
