@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-16 (`/roadmap agenda-focus-card-bugs`)
+Updated: 2026-08-16 (`/spec agenda-focus-card-bugs` amend: adaptive ring unit)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -89,7 +89,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-focus-card-bugs             | planned | 2026-08-16 · enhancement                                         | Smoke-test fixes: decode HTML entities in feed titles at iCal ingest; cap Focus-card ring **label** (not fill) so far-future events show "—"                    |
+| 1    | agenda-focus-card-bugs             | active  | 2026-08-16 · enhancement                                         | Smoke-test fixes: decode HTML entities in feed titles at iCal ingest; Focus-card ring label uses adaptive min / hr / day (fill still 3h)                        |
 | 2    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds restyle onto Agenda card/token language; zero behavior change (`CarpoolFeedActions` as-is)                                                            |
 | 3    | agenda-focus-card-mobile           | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the Agenda Focus card (selection logic + copy match web; native chrome OK)                                                                |
 | 4    | agenda-full-page-redesign-mobile   | planned | 2026-08-15 · enhancement                                         | iOS + Android port of day-grouped Agenda card rows (after web `agenda-full-page-redesign`)                                                                      |
@@ -161,6 +161,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
+| agenda-focus-card-bugs | `agenda-focus-card-bugs` | [active](specs/active/agenda-focus-card-bugs.md) |
 
 
 ## Done
@@ -289,4 +290,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-16 | `/pr agenda-full-page-redesign`: web day-grouped Agenda rows shipped ([#39](https://github.com/mccajr2/family-carpool/pull/39)); spec archived. Next up `typography-web` (rebased onto `main`). |
 | 2026-08-16 | `/pr typography-web`: Space Grotesk + Plus Jakarta Sans on web; mobile font bundling stays `typography-font-family`. Next up `feeds-page-redesign`. |
 | 2026-08-16 | `/roadmap agenda-focus-card-bugs`: smoke-test follow-up (feed HTML entities + Focus ring label cap) promoted to Next up; `feeds-page-redesign` → rank 2. |
+| 2026-08-16 | `/spec agenda-focus-card-bugs`: ingest HTML-entity decode + Focus ring adaptive min/hr/day label (not 24h cap-and-hide); no OpenAPI. |
 
