@@ -14,8 +14,10 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 ## Problem
 
 Carpool needs a multi-stop destination (ordered pickup list, "Open in
-Maps") and Agenda's deferred "N stops" tag needs a real per-event
-stop/pickup-order field. Neither is in this redesign pass.
+Maps") and Agenda's deferred "N stops" / "3 STOPS" tag needs a real
+per-event stop/pickup-order field. The Calendar mock’s right-rail
+**Sharks Practice — Carpool** card (numbered stops + Open in Maps) is
+this slice — not [`agenda-week-glance`](agenda-week-glance.md).
 
 ## Non-goals (sketch)
 
