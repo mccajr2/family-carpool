@@ -57,7 +57,7 @@ dedicated roles with the **same hex in light and dark**:
 | `railOn` | `#FFFFFF` | Primary labels, wordmark, initials |
 | `railOnSecondary` | `#9AA0A8` | SETTINGS / ACCOUNT captions, email/role meta |
 | `railActive` | `#242832` | Selected-row fill (quiet darker rect, **not** bright `accent`) |
-| `railAccent` | `#5E6DFF` | Wordmark square; idle icons (3:1 on `railSurface`) |
+| `railAccent` | `#5E6DFF` | Wordmark square only (3:1 on `railSurface`) |
 | `railDanger` | `#F2994A` | Sign out text/icon (light `--fc-danger` fails on charcoal) |
 
 Hex overlap with `hero*` is coincidence. Rail CSS must use `--fc-rail-*`
@@ -94,8 +94,8 @@ flex zones inside the aside, at **every** breakpoint:
    button). Real naming is `[app-identity-rename](../planned/app-identity-rename.md)`.
 2. **Primary** — Calendar / Carpool / Family: leading semantic icon +
    label. Active = `railActive` rounded rect spanning icon+label and
-   `aria-current="page"`. Idle = `railOn` text, `railAccent` (or
-   `railOnSecondary`) icon. No tinted square chips.
+   `aria-current="page"`. Idle = `railOn` text **and** icon (`currentColor`,
+   same as the label — not `railAccent`). No tinted square chips.
 3. **SETTINGS** — drop the nested **General** group label. Keep Places,
    **Garage**, Feeds (Organizer only). Same icon+label treatment as
    primary; **no chevrons**. Active uses `railActive`, not `accent`.
@@ -136,7 +136,7 @@ crop simply cuts them off.
       in the scrolling primary/SETTINGS region.
 - [x] `node design-tokens/generate.mjs --check` passes. `rail*` pairings
       in `contrast.test.mjs` meet WCAG AA (4.5:1 text, 3.0:1 `railAccent`
-      as icon) in **both** schemes.
+      as the wordmark square) in **both** schemes.
 - [x] Web tests updated: `shellNav.test.tsx` (icons, rail classes, avatar
       initials, humanized role) and FamilyScreen sidebar test (no General
       label, wordmark present and not a button, ACCOUNT visible,

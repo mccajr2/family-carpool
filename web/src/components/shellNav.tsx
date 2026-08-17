@@ -25,13 +25,6 @@ function railRowClassName({
   )
 }
 
-function railIconClassName(danger: boolean) {
-  return cn(
-    "size-4 shrink-0",
-    danger ? "text-[var(--fc-rail-danger)]" : "text-[var(--fc-rail-accent)]",
-  )
-}
-
 export function ShellNavButton({
   label,
   icon,
@@ -51,7 +44,7 @@ export function ShellNavButton({
       onClick={onClick}
       className={railRowClassName({ active, danger: false })}
     >
-      <Icon className={railIconClassName(false)} aria-hidden />
+      <Icon className="size-4 shrink-0" aria-hidden />
       {label}
     </button>
   )
@@ -74,7 +67,7 @@ export function SettingsRow({
   const className = railRowClassName({ active, danger })
   const content = (
     <>
-      <Icon className={railIconClassName(danger)} aria-hidden />
+      <Icon className="size-4 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1">{label}</span>
     </>
   )

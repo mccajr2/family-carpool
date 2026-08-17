@@ -37,9 +37,11 @@ describe("shellNav", () => {
     const carpool = screen.getByRole("button", { name: "Carpool" })
     expect(carpool).not.toHaveAttribute("aria-current")
     expect(carpool.className).toMatch(/--fc-rail-on/)
-    expect(carpool.querySelector("svg")?.getAttribute("class") ?? "").toMatch(
-      /--fc-rail-accent/,
-    )
+    const carpoolIcon = carpool.querySelector("svg")
+    expect(carpoolIcon).not.toBeNull()
+    expect(carpoolIcon?.getAttribute("stroke")).toBe("currentColor")
+    expect(carpoolIcon?.getAttribute("class") ?? "").not.toMatch(/--fc-rail-accent/)
+    expect(carpoolIcon?.getAttribute("class") ?? "").not.toMatch(/--fc-rail-on/)
   })
 
   it("uses icon+label settings rows without chips or chevrons", async () => {
@@ -64,6 +66,10 @@ describe("shellNav", () => {
     expect(places.className).toMatch(/--fc-rail-on/)
     expect(places.className).not.toMatch(/--fc-accent/)
     expect(places.querySelectorAll("svg")).toHaveLength(1)
+    expect(places.querySelector("svg")?.getAttribute("stroke")).toBe("currentColor")
+    expect(places.querySelector("svg")?.getAttribute("class") ?? "").not.toMatch(
+      /--fc-rail-accent/,
+    )
     await user.click(places)
     expect(onPlaces).toHaveBeenCalled()
     const signOut = screen.getByRole("button", { name: "Sign out" })

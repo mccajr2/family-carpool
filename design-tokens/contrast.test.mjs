@@ -71,7 +71,7 @@ function railPairings(scheme) {
     { name: "railDanger on railSurface", fg: c.railDanger, bg: c.railSurface, min: 4.5 },
     { name: "railOn on railActive", fg: c.railOn, bg: c.railActive, min: 4.5 },
     { name: "railOnSecondary on railActive", fg: c.railOnSecondary, bg: c.railActive, min: 4.5 },
-    { name: "railAccent on railSurface (icon)", fg: c.railAccent, bg: c.railSurface, min: 3 },
+    { name: "railAccent on railSurface (wordmark)", fg: c.railAccent, bg: c.railSurface, min: 3 },
   ]
 }
 
