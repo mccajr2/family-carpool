@@ -33,21 +33,14 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
 
 ## Presentation hierarchy
 
-Locked for [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md). Durable
-tenets / busy ladder: [`architecture.md` Interaction UX](architecture.md).
+Agenda presentation hierarchy is now governed by
+`docs/agenda-full-redesign-addendum.md` (flat rows) and
+`docs/agenda-focus-card-addendum.md` (the promoted item). This section is
+retired.
 
-**Selection A — spacing / proximity only.** Group with hierarchy, type weight,
-and spacing. Do **not** add card, muted band, or bordered subsection chrome
-inside an Agenda item. Critical regroup of attribute **order / proximity** is
-allowed; behavior and copy in this contract stay authoritative.
-
-Superseded for the Focus card item only — see
-`docs/agenda-focus-card-addendum.md`. Flat items below the Focus card still
-follow Selection A unchanged.
-
-**No accordion / nested Agenda screens** in this slice. If still too dense after
-dogfood, escalate via the busy ladder (architecture) — possible follow-up
-`calendar-ux-disclosure`, not ad-hoc chrome.
+**Bands, situational primary CTA, and out-of-play rules below still apply**
+inside the expanded `AgendaRow` and on the Focus card — this is a
+presentation change, not a behavior change.
 
 ### Bands (within one Agenda item)
 
@@ -245,12 +238,13 @@ Match this contract for each item before calling the port done:
 6. Default leave-from on Places.
 7. Field rows: Leave from / Covering adult / My default leave-from / per-kid
    RSVP are horizontal (label leading, value/picker trailing).
-8. Presentation hierarchy (selection A): bands + one situational primary CTA;
-   no inner card/band; no accordion in this slice; out-of-play chrome when all
-   kids RSVP No; coverage-release confirm copy.
+8. Presentation hierarchy: bands + one situational primary CTA;
+   out-of-play chrome when all kids RSVP No; coverage-release confirm copy.
+   Flat-row chrome is `docs/agenda-full-redesign-addendum.md` (web).
 9. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
 10. Focus card selection + rendering — web only — not yet ported.
+11. Full Agenda row redesign (day-grouping, card rows, expand/collapse) — web only — not yet ported.
 
 ## Toolkit differences (OK)
 

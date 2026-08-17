@@ -48,12 +48,11 @@ Added: 2026-08-10 · note carried from cross-platform-ui-system approval
 
 - Depends on shipped [`cross-platform-ui-system`](../archive/cross-platform-ui-system.md).
 - Prefer one destination (or one cohesive surface) per PR at `/spec` time.
-- **Leave until later:** Interaction hierarchy on Calendar lands first
-  ([`calendar-ux-flow`](../archive/calendar-ux-flow.md)); then product surfaces
-  (conflicts, carpool, grid). Adopt shared tokens **after** those UIs exist
-  rather than restyling twice. Rank sits after the carpool cluster (+ grid) —
-  split/re-rank per destination at `/spec` if needed.
-- Brand hex churn (`ui-palette-refresh`) should follow the first adoption
-  slices so palette work paints real destinations, not More-only.
-- Cross-ref: [`ui-palette-refresh`](ui-palette-refresh.md),
-  [`calendar-ux-flow`](../archive/calendar-ux-flow.md).
+- **Agenda and Feeds visual passes are the adoption for those surfaces**
+  (`agenda-focus-card`, `agenda-full-page-redesign`, `feeds-page-redesign`
+  + mobile ports). Do not restyle Agenda again under this id.
+- Remainder: Carpool (`carpool-page-redesign`), Family/Places/Garage
+  (`family-places-garage-redesign`), and `family-calendar-grid` — each
+  re-runs screenshots + WCAG AA for **that** surface.
+- Brand hex already shipped with `agenda-focus-card`; parked
+  [`ui-palette-refresh`](ui-palette-refresh.md) is not a second palette PR.

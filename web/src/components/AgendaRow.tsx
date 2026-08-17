@@ -17,6 +17,7 @@ import {
   coverageKidNames,
   coverageStatusLabel,
   eventKidNames,
+  memberLabel,
   pendingCoverageForAdult,
 } from "@/components/coverageDisplay"
 
@@ -110,8 +111,10 @@ export function AgendaRow({
   return (
     <div
       data-testid={`agenda-row-${item.source}-${item.id}`}
+      data-out-of-play={outOfPlay ? "true" : "false"}
       className={`rounded-[var(--fc-radius-md)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] px-[var(--fc-space-lg)] py-[var(--fc-space-md)] transition-colors ${outOfPlay ? "opacity-60" : ""}`}
     >
+      <div data-testid="agenda-band-primary">
       <button
         type="button"
         className="flex w-full items-center gap-[var(--fc-space-md)] text-left"
@@ -131,7 +134,7 @@ export function AgendaRow({
           </span>
         </span>
         {tags.length > 0 ? (
-          <span className="hidden flex-shrink-0 gap-[var(--fc-space-xs)] sm:flex">
+          <span className="flex flex-shrink-0 gap-[var(--fc-space-xs)]">
             {tags.map((tag) => (
               <span
                 key={tag.label}
@@ -149,28 +152,48 @@ export function AgendaRow({
           ›
         </span>
       </button>
+      </div>
 
       {open ? (
         <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
           {!outOfPlay && conflictLines.length > 0 ? (
-            <div className="flex flex-col gap-[2px]">
+            <ul
+              data-testid={`agenda-conflicts-${item.source}-${item.id}`}
+              className="flex flex-col gap-[2px]"
+              aria-label="Schedule conflicts"
+            >
               {conflictLines.map((line) => (
-                <span key={line} className="text-xs font-medium text-[var(--fc-danger)]">
+                <li key={line} className="text-xs font-medium text-[var(--fc-danger)]">
                   {line}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : null}
 
           {/* Travel / origin */}
           {!outOfPlay ? (
-            <div className="flex flex-col gap-[var(--fc-space-sm)]">
-              <span className="text-xs text-[var(--fc-text-secondary)]">{agendaLeaveByLine(item)}</span>
+            <div
+              data-testid="agenda-band-travel"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              <span
+                className="text-xs text-[var(--fc-text-secondary)]"
+                data-testid={`leave-by-${item.source}-${item.id}`}
+              >
+                {agendaLeaveByLine(item)}
+              </span>
               <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
                 <span className="text-xs text-[var(--fc-text-secondary)]">Leave from</span>
                 {locatedPlaces.length <= 1 ? (
-                  <span className="text-sm font-medium text-[var(--fc-text-primary)]">
-                    {item.leaveFromPlaceName ?? locatedPlaces[0]?.name ?? "No located places yet"}
+                  <span
+                    className="text-sm font-medium text-[var(--fc-text-primary)]"
+                    data-testid={`leave-from-label-${item.source}-${item.id}`}
+                  >
+                    {item.leaveFromPlaceName ??
+                      locatedPlaces[0]?.name ??
+                      (circle.places.length === 0
+                        ? "No places yet"
+                        : "No located places yet")}
                   </span>
                 ) : (
                   <select
@@ -198,7 +221,10 @@ export function AgendaRow({
           ) : null}
 
           {/* People / source */}
-          <div className="flex flex-col gap-[var(--fc-space-sm)]">
+          <div
+            data-testid="agenda-band-people"
+            className="flex flex-col gap-[var(--fc-space-sm)]"
+          >
             <span className="text-xs text-[var(--fc-text-secondary)]">
               {calendarSourceLabel(item.source, item.feedName)}
             </span>
@@ -228,7 +254,10 @@ export function AgendaRow({
 
           {/* Coverage / actions */}
           {!outOfPlay ? (
-            <div className="flex flex-col gap-[var(--fc-space-sm)]">
+            <div
+              data-testid="agenda-band-coverage"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
               {active.map((coverage) => (
                 <div key={coverage.id} className="flex items-center justify-between gap-[var(--fc-space-md)]">
                   <span className="text-xs text-[var(--fc-text-secondary)]">
@@ -253,7 +282,13 @@ export function AgendaRow({
               ) : null}
               {pendingForSelf ? (
                 <div className="flex gap-[var(--fc-space-sm)]">
-                  <Button type="button" size="sm" onClick={() => onConfirmCoverage(pendingForSelf.id)} disabled={loading}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="agenda-cta-primary"
+                    onClick={() => onConfirmCoverage(pendingForSelf.id)}
+                    disabled={loading}
+                  >
                     Confirm coverage
                   </Button>
                   <Button
@@ -281,16 +316,51 @@ export function AgendaRow({
                       >
                         {circle.members.map((m) => (
                           <option key={m.adultId} value={m.adultId}>
-                            {m.displayName?.trim() ? m.displayName : m.email}
+                            {memberLabel(m)}
                           </option>
                         ))}
                       </select>
                     </div>
                   ) : null}
+                  {!assignDraft.soleKid ? (
+                    <fieldset className="flex flex-col gap-[var(--fc-space-xs)]">
+                      <legend className="text-xs text-[var(--fc-text-secondary)]">
+                        Uncovered kids
+                      </legend>
+                      {item.uncoveredKidIds.map((kidId) => {
+                        const kid = circle.kids.find((entry) => entry.id === kidId)
+                        if (!kid) {
+                          return null
+                        }
+                        return (
+                          <label
+                            key={kidId}
+                            className="flex items-center gap-[var(--fc-space-sm)] text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={`Cover ${kid.displayName} for ${item.title}`}
+                              checked={assignDraft.kidIds.includes(kidId)}
+                              onChange={() =>
+                                onUpdateAssignDraft({
+                                  kidIds: assignDraft.kidIds.includes(kidId)
+                                    ? assignDraft.kidIds.filter((id) => id !== kidId)
+                                    : [...assignDraft.kidIds, kidId],
+                                })
+                              }
+                              disabled={loading}
+                            />
+                            {kid.displayName}
+                          </label>
+                        )
+                      })}
+                    </fieldset>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
                     variant={pendingForSelf ? "outline" : "default"}
+                    data-testid={pendingForSelf ? undefined : "agenda-cta-primary"}
                     onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
                     disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
                   >
@@ -299,7 +369,11 @@ export function AgendaRow({
                 </div>
               ) : null}
               {coverageActionError ? (
-                <p role="alert" className="text-sm text-[var(--fc-danger)]">
+                <p
+                  role="alert"
+                  data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
+                  className="text-sm text-[var(--fc-danger)]"
+                >
                   {coverageActionError}
                 </p>
               ) : null}
@@ -307,7 +381,10 @@ export function AgendaRow({
           ) : null}
 
           {isManual ? (
-            <div className="flex gap-[var(--fc-space-sm)]">
+            <div
+              data-testid="agenda-band-manual-actions"
+              className="flex gap-[var(--fc-space-sm)]"
+            >
               <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
                 Edit
               </Button>

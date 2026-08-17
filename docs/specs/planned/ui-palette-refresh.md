@@ -1,15 +1,14 @@
 # Spec stub: ui-palette-refresh
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-10  
 Added: 2026-08-10 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec ui-palette-refresh`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
-
-If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
-(`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
+Thin stub from `/roadmap`. **Do not `/spec` as a standalone palette PR.**
+Brand hex already landed with [`agenda-focus-card`](../archive/agenda-focus-card.md).
+Leftover contrast work is per-destination
+[`ui-system-destination-adoption`](ui-system-destination-adoption.md).
 
 ## Problem
 

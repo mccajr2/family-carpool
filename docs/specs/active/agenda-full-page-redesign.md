@@ -47,7 +47,7 @@ starting).
 
 ## Tasks
 
-### 1. Wire day-grouping + AgendaRow into FamilyScreen.tsx
+### 1. [x] Wire day-grouping + AgendaRow into FamilyScreen.tsx
 
 Where the Agenda section currently does:
 
@@ -79,14 +79,14 @@ Remove the old flat-row JSX entirely once `AgendaRow` covers the same
 content (verify against the "Port checklist" style comparison in task 4 below
 before deleting — don't delete blind).
 
-### 2. Section header component (inline is fine — no new file required)
+### 2. [x] Section header component (inline is fine — no new file required)
 
 Simple heading per non-empty group: `label` (e.g. "Tomorrow") plus, if
 present, `dateLabel` (e.g. "Aug 14") in secondary text. No new file needed
 unless you find yourself repeating markup 3+ times — your call on inline vs
 extracted.
 
-### 3. Confirm no content regression
+### 3. [x] Confirm no content regression
 
 Before deleting the old flat-row JSX, diff what it rendered against what
 `AgendaRow` renders for the same item — every field, tag, and action that
@@ -95,7 +95,7 @@ collapsed summary or behind the expand toggle. The one intentional
 exception: no "N stops" carpool tag (see addendum — not implemented,
 no data source, not a regression).
 
-### 4. Update `docs/agenda-coverage-web-contract.md`
+### 4. [x] Update `docs/agenda-coverage-web-contract.md`
 
 - Remove the "Selection A — spacing only" section and its superseded-by
   addendum-1 note entirely.
@@ -110,7 +110,7 @@ no data source, not a regression).
   (day-grouping, card rows, expand/collapse)" status "web only — not yet
   ported," same pattern as the Focus card row already there.
 
-### 5. Tests
+### 5. [x] Tests
 
 - Add tests for `groupAgendaByDay`: items split correctly across
   Today/Tomorrow/This week/Later boundaries using local calendar days (not
@@ -150,12 +150,12 @@ no data source, not a regression).
 
 ## Acceptance criteria
 
-- [ ] Agenda list below the Focus card is day-grouped; empty groups don't render.
-- [ ] Every item renders as a collapsed `AgendaRow` card by default.
-- [ ] Expand/collapse works per-row, independently, with no lost functionality
+- [x] Agenda list below the Focus card is day-grouped; empty groups don't render.
+- [x] Every item renders as a collapsed `AgendaRow` card by default.
+- [x] Expand/collapse works per-row, independently, with no lost functionality
       versus the old flat row (verified per task 3).
-- [ ] Out-of-play items render muted with only a "Not going" tag.
-- [ ] `docs/agenda-coverage-web-contract.md` updated per task 4.
-- [ ] Full test suite passes; new tests from task 5 present and passing.
-- [ ] Focus card behavior/appearance unchanged.
+- [x] Out-of-play items render muted with only a "Not going" tag.
+- [x] `docs/agenda-coverage-web-contract.md` updated per task 4.
+- [x] Full test suite passes; new tests from task 5 present and passing.
+- [x] Focus card behavior/appearance unchanged.
 - [ ] Manual smoke test checklist completed.

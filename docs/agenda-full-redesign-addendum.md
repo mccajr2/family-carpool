@@ -1,6 +1,6 @@
 # Addendum 2: full Agenda page redesign (retires Selection A entirely)
 
-Status: proposed — this fully replaces the "Presentation hierarchy" section
+Status: adopted — this fully replaces the "Presentation hierarchy" section
 of `docs/agenda-coverage-web-contract.md`, not just the Focus card carve-out
 from `docs/agenda-focus-card-addendum.md`.
 
