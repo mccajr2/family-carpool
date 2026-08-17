@@ -1822,12 +1822,16 @@ describe("FamilyScreen", () => {
     const heading = await screen.findByRole("heading", { name: "Calendar" })
     const main = heading.closest("main")
     expect(main).not.toBeNull()
-    expect(main?.className).toMatch(/flex-1/)
-    expect(main?.className).toMatch(/min-w-0/)
-    expect(main?.className).toMatch(/md:min-w-\[820px\]/)
+    expect(main?.className).toMatch(/max-w-\[820px\]/)
+    expect(main?.className).toMatch(/md:justify-self-start/)
+    expect(main?.className).toMatch(/md:min-w-auto/)
+    expect(main?.className).not.toMatch(/md:min-w-\[820px\]/)
+    expect(main?.className).not.toMatch(/flex-1/)
     expect(main?.className).not.toMatch(/shadow-sm/)
     expect(main?.className).not.toMatch(/border-border/)
-    expect(main?.firstElementChild?.className).toMatch(/max-w-\[820px\]/)
+    const shell = main?.parentElement
+    expect(shell?.className).toMatch(/md:grid/)
+    expect(shell?.className).toMatch(/md:grid-cols-\[15rem_1fr_20rem\]/)
 
     const context = screen.getByLabelText("Context")
     expect(context.tagName).toBe("ASIDE")
@@ -1842,10 +1846,23 @@ describe("FamilyScreen", () => {
     for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
       await goTo(user, destination)
       expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
+      const destHeading = screen.getByRole("heading", {
+        name: destination === "Family" ? "House" : destination,
+      })
+      expect(destHeading.closest("main")?.parentElement?.className).toMatch(
+        /md:grid-cols-\[15rem_1fr\]/,
+      )
+      expect(destHeading.closest("main")?.parentElement?.className).not.toMatch(
+        /1fr_20rem/,
+      )
     }
 
     await goTo(user, "Calendar")
     expect(screen.getByLabelText("Context")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Calendar" }).closest("main")?.parentElement
+        ?.className,
+    ).toMatch(/md:grid-cols-\[15rem_1fr_20rem\]/)
   })
 
   it("offers Retry instead of Create family when the circle load fails", async () => {

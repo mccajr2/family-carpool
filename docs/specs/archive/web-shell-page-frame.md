@@ -2,7 +2,7 @@
 
 Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17 (`/pr` amend: `md:min-w-[820px]`)  
+Updated: 2026-08-17 (`/pr` amend: mock grid `1fr` + main `max-width: 820px`)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-page-frame`  
@@ -44,21 +44,21 @@ slice only makes room for it.
 keeps that centered column. `FamilyScreen` create/join/loading/error Cards
 keep it too (wrap those returns). Circle-ready signed-in UI is full viewport.
 
-**Circle-ready layout (`md+`).** CSS grid (or equivalent flex) on the signed-in
-shell:
+**Circle-ready layout (`md+`).** CSS grid on the signed-in shell, matching the
+Calendar mock:
 
 | Column | Width | Role |
 |--------|--------|------|
-| Rail | `md:w-60` (240px, mock) | Existing aside; still `sticky top-0 h-svh` |
-| Main | `1fr` / `min-w-0`; `md:min-w-[820px]` | Destination; **not** a `Card` (no `border` / `shadow-sm` / raised fill) |
-| Context | `md:w-80` (320px) | **Calendar only.** Empty chrome: left border from `--fc-border`, padding from existing space tokens. `aria-label="Context"`. No heading, no week-strip copy, no carpool card |
+| Rail | `15rem` / `md:w-60` (240px) | Existing aside; still `sticky top-0 h-svh` |
+| Main track | `1fr` (`minmax(auto, 1fr)`) | Grows; **content min** is the floor (do not `min-w-0` / `minmax(0, 1fr)` / `min-w-[820px]`) |
+| Context | `20rem` / `md:w-80` (320px) | **Calendar only.** Empty chrome: left border from `--fc-border`, padding from existing space tokens. `aria-label="Context"`. No heading, no week-strip copy, no carpool card |
 
-Main inner measure matches the mock: content `max-w-[820px]` so Agenda stays
-left-of-center on ultrawide; the **column** is still `1fr` so the context
-aside docks to the viewport right. At `md+` the column also has
-`min-w-[820px]` so the Focus card / Agenda cannot crush below that measure
-(narrow still uses `min-w-0` and stacks). Padding: nearest existing
-`--fc-space-*` (do not add 28/36/44px roles).
+`.main` is the grid item (same as the mock): `max-width: 820px`,
+`justify-self: start`. The **track** is still `1fr` so leftover space sits
+between Agenda and the Context aside (context docks to the viewport right).
+820px is a **max**, not a min. Padding: nearest existing `--fc-space-*`
+(do not add 28/36/44px roles). Narrow stacks (`min-w-0` on main only below
+`md`).
 
 **Narrow.** Rail stacks above content (`min-h-svh` as today). **Do not**
 render the context aside. Do not `position: fixed` a third pane over Agenda.
@@ -79,9 +79,10 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 - [x] `md+`: rail is flush to the viewport left at `md:w-60` (not `md:w-56`,
       not inside `max-w-5xl`). Still `sticky top-0 h-svh`, `rail*` chrome
       unchanged.
-- [x] Destination column is uncarded (no shell `Card` border/shadow). Inner
-      content `max-w-[820px]`; `md+` column `min-w-[820px]`. Destinations and
-      `setDestination` / `onSignOut` handlers unchanged.
+- [x] Destination column is uncarded (no shell `Card` border/shadow). `.main`
+      `max-w-[820px]` inside a `1fr` track (`justify-self: start`); no
+      `min-w-[820px]`. Destinations and `setDestination` / `onSignOut`
+      handlers unchanged.
 - [x] Calendar `md+` shows an empty `aside` labelled Context (`w-80`, left
       border). No week-glance or carpool-card copy. Tests must **not** assert
       “Week at a glance” or stop-list strings.
@@ -105,10 +106,10 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 
 ## Open questions
 
-None. Mock main `max-width: 820px` inside `1fr` is locked (content left,
-context docked right); `md+` column min is the same 820px so the middle
-track can grow but not crush. Empty Context chrome vs filling it is the
-split with `agenda-week-glance`. Destination header type, Calendar
-Today/date copy, ink/slate colors, and header↔content gap are deferred to
+None. Mock `.shell` is `grid-template-columns: 240px 1fr 320px`; `.main` is
+`max-width: 820px` only. The middle floor is grid `1fr` = `minmax(auto, 1fr)`
+(content min), not 820px. Empty Context chrome vs filling it is the split
+with `agenda-week-glance`. Destination header type, Calendar Today/date copy,
+ink/slate colors, and header↔content gap are deferred to
 [`web-shell-page-header`](../planned/web-shell-page-header.md) — not this
 slice.

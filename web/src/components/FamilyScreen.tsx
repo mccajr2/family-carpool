@@ -1731,7 +1731,13 @@ export function FamilyScreen({
               : "Feeds"
 
   return (
-    <div className="flex w-full flex-col md:flex-row md:items-stretch">
+    <div
+      className={
+        destination === "calendar"
+          ? "flex w-full flex-col md:grid md:min-h-svh md:grid-cols-[15rem_1fr_20rem] md:items-stretch"
+          : "flex w-full flex-col md:grid md:min-h-svh md:grid-cols-[15rem_1fr] md:items-stretch"
+      }
+    >
       <aside
         aria-label="App navigation"
         className="flex min-h-svh w-full shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] p-[var(--fc-space-md)] text-[var(--fc-rail-on)] md:sticky md:top-0 md:h-svh md:w-60"
@@ -1821,8 +1827,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="min-w-0 flex-1 md:min-w-[820px]">
-        <div className="flex max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:px-[var(--fc-space-2xl)]">
+      <main className="flex w-full min-w-0 max-w-[820px] flex-col gap-4 px-[var(--fc-space-xl)] py-[var(--fc-space-2xl)] md:min-w-auto md:justify-self-start md:px-[var(--fc-space-2xl)]">
         <header
           className={
             destination === "calendar"
@@ -2894,7 +2899,6 @@ export function FamilyScreen({
               {status.message}
             </p>
           ) : null}
-        </div>
         </div>
       </main>
       {destination === "calendar" ? (
