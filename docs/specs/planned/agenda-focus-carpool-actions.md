@@ -22,6 +22,6 @@ leave-for-the-next-event.
 
 ## Notes
 
-- Extends [`agenda-focus-next-action`](agenda-focus-next-action.md); do not
+- Extends [`agenda-focus-next-action`](../active/agenda-focus-next-action.md); do not
   revive this as a substitute for that horizon/ranking slice.
 - Keep exactly one Focus card.
