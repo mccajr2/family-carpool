@@ -59,6 +59,7 @@ function cssFromTokens(t) {
   }
   shared.push(
     `  --fc-font-family: ${t.typography.fontFamily}, system-ui, sans-serif;`,
+    `  --fc-font-family-display: ${t.typography.displayFontFamily}, system-ui, sans-serif;`,
   )
 
   const lines = [

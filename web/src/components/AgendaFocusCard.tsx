@@ -153,7 +153,7 @@ export function AgendaFocusCard({
             {formatEventWhen(item.startsAt, item.endsAt)}
           </span>
           <span
-            className="text-[length:var(--fc-font-hero-size)] font-bold leading-[var(--fc-font-hero-line)]"
+            className="fc-display text-[length:var(--fc-font-hero-size)] font-bold leading-[var(--fc-font-hero-line)]"
             style={{ color: onVar }}
           >
             {item.title}

@@ -60,3 +60,7 @@
   font-family: var(--fc-font-family);
 }
 
+.fc-display {
+  font-family: var(--fc-font-family-display);
+}
+

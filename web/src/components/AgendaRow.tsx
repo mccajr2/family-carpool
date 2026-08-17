@@ -124,7 +124,7 @@ export function AgendaRow({
         <span className={`h-[9px] w-[9px] flex-shrink-0 rounded-full ${dotToneClass[statusDot]}`} />
         <span className="min-w-0 flex-1">
           <span
-            className={`block truncate text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
+            className={`fc-display block truncate text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
           >
             {item.title}
           </span>

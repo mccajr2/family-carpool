@@ -107,6 +107,17 @@ describe("AgendaFocusCard hero surface", () => {
     expect(screen.getByText("All set")).toBeInTheDocument()
   })
 
+  it("applies the display font to the hero title", () => {
+    renderCard(
+      item({
+        id: "urgent",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    expect(screen.getByText("Practice")).toHaveClass("fc-display")
+  })
+
   it("still fires Edit on a manual item after the chrome change", async () => {
     const user = userEvent.setup()
     const onEdit = vi.fn()

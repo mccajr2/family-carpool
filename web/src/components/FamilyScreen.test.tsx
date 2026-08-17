@@ -178,7 +178,8 @@ describe("FamilyScreen", () => {
     await user.type(screen.getByLabelText("Your name"), "Alex")
     await user.click(screen.getByRole("button", { name: "Create family" }))
 
-    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
+    const calendarHeading = await screen.findByRole("heading", { name: "Calendar" })
+    expect(calendarHeading).toHaveClass("fc-display")
     await goTo(user, "Family")
     expect(await screen.findByRole("heading", { name: "Your family" })).toBeInTheDocument()
     expect(await screen.findByText(/Invite code:/)).toHaveTextContent("AB12CD34")

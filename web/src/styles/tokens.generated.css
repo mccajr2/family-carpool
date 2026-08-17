@@ -43,7 +43,8 @@
   --fc-font-hero-size: 26px;
   --fc-font-hero-line: 32px;
   --fc-font-hero-weight: 700;
-  --fc-font-family: system-ui, system-ui, sans-serif;
+  --fc-font-family: Plus Jakarta Sans, system-ui, sans-serif;
+  --fc-font-family-display: Space Grotesk, system-ui, sans-serif;
 }
 
 .dark, [data-theme="dark"] {
