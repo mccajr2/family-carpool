@@ -64,7 +64,7 @@ function calendarItem(
   }
 }
 
-/** Earlier uncovered item so a later fixture stays a collapsed Agenda row. */
+/** Earlier in-play item so a later fixture stays a collapsed Agenda row (not Focus). */
 function earlierFocusDecoy(kidId = "k1"): CalendarItem {
   return calendarItem({
     id: "focus-decoy",
@@ -72,7 +72,6 @@ function earlierFocusDecoy(kidId = "k1"): CalendarItem {
     title: "Focus decoy",
     startsAt: "2030-08-01T12:00:00.000Z",
     kidIds: [kidId],
-    uncoveredKidIds: [kidId],
     feedName: "Decoy",
   })
 }
@@ -2471,10 +2470,11 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     expect(within(agenda).getAllByTestId(/^agenda-focus-/)).toHaveLength(1)
-    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e2")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
-    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-focus-MANUAL-e1")).not.toBeInTheDocument()
+    // Sooner all-set event is Focus; later uncovered stays in the flat list.
+    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-focus-MANUAL-e2")).not.toBeInTheDocument()
   })
 
   it("assigns coverage for uncovered kids", async () => {

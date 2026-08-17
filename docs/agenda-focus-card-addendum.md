@@ -1,10 +1,12 @@
 # Addendum: Focus card (supersedes "Selection A — spacing only")
 
-Status: proposed — apply after web smoke test, then port to iOS/Android.
+Status: active on web — port to iOS/Android with
+[`agenda-focus-card-mobile`](specs/planned/agenda-focus-card-mobile.md).
 Replaces the "Presentation hierarchy" → "Selection A" section of
 `docs/agenda-coverage-web-contract.md`. All other sections of that doc
 (Coverage, RSVP, Busy/loading indicators, Field rows, Port checklist) are
-**unchanged** — this addendum is about visual chrome only, not business logic.
+**unchanged** — selection + urgent/calm surface mapping live here and in
+`web/src/components/agendaFocusSelection.ts`.
 
 ## Why this supersedes Selection A
 
@@ -18,14 +20,39 @@ the added implementation cost on each client.
 
 **Exactly one Agenda item at a time** may use Focus card treatment: bordered/
 raised container, larger type, and a status-color accent. Selection criteria,
-in order:
+in order (in-play items only — never promote all-RSVP-`NO` rows):
 
-1. The earliest item with `uncoveredKidIds.length > 0` OR non-empty `conflicts`
-   (today's window first, then tomorrow, then this week).
-2. If none qualify, the earliest upcoming item the signed-in adult is
-   attending (see RSVP out-of-play rule — never promote an item where every
-   kid is RSVP `NO`).
-3. If the Agenda is empty, no Focus card renders — plain empty state.
+1. The earliest item **today** that **needs a decision** (see below).
+2. Else the earliest item **tomorrow** that **needs a decision**.
+3. Else the **earliest in-play item** — the next event to leave for / attend,
+   even when fully resolved (all-set).
+4. If the Agenda is empty or every item is out-of-play, no Focus card renders
+   — plain empty state.
+
+**Needs a decision** (shared predicate for selection **and** urgent vs calm
+surface on the Focus card):
+
+- `uncoveredKidIds.length > 0` (RSVP no-response kids count as uncovered), or
+- non-empty `conflicts`, or
+- a **pending coverage confirm for the signed-in adult** (`PENDING` row where
+  `coveringAdultId` is the viewer).
+
+**Rest-of-week** uncovered/conflict/pending items (This week bucket, days 3–6)
+do **not** steal Focus from a sooner all-set event — being on time today beats
+planning Friday coverage. Those gaps stay in the flat list and will surface in
+the week-at-a-glance strip ([`agenda-week-glance`](specs/planned/agenda-week-glance.md)).
+Far-future items (Later bucket) likewise never beat a sooner in-play event.
+
+**Examples**
+
+- All-set tonight + uncovered Friday → tonight Focus; Friday is a flat row.
+- All-set tonight + uncovered tomorrow → tomorrow Focus.
+- All-set tonight + uncovered in 3 weeks → tonight Focus.
+- Only in-play item is Friday uncovered → Friday Focus.
+
+Carpool ride accept/decline as a Focus candidate is a follow-up
+([`agenda-focus-carpool-actions`](specs/planned/agenda-focus-carpool-actions.md))
+after request/accept ships — do not fold into the ranking above yet.
 
 All *other* Agenda items keep Selection A's spacing-only treatment
 unchanged. Do not apply Focus card chrome to more than one item — repeated
@@ -39,8 +66,9 @@ Reuses the same five bands, same data, same handlers as a normal Agenda item
 
 - Primary: time range, title, one-line kid context.
 - Status: a single status line — conflict/needs-coverage copy (accent =
-  `danger` role) or "all set" copy (accent = `success` role) when the item is
-  fully resolved.
+  `danger` role) when the item **needs a decision** (including pending confirm
+  for self — use the urgent surface, not "All set"), or "all set" copy (accent =
+  `success` role) when fully resolved.
 - Travel/origin, People/RSVP, Coverage/actions: same field rows and controls
   as flat rows, just inside the card body.
 - Manual actions: same Edit/Remove, inside the card.
@@ -87,6 +115,8 @@ a11y labels.
 ## Port checklist addition
 
 Add to the existing iOS/Android port checklist: "Focus card selection logic
-(exactly one item, priority order above) and status-color mapping match
-web." Card *chrome* may use native components (SwiftUI card modifiers /
-Compose `Card`) — chrome differs, selection logic and copy must not.
+(exactly one item, today/tomorrow decisions else next in-play; rest-of-week
+via list + week glance) and urgent/calm status-color mapping match web —
+including pending-for-self on the urgent surface." Card *chrome* may use native
+components (SwiftUI card modifiers / Compose `Card`) — chrome differs,
+selection logic and copy must not.

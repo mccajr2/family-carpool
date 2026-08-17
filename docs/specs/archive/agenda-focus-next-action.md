@@ -1,6 +1,6 @@
 # Spec: agenda-focus-next-action
 
-Status: ready for implementation  
+Status: done  
 Created: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-next-action`  
@@ -90,45 +90,45 @@ existing conflict line, else uncovered names, else the existing
 
 ## Acceptance criteria
 
-- [ ] Frozen `now`: all-set today + uncovered tomorrow → tomorrow Focus (step 2).
-- [ ] Frozen `now`: all-set today + uncovered Friday (same week) → today Focus;
+- [x] Frozen `now`: all-set today + uncovered tomorrow → tomorrow Focus (step 2).
+- [x] Frozen `now`: all-set today + uncovered Friday (same week) → today Focus;
       Friday stays a flat row (step 3 beats rest-of-week decision).
-- [ ] Frozen `now`: all-set tonight + uncovered in 3 weeks → tonight (step 3;
+- [x] Frozen `now`: all-set tonight + uncovered in 3 weeks → tonight (step 3;
       Later bucket).
-- [ ] Frozen `now`: pending coverage confirm for the signed-in adult **today**
+- [x] Frozen `now`: pending coverage confirm for the signed-in adult **today**
       or **tomorrow** wins over an earlier all-set item in that window; pending
       for someone else does not (unless that item is also uncovered/conflicted).
       Pending confirm on a rest-of-week item does not beat a sooner all-set
       event.
-- [ ] All-RSVP-No items are never selected; empty list returns `null`; all
+- [x] All-RSVP-No items are never selected; empty list returns `null`; all
       in-play all-set returns the earliest.
-- [ ] `AgendaFocusCard` urgent surface follows the same needs-decision helper
+- [x] `AgendaFocusCard` urgent surface follows the same needs-decision helper
       (pending-for-self is not “All set”).
-- [ ] `FamilyScreen` still renders exactly one Focus card (or none); no
+- [x] `FamilyScreen` still renders exactly one Focus card (or none); no
       duplicate `agenda-focus-*` + `agenda-item-*` for the same id.
-- [ ] Horizon math matches `groupAgendaByDay` (shared helper). No OpenAPI
+- [x] Horizon math matches `groupAgendaByDay` (shared helper). No OpenAPI
       change.
-- [ ] `cd web && npm test` and `npm run lint` pass. The 2030-dated
+- [x] `cd web && npm test` and `npm run lint` pass. The 2030-dated
       “uncovered later wins” Agenda test uses dates inside the horizon
       (relative to `now` or `vi.setSystemTime`). `earlierFocusDecoy` may stay
       earliest-in-play.
 
 ## Tasks
 
-- [ ] Web: extract shared day-bucket helpers from `agendaDayGroups.ts` (Today /
+- [x] Web: extract shared day-bucket helpers from `agendaDayGroups.ts` (Today /
       Tomorrow / weekEnd); rewrite `selectFocusItem(items, now, currentAdultId)`
       ranking; pass `now` + `adult?.id` from `FamilyScreen`.
-- [ ] Web: export `focusItemNeedsDecision` (or equivalent); `AgendaFocusCard`
+- [x] Web: export `focusItemNeedsDecision` (or equivalent); `AgendaFocusCard`
       uses it instead of inline uncovered/conflicts.
-- [ ] Docs: replace the addendum selection list with this ranking (today/tomorrow
+- [x] Docs: replace the addendum selection list with this ranking (today/tomorrow
       decisions, else next in-play; rest-of-week via list + week glance). Note
       pending-for-self on the urgent surface. Port checklist still says
       iOS/Android must match web.
-- [ ] Tests: extend `agendaFocusSelection.test.ts` for the AC cases (inject
+- [x] Tests: extend `agendaFocusSelection.test.ts` for the AC cases (inject
       `now` + adult id). Fix `FamilyScreen.test.tsx` Focus assertions that
       assumed unbounded uncovered-wins (2030-08-15 vs 16). Add a card test that
       pending-for-self is not the all-set surface.
-- [ ] Tests: `cd web && npm test` and `npm run lint`; fix real regressions.
+- [x] Tests: `cd web && npm test` and `npm run lint`; fix real regressions.
 
 ## Open questions
 

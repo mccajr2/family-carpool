@@ -3,6 +3,7 @@ import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { formatRingCountdown } from "@/components/agendaFocusRing"
+import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import {
   activeCoverages,
@@ -81,7 +82,7 @@ export function AgendaFocusCard({
   onRemoveEvent,
 }: AgendaFocusCardProps) {
   const isManual = item.source === "MANUAL"
-  const needsDecision = item.uncoveredKidIds.length > 0 || item.conflicts.length > 0
+  const needsDecision = focusItemNeedsDecision(item, currentAdultId)
 
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
