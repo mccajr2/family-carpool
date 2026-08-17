@@ -22,5 +22,5 @@ Was a mega-item: design pass on Carpool / Family / Places / Garage / Feeds.
 
 ## Notes
 
-- Typography stays [`typography-font-family`](typography-font-family.md).
+- Web typography: [`typography-web`](../active/typography-web.md). Mobile remains [`typography-font-family`](typography-font-family.md).
 - Focus card mobile stays [`agenda-focus-card-mobile`](agenda-focus-card-mobile.md).

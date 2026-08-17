@@ -13,17 +13,21 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-`typography.fontFamily` is still `system-ui`. A distinctive typeface needs
-font assets bundled on iOS and Android, not just a token string edit.
+Web display/body pairing shipped as [`typography-web`](../active/typography-web.md)
+(Space Grotesk + Plus Jakarta Sans). iOS and Android still use `system-ui`
+because a distinctive typeface needs font assets bundled per platform, not
+just a token string edit.
 
 ## Non-goals (sketch)
 
 - Color / radius / spacing token churn
+- Re-doing the web pairing (`typography-web`)
 - Focus card chrome (`agenda-focus-card` / `agenda-focus-card-mobile`)
 - Destination restyles (`feeds-page-redesign`, `family-places-garage-redesign`)
 
 ## Notes
 
-- Token role stays; this slice is asset bundling + family value.
-- Do not treat a `tokens.json` string change as done without iOS/Android
-  bundled fonts.
+- Token role stays; this remaining slice is iOS/Android asset bundling +
+  applying the same families in native UI.
+- Do not treat the generated Kotlin/Swift `fontFamily` string as done
+  without bundled fonts actually used on screen.

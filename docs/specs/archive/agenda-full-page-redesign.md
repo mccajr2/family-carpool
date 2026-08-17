@@ -1,7 +1,8 @@
 # Spec: Agenda full page redesign
 
-Status: ready for implementation  
+Status: done  
 Created: 2026-08-15  
+Updated: 2026-08-16 (`/pr` #39)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-full-page-redesign`  
 Added: 2026-08-15 · enhancement
