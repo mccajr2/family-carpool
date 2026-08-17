@@ -109,5 +109,5 @@ None. Mock `.shell` is `grid-template-columns: 240px 1fr 320px`; `.main` is
 chrome vs filling it is the split with `agenda-week-glance`. Destination
 header type, Calendar Today/date copy, ink/slate colors, and header↔content
 gap are deferred to
-[`web-shell-page-header`](../planned/web-shell-page-header.md) — not this
+[`web-shell-page-header`](../active/web-shell-page-header.md) — not this
 slice.
