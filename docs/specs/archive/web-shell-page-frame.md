@@ -1,8 +1,8 @@
 # Spec: web-shell-page-frame
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-17  
-Updated: 2026-08-17  
+Updated: 2026-08-17 (`/pr`)  
 Approved: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `web-shell-page-frame`  
@@ -71,22 +71,22 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
 
 ## Acceptance criteria
 
-- [ ] Signed-out Sign in (and FamilyScreen create/join/loading/error Cards)
+- [x] Signed-out Sign in (and FamilyScreen create/join/loading/error Cards)
       still use the centered `max-w-5xl` column. Circle-ready signed-in UI
       does **not**.
-- [ ] `md+`: rail is flush to the viewport left at `md:w-60` (not `md:w-56`,
+- [x] `md+`: rail is flush to the viewport left at `md:w-60` (not `md:w-56`,
       not inside `max-w-5xl`). Still `sticky top-0 h-svh`, `rail*` chrome
       unchanged.
-- [ ] Destination column is uncarded (no shell `Card` border/shadow). Inner
+- [x] Destination column is uncarded (no shell `Card` border/shadow). Inner
       content `max-w-[820px]`. Destinations and `setDestination` / `onSignOut`
       handlers unchanged.
-- [ ] Calendar `md+` shows an empty `aside` labelled Context (`w-80`, left
+- [x] Calendar `md+` shows an empty `aside` labelled Context (`w-80`, left
       border). No week-glance or carpool-card copy. Tests must **not** assert
       “Week at a glance” or stop-list strings.
-- [ ] Context aside is absent on Carpool / Family / Places / Garage / Feeds
+- [x] Context aside is absent on Carpool / Family / Places / Garage / Feeds
       and absent below `md`. Caregiver Calendar still gets the empty aside
       (Feeds omission unchanged).
-- [ ] Web tests: AuthScreen/App signed-out wrapper; FamilyScreen frame
+- [x] Web tests: AuthScreen/App signed-out wrapper; FamilyScreen frame
       (rail width, no shell Card, Calendar context present/absent). Existing
       sidebar destination tests still pass. `npm test` + `npm run lint` in
       `web/`.
@@ -97,7 +97,7 @@ Intake (measurements only, not copy): Calendar mock HTML 2026-08-17
       FamilyScreen empty/loading/error Cards) keep the centered column.
 - [x] Web: circle-ready `FamilyScreen` — `md` grid, rail `md:w-60`, uncarded
       main with `max-w-[820px]`, Calendar-only Context aside (`md:w-80`).
-- [ ] Tests: AuthScreen/App layout; FamilyScreen frame + destination
+- [x] Tests: AuthScreen/App layout; FamilyScreen frame + destination
       presence/absence of Context; no wordmark-string or week-glance-string
       assertions. Run `npm test` + `npm run lint` in `web/`.
 

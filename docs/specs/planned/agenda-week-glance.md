@@ -30,8 +30,8 @@ not the month/week **grid** ([`family-calendar-grid`](family-calendar-grid.md)).
 ## Notes
 
 - Intake: Calendar light screenshot, “WEEK AT A GLANCE” only.
-- Depends on `[web-shell-page-frame](web-shell-page-frame.md)` for the
-  Calendar right-column chrome (this slice fills it).
+- Depends on shipped [`web-shell-page-frame`](../archive/web-shell-page-frame.md)
+  for the Calendar right-column chrome (this slice fills it).
 - Web right rail; narrow viewports stack or collapse — do not require a
   three-column dashboard (product non-goal: desktop-first UX).
 - Derive from already-loaded calendar items (coverage + RSVP + existing

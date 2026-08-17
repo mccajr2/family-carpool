@@ -13,7 +13,7 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-After [`web-shell-page-frame`](../active/web-shell-page-frame.md) uncards the
+After [`web-shell-page-frame`](../archive/web-shell-page-frame.md) uncards the
 destination column, the shared page header still looks like a shadcn
 `CardTitle` (`text-2xl`, no token color). The Calendar mock uses a larger
 display heading, ink/slate type, a date subtitle, and more space under the
@@ -45,4 +45,4 @@ header. Deferred from page-frame so that slice stayed column widths only.
   `textPrimary`. Calendar-only copy is the Today/date pair; other
   destinations keep their names (Family may keep email · role as
   `textSecondary` subtitle).
-- Depends on shipped [`web-shell-page-frame`](../active/web-shell-page-frame.md).
+- Depends on shipped [`web-shell-page-frame`](../archive/web-shell-page-frame.md).

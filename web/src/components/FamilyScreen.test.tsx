@@ -251,6 +251,7 @@ describe("FamilyScreen", () => {
     )
 
     await user.click(await screen.findByRole("button", { name: "Have an invite code?" }))
+    expect(screen.getByRole("heading", { name: "Join a family" }).closest("[class*='max-w-5xl']")).not.toBeNull()
     await user.type(screen.getByLabelText("Invite code"), "AB12CD34")
     await user.type(screen.getByLabelText("Your name"), "Jordan")
     await user.click(screen.getByRole("button", { name: "Join family" }))
@@ -1833,6 +1834,8 @@ describe("FamilyScreen", () => {
     expect(context.className).toMatch(/md:flex/)
     expect(context.className).toMatch(/--fc-border/)
     expect(context).toBeEmptyDOMElement()
+    expect(screen.queryByText(/week at a glance/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/open in maps/i)).not.toBeInTheDocument()
 
     for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
       await goTo(user, destination)
@@ -1883,6 +1886,32 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeInTheDocument()
     expect(getCircle).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps the circle-loading Card in the centered column", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockReturnValue(new Promise(() => {})),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const heading = await screen.findByRole("heading", { name: "Your family" })
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Create family" })).not.toBeInTheDocument()
+    })
+    expect(heading.closest("[class*='max-w-5xl']")).not.toBeNull()
+    expect(screen.queryByLabelText("App navigation")).not.toBeInTheDocument()
   })
 
   it("signs out locally when the backend cannot be reached", async () => {
