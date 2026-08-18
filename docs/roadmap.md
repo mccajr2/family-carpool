@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-18 (`/pr feeds-page-redesign`)
+Updated: 2026-08-18 (`/spec agenda-week-glance`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -98,7 +98,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-week-glance                 | planned | 2026-08-17 · enhancement                                         | Web five-day coverage/driver strip; not the month grid; no carpool stop card                                                                                    |
+| 1    | agenda-week-glance                 | active  | 2026-08-17 · enhancement                                         | Web five-day coverage/driver strip; not the month grid; no carpool stop card                                                                                    |
 | 2    | agenda-focus-card-mobile           | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the polished Focus card (after web next-action + polish)                                                                                  |
 | 3    | agenda-full-page-redesign-mobile   | planned | 2026-08-15 · enhancement                                         | iOS + Android day-grouped rows including list chips (after web `agenda-list-chips`)                                                                             |
 | 4    | feeds-page-redesign-mobile         | planned | 2026-08-15 · enhancement                                         | iOS + Android port of Feeds card restyle (after web `feeds-page-redesign`)                                                                                      |
@@ -171,6 +171,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| agenda-week-glance | `agenda-week-glance` | [active](specs/active/agenda-week-glance.md) |
 
 
 ## Done
