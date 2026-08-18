@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-18 (`/roadmap` web-first carpool)
+Updated: 2026-08-18 (`/spec carpool-request-accept`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -99,7 +99,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-request-accept          | planned | 2026-08-07 · initial       | Multi-kid default ride request + deselect override; accept; seat updates — **web first**                                      |
+| 1    | carpool-request-accept          | active  | 2026-08-07 · initial       | Multi-kid default ride request + deselect override; accept; seat updates — **web first**                                      |
 | 2    | agenda-focus-carpool-actions    | planned | 2026-08-17 · enhancement   | After request/accept: pending ride accept/decline can be the Focus next action (web Focus card)                               |
 | 3    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
 | 4    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
@@ -172,6 +172,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| carpool-request-accept | `carpool-request-accept` | [active](specs/active/carpool-request-accept.md) |
 
 
 ## Done
