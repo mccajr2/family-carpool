@@ -27,3 +27,4 @@ that team’s carpool, or left **standalone** (family tracking only — no carpo
 - Key off the circle’s **feed UUID** (that family’s subscribe row), not the
   space id directly — the feed is how the family already names the team.
 - Standalone remains the default (today’s behavior).
+- **Web first** — same client-ship-order lock as `carpool-request-accept`.
