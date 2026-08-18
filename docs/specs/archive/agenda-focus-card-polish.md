@@ -1,14 +1,16 @@
 # Spec: agenda-focus-card-polish
 
-Status: ready for implementation  
+Status: archived  
+Completed: 2026-08-17  
 Created: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-card-polish`  
 Added: 2026-08-17 · enhancement
 
-Scope: **web `AgendaFocusCard` chrome only** — layout, type, ring size/placement,
-status chips, covering line under the ring. No OpenAPI, backend, iOS, or Android.
-Selection logic is done ([`agenda-focus-next-action`](../archive/agenda-focus-next-action.md)).
+Scope: **web `AgendaFocusCard`** — layout, type, ring, chips, covering under
+the ring, **then slim body** (summary + CTA; write bands stay on expanded
+rows). No OpenAPI, backend, iOS, or Android. Selection logic is done
+([`agenda-focus-next-action`](../archive/agenda-focus-next-action.md)).
 
 ## Problem
 
@@ -27,7 +29,9 @@ is presentation only.
 - Coverage, RSVP, leave-by **write** rules or API calls
 - `formatRingCountdown` unit rules or `RING_MAX_MINUTES` fill cap
   ([`agenda-focus-card-bugs`](../archive/agenda-focus-card-bugs.md))
-- Collapsing Focus into an accordion (Focus stays fully expanded)
+- Collapsing Focus into an accordion (Focus stays fully expanded **and slim**)
+- Moving leave-from / RSVP / kid-subset onto event compose (those stay on
+  expanded `AgendaRow`; manual **Remove** moves to the Edit dialog)
 - Kid-filter chips, flat `AgendaRow` chips
   ([`agenda-list-chips`](../planned/agenda-list-chips.md))
 - Week-at-a-glance rail ([`agenda-week-glance`](../planned/agenda-week-glance.md))
@@ -58,17 +62,20 @@ snap ring diameter, title size, or gaps to nearby existing roles.
    `coverageAdultLabel` (first confirmed row is enough for v1; mock shows one name).
    Omit when no confirmed coverage.
 4. **Status chips (below primary block, mock-aligned):** reuse the **same chip
-   visual language** as collapsed `AgendaRow` tags (`Overlaps`, `Needs coverage`,
-   `Confirmed` / calm equivalent) — uppercase compact pills, not a lone prose
+   visual language as the Calendar mock’s hero `.status-pill` — Title Case
+   with a leading status dot, not uppercase row tags and not a lone prose
    sentence. When `item.conflicts.length > 0`, show an **Overlaps** chip; when
    uncovered, **Needs coverage** (or mock-equivalent); when resolved/all-set,
    mock-aligned calm chip (e.g. **Confirmed** / **All set** — match screenshot).
    Detailed conflict lines stay in the expanded body (as today), not duplicated
    as the only header status.
-5. **Body bands unchanged in capability:** travel/leave-from, per-kid RSVP,
-   coverage actions, manual Edit/Remove — same handlers and field rows as now.
-   Primary CTA placement should match mock (Assign coverage + Edit visible without
-   re-layout regressions).
+5. **Slim body (Calendar mock):** no leave-from dropdown, RSVP, covering
+   kid-subset, leave-by estimate band, or Remove event on the card. Primary
+   CTA row: Assign (or Confirm/Decline) + **Remove coverage** when coverage
+   is active + Edit. Covering combobox under the ring when uncovered and
+   **not** `soleAdult`, **or** when coverage is active and there is more
+   than one adult (change reassigns). Confirmed sole-adult coverage stays a
+   static `Covering: {name}` line. Open Places only for `NO_ORIGIN`.
 
 Extract a small shared **status chip** helper or component used by Focus (and
 optionally refactor `AgendaRow` tags to call it — only if zero behavior change;
@@ -80,18 +87,27 @@ Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 
 - [x] Focus card header matches mock structure: title column and ring column are
       separate; ring is visibly **larger** than shipped 64×64 (token-driven size).
-- [x] With a confirmed coverage row, **`Covering: {name}`** renders under the ring,
+- [x] With a confirmed coverage row, **Covering** + the covering adult render
+      under the ring (combobox when several adults; static name when sole),
       not only in the lower coverage band.
 - [x] With conflicts, an **Overlaps** status chip renders in the header chip row
-      (chip styling consistent with `AgendaRow` amber tags); conflict detail lines
-      remain available in the body.
+      (Title Case + leading dot, matching the Calendar mock `.status-pill`);
+      conflict detail lines stay on the **expanded row**, not Focus.
 - [x] Mock-measured title type/weight/spacing are locked in `tokens.json` and used
       via generated `--fc-*` vars (no raw px/hex in `AgendaFocusCard.tsx`).
 - [x] Urgent vs calm surfaces still use `hero*` vs plain tokens per
       `docs/agenda-focus-card-addendum.md`; chip colors respect state (urgent uses
       `heroDanger` / `heroSuccess` where the mock does on the dark card).
-- [x] All existing Focus handlers still fire: Assign coverage, Confirm/Decline,
-      RSVP, leave-from, Edit, Remove; `FamilyScreen` wiring unchanged.
+- [x] Focus body is slim: kid · Leaving from {place}; no RSVP, leave-from
+      dropdown, leave-by estimate, Remove event, or covering kid-subset on the
+      card. Assign/Confirm/Decline + **Remove coverage** + Edit remain. Remove
+      event is on the Edit dialog (manual). Changing the covering combobox on
+      an active assignment reassigns.
+- [x] Multi-adult Assign: covering combobox defaults to the signed-in adult;
+      Assign without changing it assigns self; changing it then Assign uses that
+      adult (same `coverageAssignState` as a row).
+- [x] Expanded `AgendaRow` bands unchanged. `FamilyScreen` still wires the same
+      list-row handlers.
 - [x] `cd web && npm test`, `npm run lint`, and `node design-tokens/generate.mjs --check`
       pass.
 
@@ -106,9 +122,16 @@ Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 - [x] Tests: update `AgendaFocusCard.test.tsx` for ring size testid/dimensions,
       covering-under-ring copy, Overlaps chip; adjust `FamilyScreen.test.tsx` only
       if selectors/copy change.
-- [x] Docs: short addendum note under Focus card content — header chips + covering
-      under ring match Calendar mock; port checklist unchanged for mobile.
-- [x] Tests: `cd web && npm test`, `npm run lint`, token `--check`.
+- [x] Docs: addendum — Focus is summary + CTA; expanded rows keep write bands;
+      covering combobox defaults to signed-in adult; remaining Agenda specs
+      (`agenda-list-chips`, `agenda-focus-card-mobile`, `coverage-leave-from`,
+      `agenda-focus-carpool-actions`) noted so they do not put the form back
+      on Focus.
+- [x] Web: slim `AgendaFocusCard` body; Remove event on Edit compose; covering
+      combobox under ring for multi-adult assign.
+- [x] Tests: Focus unit tests for slim chrome + default-self assign; move
+      leave-from/RSVP FamilyScreen cases onto expanded rows; `npm test`, lint,
+      token `--check`.
 
 ## Open questions
 

@@ -111,6 +111,7 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-MANUAL-skip")
     expect(row).toHaveClass("opacity-60")
     expect(within(row).getByText("Not going")).toBeInTheDocument()
+    expect(within(row).getByText("Not going").className).toMatch(/uppercase/)
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()

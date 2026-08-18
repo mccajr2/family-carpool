@@ -26,6 +26,15 @@ function kebabToCamel(key) {
   return key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/^(\d)/, "_$1")
 }
 
+/** JSON camelCase keys → CSS custom-property segments (heroSurface → hero-surface). */
+function cssIdent(key) {
+  return key.replace(/([A-Z])/g, "-$1").toLowerCase()
+}
+
+function ktFloat(n) {
+  return Number.isInteger(n) ? `${n}f` : `${n}f`
+}
+
 function iconConstName(name) {
   // icon.places -> places
   const leaf = name.includes(".") ? name.split(".").pop() : name
@@ -35,9 +44,7 @@ function iconConstName(name) {
 function cssColorBlock(vars, indent = "  ") {
   const lines = []
   for (const [k, v] of Object.entries(vars)) {
-    lines.push(
-      `${indent}--fc-${k.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${v};`,
-    )
+    lines.push(`${indent}--fc-${cssIdent(k)}: ${v};`)
   }
   return lines
 }
@@ -47,15 +54,16 @@ function cssFromTokens(t) {
   const dark = t.color.dark
   const shared = []
   for (const [k, v] of Object.entries(t.spacing)) {
-    shared.push(`  --fc-space-${k}: ${v}px;`)
+    shared.push(`  --fc-space-${cssIdent(k)}: ${v}px;`)
   }
   for (const [k, v] of Object.entries(t.radius)) {
-    shared.push(`  --fc-radius-${k}: ${v}px;`)
+    shared.push(`  --fc-radius-${cssIdent(k)}: ${v}px;`)
   }
   for (const [k, scale] of Object.entries(t.typography.scale)) {
-    shared.push(`  --fc-font-${k}-size: ${scale.size}px;`)
-    shared.push(`  --fc-font-${k}-line: ${scale.lineHeight}px;`)
-    shared.push(`  --fc-font-${k}-weight: ${scale.weight};`)
+    const name = cssIdent(k)
+    shared.push(`  --fc-font-${name}-size: ${scale.size}px;`)
+    shared.push(`  --fc-font-${name}-line: ${scale.lineHeight}px;`)
+    shared.push(`  --fc-font-${name}-weight: ${scale.weight};`)
   }
   shared.push(
     `  --fc-font-family: ${t.typography.fontFamily}, system-ui, sans-serif;`,
@@ -127,12 +135,12 @@ function kotlinFromTokens(t) {
   }
   lines.push("    }")
   lines.push("")
-  lines.push("    data class TypeScale(val size: Int, val lineHeight: Int, val weight: String)")
+  lines.push("    data class TypeScale(val size: Float, val lineHeight: Float, val weight: String)")
   lines.push("")
   lines.push("    object Type {")
   for (const [k, scale] of Object.entries(t.typography.scale)) {
     lines.push(
-      `        val ${k} = TypeScale(size = ${scale.size}, lineHeight = ${scale.lineHeight}, weight = "${scale.weight}")`,
+      `        val ${k} = TypeScale(size = ${ktFloat(scale.size)}, lineHeight = ${ktFloat(scale.lineHeight)}, weight = "${scale.weight}")`,
     )
   }
   lines.push(`        const val fontFamily: String = "${t.typography.fontFamily}"`)

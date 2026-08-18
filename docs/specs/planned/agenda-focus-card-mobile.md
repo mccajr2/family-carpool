@@ -20,16 +20,18 @@ visual hierarchy will drift across clients after the web slice ships.
 ## Non-goals (sketch)
 
 - Changing Focus card selection logic or copy (must match web)
-- Web Focus chrome (`agenda-focus-card` + [`agenda-focus-card-polish`](agenda-focus-card-polish.md))
+- Web Focus chrome (`agenda-focus-card` + [`agenda-focus-card-polish`](../active/agenda-focus-card-polish.md))
+  — port the **slim** web card (summary + Assign/Confirm + Edit), not the
+  pre-slim five-band form-hero.
 - Font family change (`typography-font-family`)
 
 ## Notes
 
 - Depends on shipped [`agenda-focus-card`](../archive/agenda-focus-card.md),
-  web [`agenda-focus-next-action`](../active/agenda-focus-next-action.md), and
-  [`agenda-focus-card-polish`](agenda-focus-card-polish.md) — port the
-  polished hero **and** the next-action ranking, not the pre-horizon
-  `selectFocusItem`.
+  web [`agenda-focus-next-action`](../archive/agenda-focus-next-action.md), and
+  [`agenda-focus-card-polish`](../active/agenda-focus-card-polish.md) — port the
+  slim polished hero **and** the next-action ranking, not the pre-horizon
+  `selectFocusItem` and not the old always-expanded form body.
 - [`docs/agenda-focus-card-addendum.md`](../../agenda-focus-card-addendum.md).
 - Card chrome may use native components; selection logic and copy must not.
 - Day-grouping + expandable rows are a separate web slice

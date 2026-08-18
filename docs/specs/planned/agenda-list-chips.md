@@ -21,7 +21,9 @@ Same filter and expand/collapse handlers — presentation only.
 ## Non-goals (sketch)
 
 - New filter semantics (still All kids + per-kid, client-side)
-- Changing expand bands, coverage, RSVP, or leave-by
+- Changing expand bands, coverage, RSVP, or leave-by (those stay on
+  expanded `AgendaRow`; Focus slim is [`agenda-focus-card-polish`](../active/agenda-focus-card-polish.md)
+  / [`docs/agenda-focus-card-addendum.md`](../../agenda-focus-card-addendum.md))
 - A “3 STOPS” / “N stops” tag ([`carpool-multi-stop`](carpool-multi-stop.md))
 - Week-at-a-glance rail
 - Destination page header type/copy ([`web-shell-page-header`](../archive/web-shell-page-header.md))

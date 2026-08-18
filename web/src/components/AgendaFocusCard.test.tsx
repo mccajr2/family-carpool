@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import type { ComponentProps } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
@@ -45,34 +46,49 @@ const circle: FamilyCircle = {
   defaultLeaveFromPlaceName: "Mom's house",
 }
 
+const twoAdultCircle: FamilyCircle = {
+  ...circle,
+  members: [
+    { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+    { adultId: "a2", email: "j@example.com", displayName: "Jordan", role: "CAREGIVER" },
+  ],
+}
+
 const noopHandlers = {
   onUpdateAssignDraft: vi.fn(),
   onAssignCoverage: vi.fn(),
+  onReassignCoverage: vi.fn(),
   onConfirmCoverage: vi.fn(),
   onDeclineCoverage: vi.fn(),
   onRemoveCoverage: vi.fn(),
-  onSetLeaveFrom: vi.fn(),
-  onSetRsvp: vi.fn(),
   onOpenPlaces: vi.fn(),
   onEdit: vi.fn(),
-  onRemoveEvent: vi.fn(),
 }
 
-function renderCard(calendarItem: CalendarItem) {
+function renderCard(
+  calendarItem: CalendarItem,
+  overrides: Partial<ComponentProps<typeof AgendaFocusCard>> = {},
+) {
   return render(
     <AgendaFocusCard
       item={calendarItem}
       circle={circle}
       currentAdultId="a1"
       loading={false}
-      assignDraft={{ adultId: "a1", kidIds: calendarItem.uncoveredKidIds, soleAdult: true, soleKid: true }}
+      assignDraft={{
+        adultId: "a1",
+        kidIds: calendarItem.uncoveredKidIds,
+        soleAdult: true,
+        soleKid: true,
+      }}
       {...noopHandlers}
+      {...overrides}
     />,
   )
 }
 
 describe("AgendaFocusCard header chrome", () => {
-  it("renders a 96px countdown ring", () => {
+  it("renders an 88px countdown ring with covering space under it", () => {
     renderCard(
       item({
         id: "ring",
@@ -81,13 +97,28 @@ describe("AgendaFocusCard header chrome", () => {
       }),
     )
     const ring = screen.getByTestId("agenda-focus-ring")
-    expect(ring).toHaveStyle({ width: "var(--fc-space-focus-ring)" })
+    expect(ring.className).toMatch(/--fc-space-focus-ring-covering-gap/)
     const svg = ring.querySelector("svg")
-    expect(svg).toHaveAttribute("width", "96")
-    expect(svg).toHaveAttribute("height", "96")
+    expect(svg).toHaveAttribute("width", "88")
+    expect(svg).toHaveAttribute("height", "88")
   })
 
-  it("shows an Overlaps chip when the item has conflicts", () => {
+  it("renders the hero title at the mock focusTitle size and weight", () => {
+    renderCard(
+      item({
+        id: "title-type",
+        title: "Hang with Arthur",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    const title = screen.getByText("Hang with Arthur")
+    expect(title).toHaveClass("fc-display")
+    expect(title.className).toMatch(/--fc-font-focus-title-size/)
+    expect(title.className).toMatch(/--fc-font-focus-title-weight/)
+    expect(title.className).toMatch(/--fc-font-focus-title-line/)
+  })
+
+  it("shows an Overlaps chip when the item has conflicts, not conflict detail lines", () => {
     renderCard(
       item({
         id: "overlap",
@@ -107,7 +138,43 @@ describe("AgendaFocusCard header chrome", () => {
         ],
       }),
     )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Overlaps")).toBeInTheDocument()
+    const overlaps = within(screen.getByTestId("agenda-focus-chips")).getByText("Overlaps")
+    expect(overlaps).toBeInTheDocument()
+    expect(overlaps.className).not.toMatch(/uppercase/)
+    expect(within(overlaps).getByTestId("agenda-status-pill-dot")).toBeInTheDocument()
+    expect(screen.queryByText("Sam overlaps Other")).not.toBeInTheDocument()
+  })
+
+  it("shows kids, destination, and leave-from on one meta line without form labels", () => {
+    renderCard(
+      item({
+        id: "meta",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    expect(screen.getByText("Sam · Rink · Leaving from Mom's house")).toBeInTheDocument()
+    expect(screen.queryByText("Leave from")).not.toBeInTheDocument()
+    expect(screen.queryByText("Manual")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("RSVP for Sam on Practice")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Remove event" })).not.toBeInTheDocument()
+  })
+
+  it("includes the full event location text when it is a street address", () => {
+    renderCard(
+      item({
+        id: "address",
+        title: "Game",
+        location: "450 Huron Ave, Cambridge, MA 02138",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    expect(
+      screen.getByText("Sam · 450 Huron Ave, Cambridge, MA 02138 · Leaving from Mom's house"),
+    ).toBeInTheDocument()
+    const meta = screen.getByText(/450 Huron Ave, Cambridge/)
+    expect(meta.className).not.toMatch(/truncate/)
+    expect(meta.className).not.toMatch(/whitespace-nowrap/)
   })
 })
 
@@ -145,7 +212,17 @@ describe("AgendaFocusCard hero surface", () => {
     const card = screen.getByTestId("agenda-focus-MANUAL-calm")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
     expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed")).toBeInTheDocument()
-    expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering: Alex")
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).not.toMatch(
+      /uppercase/,
+    )
+    expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
+    expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Alex")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-covering").className).toMatch(/items-center/)
+    expect(screen.getByTestId("agenda-focus-covering").className).not.toMatch(/flex-col/)
+    expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Covering").className).toMatch(
+      /--fc-font-focus-covering-weight/,
+    )
+    expect(screen.getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
   })
 
   it("uses heroSurface when pending coverage confirm is for the signed-in adult", () => {
@@ -169,6 +246,8 @@ describe("AgendaFocusCard hero surface", () => {
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
     expect(screen.queryByText("All set")).not.toBeInTheDocument()
     expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Needs coverage")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
   })
 
   it("uses surfaceRaised when pending coverage confirm is for someone else", () => {
@@ -191,36 +270,129 @@ describe("AgendaFocusCard hero surface", () => {
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-other")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
     expect(within(screen.getByTestId("agenda-focus-chips")).getByText("All set")).toBeInTheDocument()
-    expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
-  })
-
-  it("applies the display font to the hero title", () => {
-    renderCard(
-      item({
-        id: "urgent",
-        title: "Practice",
-        uncoveredKidIds: ["k1"],
-      }),
-    )
-    expect(screen.getByText("Practice")).toHaveClass("fc-display")
+    expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
+    expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Jordan")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
   })
 
   it("still fires Edit on a manual item after the chrome change", async () => {
     const user = userEvent.setup()
     const onEdit = vi.fn()
-    render(
-      <AgendaFocusCard
-        item={item({ id: "e1", title: "Practice", uncoveredKidIds: ["k1"] })}
-        circle={circle}
-        currentAdultId="a1"
-        loading={false}
-        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
-        {...noopHandlers}
-        onEdit={onEdit}
-      />,
-    )
+    renderCard(item({ id: "e1", title: "Practice", uncoveredKidIds: ["k1"] }), { onEdit })
     await user.click(screen.getByRole("button", { name: "Edit" }))
     expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("AgendaFocusCard assign", () => {
+  it("assigns the signed-in adult by default when several adults exist", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    renderCard(
+      item({
+        id: "assign-self",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        circle: twoAdultCircle,
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: false, soleKid: true },
+        onAssignCoverage,
+      },
+    )
+    const coveringRow = screen.getByTestId("agenda-focus-covering")
+    expect(within(coveringRow).getByText("Covering")).toBeInTheDocument()
+    expect(coveringRow.className).toMatch(/items-center/)
+    expect(coveringRow.className).not.toMatch(/flex-col/)
+    const covering = screen.getByLabelText("Covering adult for Practice")
+    expect(covering).toHaveValue("a1")
+    await user.click(screen.getByRole("button", { name: "Assign coverage" }))
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
+  })
+
+  it("assigns a different adult after the covering combobox changes", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    const onUpdateAssignDraft = vi.fn()
+    renderCard(
+      item({
+        id: "assign-other",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        circle: twoAdultCircle,
+        assignDraft: { adultId: "a2", kidIds: ["k1"], soleAdult: false, soleKid: true },
+        onAssignCoverage,
+        onUpdateAssignDraft,
+      },
+    )
+    expect(screen.getByLabelText("Covering adult for Practice")).toHaveValue("a2")
+    await user.click(screen.getByRole("button", { name: "Assign coverage" }))
+    expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1"])
+  })
+})
+
+describe("AgendaFocusCard change and remove coverage", () => {
+  it("reassigns when the covering combobox changes on a confirmed multi-adult item", async () => {
+    const user = userEvent.setup()
+    const onReassignCoverage = vi.fn()
+    renderCard(
+      item({
+        id: "reassign",
+        title: "Practice",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+      {
+        circle: twoAdultCircle,
+        assignDraft: { adultId: "a1", kidIds: [], soleAdult: false, soleKid: false },
+        onReassignCoverage,
+      },
+    )
+    const coveringRow = screen.getByTestId("agenda-focus-covering")
+    expect(within(coveringRow).getByText("Covering")).toBeInTheDocument()
+    expect(coveringRow.className).not.toMatch(/flex-col/)
+    const covering = screen.getByLabelText("Covering adult for Practice")
+    expect(covering).toHaveValue("a1")
+    expect(within(covering).getByRole("option", { name: "Alex" })).toBeInTheDocument()
+    expect(within(covering).queryByRole("option", { name: "Covering: Alex" })).not.toBeInTheDocument()
+    await user.selectOptions(covering, "a2")
+    expect(onReassignCoverage).toHaveBeenCalledWith("cov1", "a2", ["k1"])
+  })
+
+  it("removes confirmed coverage from the hero card", async () => {
+    const user = userEvent.setup()
+    const onRemoveCoverage = vi.fn()
+    renderCard(
+      item({
+        id: "remove",
+        title: "Practice",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+      { onRemoveCoverage },
+    )
+    await user.click(screen.getByRole("button", { name: "Remove coverage" }))
+    expect(onRemoveCoverage).toHaveBeenCalledWith("cov1")
   })
 })
 
