@@ -4,6 +4,28 @@ Long-lived design decisions for **family-carpool**. Feature-specific detail live
 in `docs/specs/`; this document explains *how the repo is organized* and *how
 work flows through it*.
 
+**Agents:** do not load this file in full for implementation. Jump to the
+heading the active spec's **Context** names. Map: [`docs/context.md`](context.md).
+
+## Contents
+
+- [Auth (v1)](#auth-v1)
+- [Family circle (v1)](#family-circle-v1)
+- [Interaction UX](#interaction-ux)
+- [Repository layout](#repository-layout)
+- [SDD workflow](#sdd-workflow)
+- [Cross-stack request flow](#cross-stack-request-flow)
+- [Backend (Spring Modulith)](#backend-spring-modulith)
+- [Mobile (Kotlin Multiplatform)](#mobile-kotlin-multiplatform)
+- [Contract-first API](#contract-first-api)
+- [Testing strategy](#testing-strategy)
+- [Git and build hygiene](#git-and-build-hygiene)
+- [CI](#ci)
+- [Not built yet](#not-built-yet)
+- [When to add contract validation in CI](#when-to-add-contract-validation-in-ci)
+- [Adding a real feature (checklist)](#adding-a-real-feature-checklist)
+- [Conventions](#conventions-accumulate-here)
+
 ## What this repo is
 
 **family-carpool** is a product repo created from the quickapp SDD starter (see
@@ -340,9 +362,10 @@ family-carpool/
 │   └── openapi.yaml      # API source of truth
 ├── build-logic/          # Backend convention plugins
 ├── docs/
-│   ├── architecture.md   # ← this file
+│   ├── context.md        # agent doc map (on demand; not always-on)
+│   ├── architecture.md   # ← this file (read by heading)
 │   ├── using-as-template.md
-│   ├── roadmap.md        # product backlog
+│   ├── roadmap.md        # product backlog (navigation, not implement context)
 │   └── specs/            # planned/ + active/ + archive/
 └── web/                  # Vite + React + TypeScript (npm; separate from Gradle)
 ```
@@ -395,10 +418,12 @@ instead of inventing a fake multi-item plan.
 1. **Branch + Spec** — From up-to-date `main`, create a branch named after the
    feature (kebab-case, e.g. `path-filtered-ci`). Prefer Next up from the
    roadmap when no name is given. Copy or promote into
-   `docs/specs/active/<feature>.md`. Write problem, non-goals, acceptance
-   criteria, and tasks by layer. Do not implement until the spec is approved.
-   Tiny non-spec fixes still use a short-lived branch + PR; they just skip the
-   spec file.
+   `docs/specs/active/<feature>.md`. Write problem, non-goals, **Context**
+   (allowlist of design/architecture **sections** and source entry points),
+   acceptance criteria, and tasks by layer. Do not implement until the spec is
+   approved. Prefer a **new chat** for `/implement` and another for `/pr`
+   (`docs/context.md`). Tiny non-spec fixes still use a short-lived branch +
+   PR; they just skip the spec file.
 
 2. **Checkpoint commit** — Before any multi-file change:
    `git commit -m "checkpoint: before <feature-name>"`.
@@ -418,7 +443,7 @@ instead of inventing a fake multi-item plan.
    clear Active, push the branch, and open the PR. Merge when CI is green.
 
 Cursor rules in `.cursor/rules/` enforce per-layer conventions; `AGENTS.md` is the
-constitution (changes rarely).
+lean constitution (context-loading protocol). Doc map: `docs/context.md`.
 
 ## Cross-stack request flow
 

@@ -1,113 +1,66 @@
-# AGENTS.md — quickapp
+# AGENTS.md — family-carpool
 
-This file is the constitution. It changes rarely — only when a real architectural
-decision changes, not per-feature.
+Constitution for this product repo. Change only when an architectural
+decision changes, not per feature. Layer detail lives in `.cursor/rules/`.
+Doc map: `docs/context.md`.
 
 ## What this is
 
-**quickapp** is a reusable, spec-driven **starter template** for full-stack
-products: a Spring Modulith backend, Kotlin Multiplatform mobile (Android + iOS),
-a React web client, and an OpenAPI contract. Create a **new repository from this
-template** for each real app; do not grow a product inside the template clone.
-Extend with vertical modules and `/roadmap` → `/spec` → `/implement` workflows.
-The `greeting` harness is disposable proof of the toolchain, not the product —
-see `docs/using-as-template.md`.
+**family-carpool** is a family scheduling and carpool app (web + Android + iOS)
+on a Spring Modulith backend. Created from the quickapp SDD starter; this clone
+is the product, not the upstream template. Template notes (greeting already
+gone): `docs/using-as-template.md`.
 
 ## Stack
 
-- Backend: Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) with a `build-logic`
-  included build providing convention plugins — not Maven.
-- Backend architecture: Spring Modulith — a modular monolith, not a layered
-  api/domain/infra split. Modules are vertical slices (one per business capability),
-  auto-discovered from `backend/modules/*` by `settings.gradle.kts`.
-- Mobile: Kotlin Multiplatform. `mobile/sharedLogic` holds shared business logic
-  and networking, consumed by both `mobile/androidApp` (Jetpack Compose) and
-  `mobile/iosApp` (native SwiftUI). `mobile/sharedUI` exists from the project
-  wizard's default scaffolding but is not required — evaluate whether to keep
-  using it or go fully native-UI per platform as real screens get built.
-- Mobile and backend are two independent Gradle builds in one git repo, not one
-  unified build. They share no Gradle code — only the OpenAPI contract connects them.
-- Web: Vite + React + TypeScript + Tailwind (shadcn-style UI), AI-driven, lower
-  rigor than backend/mobile — entirely separate toolchain (`web/`, npm), not part
-  of either Gradle build. Hand-written clients in `web/src/api/` stay aligned with
-  `contracts/openapi.yaml`.
-- Contract: OpenAPI spec in `contracts/openapi.yaml` — source of truth for the API.
-- CI/CD: GitHub Actions, path-filtered per module (see `.github/workflows/`).
-- Hosting: Render (backend), Neon (Postgres), UptimeRobot (keep-alive).
-
-## Module boundaries (backend)
-
-- Each folder under `backend/modules/` is one Spring Modulith module — a vertical
-  slice (e.g. `polls`, `voting`), not a horizontal layer.
-- Within a module: an `internal` sub-package is invisible to every other module.
-  Anything meant to be called from outside the module (an interface, a DTO) lives
-  directly in the module's top-level package, not in `internal`.
-- Cross-module communication happens via Spring application events, not direct
-  method calls into another module's internals.
-- Enforced automatically by `ModularityTests` (`backend/src/test/.../ModularityTests.java`),
-  which calls `ApplicationModules.verify()`. This must pass before any backend PR merges.
-- New module checklist: create `backend/modules/<name>/`, add a
-  `build.gradle.kts` containing only `plugins { id("quickapp.module-conventions") }`,
-  write code with an `internal` sub-package for anything not meant to be public.
-  No edits to `settings.gradle.kts` — module discovery is automatic.
-
-## The build-logic convention plugin
-
-- `build-logic/src/main/kotlin/quickapp.module-conventions.gradle.kts` is what
-  every backend module applies. It bundles: Java 25 toolchain, the Spring Boot
-  BOM (via `dependencyManagement`), the `spring-context` dependency, JUnit 5
-  test execution, and `spring-boot-starter-test`.
-- If a module needs something the convention plugin doesn't provide, add the
-  dependency directly in that module's own `build.gradle.kts` — don't fork the
-  convention plugin per-module. Only promote something into the shared convention
-  once at least two modules need it.
-- Convention plugins cannot use the generated `libs.x.y` version-catalog shortcut
-  — this is a genuine Gradle limitation, not a mistake. Use
-  `extensions.getByType<VersionCatalogsExtension>().named("libs")` instead, and
-  look up entries with `.findLibrary(...)` / `.findVersion(...)`.
+- Backend: Java 25, Spring Boot 4.1, Gradle (Kotlin DSL), Spring Modulith
+  vertical modules under `backend/modules/*` (auto-discovered).
+- Mobile: KMP `mobile/sharedLogic` → Android Compose + iOS SwiftUI. Separate
+  Gradle build from backend. Shared only via `contracts/openapi.yaml`.
+- Web: Vite + React + TypeScript + Tailwind (`web/`, npm). Hand-written
+  clients in `web/src/api/` stay aligned with the OpenAPI contract.
+- CI: GitHub Actions, path-filtered. Hosting: Render, Neon, UptimeRobot.
 
 ## Non-negotiables
 
-- `ModularityTests` must pass before any backend PR merges — module boundaries
-  are enforced by a test, not convention.
-- Every new endpoint or service method ships with a test in the same PR.
-- Never modify `contracts/openapi.yaml` without updating both `web` and `mobile`
-  client code in the same change.
-- No placeholder implementations. If you can't finish something, stop and say so.
-- Before any multi-file change, create a git checkpoint commit first.
-- Don't invent a dependency. Check the relevant `build.gradle.kts` / `libs.versions.toml`
-  / `package.json` first. If it's new, ask before adding it.
-- **First real product feature deletes the greeting harness.** If
-  `backend/modules/greeting/` still exists and the slice is the app's first
-  shipped product vertical (not template/CI hygiene), the same PR must remove
-  greeting per `docs/using-as-template.md` (module, OpenAPI path, web + mobile
-  clients/UI, obsolete tests, README smoke → the real feature). Do not keep or
-  "extend" greeting alongside product auth or domain APIs.
+- One active spec → one feature branch → one PR. `main` is PR-protected.
+- Never change `contracts/openapi.yaml` without updating web **and** mobile
+  clients in the same change.
+- No placeholder implementations. If you can't finish, stop and say so.
+- Don't invent a dependency. Check the layer's lockfile / catalog first; ask
+  before adding one.
+- Tests: `.cursor/rules/testing.mdc`. Backend modules:
+  `.cursor/rules/backend.mdc` (`ModularityTests` must pass).
+- Visual restyles: `.cursor/rules/visual-source.mdc`.
 
-## How specs work here
+## Specs and context loading
 
-- `main` is PR-protected. One active spec → one feature branch → one PR (`/pr`).
-- `docs/roadmap.md` — single product roadmap; backlog id ↔ spec 1:1. Use
-  `/roadmap` to carve up, add ideas, and re-rank; `/spec` for one implementable
-  slice. On the **template** repo, keep the backlog empty of product features;
-  carve up in each new app repo.
-- `docs/using-as-template.md` — how to create an app from this template, rename
-  identity, and delete the greeting harness.
-- `docs/specs/planned/` — optional thin stubs; `active/` via `/spec`, then
-  `/implement`; `archive/` when done.
-- `docs/architecture.md` — longer-lived design decisions.
+Current task = the single file in `docs/specs/active/` (also listed under
+Active specs in `docs/roadmap.md`).
+
+On implementation work:
+
+1. Read that active spec in full (Problem, Non-goals, Context, AC, Tasks).
+2. Read **only** paths in the spec's **Context** section, plus the source
+   those paths name.
+3. Citations in Problem/Non-goals are hints — open those files only if the
+   current task needs that prior decision.
+4. Do **not** read `docs/roadmap.md`, `docs/architecture.md`,
+   `docs/using-as-template.md`, `docs/specs/planned/`, or
+   `docs/specs/archive/` unless the Context section (or the user) names a
+   specific file or heading.
+5. Lost? Read `docs/context.md` (short index), then only the cited file.
+
+`/roadmap` reads the roadmap (skip **Roadmap history** unless asked).
+`/spec` fleshes out one slice. `/implement` takes the next unchecked task.
+`/pr` archives the spec and opens the PR.
+
+## Conversation scope
+
+The repo is memory, not the chat. Prefer a new conversation per phase
+(spec → implement → review/`/pr`). Reconstruct from the active spec,
+Context paths, and git diff — do not require the previous transcript.
 
 ## Conventions
 
-[FILL IN AS YOU GO — add an entry only after the same mistake happens twice.]
-
-- Visual restyles: destination mocks are the source of truth for size, weight,
-  spacing, and color. Put those values in `design-tokens/tokens.json` in the
-  same PR — do not snap to a nearby existing role. Only exception is WCAG AA
-  contrast on mock hex. If a mock conflicts with an older lock, ask; default
-  is defer to the mock (`docs/ui-system.md`).
-- Web signed-in circle-ready shell (`FamilyScreen`): CSS grid
-  `15rem 1fr [20rem]`. Destination `<main>` is a **block** with `max-w-[820px]`
-  only (not `flex`, `w-full`, `min-w-0`, or `min-w-[820px]`). `App` is a `div`,
-  not `<main>`. Do not stack the rail to `w-full` below `md`. Do not `truncate`
-  / nowrap titles in that column — that freezes `1fr` at ~820px.
+Add an entry here only after the same mistake happens twice.

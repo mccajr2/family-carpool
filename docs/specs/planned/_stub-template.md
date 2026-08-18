@@ -22,6 +22,3 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 ## Notes
 
 - [Deps on other roadmap ids, risks, open questions.]
-- Do **not** write “keep the greeting harness” on product stubs. If greeting
-  still exists, the **first** product `/spec` deletes it
-  (`docs/using-as-template.md` + AGENTS.md).

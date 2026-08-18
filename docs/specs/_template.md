@@ -19,6 +19,17 @@ AI-implemented features is skipping this section.]
 [2-6 sentences on the shape of the solution. Which modules/layers touched. Any
 contract (OpenAPI) changes, called out explicitly.]
 
+## Context
+
+Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
+
+- Design: [e.g. `docs/ui-system.md`]
+- Architecture: [e.g. `docs/architecture.md` → Family circle / Coverage]
+- Source: [entry-point files]
+
+Do not list `docs/roadmap.md` or the entire architecture file. Cite an archived
+spec only when this slice must reuse that decision.
+
 ## Acceptance criteria
 
 - [ ] [Testable statement, not a vague goal. "Returns 409 when X" not "handles errors well."]

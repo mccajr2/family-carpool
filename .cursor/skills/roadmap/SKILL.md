@@ -13,6 +13,10 @@ new enhancement to add.
 - Single file: `docs/roadmap.md` (create from the structure in-repo if missing).
 - Each backlog **id** (kebab-case) maps **1:1** to a spec when it exists:
   `docs/specs/planned|active|archive/<id>.md`.
+- Read Vision / non-goals / Locked decisions / Upcoming / Parking / Active /
+  Done as needed. **Skip Roadmap history** unless the user asks about past
+  re-ranks. Do not load `docs/specs/archive/` or `docs/architecture.md` unless
+  a row cites a specific file you must edit.
 
 ## Size check (do this first)
 

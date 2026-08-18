@@ -5,6 +5,9 @@ Source of truth: [`design-tokens/tokens.json`](../design-tokens/tokens.json)
 Spec: [`cross-platform-ui-system`](specs/archive/cross-platform-ui-system.md)  
 Follow-up: [`ui-system-destination-adoption`](specs/planned/ui-system-destination-adoption.md)
 
+**Agents:** load this when the active spec's **Context** cites it (visual
+restyle / tokens). Do not load it for backend-only work.
+
 Shared look and interaction vocabulary for **web**, **Android**, and **iOS**.
 Clients consume generated token outputs — they do not invent one-off hex or
 spacing values in components. **Where those token values come from:**
