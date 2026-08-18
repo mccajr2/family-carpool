@@ -232,7 +232,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] **Contract:** `/api/carpool/spaces/{spaceId}/rides*` paths + schemas;
       version bump; summary/tag text updated for member-visible rides; 400 /
       403 / 404 / 409 as above.
-- [ ] **Backend (`feeds`):** nullable `uid` on `FeedCalendarEventDto`.
+- [x] **Backend (`feeds`):** nullable `uid` on `FeedCalendarEventDto`.
 - [ ] **Backend (`family`):** kid display-name lookup on `FamilyMembershipApi`;
       pickup-place lookup on `FamilyPlaceApi` (address even if unlocated).
 - [ ] **Backend (`carpool`):** Flyway ride-request table; list/create/accept/
