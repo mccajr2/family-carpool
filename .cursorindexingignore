@@ -1,0 +1,18 @@
+# Historical specs, generated outputs, and visual fixtures.
+# These stay readable by exact path (@file or Read) but should not rank into
+# normal codebase search. Do not use .cursorignore here — that would block
+# on-demand reads of archive specs the active spec cites.
+
+docs/specs/archive/**
+
+# Generated from design-tokens/tokens.json — edit the JSON, not these.
+web/src/styles/tokens.generated.css
+mobile/sharedUI/src/commonMain/kotlin/org/example/project/ui/UiTokens.kt
+mobile/iosApp/iosApp/UiTokens.swift
+
+# Visual fixtures (PNGs are already in Cursor's default ignore list).
+docs/ui-system/screenshots/**
+docs/ui-system/more-reference-preview.html
+
+# Upstream template leftover — open only if greeting/template work returns.
+docs/using-as-template.md

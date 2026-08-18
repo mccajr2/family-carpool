@@ -23,21 +23,23 @@ Steps:
    `docs/specs/active/<feature-name>.md`.
 4. Set `Parent: docs/roadmap.md` on the spec when this id appears on the roadmap
    (or when the user is working from the product roadmap).
-5. **Greeting harness check.** Read `docs/using-as-template.md` (delete-harness
-   section). If `backend/modules/greeting/` still exists and this spec is the
-   app's **first real product feature** (domain/auth vertical, not template or
-   CI-only work): the spec **must** include deleting the greeting harness in
-   this PR — do not list "keep greeting" as a non-goal and do not extend the
-   greeting module. Follow the checklist in that doc (module, contract, web +
-   mobile, tests, README smoke). If greeting is already gone, skip.
+5. **Greeting harness.** If `backend/modules/greeting/` **exists** and this spec
+   is the app's first real product feature: include deleting it (checklist in
+   `docs/using-as-template.md`). If that folder is absent, skip — do not read
+   the template doc.
 6. Ask clarifying questions ONE AT A TIME if the feature request is ambiguous —
    specifically about: what's explicitly out of scope, whether this touches the
    OpenAPI contract, and what "done" looks like. Do not proceed to writing full
    acceptance criteria until scope is clear enough for real (not vague) criteria.
-7. Fill in Problem, Non-goals, Approach, Acceptance Criteria, and a Tasks checklist
-   broken down by layer (backend/contract/web/iOS/tests) — omit layers this feature
-   doesn't touch. **Visual restyles:** lock size, weight, spacing, and color from
-   the destination mock into `design-tokens/tokens.json` (new/updated roles). Do
+7. Fill in Problem, Non-goals, Approach, **Context**, Acceptance Criteria, and a
+   Tasks checklist broken down by layer (backend/contract/web/iOS/tests) — omit
+   layers this feature doesn't touch.
+   **Context** is an allowlist of files/headings the implementer should read
+   (design doc, architecture **section**, source entry points). Do not point at
+   `docs/roadmap.md` or the whole of `docs/architecture.md`. Cite an archived
+   spec only when reuse of that slice is required.
+   **Visual restyles:** lock size, weight, spacing, and color from the
+   destination mock into `design-tokens/tokens.json` (new/updated roles). Do
    not snap to a nearby existing role. WCAG AA is the only mock-hex exception.
    If that conflicts with an older lock, ask; expected answer is defer to the
    mock (`docs/ui-system.md`).
@@ -54,4 +56,5 @@ Steps:
    **Active specs** row (branch + link). Do not re-rank other items unless the
    user also asked for a re-rank via `/roadmap` (or step 8 required a split).
 10. Do NOT start implementing. Stop after the spec is written and show it to me for
-    approval before any code changes.
+    approval before any code changes. Spec discussion should end here; implement
+    in a new chat with `/implement`.

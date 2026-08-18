@@ -5,12 +5,15 @@ disable-model-invocation: true
 ---
 Open a pull request for the current changes.
 
+Reconstruct from the spec file + `git diff`. Do not require the implement
+chat transcript.
+
 Steps:
 1. Confirm you are not on `main`. If you are, stop — create/switch to the feature
    branch first. Prefer a branch named after the active/archived spec (kebab-case).
 2. Run `git diff` and `git diff --staged` to see everything changed.
 3. Confirm all relevant tests pass (per the layer(s) touched — see
-   `.cursor/rules/backend.mdc` / `web.mdc` / `ios.mdc` for the right command).
+   `.cursor/rules/backend.mdc` / `web.mdc` / `mobile.mdc` for the right command).
    Do not proceed if something fails; report it instead.
 4. Write a clear commit message: what changed and why, referencing the spec file
    if one exists (`docs/specs/active/<feature>.md`).

@@ -1,7 +1,13 @@
 # Using quickapp as a template
 
-This repository is a **spec-driven starter**, not a product. Create a **new GitHub
-repo from the template** for each real app; leave this copy clean.
+**family-carpool note:** this product repo already ran the template flow
+(greeting harness deleted). Agents should not load this file unless
+`backend/modules/greeting/` exists or someone is cloning the *upstream*
+quickapp template.
+
+This document describes the **upstream starter**, not ongoing product work.
+Create a **new GitHub repo from the template** for each real app; leave the
+template copy clean.
 
 ## Create a new app repo
 

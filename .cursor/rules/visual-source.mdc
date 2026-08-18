@@ -1,6 +1,7 @@
 ---
-description: Destination mocks are the visual source of truth for size, spacing, and color.
-alwaysApply: true
+description: Destination mocks lock size, weight, spacing, and color for UI restyles and design-token work.
+globs: web/**,mobile/**,design-tokens/**
+alwaysApply: false
 ---
 
 # Visual source of truth

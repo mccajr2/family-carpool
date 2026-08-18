@@ -7,6 +7,10 @@ Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
 next slice. Do not turn this file into a mega-spec.
 
+**Agents:** load this file for `/roadmap`, `/spec` status updates, or “what's
+next.” Do **not** load it for `/implement`. Current work is
+`docs/specs/active/`. Skip **Roadmap history** unless asked.
+
 ## Vision
 
 A **family scheduling and carpool app** for households with **multiple kids**

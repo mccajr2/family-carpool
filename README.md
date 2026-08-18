@@ -170,12 +170,13 @@ responses). Real SMTP is Upcoming `auth-email-delivery`.
 
 | Doc                                                    | Purpose                                                      |
 | ------------------------------------------------------ | ------------------------------------------------------------ |
-| [AGENTS.md](AGENTS.md)                                 | Constitution for humans and coding agents                    |
+| [AGENTS.md](AGENTS.md)                                 | Lean constitution + what to load for the current task        |
+| [docs/context.md](docs/context.md)                     | Doc map, conversation phases, model choice (on demand)       |
 | [docs/roadmap.md](docs/roadmap.md)                     | Product backlog — carve-up, re-rank, Next up                 |
-| [docs/architecture.md](docs/architecture.md)           | SDD workflow, auth/family decisions, how to add features     |
-| [docs/specs/](docs/specs/)                             | Planned stubs, active, and archived feature specs            |
+| [docs/architecture.md](docs/architecture.md)           | Locked decisions — read by heading, not in full              |
+| [docs/specs/](docs/specs/)                             | Planned stubs, **one** active spec, archived history         |
 | [contracts/openapi.yaml](contracts/openapi.yaml)       | API source of truth                                          |
-| [docs/using-as-template.md](docs/using-as-template.md) | Upstream template notes (this repo already deleted greeting) |
+| [docs/using-as-template.md](docs/using-as-template.md) | Upstream template leftover (greeting already deleted)        |
 
 
 
