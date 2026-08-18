@@ -269,9 +269,11 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-other")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("All set")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(screen.queryByText("All set")).not.toBeInTheDocument()
+    expect(screen.queryByText("Confirmed")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
-    expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Jordan")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-covering")).getByText(/Jordan · Pending/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
   })
 

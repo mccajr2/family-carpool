@@ -58,6 +58,8 @@ function focusStatusChips(item: CalendarItem, needsDecision: boolean): { label: 
     chips.push({ label: "Needs coverage", tone: "amber" })
   } else if (needsDecision) {
     chips.push({ label: "Needs coverage", tone: "amber" })
+  } else if (active.some((c) => c.status === "PENDING")) {
+    chips.push({ label: "Awaiting confirm", tone: "amber" })
   } else if (active.some((c) => c.status === "CONFIRMED")) {
     chips.push({ label: "Confirmed", tone: "mint" })
   } else {
@@ -290,6 +292,7 @@ export function AgendaFocusCard({
                   style={{ color: onVar }}
                 >
                   {coverageAdultLabel(activeCoverage!, circle.members)}
+                  {activeCoverage!.status === "PENDING" ? " · Pending" : ""}
                 </span>
               )}
             </label>

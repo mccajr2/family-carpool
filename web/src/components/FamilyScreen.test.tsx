@@ -3172,6 +3172,8 @@ describe("FamilyScreen", () => {
       })
     })
     expect(within(agenda).getByLabelText("Covering adult for Practice")).toHaveValue("2")
+    expect(within(agenda).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(within(agenda).queryByText("Confirmed")).not.toBeInTheDocument()
   })
 
   it("shows amber conflict lines from server conflicts on Agenda items", async () => {

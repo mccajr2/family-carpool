@@ -73,8 +73,8 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `location` is shown verbatim (full address until a venue lookup exists).
   Leave-from uses the **place name**, not the street address. No form labels
   (`Leave from`, `Manual`).
-- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Confirmed` /
-  `All set`): Title Case with a leading status dot (`focusStatusPill`
+- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Awaiting confirm`,
+  `Confirmed` / `All set`): Title Case with a leading status dot (`focusStatusPill`
   12.5/600). Collapsed `AgendaRow` tags stay uppercase compact chips
   (`statusChip` 11/700) via the same `agendaStatusChip.tsx` helper
   (`appearance="tag"` vs `"pill"`). Conflict **detail** lines are not on
