@@ -56,6 +56,7 @@ import { Input } from "@/components/ui/input"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
+import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
 import { groupAgendaByDay } from "@/components/agendaDayGroups"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
 import {
@@ -2936,8 +2937,10 @@ export function FamilyScreen({
       {destination === "calendar" ? (
         <aside
           aria-label="Context"
-          className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] p-[var(--fc-space-xl)]"
-        />
+          className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] px-[var(--fc-space-week-glance-pad-x)] py-[var(--fc-space-main-y)]"
+        >
+          <AgendaWeekGlance items={visibleCalendarItems} currentAdultId={adult?.id ?? ""} />
+        </aside>
       ) : null}
     </div>
   )

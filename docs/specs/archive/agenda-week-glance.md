@@ -1,8 +1,8 @@
 # Spec: agenda-week-glance
 
-Status: draft
+Status: archived  
+Completed: 2026-08-18  
 Created: 2026-08-17
-Updated: 2026-08-18
 Parent: [docs/roadmap.md](../../roadmap.md)
 Branch: `agenda-week-glance`
 Added: 2026-08-17 · enhancement
@@ -180,46 +180,48 @@ Focus, list chips, or Feeds.
 
 ## Acceptance criteria
 
-- [ ] Calendar Context aside is no longer empty: heading **Week at a glance**
+- [x] Calendar Context aside is no longer empty: heading **Week at a glance**
       and **exactly five** weekday rows. Other destinations still have no
       Context. No carpool card, **Open in Maps**, or **need drivers** copy.
-- [ ] Frozen `now`: the five labels are today … today+4 local weekdays
+- [x] Frozen `now`: the five labels are today … today+4 local weekdays
       (uppercase three-letter, e.g. `Wed`), using `agendaDayGroups` day math.
       Days today+5 / today+6 are not rows.
-- [ ] Frozen `now`: one in-play uncovered event today → **1 needs coverage**
+- [x] Frozen `now`: one in-play uncovered event today → **1 needs coverage**
       + flag; two such events → **2 need coverage** + flag. Two uncovered
       kids on **one** event still **1 needs coverage**.
-- [ ] Frozen `now`: all-set today + uncovered Friday (within the five days)
+- [x] Frozen `now`: all-set today + uncovered Friday (within the five days)
       → today **All set** (no flag), Friday **needs coverage** + flag. Focus
       ranking is unchanged (tonight still wins).
-- [ ] All-RSVP-No items do not count as uncovered; a day with only those
+- [x] All-RSVP-No items do not count as uncovered; a day with only those
       items is **All set**. A day with zero items is **No events**.
-- [ ] In-play conflict (no uncovered) → **1 overlaps** / **{n} overlap** +
+- [x] In-play conflict (no uncovered) → **1 overlaps** / **{n} overlap** +
       flag. Pending coverage for the signed-in adult (no uncovered/conflict)
       → **1 to confirm** / **{n} to confirm** + flag. Pending for someone
       else is **All set**.
-- [ ] Kid filter uses `visibleCalendarItems`: filtering to one kid drops
+- [x] Kid filter uses `visibleCalendarItems`: filtering to one kid drops
       other kids’ events from the rollup (a day can become **No events**).
-- [ ] Rows are not buttons/links and do not scroll or filter the Agenda.
+- [x] Rows are not buttons/links and do not scroll or filter the Agenda.
       Grid, Context `w-80`, and aside presence rules stay as page-frame.
-- [ ] Mock-measured type/spacing locked in `tokens.json` and consumed via
+- [x] Mock-measured type/spacing locked in `tokens.json` and consumed via
       `--fc-*` (no raw px/hex; no `hero*` color vars). Calm weekday/status
       text uses AA `textSecondary`, not mock slate-light.
-- [ ] `cd web && npm test`, `npm run lint`, and
+- [x] `cd web && npm test`, `npm run lint`, and
       `node design-tokens/generate.mjs --check` pass.
 
 ## Tasks
 
-- [ ] **Tokens:** add `weekGlance*` / `weekDay` / `weekCount*` roles from the
+- [x] **Tokens:** add `weekGlance*` / `weekDay` / `weekCount*` roles from the
       table above; regenerate platform outputs; WCAG AA on new text pairings
       (`contrast.test.mjs` as needed).
-- [ ] **Web:** `agendaWeekGlance.ts` helper (`days` + status from items,
+- [x] **Web:** `agendaWeekGlanceDays.ts` helper (`days` + status from items,
       `now`, `currentAdultId`) + `AgendaWeekGlance.tsx`; mount in Calendar
       Context; pass `visibleCalendarItems` and `adult?.id`.
-- [ ] **Docs:** add a Week-at-a-glance section to
+      (Helper file is `agendaWeekGlanceDays.ts`, not `agendaWeekGlance.ts` —
+      case-insensitive import would collide with the component.)
+- [x] **Docs:** add a Week-at-a-glance section to
       `docs/agenda-coverage-web-contract.md` (five-day window, copy table,
       event-not-kid counts, no driver line).
-- [ ] **Tests:** helper cases for the AC table (inject `now` + adult id);
+- [x] **Tests:** helper cases for the AC table (inject `now` + adult id);
       component renders five rows / heading / flag / no Maps; update
       `FamilyScreen.test.tsx` empty-aside assertion (heading present on
       Calendar, still absent elsewhere; still no Open in Maps). Run

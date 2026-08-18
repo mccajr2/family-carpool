@@ -235,6 +235,55 @@ Toolkit chrome may differ; **layout and strings** must not.
   unchanged. No confirm when uncovered.
 - Patch the calendar cache on RSVP writes like other single-item mutations.
 
+## Week at a glance
+
+Calendar **Context** aside only (web: `AgendaWeekGlance` in
+`FamilyScreen.tsx`; rollup in `agendaWeekGlanceDays.ts`). Heading **Week at
+a glance**. Ports must match the window, counts, and strings below
+([`agenda-week-glance-mobile`](specs/planned/agenda-week-glance-mobile.md)).
+Toolkit chrome may differ; **decisions and strings** must not.
+
+### Window
+
+- Always **today + the next four local days** (five rows; never omit a day).
+  Same local-day math as Agenda grouping (`startOfLocalDay` / `addDays`).
+- Subset of the seven-day **This week** list bucket (`weekEnd` = today+7).
+  Days today+5 and today+6 can still appear under **This week**; they are not
+  in the strip.
+- Bucket an item onto the local calendar day of `startsAt`. Unparseable
+  `startsAt` is skipped (no throw). Overnight events count on the start day
+  only.
+- Derive from the kid-filtered loaded Agenda window (web:
+  `visibleCalendarItems`) — the same list as Focus + rows, **including** the
+  Focus item. Do not fetch a wider range.
+
+### Per-day status (one line)
+
+Count **in-play events**, not kids. Out-of-play items
+(`isAgendaItemOutOfPlay`) never increment uncovered / overlap / confirm
+counts. A day whose only items are out-of-play is **All set**, not **No
+events**. Pending-for-self uses the same `pendingCoverageForAdult` predicate
+as Focus.
+
+First match:
+
+| Condition | Copy | Flag |
+|-----------|------|------|
+| Zero items that local day | **No events** | none |
+| `n` in-play with `uncoveredKidIds.length > 0` | **1 needs coverage** / **{n} need coverage** | amber |
+| else `n` in-play with `conflicts.length > 0` | **1 overlaps** / **{n} overlap** | amber |
+| else `n` in-play pending-for-self | **1 to confirm** / **{n} to confirm** | amber |
+| else (in-play all-set, pending-for-others, out-of-play only) | **All set** | none |
+
+Two uncovered kids on **one** event still **1 needs coverage**. Pending for
+someone else without uncovered / conflict is calm (**All set**) — same as
+Focus `focusItemNeedsDecision` (list pill **Awaiting confirm** is not a
+week-glance line).
+
+Do **not** emit **need drivers** / **Needs driver**. Rows are not buttons or
+links and must not scroll or filter the Agenda (jump-to-day stays the
+calendar grid). No carpool card or **Open in Maps** in this aside.
+
 ## Port checklist (iOS + Android)
 
 Match this contract for each item before calling the port done:
@@ -255,6 +304,7 @@ Match this contract for each item before calling the port done:
    clearing adult, Save → Saving… without Sign out → Working…).
 10. Focus card selection + rendering — web only — not yet ported.
 11. Full Agenda row redesign (day-grouping, card rows, expand/collapse) — web only — not yet ported.
+12. Week at a glance (five-day Context strip) — web only — not yet ported.
 
 ## Toolkit differences (OK)
 

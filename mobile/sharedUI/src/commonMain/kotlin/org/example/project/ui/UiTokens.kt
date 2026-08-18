@@ -136,6 +136,10 @@ object UiTokens {
         const val feedKidChipsGap: Int = 8
         const val feedSubmitPadY: Int = 13
         const val feedSubmitMarginTop: Int = 6
+        const val weekGlancePadX: Int = 28
+        const val weekItemPadY: Int = 10
+        const val weekDayWidth: Int = 38
+        const val weekFlag: Int = 7
     }
 
     object Radius {
@@ -176,6 +180,10 @@ object UiTokens {
         val feedInput = TypeScale(size = 14f, lineHeight = 20f, weight = "400")
         val feedKidChip = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
         val feedSubmit = TypeScale(size = 14.5f, lineHeight = 20f, weight = "700")
+        val weekGlanceTitle = TypeScale(size = 16f, lineHeight = 20f, weight = "700")
+        val weekDay = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
+        val weekCount = TypeScale(size = 13f, lineHeight = 18f, weight = "600")
+        val weekCountCalm = TypeScale(size = 13f, lineHeight = 18f, weight = "500")
         const val fontFamily: String = "Plus Jakarta Sans"
     }
 

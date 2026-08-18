@@ -39,8 +39,8 @@ surface on the Focus card):
 
 **Rest-of-week** uncovered/conflict/pending items (This week bucket, days 3–6)
 do **not** steal Focus from a sooner all-set event — being on time today beats
-planning Friday coverage. Those gaps stay in the flat list and will surface in
-the week-at-a-glance strip ([`agenda-week-glance`](specs/planned/agenda-week-glance.md)).
+planning Friday coverage. Those gaps stay in the flat list and surface in
+the week-at-a-glance strip ([`agenda-week-glance`](specs/archive/agenda-week-glance.md)).
 Far-future items (Later bucket) likewise never beat a sooner in-play event.
 
 **Examples**

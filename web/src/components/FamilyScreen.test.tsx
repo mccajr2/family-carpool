@@ -1891,9 +1891,14 @@ describe("FamilyScreen", () => {
     expect(context.className).not.toMatch(/hidden/)
     expect(context.className).toMatch(/w-80/)
     expect(context.className).toMatch(/--fc-border/)
-    expect(context).toBeEmptyDOMElement()
-    expect(screen.queryByText(/week at a glance/i)).not.toBeInTheDocument()
+    expect(context.className).toMatch(/--fc-space-week-glance-pad-x/)
+    expect(context.className).toMatch(/--fc-space-main-y/)
+    expect(
+      within(context).getByRole("heading", { name: "Week at a glance" }),
+    ).toBeInTheDocument()
+    expect(within(context).getAllByRole("listitem")).toHaveLength(5)
     expect(screen.queryByText(/open in maps/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/need drivers/i)).not.toBeInTheDocument()
 
     for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
       await goTo(user, destination)
@@ -1910,7 +1915,10 @@ describe("FamilyScreen", () => {
     }
 
     await goTo(user, "Calendar")
-    expect(screen.getByLabelText("Context")).toBeInTheDocument()
+    const calendarContext = screen.getByLabelText("Context")
+    expect(
+      within(calendarContext).getByRole("heading", { name: "Week at a glance" }),
+    ).toBeInTheDocument()
     expect(
       calendarPageHeading().closest("main")?.parentElement
         ?.className,

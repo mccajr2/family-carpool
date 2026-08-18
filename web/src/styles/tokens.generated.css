@@ -77,6 +77,10 @@
   --fc-space-feed-kid-chips-gap: 8px;
   --fc-space-feed-submit-pad-y: 13px;
   --fc-space-feed-submit-margin-top: 6px;
+  --fc-space-week-glance-pad-x: 28px;
+  --fc-space-week-item-pad-y: 10px;
+  --fc-space-week-day-width: 38px;
+  --fc-space-week-flag: 7px;
   --fc-radius-sm: 4px;
   --fc-radius-md: 8px;
   --fc-radius-lg: 12px;
@@ -165,6 +169,18 @@
   --fc-font-feed-submit-size: 14.5px;
   --fc-font-feed-submit-line: 20px;
   --fc-font-feed-submit-weight: 700;
+  --fc-font-week-glance-title-size: 16px;
+  --fc-font-week-glance-title-line: 20px;
+  --fc-font-week-glance-title-weight: 700;
+  --fc-font-week-day-size: 12px;
+  --fc-font-week-day-line: 16px;
+  --fc-font-week-day-weight: 700;
+  --fc-font-week-count-size: 13px;
+  --fc-font-week-count-line: 18px;
+  --fc-font-week-count-weight: 600;
+  --fc-font-week-count-calm-size: 13px;
+  --fc-font-week-count-calm-line: 18px;
+  --fc-font-week-count-calm-weight: 500;
   --fc-font-family: Plus Jakarta Sans, system-ui, sans-serif;
   --fc-font-family-display: Space Grotesk, system-ui, sans-serif;
 }
