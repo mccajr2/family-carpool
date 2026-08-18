@@ -1,6 +1,7 @@
 # Spec: agenda-list-chips
 
-Status: draft  
+Status: archived  
+Completed: 2026-08-18  
 Created: 2026-08-17  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-list-chips`  
@@ -120,21 +121,21 @@ Allowlist for `/implement` — do not load the rest of `docs/`.
 
 ## Acceptance criteria
 
-- [ ] Kid filter renders as mock-aligned **chips**, not shadcn Buttons; selecting
+- [x] Kid filter renders as mock-aligned **chips**, not shadcn Buttons; selecting
       All kids / a kid name filters the agenda exactly as today (including Focus
       + list).
-- [ ] Collapsed rows render **pill** status chips (Title Case + leading dot) from
+- [x] Collapsed rows render **pill** status chips (Title Case + leading dot) from
       `agendaItemStatusTags` — including **Confirm coverage** and **Awaiting
       confirm** cases — not uppercase inline tags.
-- [ ] Confirmed in-play rows show a **covering-adult avatar** (initials) on the
+- [x] Confirmed in-play rows show a **covering-adult avatar** (initials) on the
       collapsed summary; uncovered / pending-only / out-of-play rows do not.
-- [ ] Standalone 9px status dot removed from collapsed rows; state reads from pills.
-- [ ] Trailing expand chevron uses `icon.chevron` and mock token sizing.
-- [ ] Mock-measured filter-chip and row-avatar type/spacing locked in
+- [x] Standalone 9px status dot removed from collapsed rows; state reads from pills.
+- [x] Trailing expand chevron uses `icon.chevron` and mock token sizing.
+- [x] Mock-measured filter-chip and row-avatar type/spacing locked in
       `tokens.json` and consumed via `--fc-*` vars (no raw px/hex in components).
-- [ ] Expanded `AgendaRow` bands, Focus card behavior, and all write handlers
+- [x] Expanded `AgendaRow` bands, Focus card behavior, and all write handlers
       unchanged.
-- [ ] `cd web && npm test`, `npm run lint`, and
+- [x] `cd web && npm test`, `npm run lint`, and
       `node design-tokens/generate.mjs --check` pass.
 
 ## Tasks
@@ -149,7 +150,7 @@ Allowlist for `/implement` — do not load the rest of `docs/`.
 - [x] **Tests:** update `AgendaRow.test.tsx` (pill not uppercase; confirm/await
       tags; avatar when confirmed); `FamilyScreen.test.tsx` kid-filter cases;
       chip/avatar unit tests as needed.
-- [ ] **Docs:** touch `docs/agenda-coverage-web-contract.md` Layout filter bullet
+- [x] **Docs:** touch `docs/agenda-coverage-web-contract.md` Layout filter bullet
       (chips not buttons); optional one-line note in
       `docs/agenda-full-redesign-addendum.md` that collapsed rows use pill chips
       + avatars.

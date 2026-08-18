@@ -79,8 +79,8 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `agendaItemStatusTags` in `coverageDisplay.ts`. **Confirm coverage** when
   `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
   someone else; **Needs coverage** only when kids are still uncovered.
-  Collapsed `AgendaRow` tags stay uppercase compact chips (`statusChip` 11/700)
-  via the same `agendaStatusChip.tsx` helper (`appearance="tag"` vs `"pill"`).
+  Collapsed `AgendaRow` uses the same Title Case pills
+  (`appearance="pill"`).
   Conflict **detail** lines are not on Focus; they stay in the expanded row.
 - Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
   horizontal row in both uncovered and covered states: **Covering** label

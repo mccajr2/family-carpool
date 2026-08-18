@@ -20,7 +20,8 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
 ## Layout
 
 - Agenda section stacks with `--fc-space-xl` (24px) between the **Agenda**
-  heading, kid filter chips (`All kids` + kid name buttons), and the event
+  heading, kid filter chips (`All kids` + one chip per kid name — web:
+  `AgendaKidFilterChip`, not shadcn Buttons), and the event
   list / empty copy / Load more — chrome must not sit flush against events.
   (Web: one `flex`/`gap` column; Android: `Column` + `FcSpaceXl`; iOS:
   `VStack(spacing: UiTokens.Space.xl)` **inside** `calendarDestination`.)
@@ -205,9 +206,9 @@ Toolkit chrome may differ; **layout and strings** must not.
   one precedence via `agendaItemStatusTags` (`coverageDisplay.ts`):
   `Overlaps` → `Needs coverage` (uncovered) → **Confirm coverage**
   (pending-for-self) → **Awaiting confirm** (pending for someone else) →
-  `Confirmed` → `All set` (Focus only). Row tags are uppercase; Focus pills are
-  Title Case with a leading dot. Pending-for-self also drives the row’s red
-  status dot and Focus urgent surface.
+  `Confirmed` → `All set` (Focus only). List and Focus both use Title Case
+  pills with a leading dot (`appearance="pill"`). Pending-for-self drives
+  Focus urgent surface (no standalone list-row status dot).
 
 ### Assign
 
