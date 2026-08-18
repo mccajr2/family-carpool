@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-18 (`/pr agenda-list-chips`)
+Updated: 2026-08-18 (`/spec feeds-page-redesign`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -98,7 +98,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
+| 1    | feeds-page-redesign                | active  | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
 | 2    | agenda-week-glance                 | planned | 2026-08-17 · enhancement                                         | Web five-day coverage/driver strip; not the month grid; no carpool stop card                                                                                    |
 | 3    | agenda-focus-card-mobile           | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the polished Focus card (after web next-action + polish)                                                                                  |
 | 4    | agenda-full-page-redesign-mobile   | planned | 2026-08-15 · enhancement                                         | iOS + Android day-grouped rows including list chips (after web `agenda-list-chips`)                                                                             |
@@ -172,6 +172,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| feeds-page-redesign | `feeds-page-redesign` | [active](specs/active/feeds-page-redesign.md) |
 
 
 ## Done
@@ -325,4 +326,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-17 | `/spec agenda-focus-card-polish`: mock-aligned Focus header — isolated ring, covering under ring, status chips; slim body (Assign/Confirm + Edit; write bands on expanded rows). |
 | 2026-08-17 | `/pr agenda-focus-card-polish`: mock-aligned Focus card (tokens, chips, covering row, destination meta, Edit leave-from); add `event-venue-display-label` (rank 12). Next up `agenda-list-chips`. |
 | 2026-08-18 | `/pr agenda-list-chips`: web kid-filter chips + collapsed row pills/avatars; spec archived. Next up `feeds-page-redesign`. |
+| 2026-08-18 | `/spec feeds-page-redesign`: web Feeds raised cards, OWNED/NO CARPOOL chips, quieter Sync/Edit, Remove as text; no OpenAPI; Carpool tab chrome unchanged. |
 

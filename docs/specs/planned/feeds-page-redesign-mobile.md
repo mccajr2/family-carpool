@@ -25,4 +25,4 @@ behavior change.
 
 ## Notes
 
-- Depends on shipped web [`feeds-page-redesign`](feeds-page-redesign.md).
+- Depends on shipped web [`feeds-page-redesign`](../active/feeds-page-redesign.md).
