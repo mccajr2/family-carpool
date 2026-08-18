@@ -107,6 +107,8 @@ describe("CarpoolPanel", () => {
     expect(enable).toHaveBeenCalledWith("tok", "f1")
     expect(await screen.findByText("AB12CD34")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Enable carpool" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Open carpool" })).not.toBeInTheDocument()
   })
 
   it("joins by code and admits a pending request", async () => {

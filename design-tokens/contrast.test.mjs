@@ -85,6 +85,18 @@ function filterChipPairings(scheme) {
   ]
 }
 
+/** Feeds cards (Feeds dark HTML .feed-card / .tag / .btn-accent). */
+function feedCardPairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    { name: "textPrimary on surfaceRaised (feed title)", fg: c.textPrimary, bg: c.surfaceRaised, min: 4.5 },
+    { name: "textSecondary on surfaceRaised (feed meta)", fg: c.textSecondary, bg: c.surfaceRaised, min: 4.5 },
+    { name: "success on surfaceRaised (OWNED chip)", fg: c.success, bg: c.surfaceRaised, min: 4.5 },
+    { name: "accentOn on accent (Enable/Open carpool)", fg: c.accentOn, bg: c.accent, min: 4.5 },
+    { name: "danger on surfaceRaised (Remove hover)", fg: c.danger, bg: c.surfaceRaised, min: 4.5 },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
@@ -118,6 +130,16 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Agenda filter-chip WCAG AA pairings (${scheme})`, () => {
     for (const p of filterChipPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Feeds card WCAG AA pairings (${scheme})`, () => {
+    for (const p of feedCardPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

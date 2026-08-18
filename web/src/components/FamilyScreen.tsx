@@ -23,11 +23,20 @@ import {
   type Kid,
   type Place,
   type RsvpStatus,
-  feedSyncStatusLabel,
 } from "@/api/types"
-import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
+import { CarpoolFeedActions, CarpoolFeedStatusChip } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
 import { CenteredColumn } from "@/components/CenteredColumn"
+import {
+  FeedCard,
+  feedFieldLabelClass,
+  feedFormCardClass,
+  feedInputClass,
+  feedKidChipClass,
+  feedQuietButtonClass,
+  feedSectionLabelClass,
+  feedSubmitClass,
+} from "@/components/FeedCard"
 import { GaragePanel } from "@/components/GaragePanel"
 import {
   AccountSummaryRow,
@@ -127,17 +136,6 @@ function carpoolFeedRow(summary: CarpoolSummary, feed: ActivityFeed): CarpoolFee
       spaceName: null,
     }
   )
-}
-
-function feedKidNames(feed: ActivityFeed, kids: Kid[]): string {
-  if (feed.kidIds.length === 0) {
-    return ""
-  }
-  const namesById = new Map(kids.map((kid) => [kid.id, kid.displayName]))
-  return feed.kidIds
-    .map((id) => namesById.get(id))
-    .filter((name): name is string => Boolean(name?.trim()))
-    .join(", ")
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -2761,18 +2759,16 @@ export function FamilyScreen({
           {destination === "feeds" ? (
             <>
               {isOrganizer ? (
-          <section aria-label="Activity feeds" className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium">Activity feeds</p>
-              <Button
+          <section aria-label="Activity feeds">
+            <div className="mb-[var(--fc-space-feed-section-gap)] flex justify-end">
+              <button
                 type="button"
-                size="sm"
-                variant="outline"
+                className={feedQuietButtonClass}
                 onClick={() => void onRefreshFeeds()}
                 disabled={status.kind === "loading"}
               >
                 Refresh
-              </Button>
+              </button>
             </div>
             {feedsCarpoolError ? (
               <p role="alert" className="text-sm text-destructive">
@@ -2782,99 +2778,41 @@ export function FamilyScreen({
             {feedsCarpoolSummary == null &&
             feedsCarpoolError == null &&
             feeds.length > 0 ? (
-              <p className="text-sm text-muted-foreground">Loading carpool…</p>
+              <p className="mb-[var(--fc-space-feed-section-gap)] text-[length:var(--fc-font-feed-meta-size)] text-[var(--fc-text-secondary)]">
+                Loading carpool…
+              </p>
             ) : null}
             {feeds.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No feeds yet.</p>
+              <p className="mb-[var(--fc-space-feed-list-margin-bottom)] text-[length:var(--fc-font-feed-meta-size)] text-[var(--fc-text-secondary)]">
+                No feeds yet.
+              </p>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="mb-[var(--fc-space-feed-list-margin-bottom)] flex flex-col gap-[var(--fc-space-feed-list-gap)]">
                 {feeds.map((feed) => {
-                  const kidsLabel = feedKidNames(feed, circle.kids)
-                  const statusLabel = kidsLabel
-                    ? `${kidsLabel} · ${feedSyncStatusLabel(feed)}`
-                    : feedSyncStatusLabel(feed)
+                  const carpoolRow =
+                    feedsCarpoolSummary != null
+                      ? carpoolFeedRow(feedsCarpoolSummary, feed)
+                      : null
                   return (
-                  <li key={feed.id} className="flex flex-col gap-2">
-                    {editingFeedId === feed.id ? (
-                      <>
-                        <Input
-                          aria-label={`Rename feed ${feed.name}`}
-                          value={editingFeedName}
-                          onChange={(event) => setEditingFeedName(event.target.value)}
-                          disabled={status.kind === "loading"}
-                        />
-                        <Input
-                          aria-label={`Edit URL for ${feed.name}`}
-                          value={editingFeedUrl}
-                          onChange={(event) => setEditingFeedUrl(event.target.value)}
-                          disabled={status.kind === "loading"}
-                        />
-                        {circle.kids.length > 0 ? (
-                          <fieldset className="flex flex-col gap-1">
-                            <legend className="text-xs text-muted-foreground">Kids on feed</legend>
-                            {circle.kids.map((kid) => (
-                              <label
-                                key={kid.id}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Assign ${kid.displayName} to ${feed.name}`}
-                                  checked={editingFeedKidIds.includes(kid.id)}
-                                  onChange={() =>
-                                    toggleKidId(
-                                      kid.id,
-                                      editingFeedKidIds,
-                                      setEditingFeedKidIds,
-                                    )
-                                  }
-                                  disabled={status.kind === "loading"}
-                                />
-                                {kid.displayName}
-                              </label>
-                            ))}
-                          </fieldset>
-                        ) : null}
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void onSaveFeed(feed)}
-                            disabled={
-                              status.kind === "loading" ||
-                              !editingFeedName.trim() ||
-                              !editingFeedUrl.trim()
-                            }
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingFeedId(null)
-                              setEditingFeedName("")
-                              setEditingFeedUrl("")
-                              setEditingFeedKidIds([])
-                            }}
-                            disabled={status.kind === "loading"}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex min-w-0 flex-col gap-2">
-                        <span className="min-w-0 text-sm">
-                          <span className="block truncate font-medium">{feed.name}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {statusLabel}
-                          </span>
-                        </span>
-                        {feedsCarpoolSummary != null ? (
+                  <li key={feed.id}>
+                    <FeedCard
+                      feed={feed}
+                      kids={circle.kids}
+                      editing={editingFeedId === feed.id}
+                      editingName={editingFeedName}
+                      editingUrl={editingFeedUrl}
+                      editingKidIds={editingFeedKidIds}
+                      loading={status.kind === "loading"}
+                      carpoolStatus={
+                        carpoolRow != null ? (
+                          <CarpoolFeedStatusChip status={carpoolRow.status} />
+                        ) : null
+                      }
+                      carpoolCta={
+                        carpoolRow != null ? (
                           <CarpoolFeedActions
-                            feed={carpoolFeedRow(feedsCarpoolSummary, feed)}
+                            layout="feeds"
+                            feed={carpoolRow}
                             circleRole={circle.role}
                             disabled={status.kind === "loading" || feedsCarpoolBusy}
                             onEnable={(feedId) =>
@@ -2891,85 +2829,89 @@ export function FamilyScreen({
                             }
                             onOpen={() => setDestination("carpool")}
                           />
-                        ) : null}
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void onSyncFeed(feed.id)}
-                            disabled={status.kind === "loading"}
-                          >
-                            Sync now
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingFeedId(feed.id)
-                              setEditingFeedName(feed.name)
-                              setEditingFeedUrl(feed.sourceUrl)
-                              setEditingFeedKidIds([...feed.kidIds])
-                            }}
-                            disabled={status.kind === "loading"}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void onRemoveFeed(feed.id)}
-                            disabled={status.kind === "loading"}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                        ) : null
+                      }
+                      onEditingNameChange={setEditingFeedName}
+                      onEditingUrlChange={setEditingFeedUrl}
+                      onToggleEditingKid={(kidId) =>
+                        toggleKidId(kidId, editingFeedKidIds, setEditingFeedKidIds)
+                      }
+                      onSync={() => void onSyncFeed(feed.id)}
+                      onStartEdit={() => {
+                        setEditingFeedId(feed.id)
+                        setEditingFeedName(feed.name)
+                        setEditingFeedUrl(feed.sourceUrl)
+                        setEditingFeedKidIds([...feed.kidIds])
+                      }}
+                      onCancelEdit={() => {
+                        setEditingFeedId(null)
+                        setEditingFeedName("")
+                        setEditingFeedUrl("")
+                        setEditingFeedKidIds([])
+                      }}
+                      onSave={() => void onSaveFeed(feed)}
+                      onRemove={() => void onRemoveFeed(feed.id)}
+                    />
                   </li>
                   )
                 })}
               </ul>
             )}
 
-            <div className="flex flex-col gap-2">
-              <Input
-                aria-label="New feed name"
-                value={newFeedName}
-                onChange={(event) => setNewFeedName(event.target.value)}
-                placeholder="Feed name (e.g. U12 Travel)"
-                disabled={status.kind === "loading"}
-              />
-              <Input
-                aria-label="New feed URL"
-                value={newFeedUrl}
-                onChange={(event) => setNewFeedUrl(event.target.value)}
-                placeholder="iCal or webcal URL"
-                disabled={status.kind === "loading"}
-              />
+            <p className={feedSectionLabelClass}>Add a feed</p>
+            <div className={feedFormCardClass}>
+              <div className="mb-[var(--fc-space-feed-section-gap)]">
+                <label className={feedFieldLabelClass} htmlFor="new-feed-name">
+                  Feed name
+                </label>
+                <input
+                  id="new-feed-name"
+                  className={feedInputClass}
+                  aria-label="New feed name"
+                  value={newFeedName}
+                  onChange={(event) => setNewFeedName(event.target.value)}
+                  placeholder="e.g. U12 Travel"
+                  disabled={status.kind === "loading"}
+                />
+              </div>
+              <div className="mb-[var(--fc-space-feed-section-gap)]">
+                <label className={feedFieldLabelClass} htmlFor="new-feed-url">
+                  iCal or webcal URL
+                </label>
+                <input
+                  id="new-feed-url"
+                  className={feedInputClass}
+                  aria-label="New feed URL"
+                  value={newFeedUrl}
+                  onChange={(event) => setNewFeedUrl(event.target.value)}
+                  placeholder="https://…"
+                  disabled={status.kind === "loading"}
+                />
+              </div>
               {circle.kids.length > 0 ? (
-                <fieldset className="flex flex-col gap-1">
-                  <legend className="text-xs text-muted-foreground">Kids on feed</legend>
-                  {circle.kids.map((kid) => (
-                    <label key={kid.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        aria-label={`Assign ${kid.displayName} to new feed`}
-                        checked={newFeedKidIds.includes(kid.id)}
-                        onChange={() =>
-                          toggleKidId(kid.id, newFeedKidIds, setNewFeedKidIds)
-                        }
-                        disabled={status.kind === "loading"}
-                      />
-                      {kid.displayName}
-                    </label>
-                  ))}
+                <fieldset className="mb-[var(--fc-space-feed-section-gap)]">
+                  <legend className={feedFieldLabelClass}>Kids on feed</legend>
+                  <div className="flex flex-wrap gap-[var(--fc-space-feed-kid-chips-gap)]">
+                    {circle.kids.map((kid) => (
+                      <label key={kid.id} className={feedKidChipClass}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Assign ${kid.displayName} to new feed`}
+                          checked={newFeedKidIds.includes(kid.id)}
+                          onChange={() =>
+                            toggleKidId(kid.id, newFeedKidIds, setNewFeedKidIds)
+                          }
+                          disabled={status.kind === "loading"}
+                        />
+                        {kid.displayName}
+                      </label>
+                    ))}
+                  </div>
                 </fieldset>
               ) : null}
-              <Button
+              <button
                 type="button"
+                className={feedSubmitClass}
                 onClick={() => void onAddFeed()}
                 disabled={
                   status.kind === "loading" ||
@@ -2978,7 +2920,7 @@ export function FamilyScreen({
                 }
               >
                 Add feed
-              </Button>
+              </button>
             </div>
           </section>
         ) : null}

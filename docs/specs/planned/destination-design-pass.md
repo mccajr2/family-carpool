@@ -7,7 +7,7 @@ Added: 2026-08-14 · enhancement
 
 Split — do not `/spec` this id. Siblings:
 
-- [`feeds-page-redesign`](feeds-page-redesign.md) (web; designed)
+- [`feeds-page-redesign`](../archive/feeds-page-redesign.md) (web; designed)
 - [`family-places-garage-redesign`](family-places-garage-redesign.md)
   (parking; needs mockups)
 - [`carpool-multi-stop`](carpool-multi-stop.md) (parking; separate intake)
