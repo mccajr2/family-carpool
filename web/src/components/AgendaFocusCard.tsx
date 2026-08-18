@@ -48,7 +48,10 @@ function minutesUntil(iso: string | null | undefined): number | null {
   return Math.max(0, Math.round((target - Date.now()) / 60000))
 }
 
-function focusStatusChips(item: CalendarItem, needsDecision: boolean): { label: string; tone: AgendaStatusChipTone }[] {
+function focusStatusChips(
+  item: CalendarItem,
+  pendingForSelf: ReturnType<typeof pendingCoverageForAdult>,
+): { label: string; tone: AgendaStatusChipTone }[] {
   const active = activeCoverages(item)
   const chips: { label: string; tone: AgendaStatusChipTone }[] = []
   if (item.conflicts.length > 0) {
@@ -56,8 +59,8 @@ function focusStatusChips(item: CalendarItem, needsDecision: boolean): { label: 
   }
   if (item.uncoveredKidIds.length > 0) {
     chips.push({ label: "Needs coverage", tone: "amber" })
-  } else if (needsDecision) {
-    chips.push({ label: "Needs coverage", tone: "amber" })
+  } else if (pendingForSelf) {
+    chips.push({ label: "Assigned to you", tone: "amber" })
   } else if (active.some((c) => c.status === "PENDING")) {
     chips.push({ label: "Awaiting confirm", tone: "amber" })
   } else if (active.some((c) => c.status === "CONFIRMED")) {
@@ -109,7 +112,7 @@ export function AgendaFocusCard({
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const statusChips = focusStatusChips(item, needsDecision)
+  const statusChips = focusStatusChips(item, pendingForSelf)
   const activeCoverage = active[0]
   const showAssign = item.uncoveredKidIds.length > 0 && circle.members.length > 0 && !pendingForSelf
   const showAssignSelect = showAssign && !assignDraft.soleAdult

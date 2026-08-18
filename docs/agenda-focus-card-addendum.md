@@ -73,12 +73,14 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `location` is shown verbatim (full address until a venue lookup exists).
   Leave-from uses the **place name**, not the street address. No form labels
   (`Leave from`, `Manual`).
-- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Awaiting confirm`,
-  `Confirmed` / `All set`): Title Case with a leading status dot (`focusStatusPill`
-  12.5/600). Collapsed `AgendaRow` tags stay uppercase compact chips
-  (`statusChip` 11/700) via the same `agendaStatusChip.tsx` helper
-  (`appearance="tag"` vs `"pill"`). Conflict **detail** lines are not on
-  Focus; they stay in the expanded row.
+- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Assigned to you`,
+  `Awaiting confirm`, `Confirmed` / `All set`): Title Case with a leading status
+  dot (`focusStatusPill` 12.5/600). **Assigned to you** when coverage is
+  `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
+  someone else; **Needs coverage** only when kids are still uncovered.
+  Collapsed `AgendaRow` tags stay uppercase compact chips (`statusChip` 11/700)
+  via the same `agendaStatusChip.tsx` helper (`appearance="tag"` vs `"pill"`).
+  Conflict **detail** lines are not on Focus; they stay in the expanded row.
 - Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
   horizontal row in both uncovered and covered states: **Covering** label
   (left, `focusCovering`) then the control (right).
