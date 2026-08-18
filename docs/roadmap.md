@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-17 (`/pr agenda-focus-next-action`)
+Updated: 2026-08-17 (`/spec agenda-list-chips`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -95,7 +95,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | Rank | Id                                 | Status  | Added                                                            | Summary                                                                                                                                                         |
 | ---- | ---------------------------------- | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | agenda-focus-card-polish           | planned | 2026-08-17 · enhancement                                         | Web Focus card: larger isolated ring, covering under ring, overlap chip; same handlers (after next-action ranking)                                              |
-| 2    | agenda-list-chips                  | planned | 2026-08-17 · enhancement                                         | Web kid-filter + collapsed row status as chips/avatars (no “3 STOPS” until multi-stop)                                                                          |
+| 2    | agenda-list-chips                  | active  | 2026-08-17 · enhancement                                         | Web kid-filter + collapsed row status as chips/avatars (no “3 STOPS” until multi-stop)                                                                          |
 | 3    | feeds-page-redesign                | planned | 2026-08-15 · re-rank split                                       | Web Feeds cards from Claude dark mock; OWNED/NO CARPOOL chips; zero behavior change                                                                             |
 | 4    | agenda-week-glance                 | planned | 2026-08-17 · enhancement                                         | Web five-day coverage/driver strip; not the month grid; no carpool stop card                                                                                    |
 | 5    | agenda-focus-card-mobile           | planned | 2026-08-14 · enhancement                                         | iOS + Android port of the polished Focus card (after web next-action + polish)                                                                                  |
@@ -169,6 +169,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| agenda-list-chips | `agenda-list-chips` | [active](specs/active/agenda-list-chips.md) |
 
 
 ## Done
