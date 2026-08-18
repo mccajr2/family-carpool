@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarCoverageAssignment, CalendarItem, FamilyMember, Kid } from "@/api/types"
 import {
+  agendaItemNeedsAttention,
+  agendaItemStatusTags,
   calendarItemKey,
   calendarSourceLabel,
   coverageAdultLabel,
@@ -31,6 +33,30 @@ function coverage(
     assignedByAdultId: "a1",
     kidIds: ["k1"],
     status: "PENDING",
+    ...partial,
+  }
+}
+
+function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
+  return {
+    source: "MANUAL",
+    id: "e1",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    location: null,
+    kidIds: ["k1"],
+    feedId: null,
+    feedName: null,
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveByAt: null,
+    leaveByStatus: "PENDING",
+    leaveByReason: null,
+    coverages: [],
+    uncoveredKidIds: [],
+    conflicts: [],
+    rsvps: [{ kidId: "k1", status: "YES" }],
     ...partial,
   }
 }
@@ -86,5 +112,40 @@ describe("coverageDisplay", () => {
         eventTimesSourceLabel(source, feedName),
       )
     }
+  })
+
+  it("labels status tags for pending-for-self separately from uncovered", () => {
+    const pendingSelf = calendarItem({
+      coverages: [
+        coverage({
+          id: "c1",
+          coveringAdultId: "a1",
+          status: "PENDING",
+        }),
+      ],
+    })
+    expect(agendaItemStatusTags(pendingSelf, "a1")).toEqual([
+      { label: "Confirm coverage", tone: "amber" },
+    ])
+    expect(agendaItemNeedsAttention(pendingSelf, "a1")).toBe(true)
+
+    const pendingOther = calendarItem({
+      coverages: [
+        coverage({
+          id: "c1",
+          coveringAdultId: "a2",
+          status: "PENDING",
+        }),
+      ],
+    })
+    expect(agendaItemStatusTags(pendingOther, "a1")).toEqual([
+      { label: "Awaiting confirm", tone: "amber" },
+    ])
+    expect(agendaItemNeedsAttention(pendingOther, "a1")).toBe(false)
+
+    const uncovered = calendarItem({ uncoveredKidIds: ["k1"] })
+    expect(agendaItemStatusTags(uncovered, "a1")).toEqual([
+      { label: "Needs coverage", tone: "amber" },
+    ])
   })
 })

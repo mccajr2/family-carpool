@@ -94,6 +94,14 @@ object UiTokens {
         const val mainX: Int = 44
         const val railY: Int = 28
         const val railX: Int = 20
+        const val focusRing: Int = 88
+        const val focusRingStroke: Int = 6
+        const val focusRingCoveringGap: Int = 10
+        const val focusTitleGap: Int = 6
+        const val focusStatusDot: Int = 6
+        const val focusStatusPillY: Int = 6
+        const val focusCoveringPadY: Int = 7
+        const val focusActionsGap: Int = 18
     }
 
     object Radius {
@@ -103,16 +111,25 @@ object UiTokens {
         const val xl: Int = 20
     }
 
-    data class TypeScale(val size: Int, val lineHeight: Int, val weight: String)
+    data class TypeScale(val size: Float, val lineHeight: Float, val weight: String)
 
     object Type {
-        val caption = TypeScale(size = 12, lineHeight = 16, weight = "400")
-        val body = TypeScale(size = 15, lineHeight = 22, weight = "400")
-        val title = TypeScale(size = 17, lineHeight = 24, weight = "600")
-        val headline = TypeScale(size = 22, lineHeight = 28, weight = "700")
-        val hero = TypeScale(size = 26, lineHeight = 32, weight = "700")
-        val page = TypeScale(size = 34, lineHeight = 40, weight = "700")
-        val subtitle = TypeScale(size = 14, lineHeight = 20, weight = "500")
+        val caption = TypeScale(size = 12f, lineHeight = 16f, weight = "400")
+        val body = TypeScale(size = 15f, lineHeight = 22f, weight = "400")
+        val title = TypeScale(size = 17f, lineHeight = 24f, weight = "600")
+        val headline = TypeScale(size = 22f, lineHeight = 28f, weight = "700")
+        val hero = TypeScale(size = 26f, lineHeight = 32f, weight = "700")
+        val focusWhen = TypeScale(size = 15f, lineHeight = 20f, weight = "600")
+        val focusTitle = TypeScale(size = 30f, lineHeight = 36f, weight = "700")
+        val focusRingLabel = TypeScale(size = 16f, lineHeight = 20f, weight = "700")
+        val focusRingUnit = TypeScale(size = 9.5f, lineHeight = 12f, weight = "600")
+        val focusStatusPill = TypeScale(size = 12.5f, lineHeight = 16f, weight = "600")
+        val focusCovering = TypeScale(size = 12.5f, lineHeight = 16f, weight = "600")
+        val focusAction = TypeScale(size = 13.5f, lineHeight = 18f, weight = "700")
+        val focusActionGhost = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
+        val statusChip = TypeScale(size = 11f, lineHeight = 14f, weight = "700")
+        val page = TypeScale(size = 34f, lineHeight = 40f, weight = "700")
+        val subtitle = TypeScale(size = 14f, lineHeight = 20f, weight = "500")
         const val fontFamily: String = "Plus Jakarta Sans"
     }
 

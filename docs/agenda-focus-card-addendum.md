@@ -54,26 +54,70 @@ Carpool ride accept/decline as a Focus candidate is a follow-up
 ([`agenda-focus-carpool-actions`](specs/planned/agenda-focus-carpool-actions.md))
 after request/accept ships — do not fold into the ranking above yet.
 
-All *other* Agenda items keep Selection A's spacing-only treatment
-unchanged. Do not apply Focus card chrome to more than one item — repeated
-cards fight the five-band content density this doc already documents, and
-defeat the point of a focus treatment.
+All *other* Agenda items are day-grouped collapsed `AgendaRow`s (expand for
+write bands). Do not apply Focus card chrome to more than one item.
 
 ## Focus card content
 
-Reuses the same five bands, same data, same handlers as a normal Agenda item
-— this is a **visual promotion**, not new functionality:
+Focus is a **spotlight summary + one next action**, not an always-expanded
+copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
+— fewer controls on the card.
 
-- Primary: time range, title, one-line kid context.
-- Status: a single status line — conflict/needs-coverage copy (accent =
-  `danger` role) when the item **needs a decision** (including pending confirm
-  for self — use the urgent surface, not "All set"), or "all set" copy (accent =
-  `success` role) when fully resolved.
-- Travel/origin, People/RSVP, Coverage/actions: same field rows and controls
-  as flat rows, just inside the card body.
-- Manual actions: same Edit/Remove, inside the card.
+**On the card**
 
-No new business rules. No accordion. No card chrome on any other item.
+- Compact when (`5:30 PM – 6:30 PM` today; short date prefix when not today)
+  — display / `focusWhen` (15/600).
+- Title (display / `focusTitle` 30/700).
+- One secondary line: **`{kids} · {destination} · Leaving from {place}`** — each
+  segment optional; subtitle 14/500, wraps naturally (no truncate). Event
+  `location` is shown verbatim (full address until a venue lookup exists).
+  Leave-from uses the **place name**, not the street address. No form labels
+  (`Leave from`, `Manual`).
+- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Confirm coverage`,
+  `Awaiting confirm`, `Confirmed` / `All set`): Title Case with a leading status
+  dot (`focusStatusPill` 12.5/600). Same precedence as collapsed rows via
+  `agendaItemStatusTags` in `coverageDisplay.ts`. **Confirm coverage** when
+  `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
+  someone else; **Needs coverage** only when kids are still uncovered.
+  Collapsed `AgendaRow` tags stay uppercase compact chips (`statusChip` 11/700)
+  via the same `agendaStatusChip.tsx` helper (`appearance="tag"` vs `"pill"`).
+  Conflict **detail** lines are not on Focus; they stay in the expanded row.
+- Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
+  horizontal row in both uncovered and covered states: **Covering** label
+  (left, `focusCovering`) then the control (right).
+  - **More than one adult** → combobox of member names. Uncovered: defaults
+    to the **signed-in adult** (`coverageAssignState`); Assign uses the
+    selected adult. Covered: current covering adult selected; changing it
+    **reassigns**. Sole adult uncovered: no combobox (assign is implied).
+  - **Sole adult** with active coverage → static name (same row, no picker).
+- **Primary CTA:** Assign coverage (uncovered), Confirm/Decline (pending for
+  self), or **Remove coverage** (active coverage that is not pending-for-self).
+  **Edit** (manual) opens the existing compose dialog, including **Leave from**
+  when the circle has more than one located place (needed because the Focus
+  item is not duplicated in the day list).
+- **Open Places** only when leave-by is `NO_ORIGIN` (recovery; otherwise
+  origin is display-only on Focus).
+
+**Not on the card** (expanded `AgendaRow` unless noted)
+
+- Leave-from dropdown, leave-by estimate line, per-kid RSVP, covering
+  kid-subset checkboxes, conflict detail list.
+- **Remove event** — manual compose dialog (**Edit**), not Focus and not a
+  second destructive next to Edit on the hero. Expanded manual rows still
+  show Remove.
+
+The Focus item is **not** duplicated in the day list (existing rule). So
+leave-from / RSVP / kid-subset for the *promoted* item are not on-screen
+until a later disclosure slice — do **not** put the five-band form back on
+Focus to close that gap. **Change covering adult** and **Remove coverage**
+do stay on Focus, because those writes would otherwise be unreachable.
+`agenda-list-chips` restyles **collapsed** rows only and must not change
+expand bands. `coverage-leave-from` belongs on expanded coverage rows, not
+Focus. `agenda-focus-carpool-actions` reuses the CTA row (Accept/Decline
+ride later). Mobile (`agenda-focus-card-mobile`) ports this slim card, not
+the old form-hero.
+
+No accordion on Focus. No card chrome on any other item.
 
 ## Tokens used (from `design-tokens/tokens.json`)
 
@@ -117,6 +161,10 @@ a11y labels.
 Add to the existing iOS/Android port checklist: "Focus card selection logic
 (exactly one item, today/tomorrow decisions else next in-play; rest-of-week
 via list + week glance) and urgent/calm status-color mapping match web —
-including pending-for-self on the urgent surface." Card *chrome* may use native
+including pending-for-self on the urgent surface." Slim body (summary +
+Assign/Confirm/Remove + Edit; covering combobox defaults to signed-in adult
+on assign and reassigns when coverage is already active; write bands on
+expanded rows only) must match web — do not port the old five-band
+form-hero. Card *chrome* may use native
 components (SwiftUI card modifiers / Compose `Card`) — chrome differs,
 selection logic and copy must not.

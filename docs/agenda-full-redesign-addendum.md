@@ -24,10 +24,11 @@ This addendum is entirely about visual presentation.
 2. **Every row is a card**, not a spacing-only stack: bordered, rounded
    (`radius.md`), `surfaceRaised` background — see `AgendaRow.tsx`.
 3. **Rows are collapsed by default.** Summary only: status dot, title, time
-   + location, up to a couple of status tags. Tap/click expands the same
-   field-row bands the Focus card already uses (leave-from, per-kid RSVP,
-   coverage, manual actions) — reusing the same coverage/RSVP/leave-by
-   helpers, not new logic.
+   + location, up to a couple of status tags. Tap/click expands the field-row
+   bands (leave-from, per-kid RSVP, coverage, manual actions) — reusing the
+   same coverage/RSVP/leave-by helpers, not new logic. The Focus card above
+   the list is **not** an always-expanded twin of this row; it is slim
+   summary + CTA ([`docs/agenda-focus-card-addendum.md`](agenda-focus-card-addendum.md)).
 4. **Out-of-play items** (every kid RSVP `NO`) render at reduced opacity
    with a grey status dot and a single muted "Not going" tag — no other
    tags, no coverage/travel content even when expanded (same rule as

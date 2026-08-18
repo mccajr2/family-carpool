@@ -17,7 +17,8 @@ leave-for-the-next-event.
 ## Non-goals (sketch)
 
 - Inventing request/accept itself ([`carpool-request-accept`](carpool-request-accept.md))
-- Changing Focus chrome ([`agenda-focus-card-polish`](agenda-focus-card-polish.md))
+- Changing Focus chrome ([`agenda-focus-card-polish`](../active/agenda-focus-card-polish.md))
+  — reuse the single CTA slot on the slim card; do not add a second form band.
 - Multi-stop / Open in Maps ([`carpool-multi-stop`](carpool-multi-stop.md))
 
 ## Notes

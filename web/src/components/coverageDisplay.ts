@@ -74,3 +74,59 @@ export function pendingCoverageForAdult(
     (c) => c.status === "PENDING" && c.coveringAdultId === adultId,
   )
 }
+
+export type AgendaItemStatusTag = {
+  label: string
+  tone: "mint" | "amber" | "muted"
+}
+
+/**
+ * Collapsed-row tags and Focus header pills share this precedence (see
+ * docs/agenda-coverage-web-contract.md). Focus passes `includeAllSet: true`.
+ */
+export function agendaItemStatusTags(
+  item: CalendarItem,
+  currentAdultId: string,
+  options: { outOfPlay?: boolean; includeAllSet?: boolean } = {},
+): AgendaItemStatusTag[] {
+  const { outOfPlay = false, includeAllSet = false } = options
+  if (outOfPlay) {
+    return [{ label: "Not going", tone: "muted" }]
+  }
+
+  const tags: AgendaItemStatusTag[] = []
+  const active = activeCoverages(item)
+  const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
+
+  if (item.conflicts.length > 0) {
+    tags.push({ label: "Overlaps", tone: "amber" })
+  }
+  if (item.uncoveredKidIds.length > 0) {
+    tags.push({ label: "Needs coverage", tone: "amber" })
+  } else if (pendingForSelf) {
+    tags.push({ label: "Confirm coverage", tone: "amber" })
+  } else if (active.some((c) => c.status === "PENDING")) {
+    tags.push({ label: "Awaiting confirm", tone: "amber" })
+  } else if (active.some((c) => c.status === "CONFIRMED")) {
+    tags.push({ label: "Confirmed", tone: "mint" })
+  } else if (includeAllSet) {
+    tags.push({ label: "All set", tone: "mint" })
+  }
+  return tags
+}
+
+/** Red status dot on collapsed rows; Focus urgent surface uses focusItemNeedsDecision. */
+export function agendaItemNeedsAttention(
+  item: CalendarItem,
+  currentAdultId: string,
+  outOfPlay = false,
+): boolean {
+  if (outOfPlay) {
+    return false
+  }
+  return (
+    item.uncoveredKidIds.length > 0 ||
+    item.conflicts.length > 0 ||
+    Boolean(pendingCoverageForAdult(item, currentAdultId))
+  )
+}
