@@ -53,9 +53,9 @@ Feeds already adopt tokens.
 | Category | Roles / keys |
 |----------|----------------|
 | Color (light + dark) | `accent`, `accentOn`, `danger`, `dangerOn`, `success`, `successOn`, `surface`, `surfaceRaised`, `border`, `textPrimary`, `textSecondary`, plus Focus-card urgent `heroSurface`, `heroOn`, `heroOnSecondary`, `heroDanger`, `heroSuccess`, `heroAccent`, plus web-shell always-dark `railSurface`, `railOn`, `railOnSecondary`, `railActive`, `railAccent`, `railDanger` |
-| Spacing | `xs` … `2xl` (4 → 32 px) plus mock-named steps (`header` = 26, `mainY` = 36, `mainX` = 44, `railY` = 28, `railX` = 20, Feeds `feedCardPad*` 18×20, `feedChipPad*` 4×10, `feedFormPad` 22, and other `feed*` gaps) |
+| Spacing | `xs` … `2xl` (4 → 32 px) plus mock-named steps (`header` = 26, `mainY` = 36, `mainX` = 44, `railY` = 28, `railX` = 20, Feeds `feedCardPad*` 18×20, `feedChipPad*` 4×10, `feedFormPad` 22, and other `feed*` gaps; Calendar week-glance `weekGlancePadX` 28, `weekItemPadY` 10, `weekDayWidth` 38, `weekFlag` 7) |
 | Radius | `sm`, `md`, `lg`, `xl` |
-| Typography | `caption`, `body`, `subtitle`, `title`, `headline`, `hero`, `page` (size / lineHeight / weight), plus destination mock roles (`feedName` 16.5/700, `feedChip` 11/700, `feedSubmit` 14.5/700, …). Scale **grows** when a mock introduces a new size/weight. |
+| Typography | `caption`, `body`, `subtitle`, `title`, `headline`, `hero`, `page` (size / lineHeight / weight), plus destination mock roles (`feedName` 16.5/700, `feedChip` 11/700, `feedSubmit` 14.5/700, week-glance `weekGlanceTitle` 16/700, `weekDay` 12/700, `weekCount` 13/600, `weekCountCalm` 13/500, …). Scale **grows** when a mock introduces a new size/weight. |
 | Icons | Semantic names only (see below) |
 
 ### Generate / drift

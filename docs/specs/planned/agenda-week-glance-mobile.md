@@ -25,6 +25,6 @@ equivalent, so “is this day OK?” will exist only on web.
 
 ## Notes
 
-- Depends on shipped [`agenda-week-glance`](agenda-week-glance.md).
+- Depends on shipped [`agenda-week-glance`](../active/agenda-week-glance.md).
 - Native chrome OK (compact strip, sheet, or section — not a forced
   three-column layout). Copy and day-status meaning must match web.

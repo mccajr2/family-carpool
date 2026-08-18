@@ -139,6 +139,10 @@ enum UiTokens {
         static let feedKidChipsGap: CGFloat = 8
         static let feedSubmitPadY: CGFloat = 13
         static let feedSubmitMarginTop: CGFloat = 6
+        static let weekGlancePadX: CGFloat = 28
+        static let weekItemPadY: CGFloat = 10
+        static let weekDayWidth: CGFloat = 38
+        static let weekFlag: CGFloat = 7
     }
 
     enum Radius {
@@ -183,6 +187,10 @@ enum UiTokens {
         static let feedInput = TypeScale(size: 14, lineHeight: 20, weight: "400")
         static let feedKidChip = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
         static let feedSubmit = TypeScale(size: 14.5, lineHeight: 20, weight: "700")
+        static let weekGlanceTitle = TypeScale(size: 16, lineHeight: 20, weight: "700")
+        static let weekDay = TypeScale(size: 12, lineHeight: 16, weight: "700")
+        static let weekCount = TypeScale(size: 13, lineHeight: 18, weight: "600")
+        static let weekCountCalm = TypeScale(size: 13, lineHeight: 18, weight: "500")
         static let fontFamily: String = "Plus Jakarta Sans"
     }
 

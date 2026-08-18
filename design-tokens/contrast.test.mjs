@@ -97,6 +97,16 @@ function feedCardPairings(scheme) {
   ]
 }
 
+/** Calendar Context week-at-a-glance strip (Calendar light HTML .rail / .week-*). */
+function weekGlancePairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    { name: "textPrimary on surface (week glance attention)", fg: c.textPrimary, bg: c.surface, min: 4.5 },
+    { name: "textSecondary on surface (week glance weekday/calm)", fg: c.textSecondary, bg: c.surface, min: 4.5 },
+    { name: "danger on surface (week glance flag)", fg: c.danger, bg: c.surface, min: 3 },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
@@ -140,6 +150,16 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Feeds card WCAG AA pairings (${scheme})`, () => {
     for (const p of feedCardPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Week-at-a-glance WCAG AA pairings (${scheme})`, () => {
+    for (const p of weekGlancePairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,
