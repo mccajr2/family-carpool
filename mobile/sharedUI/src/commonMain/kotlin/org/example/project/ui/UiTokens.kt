@@ -102,6 +102,15 @@ object UiTokens {
         const val focusStatusPillY: Int = 6
         const val focusCoveringPadY: Int = 7
         const val focusActionsGap: Int = 18
+        const val filterChipGap: Int = 8
+        const val filterChipPadY: Int = 9
+        const val filterChipPadX: Int = 16
+        const val filterChipMarginBottom: Int = 28
+        const val listRowGap: Int = 16
+        const val listRowTagGap: Int = 6
+        const val listRowAvatar: Int = 26
+        const val listRowAvatarBorder: Int = 2
+        const val listRowAvatarOverlap: Int = 8
     }
 
     object Radius {
@@ -128,6 +137,9 @@ object UiTokens {
         val focusAction = TypeScale(size = 13.5f, lineHeight = 18f, weight = "700")
         val focusActionGhost = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
         val statusChip = TypeScale(size = 11f, lineHeight = 14f, weight = "700")
+        val filterChip = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
+        val listRowAvatarLabel = TypeScale(size = 10.5f, lineHeight = 14f, weight = "700")
+        val listRowChevron = TypeScale(size = 18f, lineHeight = 18f, weight = "400")
         val page = TypeScale(size = 34f, lineHeight = 40f, weight = "700")
         val subtitle = TypeScale(size = 14f, lineHeight = 20f, weight = "500")
         const val fontFamily: String = "Plus Jakarta Sans"

@@ -111,7 +111,9 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-MANUAL-skip")
     expect(row).toHaveClass("opacity-60")
     expect(within(row).getByText("Not going")).toBeInTheDocument()
-    expect(within(row).getByText("Not going").className).toMatch(/uppercase/)
+    expect(within(row).getByText("Not going").className).not.toMatch(/uppercase/)
+    expect(within(row).getByTestId("agenda-status-pill-dot")).toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
@@ -143,6 +145,9 @@ describe("AgendaRow", () => {
     )
     const row = screen.getByTestId("agenda-row-MANUAL-pending")
     expect(within(row).getByText("Confirm coverage")).toBeInTheDocument()
+    expect(within(row).getByText("Confirm coverage").className).not.toMatch(/uppercase/)
+    expect(within(row).getByTestId("agenda-status-pill-dot")).toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
   })
@@ -180,7 +185,77 @@ describe("AgendaRow", () => {
     )
     const row = screen.getByTestId("agenda-row-MANUAL-waiting")
     expect(within(row).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
+  })
+
+  it("shows covering avatars and a token chevron on confirmed in-play rows, without a standalone status dot", () => {
+    renderRow(
+      item({
+        id: "covered",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-covered")
+    expect(within(row).getByText("Confirmed")).toBeInTheDocument()
+    expect(within(row).getByLabelText("Covering: Alex")).toHaveTextContent("A")
+    expect(within(row).getByTestId("agenda-row-chevron")).toBeInTheDocument()
+    expect(row.querySelector("[class*='h-[9px]']")).toBeNull()
+  })
+
+  it("stacks up to two covering avatars when two adults are confirmed", () => {
+    const twoAdultCircle: FamilyCircle = {
+      ...circle,
+      members: [
+        { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+        { adultId: "a2", email: "j@example.com", displayName: "Jordan Lee", role: "CAREGIVER" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "shared",
+          title: "Game",
+          kidIds: ["k1"],
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+            {
+              id: "cov2",
+              coveringAdultId: "a2",
+              coveringAdultDisplayName: "Jordan Lee",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+          ],
+        })}
+        circle={twoAdultCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: false, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const avatars = screen.getByLabelText("Covering: Alex, Jordan Lee")
+    expect(avatars).toHaveTextContent("A")
+    expect(avatars).toHaveTextContent("JL")
   })
 
   it("toggles expand/collapse per row without affecting other rows", async () => {

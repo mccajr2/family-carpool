@@ -105,6 +105,15 @@ enum UiTokens {
         static let focusStatusPillY: CGFloat = 6
         static let focusCoveringPadY: CGFloat = 7
         static let focusActionsGap: CGFloat = 18
+        static let filterChipGap: CGFloat = 8
+        static let filterChipPadY: CGFloat = 9
+        static let filterChipPadX: CGFloat = 16
+        static let filterChipMarginBottom: CGFloat = 28
+        static let listRowGap: CGFloat = 16
+        static let listRowTagGap: CGFloat = 6
+        static let listRowAvatar: CGFloat = 26
+        static let listRowAvatarBorder: CGFloat = 2
+        static let listRowAvatarOverlap: CGFloat = 8
     }
 
     enum Radius {
@@ -135,6 +144,9 @@ enum UiTokens {
         static let focusAction = TypeScale(size: 13.5, lineHeight: 18, weight: "700")
         static let focusActionGhost = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
         static let statusChip = TypeScale(size: 11, lineHeight: 14, weight: "700")
+        static let filterChip = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
+        static let listRowAvatarLabel = TypeScale(size: 10.5, lineHeight: 14, weight: "700")
+        static let listRowChevron = TypeScale(size: 18, lineHeight: 18, weight: "400")
         static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
         static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
         static let fontFamily: String = "Plus Jakarta Sans"

@@ -12,6 +12,14 @@ describe("AgendaStatusChip", () => {
     expect(screen.queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
   })
 
+  it("renders default-variant pills in Title Case with a leading dot", () => {
+    render(<AgendaStatusChip label="Confirmed" tone="mint" appearance="pill" />)
+    const chip = screen.getByText("Confirmed")
+    expect(chip.className).not.toMatch(/uppercase/)
+    expect(chip.className).toMatch(/--fc-font-focus-status-pill-size/)
+    expect(chip.querySelector("[data-testid='agenda-status-pill-dot']")).not.toBeNull()
+  })
+
   it("renders Focus pills in Title Case with a leading dot", () => {
     render(
       <AgendaStatusChip label="Needs coverage" tone="amber" variant="hero" appearance="pill" />,

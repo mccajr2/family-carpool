@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
+import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { groupAgendaByDay } from "@/components/agendaDayGroups"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
@@ -2286,31 +2287,25 @@ export function FamilyScreen({
           ) : null}
           {circle.kids.length > 0 ? (
             <div
-              className="flex flex-wrap gap-2"
+              className="mb-[var(--fc-space-filter-chip-margin-bottom)] flex flex-wrap gap-[var(--fc-space-filter-chip-gap)]"
               role="group"
               aria-label="Filter agenda by kid"
               data-testid="agenda-kid-filter"
             >
-              <Button
-                type="button"
-                size="sm"
-                variant={agendaKidFilter == null ? "default" : "outline"}
-                onClick={() => setAgendaKidFilter(null)}
+              <AgendaKidFilterChip
+                label="All kids"
+                selected={agendaKidFilter == null}
                 disabled={status.kind === "loading"}
-              >
-                All kids
-              </Button>
+                onClick={() => setAgendaKidFilter(null)}
+              />
               {circle.kids.map((kid) => (
-                <Button
+                <AgendaKidFilterChip
                   key={kid.id}
-                  type="button"
-                  size="sm"
-                  variant={agendaKidFilter === kid.id ? "default" : "outline"}
-                  onClick={() => setAgendaKidFilter(kid.id)}
+                  label={kid.displayName}
+                  selected={agendaKidFilter === kid.id}
                   disabled={status.kind === "loading"}
-                >
-                  {kid.displayName}
-                </Button>
+                  onClick={() => setAgendaKidFilter(kid.id)}
+                />
               ))}
             </div>
           ) : null}

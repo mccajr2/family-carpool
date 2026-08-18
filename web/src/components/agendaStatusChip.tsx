@@ -2,7 +2,7 @@ export type AgendaStatusChipTone = "mint" | "amber" | "route" | "muted"
 
 export type AgendaStatusChipVariant = "default" | "hero"
 
-/** `tag` = collapsed AgendaRow (uppercase). `pill` = Focus (Title Case + leading dot). */
+/** `tag` = uppercase compact chip. `pill` = Title Case + leading dot (Focus + collapsed AgendaRow). */
 export type AgendaStatusChipAppearance = "tag" | "pill"
 
 /** Shared tag/chip tones for collapsed AgendaRow tags and Focus header chips. */
