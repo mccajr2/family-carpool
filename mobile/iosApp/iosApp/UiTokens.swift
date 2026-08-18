@@ -114,6 +114,31 @@ enum UiTokens {
         static let listRowAvatar: CGFloat = 26
         static let listRowAvatarBorder: CGFloat = 2
         static let listRowAvatarOverlap: CGFloat = 8
+        static let feedCardPadY: CGFloat = 18
+        static let feedCardPadX: CGFloat = 20
+        static let feedListGap: CGFloat = 12
+        static let feedListMarginBottom: CGFloat = 28
+        static let feedMetaGap: CGFloat = 3
+        static let feedMetaDot: CGFloat = 6
+        static let feedChipPadY: CGFloat = 4
+        static let feedChipPadX: CGFloat = 10
+        static let feedActionsPadTop: CGFloat = 14
+        static let feedActionsGap: CGFloat = 16
+        static let feedCtaGap: CGFloat = 10
+        static let feedQuietGap: CGFloat = 8
+        static let feedActionPadY: CGFloat = 10
+        static let feedActionPadX: CGFloat = 16
+        static let feedSectionGap: CGFloat = 14
+        static let feedFormPad: CGFloat = 22
+        static let feedFieldLabelGap: CGFloat = 6
+        static let feedInputPadY: CGFloat = 11
+        static let feedInputPadX: CGFloat = 14
+        static let feedKidChipPadY: CGFloat = 9
+        static let feedKidChipPadX: CGFloat = 14
+        static let feedKidChipGap: CGFloat = 7
+        static let feedKidChipsGap: CGFloat = 8
+        static let feedSubmitPadY: CGFloat = 13
+        static let feedSubmitMarginTop: CGFloat = 6
     }
 
     enum Radius {
@@ -149,6 +174,15 @@ enum UiTokens {
         static let listRowChevron = TypeScale(size: 18, lineHeight: 18, weight: "400")
         static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
         static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
+        static let feedName = TypeScale(size: 16.5, lineHeight: 22, weight: "700")
+        static let feedMeta = TypeScale(size: 12.5, lineHeight: 16, weight: "400")
+        static let feedSectionLabel = TypeScale(size: 12, lineHeight: 16, weight: "700")
+        static let feedChip = TypeScale(size: 11, lineHeight: 14, weight: "700")
+        static let feedAction = TypeScale(size: 13.5, lineHeight: 18, weight: "700")
+        static let feedFieldLabel = TypeScale(size: 12.5, lineHeight: 16, weight: "600")
+        static let feedInput = TypeScale(size: 14, lineHeight: 20, weight: "400")
+        static let feedKidChip = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
+        static let feedSubmit = TypeScale(size: 14.5, lineHeight: 20, weight: "700")
         static let fontFamily: String = "Plus Jakarta Sans"
     }
 

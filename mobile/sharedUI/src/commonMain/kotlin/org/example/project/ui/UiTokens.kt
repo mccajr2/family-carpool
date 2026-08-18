@@ -111,6 +111,31 @@ object UiTokens {
         const val listRowAvatar: Int = 26
         const val listRowAvatarBorder: Int = 2
         const val listRowAvatarOverlap: Int = 8
+        const val feedCardPadY: Int = 18
+        const val feedCardPadX: Int = 20
+        const val feedListGap: Int = 12
+        const val feedListMarginBottom: Int = 28
+        const val feedMetaGap: Int = 3
+        const val feedMetaDot: Int = 6
+        const val feedChipPadY: Int = 4
+        const val feedChipPadX: Int = 10
+        const val feedActionsPadTop: Int = 14
+        const val feedActionsGap: Int = 16
+        const val feedCtaGap: Int = 10
+        const val feedQuietGap: Int = 8
+        const val feedActionPadY: Int = 10
+        const val feedActionPadX: Int = 16
+        const val feedSectionGap: Int = 14
+        const val feedFormPad: Int = 22
+        const val feedFieldLabelGap: Int = 6
+        const val feedInputPadY: Int = 11
+        const val feedInputPadX: Int = 14
+        const val feedKidChipPadY: Int = 9
+        const val feedKidChipPadX: Int = 14
+        const val feedKidChipGap: Int = 7
+        const val feedKidChipsGap: Int = 8
+        const val feedSubmitPadY: Int = 13
+        const val feedSubmitMarginTop: Int = 6
     }
 
     object Radius {
@@ -142,6 +167,15 @@ object UiTokens {
         val listRowChevron = TypeScale(size = 18f, lineHeight = 18f, weight = "400")
         val page = TypeScale(size = 34f, lineHeight = 40f, weight = "700")
         val subtitle = TypeScale(size = 14f, lineHeight = 20f, weight = "500")
+        val feedName = TypeScale(size = 16.5f, lineHeight = 22f, weight = "700")
+        val feedMeta = TypeScale(size = 12.5f, lineHeight = 16f, weight = "400")
+        val feedSectionLabel = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
+        val feedChip = TypeScale(size = 11f, lineHeight = 14f, weight = "700")
+        val feedAction = TypeScale(size = 13.5f, lineHeight = 18f, weight = "700")
+        val feedFieldLabel = TypeScale(size = 12.5f, lineHeight = 16f, weight = "600")
+        val feedInput = TypeScale(size = 14f, lineHeight = 20f, weight = "400")
+        val feedKidChip = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
+        val feedSubmit = TypeScale(size = 14.5f, lineHeight = 20f, weight = "700")
         const val fontFamily: String = "Plus Jakarta Sans"
     }
 

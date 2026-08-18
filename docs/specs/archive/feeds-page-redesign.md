@@ -1,6 +1,7 @@
 # Spec: feeds-page-redesign
 
-Status: in-progress  
+Status: archived  
+Completed: 2026-08-18  
 Created: 2026-08-18  
 Approved: 2026-08-18  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -117,40 +118,40 @@ product specs unless a handler outcome is unclear from the source.
 
 ## Acceptance criteria
 
-- [ ] Each feed renders as a mock-aligned **raised card** (token surface /
+- [x] Each feed renders as a mock-aligned **raised card** (token surface /
       radius / padding — not a flat `li` of equal-weight buttons).
-- [ ] Carpool status on Feeds is an **uppercase chip** (at least **OWNED**
+- [x] Carpool status on Feeds is an **uppercase chip** (at least **OWNED**
       and **NO CARPOOL**); primary CTA is **Enable carpool** or **Open
       carpool** (or **Request** when that is today’s CTA). Confirm-then-enable,
       request, and open still call the same handlers.
-- [ ] `CarpoolPanel` still shows **Enable** / **Open** / **Request** and
+- [x] `CarpoolPanel` still shows **Enable** / **Open** / **Request** and
       body-copy status — Feeds layout does not leak onto Carpool.
-- [ ] Card meta is `eventKidNames` + `feedSyncStatusLabel` (e.g.
+- [x] Card meta is `eventKidNames` + `feedSyncStatusLabel` (e.g.
       `Sam · Synced · 4 events`); source URL stays hidden until Edit.
-- [ ] Sync now and Edit are quieter than the carpool CTA; Remove is text
+- [x] Sync now and Edit are quieter than the carpool CTA; Remove is text
       (less weight than Sync/Edit). Same click handlers and disabled-when-loading.
-- [ ] Add-feed form sits below the list with mock **ADD A FEED** labeling;
+- [x] Add-feed form sits below the list with mock **ADD A FEED** labeling;
       **Add feed** still requires name + URL and assigns selected kids.
-- [ ] Refresh still re-GETs the feeds list and does not call Sync now.
-- [ ] Caregivers still have no Feeds nav row or manage UI.
-- [ ] Mock-measured card/chip/action type and spacing locked in
+- [x] Refresh still re-GETs the feeds list and does not call Sync now.
+- [x] Caregivers still have no Feeds nav row or manage UI.
+- [x] Mock-measured card/chip/action type and spacing locked in
       `tokens.json` and consumed via `--fc-*` (no raw px/hex in adopted UI;
       no `hero*` color vars on Feeds).
-- [ ] `cd web && npm test`, `npm run lint`, and
+- [x] `cd web && npm test`, `npm run lint`, and
       `node design-tokens/generate.mjs --check` pass.
 
 ## Tasks
 
-- [ ] **Tokens:** measure Feeds dark mock cards, chips, primary CTA, quiet
+- [x] **Tokens:** measure Feeds dark mock cards, chips, primary CTA, quiet
       actions, add-form label; add `feed*` (and chip) roles rather than
       snapping to Agenda `statusChip` / `filterChip` / `space-*`; regenerate
       + WCAG AA on new text/fill pairings.
-- [ ] **Web:** `FeedCard.tsx` + swap the feeds list in `FamilyScreen.tsx`;
+- [x] **Web:** `FeedCard.tsx` + swap the feeds list in `FamilyScreen.tsx`;
       drop `feedKidNames` in favor of `eventKidNames`; drop visible
       “Activity feeds” heading; restyle Refresh + ADD A FEED form.
-- [ ] **Web:** `CarpoolFeedActions` Feeds layout (chip + Enable carpool /
+- [x] **Web:** `CarpoolFeedActions` Feeds layout (chip + Enable carpool /
       Open carpool copy); default layout unchanged for `CarpoolPanel`.
-- [ ] **Tests:** `FeedCard` (and/or FamilyScreen Feeds cases) — chip copy,
+- [x] **Tests:** `FeedCard` (and/or FamilyScreen Feeds cases) — chip copy,
       Enable carpool / Open carpool, meta line, Remove still deletes, Add
       feed, Refresh does not sync; `CarpoolFeedActions` default tests still
       look for **Enable** / **Open**; new Feeds-layout cases. No

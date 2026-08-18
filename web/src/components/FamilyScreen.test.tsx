@@ -1265,6 +1265,20 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("U12 Travel")).toBeInTheDocument()
     expect(screen.getByText("Sam · Synced · 4 events")).toBeInTheDocument()
+    expect(screen.queryByText("Activity feeds")).not.toBeInTheDocument()
+    expect(screen.getByText("Add a feed").className).toMatch(/uppercase/)
+    expect(screen.getByText("Add a feed").className).toMatch(/--fc-font-feed-section-label-size/)
+    const card = screen.getByTestId("feed-card")
+    expect(card.className).toMatch(/--fc-space-feed-card-pad-x/)
+    expect(card.className).toMatch(/--fc-surface-raised/)
+    const noneChip = within(screen.getByLabelText("Activity feeds")).getByText("No carpool")
+    expect(noneChip.className).toMatch(/uppercase/)
+    expect(noneChip.className).toMatch(/--fc-font-feed-chip-size/)
+    expect(
+      within(screen.getByLabelText("Activity feeds")).getByRole("button", {
+        name: "Enable carpool",
+      }),
+    ).toBeInTheDocument()
     expect(createFeed).toHaveBeenCalledWith(
       "tok",
       "U12 Travel",
@@ -1504,10 +1518,14 @@ describe("FamilyScreen", () => {
 
     await goTo(user, "Feeds")
     const feeds = await screen.findByLabelText("Activity feeds")
-    await user.click(await within(feeds).findByRole("button", { name: "Enable" }))
+    await user.click(await within(feeds).findByRole("button", { name: "Enable carpool" }))
     expect(enable).toHaveBeenCalledWith("tok", "f1")
-    expect(await within(feeds).findByRole("button", { name: "Open" })).toBeInTheDocument()
-    expect(within(feeds).getByText("Owned")).toBeInTheDocument()
+    expect(await within(feeds).findByRole("button", { name: "Open carpool" })).toBeInTheDocument()
+    const owned = within(feeds).getByText("Owned")
+    expect(owned.className).toMatch(/uppercase/)
+    expect(owned.className).toMatch(/--fc-font-feed-chip-size/)
+    expect(within(feeds).queryByRole("button", { name: /^Enable$/ })).not.toBeInTheDocument()
+    expect(within(feeds).queryByRole("button", { name: /^Open$/ })).not.toBeInTheDocument()
   })
 
   it("reloads feeds and calendar after joining a carpool by code", async () => {
