@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.16.0
+  version: 0.17.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -31,8 +31,10 @@ info:
     update from Sync now or from the server poller — clients re-GET the feeds
     list to observe changes. Team carpool spaces (HTTP under `/api/carpool/*`)
     are keyed one per normalized feed URL (same normalize as feeds: trim;
-    `webcal://` → `https://`). Importing a feed never joins a space and never
-    returns other families' membership. An Organizer whose circle already has
+    `webcal://` → `https://`).     Importing a feed never joins a space and never
+    returns other families' membership or ride requests. Space members list
+    ride requests per event (kid first names, seat counts, pickup address) via
+    GET /api/carpool/spaces/{spaceId}/rides — not on the summary. An Organizer whose circle already has
     the feed may enable a space (that circle owns it). Other families join by
     invite code (admits the circle immediately and ensureFeed if the URL is
     missing) or request to join (same-URL subscriber; owner-circle adults
@@ -75,8 +77,13 @@ tags:
       owner-circle adults admit or decline in-app (no push). Any space member
       may view/copy the invite code; only the owning circle may regenerate.
       Member circles may leave anytime; the owner may leave only as the sole
-      member circle (space is then removed). Paths are under `/api/carpool/*`,
-      not nested under `/api/family`.
+      member circle (space is then removed). Space members may list upcoming
+      feed events with ride overlays, create ride requests (both legs; pickup
+      at the requester's house), accept another circle's pending request,
+      cancel their own request, or withdraw an acceptance. Ride kid first
+      names, seat counts, and pickup address are visible to every adult in
+      member circles. Paths are under `/api/carpool/*`, not nested under
+      `/api/family`.
 
 paths:
   /api/auth/request-code:
@@ -2590,8 +2597,10 @@ paths:
         Any circle member. Returns per-feed carpool status (so Organizers can
         Enable, and any member can Request / open a space they belong to),
         spaces this circle already belongs to (invite code, member circle
-        names, owner pending requests), and never other families' kids or
-        rides. Importing a feed never auto-joins a space. A feed with no space
+        names, owner pending join requests). Does not include ride requests —
+        use GET /api/carpool/spaces/{spaceId}/rides for upcoming events and
+        ride overlays. Never other families' kids. Importing a feed never
+        auto-joins a space. A feed with no space
         for that normalized URL has status NONE (Enable is Organizer-only on
         the client). A space that exists for a subscriber who is not a member
         has status AVAILABLE or REQUESTED — name only, no member list, invite
@@ -3035,6 +3044,323 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Unknown space or request, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/rides:
+    parameters:
+      - name: spaceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listCarpoolRides
+      tags: [carpool]
+      summary: List upcoming feed events with ride overlays for a space
+      description: >
+        Any adult in a member circle. Returns feed events on this space's
+        normalized URL whose startsAt falls in the half-open interval [from, to),
+        ordered by startsAt ascending. Manual events are excluded. Each row
+        includes event identity (iCal UID when present, else a title/start/
+        location fingerprint), title, start/end, defaultKidIds (this circle's
+        RSVP YES kids who still need a ride — for Request pre-fill), this
+        circle's active ride request if any (PENDING or ACCEPTED), and other
+        member circles' PENDING/ACCEPTED requests (circle name, kid first
+        names, seat count, pickup name+address). Empty array when no upcoming
+        feed events match. from must be strictly before to and the window must
+        not exceed 31 days (400 otherwise). Non-member or unknown space
+        returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive window start (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-08-01T00:00:00Z"
+        - name: to
+          in: query
+          required: true
+          description: Exclusive window end (UTC instant)
+          schema:
+            type: string
+            format: date-time
+          example: "2026-08-31T00:00:00Z"
+      responses:
+        "200":
+          description: Upcoming feed events with ride overlays (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CarpoolRideEvent"
+        "400":
+          description: >
+            Missing from/to, from is not strictly before to, or window exceeds
+            31 days
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createCarpoolRide
+      tags: [carpool]
+      summary: Request a ride for a feed event
+      description: >
+        Any space-member adult. Creates a PENDING ride request for both legs
+        with pickup at the requester's house (default leave-from place if set,
+        else the circle's first named place with a non-blank address). Snapshots
+        kid first names and pickup name+address at create. When kidIds is
+        omitted, defaults to all RSVP YES kids on that event who still need a
+        ride; when present, must be a non-empty subset of that set. Empty
+        default set, unknown kids, RSVP not YES, kid already on an ACCEPTED
+        ride, or no pickup address returns 400. Duplicate active (PENDING or
+        ACCEPTED) request from this circle for the same event returns 409.
+        Caregiver create is allowed.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCarpoolRideRequest"
+      responses:
+        "201":
+          description: Ride request created (PENDING)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolRide"
+        "400":
+          description: >
+            Invalid kids, RSVP filter, no pickup address, or empty default kid
+            set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            An active ride request from this circle already exists for this
+            event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/rides/{rideId}/accept:
+    post:
+      operationId: acceptCarpoolRide
+      tags: [carpool]
+      summary: Accept another circle's pending ride request
+      description: >
+        Space-member adult with drives=true who is in the chosen vehicle's
+        driverAdultIds, and whose circle is not the requesting circle. Accept
+        is all-or-nothing when remaining vehicle seats (including driver and
+        this circle's RSVP YES kids on the event) are at least the request's
+        seat count, and this vehicle has no other ACCEPTED ride for the event.
+        Success sets ACCEPTED and records accepter, circle, and vehicle. Own
+        circle's request returns 409. drives=false returns 403. Unknown or not
+        allowed vehicle returns 404. Not enough seats, vehicle already
+        committed, or ride not PENDING returns 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: rideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptCarpoolRideRequest"
+      responses:
+        "200":
+          description: Ride request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolRide"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller has drives=false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: >
+            Unknown space, ride, or vehicle, caller not a member, or vehicle
+            not drivable by caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Own-circle request, not PENDING, not enough seats, or vehicle
+            already has an ACCEPTED ride for this event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/rides/{rideId}/cancel:
+    post:
+      operationId: cancelCarpoolRide
+      tags: [carpool]
+      summary: Cancel a ride request from the requesting circle
+      description: >
+        Any adult in the requesting circle. Transitions PENDING or ACCEPTED to
+        CANCELLED; an accepted cancel frees the vehicle. Wrong circle returns
+        403. Non-member or unknown ride returns 404. Already CANCELLED or
+        invalid transition returns 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: rideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ride request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolRide"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is not the requesting circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or ride, or caller not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Ride is not PENDING or ACCEPTED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/rides/{rideId}/withdraw:
+    post:
+      operationId: withdrawCarpoolRide
+      tags: [carpool]
+      summary: Withdraw an acceptance from the accepting circle
+      description: >
+        Any adult in the accepting circle. Transitions ACCEPTED to PENDING and
+        clears accepter and vehicle fields. Wrong circle returns 403.
+        Non-member or unknown ride returns 404. Not ACCEPTED returns 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: rideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Acceptance withdrawn; ride is PENDING again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolRide"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is not the accepting circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or ride, or caller not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Ride is not ACCEPTED
           content:
             application/json:
               schema:
@@ -4449,6 +4775,172 @@ components:
           maxLength: 16
           description: Invite code from a space member (listserv shortcut)
           example: AB12CD34
+
+    CarpoolRideStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, CANCELLED]
+      description: >
+        PENDING — awaiting a driver. ACCEPTED — a member circle committed a
+        vehicle. CANCELLED — requesting circle cancelled (may request again).
+
+    CarpoolRide:
+      type: object
+      required:
+        - id
+        - spaceId
+        - eventKey
+        - requestingCircleId
+        - requestedByAdultId
+        - kidIds
+        - kidFirstNames
+        - seats
+        - pickupPlaceName
+        - pickupAddress
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        eventKey:
+          type: string
+          description: >
+            Cross-circle event identity. `UID:<icalUid>` when the feed event
+            has an iCal UID; otherwise `FP:<normalized title>|<startsAt>|
+            <normalized location>`.
+          example: "UID:abc123@example.com"
+        requestingCircleId:
+          type: string
+          format: uuid
+        requestingCircleName:
+          type: string
+          nullable: true
+          description: Requesting circle's name (for other circles' requests)
+        requestedByAdultId:
+          type: string
+          format: uuid
+          description: Adult who created the request (pickup place is theirs)
+        kidIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        kidFirstNames:
+          type: array
+          minItems: 1
+          description: Snapshot at create for display to other member circles
+          items:
+            type: string
+        seats:
+          type: integer
+          minimum: 1
+          description: Number of kids requested (= kidIds.length)
+        pickupPlaceName:
+          type: string
+          description: Snapshot of requester's pickup place name at create
+        pickupAddress:
+          type: string
+          description: Snapshot of requester's pickup address at create
+        status:
+          $ref: "#/components/schemas/CarpoolRideStatus"
+        acceptedByAdultId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when status is ACCEPTED
+        acceptingCircleId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when status is ACCEPTED
+        acceptingCircleName:
+          type: string
+          nullable: true
+          description: Accepting circle's name when status is ACCEPTED
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Committed vehicle when status is ACCEPTED
+        vehicleLabel:
+          type: string
+          nullable: true
+          description: Vehicle nickname when status is ACCEPTED
+
+    CarpoolRideEvent:
+      type: object
+      required:
+        - eventKey
+        - title
+        - startsAt
+        - defaultKidIds
+        - otherRequests
+      properties:
+        eventKey:
+          type: string
+          description: Same identity scheme as CarpoolRide.eventKey
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        defaultKidIds:
+          type: array
+          description: >
+            This circle's RSVP YES kids on this event who still need a ride
+            (for Request pre-fill; empty when none are attending)
+          items:
+            type: string
+            format: uuid
+        ownRequest:
+          allOf:
+            - $ref: "#/components/schemas/CarpoolRide"
+          nullable: true
+          description: >
+            This circle's active request (PENDING or ACCEPTED), if any. Null
+            when none or last request was CANCELLED.
+        otherRequests:
+          type: array
+          description: >
+            Other member circles' PENDING or ACCEPTED requests on this event
+          items:
+            $ref: "#/components/schemas/CarpoolRide"
+
+    CreateCarpoolRideRequest:
+      type: object
+      required:
+        - eventKey
+      properties:
+        eventKey:
+          type: string
+          description: Target feed event identity (must match a listed event)
+        kidIds:
+          type: array
+          minItems: 1
+          description: >
+            Non-empty subset of defaultKidIds. When omitted, server defaults to
+            all attending kids who still need a ride.
+          items:
+            type: string
+            format: uuid
+
+    AcceptCarpoolRideRequest:
+      type: object
+      required:
+        - vehicleId
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+          description: >
+            Caller's circle vehicle they may drive with enough remaining seats
 
     ErrorResponse:
       type: object

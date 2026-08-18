@@ -229,7 +229,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 
 ## Tasks
 
-- [ ] **Contract:** `/api/carpool/spaces/{spaceId}/rides*` paths + schemas;
+- [x] **Contract:** `/api/carpool/spaces/{spaceId}/rides*` paths + schemas;
       version bump; summary/tag text updated for member-visible rides; 400 /
       403 / 404 / 409 as above.
 - [ ] **Backend (`feeds`):** nullable `uid` on `FeedCalendarEventDto`.

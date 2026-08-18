@@ -175,7 +175,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.16.0");
+        assertThat(yaml).contains("version: 0.17.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,43 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.16.0");
+        assertThat(yaml).contains("version: 0.17.0");
+    }
+
+    @Test
+    void carpoolContractDocumentsRideRequests() throws IOException {
+        String yaml = Files.readString(resolveOpenApi());
+
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/accept");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/cancel");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/withdraw");
+
+        assertThat(yaml).contains("operationId: listCarpoolRides");
+        assertThat(yaml).contains("operationId: createCarpoolRide");
+        assertThat(yaml).contains("operationId: acceptCarpoolRide");
+        assertThat(yaml).contains("operationId: cancelCarpoolRide");
+        assertThat(yaml).contains("operationId: withdrawCarpoolRide");
+
+        assertThat(yaml).contains("CarpoolRide:");
+        assertThat(yaml).contains("CarpoolRideStatus:");
+        assertThat(yaml).contains("CarpoolRideEvent:");
+        assertThat(yaml).contains("CreateCarpoolRideRequest:");
+        assertThat(yaml).contains("AcceptCarpoolRideRequest:");
+        assertThat(yaml).contains("[PENDING, ACCEPTED, CANCELLED]");
+        assertThat(yaml).contains("eventKey:");
+        assertThat(yaml).contains("defaultKidIds:");
+        assertThat(yaml).contains("ownRequest:");
+        assertThat(yaml).contains("otherRequests:");
+        assertThat(yaml).contains("kidFirstNames:");
+        assertThat(yaml).contains("pickupPlaceName:");
+        assertThat(yaml).contains("pickupAddress:");
+        assertThat(yaml).contains("acceptingCircleId:");
+        assertThat(yaml).contains("vehicleLabel:");
+        assertThat(yaml).contains("not exceed 31 days");
+        assertThat(yaml).contains("drives=false returns 403");
+        assertThat(yaml).contains("GET /api/carpool/spaces/{spaceId}/rides");
+        assertThat(yaml).contains("version: 0.17.0");
     }
 
     @Test
