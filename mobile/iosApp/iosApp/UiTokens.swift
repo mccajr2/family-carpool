@@ -97,6 +97,9 @@ enum UiTokens {
         static let mainX: CGFloat = 44
         static let railY: CGFloat = 28
         static let railX: CGFloat = 20
+        static let focusRing: CGFloat = 96
+        static let focusRingStroke: CGFloat = 6
+        static let focusRingCoveringGap: CGFloat = 8
     }
 
     enum Radius {
@@ -118,6 +121,10 @@ enum UiTokens {
         static let title = TypeScale(size: 17, lineHeight: 24, weight: "600")
         static let headline = TypeScale(size: 22, lineHeight: 28, weight: "700")
         static let hero = TypeScale(size: 26, lineHeight: 32, weight: "700")
+        static let focusTitle = TypeScale(size: 28, lineHeight: 34, weight: "700")
+        static let focusRingLabel = TypeScale(size: 20, lineHeight: 24, weight: "700")
+        static let focusRingUnit = TypeScale(size: 10, lineHeight: 12, weight: "700")
+        static let statusChip = TypeScale(size: 11, lineHeight: 14, weight: "700")
         static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
         static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
         static let fontFamily: String = "Plus Jakarta Sans"

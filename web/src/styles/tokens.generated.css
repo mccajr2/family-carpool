@@ -35,6 +35,9 @@
   --fc-space-mainX: 44px;
   --fc-space-railY: 28px;
   --fc-space-railX: 20px;
+  --fc-space-focusRing: 96px;
+  --fc-space-focusRingStroke: 6px;
+  --fc-space-focusRingCoveringGap: 8px;
   --fc-radius-sm: 4px;
   --fc-radius-md: 8px;
   --fc-radius-lg: 12px;
@@ -54,6 +57,18 @@
   --fc-font-hero-size: 26px;
   --fc-font-hero-line: 32px;
   --fc-font-hero-weight: 700;
+  --fc-font-focusTitle-size: 28px;
+  --fc-font-focusTitle-line: 34px;
+  --fc-font-focusTitle-weight: 700;
+  --fc-font-focusRingLabel-size: 20px;
+  --fc-font-focusRingLabel-line: 24px;
+  --fc-font-focusRingLabel-weight: 700;
+  --fc-font-focusRingUnit-size: 10px;
+  --fc-font-focusRingUnit-line: 12px;
+  --fc-font-focusRingUnit-weight: 700;
+  --fc-font-statusChip-size: 11px;
+  --fc-font-statusChip-line: 14px;
+  --fc-font-statusChip-weight: 700;
   --fc-font-page-size: 34px;
   --fc-font-page-line: 40px;
   --fc-font-page-weight: 700;

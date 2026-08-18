@@ -2346,7 +2346,8 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(within(agenda).getByText("Needs coverage: Riley")).toBeInTheDocument()
+    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
+    expect(within(focus).getByTestId("agenda-focus-chips")).toHaveTextContent("Needs coverage")
   })
 
   it("separates agenda items with a clear vertical buffer", async () => {
@@ -2469,7 +2470,7 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(within(agenda).getAllByTestId(/^agenda-focus-/)).toHaveLength(1)
+    expect(within(agenda).getAllByTestId(/^agenda-focus-(MANUAL|FEED)-/)).toHaveLength(1)
     // Sooner all-set event is Focus; later uncovered stays in the flat list.
     expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
     expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
@@ -4506,7 +4507,7 @@ describe("FamilyScreen", () => {
     )
 
     const item = await screen.findByTestId("agenda-focus-MANUAL-e1")
-    expect(within(item).getByText(/Needs coverage: Sam/)).toBeInTheDocument()
+    expect(within(item).getByTestId("agenda-focus-chips")).toHaveTextContent("Needs coverage")
     expect(within(item).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
   })
 })

@@ -78,37 +78,37 @@ Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 
 ## Acceptance criteria
 
-- [ ] Focus card header matches mock structure: title column and ring column are
+- [x] Focus card header matches mock structure: title column and ring column are
       separate; ring is visibly **larger** than shipped 64×64 (token-driven size).
-- [ ] With a confirmed coverage row, **`Covering: {name}`** renders under the ring,
+- [x] With a confirmed coverage row, **`Covering: {name}`** renders under the ring,
       not only in the lower coverage band.
-- [ ] With conflicts, an **Overlaps** status chip renders in the header chip row
+- [x] With conflicts, an **Overlaps** status chip renders in the header chip row
       (chip styling consistent with `AgendaRow` amber tags); conflict detail lines
       remain available in the body.
-- [ ] Mock-measured title type/weight/spacing are locked in `tokens.json` and used
+- [x] Mock-measured title type/weight/spacing are locked in `tokens.json` and used
       via generated `--fc-*` vars (no raw px/hex in `AgendaFocusCard.tsx`).
-- [ ] Urgent vs calm surfaces still use `hero*` vs plain tokens per
+- [x] Urgent vs calm surfaces still use `hero*` vs plain tokens per
       `docs/agenda-focus-card-addendum.md`; chip colors respect state (urgent uses
       `heroDanger` / `heroSuccess` where the mock does on the dark card).
-- [ ] All existing Focus handlers still fire: Assign coverage, Confirm/Decline,
+- [x] All existing Focus handlers still fire: Assign coverage, Confirm/Decline,
       RSVP, leave-from, Edit, Remove; `FamilyScreen` wiring unchanged.
-- [ ] `cd web && npm test`, `npm run lint`, and `node design-tokens/generate.mjs --check`
+- [x] `cd web && npm test`, `npm run lint`, and `node design-tokens/generate.mjs --check`
       pass.
 
 ## Tasks
 
-- [ ] Tokens: measure Calendar light Focus card; add/update roles (ring box,
+- [x] Tokens: measure Calendar light Focus card; add/update roles (ring box,
       ring label type, focus title if mock ≠ `hero`, chip spacing if needed);
       regenerate + contrast check for any new `hero*` pairings.
-- [ ] Web: restructure `AgendaFocusCard.tsx` header (primary / ring column /
+- [x] Web: restructure `AgendaFocusCard.tsx` header (primary / ring column /
       covering-under-ring / chip row); keep body bands and handlers.
-- [ ] Web: shared status-chip styling (extract or mirror `AgendaRow` tag classes).
-- [ ] Tests: update `AgendaFocusCard.test.tsx` for ring size testid/dimensions,
+- [x] Web: shared status-chip styling (extract or mirror `AgendaRow` tag classes).
+- [x] Tests: update `AgendaFocusCard.test.tsx` for ring size testid/dimensions,
       covering-under-ring copy, Overlaps chip; adjust `FamilyScreen.test.tsx` only
       if selectors/copy change.
-- [ ] Docs: short addendum note under Focus card content — header chips + covering
+- [x] Docs: short addendum note under Focus card content — header chips + covering
       under ring match Calendar mock; port checklist unchanged for mobile.
-- [ ] Tests: `cd web && npm test`, `npm run lint`, token `--check`.
+- [x] Tests: `cd web && npm test`, `npm run lint`, token `--check`.
 
 ## Open questions
 

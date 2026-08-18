@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -71,6 +71,46 @@ function renderCard(calendarItem: CalendarItem) {
   )
 }
 
+describe("AgendaFocusCard header chrome", () => {
+  it("renders a 96px countdown ring", () => {
+    renderCard(
+      item({
+        id: "ring",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    const ring = screen.getByTestId("agenda-focus-ring")
+    expect(ring).toHaveStyle({ width: "var(--fc-space-focus-ring)" })
+    const svg = ring.querySelector("svg")
+    expect(svg).toHaveAttribute("width", "96")
+    expect(svg).toHaveAttribute("height", "96")
+  })
+
+  it("shows an Overlaps chip when the item has conflicts", () => {
+    renderCard(
+      item({
+        id: "overlap",
+        title: "Practice",
+        uncoveredKidIds: [],
+        conflicts: [
+          {
+            type: "KID_TIME_OVERLAP",
+            kidId: "k1",
+            adultId: null,
+            adultDisplayName: null,
+            otherSource: "MANUAL",
+            otherItemId: "e2",
+            otherTitle: "Other",
+            otherStartsAt: "2030-08-15T18:00:00.000Z",
+          },
+        ],
+      }),
+    )
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Overlaps")).toBeInTheDocument()
+  })
+})
+
 describe("AgendaFocusCard hero surface", () => {
   it("uses heroSurface for an uncovered/urgent item", () => {
     renderCard(
@@ -82,7 +122,7 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-urgent")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
-    expect(screen.getByText("Needs coverage: Sam")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Needs coverage")).toBeInTheDocument()
   })
 
   it("uses surfaceRaised for a resolved all-set item", () => {
@@ -104,7 +144,8 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-calm")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
-    expect(screen.getByText("All set")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering: Alex")
   })
 
   it("uses heroSurface when pending coverage confirm is for the signed-in adult", () => {
@@ -127,6 +168,7 @@ describe("AgendaFocusCard hero surface", () => {
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-self")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
     expect(screen.queryByText("All set")).not.toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Needs coverage")).toBeInTheDocument()
   })
 
   it("uses surfaceRaised when pending coverage confirm is for someone else", () => {
@@ -148,7 +190,8 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-other")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
-    expect(screen.getByText("All set")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("All set")).toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
   })
 
   it("applies the display font to the hero title", () => {

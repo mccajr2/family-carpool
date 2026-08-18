@@ -64,11 +64,12 @@ defeat the point of a focus treatment.
 Reuses the same five bands, same data, same handlers as a normal Agenda item
 — this is a **visual promotion**, not new functionality:
 
-- Primary: time range, title, one-line kid context.
-- Status: a single status line — conflict/needs-coverage copy (accent =
-  `danger` role) when the item **needs a decision** (including pending confirm
-  for self — use the urgent surface, not "All set"), or "all set" copy (accent =
-  `success` role) when fully resolved.
+- **Header (Calendar mock):** primary column (when, title, optional location) and
+  an isolated ring column (token-sized countdown). When there is confirmed
+  coverage, **`Covering: {name}`** sits under the ring. Status is shown as
+  compact uppercase chips (`Overlaps`, `Needs coverage`, `Confirmed` / `All set`)
+  — same visual language as collapsed `AgendaRow` tags via `agendaStatusChip.tsx`.
+  Conflict detail lines stay in the body, not as the only header status.
 - Travel/origin, People/RSVP, Coverage/actions: same field rows and controls
   as flat rows, just inside the card body.
 - Manual actions: same Edit/Remove, inside the card.
