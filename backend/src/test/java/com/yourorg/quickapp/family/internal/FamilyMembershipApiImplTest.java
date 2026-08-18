@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyCircleName;
+import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyRole;
 import java.time.Instant;
 import java.util.List;
@@ -89,6 +90,34 @@ class FamilyMembershipApiImplTest {
     }
 
     @Test
+    void findKidsReturnsDisplayNamesInRequestedOrderAndSkipsUnknown() {
+        UUID otherCircle = UUID.fromString("01900000-0000-7000-8000-000000000012");
+        UUID samId = UUID.fromString("01900000-0000-7000-8000-000000000021");
+        UUID jordanId = UUID.fromString("01900000-0000-7000-8000-000000000022");
+        UUID otherKidId = UUID.fromString("01900000-0000-7000-8000-000000000023");
+        FamilyKidEntity sam = kid(samId, namedId, "Sam");
+        FamilyKidEntity jordan = kid(jordanId, namedId, "Jordan");
+        FamilyKidEntity other = kid(otherKidId, otherCircle, "Other");
+        when(kids.findAllById(List.of(jordanId, missingId, samId, otherKidId)))
+                .thenReturn(List.of(sam, jordan, other));
+
+        List<FamilyKidName> found =
+                api.findKids(
+                        namedId, List.of(jordanId, missingId, samId, jordanId, otherKidId));
+
+        assertThat(found)
+                .containsExactly(new FamilyKidName(jordanId, "Jordan"), new FamilyKidName(samId, "Sam"));
+        verify(kids).findAllById(List.of(jordanId, missingId, samId, otherKidId));
+    }
+
+    @Test
+    void findKidsEmptyWhenNullCircleOrEmptyIds() {
+        assertThat(api.findKids(null, List.of(namedId))).isEmpty();
+        assertThat(api.findKids(namedId, null)).isEmpty();
+        assertThat(api.findKids(namedId, List.of())).isEmpty();
+    }
+
+    @Test
     void requireMemberRoleReturnsOrganizerAndCaregiver() {
         UUID adultId = UUID.fromString("01900000-0000-7000-8000-000000000001");
         FamilyMembershipEntity organizer =
@@ -117,5 +146,9 @@ class FamilyMembershipApiImplTest {
 
     private static FamilyCircleEntity circle(UUID id, String name) {
         return new FamilyCircleEntity(id, name, "AB12CD34", Instant.parse("2026-08-01T00:00:00Z"));
+    }
+
+    private static FamilyKidEntity kid(UUID id, UUID circleId, String displayName) {
+        return new FamilyKidEntity(id, circleId, displayName, Instant.parse("2026-08-01T00:00:00Z"));
     }
 }

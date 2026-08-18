@@ -2,13 +2,12 @@ package com.yourorg.quickapp.family;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
-import com.yourorg.quickapp.auth.AdultSessionApi;
-import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +22,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class FamilyMembershipApiIntegrationTest {
+class FamilyPlaceApiIntegrationTest {
 
     @DynamicPropertySource
     static void datasourceProps(DynamicPropertyRegistry registry) {
@@ -34,114 +33,60 @@ class FamilyMembershipApiIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private FamilyMembershipApi familyMembershipApi;
-
-    @Autowired
-    private AdultSessionApi adultSessionApi;
+    private FamilyPlaceApi familyPlaceApi;
 
     @Test
-    void findCircleNamesAndAdultDisplayNameForCarpoolRendering() throws Exception {
-        String namedToken = signIn("fam-api-named@example.com");
-        String unnamedToken = signIn("fam-api-unnamed@example.com");
-
+    void findPickupPlaceReturnsUnlocatedAddressedPlaceAndPrefersDefault() throws Exception {
+        String token = signIn("fam-place-pickup@example.com");
         mockMvc.perform(
                         post("/api/family/circle")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(namedToken))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         "{\"adultDisplayName\":\"Alex\",\"name\":\"McCarthy house\"}"))
                 .andExpect(status().isCreated());
+        UUID adultId = adultId(token);
 
+        assertThat(familyPlaceApi.findPickupPlaceForMember(adultId)).isEmpty();
+
+        addPlace(token, "Zebra", "Unlocateable Lane");
+        UUID alphaId = addPlace(token, "alpha", "Unlocateable Court");
+
+        CirclePlaceDto fallback = familyPlaceApi.findPickupPlaceForMember(adultId).orElseThrow();
+        assertThat(fallback.id()).isEqualTo(alphaId);
+        assertThat(fallback.address()).isEqualTo("Unlocateable Court");
+        assertThat(fallback.located()).isFalse();
+
+        UUID homeId = addPlace(token, "Home", "123 Main St");
         mockMvc.perform(
-                        post("/api/family/circle")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(unnamedToken))
+                        patch("/api/family/circle/default-leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"adultDisplayName\":\"Jordan\"}"))
-                .andExpect(status().isCreated());
+                                .content("{\"placeId\":\"" + homeId + "\"}"))
+                .andExpect(status().isOk());
 
-        UUID namedCircleId = circleId(namedToken);
-        UUID unnamedCircleId = circleId(unnamedToken);
-        UUID namedAdultId = adultId(namedToken);
-
-        assertThat(familyMembershipApi.findCircle(namedCircleId))
-                .contains(new FamilyCircleName(namedCircleId, "McCarthy house"));
-        assertThat(familyMembershipApi.findCircle(unnamedCircleId))
-                .hasValueSatisfying(
-                        circle -> {
-                            assertThat(circle.id()).isEqualTo(unnamedCircleId);
-                            assertThat(circle.name()).isNull();
-                        });
-        assertThat(familyMembershipApi.findCircle(UUID.randomUUID())).isEmpty();
-
-        assertThat(
-                        familyMembershipApi.findCircles(
-                                List.of(unnamedCircleId, UUID.randomUUID(), namedCircleId)))
-                .extracting(FamilyCircleName::id)
-                .containsExactly(unnamedCircleId, namedCircleId);
-
-        assertThat(adultSessionApi.requireAdult(namedAdultId).displayName()).isEqualTo("Alex");
+        CirclePlaceDto pickup = familyPlaceApi.findPickupPlaceForMember(adultId).orElseThrow();
+        assertThat(pickup.id()).isEqualTo(homeId);
+        assertThat(pickup.address()).isEqualTo("123 Main St");
+        assertThat(pickup.located()).isTrue();
     }
 
-    @Test
-    void findKidsReturnsDisplayNamesForCircleAndSkipsOtherCircle() throws Exception {
-        String namedToken = signIn("fam-api-kids-named@example.com");
-        String otherToken = signIn("fam-api-kids-other@example.com");
-
-        mockMvc.perform(
-                        post("/api/family/circle")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(namedToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"adultDisplayName\":\"Alex\",\"name\":\"McCarthy house\"}"))
-                .andExpect(status().isCreated());
-        mockMvc.perform(
-                        post("/api/family/circle")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(otherToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"adultDisplayName\":\"Jordan\"}"))
-                .andExpect(status().isCreated());
-
-        UUID namedCircleId = circleId(namedToken);
-        UUID samId = addKid(namedToken, "Sam");
-        UUID taylorId = addKid(namedToken, "Taylor");
-        UUID otherKidId = addKid(otherToken, "Other");
-
-        assertThat(
-                        familyMembershipApi.findKids(
-                                namedCircleId,
-                                List.of(taylorId, UUID.randomUUID(), samId, taylorId, otherKidId)))
-                .containsExactly(
-                        new FamilyKidName(taylorId, "Taylor"), new FamilyKidName(samId, "Sam"));
-        assertThat(familyMembershipApi.findKids(namedCircleId, List.of())).isEmpty();
-    }
-
-    private UUID addKid(String accessToken, String displayName) throws Exception {
+    private UUID addPlace(String accessToken, String name, String address) throws Exception {
         return UUID.fromString(
                 JsonPath.read(
                         mockMvc.perform(
-                                        post("/api/family/circle/kids")
+                                        post("/api/family/circle/places")
                                                 .header(
                                                         HttpHeaders.AUTHORIZATION,
                                                         bearer(accessToken))
                                                 .contentType(MediaType.APPLICATION_JSON)
                                                 .content(
-                                                        "{\"displayName\":\"" + displayName + "\"}"))
+                                                        "{\"name\":\""
+                                                                + name
+                                                                + "\",\"address\":\""
+                                                                + address
+                                                                + "\"}"))
                                 .andExpect(status().isCreated())
-                                .andReturn()
-                                .getResponse()
-                                .getContentAsString(),
-                        "$.id"));
-    }
-
-    private UUID circleId(String accessToken) throws Exception {
-        return UUID.fromString(
-                JsonPath.read(
-                        mockMvc.perform(
-                                        get("/api/family/circle")
-                                                .header(
-                                                        HttpHeaders.AUTHORIZATION,
-                                                        bearer(accessToken)))
-                                .andExpect(status().isOk())
                                 .andReturn()
                                 .getResponse()
                                 .getContentAsString(),

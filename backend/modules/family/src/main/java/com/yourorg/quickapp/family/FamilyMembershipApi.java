@@ -52,4 +52,10 @@ public interface FamilyMembershipApi {
      * Order follows {@code circleIds} (duplicates collapsed).
      */
     List<FamilyCircleName> findCircles(Collection<UUID> circleIds);
+
+    /**
+     * Kid display names in this circle. Skips unknown ids and kids that belong
+     * to another circle. Order follows {@code kidIds} (duplicates collapsed).
+     */
+    List<FamilyKidName> findKids(UUID circleId, Collection<UUID> kidIds);
 }

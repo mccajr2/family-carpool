@@ -160,14 +160,96 @@ class FamilyPlaceApiImplTest {
         assertThat(api.findDefaultLeaveFromForMember(adultId)).isEmpty();
     }
 
+    @Test
+    void findPickupPlaceForMemberUsesUnlocatedDefaultWhenItHasAddress() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership = membershipWithDefault(placeId);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByIdAndCircleId(placeId, circleId))
+                .thenReturn(Optional.of(place(placeId, "Home", "12 Oak St", null, null)));
+
+        Optional<CirclePlaceDto> result = api.findPickupPlaceForMember(adultId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().id()).isEqualTo(placeId);
+        assertThat(result.get().address()).isEqualTo("12 Oak St");
+        assertThat(result.get().located()).isFalse();
+    }
+
+    @Test
+    void findPickupPlaceForMemberFallsBackToNameSortedAddressedPlace() {
+        UUID zebraId = UUID.fromString("01900000-0000-7000-8000-000000000032");
+        UUID alphaId = UUID.fromString("01900000-0000-7000-8000-000000000033");
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership = membershipWithDefault(null);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                place(zebraId, "Zebra", "9 Z St", null, null),
+                                place(UUID.randomUUID(), "Blank", "  ", 1.0, 2.0),
+                                place(alphaId, "alpha", "1 A St", null, null)));
+
+        Optional<CirclePlaceDto> result = api.findPickupPlaceForMember(adultId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().id()).isEqualTo(alphaId);
+        assertThat(result.get().name()).isEqualTo("alpha");
+        assertThat(result.get().located()).isFalse();
+    }
+
+    @Test
+    void findPickupPlaceForMemberSkipsDefaultWithoutAddress() {
+        UUID fallbackId = UUID.fromString("01900000-0000-7000-8000-000000000034");
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership = membershipWithDefault(placeId);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByIdAndCircleId(placeId, circleId))
+                .thenReturn(Optional.of(place(placeId, "Home", "", 42.0, -71.0)));
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(List.of(place(fallbackId, "Barn", "4 Field Rd", null, null)));
+
+        Optional<CirclePlaceDto> result = api.findPickupPlaceForMember(adultId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().id()).isEqualTo(fallbackId);
+    }
+
+    @Test
+    void findPickupPlaceForMemberEmptyWhenNoAddressedPlace() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        FamilyMembershipEntity membership = membershipWithDefault(null);
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(places.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(List.of(place(placeId, "Home", "   ", null, null)));
+
+        assertThat(api.findPickupPlaceForMember(adultId)).isEmpty();
+    }
+
+    private FamilyMembershipEntity membershipWithDefault(UUID defaultPlaceId) {
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(),
+                        circleId,
+                        adultId,
+                        com.yourorg.quickapp.family.FamilyRole.ORGANIZER,
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        membership.setDefaultLeaveFromPlaceId(defaultPlaceId);
+        return membership;
+    }
+
     private FamilyPlaceEntity place(UUID id, String name, Double lat, Double lng) {
+        return place(id, name, "1 Main St", lat, lng);
+    }
+
+    private FamilyPlaceEntity place(UUID id, String name, String address, Double lat, Double lng) {
         FamilyPlaceEntity entity =
                 new FamilyPlaceEntity(
                         id,
                         circleId,
                         name,
                         name.toLowerCase(),
-                        "1 Main St",
+                        address,
                         Instant.parse("2026-08-01T00:00:00Z"));
         entity.setCoordinates(lat, lng);
         return entity;
