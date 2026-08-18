@@ -33,5 +33,6 @@ Same filter and expand/collapse handlers — presentation only.
 
 - Intake: Calendar light screenshot, filter chips + Rest of today / Tomorrow
   cards.
-- Existing `AgendaRow` tags stay the source of status meaning; restyle to
-  chips, do not invent new states.
+- Existing `AgendaRow` tags use `agendaItemStatusTags` (`coverageDisplay.ts`)
+  for status meaning; this slice restyles to chips only — do not invent new
+  states or duplicate precedence logic.

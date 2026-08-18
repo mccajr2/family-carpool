@@ -3,9 +3,10 @@ import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
-import { AgendaStatusChip, type AgendaStatusChipTone } from "@/components/agendaStatusChip"
+import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import {
   activeCoverages,
+  agendaItemStatusTags,
   coverageAdultLabel,
   eventKidNames,
   memberLabel,
@@ -48,27 +49,8 @@ function minutesUntil(iso: string | null | undefined): number | null {
   return Math.max(0, Math.round((target - Date.now()) / 60000))
 }
 
-function focusStatusChips(
-  item: CalendarItem,
-  pendingForSelf: ReturnType<typeof pendingCoverageForAdult>,
-): { label: string; tone: AgendaStatusChipTone }[] {
-  const active = activeCoverages(item)
-  const chips: { label: string; tone: AgendaStatusChipTone }[] = []
-  if (item.conflicts.length > 0) {
-    chips.push({ label: "Overlaps", tone: "amber" })
-  }
-  if (item.uncoveredKidIds.length > 0) {
-    chips.push({ label: "Needs coverage", tone: "amber" })
-  } else if (pendingForSelf) {
-    chips.push({ label: "Assigned to you", tone: "amber" })
-  } else if (active.some((c) => c.status === "PENDING")) {
-    chips.push({ label: "Awaiting confirm", tone: "amber" })
-  } else if (active.some((c) => c.status === "CONFIRMED")) {
-    chips.push({ label: "Confirmed", tone: "mint" })
-  } else {
-    chips.push({ label: "All set", tone: "mint" })
-  }
-  return chips
+function focusStatusChips(item: CalendarItem, currentAdultId: string) {
+  return agendaItemStatusTags(item, currentAdultId, { includeAllSet: true })
 }
 
 function focusMetaLine(item: CalendarItem, circle: FamilyCircle): string | null {
@@ -112,7 +94,7 @@ export function AgendaFocusCard({
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const statusChips = focusStatusChips(item, pendingForSelf)
+  const statusChips = focusStatusChips(item, currentAdultId)
   const activeCoverage = active[0]
   const showAssign = item.uncoveredKidIds.length > 0 && circle.members.length > 0 && !pendingForSelf
   const showAssignSelect = showAssign && !assignDraft.soleAdult

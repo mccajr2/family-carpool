@@ -124,6 +124,65 @@ describe("AgendaRow", () => {
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
   })
 
+  it("shows Confirm coverage tag when pending for the signed-in adult", () => {
+    renderRow(
+      item({
+        id: "pending",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+          },
+        ],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-pending")
+    expect(within(row).getByText("Confirm coverage")).toBeInTheDocument()
+    expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
+    expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
+  })
+
+  it("shows Awaiting confirm tag when pending for someone else", () => {
+    const twoAdultCircle: FamilyCircle = {
+      ...circle,
+      members: [
+        { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+        { adultId: "a2", email: "j@example.com", displayName: "Jordan", role: "CAREGIVER" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "waiting",
+          title: "Game",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a2",
+              coveringAdultDisplayName: "Jordan",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "PENDING",
+            },
+          ],
+        })}
+        circle={twoAdultCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: false, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-waiting")
+    expect(within(row).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
+  })
+
   it("toggles expand/collapse per row without affecting other rows", async () => {
     const user = userEvent.setup()
     render(

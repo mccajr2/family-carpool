@@ -201,6 +201,13 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Uncovered kids: **Needs coverage** / **Needs coverage: {names}** (in-play
   only — RSVP No kids are never uncovered).
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
+- **Collapsed status tags** (Focus pills + collapsed `AgendaRow` chips) share
+  one precedence via `agendaItemStatusTags` (`coverageDisplay.ts`):
+  `Overlaps` → `Needs coverage` (uncovered) → **Confirm coverage**
+  (pending-for-self) → **Awaiting confirm** (pending for someone else) →
+  `Confirmed` → `All set` (Focus only). Row tags are uppercase; Focus pills are
+  Title Case with a leading dot. Pending-for-self also drives the row’s red
+  status dot and Focus urgent surface.
 
 ### Assign
 

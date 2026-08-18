@@ -73,9 +73,10 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `location` is shown verbatim (full address until a venue lookup exists).
   Leave-from uses the **place name**, not the street address. No form labels
   (`Leave from`, `Manual`).
-- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Assigned to you`,
+- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Confirm coverage`,
   `Awaiting confirm`, `Confirmed` / `All set`): Title Case with a leading status
-  dot (`focusStatusPill` 12.5/600). **Assigned to you** when coverage is
+  dot (`focusStatusPill` 12.5/600). Same precedence as collapsed rows via
+  `agendaItemStatusTags` in `coverageDisplay.ts`. **Confirm coverage** when
   `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
   someone else; **Needs coverage** only when kids are still uncovered.
   Collapsed `AgendaRow` tags stay uppercase compact chips (`statusChip` 11/700)
