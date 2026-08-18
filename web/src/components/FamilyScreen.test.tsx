@@ -1089,15 +1089,29 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     expect(within(agenda).getByText("Dentist")).toBeInTheDocument()
     expect(within(agenda).getByText("Practice")).toBeInTheDocument()
+    const filter = within(agenda).getByTestId("agenda-kid-filter")
+    const allKids = within(filter).getByRole("button", { name: "All kids" })
+    const riley = within(filter).getByRole("button", { name: "Riley" })
+    expect(allKids).toHaveAttribute("aria-pressed", "true")
+    expect(riley).toHaveAttribute("aria-pressed", "false")
+    expect(allKids.className).toMatch(/--fc-font-filter-chip-size/)
+    expect(filter.className).toMatch(/--fc-space-filter-chip-gap/)
     await expandAgendaItem(user, within(agenda).getByTestId("agenda-item-FEED-f1"))
     expect(within(agenda).getByText("Soccer")).toBeInTheDocument()
     expect(within(agenda).getAllByRole("button", { name: "Edit" })).toHaveLength(1)
     expect(within(agenda).queryByRole("button", { name: "Remove event" })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Riley" }))
+    await user.click(riley)
+    expect(riley).toHaveAttribute("aria-pressed", "true")
+    expect(allKids).toHaveAttribute("aria-pressed", "false")
     expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     expect(within(agenda).getByText("Practice")).toBeInTheDocument()
     expect(within(agenda).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument()
+
+    await user.click(allKids)
+    expect(allKids).toHaveAttribute("aria-pressed", "true")
+    expect(within(agenda).getByText("Dentist")).toBeInTheDocument()
+    expect(within(agenda).getByText("Practice")).toBeInTheDocument()
   })
 
   it("shows not located and retries locate", async () => {
@@ -2502,6 +2516,12 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     expect(agenda.className).toContain("--fc-space-xl")
     expect(within(agenda).getByTestId("agenda-kid-filter")).toBeInTheDocument()
+    const filter = within(agenda).getByTestId("agenda-kid-filter")
+    expect(filter.className).toMatch(/--fc-space-filter-chip-gap/)
+    expect(within(filter).getByRole("button", { name: "All kids" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
     expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
     expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")

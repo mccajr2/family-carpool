@@ -1,8 +1,10 @@
 import { useState } from "react"
 import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
+import { accountInitials } from "@/components/accountInitials"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { Button } from "@/components/ui/button"
+import { resolveSemanticIcon } from "@/components/uiIcons"
 import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
@@ -13,7 +15,6 @@ import {
 } from "@/components/rsvpDisplay"
 import {
   activeCoverages,
-  agendaItemNeedsAttention,
   agendaItemStatusTags,
   calendarSourceLabel,
   coverageAdultLabel,
@@ -23,6 +24,30 @@ import {
   memberLabel,
   pendingCoverageForAdult,
 } from "@/components/coverageDisplay"
+
+const RowChevron = resolveSemanticIcon("icon.chevron")
+
+function confirmedCoveringAvatars(
+  item: CalendarItem,
+  circle: FamilyCircle,
+  outOfPlay: boolean,
+): { adultId: string; name: string; initials: string }[] {
+  if (outOfPlay) {
+    return []
+  }
+  return activeCoverages(item)
+    .filter((coverage) => coverage.status === "CONFIRMED")
+    .slice(0, 2)
+    .map((coverage) => {
+      const name = coverageAdultLabel(coverage, circle.members)
+      const member = circle.members.find((m) => m.adultId === coverage.coveringAdultId)
+      return {
+        adultId: coverage.coveringAdultId,
+        name,
+        initials: accountInitials(name, member?.email ?? ""),
+      }
+    })
+}
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -45,14 +70,13 @@ type AgendaRowProps = {
   onRemoveEvent: () => void
 }
 
-type Tag = { label: string; tone: "mint" | "amber" | "muted" }
-
 /**
  * Redesigned flat Agenda row: collapsed by default (title, time, status
- * dot, up to 2 tags), tap/click to expand the same field-row bands as
- * AgendaFocusCard (leave-from, per-kid RSVP, coverage, manual actions).
- * Out-of-play items (every kid RSVP No) render muted and start collapsed
- * with no auto-expand affordance beyond the summary + "Not going" tag.
+ * pills, covering avatars, chevron), tap/click to expand the same field-row
+ * bands as AgendaFocusCard (leave-from, per-kid RSVP, coverage, manual
+ * actions). Out-of-play items (every kid RSVP No) render muted and start
+ * collapsed with no auto-expand affordance beyond the summary + "Not going"
+ * pill.
  *
  * Title and time wrap — do not add `truncate` / `whitespace-nowrap`. Ellipsis
  * here sets the page-frame grid item's min-content to ~820px, so Calendar's
@@ -85,22 +109,17 @@ export function AgendaRow({
   const [open, setOpen] = useState(false)
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
-  const needsAttention = agendaItemNeedsAttention(item, currentAdultId, outOfPlay)
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
-
-  const statusDot = outOfPlay ? "off" : needsAttention ? "needs" : "confirmed"
-
-  const tags: Tag[] = agendaItemStatusTags(item, currentAdultId, { outOfPlay })
-
-  const dotToneClass: Record<string, string> = {
-    confirmed: "bg-[var(--fc-success)]",
-    needs: "bg-[var(--fc-danger)]",
-    off: "bg-[var(--fc-text-secondary)]",
-  }
+  const tags = agendaItemStatusTags(item, currentAdultId, { outOfPlay })
+  const coveringAvatars = confirmedCoveringAvatars(item, circle, outOfPlay)
+  const coveringLabel =
+    coveringAvatars.length > 0
+      ? `Covering: ${coveringAvatars.map((adult) => adult.name).join(", ")}`
+      : undefined
 
   return (
     <div
@@ -111,11 +130,10 @@ export function AgendaRow({
       <div data-testid="agenda-band-primary">
       <button
         type="button"
-        className="flex min-w-0 w-full items-center gap-[var(--fc-space-md)] text-left"
+        className="flex min-w-0 w-full items-center gap-[var(--fc-space-list-row-gap)] text-left"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className={`h-[9px] w-[9px] flex-shrink-0 rounded-full ${dotToneClass[statusDot]}`} />
         <span className="min-w-0 flex-1">
           <span
             className={`fc-display block text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
@@ -128,18 +146,49 @@ export function AgendaRow({
           </span>
         </span>
         {tags.length > 0 ? (
-          <span className="flex flex-shrink-0 gap-[var(--fc-space-xs)]">
+          <span className="flex flex-shrink-0 gap-[var(--fc-space-list-row-tag-gap)]">
             {tags.map((tag) => (
-              <AgendaStatusChip key={tag.label} label={tag.label} tone={tag.tone} />
+              <AgendaStatusChip
+                key={tag.label}
+                label={tag.label}
+                tone={tag.tone}
+                appearance="pill"
+              />
             ))}
           </span>
         ) : null}
-        <span
+        {coveringAvatars.length > 0 ? (
+          <span
+            className="flex flex-shrink-0"
+            data-testid="agenda-row-covering-avatars"
+            aria-label={coveringLabel}
+          >
+            {coveringAvatars.map((adult, index) => (
+              <span
+                key={adult.adultId}
+                aria-hidden
+                className="flex shrink-0 items-center justify-center rounded-full border-[length:var(--fc-space-list-row-avatar-border)] border-[var(--fc-surface-raised)] bg-[color-mix(in_srgb,var(--fc-accent)_14%,transparent)] font-[family-name:var(--fc-font-family-display)] text-[length:var(--fc-font-list-row-avatar-label-size)] leading-[var(--fc-font-list-row-avatar-label-line)] font-[number:var(--fc-font-list-row-avatar-label-weight)] text-[var(--fc-accent)]"
+                style={{
+                  width: "var(--fc-space-list-row-avatar)",
+                  height: "var(--fc-space-list-row-avatar)",
+                  marginLeft: index === 0 ? undefined : "calc(var(--fc-space-list-row-avatar-overlap) * -1)",
+                }}
+              >
+                {adult.initials}
+              </span>
+            ))}
+          </span>
+        ) : null}
+        <RowChevron
+          aria-hidden
+          data-testid="agenda-row-chevron"
           className="flex-shrink-0 text-[var(--fc-text-secondary)] transition-transform"
-          style={{ transform: open ? "rotate(90deg)" : undefined }}
-        >
-          ›
-        </span>
+          style={{
+            width: "var(--fc-font-list-row-chevron-size)",
+            height: "var(--fc-font-list-row-chevron-size)",
+            transform: open ? "rotate(90deg)" : undefined,
+          }}
+        />
       </button>
       </div>
 

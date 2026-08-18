@@ -105,6 +105,19 @@ column (`docs/agenda-full-redesign-addendum.md`).
 
 Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 
+## Context
+
+Allowlist for `/implement` — do not load the rest of `docs/`.
+
+- Design: [`docs/ui-system.md`](../../ui-system.md) (mocks → tokens)
+- Coverage / status labels: [`docs/agenda-coverage-web-contract.md`](../../agenda-coverage-web-contract.md)
+  (filter chrome + `agendaItemStatusTags` precedence — do not invent labels)
+- List wrap / no truncate: [`docs/agenda-full-redesign-addendum.md`](../../agenda-full-redesign-addendum.md)
+- Source: `web/src/components/FamilyScreen.tsx`, `AgendaRow.tsx`,
+  `agendaStatusChip.tsx`, `AgendaKidFilterChip.tsx`, `coverageDisplay.ts`
+- Pill API already on `main` via #52 — read `agendaStatusChip.tsx`, not the
+  archived polish spec, unless the component is unclear
+
 ## Acceptance criteria
 
 - [ ] Kid filter renders as mock-aligned **chips**, not shadcn Buttons; selecting
@@ -129,11 +142,11 @@ Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 - [x] **Tokens:** measure Calendar light filter row + collapsed list cards; add
       `filterChip*` and `listRowAvatar*` (and pill spacing if list pills ≠ Focus
       pills); regenerate + WCAG AA on new text/fill pairings.
-- [ ] **Web:** `AgendaKidFilterChip` + swap filter row in `FamilyScreen.tsx`.
-- [ ] **Web:** `AgendaRow.tsx` collapsed summary — switch to
+- [x] **Web:** `AgendaKidFilterChip` + swap filter row in `FamilyScreen.tsx`.
+- [x] **Web:** `AgendaRow.tsx` collapsed summary — switch to
       `AgendaStatusChip` `appearance="pill"`, add avatars + chevron; remove 9px
       dot and default (`tag`) chip styling.
-- [ ] **Tests:** update `AgendaRow.test.tsx` (pill not uppercase; confirm/await
+- [x] **Tests:** update `AgendaRow.test.tsx` (pill not uppercase; confirm/await
       tags; avatar when confirmed); `FamilyScreen.test.tsx` kid-filter cases;
       chip/avatar unit tests as needed.
 - [ ] **Docs:** touch `docs/agenda-coverage-web-contract.md` Layout filter bullet
