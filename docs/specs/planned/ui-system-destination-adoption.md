@@ -1,14 +1,13 @@
 # Spec stub: ui-system-destination-adoption
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-10  
 Added: 2026-08-10 · note carried from cross-platform-ui-system approval
 
-Thin stub from `/roadmap`. **Not implementable as one mega-PR.** When a
-destination is ready to adopt shared tokens, run `/spec` for a
-**per-destination** slice (or `/roadmap` **split** into Calendar / Family /
-Carpool / …). Do not grow this stub into a single restyle-everything spec.
+Thin stub from `/roadmap`. **Not implementable as one mega-PR.** Parked until
+web carpool is dogfoodable. When a destination is ready to adopt shared tokens,
+promote with `/roadmap`, then `/spec` for a **per-destination** slice.
 
 ## Problem
 

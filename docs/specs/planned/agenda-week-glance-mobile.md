@@ -1,12 +1,12 @@
 # Spec stub: agenda-week-glance-mobile
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-17  
 Added: 2026-08-17 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec agenda-week-glance-mobile`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Thin stub from `/roadmap`. **Not implementable yet.** Parked until web
+carpool is dogfoodable. Promote with `/roadmap`, then `/spec agenda-week-glance-mobile`.
 
 If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
 (`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
@@ -25,6 +25,6 @@ equivalent, so “is this day OK?” will exist only on web.
 
 ## Notes
 
-- Depends on shipped [`agenda-week-glance`](../active/agenda-week-glance.md).
+- Depends on shipped [`agenda-week-glance`](../archive/agenda-week-glance.md).
 - Native chrome OK (compact strip, sheet, or section — not a forced
   three-column layout). Copy and day-status meaning must match web.

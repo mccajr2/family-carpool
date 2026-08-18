@@ -1,12 +1,12 @@
 # Spec stub: feeds-page-redesign-mobile
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-15  
 Added: 2026-08-15 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec feeds-page-redesign-mobile`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Thin stub from `/roadmap`. **Not implementable yet.** Parked until web
+carpool is dogfoodable. Promote with `/roadmap`, then `/spec feeds-page-redesign-mobile`.
 
 If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
 (`Added: … · re-rank split`) — do not grow this stub into a mega-spec.

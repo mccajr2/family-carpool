@@ -31,13 +31,15 @@ available seats after family occupants + accepted riders.
 ## Notes
 
 - Depends on `team-carpool-space-invite` + `garage-vehicles`.
+- **Web first** — Android/iOS is parked
+  [`carpool-request-accept-mobile`](carpool-request-accept-mobile.md).
 - Request/accept only — explicit confirms over automation.
 - v1 is **both legs** (to and from) and **pickup at the requester’s house**.
 - One-or-more kids is this slice (default all attending; deselect override) —
   do not reopen that in the parked richer-request items.
 - Before exposing teammate pickup addresses, consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)`.
-- Focus-card ride accept/decline ranking is **not** this slice — parked
+- Focus-card ride accept/decline ranking is **not** this slice — Upcoming
   [`agenda-focus-carpool-actions`](agenda-focus-carpool-actions.md) after this
   ships.
 - Standing Tuesday-style rotations are **not** this slice —

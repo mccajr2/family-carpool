@@ -31,6 +31,7 @@ stays.
 
 - Depends on `carpool-request-accept` + `manual-event-team-link` (team
   event to attach the rotation to) + existing RSVP.
+- **Web first** — same client-ship-order lock as `carpool-request-accept`.
 - Happy-path rotation only: who drives which week, occupancy from RSVP Yes.
 - Gap-fill when it is that family’s turn and they cannot drive is a
   **separate** parked slice — do not invent shift vs double-duty here.

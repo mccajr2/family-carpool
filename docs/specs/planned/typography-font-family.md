@@ -1,12 +1,13 @@
 # Spec stub: typography-font-family
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
 Added: 2026-08-14 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec typography-font-family`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Thin stub from `/roadmap`. **Not implementable yet.** Parked with mobile
+design work until web carpool is dogfoodable. Promote with `/roadmap`, then
+`/spec typography-font-family`.
 
 If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
 (`Added: … · re-rank split`) — do not grow this stub into a mega-spec.

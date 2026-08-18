@@ -1,12 +1,12 @@
 # Spec stub: family-calendar-grid
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-10  
 Added: 2026-08-10 · re-rank split
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec family-calendar-grid`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Thin stub from `/roadmap`. **Not implementable yet.** Parked (design surface)
+until web carpool is dogfoodable. Promote with `/roadmap`, then `/spec family-calendar-grid`.
 
 If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
 (`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
@@ -16,7 +16,7 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 Agenda shows what’s next, but adults also expect an **iOS-style month/week
 calendar grid** to scan the month, jump by day, and see density of activities
 across kids. This is **not** the five-day status strip
-([`agenda-week-glance`](../active/agenda-week-glance.md)).
+([`agenda-week-glance`](../archive/agenda-week-glance.md)).
 
 ## Non-goals (sketch)
 
