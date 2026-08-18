@@ -32,5 +32,7 @@ that match **who is covering whom**, not a single shared origin on the event.
   leave-from (likely on the responsibility row) and keep sensible fallbacks for
   uncovered kids / before assign.
 - UI: field-row Leave from may move from the event chrome onto (or beside) each
-  active coverage, or stay item-level as fallback — decide at `/spec`.
+  active coverage, or stay item-level as fallback — decide at `/spec`. Put that
+  chrome on **expanded `AgendaRow`**, not the slim Focus card
+  ([`docs/agenda-focus-card-addendum.md`](../../agenda-focus-card-addendum.md)).
 - Prefer one vertical PR: API + leave-by computation + Agenda (web/Android/iOS).

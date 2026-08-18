@@ -7,6 +7,7 @@ import {
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
   formatEventWhen,
+  formatFocusEventWhen,
   formatIsoForDisplay,
   formatLocalTodayLabel,
   LEAVE_BY_NEAR_TERM_DAYS,
@@ -52,6 +53,24 @@ describe("formatIsoForDisplay", () => {
     expect(formatEventWhen("2026-08-12T16:30:00Z", "2026-08-12T21:30:00Z")).toMatch(
       /Aug 12, 2026 at .+ → Aug 12, 2026 at .+/,
     )
+  })
+})
+
+describe("formatFocusEventWhen", () => {
+  const now = new Date(2026, 7, 17, 12, 0, 0)
+
+  it("uses a compact time range with no date when the event is today", () => {
+    const start = new Date(2026, 7, 17, 12, 20).toISOString()
+    const end = new Date(2026, 7, 17, 18, 20).toISOString()
+    expect(formatFocusEventWhen(start, end, now)).toMatch(/^\d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M$/)
+    expect(formatFocusEventWhen(start, end, now)).not.toMatch(/2026/)
+    expect(formatFocusEventWhen(start, end, now)).not.toContain("→")
+  })
+
+  it("prefixes a short date when the event is not today", () => {
+    const start = new Date(2026, 7, 21, 17, 30).toISOString()
+    const end = new Date(2026, 7, 21, 18, 30).toISOString()
+    expect(formatFocusEventWhen(start, end, now)).toMatch(/Aug 21, \d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M/)
   })
 })
 

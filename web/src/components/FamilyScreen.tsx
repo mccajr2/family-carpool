@@ -241,6 +241,7 @@ export function FamilyScreen({
   const [editingEventEndsAt, setEditingEventEndsAt] = useState("")
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
+  const [editingEventLeaveFromPlaceId, setEditingEventLeaveFromPlaceId] = useState("")
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
     null,
@@ -1234,6 +1235,18 @@ export function FamilyScreen({
         endsAt,
         editingEventLocation.trim() ? editingEventLocation.trim() : null,
       )
+      const originalItem = calendarItems.find(
+        (row) => row.source === "MANUAL" && row.id === eventId,
+      )
+      if (
+        originalItem &&
+        editingEventLeaveFromPlaceId &&
+        editingEventLeaveFromPlaceId !== (originalItem.leaveFromPlaceId ?? "")
+      ) {
+        await familyClient.setCalendarLeaveFrom(token, "MANUAL", eventId, {
+          leaveFromPlaceId: editingEventLeaveFromPlaceId,
+        })
+      }
       const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
       setCalendarLoadedTo(nextTo)
       await reloadCalendar(token, nextTo)
@@ -1243,6 +1256,7 @@ export function FamilyScreen({
       setEditingEventEndsAt("")
       setEditingEventLocation("")
       setEditingEventKidIds([])
+      setEditingEventLeaveFromPlaceId("")
       setEventComposeOpen(false)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1259,6 +1273,8 @@ export function FamilyScreen({
       const token = await requireToken()
       await familyClient.deleteEvent(token, eventId)
       await reloadCalendar(token)
+      setEventComposeOpen(false)
+      setEditingEventId(null)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -1367,6 +1383,34 @@ export function FamilyScreen({
         delete next[itemKey]
         return next
       })
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({ kind: "idle" })
+      setCoverageActionError(
+        itemKey,
+        error instanceof Error
+          ? coverageDoubleBookMessage(error.message)
+          : "Something went wrong",
+      )
+    }
+  }
+
+  async function onReassignCoverage(
+    item: CalendarItem,
+    assignmentId: string,
+    coveringAdultId: string,
+    kidIds: string[],
+  ) {
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.reassignCalendarCoverage(token, assignmentId, {
+        coveringAdultId,
+        kidIds,
+      })
+      replaceCalendarItem(updated)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({ kind: "idle" })
@@ -1494,6 +1538,7 @@ export function FamilyScreen({
     setEditingEventEndsAt(item.endsAt ? toDatetimeLocalValue(item.endsAt) : "")
     setEditingEventLocation(item.location ?? "")
     setEditingEventKidIds([...item.kidIds])
+    setEditingEventLeaveFromPlaceId(item.leaveFromPlaceId ?? "")
     setEventComposeOpen(true)
   }
 
@@ -1716,6 +1761,10 @@ export function FamilyScreen({
   const focusItem = selectFocusItem(visibleCalendarItems, new Date(), adult?.id ?? "")
   const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
+  const editingCalendarItem =
+    editingEventId != null
+      ? calendarItems.find((row) => row.source === "MANUAL" && row.id === editingEventId)
+      : undefined
   const carpoolAccessToken = session.getAccessToken()
 
   const contentTitle =
@@ -1743,7 +1792,7 @@ export function FamilyScreen({
     >
       <aside
         aria-label="App navigation"
-        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] px-[var(--fc-space-railX)] py-[var(--fc-space-railY)] text-[var(--fc-rail-on)]"
+        className="sticky top-0 flex h-svh w-60 shrink-0 flex-col gap-[var(--fc-space-lg)] bg-[var(--fc-rail-surface)] px-[var(--fc-space-rail-x)] py-[var(--fc-space-rail-y)] text-[var(--fc-rail-on)]"
       >
         <div
           aria-label="Wordmark"
@@ -1830,7 +1879,7 @@ export function FamilyScreen({
         </section>
       </aside>
 
-      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-mainX)] py-[var(--fc-space-mainY)] [&>header+*]:!mt-0">
+      <main className="max-w-[820px] space-y-4 px-[var(--fc-space-main-x)] py-[var(--fc-space-main-y)] [&>header+*]:!mt-0">
         <header
           className={
             destination === "calendar"
@@ -1866,6 +1915,7 @@ export function FamilyScreen({
                 setEditingEventEndsAt("")
                 setEditingEventLocation("")
                 setEditingEventKidIds([])
+                setEditingEventLeaveFromPlaceId("")
                 setNewEventTitle("")
                 setNewEventStartsAt(defaultNewEventStartsLocal())
                 setNewEventEndsAt("")
@@ -2293,24 +2343,18 @@ export function FamilyScreen({
                   onAssignCoverage={(coveringAdultId, kidIds) =>
                     void onAssignCoverage(focusItem, coveringAdultId, kidIds)
                   }
+                  onReassignCoverage={(assignmentId, coveringAdultId, kidIds) =>
+                    void onReassignCoverage(focusItem, assignmentId, coveringAdultId, kidIds)
+                  }
                   onConfirmCoverage={(assignmentId) =>
                     void onConfirmCoverage(focusItem, assignmentId)
                   }
                   onDeclineCoverage={(assignmentId) =>
                     void onDeclineCoverage(assignmentId)
                   }
-                  onRemoveCoverage={(assignmentId) =>
-                    void onRemoveCoverage(assignmentId)
-                  }
-                  onSetLeaveFrom={(placeId) =>
-                    void onSetCalendarLeaveFrom(focusItem, placeId)
-                  }
-                  onSetRsvp={(kidId, rsvpStatus) =>
-                    void onSetCalendarRsvp(focusItem, kidId, rsvpStatus)
-                  }
+                  onRemoveCoverage={(assignmentId) => void onRemoveCoverage(assignmentId)}
                   onOpenPlaces={() => setDestination("places")}
                   onEdit={() => openEditEvent(focusItem)}
-                  onRemoveEvent={() => void onRemoveEvent(focusItem.id)}
                 />
               ) : null}
               {restItems.length > 0 ? (
@@ -2463,6 +2507,40 @@ export function FamilyScreen({
                     placeholder="Location (optional)"
                     disabled={status.kind === "loading"}
                   />
+                  <FieldRow label="Leave from">
+                    {locatedPlaces.length <= 1 ? (
+                      <span className="text-sm font-medium">
+                        {editingCalendarItem?.leaveFromPlaceName ??
+                          locatedPlaces[0]?.name ??
+                          (circle.places.length === 0
+                            ? "No places yet"
+                            : "No located places yet")}
+                      </span>
+                    ) : (
+                      <select
+                        aria-label="Leave from for event"
+                        className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                        value={editingEventLeaveFromPlaceId}
+                        onChange={(e) => setEditingEventLeaveFromPlaceId(e.target.value)}
+                        disabled={status.kind === "loading"}
+                      >
+                        {!editingEventLeaveFromPlaceId ? (
+                          <option value="">Choose a located place</option>
+                        ) : null}
+                        {circle.places.map((place) => (
+                          <option
+                            key={place.id}
+                            value={place.id}
+                            disabled={!isPlaceLocated(place)}
+                          >
+                            {isPlaceLocated(place)
+                              ? place.name
+                              : `${place.name} (not located)`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </FieldRow>
                   {circle.kids.length > 0 ? (
                     <fieldset className="flex flex-col gap-1">
                       <legend className="text-xs text-muted-foreground">Kids on event</legend>
@@ -2526,10 +2604,19 @@ export function FamilyScreen({
                         setEditingEventEndsAt("")
                         setEditingEventLocation("")
                         setEditingEventKidIds([])
+                        setEditingEventLeaveFromPlaceId("")
                       }}
                       disabled={status.kind === "loading"}
                     >
                       Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void onRemoveEvent(editingEventId)}
+                      disabled={status.kind === "loading"}
+                    >
+                      Remove event
                     </Button>
                   </div>
                 </>

@@ -126,7 +126,7 @@ Regenerate tokens (`node design-tokens/generate.mjs` + `--check`).
 
 ## Tasks
 
-- [ ] **Tokens:** measure Calendar light filter row + collapsed list cards; add
+- [x] **Tokens:** measure Calendar light filter row + collapsed list cards; add
       `filterChip*` and `listRowAvatar*` (and pill spacing if list pills ≠ Focus
       pills); regenerate + WCAG AA on new text/fill pairings.
 - [ ] **Web:** `AgendaKidFilterChip` + swap filter row in `FamilyScreen.tsx`.

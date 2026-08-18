@@ -75,6 +75,16 @@ function railPairings(scheme) {
   ]
 }
 
+/** Kid-filter chips on Calendar Agenda (Calendar light mock .chip / .chip.active). */
+function filterChipPairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    { name: "textSecondary on surfaceRaised (filter chip idle)", fg: c.textSecondary, bg: c.surfaceRaised, min: 4.5 },
+    { name: "accentOn on textPrimary (filter chip selected)", fg: c.accentOn, bg: c.textPrimary, min: 4.5 },
+    { name: "accent on surfaceRaised (row avatar initials)", fg: c.accent, bg: c.surfaceRaised, min: 3 },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
@@ -98,6 +108,16 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Web shell rail* WCAG AA pairings (${scheme})`, () => {
     for (const p of railPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Agenda filter-chip WCAG AA pairings (${scheme})`, () => {
+    for (const p of filterChipPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

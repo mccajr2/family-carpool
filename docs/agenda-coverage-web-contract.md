@@ -39,8 +39,9 @@ Agenda presentation hierarchy is now governed by
 retired.
 
 **Bands, situational primary CTA, and out-of-play rules below still apply**
-inside the expanded `AgendaRow` and on the Focus card — this is a
-presentation change, not a behavior change.
+inside the **expanded** `AgendaRow`. They do **not** apply to the Focus card
+body — Focus is summary + one next action (see
+[`docs/agenda-focus-card-addendum.md`](agenda-focus-card-addendum.md)).
 
 ### Bands (within one Agenda item)
 
@@ -169,8 +170,9 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Manual rows: **Edit** and **Remove event** only (adjacent), in the **Manual
   actions** band — not inside Coverage — so they remain when the row is out of
   play.
-- Do **not** show a separate **Edit location** button — destination / location
-  fixes go through **Edit** (same compose dialog).
+- Destination / location **and per-item leave-from** fixes go through **Edit**
+  (same compose dialog). Leave-from chooser follows the Agenda contract (2+
+  located places); sole located place shows a label only.
 - Leave-by `NO_ORIGIN`: show **Open Places** recovery (navigates to Places).
 - Leave-by unavailable copy stays as leave-by labels (estimate / reason
   strings); no duplicate edit affordance.
@@ -199,6 +201,13 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Uncovered kids: **Needs coverage** / **Needs coverage: {names}** (in-play
   only — RSVP No kids are never uncovered).
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
+- **Collapsed status tags** (Focus pills + collapsed `AgendaRow` chips) share
+  one precedence via `agendaItemStatusTags` (`coverageDisplay.ts`):
+  `Overlaps` → `Needs coverage` (uncovered) → **Confirm coverage**
+  (pending-for-self) → **Awaiting confirm** (pending for someone else) →
+  `Confirmed` → `All set` (Focus only). Row tags are uppercase; Focus pills are
+  Title Case with a leading dot. Pending-for-self also drives the row’s red
+  status dot and Focus urgent surface.
 
 ### Assign
 

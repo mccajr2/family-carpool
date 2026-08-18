@@ -68,6 +68,55 @@ export function formatEventWhen(startsAt: string, endsAt: string | null | undefi
   return start
 }
 
+function formatFocusClock(iso: string): string | null {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+}
+
+function sameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+function formatFocusDayPrefix(date: Date, now: Date): string {
+  if (sameLocalDay(date, now)) {
+    return ""
+  }
+  return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, `
+}
+
+/** Compact Focus when: `5:30 PM – 6:30 PM` today; date prefix when not today. */
+export function formatFocusEventWhen(
+  startsAt: string,
+  endsAt: string | null | undefined,
+  now: Date = new Date(),
+): string {
+  const start = new Date(startsAt)
+  const startClock = formatFocusClock(startsAt)
+  if (!startClock) {
+    return startsAt
+  }
+  const startLabel = `${formatFocusDayPrefix(start, now)}${startClock}`
+  if (!endsAt) {
+    return startLabel
+  }
+  const end = new Date(endsAt)
+  const endClock = formatFocusClock(endsAt)
+  if (!endClock) {
+    return startLabel
+  }
+  const endLabel = sameLocalDay(start, end)
+    ? endClock
+    : `${formatFocusDayPrefix(end, now)}${endClock}`
+  return `${startLabel} – ${endLabel}`
+}
+
 /** Calendar page subtitle: local today, e.g. "Wednesday, August 13" (no year). */
 export function formatLocalTodayLabel(now: Date = new Date()): string {
   return now.toLocaleDateString(undefined, {

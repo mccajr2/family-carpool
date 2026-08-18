@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
+import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { Button } from "@/components/ui/button"
 import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
@@ -12,6 +13,8 @@ import {
 } from "@/components/rsvpDisplay"
 import {
   activeCoverages,
+  agendaItemNeedsAttention,
+  agendaItemStatusTags,
   calendarSourceLabel,
   coverageAdultLabel,
   coverageKidNames,
@@ -42,7 +45,7 @@ type AgendaRowProps = {
   onRemoveEvent: () => void
 }
 
-type Tag = { label: string; tone: "mint" | "amber" | "route" | "muted" }
+type Tag = { label: string; tone: "mint" | "amber" | "muted" }
 
 /**
  * Redesigned flat Agenda row: collapsed by default (title, time, status
@@ -82,30 +85,17 @@ export function AgendaRow({
   const [open, setOpen] = useState(false)
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
-  const needsDecision = !outOfPlay && (item.uncoveredKidIds.length > 0 || item.conflicts.length > 0)
+  const needsAttention = agendaItemNeedsAttention(item, currentAdultId, outOfPlay)
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
 
-  const statusDot = outOfPlay ? "off" : needsDecision ? "needs" : "confirmed"
+  const statusDot = outOfPlay ? "off" : needsAttention ? "needs" : "confirmed"
 
-  const tags: Tag[] = []
-  if (outOfPlay) {
-    tags.push({ label: "Not going", tone: "muted" })
-  } else {
-    if (item.conflicts.length > 0) tags.push({ label: "Overlaps", tone: "amber" })
-    if (item.uncoveredKidIds.length > 0) tags.push({ label: "Needs coverage", tone: "amber" })
-    else if (active.length > 0) tags.push({ label: "Confirmed", tone: "mint" })
-  }
+  const tags: Tag[] = agendaItemStatusTags(item, currentAdultId, { outOfPlay })
 
-  const tagToneClass: Record<Tag["tone"], string> = {
-    mint: "text-[var(--fc-success)] bg-[color-mix(in_srgb,var(--fc-success)_14%,transparent)]",
-    amber: "text-[var(--fc-danger)] bg-[color-mix(in_srgb,var(--fc-danger)_14%,transparent)]",
-    route: "text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_14%,transparent)]",
-    muted: "text-[var(--fc-text-secondary)] bg-[var(--fc-surface)]",
-  }
   const dotToneClass: Record<string, string> = {
     confirmed: "bg-[var(--fc-success)]",
     needs: "bg-[var(--fc-danger)]",
@@ -140,12 +130,7 @@ export function AgendaRow({
         {tags.length > 0 ? (
           <span className="flex flex-shrink-0 gap-[var(--fc-space-xs)]">
             {tags.map((tag) => (
-              <span
-                key={tag.label}
-                className={`rounded-full px-[var(--fc-space-md)] py-[2px] text-[11px] font-bold uppercase tracking-wide ${tagToneClass[tag.tone]}`}
-              >
-                {tag.label}
-              </span>
+              <AgendaStatusChip key={tag.label} label={tag.label} tone={tag.tone} />
             ))}
           </span>
         ) : null}
