@@ -235,7 +235,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] **Backend (`feeds`):** nullable `uid` on `FeedCalendarEventDto`.
 - [x] **Backend (`family`):** kid display-name lookup on `FamilyMembershipApi`;
       pickup-place lookup on `FamilyPlaceApi` (address even if unlocated).
-- [ ] **Backend (`carpool`):** Flyway ride-request table; list/create/accept/
+- [x] **Backend (`carpool`):** Flyway ride-request table; list/create/accept/
       cancel/withdraw; seat math via `FamilyGarageApi` + `RsvpApi`; `rsvp`
       module dependency; no `internal` imports.
 - [ ] **Web:** `carpoolClient` + types; `CarpoolPanel` upcoming rides +
