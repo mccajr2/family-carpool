@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem } from "@/api/types"
+import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
 import {
   agendaDayBucketForStartsAt,
   agendaDayBoundaries,
 } from "@/components/agendaDayGroups"
-import { focusItemNeedsDecision, selectFocusItem } from "@/components/agendaFocusSelection"
+import {
+  focusItemNeedsDecision,
+  focusItemNeedsFamilyDecision,
+  selectFocusItem,
+  type FocusRideOptions,
+} from "@/components/agendaFocusSelection"
 
 function item(
   partial: Pick<CalendarItem, "id" | "startsAt"> &
@@ -55,6 +60,71 @@ const conflict = {
 const now = new Date(2026, 7, 15, 12, 0, 0, 0)
 const adultId = "adult-1"
 
+function rideAsk(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "ask-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidIds: ["k2"],
+    kidFirstNames: ["Mia"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "PENDING",
+    passedByMe: false,
+    acceptedByAdultId: null,
+    acceptingCircleId: null,
+    acceptingCircleName: null,
+    vehicleId: null,
+    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
+  return {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: localIso(2026, 8, 15, 16),
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequest: null,
+    otherRequests: [rideAsk()],
+    ...partial,
+  }
+}
+
+const acceptGarage: Garage = {
+  members: [{ adultId, displayName: "Alex", drives: true }],
+  vehicles: [
+    {
+      id: "v1",
+      ownerAdultId: adultId,
+      driverAdultIds: [adultId],
+      keptAtPlaceId: null,
+      label: "Van",
+      year: 2019,
+      make: "HONDA",
+      model: "Odyssey",
+      seats: 8,
+      suggestedSeats: 8,
+    },
+  ],
+}
+
+function rideOptionsFor(
+  byId: Record<string, CarpoolRideEvent>,
+  garage: Garage | null = acceptGarage,
+): FocusRideOptions {
+  return {
+    rideEventForItem: (row) => byId[row.id] ?? null,
+    garage,
+  }
+}
+
 describe("agendaDayBucketForStartsAt", () => {
   it("matches groupAgendaByDay boundaries", () => {
     const { tomorrowStart, dayAfterTomorrowStart, weekEnd } = agendaDayBoundaries(now)
@@ -84,6 +154,14 @@ describe("focusItemNeedsDecision", () => {
     })
     expect(focusItemNeedsDecision(pending, adultId)).toBe(true)
     expect(focusItemNeedsDecision(pending, "other-adult")).toBe(false)
+  })
+
+  it("includes eligible pending ride accept and excludes own PENDING", () => {
+    const calm = item({ id: "calm", startsAt: localIso(2026, 8, 15, 18) })
+    const ask = rideAsk()
+    expect(focusItemNeedsDecision(calm, adultId, ask)).toBe(true)
+    expect(focusItemNeedsFamilyDecision(calm, adultId)).toBe(false)
+    expect(focusItemNeedsDecision(calm, adultId, null)).toBe(false)
   })
 })
 
@@ -269,5 +347,87 @@ describe("selectFocusItem", () => {
       uncoveredKidIds: ["k1"],
     })
     expect(selectFocusItem([fridayUncovered], now, adultId)?.id).toBe("friday")
+  })
+
+  it("prefers tomorrow eligible ride accept over all-set today", () => {
+    const todayCalm = item({ id: "today", startsAt: localIso(2026, 8, 15, 18) })
+    const tomorrowAsk = item({ id: "tomorrow-ask", startsAt: localIso(2026, 8, 16, 10) })
+    const options = rideOptionsFor({
+      "tomorrow-ask": rideEvent({ otherRequests: [rideAsk({ id: "ask-tmr" })] }),
+    })
+    expect(selectFocusItem([todayCalm, tomorrowAsk], now, adultId, options)?.id).toBe(
+      "tomorrow-ask",
+    )
+  })
+
+  it("does not let rest-of-week ride accept beat all-set today", () => {
+    const todayCalm = item({ id: "today", startsAt: localIso(2026, 8, 15, 18) })
+    const fridayAsk = item({ id: "friday-ask", startsAt: localIso(2026, 8, 21, 10) })
+    const options = rideOptionsFor({
+      "friday-ask": rideEvent({ otherRequests: [rideAsk({ id: "ask-fri" })] }),
+    })
+    expect(selectFocusItem([todayCalm, fridayAsk], now, adultId, options)?.id).toBe("today")
+  })
+
+  it("prefers later uncovered over earlier ride ask today (family-before-community)", () => {
+    const rideAt4 = item({ id: "ride-4", startsAt: localIso(2026, 8, 15, 16) })
+    const uncoveredAt5 = item({
+      id: "uncovered-5",
+      startsAt: localIso(2026, 8, 15, 17),
+      uncoveredKidIds: ["k1"],
+    })
+    const options = rideOptionsFor({
+      "ride-4": rideEvent({ otherRequests: [rideAsk({ id: "ask-4" })] }),
+    })
+    expect(selectFocusItem([rideAt4, uncoveredAt5], now, adultId, options)?.id).toBe(
+      "uncovered-5",
+    )
+  })
+
+  it("prefers earlier uncovered over later ride ask today", () => {
+    const uncoveredAt4 = item({
+      id: "uncovered-4",
+      startsAt: localIso(2026, 8, 15, 16),
+      uncoveredKidIds: ["k1"],
+    })
+    const rideAt5 = item({ id: "ride-5", startsAt: localIso(2026, 8, 15, 17) })
+    const options = rideOptionsFor({
+      "ride-5": rideEvent({ otherRequests: [rideAsk({ id: "ask-5" })] }),
+    })
+    expect(selectFocusItem([uncoveredAt4, rideAt5], now, adultId, options)?.id).toBe(
+      "uncovered-4",
+    )
+  })
+
+  it("selects today eligible ride ask when coverage is all-set", () => {
+    const calmEarly = item({ id: "calm", startsAt: localIso(2026, 8, 15, 15) })
+    const rideAskItem = item({ id: "ride", startsAt: localIso(2026, 8, 15, 16) })
+    const options = rideOptionsFor({
+      ride: rideEvent({ otherRequests: [rideAsk()] }),
+    })
+    expect(selectFocusItem([calmEarly, rideAskItem], now, adultId, options)?.id).toBe("ride")
+  })
+
+  it("does not treat own PENDING ride as a Focus decision", () => {
+    const calmEarly = item({ id: "calm", startsAt: localIso(2026, 8, 15, 15) })
+    const ownPending = item({ id: "own-pending", startsAt: localIso(2026, 8, 15, 16) })
+    const options = rideOptionsFor({
+      "own-pending": rideEvent({
+        ownRequest: rideAsk({ id: "own", status: "PENDING" }),
+        otherRequests: [],
+      }),
+    })
+    expect(selectFocusItem([calmEarly, ownPending], now, adultId, options)?.id).toBe("calm")
+  })
+
+  it("does not treat a passed ask as a Focus decision", () => {
+    const calmEarly = item({ id: "calm", startsAt: localIso(2026, 8, 15, 15) })
+    const passedAsk = item({ id: "passed", startsAt: localIso(2026, 8, 15, 16) })
+    const options = rideOptionsFor({
+      passed: rideEvent({
+        otherRequests: [rideAsk({ id: "ask", passedByMe: true })],
+      }),
+    })
+    expect(selectFocusItem([calmEarly, passedAsk], now, adultId, options)?.id).toBe("calm")
   })
 })

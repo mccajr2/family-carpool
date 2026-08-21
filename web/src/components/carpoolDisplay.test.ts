@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Vehicle } from "@/api/types"
+import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
 import {
   callerDrives,
   carpoolFeedStatusLabel,
   circleDisplayName,
+  eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
   enableCarpoolConfirmMessage,
   agendaOwnRideStatusChip,
@@ -116,6 +117,34 @@ describe("carpoolDisplay", () => {
         request: ride({ seats: 1 }),
       }),
     ).toEqual([])
+  })
+
+  it("picks the first pending otherRequest that can be accepted", () => {
+    const garage: Garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [vehicle()],
+    }
+    const pending = ride({ id: "ask-1", status: "PENDING", passedByMe: false })
+    const eventRow = event({ otherRequests: [pending] })
+    expect(eligiblePendingRideAccept(eventRow, { adultId: "a1", garage })?.id).toBe(
+      "ask-1",
+    )
+  })
+
+  it("skips passed asks and own requests for Focus accept eligibility", () => {
+    const garage: Garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [vehicle()],
+    }
+    expect(
+      eligiblePendingRideAccept(
+        event({
+          ownRequest: ride({ id: "own", status: "PENDING" }),
+          otherRequests: [ride({ id: "passed", passedByMe: true })],
+        }),
+        { adultId: "a1", garage },
+      ),
+    ).toBeNull()
   })
 })
 

@@ -149,22 +149,22 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Web Calendar: carpool-eligible expanded Agenda FEED rows show Request /
       Requested / Accepted (who); collapsed may show a status chip; create/cancel
       use existing ride endpoints.
-- [ ] Frozen `now`: all-set today + eligible pending ride accept tomorrow →
+- [x] Frozen `now`: all-set today + eligible pending ride accept tomorrow →
       tomorrow Focus; rest-of-week pending ride does **not** beat a sooner
       all-set item (same horizon as next-action).
-- [ ] Frozen `now`: today teammate ride ask at 4pm + today uncovered at 5pm →
+- [x] Frozen `now`: today teammate ride ask at 4pm + today uncovered at 5pm →
       Focus is the **5pm uncovered** (family-before-community); reverse times →
       4pm uncovered still wins.
-- [ ] Frozen `now`: today eligible ride ask only (coverage all-set) → that ask
+- [x] Frozen `now`: today eligible ride ask only (coverage all-set) → that ask
       is Focus with Accept + Pass.
-- [ ] Frozen `now`: own `PENDING` ride + coverage all-set today → Focus is calm
+- [x] Frozen `now`: own `PENDING` ride + coverage all-set today → Focus is calm
       leave-for (own ask is **not** a decision); Requested/Cancel stay on the row.
-- [ ] Focus still renders **exactly one** card; pending ride ask does not spawn
+- [x] Focus still renders **exactly one** card; pending ride ask does not spawn
       a second hero or a Context inbox.
-- [ ] Focus CTA: eligible pending ride → Accept + Pass; Pass calls the new API
+- [x] Focus CTA: eligible pending ride → Accept + Pass; Pass calls the new API
       and removes that ask from this adult’s Focus eligibility; Accept keeps
       existing vehicle Hick.
-- [ ] Focus CTA precedence on the same item: pending coverage for self →
+- [x] Focus CTA precedence on the same item: pending coverage for self →
       Confirm/Decline; else ride Accept/Pass; else Assign.
 - [ ] Week at a glance / Context stay coverage-status only — no open-asks panel.
 - [ ] Carpool tab still lists rides; passed rides do not offer Accept to the
@@ -186,7 +186,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       load rides on Calendar in `FamilyScreen`
 - [x] Web: AgendaRow expanded request/status band + optional collapsed chip;
       component tests
-- [ ] Web: extend `focusItemNeedsDecision` / `selectFocusItem` for pending ride
+- [x] Web: extend `focusItemNeedsDecision` / `selectFocusItem` for pending ride
       accept + family-before-community in Today/Tomorrow; Focus Accept/Pass CTA
       + same-card precedence; selection + Focus card tests (incl. own-PENDING
       not urgent)

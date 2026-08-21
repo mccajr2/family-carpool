@@ -21,6 +21,7 @@ import {
   type CarpoolSummary,
   type FamilyCircle,
   type FamilyMember,
+  type Garage,
   type Kid,
   type Place,
   type RsvpStatus,
@@ -259,6 +260,7 @@ export function FamilyScreen({
   const [calendarRidesBySpace, setCalendarRidesBySpace] = useState<
     Record<string, CarpoolRideEvent[]>
   >({})
+  const [calendarGarage, setCalendarGarage] = useState<Garage | null>(null)
   const [calendarCarpoolError, setCalendarCarpoolError] = useState<string | null>(null)
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
@@ -335,18 +337,24 @@ export function FamilyScreen({
         const summary = await carpoolClient.getSummary(token)
         const window = defaultCalendarWindow()
         const nextRides: Record<string, CarpoolRideEvent[]> = {}
+        let nextGarage: Garage | null = null
         if (summary.spaces.length > 0) {
-          const rideLists = await Promise.all(
-            summary.spaces.map((space) =>
-              carpoolClient.listRides(token, space.id, window.from, window.to),
+          const [garageNext, rideLists] = await Promise.all([
+            familyClient.getGarage(token),
+            Promise.all(
+              summary.spaces.map((space) =>
+                carpoolClient.listRides(token, space.id, window.from, window.to),
+              ),
             ),
-          )
+          ])
+          nextGarage = garageNext
           summary.spaces.forEach((space, index) => {
             nextRides[space.id] = rideLists[index] ?? []
           })
         }
         setCalendarCarpoolSummary(summary)
         setCalendarRidesBySpace(nextRides)
+        setCalendarGarage(nextGarage)
         setCalendarCarpoolError(null)
       } catch (error: unknown) {
         setCalendarCarpoolError(
@@ -354,7 +362,7 @@ export function FamilyScreen({
         )
       }
     },
-    [carpoolClient],
+    [carpoolClient, familyClient],
   )
 
   useEffect(() => {
@@ -371,12 +379,17 @@ export function FamilyScreen({
         const summary = await carpoolClient.getSummary(token)
         const window = defaultCalendarWindow()
         const nextRides: Record<string, CarpoolRideEvent[]> = {}
+        let nextGarage: Garage | null = null
         if (summary.spaces.length > 0) {
-          const rideLists = await Promise.all(
-            summary.spaces.map((space) =>
-              carpoolClient.listRides(token, space.id, window.from, window.to),
+          const [garageNext, rideLists] = await Promise.all([
+            familyClient.getGarage(token),
+            Promise.all(
+              summary.spaces.map((space) =>
+                carpoolClient.listRides(token, space.id, window.from, window.to),
+              ),
             ),
-          )
+          ])
+          nextGarage = garageNext
           summary.spaces.forEach((space, index) => {
             nextRides[space.id] = rideLists[index] ?? []
           })
@@ -386,6 +399,7 @@ export function FamilyScreen({
         }
         setCalendarCarpoolSummary(summary)
         setCalendarRidesBySpace(nextRides)
+        setCalendarGarage(nextGarage)
         setCalendarCarpoolError(null)
       } catch (error: unknown) {
         if (cancelled) {
@@ -399,7 +413,7 @@ export function FamilyScreen({
     return () => {
       cancelled = true
     }
-  }, [destination, circle, carpoolClient, session])
+  }, [destination, circle, carpoolClient, familyClient, session])
 
   useEffect(() => {
     if (destination !== "calendar") {
@@ -1210,6 +1224,50 @@ export function FamilyScreen({
     }
   }
 
+  async function onAcceptAgendaRide(item: CalendarItem, rideId: string, vehicleId: string) {
+    if (item.feedId == null || calendarCarpoolSummary == null) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.acceptRide(token, spaceId, rideId, { vehicleId })
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onPassAgendaRide(item: CalendarItem, rideId: string) {
+    if (item.feedId == null || calendarCarpoolSummary == null) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.passRide(token, spaceId, rideId)
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onAddFeed() {
     setStatus({ kind: "loading" })
     try {
@@ -1911,7 +1969,10 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
-  const focusItem = selectFocusItem(visibleCalendarItems, new Date(), adult?.id ?? "")
+  const focusItem = selectFocusItem(visibleCalendarItems, new Date(), adult?.id ?? "", {
+    rideEventForItem: (item) => calendarRideByItemKey.get(calendarItemKey(item)) ?? null,
+    garage: calendarGarage,
+  })
   const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const editingCalendarItem =
@@ -2498,6 +2559,8 @@ export function FamilyScreen({
                   coverageActionError={
                     coverageActionErrors[calendarItemKey(focusItem)]
                   }
+                  rideEvent={calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null}
+                  garage={calendarGarage}
                   onUpdateAssignDraft={(patch) =>
                     updateAssignCoverageDraft(calendarItemKey(focusItem), patch)
                   }
@@ -2514,6 +2577,10 @@ export function FamilyScreen({
                     void onDeclineCoverage(assignmentId)
                   }
                   onRemoveCoverage={(assignmentId) => void onRemoveCoverage(assignmentId)}
+                  onAcceptRide={(rideId, vehicleId) =>
+                    void onAcceptAgendaRide(focusItem, rideId, vehicleId)
+                  }
+                  onPassRide={(rideId) => void onPassAgendaRide(focusItem, rideId)}
                   onOpenPlaces={() => setDestination("places")}
                   onEdit={() => openEditEvent(focusItem)}
                 />

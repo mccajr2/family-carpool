@@ -463,3 +463,141 @@ describe("AgendaFocusCard title", () => {
     expect(screen.getByText("Team &amp; Family Meeting")).toBeInTheDocument()
   })
 })
+
+describe("AgendaFocusCard ride Accept/Pass", () => {
+  const garage = {
+    members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+    vehicles: [
+      {
+        id: "v1",
+        ownerAdultId: "a1",
+        driverAdultIds: ["a1"],
+        keptAtPlaceId: null,
+        label: "Van",
+        year: 2019,
+        make: "HONDA",
+        model: "Odyssey",
+        seats: 8,
+        suggestedSeats: 8,
+      },
+    ],
+  }
+
+  const pendingAsk = {
+    id: "ask-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidIds: ["k2"],
+    kidFirstNames: ["Mia"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "PENDING" as const,
+    passedByMe: false,
+    acceptedByAdultId: null,
+    acceptingCircleId: null,
+    acceptingCircleName: null,
+    vehicleId: null,
+    vehicleLabel: null,
+  }
+
+  const rideEvent = {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequest: null,
+    otherRequests: [pendingAsk],
+  }
+
+  it("shows Accept and Pass for an eligible pending ride ask", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+    const onPassRide = vi.fn()
+    renderCard(item({ id: "ride-focus", title: "Practice" }), {
+      rideEvent,
+      garage,
+      onAcceptRide,
+      onPassRide,
+    })
+    const card = screen.getByTestId("agenda-focus-MANUAL-ride-focus")
+    expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Accept" }))
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    await user.click(screen.getByRole("button", { name: "Pass" }))
+    expect(onPassRide).toHaveBeenCalledWith("ask-1")
+  })
+
+  it("prefers Confirm/Decline over Accept/Pass on the same card", () => {
+    renderCard(
+      item({
+        id: "confirm-first",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+          },
+        ],
+      }),
+      {
+        rideEvent,
+        garage,
+        onAcceptRide: vi.fn(),
+        onPassRide: vi.fn(),
+      },
+    )
+    expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Decline coverage" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("prefers Accept/Pass over Assign when uncovered and ride-eligible", () => {
+    renderCard(
+      item({
+        id: "ride-over-assign",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent,
+        garage,
+        onAcceptRide: vi.fn(),
+        onPassRide: vi.fn(),
+      },
+    )
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+  })
+
+  it("does not show Accept/Pass for own PENDING request", () => {
+    renderCard(item({ id: "own-pending", title: "Practice" }), {
+      rideEvent: {
+        ...rideEvent,
+        ownRequest: { ...pendingAsk, id: "own", status: "PENDING" },
+        otherRequests: [],
+      },
+      garage,
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+    })
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-MANUAL-own-pending")).toHaveStyle({
+      backgroundColor: "var(--fc-surface-raised)",
+    })
+  })
+})
