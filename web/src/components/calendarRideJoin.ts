@@ -43,8 +43,10 @@ export function startsAtEqual(a: string, b: string): boolean {
 }
 
 /**
- * Match a FEED calendar row to a listed ride event by space + startsAt + title
- * (and location when both sides are non-blank). Manual / non-member feeds → null.
+ * Match a FEED calendar row to a listed ride event by space + startsAt + title.
+ * Location is used only to disambiguate when more than one candidate shares
+ * title+startsAt (FP fingerprint drift must not block a unique match).
+ * Manual / non-member feeds → null.
  */
 export function matchCalendarItemToRideEvent(
   item: Pick<CalendarItem, "source" | "feedId" | "title" | "startsAt" | "location">,
@@ -63,21 +65,25 @@ export function matchCalendarItemToRideEvent(
     return null
   }
   const title = normalizeRideMatchText(item.title)
-  const itemLocation = normalizeRideMatchText(item.location)
-  for (const event of events) {
-    if (!startsAtEqual(event.startsAt, item.startsAt)) {
-      continue
-    }
-    if (normalizeRideMatchText(event.title) !== title) {
-      continue
-    }
-    const rideLocation = rideEventLocationNormalized(event)
-    if (itemLocation !== "" && rideLocation !== "" && itemLocation !== rideLocation) {
-      continue
-    }
-    return event
+  const candidates = events.filter(
+    (event) =>
+      startsAtEqual(event.startsAt, item.startsAt) &&
+      normalizeRideMatchText(event.title) === title,
+  )
+  if (candidates.length === 0) {
+    return null
   }
-  return null
+  if (candidates.length === 1) {
+    return candidates[0] ?? null
+  }
+  const itemLocation = normalizeRideMatchText(item.location)
+  if (itemLocation === "") {
+    return null
+  }
+  const byLocation = candidates.filter(
+    (event) => rideEventLocationNormalized(event) === itemLocation,
+  )
+  return byLocation.length === 1 ? (byLocation[0] ?? null) : null
 }
 
 export function ridesBySpaceRecordToMap(

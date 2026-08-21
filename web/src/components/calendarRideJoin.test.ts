@@ -116,7 +116,7 @@ describe("matchCalendarItemToRideEvent", () => {
     ).toBe(practice)
   })
 
-  it("requires location when both calendar and fingerprint ride have one", () => {
+  it("matches unique title+startsAt even when FP location drifts", () => {
     const fpRide = rideEvent({
       eventKey: "FP:practice|2026-08-21T16:00:00Z|field 3",
       title: "Practice",
@@ -149,10 +149,78 @@ describe("matchCalendarItemToRideEvent", () => {
         spaceIds,
         fpRides,
       ),
+    ).toBe(fpRide)
+  })
+
+  it("uses location only to disambiguate title+startsAt collisions", () => {
+    const field = rideEvent({
+      eventKey: "FP:practice|2026-08-21T16:00:00Z|field 3",
+      title: "Practice",
+    })
+    const gym = rideEvent({
+      eventKey: "FP:practice|2026-08-21T16:00:00Z|gym",
+      title: "Practice",
+    })
+    const collisionRides = new Map<string, CarpoolRideEvent[]>([["s1", [field, gym]]])
+
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          location: "Gym",
+        }),
+        spaceIds,
+        collisionRides,
+      ),
+    ).toBe(gym)
+
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          location: "Field 3",
+        }),
+        spaceIds,
+        collisionRides,
+      ),
+    ).toBe(field)
+
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          location: null,
+        }),
+        spaceIds,
+        collisionRides,
+      ),
+    ).toBeNull()
+
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          location: "Pool",
+        }),
+        spaceIds,
+        collisionRides,
+      ),
     ).toBeNull()
   })
 
-  it("skips location check when either side is blank (UID rides)", () => {
+  it("skips location when unique UID ride has no fingerprint location", () => {
     expect(
       matchCalendarItemToRideEvent(
         item({

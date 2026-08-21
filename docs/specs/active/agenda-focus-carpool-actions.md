@@ -214,7 +214,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       (not No; not already accepted); create does **not** change RSVP; Accept
       sets Yes for kids on the ride; unit + integration tests would fail if
       Yes-only create gate returned or create auto-Yesed.
-- [ ] Web join: title+startsAt unique match wins without location equality;
+- [x] Web join: title+startsAt unique match wins without location equality;
       location only disambiguates collisions; tests cover FP location drift.
 - [ ] Agenda + Carpool tab: Request shows for No-response kids (no prior Yes);
       copy no longer tells adults to RSVP Yes first when defaults exist.
@@ -250,7 +250,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       create leaves RSVP; Accept → Yes); bump `info.version`
 - [x] Backend: change `defaultKidIds` + create validation; Accept sets RSVP
       Yes for ride kids; unit + integration tests
-- [ ] Web: harden `matchCalendarItemToRideEvent` (location disambiguate only);
+- [x] Web: harden `matchCalendarItemToRideEvent` (location disambiguate only);
       tests
 - [ ] Web: AgendaRow + CarpoolSpaceRides copy / Request visibility for
       No-response defaults; tests
