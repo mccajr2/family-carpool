@@ -215,6 +215,8 @@ function OtherRideRequest({
 }) {
   const acceptedByUs =
     request.status === "ACCEPTED" && request.acceptingCircleId === circleId
+  const canAccept =
+    request.status === "PENDING" && !request.passedByMe && eligible.length > 0
   const status =
     request.status === "ACCEPTED"
       ? `Accepted${
@@ -222,7 +224,9 @@ function OtherRideRequest({
             ? ` by ${circleDisplayName(request.acceptingCircleName)}`
             : ""
         }`
-      : "Needs a ride"
+      : request.passedByMe
+        ? "Passed"
+        : "Needs a ride"
   const vehicleId = eligible.length === 1 ? eligible[0]!.id : selectedVehicleId
 
   return (
@@ -232,7 +236,7 @@ function OtherRideRequest({
         {rideSeatsLabel(request.seats)} · {request.pickupPlaceName}, {request.pickupAddress}
       </p>
       <p className="text-xs text-muted-foreground">{status}</p>
-      {request.status === "PENDING" && eligible.length === 1 ? (
+      {canAccept && eligible.length === 1 ? (
         <Button
           type="button"
           size="sm"
@@ -242,7 +246,7 @@ function OtherRideRequest({
           Accept
         </Button>
       ) : null}
-      {request.status === "PENDING" && eligible.length > 1 ? (
+      {canAccept && eligible.length > 1 ? (
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Vehicle"

@@ -166,8 +166,8 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       existing vehicle Hick.
 - [x] Focus CTA precedence on the same item: pending coverage for self →
       Confirm/Decline; else ride Accept/Pass; else Assign.
-- [ ] Week at a glance / Context stay coverage-status only — no open-asks panel.
-- [ ] Carpool tab still lists rides; passed rides do not offer Accept to the
+- [x] Week at a glance / Context stay coverage-status only — no open-asks panel.
+- [x] Carpool tab still lists rides; passed rides do not offer Accept to the
       passer; membership chrome unchanged.
 - [ ] `sharedLogic` Carpool client covers pass (+ list shape); no Android/iOS
       Agenda UI in this PR.
@@ -190,7 +190,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       accept + family-before-community in Today/Tomorrow; Focus Accept/Pass CTA
       + same-card precedence; selection + Focus card tests (incl. own-PENDING
       not urgent)
-- [ ] Web: Carpool tab honors pass (no Accept after pass)
+- [x] Web: Carpool tab honors pass (no Accept after pass)
 - [ ] Mobile sharedLogic: pass (+ list shape) client + unit tests
 - [ ] Docs: architecture Team carpool Clients + Interaction UX seams / Busy
       ladder
