@@ -171,7 +171,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       passer; membership chrome unchanged.
 - [x] `sharedLogic` Carpool client covers pass (+ list shape); no Android/iOS
       Agenda UI in this PR.
-- [ ] Architecture Clients / Forward-looking seams updated for Agenda-primary
+- [x] Architecture Clients / Forward-looking seams updated for Agenda-primary
       rides. No `CalendarItem` ride fields.
 - [ ] `cd web && npm test` and `npm run lint` pass; backend carpool ride tests
       pass; relevant `sharedLogic` tests pass.
@@ -192,7 +192,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       not urgent)
 - [x] Web: Carpool tab honors pass (no Accept after pass)
 - [x] Mobile sharedLogic: pass (+ list shape) client + unit tests
-- [ ] Docs: architecture Team carpool Clients + Interaction UX seams / Busy
+- [x] Docs: architecture Team carpool Clients + Interaction UX seams / Busy
       ladder
 - [ ] Tests: run web lint/test, backend carpool ride suites, sharedLogic
       CarpoolClient tests — report real results
