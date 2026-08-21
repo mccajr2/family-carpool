@@ -310,15 +310,16 @@ describe("CarpoolPanel", () => {
     expect(await screen.findByText("No upcoming events.")).toBeInTheDocument()
   })
 
-  it("tells the family to mark who's going when RSVP YES is empty", async () => {
+  it("tells the family no kids need a ride when defaults are empty", async () => {
     renderPanel({
       getSummary: vi.fn().mockResolvedValue(memberSpace),
       listRides: vi.fn().mockResolvedValue([event({ defaultKidIds: [] })]),
     })
 
+    expect(await screen.findByText("No kids need a ride for this event.")).toBeInTheDocument()
     expect(
-      await screen.findByText("Mark who's going on Calendar to request a ride."),
-    ).toBeInTheDocument()
+      screen.queryByText("Mark who's going on Calendar to request a ride."),
+    ).not.toBeInTheDocument()
   })
 
   it("requests a ride with all attending kids and a deselected subset", async () => {

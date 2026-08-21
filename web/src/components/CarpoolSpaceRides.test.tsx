@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 import type { CarpoolRide, CarpoolRideEvent, Garage, Kid } from "@/api/types"
@@ -101,5 +102,49 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByText("Passed")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Vehicle")).not.toBeInTheDocument()
+  })
+})
+
+describe("CarpoolSpaceRides request defaults", () => {
+  it("shows Request when defaultKidIds is non-empty (Yes or No response)", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    render(
+      <CarpoolSpaceRides
+        events={[event({ defaultKidIds: ["k1"] })]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={garage}
+        busy={false}
+        {...noop}
+        onCreateRide={onCreateRide}
+      />,
+    )
+    expect(
+      screen.queryByText("Mark who's going on Calendar to request a ride."),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Request" })).toBeEnabled()
+    await user.click(screen.getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:game", undefined)
+  })
+
+  it("does not tell adults to RSVP Yes first when defaults are empty", () => {
+    render(
+      <CarpoolSpaceRides
+        events={[event({ defaultKidIds: [] })]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={garage}
+        busy={false}
+        {...noop}
+      />,
+    )
+    expect(
+      screen.queryByText("Mark who's going on Calendar to request a ride."),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("No kids need a ride for this event.")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
   })
 })

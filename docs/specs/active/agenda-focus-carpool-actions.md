@@ -216,7 +216,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       Yes-only create gate returned or create auto-Yesed.
 - [x] Web join: title+startsAt unique match wins without location equality;
       location only disambiguates collisions; tests cover FP location drift.
-- [ ] Agenda + Carpool tab: Request shows for No-response kids (no prior Yes);
+- [x] Agenda + Carpool tab: Request shows for No-response kids (no prior Yes);
       copy no longer tells adults to RSVP Yes first when defaults exist.
 - [ ] Focus CTA precedence: pending Confirm → Accept/Pass → **Request**
       (when eligible) with Assign secondary if also uncovered → else Assign →
@@ -252,7 +252,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       Yes for ride kids; unit + integration tests
 - [x] Web: harden `matchCalendarItemToRideEvent` (location disambiguate only);
       tests
-- [ ] Web: AgendaRow + CarpoolSpaceRides copy / Request visibility for
+- [x] Web: AgendaRow + CarpoolSpaceRides copy / Request visibility for
       No-response defaults; tests
 - [ ] Web: Focus Request CTA + precedence (Assign secondary when both);
       Focus card tests

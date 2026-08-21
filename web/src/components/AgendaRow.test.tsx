@@ -418,4 +418,51 @@ describe("AgendaRow", () => {
     )
     expect(within(row).getByText("Accepted · House B")).toBeInTheDocument()
   })
+
+  it("shows Request for No-response defaults without telling adults to RSVP Yes first", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const feedItem = item({
+      id: "feed-nr",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    })
+    const rideEvent = {
+      eventKey: "UID:practice-nr",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-nr")
+    expect(
+      within(row).queryByText("Mark who's going on Calendar to request a ride."),
+    ).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const band = within(row).getByTestId("agenda-band-carpool")
+    expect(within(band).getByRole("button", { name: "Request" })).toBeEnabled()
+    await user.click(within(band).getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
+  })
 })

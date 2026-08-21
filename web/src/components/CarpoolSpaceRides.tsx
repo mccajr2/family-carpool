@@ -85,7 +85,7 @@ export function CarpoolSpaceRides({
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                Mark who's going on Calendar to request a ride.
+                No kids need a ride for this event.
               </p>
             )}
             {event.otherRequests.map((request) => (
