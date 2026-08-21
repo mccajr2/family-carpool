@@ -182,7 +182,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Backend: persist passes; service + controller; clear on cancel/accept;
       unit + integration tests
 - [x] Web API: `carpoolClient.passRide` + types; tests
-- [ ] Web: join helper (feed/space + startsAt/title[/location] → ride event);
+- [x] Web: join helper (feed/space + startsAt/title[/location] → ride event);
       load rides on Calendar in `FamilyScreen`
 - [ ] Web: AgendaRow expanded request/status band + optional collapsed chip;
       component tests

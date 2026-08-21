@@ -1645,6 +1645,112 @@ describe("FamilyScreen", () => {
     expect(listCalendar.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
+  it("loads carpool rides on Calendar and joins FEED rows by space+time+title", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const feedItem = calendarItem({
+      id: "e-feed",
+      source: "FEED",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "Soccer",
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "UID:practice-1",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        otherRequests: [],
+      },
+    ])
+    const getSummary = vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "Soccer",
+          status: "OWNER",
+          spaceId: "s1",
+          spaceName: "Soccer",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "Soccer",
+          membership: "OWNER",
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [{ circleId: "c1", circleName: "House", membership: "OWNER" }],
+          pendingRequests: [],
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), feedItem]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listRides).toHaveBeenCalledWith(
+        "tok",
+        "s1",
+        expect.any(String),
+        expect.any(String),
+      )
+    })
+    const from = listRides.mock.calls[0]?.[2] as string
+    const to = listRides.mock.calls[0]?.[3] as string
+    expect(
+      (new Date(to).getTime() - new Date(from).getTime()) / (24 * 60 * 60 * 1000),
+    ).toBe(30)
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const row = within(agenda).getByTestId("agenda-item-FEED-e-feed")
+    await waitFor(() => {
+      expect(row).toHaveAttribute("data-carpool-ride-key", "UID:practice-1")
+    })
+    const focus = within(agenda).getByTestId("agenda-focus-FEED-focus-decoy")
+    expect(focus.parentElement).not.toHaveAttribute("data-carpool-ride-key")
+  })
+
   it("refreshes feeds from the list endpoint without syncing", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

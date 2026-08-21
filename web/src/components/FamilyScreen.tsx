@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Loader2, Plus } from "lucide-react"
 
 import type { AuthClient } from "@/api/authClient"
@@ -17,6 +17,7 @@ import {
   type Adult,
   type CalendarItem,
   type CarpoolFeedStatus,
+  type CarpoolRideEvent,
   type CarpoolSummary,
   type FamilyCircle,
   type FamilyMember,
@@ -59,6 +60,11 @@ import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
 import { groupAgendaByDay } from "@/components/agendaDayGroups"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
+import {
+  feedSpaceIdsFromSummary,
+  matchCalendarItemToRideEvent,
+  ridesBySpaceRecordToMap,
+} from "@/components/calendarRideJoin"
 import {
   calendarItemKey,
   memberLabel,
@@ -248,6 +254,12 @@ export function FamilyScreen({
   )
   const [feedsCarpoolError, setFeedsCarpoolError] = useState<string | null>(null)
   const [feedsCarpoolBusy, setFeedsCarpoolBusy] = useState(false)
+  const [calendarCarpoolSummary, setCalendarCarpoolSummary] =
+    useState<CarpoolSummary | null>(null)
+  const [calendarRidesBySpace, setCalendarRidesBySpace] = useState<
+    Record<string, CarpoolRideEvent[]>
+  >({})
+  const [calendarCarpoolError, setCalendarCarpoolError] = useState<string | null>(null)
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
     Record<string, { adultId: string; kidIds?: string[] }>
@@ -316,6 +328,50 @@ export function FamilyScreen({
       cancelled = true
     }
   }, [destination, carpoolClient, feedIdsKey, session])
+
+  useEffect(() => {
+    if (destination !== "calendar" || circle == null) {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const summary = await carpoolClient.getSummary(token)
+        const window = defaultCalendarWindow()
+        const nextRides: Record<string, CarpoolRideEvent[]> = {}
+        if (summary.spaces.length > 0) {
+          const rideLists = await Promise.all(
+            summary.spaces.map((space) =>
+              carpoolClient.listRides(token, space.id, window.from, window.to),
+            ),
+          )
+          summary.spaces.forEach((space, index) => {
+            nextRides[space.id] = rideLists[index] ?? []
+          })
+        }
+        if (cancelled) {
+          return
+        }
+        setCalendarCarpoolSummary(summary)
+        setCalendarRidesBySpace(nextRides)
+        setCalendarCarpoolError(null)
+      } catch (error: unknown) {
+        if (cancelled) {
+          return
+        }
+        setCalendarCarpoolError(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [destination, circle, carpoolClient, session])
 
   useEffect(() => {
     if (destination !== "calendar") {
@@ -1071,6 +1127,28 @@ export function FamilyScreen({
       setFeeds(await familyClient.listFeeds(token))
     }
     await reloadCalendar(token)
+    try {
+      const summary = await carpoolClient.getSummary(token)
+      const window = defaultCalendarWindow()
+      const nextRides: Record<string, CarpoolRideEvent[]> = {}
+      if (summary.spaces.length > 0) {
+        const rideLists = await Promise.all(
+          summary.spaces.map((space) =>
+            carpoolClient.listRides(token, space.id, window.from, window.to),
+          ),
+        )
+        summary.spaces.forEach((space, index) => {
+          nextRides[space.id] = rideLists[index] ?? []
+        })
+      }
+      setCalendarCarpoolSummary(summary)
+      setCalendarRidesBySpace(nextRides)
+      setCalendarCarpoolError(null)
+    } catch (error: unknown) {
+      setCalendarCarpoolError(
+        error instanceof Error ? error.message : "Something went wrong",
+      )
+    }
   }
 
   async function onAddFeed() {
@@ -1558,6 +1636,22 @@ export function FamilyScreen({
     session.clear()
     onSignedOut()
   }
+
+  const calendarRideByItemKey = useMemo(() => {
+    const map = new Map<string, CarpoolRideEvent>()
+    if (calendarCarpoolSummary == null) {
+      return map
+    }
+    const spaceIdByFeedId = feedSpaceIdsFromSummary(calendarCarpoolSummary)
+    const ridesMap = ridesBySpaceRecordToMap(calendarRidesBySpace)
+    for (const item of calendarItems) {
+      const matched = matchCalendarItemToRideEvent(item, spaceIdByFeedId, ridesMap)
+      if (matched != null) {
+        map.set(calendarItemKey(item), matched)
+      }
+    }
+    return map
+  }, [calendarCarpoolSummary, calendarRidesBySpace, calendarItems])
 
   if (!circle && status.kind === "loading") {
     return (
@@ -2279,6 +2373,15 @@ export function FamilyScreen({
               Updating…
             </p>
           ) : null}
+          {calendarCarpoolError ? (
+            <p
+              data-testid="calendar-carpool-error"
+              role="status"
+              className="text-xs text-muted-foreground"
+            >
+              Carpool rides unavailable: {calendarCarpoolError}
+            </p>
+          ) : null}
           {status.kind === "error" ? (
             <p role="alert" className="text-sm text-destructive">
               {status.message}
@@ -2319,6 +2422,11 @@ export function FamilyScreen({
           ) : (
             <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]">
               {focusItem ? (
+                <div
+                  data-carpool-ride-key={
+                    calendarRideByItemKey.get(calendarItemKey(focusItem))?.eventKey
+                  }
+                >
                 <AgendaFocusCard
                   item={focusItem}
                   circle={circle}
@@ -2350,6 +2458,7 @@ export function FamilyScreen({
                   onOpenPlaces={() => setDestination("places")}
                   onEdit={() => openEditEvent(focusItem)}
                 />
+                </div>
               ) : null}
               {restItems.length > 0 ? (
             <div
@@ -2383,6 +2492,9 @@ export function FamilyScreen({
                         <li
                           key={`${item.source}-${item.id}`}
                           data-testid={`agenda-item-${item.source}-${item.id}`}
+                          data-carpool-ride-key={
+                            calendarRideByItemKey.get(itemKey)?.eventKey
+                          }
                           data-out-of-play={
                             isAgendaItemOutOfPlay(item) ? "true" : "false"
                           }
