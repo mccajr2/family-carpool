@@ -329,6 +329,34 @@ export function FamilyScreen({
     }
   }, [destination, carpoolClient, feedIdsKey, session])
 
+  const reloadCalendarCarpoolRides = useCallback(
+    async (token: string) => {
+      try {
+        const summary = await carpoolClient.getSummary(token)
+        const window = defaultCalendarWindow()
+        const nextRides: Record<string, CarpoolRideEvent[]> = {}
+        if (summary.spaces.length > 0) {
+          const rideLists = await Promise.all(
+            summary.spaces.map((space) =>
+              carpoolClient.listRides(token, space.id, window.from, window.to),
+            ),
+          )
+          summary.spaces.forEach((space, index) => {
+            nextRides[space.id] = rideLists[index] ?? []
+          })
+        }
+        setCalendarCarpoolSummary(summary)
+        setCalendarRidesBySpace(nextRides)
+        setCalendarCarpoolError(null)
+      } catch (error: unknown) {
+        setCalendarCarpoolError(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
+      }
+    },
+    [carpoolClient],
+  )
+
   useEffect(() => {
     if (destination !== "calendar" || circle == null) {
       return
@@ -1127,27 +1155,58 @@ export function FamilyScreen({
       setFeeds(await familyClient.listFeeds(token))
     }
     await reloadCalendar(token)
+    await reloadCalendarCarpoolRides(token)
+  }
+
+  async function onCreateAgendaRide(
+    item: CalendarItem,
+    eventKey: string,
+    kidIds?: string[],
+  ) {
+    if (item.feedId == null || calendarCarpoolSummary == null) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    setStatus({ kind: "loading" })
     try {
-      const summary = await carpoolClient.getSummary(token)
-      const window = defaultCalendarWindow()
-      const nextRides: Record<string, CarpoolRideEvent[]> = {}
-      if (summary.spaces.length > 0) {
-        const rideLists = await Promise.all(
-          summary.spaces.map((space) =>
-            carpoolClient.listRides(token, space.id, window.from, window.to),
-          ),
-        )
-        summary.spaces.forEach((space, index) => {
-          nextRides[space.id] = rideLists[index] ?? []
-        })
-      }
-      setCalendarCarpoolSummary(summary)
-      setCalendarRidesBySpace(nextRides)
-      setCalendarCarpoolError(null)
-    } catch (error: unknown) {
-      setCalendarCarpoolError(
-        error instanceof Error ? error.message : "Something went wrong",
+      const token = await requireToken()
+      await carpoolClient.createRide(
+        token,
+        spaceId,
+        kidIds != null ? { eventKey, kidIds } : { eventKey },
       )
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onCancelAgendaRide(item: CalendarItem, rideId: string) {
+    if (item.feedId == null || calendarCarpoolSummary == null) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.cancelRide(token, spaceId, rideId)
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
     }
   }
 
@@ -2506,6 +2565,11 @@ export function FamilyScreen({
                             loading={status.kind === "loading"}
                             assignDraft={coverageAssignState(item, itemKey)}
                             coverageActionError={coverageActionErrors[itemKey]}
+                            rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
+                            onCreateRide={(eventKey, kidIds) =>
+                              void onCreateAgendaRide(item, eventKey, kidIds)
+                            }
+                            onCancelRide={(rideId) => void onCancelAgendaRide(item, rideId)}
                             onUpdateAssignDraft={(patch) =>
                               updateAssignCoverageDraft(itemKey, patch)
                             }

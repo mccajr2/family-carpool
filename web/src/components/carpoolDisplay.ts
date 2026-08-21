@@ -87,3 +87,35 @@ export function eligibleVehiclesForAccept(options: {
     return remaining >= options.request.seats
   })
 }
+
+/** Collapsed Agenda chip for this circle's active ride on the event. */
+export function agendaOwnRideStatusChip(
+  ownRequest: CarpoolRide | null | undefined,
+): { label: string; tone: "mint" | "amber" } | null {
+  if (ownRequest == null) {
+    return null
+  }
+  if (ownRequest.status === "ACCEPTED") {
+    const who = ownRequest.acceptingCircleName?.trim()
+    return {
+      label: who ? `Accepted · ${circleDisplayName(who)}` : "Accepted",
+      tone: "mint",
+    }
+  }
+  if (ownRequest.status === "PENDING") {
+    return { label: "Requested", tone: "amber" }
+  }
+  return null
+}
+
+export function ownRideStatusLine(ride: CarpoolRide): string {
+  if (ride.status === "ACCEPTED") {
+    const who = ride.acceptingCircleName?.trim()
+    return who ? `Accepted · ${circleDisplayName(who)}` : "Accepted"
+  }
+  if (ride.status === "PENDING") {
+    return "Requested"
+  }
+  return ride.status
+}
+

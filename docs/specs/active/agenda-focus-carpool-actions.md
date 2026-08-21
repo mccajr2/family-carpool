@@ -146,7 +146,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Backend: pass authz/idempotency/clear-on-cancel-or-accept as in Approach;
       unit + integration tests would fail if pass were removed or cancelled the
       ride for others.
-- [ ] Web Calendar: carpool-eligible expanded Agenda FEED rows show Request /
+- [x] Web Calendar: carpool-eligible expanded Agenda FEED rows show Request /
       Requested / Accepted (who); collapsed may show a status chip; create/cancel
       use existing ride endpoints.
 - [ ] Frozen `now`: all-set today + eligible pending ride accept tomorrow →
@@ -184,7 +184,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Web API: `carpoolClient.passRide` + types; tests
 - [x] Web: join helper (feed/space + startsAt/title[/location] → ride event);
       load rides on Calendar in `FamilyScreen`
-- [ ] Web: AgendaRow expanded request/status band + optional collapsed chip;
+- [x] Web: AgendaRow expanded request/status band + optional collapsed chip;
       component tests
 - [ ] Web: extend `focusItemNeedsDecision` / `selectFocusItem` for pending ride
       accept + family-before-community in Today/Tomorrow; Focus Accept/Pass CTA

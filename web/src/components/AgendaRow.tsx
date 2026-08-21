@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { CalendarItem, FamilyCircle, RsvpStatus } from "@/api/types"
+import type { CalendarItem, CarpoolRideEvent, FamilyCircle, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
 import { accountInitials } from "@/components/accountInitials"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
@@ -8,6 +8,12 @@ import { resolveSemanticIcon } from "@/components/uiIcons"
 import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
+import {
+  agendaOwnRideStatusChip,
+  kidDisplayName,
+  ownRideStatusLine,
+  rideSeatsLabel,
+} from "@/components/carpoolDisplay"
 import {
   isAgendaItemOutOfPlay,
   rsvpStatusForKid,
@@ -58,6 +64,9 @@ type AgendaRowProps = {
   loading: boolean
   assignDraft: AssignDraft
   coverageActionError?: string
+  rideEvent?: CarpoolRideEvent | null
+  onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onCancelRide?: (rideId: string) => void
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
@@ -95,6 +104,9 @@ export function AgendaRow({
   loading,
   assignDraft,
   coverageActionError,
+  rideEvent = null,
+  onCreateRide,
+  onCancelRide,
   onUpdateAssignDraft,
   onAssignCoverage,
   onConfirmCoverage,
@@ -107,6 +119,7 @@ export function AgendaRow({
   onRemoveEvent,
 }: AgendaRowProps) {
   const [open, setOpen] = useState(false)
+  const [selectedRideKidIds, setSelectedRideKidIds] = useState<string[] | null>(null)
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
@@ -115,11 +128,19 @@ export function AgendaRow({
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
   const tags = agendaItemStatusTags(item, currentAdultId, { outOfPlay })
+  const carpoolChip = agendaOwnRideStatusChip(rideEvent?.ownRequest)
   const coveringAvatars = confirmedCoveringAvatars(item, circle, outOfPlay)
   const coveringLabel =
     coveringAvatars.length > 0
       ? `Covering: ${coveringAvatars.map((adult) => adult.name).join(", ")}`
       : undefined
+  const defaultRideKids = rideEvent?.defaultKidIds ?? []
+  const rideKidSelection = selectedRideKidIds ?? defaultRideKids
+  const showCarpoolBand =
+    !outOfPlay &&
+    rideEvent != null &&
+    (rideEvent.ownRequest != null || defaultRideKids.length > 0) &&
+    (onCreateRide != null || onCancelRide != null)
 
   return (
     <div
@@ -145,7 +166,7 @@ export function AgendaRow({
             {item.location ? ` · ${item.location}` : ""}
           </span>
         </span>
-        {tags.length > 0 ? (
+        {tags.length > 0 || carpoolChip != null ? (
           <span className="flex flex-shrink-0 gap-[var(--fc-space-list-row-tag-gap)]">
             {tags.map((tag) => (
               <AgendaStatusChip
@@ -155,6 +176,13 @@ export function AgendaRow({
                 appearance="pill"
               />
             ))}
+            {carpoolChip != null ? (
+              <AgendaStatusChip
+                label={carpoolChip.label}
+                tone={carpoolChip.tone}
+                appearance="pill"
+              />
+            ) : null}
           </span>
         ) : null}
         {coveringAvatars.length > 0 ? (
@@ -415,6 +443,84 @@ export function AgendaRow({
                   {coverageActionError}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+
+          {showCarpoolBand && rideEvent != null ? (
+            <div
+              data-testid="agenda-band-carpool"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              <span className="text-xs text-[var(--fc-text-secondary)]">Carpool</span>
+              {rideEvent.ownRequest != null ? (
+                <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
+                  <span className="text-sm text-[var(--fc-text-secondary)]">
+                    {ownRideStatusLine(rideEvent.ownRequest)}
+                    {" · "}
+                    {rideEvent.ownRequest.kidFirstNames.join(", ")}
+                    {" · "}
+                    {rideSeatsLabel(rideEvent.ownRequest.seats)}
+                  </span>
+                  {onCancelRide != null ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={loading}
+                      onClick={() => onCancelRide(rideEvent.ownRequest!.id)}
+                    >
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-[var(--fc-space-sm)]">
+                  {defaultRideKids.length > 1
+                    ? defaultRideKids.map((kidId) => {
+                        const name = kidDisplayName(circle.kids, kidId)
+                        return (
+                          <label
+                            key={kidId}
+                            className="flex items-center gap-[var(--fc-space-sm)] text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={`Request ride for ${name}`}
+                              checked={rideKidSelection.includes(kidId)}
+                              disabled={loading}
+                              onChange={(change) => {
+                                const current = rideKidSelection
+                                const next = change.target.checked
+                                  ? [...current, kidId]
+                                  : current.filter((id) => id !== kidId)
+                                setSelectedRideKidIds(next)
+                              }}
+                            />
+                            {name}
+                          </label>
+                        )
+                      })
+                    : null}
+                  {onCreateRide != null ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={loading || rideKidSelection.length === 0}
+                      onClick={() => {
+                        const allDefault =
+                          rideKidSelection.length === defaultRideKids.length &&
+                          rideKidSelection.every((id) => defaultRideKids.includes(id))
+                        onCreateRide(
+                          rideEvent.eventKey,
+                          allDefault ? undefined : rideKidSelection,
+                        )
+                      }}
+                    >
+                      Request
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </div>
           ) : null}
 

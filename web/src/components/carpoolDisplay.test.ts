@@ -7,7 +7,9 @@ import {
   circleDisplayName,
   eligibleVehiclesForAccept,
   enableCarpoolConfirmMessage,
+  agendaOwnRideStatusChip,
   kidDisplayName,
+  ownRideStatusLine,
   ownYesKidCount,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
@@ -44,6 +46,20 @@ describe("carpoolDisplay", () => {
         "a1",
       ),
     ).toBe(false)
+  })
+
+  it("labels own ride chips and status lines for Agenda", () => {
+    expect(agendaOwnRideStatusChip(null)).toBeNull()
+    expect(
+      agendaOwnRideStatusChip(ride({ status: "PENDING", acceptingCircleName: null })),
+    ).toEqual({ label: "Requested", tone: "amber" })
+    expect(
+      agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+    ).toEqual({ label: "Accepted · House B", tone: "mint" })
+    expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
+    expect(
+      ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+    ).toBe("Accepted · House B")
   })
 
   it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {
