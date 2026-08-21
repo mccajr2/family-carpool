@@ -169,7 +169,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Week at a glance / Context stay coverage-status only — no open-asks panel.
 - [x] Carpool tab still lists rides; passed rides do not offer Accept to the
       passer; membership chrome unchanged.
-- [ ] `sharedLogic` Carpool client covers pass (+ list shape); no Android/iOS
+- [x] `sharedLogic` Carpool client covers pass (+ list shape); no Android/iOS
       Agenda UI in this PR.
 - [ ] Architecture Clients / Forward-looking seams updated for Agenda-primary
       rides. No `CalendarItem` ride fields.
@@ -191,7 +191,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       + same-card precedence; selection + Focus card tests (incl. own-PENDING
       not urgent)
 - [x] Web: Carpool tab honors pass (no Accept after pass)
-- [ ] Mobile sharedLogic: pass (+ list shape) client + unit tests
+- [x] Mobile sharedLogic: pass (+ list shape) client + unit tests
 - [ ] Docs: architecture Team carpool Clients + Interaction UX seams / Busy
       ladder
 - [ ] Tests: run web lint/test, backend carpool ride suites, sharedLogic

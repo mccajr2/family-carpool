@@ -87,6 +87,7 @@ data class CarpoolRide(
     val pickupPlaceName: String,
     val pickupAddress: String,
     val status: CarpoolRideStatus,
+    val passedByMe: Boolean = false,
     val acceptedByAdultId: String? = null,
     val acceptingCircleId: String? = null,
     val acceptingCircleName: String? = null,

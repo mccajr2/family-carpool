@@ -180,6 +180,19 @@ class CarpoolClient(
         return response.body()
     }
 
+    suspend fun passRide(
+        accessToken: String,
+        spaceId: String,
+        rideId: String,
+    ): CarpoolRide {
+        val response =
+            httpClient.post("$baseUrl/api/carpool/spaces/$spaceId/rides/$rideId/pass") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Pass carpool ride failed")
+        return response.body()
+    }
+
     suspend fun cancelRide(
         accessToken: String,
         spaceId: String,
