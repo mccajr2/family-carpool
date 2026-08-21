@@ -141,7 +141,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI: `POST …/rides/{rideId}/pass` documented; `info.version` bumped;
+- [x] OpenAPI: `POST …/rides/{rideId}/pass` documented; `info.version` bumped;
       list-rides documents how passed asks are represented for the caller.
 - [ ] Backend: pass authz/idempotency/clear-on-cancel-or-accept as in Approach;
       unit + integration tests would fail if pass were removed or cancelled the
@@ -178,7 +178,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Tasks
 
-- [ ] Contract: `/pass` + list-rides passed representation; bump version
+- [x] Contract: `/pass` + list-rides passed representation; bump version
 - [ ] Backend: persist passes; service + controller; clear on cancel/accept;
       unit + integration tests
 - [ ] Web API: `carpoolClient.passRide` + types; tests
