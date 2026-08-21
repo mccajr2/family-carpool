@@ -246,7 +246,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       ladder
 - [x] Tests: run web lint/test, backend carpool ride suites, sharedLogic
       CarpoolClient tests — report real results
-- [ ] Contract: document amended create / `defaultKidIds` (Yes + No response;
+- [x] Contract: document amended create / `defaultKidIds` (Yes + No response;
       create leaves RSVP; Accept → Yes); bump `info.version`
 - [ ] Backend: change `defaultKidIds` + create validation; Accept sets RSVP
       Yes for ride kids; unit + integration tests
