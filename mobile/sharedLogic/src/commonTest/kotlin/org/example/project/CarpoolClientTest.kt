@@ -149,6 +149,95 @@ class CarpoolClientTest {
                 }
             assertEquals("Organizer role required", error.message)
         }
+
+    @Test
+    fun listCreateAcceptCancelAndWithdrawRides() =
+        runTest {
+            val rideJson =
+                """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"PENDING","acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}"""
+            val eventJson =
+                """{"eventKey":"UID:practice","title":"Practice","startsAt":"2026-08-21T16:00:00Z","endsAt":null,"defaultKidIds":["k1"],"ownRequest":null,"otherRequests":[$rideJson]}"""
+            val mockEngine =
+                MockEngine { request ->
+                    when {
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides" &&
+                            request.method == HttpMethod.Get -> {
+                            assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
+                            assertEquals("2026-08-01T00:00:00Z", request.url.parameters["from"])
+                            assertEquals("2026-08-31T00:00:00Z", request.url.parameters["to"])
+                            respond(
+                                content = "[$eventJson]",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides" &&
+                            request.method == HttpMethod.Post -> {
+                            assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
+                            respond(
+                                content = rideJson,
+                                status = HttpStatusCode.Created,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides/ride-1/accept" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"ACCEPTED","acceptedByAdultId":"a1","acceptingCircleId":"c1","acceptingCircleName":"House A","vehicleId":"v1","vehicleLabel":"Van"}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides/ride-1/cancel" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content =
+                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"CANCELLED","acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}""",
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides/ride-1/withdraw" &&
+                            request.method == HttpMethod.Post ->
+                            respond(
+                                content = rideJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        else -> error("Unexpected ${request.method} ${request.url.encodedPath}")
+                    }
+                }
+
+            val client = CarpoolClient("http://localhost:8080", mockHttpClient(mockEngine))
+
+            val events =
+                client.listRides(
+                    "tok",
+                    "s1",
+                    "2026-08-01T00:00:00Z",
+                    "2026-08-31T00:00:00Z",
+                )
+            assertEquals("Practice", events.single().title)
+            assertEquals(listOf("k1"), events.single().defaultKidIds)
+            assertEquals(CarpoolRideStatus.PENDING, events.single().otherRequests.single().status)
+
+            val created =
+                client.createRide("tok", "s1", CreateCarpoolRideRequest(eventKey = "UID:practice"))
+            assertEquals("ride-1", created.id)
+            assertEquals(1, created.seats)
+
+            val accepted =
+                client.acceptRide(
+                    "tok",
+                    "s1",
+                    "ride-1",
+                    AcceptCarpoolRideRequest(vehicleId = "v1"),
+                )
+            assertEquals(CarpoolRideStatus.ACCEPTED, accepted.status)
+            assertEquals("v1", accepted.vehicleId)
+
+            assertEquals(CarpoolRideStatus.CANCELLED, client.cancelRide("tok", "s1", "ride-1").status)
+            assertEquals(CarpoolRideStatus.PENDING, client.withdrawRide("tok", "s1", "ride-1").status)
+        }
 }
 
 class CarpoolModelsTest {

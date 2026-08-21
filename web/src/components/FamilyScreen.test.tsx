@@ -33,6 +33,7 @@ function mockCarpoolClient(partial: Partial<CarpoolClient> = {}): CarpoolClient 
       feeds: [],
       spaces: [],
     }),
+    listRides: vi.fn().mockResolvedValue([]),
     ...partial,
   } as CarpoolClient
 }

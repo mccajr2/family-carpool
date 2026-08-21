@@ -78,6 +78,36 @@ class FamilyPlaceApiImpl implements FamilyPlaceApi {
                 .filter(CirclePlaceDto::located);
     }
 
+    @Override
+    public Optional<CirclePlaceDto> findPickupPlaceForMember(UUID adultId) {
+        UUID circleId = membershipApi.requireMemberCircleId(adultId);
+        FamilyMembershipEntity membership =
+                memberships
+                        .findByAdultId(adultId)
+                        .orElseThrow(
+                                () ->
+                                        new FamilyAccessException(
+                                                HttpStatus.NOT_FOUND, "Family circle not found"));
+        UUID defaultPlaceId = membership.defaultLeaveFromPlaceId();
+        if (defaultPlaceId != null) {
+            Optional<CirclePlaceDto> defaultPlace =
+                    places.findByIdAndCircleId(defaultPlaceId, circleId)
+                            .map(FamilyPlaceApiImpl::toDto)
+                            .filter(FamilyPlaceApiImpl::hasAddress);
+            if (defaultPlace.isPresent()) {
+                return defaultPlace;
+            }
+        }
+        return places.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                .map(FamilyPlaceApiImpl::toDto)
+                .filter(FamilyPlaceApiImpl::hasAddress)
+                .min(Comparator.comparing(p -> p.name().toLowerCase(Locale.ROOT)));
+    }
+
+    private static boolean hasAddress(CirclePlaceDto place) {
+        return place.address() != null && !place.address().isBlank();
+    }
+
     private static CirclePlaceDto toDto(FamilyPlaceEntity entity) {
         return new CirclePlaceDto(
                 entity.id(),

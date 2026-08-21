@@ -151,6 +151,7 @@ class CalendarServiceTest {
                                         feedEventId,
                                         feedId,
                                         "U12",
+                                        "practice-uid@example.com",
                                         "Practice",
                                         Instant.parse("2026-08-15T17:00:00Z"),
                                         Instant.parse("2026-08-15T18:00:00Z"),

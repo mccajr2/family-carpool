@@ -1,9 +1,13 @@
 import { authUrl } from "@/api/authClient"
 import type {
+  AcceptCarpoolRideRequest,
   CarpoolInvite,
   CarpoolJoinRequest,
+  CarpoolRide,
+  CarpoolRideEvent,
   CarpoolSpace,
   CarpoolSummary,
+  CreateCarpoolRideRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -145,6 +149,106 @@ export class CarpoolClient {
     if (!response.ok && response.status !== 204) {
       throw new Error(await readErrorMessage(response, "Decline carpool request failed"))
     }
+  }
+
+  async listRides(
+    accessToken: string,
+    spaceId: string,
+    from: string,
+    to: string,
+  ): Promise<CarpoolRideEvent[]> {
+    const params = new URLSearchParams({ from, to })
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides?${params}`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List carpool rides failed"))
+    }
+    return (await response.json()) as CarpoolRideEvent[]
+  }
+
+  async createRide(
+    accessToken: string,
+    spaceId: string,
+    request: CreateCarpoolRideRequest,
+  ): Promise<CarpoolRide> {
+    const body: CreateCarpoolRideRequest = { eventKey: request.eventKey }
+    if (request.kidIds != null) {
+      body.kidIds = request.kidIds
+    }
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Request carpool ride failed"))
+    }
+    return (await response.json()) as CarpoolRide
+  }
+
+  async acceptRide(
+    accessToken: string,
+    spaceId: string,
+    rideId: string,
+    request: AcceptCarpoolRideRequest,
+  ): Promise<CarpoolRide> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/accept`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ vehicleId: request.vehicleId }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Accept carpool ride failed"))
+    }
+    return (await response.json()) as CarpoolRide
+  }
+
+  async cancelRide(accessToken: string, spaceId: string, rideId: string): Promise<CarpoolRide> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/cancel`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Cancel carpool ride failed"))
+    }
+    return (await response.json()) as CarpoolRide
+  }
+
+  async withdrawRide(
+    accessToken: string,
+    spaceId: string,
+    rideId: string,
+  ): Promise<CarpoolRide> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/withdraw`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Withdraw carpool ride failed"))
+    }
+    return (await response.json()) as CarpoolRide
   }
 }
 

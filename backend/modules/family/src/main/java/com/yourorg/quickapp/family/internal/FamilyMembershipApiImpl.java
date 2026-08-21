@@ -2,6 +2,7 @@ package com.yourorg.quickapp.family.internal;
 
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyCircleName;
+import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyRole;
 import java.util.Collection;
@@ -97,6 +98,27 @@ class FamilyMembershipApiImpl implements FamilyMembershipApi {
                 .map(byId::get)
                 .filter(Objects::nonNull)
                 .map(FamilyMembershipApiImpl::toName)
+                .toList();
+    }
+
+    @Override
+    public List<FamilyKidName> findKids(UUID circleId, Collection<UUID> kidIds) {
+        if (circleId == null || kidIds == null || kidIds.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> unique =
+                kidIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (unique.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, FamilyKidEntity> byId =
+                kids.findAllById(unique).stream()
+                        .filter(kid -> circleId.equals(kid.circleId()))
+                        .collect(Collectors.toMap(FamilyKidEntity::id, Function.identity()));
+        return unique.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .map(kid -> new FamilyKidName(kid.id(), kid.displayName()))
                 .toList();
     }
 

@@ -39,4 +39,14 @@ public interface FamilyPlaceApi {
      * @throws FamilyAccessException 404 if the adult has no circle
      */
     Optional<CirclePlaceDto> findDefaultLeaveFromForMember(UUID adultId);
+
+    /**
+     * Pickup place for a ride request: the adult's default leave-from when that
+     * place has a non-blank address (even if not geocoded), otherwise the
+     * circle's first named place with a non-blank address (name-sorted,
+     * case-insensitive). Empty when the circle has no addressed place.
+     *
+     * @throws FamilyAccessException 404 if the adult has no circle
+     */
+    Optional<CirclePlaceDto> findPickupPlaceForMember(UUID adultId);
 }

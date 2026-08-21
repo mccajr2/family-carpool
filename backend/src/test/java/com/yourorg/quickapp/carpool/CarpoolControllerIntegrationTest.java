@@ -44,6 +44,11 @@ class CarpoolControllerIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"feedId\":\"01900000-0000-7000-8000-000000000041\"}"))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                        get("/api/carpool/spaces/01900000-0000-7000-8000-000000000080/rides")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-08-31T00:00:00Z"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
