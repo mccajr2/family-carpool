@@ -219,6 +219,20 @@ export class CarpoolClient {
     return (await response.json()) as CarpoolRide
   }
 
+  async passRide(accessToken: string, spaceId: string, rideId: string): Promise<CarpoolRide> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/pass`),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Pass carpool ride failed"))
+    }
+    return (await response.json()) as CarpoolRide
+  }
+
   async cancelRide(accessToken: string, spaceId: string, rideId: string): Promise<CarpoolRide> {
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/cancel`),

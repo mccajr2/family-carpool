@@ -320,6 +320,7 @@ export type CarpoolRide = {
   pickupPlaceName: string
   pickupAddress: string
   status: CarpoolRideStatus
+  passedByMe: boolean
   acceptedByAdultId: string | null
   acceptingCircleId: string | null
   acceptingCircleName: string | null

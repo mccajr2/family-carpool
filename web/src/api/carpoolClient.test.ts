@@ -141,7 +141,7 @@ describe("CarpoolClient", () => {
     await expect(client.enable("tok", "f1")).rejects.toThrow("Organizer role required")
   })
 
-  it("lists, creates, accepts, cancels, and withdraws rides", async () => {
+  it("lists, creates, accepts, passes, cancels, and withdraws rides", async () => {
     const ride = {
       id: "ride-1",
       spaceId: "s1",
@@ -155,6 +155,7 @@ describe("CarpoolClient", () => {
       pickupPlaceName: "Home",
       pickupAddress: "1 Main St",
       status: "PENDING",
+      passedByMe: false,
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
@@ -191,6 +192,12 @@ describe("CarpoolClient", () => {
         }),
       )
       .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...ride, passedByMe: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
         new Response(JSON.stringify({ ...ride, status: "CANCELLED" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -209,10 +216,14 @@ describe("CarpoolClient", () => {
     ).resolves.toMatchObject([{ title: "Practice" }])
     await expect(
       client.createRide("tok", "s1", { eventKey: "UID:practice" }),
-    ).resolves.toMatchObject({ id: "ride-1" })
+    ).resolves.toMatchObject({ id: "ride-1", passedByMe: false })
     await expect(
       client.acceptRide("tok", "s1", "ride-1", { vehicleId: "v1" }),
     ).resolves.toMatchObject({ status: "ACCEPTED" })
+    await expect(client.passRide("tok", "s1", "ride-1")).resolves.toMatchObject({
+      passedByMe: true,
+      status: "PENDING",
+    })
     await expect(client.cancelRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       status: "CANCELLED",
     })
@@ -225,6 +236,7 @@ describe("CarpoolClient", () => {
       "http://localhost:8080/api/carpool/spaces/s1/rides?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z",
       "http://localhost:8080/api/carpool/spaces/s1/rides",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/accept",
+      "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/cancel",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/withdraw",
     ])
@@ -237,5 +249,7 @@ describe("CarpoolClient", () => {
     expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBe(
       JSON.stringify({ vehicleId: "v1" }),
     )
+    expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].method).toBe("POST")
+    expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].body).toBeUndefined()
   })
 })
