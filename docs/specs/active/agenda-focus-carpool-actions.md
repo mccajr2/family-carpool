@@ -143,7 +143,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 - [x] OpenAPI: `POST …/rides/{rideId}/pass` documented; `info.version` bumped;
       list-rides documents how passed asks are represented for the caller.
-- [ ] Backend: pass authz/idempotency/clear-on-cancel-or-accept as in Approach;
+- [x] Backend: pass authz/idempotency/clear-on-cancel-or-accept as in Approach;
       unit + integration tests would fail if pass were removed or cancelled the
       ride for others.
 - [ ] Web Calendar: carpool-eligible expanded Agenda FEED rows show Request /
@@ -179,7 +179,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 ## Tasks
 
 - [x] Contract: `/pass` + list-rides passed representation; bump version
-- [ ] Backend: persist passes; service + controller; clear on cancel/accept;
+- [x] Backend: persist passes; service + controller; clear on cancel/accept;
       unit + integration tests
 - [ ] Web API: `carpoolClient.passRide` + types; tests
 - [ ] Web: join helper (feed/space + startsAt/title[/location] → ride event);
