@@ -221,7 +221,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Focus CTA precedence: pending Confirm → Accept/Pass → **Request**
       (when eligible) with Assign secondary if also uncovered → else Assign →
       calm. Component test: uncovered carpool FEED Focus shows Request.
-- [ ] Architecture Rides row documents amended default-kid / Accept→Yes
+- [x] Architecture Rides row documents amended default-kid / Accept→Yes
       (create leaves No response).
 - [ ] `cd web && npm test` and `npm run lint` pass; backend carpool ride tests
       pass; relevant `sharedLogic` tests pass.
@@ -256,7 +256,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       No-response defaults; tests
 - [x] Web: Focus Request CTA + precedence (Assign secondary when both);
       Focus card tests
-- [ ] Docs: architecture Rides default-kid / Accept→Yes wording
+- [x] Docs: architecture Rides default-kid / Accept→Yes wording
 - [ ] Mobile sharedLogic: align types/docs if OpenAPI create/accept semantics
       change; tests if client surface changes
 - [ ] Tests: web lint/test, backend carpool ride suites, sharedLogic — report
