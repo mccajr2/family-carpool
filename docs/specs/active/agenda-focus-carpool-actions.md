@@ -210,7 +210,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       Agenda UI in this PR.
 - [x] Architecture Clients / Forward-looking seams updated for Agenda-primary
       rides. No `CalendarItem` ride fields.
-- [ ] OpenAPI + backend: `defaultKidIds` / create accept **Yes + No response**
+- [x] OpenAPI + backend: `defaultKidIds` / create accept **Yes + No response**
       (not No; not already accepted); create does **not** change RSVP; Accept
       sets Yes for kids on the ride; unit + integration tests would fail if
       Yes-only create gate returned or create auto-Yesed.
@@ -248,7 +248,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       CarpoolClient tests — report real results
 - [x] Contract: document amended create / `defaultKidIds` (Yes + No response;
       create leaves RSVP; Accept → Yes); bump `info.version`
-- [ ] Backend: change `defaultKidIds` + create validation; Accept sets RSVP
+- [x] Backend: change `defaultKidIds` + create validation; Accept sets RSVP
       Yes for ride kids; unit + integration tests
 - [ ] Web: harden `matchCalendarItemToRideEvent` (location disambiguate only);
       tests

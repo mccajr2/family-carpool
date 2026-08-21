@@ -153,10 +153,13 @@ class CarpoolRideServiceTest {
     }
 
     @Test
-    void createDefaultsToYesKidsWhoStillNeedARide() {
+    void createDefaultsToYesAndNoResponseKidsWhoStillNeedARide() {
         stubMemberSpace();
         stubSpaceEvent(practiceEvent(List.of(kidA, kidB)));
-        stubRsvps(List.of(yes(kidA), yes(kidB)));
+        stubRsvps(
+                List.of(
+                        yes(kidA),
+                        new RsvpDto(RsvpItemSource.FEED, eventId, kidB, RsvpStatus.NO_RESPONSE)));
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
                         spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
                 .thenReturn(List.of());
@@ -180,13 +183,17 @@ class CarpoolRideServiceTest {
                 ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
         verify(rides).save(saved.capture());
         assertThat(saved.getValue().eventKey()).isEqualTo("UID:game-1");
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }
 
     @Test
     void createOverrideMustBeSubsetOfDefault() {
         stubMemberSpace();
         stubSpaceEvent(practiceEvent(List.of(kidA, kidB)));
-        stubRsvps(List.of(yes(kidA), yes(kidB)));
+        stubRsvps(
+                List.of(
+                        new RsvpDto(RsvpItemSource.FEED, eventId, kidA, RsvpStatus.NO_RESPONSE),
+                        yes(kidB)));
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
                         spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
                 .thenReturn(List.of());
@@ -201,17 +208,21 @@ class CarpoolRideServiceTest {
 
         var created =
                 service.create(
-                        adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", List.of(kidB)));
+                        adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", List.of(kidA)));
 
-        assertThat(created.kidIds()).containsExactly(kidB);
+        assertThat(created.kidIds()).containsExactly(kidA);
         assertThat(created.seats()).isEqualTo(1);
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void create400WhenDefaultEmptyOrKidNotYes() {
+    void create400WhenDefaultEmptyOrKidIsRsvpNo() {
         stubMemberSpace();
         stubSpaceEvent(practiceEvent(List.of(kidA, kidB)));
-        stubRsvps(List.of(new RsvpDto(RsvpItemSource.FEED, eventId, kidA, RsvpStatus.NO)));
+        stubRsvps(
+                List.of(
+                        new RsvpDto(RsvpItemSource.FEED, eventId, kidA, RsvpStatus.NO),
+                        new RsvpDto(RsvpItemSource.FEED, eventId, kidB, RsvpStatus.NO)));
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
                         spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
                 .thenReturn(List.of());
@@ -223,8 +234,12 @@ class CarpoolRideServiceTest {
                                         spaceId,
                                         new CreateCarpoolRideRequest("UID:game-1", null)))
                 .isInstanceOf(CarpoolException.class)
-                .extracting(ex -> ((CarpoolException) ex).status())
-                .isEqualTo(HttpStatus.BAD_REQUEST);
+                .satisfies(
+                        ex -> {
+                            assertThat(((CarpoolException) ex).status())
+                                    .isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(ex.getMessage()).doesNotContain("RSVP Yes first");
+                        });
         assertThatThrownBy(
                         () ->
                                 service.create(
@@ -235,6 +250,7 @@ class CarpoolRideServiceTest {
                 .extracting(ex -> ((CarpoolException) ex).status())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         verify(rides, never()).save(any());
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -285,7 +301,8 @@ class CarpoolRideServiceTest {
     }
 
     @Test
-    void acceptSeatMathAndRecordsVehicle() {
+    void acceptSeatMathRecordsVehicleAndSetsRequestingKidsYes() {
+        UUID requestingEventId = UUID.fromString("01900000-0000-7000-8000-000000000062");
         CarpoolRideRequestEntity pending = pendingOtherRide(List.of(kidA, kidB));
         stubMemberSpace();
         when(rides.findByIdAndSpaceId(pending.id(), spaceId)).thenReturn(Optional.of(pending));
@@ -295,6 +312,33 @@ class CarpoolRideServiceTest {
                 .thenReturn(false);
         stubSpaceEvent(practiceEvent(List.of(kidA)));
         stubRsvps(List.of(yes(kidA)));
+        FeedResponse otherFeed =
+                new FeedResponse(
+                        feedId,
+                        "Soccer",
+                        "https://example.com/team.ics",
+                        List.of(kidA, kidB),
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        null,
+                        2);
+        when(feedsApi.findByCircleAndNormalizedUrl(otherCircleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(otherFeed));
+        when(feedCalendarApi.listEventsInRange(
+                        otherCircleId,
+                        CarpoolRideService.EVENT_LOOKUP_FROM,
+                        CarpoolRideService.EVENT_LOOKUP_TO))
+                .thenReturn(
+                        List.of(
+                                new FeedCalendarEventDto(
+                                        requestingEventId,
+                                        feedId,
+                                        "Soccer",
+                                        "game-1",
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidA, kidB))));
         when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(familyMembershipApi.findCircles(List.of(otherCircleId, circleId)))
                 .thenReturn(
@@ -313,6 +357,22 @@ class CarpoolRideServiceTest {
         assertThat(accepted.vehicleLabel()).isEqualTo("Van");
         assertThat(accepted.passedByMe()).isFalse();
         verify(passes).deleteByRideId(pending.id());
+        verify(rsvpApi)
+                .setStatus(
+                        otherCircleId,
+                        RsvpItemSource.FEED,
+                        requestingEventId,
+                        kidA,
+                        RsvpStatus.YES,
+                        adultId);
+        verify(rsvpApi)
+                .setStatus(
+                        otherCircleId,
+                        RsvpItemSource.FEED,
+                        requestingEventId,
+                        kidB,
+                        RsvpStatus.YES,
+                        adultId);
     }
 
     @Test
@@ -489,6 +549,7 @@ class CarpoolRideServiceTest {
         var cancelled = service.cancel(adult, spaceId, pending.id());
         assertThat(cancelled.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
         verify(passes).deleteByRideId(pending.id());
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
 
         CarpoolRideRequestEntity accepted = pendingOtherRide(List.of(kidA));
         accepted.accept(adultId, circleId, vehicleId);
@@ -504,6 +565,7 @@ class CarpoolRideServiceTest {
         assertThat(withdrawn.vehicleId()).isNull();
         assertThat(withdrawn.acceptedByAdultId()).isNull();
         verify(passes, never()).deleteByRideId(accepted.id());
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }
 
     @Test

@@ -260,6 +260,7 @@ public class CarpoolRideService {
         ride.accept(adult.id(), circleId, vehicle.id());
         rides.save(ride);
         passes.deleteByRideId(ride.id());
+        ensureRequestingKidsYes(ride, adult.id());
         Map<UUID, String> names = circleNames(List.of(ride.requestingCircleId(), circleId));
         return toRideResponse(ride, names, Map.of(vehicle.id(), vehicle.label()), false);
     }
@@ -332,14 +333,14 @@ public class CarpoolRideService {
         if (feedKids.isEmpty()) {
             return List.of();
         }
-        Set<UUID> yes =
+        Map<UUID, RsvpStatus> byKid =
                 rsvpApi.statusesForKids(circleId, RsvpItemSource.FEED, event.id(), feedKids).stream()
-                        .filter(row -> row.status() == RsvpStatus.YES)
-                        .map(RsvpDto::kidId)
-                        .collect(Collectors.toSet());
+                        .collect(
+                                Collectors.toMap(
+                                        RsvpDto::kidId, RsvpDto::status, (left, right) -> left));
         Set<UUID> covered = acceptedKidIds(spaceId, RideEventKey.of(event), circleId);
         return feedKids.stream()
-                .filter(yes::contains)
+                .filter(kidId -> byKid.getOrDefault(kidId, RsvpStatus.NO_RESPONSE) != RsvpStatus.NO)
                 .filter(kidId -> !covered.contains(kidId))
                 .distinct()
                 .toList();
@@ -348,7 +349,7 @@ public class CarpoolRideService {
     private List<UUID> resolveCreateKids(List<UUID> requested, List<UUID> defaultKids) {
         if (defaultKids.isEmpty() && (requested == null || requested.isEmpty())) {
             throw new CarpoolException(
-                    HttpStatus.BAD_REQUEST, "No attending kids need a ride");
+                    HttpStatus.BAD_REQUEST, "No kids need a ride for this event");
         }
         if (requested == null || requested.isEmpty()) {
             return defaultKids;
@@ -362,10 +363,30 @@ public class CarpoolRideService {
             if (!allowed.contains(kidId)) {
                 throw new CarpoolException(
                         HttpStatus.BAD_REQUEST,
-                        "Kid is not RSVP YES or already on an accepted ride");
+                        "Kid is not eligible for a ride (RSVP No, unknown, or already covered)");
             }
         }
         return unique;
+    }
+
+    private void ensureRequestingKidsYes(CarpoolRideRequestEntity ride, UUID updatedByAdultId) {
+        CarpoolSpaceEntity space = spaces.findById(ride.spaceId()).orElseThrow(this::notFound);
+        FeedCalendarEventDto event =
+                findSpaceEvent(ride.requestingCircleId(), space, ride.eventKey())
+                        .orElseThrow(
+                                () ->
+                                        new CarpoolException(
+                                                HttpStatus.BAD_REQUEST,
+                                                "Unknown event for requesting circle"));
+        for (RideKidSnapshot kid : ride.kids()) {
+            rsvpApi.setStatus(
+                    ride.requestingCircleId(),
+                    RsvpItemSource.FEED,
+                    event.id(),
+                    kid.kidId(),
+                    RsvpStatus.YES,
+                    updatedByAdultId);
+        }
     }
 
     private Set<UUID> acceptedKidIds(UUID spaceId, String eventKey, UUID circleId) {
