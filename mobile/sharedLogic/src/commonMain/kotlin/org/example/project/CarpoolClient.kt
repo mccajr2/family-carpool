@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -130,6 +131,79 @@ class CarpoolClient(
         ) {
             throw AuthApiException(awaitMessage(response, "Decline carpool request failed"))
         }
+    }
+
+    suspend fun listRides(
+        accessToken: String,
+        spaceId: String,
+        from: String,
+        to: String,
+    ): List<CarpoolRideEvent> {
+        val response =
+            httpClient.get("$baseUrl/api/carpool/spaces/$spaceId/rides") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                parameter("from", from)
+                parameter("to", to)
+            }
+        ensureSuccess(response, "List carpool rides failed")
+        return response.body()
+    }
+
+    suspend fun createRide(
+        accessToken: String,
+        spaceId: String,
+        request: CreateCarpoolRideRequest,
+    ): CarpoolRide {
+        val response =
+            httpClient.post("$baseUrl/api/carpool/spaces/$spaceId/rides") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        ensureSuccess(response, "Request carpool ride failed")
+        return response.body()
+    }
+
+    suspend fun acceptRide(
+        accessToken: String,
+        spaceId: String,
+        rideId: String,
+        request: AcceptCarpoolRideRequest,
+    ): CarpoolRide {
+        val response =
+            httpClient.post("$baseUrl/api/carpool/spaces/$spaceId/rides/$rideId/accept") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        ensureSuccess(response, "Accept carpool ride failed")
+        return response.body()
+    }
+
+    suspend fun cancelRide(
+        accessToken: String,
+        spaceId: String,
+        rideId: String,
+    ): CarpoolRide {
+        val response =
+            httpClient.post("$baseUrl/api/carpool/spaces/$spaceId/rides/$rideId/cancel") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Cancel carpool ride failed")
+        return response.body()
+    }
+
+    suspend fun withdrawRide(
+        accessToken: String,
+        spaceId: String,
+        rideId: String,
+    ): CarpoolRide {
+        val response =
+            httpClient.post("$baseUrl/api/carpool/spaces/$spaceId/rides/$rideId/withdraw") {
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+            }
+        ensureSuccess(response, "Withdraw carpool ride failed")
+        return response.body()
     }
 
     companion object {

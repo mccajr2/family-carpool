@@ -6,7 +6,7 @@ Created: 2026-08-18
 Added: 2026-08-18 · enhancement
 
 Thin stub from `/roadmap`. **Not implementable yet.** Promote with `/roadmap`
-after web [`carpool-request-accept`](../active/carpool-request-accept.md) is dogfoodable,
+after web [`carpool-request-accept`](../archive/carpool-request-accept.md) is dogfoodable,
 then `/spec`.
 
 ## Problem
@@ -17,7 +17,7 @@ after the vertical is proven.
 
 ## Non-goals (sketch)
 
-- Inventing request/accept itself ([`carpool-request-accept`](../active/carpool-request-accept.md))
+- Inventing request/accept itself ([`carpool-request-accept`](../archive/carpool-request-accept.md))
 - Visual restyle of the Carpool destination (`carpool-page-redesign`)
 - Richer ride shapes (to XOR from, meet-at, early/late, multi-stop)
 

@@ -6,7 +6,7 @@ Created: 2026-08-17
 Added: 2026-08-17 · enhancement
 
 Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec agenda-focus-carpool-actions`
-after [`carpool-request-accept`](../active/carpool-request-accept.md) ships (web Focus card).
+after [`carpool-request-accept`](../archive/carpool-request-accept.md) ships (web Focus card).
 
 ## Problem
 
@@ -16,7 +16,7 @@ leave-for-the-next-event.
 
 ## Non-goals (sketch)
 
-- Inventing request/accept itself ([`carpool-request-accept`](../active/carpool-request-accept.md))
+- Inventing request/accept itself ([`carpool-request-accept`](../archive/carpool-request-accept.md))
 - Changing Focus chrome ([`agenda-focus-card-polish`](../archive/agenda-focus-card-polish.md))
   — reuse the single CTA slot on the slim card; do not add a second form band.
 - Multi-stop / Open in Maps ([`carpool-multi-stop`](carpool-multi-stop.md))

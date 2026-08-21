@@ -2742,10 +2742,14 @@ export function FamilyScreen({
           ) : null}
 
           {destination === "carpool" ? (
-            carpoolAccessToken ? (
+            carpoolAccessToken && adult ? (
               <CarpoolPanel
                 accessToken={carpoolAccessToken}
                 carpoolClient={carpoolClient}
+                familyClient={familyClient}
+                adultId={adult.id}
+                circleId={circle.id}
+                kids={circle.kids}
                 onJoined={() => refreshFeedsAndCalendarAfterCarpoolJoin()}
               />
             ) : (

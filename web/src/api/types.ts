@@ -304,3 +304,44 @@ export type CarpoolSummary = {
   feeds: CarpoolFeedStatus[]
   spaces: CarpoolSpace[]
 }
+
+export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED"
+
+export type CarpoolRide = {
+  id: string
+  spaceId: string
+  eventKey: string
+  requestingCircleId: string
+  requestingCircleName: string | null
+  requestedByAdultId: string
+  kidIds: string[]
+  kidFirstNames: string[]
+  seats: number
+  pickupPlaceName: string
+  pickupAddress: string
+  status: CarpoolRideStatus
+  acceptedByAdultId: string | null
+  acceptingCircleId: string | null
+  acceptingCircleName: string | null
+  vehicleId: string | null
+  vehicleLabel: string | null
+}
+
+export type CarpoolRideEvent = {
+  eventKey: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+  defaultKidIds: string[]
+  ownRequest: CarpoolRide | null
+  otherRequests: CarpoolRide[]
+}
+
+export type CreateCarpoolRideRequest = {
+  eventKey: string
+  kidIds?: string[]
+}
+
+export type AcceptCarpoolRideRequest = {
+  vehicleId: string
+}

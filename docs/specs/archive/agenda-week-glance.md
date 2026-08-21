@@ -35,7 +35,7 @@ days that need attention. That is not the month/week **grid**
 - The mock’s **Sharks Practice — Carpool** numbered-stop card + Open in Maps
   ([`carpool-multi-stop`](../planned/carpool-multi-stop.md))
 - **“N need drivers” / “Needs driver”** copy — `CalendarItem` has no ride /
-  driver field and [`carpool-request-accept`](../active/carpool-request-accept.md)
+  driver field and [`carpool-request-accept`](../archive/carpool-request-accept.md)
   is not shipped. Do not invent stop counts or treat uncovered as “needs a
   driver.” Driver/ride rollups wait for that slice (and
   [`agenda-focus-carpool-actions`](../planned/agenda-focus-carpool-actions.md))

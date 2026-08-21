@@ -1,9 +1,10 @@
 # Spec: carpool-request-accept
 
-Status: draft  
+Status: done  
 Created: 2026-08-07  
-Updated: 2026-08-18 (`/spec`)  
-Parent: [docs/roadmap.md](../roadmap.md)  
+Updated: 2026-08-21 (`/pr`)  
+Approved: 2026-08-21  
+Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `carpool-request-accept`  
 Added: 2026-08-07 · initial
 
@@ -186,42 +187,42 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents space-scoped **rides** list (required `from`/`to`, same
+- [x] OpenAPI documents space-scoped **rides** list (required `from`/`to`, same
       30-day window spirit as Agenda), create, accept, cancel, withdraw; Bearer
       on all; bump `info.version`. Join-request paths unchanged. Hand-written
       **web** and **sharedLogic** clients updated in the same change.
-- [ ] **List rides** (space member): upcoming **feed** events on this space’s
+- [x] **List rides** (space member): upcoming **feed** events on this space’s
       URL in `[from, to)`, each with viewer event identity, title, start, and
       ride overlay (this circle’s active request if any; other circles’
       `PENDING`/`ACCEPTED` requests with circle name, kid first names, seat
       count, pickup name+address). Non-member / unknown space → **404**. Range
       inverted or longer than 31 days → **400**. Manual events do not appear.
-- [ ] **Create:** any space-member adult. Default kids = RSVP YES on that event
+- [x] **Create:** any space-member adult. Default kids = RSVP YES on that event
       who still need a ride; body may send a non-empty subset of that set.
       Empty default set, unknown kids, RSVP not YES, or kid already on an
       `ACCEPTED` ride → **400**. No pickup address → **400**. Duplicate active
       request for this circle+event → **409**. Persists both-legs + pickup
       snapshots. Caregiver may create (not Organizer-gated).
-- [ ] **Accept:** another member circle’s adult with `drives=true` and a
+- [x] **Accept:** another member circle’s adult with `drives=true` and a
       vehicle they may drive; `remaining >= seats`; that vehicle has no
       `ACCEPTED` ride for this event. Success sets `ACCEPTED` and records
       adult/circle/vehicle. Own-circle request → **409**. `drives=false` →
       **403**. Not enough seats or vehicle already committed → **409**.
       Non-PENDING → **409**.
-- [ ] **Cancel** (requesting circle) from PENDING or ACCEPTED → `CANCELLED`;
+- [x] **Cancel** (requesting circle) from PENDING or ACCEPTED → `CANCELLED`;
       accepted cancel frees the vehicle. **Withdraw** (accepting circle) from
       ACCEPTED → `PENDING` (clears accepter/vehicle). Wrong circle → **403**.
-- [ ] Non-members never see rides (same existence rule as space detail).
+- [x] Non-members never see rides (same existence rule as space detail).
       Importing a feed still does not join a space.
-- [ ] **Web Carpool tab:** member spaces show upcoming events with Request
+- [x] **Web Carpool tab:** member spaces show upcoming events with Request
       (default all attending; deselect override), pending/accepted status,
       Accept (vehicle default when only one eligible), Cancel, Withdraw.
       Loading / error / empty (no upcoming events; “mark who’s going on
       Calendar” when RSVP YES is empty). Agenda / Focus **do not** gain
       ride-share controls. No Carpool visual restyle.
-- [ ] Android/iOS **UI unchanged** (membership only). `sharedLogic` covers the
+- [x] Android/iOS **UI unchanged** (membership only). `sharedLogic` covers the
       new paths in client tests.
-- [ ] Backend unit + Testcontainers integration cover create defaults/override,
+- [x] Backend unit + Testcontainers integration cover create defaults/override,
       RSVP filter, duplicate 409, pickup 400, accept seat math (driver + own
       YES kids), vehicle one-accept-per-event, own-circle 409, drives=false
       403, cancel/withdraw, authz; web `CarpoolPanel` tests cover Request /
@@ -238,13 +239,13 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] **Backend (`carpool`):** Flyway ride-request table; list/create/accept/
       cancel/withdraw; seat math via `FamilyGarageApi` + `RsvpApi`; `rsvp`
       module dependency; no `internal` imports.
-- [ ] **Web:** `carpoolClient` + types; `CarpoolPanel` upcoming rides +
+- [x] **Web:** `carpoolClient` + types; `CarpoolPanel` upcoming rides +
       request/accept/cancel/withdraw; tests; loading/error/empty.
-- [ ] **Mobile:** `sharedLogic` models + `CarpoolClient` methods + tests only.
-- [ ] **Docs:** architecture Family writes + Team carpool space (detail) +
+- [x] **Mobile:** `sharedLogic` models + `CarpoolClient` methods + tests only.
+- [x] **Docs:** architecture Family writes + Team carpool space (detail) +
       domain diagram (`RideRequest`); garage “out of scope” line becomes this
       slice; README smoke: two families, Request, Accept, see seats/pickup.
-- [ ] **Tests:** as in AC (unit + integration + web + sharedLogic +
+- [x] **Tests:** as in AC (unit + integration + web + sharedLogic +
       `ModularityTests`).
 
 ## Open questions

@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-18 (`/spec carpool-request-accept`)
+Updated: 2026-08-21 (`/pr carpool-request-accept`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -73,7 +73,7 @@ is dogfoodable on web.
 | Circle writes            | **Organizer-only:** kids, invite/roles, circle rename, **activity feeds** (+ Sync). **Any member:** **named places**, **manual events**. **Garage:** any member, **owner-only** vehicle writes (including who may drive); circle-visible read — `[garage-vehicles](specs/archive/garage-vehicles.md)`                                                                                                                                                                                                                                                                        |
 | Driving                  | Orthogonal to role: **0+ vehicles** or “don’t drive”; non-drivers stay full Caregivers and can **request** rides. A vehicle has an **owner** plus explicit **drivers** (same house does not imply sharing) — `[garage-vehicles](specs/archive/garage-vehicles.md)`                                                                                                                                                                                                                                                                                                              |
 | Same team, multiple kids | Attach **which kids** belong on a feed/team; calendar shows both                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Carpool request          | **v1** (`carpool-request-accept`): **one request covering all attending kids who still need a ride** by default (seats = kid count); **override** to drop a kid (e.g. sick). v1 is **both legs** (to and from the event) and **pickup at the requester’s house**. Richer shapes are parking: to XOR from (`carpool-leg-to-from`), pickup vs drop-off at a teammate house (`carpool-meet-at`), early/late windows the driver must approve (`carpool-early-late-window`) |
+| Carpool request          | **v1** Done: [`carpool-request-accept`](specs/archive/carpool-request-accept.md) — **one request covering all attending kids who still need a ride** by default (seats = kid count); **override** to drop a kid (e.g. sick). v1 is **both legs** (to and from the event) and **pickup at the requester’s house**. Richer shapes are parking: to XOR from (`carpool-leg-to-from`), pickup vs drop-off at a teammate house (`carpool-meet-at`), early/late windows the driver must approve (`carpool-early-late-window`) |
 | Feed vs carpool          | **Feed = calendar only** (import does not join rides). **One space per normalized feed URL**; **Organizer** of the first family enables and that circle **owns**. Join = **code** (admits + adds feed if missing) or **request** (same-URL subscriber; owner admit/decline, in-app). Members reshare code; owner regenerates. No coach admin. Done: `[team-carpool-space-invite](specs/archive/team-carpool-space-invite.md)`                                                                                           |
 | Auth                     | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web + Android + iOS; **optional password** later; web cookie hardening and production mail are follow-ups                                                                                                                                                                                                                                                                                                                                                                                             |
 | Client ship order        | **New product slices ship on web first.** Do not block `/spec` of a vertical on Android/iOS parity. Park `<id>-mobile` when the web slice is scoped (or at `/pr` if missing). Visual restyles and mobile ports of already-shipped web design stay parked until carpool v1 is dogfoodable on web. |
@@ -99,19 +99,18 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-request-accept          | active  | 2026-08-07 · initial       | Multi-kid default ride request + deselect override; accept; seat updates — **web first**                                      |
-| 2    | agenda-focus-carpool-actions    | planned | 2026-08-17 · enhancement   | After request/accept: pending ride accept/decline can be the Focus next action (web Focus card)                               |
-| 3    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 4    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 5    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
-| 6    | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 7    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 8    | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 9    | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 10   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                      |
-| 11   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                 |
-| 12   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 13   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | agenda-focus-carpool-actions    | planned | 2026-08-17 · enhancement   | After request/accept: pending ride accept/decline can be the Focus next action (web Focus card)                               |
+| 2    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 4    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
+| 5    | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 6    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 7    | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 8    | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 9    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate for real users (dev keeps log delivery)                                      |
+| 10   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; mobile stays Bearer                                                 |
+| 11   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 12   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -172,7 +171,6 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
-| carpool-request-accept | `carpool-request-accept` | [active](specs/active/carpool-request-accept.md) |
 
 
 ## Done
@@ -180,6 +178,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-request-accept     | 2026-08-21 | [archive](specs/archive/carpool-request-accept.md)     |
 | agenda-week-glance         | 2026-08-18 | [archive](specs/archive/agenda-week-glance.md)         |
 | feeds-page-redesign        | 2026-08-18 | [archive](specs/archive/feeds-page-redesign.md)        |
 | agenda-list-chips          | 2026-08-18 | [archive](specs/archive/agenda-list-chips.md)          |
@@ -332,4 +331,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-18 | `/pr feeds-page-redesign`: web Feeds raised cards, OWNED/NO CARPOOL chips, quieter Sync/Edit; spec archived. Next up `agenda-week-glance`. |
 | 2026-08-18 | `/pr agenda-week-glance`: web Calendar Context five-day coverage/status strip; spec archived. Next up `agenda-focus-card-mobile`. |
 | 2026-08-18 | Major re-rank: web-first product — carpool request/accept cluster ahead of design; park Agenda/Feeds mobile ports, typography, destination adoption, and calendar grid; promote `agenda-focus-carpool-actions`. Next up `carpool-request-accept`. |
+| 2026-08-21 | `/pr carpool-request-accept`: ride request/accept shipped (OpenAPI + backend + web Carpool tab + sharedLogic); Android/iOS UI parked as `carpool-request-accept-mobile`. Next up `agenda-focus-carpool-actions`. |
 

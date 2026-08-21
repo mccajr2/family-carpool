@@ -67,6 +67,45 @@ data class CarpoolSummary(
 )
 
 @Serializable
+enum class CarpoolRideStatus {
+    PENDING,
+    ACCEPTED,
+    CANCELLED,
+}
+
+@Serializable
+data class CarpoolRide(
+    val id: String,
+    val spaceId: String,
+    val eventKey: String,
+    val requestingCircleId: String,
+    val requestingCircleName: String? = null,
+    val requestedByAdultId: String,
+    val kidIds: List<String> = emptyList(),
+    val kidFirstNames: List<String> = emptyList(),
+    val seats: Int,
+    val pickupPlaceName: String,
+    val pickupAddress: String,
+    val status: CarpoolRideStatus,
+    val acceptedByAdultId: String? = null,
+    val acceptingCircleId: String? = null,
+    val acceptingCircleName: String? = null,
+    val vehicleId: String? = null,
+    val vehicleLabel: String? = null,
+)
+
+@Serializable
+data class CarpoolRideEvent(
+    val eventKey: String,
+    val title: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val defaultKidIds: List<String> = emptyList(),
+    val ownRequest: CarpoolRide? = null,
+    val otherRequests: List<CarpoolRide> = emptyList(),
+)
+
+@Serializable
 data class EnableCarpoolSpaceRequest(
     val feedId: String,
 )
@@ -74,6 +113,17 @@ data class EnableCarpoolSpaceRequest(
 @Serializable
 data class JoinCarpoolSpaceRequest(
     val code: String,
+)
+
+@Serializable
+data class CreateCarpoolRideRequest(
+    val eventKey: String,
+    val kidIds: List<String>? = null,
+)
+
+@Serializable
+data class AcceptCarpoolRideRequest(
+    val vehicleId: String,
 )
 
 fun circleDisplayName(name: String?): String {
