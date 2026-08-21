@@ -38,6 +38,7 @@ type AgendaFocusCardProps = {
   onRemoveCoverage: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
+  onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onOpenPlaces: () => void
   onEdit: () => void
 }
@@ -99,6 +100,7 @@ export function AgendaFocusCard({
   onRemoveCoverage,
   onAcceptRide,
   onPassRide,
+  onCreateRide,
   onOpenPlaces,
   onEdit,
 }: AgendaFocusCardProps) {
@@ -114,7 +116,8 @@ export function AgendaFocusCard({
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const statusChips = focusStatusChips(item, currentAdultId)
   const activeCoverage = active[0]
-  // CTA precedence: pending Confirm → ride Accept/Pass → Assign → calm Edit.
+  // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
+  // secondary if uncovered) → Assign → calm Edit.
   const showRideAcceptPass =
     !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
   const acceptVehicles = showRideAcceptPass
@@ -128,6 +131,13 @@ export function AgendaFocusCard({
     : []
   const acceptVehicle =
     acceptVehicles.length === 1 ? acceptVehicles[0]!.id : acceptVehicleId
+  const showRequest =
+    !pendingForSelf &&
+    !showRideAcceptPass &&
+    rideEvent != null &&
+    rideEvent.ownRequest == null &&
+    rideEvent.defaultKidIds.length > 0 &&
+    onCreateRide != null
   const showAssign =
     !showRideAcceptPass &&
     item.uncoveredKidIds.length > 0 &&
@@ -387,13 +397,44 @@ export function AgendaFocusCard({
             </Button>
           </>
         ) : null}
-        {showAssign ? (
+        {showRequest && rideEvent != null ? (
           <Button
             type="button"
             size="sm"
             className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
             style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
             variant={!needsDecision ? "default" : undefined}
+            onClick={() => onCreateRide?.(rideEvent.eventKey)}
+            disabled={loading}
+          >
+            Request
+          </Button>
+        ) : null}
+        {showAssign ? (
+          <Button
+            type="button"
+            size="sm"
+            className={
+              showRequest
+                ? "text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+                : "text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+            }
+            style={
+              showRequest
+                ? undefined
+                : needsDecision
+                  ? { backgroundColor: onVar, color: surfaceVar }
+                  : undefined
+            }
+            variant={
+              showRequest
+                ? needsDecision
+                  ? "secondary"
+                  : "outline"
+                : !needsDecision
+                  ? "default"
+                  : undefined
+            }
             onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
             disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
           >

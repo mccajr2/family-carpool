@@ -218,7 +218,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       location only disambiguates collisions; tests cover FP location drift.
 - [x] Agenda + Carpool tab: Request shows for No-response kids (no prior Yes);
       copy no longer tells adults to RSVP Yes first when defaults exist.
-- [ ] Focus CTA precedence: pending Confirm → Accept/Pass → **Request**
+- [x] Focus CTA precedence: pending Confirm → Accept/Pass → **Request**
       (when eligible) with Assign secondary if also uncovered → else Assign →
       calm. Component test: uncovered carpool FEED Focus shows Request.
 - [ ] Architecture Rides row documents amended default-kid / Accept→Yes
@@ -254,7 +254,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       tests
 - [x] Web: AgendaRow + CarpoolSpaceRides copy / Request visibility for
       No-response defaults; tests
-- [ ] Web: Focus Request CTA + precedence (Assign secondary when both);
+- [x] Web: Focus Request CTA + precedence (Assign secondary when both);
       Focus card tests
 - [ ] Docs: architecture Rides default-kid / Accept→Yes wording
 - [ ] Mobile sharedLogic: align types/docs if OpenAPI create/accept semantics

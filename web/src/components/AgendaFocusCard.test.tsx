@@ -593,11 +593,141 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
       garage,
       onAcceptRide: vi.fn(),
       onPassRide: vi.fn(),
+      onCreateRide: vi.fn(),
     })
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
     })
+  })
+})
+
+describe("AgendaFocusCard Request CTA", () => {
+  const requestableRide = {
+    eventKey: "UID:practice",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: ["k1"],
+    ownRequest: null,
+    otherRequests: [],
+  }
+
+  it("shows Request as primary with Assign secondary on uncovered carpool FEED", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const onAssignCoverage = vi.fn()
+    renderCard(
+      item({
+        id: "feed-1",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "Soccer",
+        uncoveredKidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+      }),
+      {
+        rideEvent: requestableRide,
+        onCreateRide,
+        onAssignCoverage,
+      },
+    )
+    expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice")
+    expect(onAssignCoverage).not.toHaveBeenCalled()
+  })
+
+  it("shows Request without Assign when coverage is all-set", () => {
+    renderCard(item({ id: "covered-request", title: "Practice" }), {
+      rideEvent: requestableRide,
+      onCreateRide: vi.fn(),
+    })
+    expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+  })
+
+  it("prefers Accept/Pass over Request", () => {
+    renderCard(item({ id: "accept-over-request", title: "Practice" }), {
+      rideEvent: {
+        ...requestableRide,
+        defaultKidIds: ["k1"],
+        otherRequests: [
+          {
+            id: "ask-1",
+            spaceId: "s1",
+            eventKey: "UID:practice",
+            requestingCircleId: "c2",
+            requestingCircleName: "House B",
+            requestedByAdultId: "a2",
+            kidIds: ["k2"],
+            kidFirstNames: ["Mia"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            status: "PENDING",
+            passedByMe: false,
+            acceptedByAdultId: null,
+            acceptingCircleId: null,
+            acceptingCircleName: null,
+            vehicleId: null,
+            vehicleLabel: null,
+          },
+        ],
+      },
+      garage: {
+        members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+        vehicles: [
+          {
+            id: "v1",
+            ownerAdultId: "a1",
+            driverAdultIds: ["a1"],
+            keptAtPlaceId: null,
+            label: "Van",
+            year: 2019,
+            make: "HONDA",
+            model: "Odyssey",
+            seats: 8,
+            suggestedSeats: 8,
+          },
+        ],
+      },
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+      onCreateRide: vi.fn(),
+    })
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
+  })
+
+  it("prefers Confirm/Decline over Request", () => {
+    renderCard(
+      item({
+        id: "confirm-over-request",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+          },
+        ],
+      }),
+      {
+        rideEvent: requestableRide,
+        onCreateRide: vi.fn(),
+      },
+    )
+    expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
   })
 })

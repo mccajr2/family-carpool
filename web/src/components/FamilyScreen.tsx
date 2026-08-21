@@ -2581,6 +2581,9 @@ export function FamilyScreen({
                     void onAcceptAgendaRide(focusItem, rideId, vehicleId)
                   }
                   onPassRide={(rideId) => void onPassAgendaRide(focusItem, rideId)}
+                  onCreateRide={(eventKey, kidIds) =>
+                    void onCreateAgendaRide(focusItem, eventKey, kidIds)
+                  }
                   onOpenPlaces={() => setDestination("places")}
                   onEdit={() => openEditEvent(focusItem)}
                 />
