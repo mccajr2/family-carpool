@@ -29,6 +29,6 @@ happen to have the right screen open.
 - Cross-cutting: first consumers are carpool + coverage; rotation gap-fill
   should not ship without this (or an explicit amend that in-app banners
   on the Carpool screen are enough).
-- Promote after `carpool-request-accept` is dogfoodable unless a later
-  `/roadmap` re-rank pulls it earlier.
-- Device push stays `[push-notifications](../../roadmap.md)` in parking.
+- **Carpool push beta does not wait on this inbox** — see `push-notifications`.
+- Device push is Upcoming `push-notifications` (Expo); promote this stub later
+  if an in-app history/inbox is still needed after push ships.

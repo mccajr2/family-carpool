@@ -1,6 +1,6 @@
 # Spec stub: ios-auth-unreachable-parity
 
-Status: parking  
+Status: cancelled — superseded by Expo (2026-08-25); do not /spec
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-16  
 Added: 2026-08-16 · enhancement

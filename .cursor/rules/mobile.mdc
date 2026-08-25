@@ -1,20 +1,27 @@
 ---
-description: Kotlin Multiplatform mobile conventions (Android Compose + iOS SwiftUI).
+description: Mobile client conventions. KMP is frozen; Expo is the target.
 globs: mobile/**
 alwaysApply: false
 ---
 
-# Mobile (KMP)
+# Mobile
 
-- Shared business logic and networking live in `mobile/sharedLogic`, consumed
-  by `mobile/androidApp` (Compose) and `mobile/iosApp` (native SwiftUI).
-- `mobile/sharedUI` is optional Compose Multiplatform scaffolding — prefer the
-  pattern already used on the screen you are touching.
-- Mobile and backend are **two Gradle builds**. They share no Gradle code —
-  only `contracts/openapi.yaml`.
-- API clients in `sharedLogic` stay aligned with the OpenAPI contract. Never
-  add a parallel HTTP client for the same endpoint.
-- Tests (from `mobile/`):
+## Status (locked)
+
+- **Target:** Expo (React Native) — roadmap `rn-expo-scaffold`, then feature
+  ports. Carpool **push** (`push-notifications`) is a pre-beta gate and needs
+  Expo (or equivalent) device registration.
+- **KMP under `mobile/` is frozen.** No new product UI, no new OpenAPI client
+  surface in `sharedLogic`. Contract changes update **web** (and Expo when it
+  exists) only — see `AGENTS.md`. Removal: `kmp-mobile-retire`.
+
+## Legacy KMP (touch only if unavoidable)
+
+- Shared networking lived in `mobile/sharedLogic`, consumed by
+  `mobile/androidApp` (Compose) and `mobile/iosApp` (SwiftUI).
+- Mobile and backend are **two Gradle builds** — shared only via
+  `contracts/openapi.yaml`.
+- Tests (from `mobile/`), if you must run them:
   `./gradlew :sharedLogic:testAndroidHostTest :androidApp:assembleDebug`
 - Token outputs (`UiTokens.kt`, `UiTokens.swift`) are generated from
   `design-tokens/tokens.json` — do not edit them by hand.
