@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-21 (`/pr carpool-request-accept`)
+Updated: 2026-08-24 (`/pr agenda-focus-carpool-actions`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -87,7 +87,7 @@ is dogfoodable on web.
 | Visual language          | Destination mocks are the visual source of truth for **size, weight, spacing, and color** — tokens absorb those values (new/updated roles in the same PR); do not snap to a nearby existing role. **WCAG AA** (4.5:1 text, 3.0:1 icons) is the only allowed mock-hex exception. See `[docs/ui-system.md](ui-system.md)`. **One visual priority per screen**; everything else calmer. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Web typography: Space Grotesk (display) + Plus Jakarta Sans (body) — `[typography-web](specs/archive/typography-web.md)`. Mobile stays `system-ui` until parked `[typography-font-family](specs/planned/typography-font-family.md)` (asset bundling). `hero*` **color** roles are Focus-card urgent spotlight only. **Filters and states prefer chips** over body-copy labels on restyled surfaces. |
 | Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. iOS/Android keep bottom tabs. Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Page frame:** flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only Context aside — `[web-shell-page-frame](specs/archive/web-shell-page-frame.md)`. **Week at a glance:** five-day coverage/status strip in that aside — `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. **Page header:** Calendar mock Today/date, `page`/`subtitle` type, main 36×44 / rail 28×20 padding — `[web-shell-page-header](specs/archive/web-shell-page-header.md)`. |
 | Agenda week strip        | **Five-day coverage/status** rail in Calendar Context (today + next four local days; event counts, not kids; no driver copy). Not the month/week grid (`family-calendar-grid`). Done: `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. Mobile port parked: `[agenda-week-glance-mobile](specs/planned/agenda-week-glance-mobile.md)`. The mock’s numbered-stop **carpool card** + Open in Maps stays parked `[carpool-multi-stop](specs/planned/carpool-multi-stop.md)`. |
-| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/archive/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. Ride accept/decline on Focus follows request/accept — `[agenda-focus-carpool-actions](specs/planned/agenda-focus-carpool-actions.md)`. Focus chrome: slim summary + one CTA (Assign/Confirm); write bands stay on expanded rows — `[agenda-focus-card-polish](specs/archive/agenda-focus-card-polish.md)`. |
+| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm / **pending ride accept for self**) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/archive/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. **Agenda-primary carpool** (Done: `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`): Request/status on event cards; Focus Accept + Pass + **Request** (when eligible); **Within Today/Tomorrow** family decisions beat teammate ride Accept, then earliest `startsAt`; **own PENDING ride is not a Focus decision**; Request without prior RSVP Yes (**Accept** sets Yes). Never multi-hero or Context ask inbox. Focus chrome: slim summary + primary CTA; leave-from / full RSVP bands stay on expanded rows — `[agenda-focus-card-polish](specs/archive/agenda-focus-card-polish.md)`. Solid Agenda↔ride id: planned `[calendar-item-event-key](specs/planned/calendar-item-event-key.md)`. |
 
 
 
@@ -99,7 +99,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-focus-carpool-actions    | planned | 2026-08-17 · enhancement   | After request/accept: pending ride accept/decline can be the Focus next action (web Focus card)                               |
+| 1    | calendar-item-event-key         | planned | 2026-08-21 · enhancement   | Expose feed `uid`/`eventKey` on `CalendarItem` for solid Agenda↔ride join (replace flaky title/time match)                    |
 | 2    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
 | 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
 | 4    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
@@ -178,6 +178,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| agenda-focus-carpool-actions | 2026-08-24 | [archive](specs/archive/agenda-focus-carpool-actions.md) |
 | carpool-request-accept     | 2026-08-21 | [archive](specs/archive/carpool-request-accept.md)     |
 | agenda-week-glance         | 2026-08-18 | [archive](specs/archive/agenda-week-glance.md)         |
 | feeds-page-redesign        | 2026-08-18 | [archive](specs/archive/feeds-page-redesign.md)        |
@@ -332,4 +333,9 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-18 | `/pr agenda-week-glance`: web Calendar Context five-day coverage/status strip; spec archived. Next up `agenda-focus-card-mobile`. |
 | 2026-08-18 | Major re-rank: web-first product — carpool request/accept cluster ahead of design; park Agenda/Feeds mobile ports, typography, destination adoption, and calendar grid; promote `agenda-focus-carpool-actions`. Next up `carpool-request-accept`. |
 | 2026-08-21 | `/pr carpool-request-accept`: ride request/accept shipped (OpenAPI + backend + web Carpool tab + sharedLogic); Android/iOS UI parked as `carpool-request-accept-mobile`. Next up `agenda-focus-carpool-actions`. |
+| 2026-08-21 | `/roadmap` Agenda-primary carpool: expand `agenda-focus-carpool-actions` — Request on Agenda event cards + single Focus for teammate asks (no multi-hero, no Context request panel). Carpool tab stays membership/secondary. Next up unchanged. |
+| 2026-08-21 | `/spec agenda-focus-carpool-actions`: Agenda-primary rides (web) + per-adult Pass OpenAPI; join listRides to FEED rows; Focus Accept/Pass; no CalendarItem ride fields. |
+| 2026-08-21 | Spec lock: Focus family-before-community in Today/Tomorrow; own PENDING ride off Focus decisions; same-card CTA Confirm → Accept → Assign. |
+| 2026-08-21 | Amend `agenda-focus-carpool-actions` (dogfood): Request for Yes + No response; Accept→Yes (not create); Focus Request CTA; heuristic match this PR; add Upcoming `calendar-item-event-key` for solid uid/eventKey join. |
+| 2026-08-24 | `/pr agenda-focus-carpool-actions`: Agenda-primary rides (web Request/status + Focus Accept/Pass/Request + per-adult Pass); Android/iOS UI parked. Next up `calendar-item-event-key`. |
 

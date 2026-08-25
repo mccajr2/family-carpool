@@ -7,6 +7,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
@@ -151,10 +152,12 @@ class CarpoolClientTest {
         }
 
     @Test
-    fun listCreateAcceptCancelAndWithdrawRides() =
+    fun listCreateAcceptPassCancelAndWithdrawRides() =
         runTest {
             val rideJson =
-                """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"PENDING","acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}"""
+                """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"PENDING","passedByMe":false,"acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}"""
+            val passedRideJson =
+                """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"PENDING","passedByMe":true,"acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}"""
             val eventJson =
                 """{"eventKey":"UID:practice","title":"Practice","startsAt":"2026-08-21T16:00:00Z","endsAt":null,"defaultKidIds":["k1"],"ownRequest":null,"otherRequests":[$rideJson]}"""
             val mockEngine =
@@ -174,6 +177,11 @@ class CarpoolClientTest {
                         request.url.encodedPath == "/api/carpool/spaces/s1/rides" &&
                             request.method == HttpMethod.Post -> {
                             assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
+                            // Omit kidIds so the server applies YES + NO_RESPONSE defaults.
+                            assertEquals(
+                                """{"eventKey":"UID:practice"}""",
+                                (request.body as TextContent).text,
+                            )
                             respond(
                                 content = rideJson,
                                 status = HttpStatusCode.Created,
@@ -184,15 +192,24 @@ class CarpoolClientTest {
                             request.method == HttpMethod.Post ->
                             respond(
                                 content =
-                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"ACCEPTED","acceptedByAdultId":"a1","acceptingCircleId":"c1","acceptingCircleName":"House A","vehicleId":"v1","vehicleLabel":"Van"}""",
+                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"ACCEPTED","passedByMe":false,"acceptedByAdultId":"a1","acceptingCircleId":"c1","acceptingCircleName":"House A","vehicleId":"v1","vehicleLabel":"Van"}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
+                        request.url.encodedPath == "/api/carpool/spaces/s1/rides/ride-1/pass" &&
+                            request.method == HttpMethod.Post -> {
+                            assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
+                            respond(
+                                content = passedRideJson,
+                                status = HttpStatusCode.OK,
+                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                            )
+                        }
                         request.url.encodedPath == "/api/carpool/spaces/s1/rides/ride-1/cancel" &&
                             request.method == HttpMethod.Post ->
                             respond(
                                 content =
-                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"CANCELLED","acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}""",
+                                    """{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"CANCELLED","passedByMe":false,"acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}""",
                                 status = HttpStatusCode.OK,
                                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -218,12 +235,15 @@ class CarpoolClientTest {
                 )
             assertEquals("Practice", events.single().title)
             assertEquals(listOf("k1"), events.single().defaultKidIds)
-            assertEquals(CarpoolRideStatus.PENDING, events.single().otherRequests.single().status)
+            val listedAsk = events.single().otherRequests.single()
+            assertEquals(CarpoolRideStatus.PENDING, listedAsk.status)
+            assertFalse(listedAsk.passedByMe)
 
             val created =
                 client.createRide("tok", "s1", CreateCarpoolRideRequest(eventKey = "UID:practice"))
             assertEquals("ride-1", created.id)
             assertEquals(1, created.seats)
+            assertFalse(created.passedByMe)
 
             val accepted =
                 client.acceptRide(
@@ -235,8 +255,37 @@ class CarpoolClientTest {
             assertEquals(CarpoolRideStatus.ACCEPTED, accepted.status)
             assertEquals("v1", accepted.vehicleId)
 
+            val passed = client.passRide("tok", "s1", "ride-1")
+            assertEquals(CarpoolRideStatus.PENDING, passed.status)
+            assertTrue(passed.passedByMe)
+
             assertEquals(CarpoolRideStatus.CANCELLED, client.cancelRide("tok", "s1", "ride-1").status)
             assertEquals(CarpoolRideStatus.PENDING, client.withdrawRide("tok", "s1", "ride-1").status)
+        }
+
+    @Test
+    fun listRidesDecodesPassedByMeOnOtherRequests() =
+        runTest {
+            val mockEngine =
+                MockEngine { request ->
+                    assertEquals("/api/carpool/spaces/s1/rides", request.url.encodedPath)
+                    assertEquals(HttpMethod.Get, request.method)
+                    respond(
+                        content =
+                            """[{"eventKey":"UID:practice","title":"Practice","startsAt":"2026-08-21T16:00:00Z","endsAt":null,"defaultKidIds":[],"ownRequest":null,"otherRequests":[{"id":"ride-1","spaceId":"s1","eventKey":"UID:practice","requestingCircleId":"c2","requestingCircleName":"House B","requestedByAdultId":"a2","kidIds":["k1"],"kidFirstNames":["Mia"],"seats":1,"pickupPlaceName":"Home","pickupAddress":"1 Main St","status":"PENDING","passedByMe":true,"acceptedByAdultId":null,"acceptingCircleId":null,"acceptingCircleName":null,"vehicleId":null,"vehicleLabel":null}]}]""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val client = CarpoolClient("http://localhost:8080", mockHttpClient(mockEngine))
+            val event =
+                client
+                    .listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z")
+                    .single()
+            val ask = event.otherRequests.single()
+            assertTrue(ask.passedByMe)
+            assertEquals(CarpoolRideStatus.PENDING, ask.status)
+            assertEquals(emptyList(), event.defaultKidIds)
         }
 }
 
@@ -290,11 +339,44 @@ class CarpoolModelsTest {
             none.copy(status = CarpoolFeedStatusKind.AVAILABLE, spaceId = "s1", spaceName = "Soccer")
         assertEquals(CarpoolPrimaryAction.REQUEST, available.primaryAction(FamilyRole.CAREGIVER))
     }
+
+    @Test
+    fun createRideRequestOmitsNullKidIdsAndEncodesSubset() {
+        // Match createHttpClient: null kidIds omitted so server applies defaults
+        // (YES + NO_RESPONSE); subset override is an explicit kidIds array.
+        val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+        assertEquals(
+            """{"eventKey":"UID:practice"}""",
+            json.encodeToString(
+                CreateCarpoolRideRequest.serializer(),
+                CreateCarpoolRideRequest(eventKey = "UID:practice"),
+            ),
+        )
+        assertEquals(
+            """{"eventKey":"UID:practice","kidIds":["k1"]}""",
+            json.encodeToString(
+                CreateCarpoolRideRequest.serializer(),
+                CreateCarpoolRideRequest(eventKey = "UID:practice", kidIds = listOf("k1")),
+            ),
+        )
+    }
+
+    @Test
+    fun rideEventDecodesDefaultKidIdsForRequestPrefill() {
+        val json = Json { ignoreUnknownKeys = true }
+        val event =
+            json.decodeFromString(
+                CarpoolRideEvent.serializer(),
+                """{"eventKey":"UID:practice","title":"Practice","startsAt":"2026-08-21T16:00:00Z","endsAt":null,"defaultKidIds":["k1","k2"],"ownRequest":null,"otherRequests":[]}""",
+            )
+        assertEquals(listOf("k1", "k2"), event.defaultKidIds)
+        assertNull(event.ownRequest)
+    }
 }
 
 private fun mockHttpClient(engine: MockEngine): HttpClient =
     HttpClient(engine) {
         install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            json(Json { ignoreUnknownKeys = true; explicitNulls = false })
         }
     }

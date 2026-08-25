@@ -1,9 +1,14 @@
-import { useMemo } from "react"
-import type { CalendarItem, FamilyCircle } from "@/api/types"
+import { useMemo, useState } from "react"
+import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
+import {
+  callerDrives,
+  eligiblePendingRideAccept,
+  eligibleVehiclesForAccept,
+} from "@/components/carpoolDisplay"
 import {
   activeCoverages,
   agendaItemStatusTags,
@@ -23,12 +28,17 @@ type AgendaFocusCardProps = {
   loading: boolean
   assignDraft: AssignDraft
   coverageActionError?: string
+  rideEvent?: CarpoolRideEvent | null
+  garage?: Garage | null
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onReassignCoverage: (assignmentId: string, adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
   onRemoveCoverage: (assignmentId: string) => void
+  onAcceptRide?: (rideId: string, vehicleId: string) => void
+  onPassRide?: (rideId: string) => void
+  onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onOpenPlaces: () => void
   onEdit: () => void
 }
@@ -80,23 +90,59 @@ export function AgendaFocusCard({
   loading,
   assignDraft,
   coverageActionError,
+  rideEvent = null,
+  garage = null,
   onUpdateAssignDraft,
   onAssignCoverage,
   onReassignCoverage,
   onConfirmCoverage,
   onDeclineCoverage,
   onRemoveCoverage,
+  onAcceptRide,
+  onPassRide,
+  onCreateRide,
   onOpenPlaces,
   onEdit,
 }: AgendaFocusCardProps) {
+  const [acceptVehicleId, setAcceptVehicleId] = useState("")
   const isManual = item.source === "MANUAL"
-  const needsDecision = focusItemNeedsDecision(item, currentAdultId)
+  const eligibleRide = eligiblePendingRideAccept(rideEvent, {
+    adultId: currentAdultId,
+    garage,
+  })
+  const needsDecision = focusItemNeedsDecision(item, currentAdultId, eligibleRide)
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const statusChips = focusStatusChips(item, currentAdultId)
   const activeCoverage = active[0]
-  const showAssign = item.uncoveredKidIds.length > 0 && circle.members.length > 0 && !pendingForSelf
+  // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
+  // secondary if uncovered) → Assign → calm Edit.
+  const showRideAcceptPass =
+    !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
+  const acceptVehicles = showRideAcceptPass
+    ? eligibleVehiclesForAccept({
+        drives: callerDrives(garage, currentAdultId),
+        adultId: currentAdultId,
+        vehicles: garage?.vehicles ?? [],
+        event: rideEvent!,
+        request: eligibleRide!,
+      })
+    : []
+  const acceptVehicle =
+    acceptVehicles.length === 1 ? acceptVehicles[0]!.id : acceptVehicleId
+  const showRequest =
+    !pendingForSelf &&
+    !showRideAcceptPass &&
+    rideEvent != null &&
+    rideEvent.ownRequest == null &&
+    rideEvent.defaultKidIds.length > 0 &&
+    onCreateRide != null
+  const showAssign =
+    !showRideAcceptPass &&
+    item.uncoveredKidIds.length > 0 &&
+    circle.members.length > 0 &&
+    !pendingForSelf
   const showAssignSelect = showAssign && !assignDraft.soleAdult
   const showChangeSelect = Boolean(activeCoverage) && circle.members.length > 1 && !showAssignSelect
   const showCoveringSelect = showAssignSelect || showChangeSelect
@@ -310,13 +356,85 @@ export function AgendaFocusCard({
             </Button>
           </>
         ) : null}
-        {showAssign ? (
+        {showRideAcceptPass && eligibleRide ? (
+          <>
+            {acceptVehicles.length > 1 ? (
+              <select
+                aria-label="Vehicle"
+                className="h-9 rounded-md border bg-transparent px-[var(--fc-space-md)] text-[length:var(--fc-font-focus-action-size)]"
+                style={{ borderColor: dividerVar, color: onVar }}
+                value={acceptVehicleId}
+                disabled={loading}
+                onChange={(e) => setAcceptVehicleId(e.target.value)}
+              >
+                <option value="">Choose a vehicle</option>
+                {acceptVehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              onClick={() => onAcceptRide?.(eligibleRide.id, acceptVehicle)}
+              disabled={loading || !acceptVehicle}
+            >
+              Accept
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={needsDecision ? "secondary" : "outline"}
+              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              onClick={() => onPassRide?.(eligibleRide.id)}
+              disabled={loading}
+            >
+              Pass
+            </Button>
+          </>
+        ) : null}
+        {showRequest && rideEvent != null ? (
           <Button
             type="button"
             size="sm"
             className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
             style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
             variant={!needsDecision ? "default" : undefined}
+            onClick={() => onCreateRide?.(rideEvent.eventKey)}
+            disabled={loading}
+          >
+            Request
+          </Button>
+        ) : null}
+        {showAssign ? (
+          <Button
+            type="button"
+            size="sm"
+            className={
+              showRequest
+                ? "text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+                : "text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+            }
+            style={
+              showRequest
+                ? undefined
+                : needsDecision
+                  ? { backgroundColor: onVar, color: surfaceVar }
+                  : undefined
+            }
+            variant={
+              showRequest
+                ? needsDecision
+                  ? "secondary"
+                  : "outline"
+                : !needsDecision
+                  ? "default"
+                  : undefined
+            }
             onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
             disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
           >

@@ -38,7 +38,7 @@ days that need attention. That is not the month/week **grid**
   driver field and [`carpool-request-accept`](../archive/carpool-request-accept.md)
   is not shipped. Do not invent stop counts or treat uncovered as “needs a
   driver.” Driver/ride rollups wait for that slice (and
-  [`agenda-focus-carpool-actions`](../planned/agenda-focus-carpool-actions.md))
+  [`agenda-focus-carpool-actions`](../archive/agenda-focus-carpool-actions.md))
 - New backend endpoints or OpenAPI fields — the loaded Agenda window powers
   the strip
 - Changing Focus ranking, coverage / RSVP / leave-by **write** rules, or

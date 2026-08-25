@@ -136,6 +136,15 @@ public class CarpoolController {
         return carpoolRideService.accept(adult, spaceId, rideId, request);
     }
 
+    @PostMapping("/spaces/{spaceId}/rides/{rideId}/pass")
+    public CarpoolRideResponse passRide(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("rideId") UUID rideId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.pass(adult, spaceId, rideId);
+    }
+
     @PostMapping("/spaces/{spaceId}/rides/{rideId}/cancel")
     public CarpoolRideResponse cancelRide(
             @PathVariable("spaceId") UUID spaceId,

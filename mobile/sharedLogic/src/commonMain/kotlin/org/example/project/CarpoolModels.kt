@@ -87,6 +87,7 @@ data class CarpoolRide(
     val pickupPlaceName: String,
     val pickupAddress: String,
     val status: CarpoolRideStatus,
+    val passedByMe: Boolean = false,
     val acceptedByAdultId: String? = null,
     val acceptingCircleId: String? = null,
     val acceptingCircleName: String? = null,
@@ -100,6 +101,11 @@ data class CarpoolRideEvent(
     val title: String,
     val startsAt: String,
     val endsAt: String? = null,
+    /**
+     * Feed-linked kids who are not RSVP NO and not already on this circle's
+     * ACCEPTED ride (YES and NO_RESPONSE both qualify). Used to pre-fill
+     * Request; empty when none qualify.
+     */
     val defaultKidIds: List<String> = emptyList(),
     val ownRequest: CarpoolRide? = null,
     val otherRequests: List<CarpoolRide> = emptyList(),
@@ -115,12 +121,21 @@ data class JoinCarpoolSpaceRequest(
     val code: String,
 )
 
+/**
+ * Create a PENDING ride request. Omit [kidIds] to use the server's
+ * [CarpoolRideEvent.defaultKidIds] (YES + NO_RESPONSE, not already covered).
+ * Create does not change RSVP. Subset of defaults OK; RSVP NO / unknown → 400.
+ */
 @Serializable
 data class CreateCarpoolRideRequest(
     val eventKey: String,
     val kidIds: List<String>? = null,
 )
 
+/**
+ * Accept another circle's PENDING request. Server sets RSVP YES for kids on
+ * that ride (requesting circle).
+ */
 @Serializable
 data class AcceptCarpoolRideRequest(
     val vehicleId: String,

@@ -87,3 +87,66 @@ export function eligibleVehiclesForAccept(options: {
     return remaining >= options.request.seats
   })
 }
+
+/**
+ * First other-circle PENDING ask this adult can Accept (not passed; has an
+ * eligible vehicle). Own PENDING/ACCEPTED requests never qualify.
+ */
+export function eligiblePendingRideAccept(
+  rideEvent: CarpoolRideEvent | null | undefined,
+  options: { adultId: string; garage: Garage | null },
+): CarpoolRide | null {
+  if (rideEvent == null || !options.adultId) {
+    return null
+  }
+  const drives = callerDrives(options.garage, options.adultId)
+  const vehicles = options.garage?.vehicles ?? []
+  for (const request of rideEvent.otherRequests) {
+    if (request.status !== "PENDING" || request.passedByMe) {
+      continue
+    }
+    const eligible = eligibleVehiclesForAccept({
+      drives,
+      adultId: options.adultId,
+      vehicles,
+      event: rideEvent,
+      request,
+    })
+    if (eligible.length > 0) {
+      return request
+    }
+  }
+  return null
+}
+
+/** Collapsed Agenda chip for this circle's active ride on the event. */
+export function agendaOwnRideStatusChip(
+  ownRequest: CarpoolRide | null | undefined,
+): { label: string; tone: "mint" | "amber" } | null {
+  if (ownRequest == null) {
+    return null
+  }
+  if (ownRequest.status === "ACCEPTED") {
+    const who = ownRequest.acceptingCircleName?.trim()
+    return {
+      label: who ? `Accepted · ${circleDisplayName(who)}` : "Accepted",
+      tone: "mint",
+    }
+  }
+  if (ownRequest.status === "PENDING") {
+    return { label: "Requested", tone: "amber" }
+  }
+  return null
+}
+
+export function ownRideStatusLine(ride: CarpoolRide): string {
+  if (ride.status === "ACCEPTED") {
+    const who = ride.acceptingCircleName?.trim()
+    return who ? `Accepted · ${circleDisplayName(who)}` : "Accepted"
+  }
+  if (ride.status === "PENDING") {
+    return "Requested"
+  }
+  return ride.status
+}
+

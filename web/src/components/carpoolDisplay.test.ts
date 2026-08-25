@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Vehicle } from "@/api/types"
+import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
 import {
   callerDrives,
   carpoolFeedStatusLabel,
   circleDisplayName,
+  eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
   enableCarpoolConfirmMessage,
+  agendaOwnRideStatusChip,
   kidDisplayName,
+  ownRideStatusLine,
   ownYesKidCount,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
@@ -44,6 +47,20 @@ describe("carpoolDisplay", () => {
         "a1",
       ),
     ).toBe(false)
+  })
+
+  it("labels own ride chips and status lines for Agenda", () => {
+    expect(agendaOwnRideStatusChip(null)).toBeNull()
+    expect(
+      agendaOwnRideStatusChip(ride({ status: "PENDING", acceptingCircleName: null })),
+    ).toEqual({ label: "Requested", tone: "amber" })
+    expect(
+      agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+    ).toEqual({ label: "Accepted · House B", tone: "mint" })
+    expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
+    expect(
+      ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+    ).toBe("Accepted · House B")
   })
 
   it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {
@@ -101,6 +118,34 @@ describe("carpoolDisplay", () => {
       }),
     ).toEqual([])
   })
+
+  it("picks the first pending otherRequest that can be accepted", () => {
+    const garage: Garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [vehicle()],
+    }
+    const pending = ride({ id: "ask-1", status: "PENDING", passedByMe: false })
+    const eventRow = event({ otherRequests: [pending] })
+    expect(eligiblePendingRideAccept(eventRow, { adultId: "a1", garage })?.id).toBe(
+      "ask-1",
+    )
+  })
+
+  it("skips passed asks and own requests for Focus accept eligibility", () => {
+    const garage: Garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [vehicle()],
+    }
+    expect(
+      eligiblePendingRideAccept(
+        event({
+          ownRequest: ride({ id: "own", status: "PENDING" }),
+          otherRequests: [ride({ id: "passed", passedByMe: true })],
+        }),
+        { adultId: "a1", garage },
+      ),
+    ).toBeNull()
+  })
 })
 
 function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
@@ -117,6 +162,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     pickupPlaceName: "Home",
     pickupAddress: "1 Main St",
     status: "PENDING",
+    passedByMe: false,
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,

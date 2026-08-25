@@ -295,4 +295,174 @@ describe("AgendaRow", () => {
     expect(within(rowA).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
     expect(within(rowB).getByTestId("agenda-band-people")).toBeInTheDocument()
   })
+
+  it("shows Requested chip collapsed and Request/Cancel when expanded for a ride event", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const onCancelRide = vi.fn()
+    const feedItem = item({
+      id: "feed-1",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    const rideEvent = {
+      eventKey: "UID:practice",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownRequest: null,
+      otherRequests: [],
+    }
+
+    const { rerender } = render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-1")
+    expect(within(row).queryByText("Requested")).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const band = within(row).getByTestId("agenda-band-carpool")
+    expect(within(band).getByRole("checkbox", { name: "Request ride for Sam" })).toBeChecked()
+    expect(within(band).getByRole("checkbox", { name: "Request ride for Riley" })).toBeChecked()
+    await user.click(within(band).getByRole("checkbox", { name: "Request ride for Riley" }))
+    await user.click(within(band).getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"])
+
+    const requestedEvent = {
+      ...rideEvent,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:practice",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "PENDING" as const,
+        passedByMe: false,
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      },
+    }
+    rerender(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={requestedEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+    expect(within(row).getByText("Requested")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { name: "Cancel" }))
+    expect(onCancelRide).toHaveBeenCalledWith("ride-1")
+
+    rerender(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          ...requestedEvent,
+          ownRequest: {
+            ...requestedEvent.ownRequest!,
+            status: "ACCEPTED",
+            acceptingCircleName: "House B",
+          },
+        }}
+        onCreateRide={onCreateRide}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+    expect(within(row).getByText("Accepted · House B")).toBeInTheDocument()
+  })
+
+  it("shows Request for No-response defaults without telling adults to RSVP Yes first", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const feedItem = item({
+      id: "feed-nr",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    })
+    const rideEvent = {
+      eventKey: "UID:practice-nr",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-nr")
+    expect(
+      within(row).queryByText("Mark who's going on Calendar to request a ride."),
+    ).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const band = within(row).getByTestId("agenda-band-carpool")
+    expect(within(band).getByRole("button", { name: "Request" })).toBeEnabled()
+    await user.click(within(band).getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
+  })
 })
