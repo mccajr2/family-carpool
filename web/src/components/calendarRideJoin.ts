@@ -43,13 +43,16 @@ export function startsAtEqual(a: string, b: string): boolean {
 }
 
 /**
- * Match a FEED calendar row to a listed ride event by space + startsAt + title.
- * Location is used only to disambiguate when more than one candidate shares
- * title+startsAt (FP fingerprint drift must not block a unique match).
- * Manual / non-member feeds → null.
+ * Match a FEED calendar row to a listed ride event in the eligible space.
+ * When `item.eventKey` is set, exact key equality wins (title/time ignored).
+ * When the key is null, fall back to startsAt + title, using location only
+ * to disambiguate collisions. Manual / non-member feeds → null.
  */
 export function matchCalendarItemToRideEvent(
-  item: Pick<CalendarItem, "source" | "feedId" | "title" | "startsAt" | "location">,
+  item: Pick<
+    CalendarItem,
+    "source" | "feedId" | "title" | "startsAt" | "location" | "eventKey"
+  >,
   spaceIdByFeedId: ReadonlyMap<string, string>,
   ridesBySpaceId: ReadonlyMap<string, readonly CarpoolRideEvent[]>,
 ): CarpoolRideEvent | null {
@@ -63,6 +66,10 @@ export function matchCalendarItemToRideEvent(
   const events = ridesBySpaceId.get(spaceId)
   if (events == null || events.length === 0) {
     return null
+  }
+  if (item.eventKey != null) {
+    const exact = events.find((event) => event.eventKey === item.eventKey)
+    return exact ?? null
   }
   const title = normalizeRideMatchText(item.title)
   const candidates = events.filter(
