@@ -26,6 +26,7 @@ import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
+import com.yourorg.quickapp.feeds.FeedEventKey;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
@@ -143,20 +144,20 @@ class CalendarServiceTest {
         UUID manualEarlierId = UUID.fromString("00000000-0000-0000-0000-0000000000bb");
         UUID feedId = UUID.randomUUID();
         UUID kidId = UUID.randomUUID();
+        FeedCalendarEventDto feedEvent =
+                new FeedCalendarEventDto(
+                        feedEventId,
+                        feedId,
+                        "U12",
+                        "practice-uid@example.com",
+                        "Practice",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        Instant.parse("2026-08-15T18:00:00Z"),
+                        "Field 3",
+                        List.of(kidId));
 
         when(feedCalendarApi.listEventsInRange(circleId, from, to))
-                .thenReturn(
-                        List.of(
-                                new FeedCalendarEventDto(
-                                        feedEventId,
-                                        feedId,
-                                        "U12",
-                                        "practice-uid@example.com",
-                                        "Practice",
-                                        Instant.parse("2026-08-15T17:00:00Z"),
-                                        Instant.parse("2026-08-15T18:00:00Z"),
-                                        "Field 3",
-                                        List.of(kidId))));
+                .thenReturn(List.of(feedEvent));
         when(manualEventCalendarApi.listInRange(circleId, from, to))
                 .thenReturn(
                         List.of(
@@ -174,6 +175,7 @@ class CalendarServiceTest {
         assertThat(items.get(0).id()).isEqualTo(manualEarlierId);
         assertThat(items.get(0).source()).isEqualTo(CalendarItemSource.MANUAL);
         assertThat(items.get(0).feedId()).isNull();
+        assertThat(items.get(0).eventKey()).isNull();
         assertThat(items.get(0).leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
         assertThat(items.get(0).uncoveredKidIds()).containsExactly(kidId);
         assertThat(items.get(0).coverages()).isEmpty();
@@ -187,10 +189,39 @@ class CalendarServiceTest {
         assertThat(items.get(1).source()).isEqualTo(CalendarItemSource.FEED);
         assertThat(items.get(1).feedName()).isEqualTo("U12");
         assertThat(items.get(1).kidIds()).containsExactly(kidId);
+        assertThat(items.get(1).eventKey()).isEqualTo(FeedEventKey.of(feedEvent));
         verify(familyMembershipApi).requireMemberCircleId(adult.id());
         verify(leaveByApi).enrichCheapMany(eq(adult.id()), any());
         verify(leaveByApi, never()).enrich(any(), any(), any(), any(), any());
         verify(leaveByApi, never()).enrichMany(any(), any());
+    }
+
+    @Test
+    void feedItemWithoutUidUsesFingerprintEventKey() {
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-09-01T00:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        FeedCalendarEventDto feedEvent =
+                new FeedCalendarEventDto(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "U12",
+                        null,
+                        "Practice",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        Instant.parse("2026-08-15T18:00:00Z"),
+                        "Field 3",
+                        List.of());
+        when(feedCalendarApi.listEventsInRange(circleId, from, to))
+                .thenReturn(List.of(feedEvent));
+        when(manualEventCalendarApi.listInRange(circleId, from, to)).thenReturn(List.of());
+
+        List<CalendarItemResponse> items = calendarService.list(adult, from, to);
+
+        assertThat(items).hasSize(1);
+        assertThat(items.getFirst().eventKey()).isEqualTo(FeedEventKey.of(feedEvent));
+        assertThat(items.getFirst().eventKey())
+                .isEqualTo("FP:practice|2026-08-15T17:00:00Z|field 3");
     }
 
     @Test
@@ -297,6 +328,7 @@ class CalendarServiceTest {
         assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
         assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));
         assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+        assertThat(response.eventKey()).isNull();
     }
 
     @Test

@@ -90,7 +90,7 @@ Allowlist for `/implement`.
       carpool’s `RideEventKey` algorithm; unit-test UID and FP cases
 - [x] Backend (carpool): make `RideEventKey` delegate to the feeds helper;
       keep existing ride tests green
-- [ ] Backend (calendar): add `eventKey` to `CalendarItemResponse`; set from
+- [x] Backend (calendar): add `eventKey` to `CalendarItemResponse`; set from
       feeds helper in `fromFeed`; null in `fromManual`
 - [ ] Contract: add `eventKey` on `CalendarItem` in `contracts/openapi.yaml`
 - [ ] Web: add `eventKey` to `CalendarItem` in `web/src/api/types.ts`

@@ -15,6 +15,7 @@ public record CalendarItemResponse(
         List<UUID> kidIds,
         UUID feedId,
         String feedName,
+        String eventKey,
         UUID leaveFromPlaceId,
         String leaveFromPlaceName,
         Instant leaveByAt,
