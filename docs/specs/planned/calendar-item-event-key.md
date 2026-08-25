@@ -31,7 +31,7 @@ stable id.
 ## Notes
 
 - Likely OpenAPI: nullable `uid` and/or `eventKey` on `CalendarItem` (FEED
-  rows); web + `sharedLogic` join prefer exact key over heuristics.
+  rows); **web** join prefers exact key over heuristics (frozen KMP not updated).
 - Feeds already store nullable iCal UID on synced events — surface through
   calendar orchestrator rather than inventing a second identity.
 - Dep: Agenda-primary carpool dogfood shipped (`agenda-focus-carpool-actions`);

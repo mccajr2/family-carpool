@@ -6,7 +6,7 @@ Doc map: `docs/context.md`.
 
 ## What this is
 
-**family-carpool** is a family scheduling and carpool app (web + Android + iOS)
+**family-carpool** is a family scheduling and carpool app (web + Expo mobile)
 on a Spring Modulith backend. Created from the quickapp SDD starter; this clone
 is the product, not the upstream template. Template notes (greeting already
 gone): `docs/using-as-template.md`.
@@ -15,17 +15,20 @@ gone): `docs/using-as-template.md`.
 
 - Backend: Java 25, Spring Boot 4.1, Gradle (Kotlin DSL), Spring Modulith
   vertical modules under `backend/modules/*` (auto-discovered).
-- Mobile: KMP `mobile/sharedLogic` → Android Compose + iOS SwiftUI. Separate
-  Gradle build from backend. Shared only via `contracts/openapi.yaml`.
 - Web: Vite + React + TypeScript + Tailwind (`web/`, npm). Hand-written
   clients in `web/src/api/` stay aligned with the OpenAPI contract.
+- Mobile (target): **Expo (React Native)** — see roadmap `rn-expo-scaffold`.
+  Legacy KMP under `mobile/` (sharedLogic → Compose + SwiftUI) is **frozen**:
+  no new product UI or OpenAPI client work; retire via `kmp-mobile-retire`.
 - CI: GitHub Actions, path-filtered. Hosting: Render, Neon, UptimeRobot.
 
 ## Non-negotiables
 
 - One active spec → one feature branch → one PR. `main` is PR-protected.
-- Never change `contracts/openapi.yaml` without updating web **and** mobile
-  clients in the same change.
+- Never change `contracts/openapi.yaml` without updating **web** API clients in
+  the same change. Once an Expo app exists, update its API clients in that
+  same change too. Do **not** update frozen KMP `sharedLogic` for contract
+  changes.
 - No placeholder implementations. If you can't finish, stop and say so.
 - Don't invent a dependency. Check the layer's lockfile / catalog first; ask
   before adding one.

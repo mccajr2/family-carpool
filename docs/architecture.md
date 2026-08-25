@@ -584,11 +584,14 @@ Run tests: `cd mobile && ./gradlew :sharedLogic:testAndroidHostTest :sharedLogic
 ## Contract-first API
 
 - **Source of truth:** `contracts/openapi.yaml`
-- **Current consumers:** mobile (`sharedLogic` Ktor) and web (`web/src/api/`)
-- **AGENTS.md rule:** never modify the contract without updating **both** web and
-  mobile clients in the same change.
-- **Client implementation today:** hand-written Ktor clients in `sharedLogic` and
-  hand-written `fetch` clients in `web/src/api/` (OpenAPI codegen is a follow-up).
+- **Required consumers on contract change:** **web** (`web/src/api/`). **Expo**
+  API clients once `rn-expo-scaffold` exists. Do **not** update frozen KMP
+  `sharedLogic` for new/changed paths (see `AGENTS.md` + roadmap Client ship
+  order).
+- **Legacy:** `mobile/sharedLogic` Ktor clients remain until `kmp-mobile-retire`;
+  they are not part of the OpenAPI same-change rule anymore.
+- **Client implementation today:** hand-written `fetch` in `web/src/api/`;
+  Expo clients TBD; OpenAPI codegen is a follow-up.
 
 ## Testing strategy
 
