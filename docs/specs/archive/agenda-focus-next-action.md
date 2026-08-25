@@ -26,7 +26,7 @@ must not beat being on time today.
 - iOS / Android ([`agenda-focus-card-mobile`](../planned/agenda-focus-card-mobile.md)
   copies this rule later)
 - Ride request / accept / decline as a Focus candidate
-  ([`agenda-focus-carpool-actions`](../planned/agenda-focus-carpool-actions.md)
+  ([`agenda-focus-carpool-actions`](../archive/agenda-focus-carpool-actions.md)
   after [`carpool-request-accept`](../archive/carpool-request-accept.md))
 - Coverage, RSVP, or leave-by **write** rules; conflict computation
 - Promoting more than one Focus card
@@ -138,7 +138,7 @@ actions stay parked.
 
 ## Future extension (not this PR)
 
-[`agenda-focus-carpool-actions`](../planned/agenda-focus-carpool-actions.md)
+[`agenda-focus-carpool-actions`](../archive/agenda-focus-carpool-actions.md)
 extends this slice after [`carpool-request-accept`](../archive/carpool-request-accept.md).
 The same shape holds: composable **needs-decision** predicates + **horizon
 tiers**, still exactly one Focus card.

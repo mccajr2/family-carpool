@@ -1,12 +1,12 @@
 # Spec: agenda-focus-carpool-actions
 
-Status: draft  
+Status: done  
 Created: 2026-08-17  
+Updated: 2026-08-24 (`/pr`)  
+Approved: 2026-08-24  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `agenda-focus-carpool-actions`  
-Added: 2026-08-17 · enhancement  
-Updated: 2026-08-21 · amend (Request without RSVP Yes; Focus Request CTA;
-match harden; Accept→Yes not create — dogfood)
+Added: 2026-08-17 · enhancement
 
 ## Problem
 
@@ -223,7 +223,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       calm. Component test: uncovered carpool FEED Focus shows Request.
 - [x] Architecture Rides row documents amended default-kid / Accept→Yes
       (create leaves No response).
-- [ ] `cd web && npm test` and `npm run lint` pass; backend carpool ride tests
+- [x] `cd web && npm test` and `npm run lint` pass; backend carpool ride tests
       pass; relevant `sharedLogic` tests pass.
 
 ## Tasks
@@ -259,7 +259,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Docs: architecture Rides default-kid / Accept→Yes wording
 - [x] Mobile sharedLogic: align types/docs if OpenAPI create/accept semantics
       change; tests if client surface changes
-- [ ] Tests: web lint/test, backend carpool ride suites, sharedLogic — report
+- [x] Tests: web lint/test, backend carpool ride suites, sharedLogic — report
       real results
 
 ## Open questions

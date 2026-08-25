@@ -22,7 +22,7 @@ take the kids.
   [`carpool-request-accept-mobile`](../planned/carpool-request-accept-mobile.md).
   OpenAPI + `sharedLogic` clients still update in this PR.
 - **Focus-card ride accept/decline ranking** —
-  [`agenda-focus-carpool-actions`](../planned/agenda-focus-carpool-actions.md)
+  [`agenda-focus-carpool-actions`](../archive/agenda-focus-carpool-actions.md)
 - **To XOR from** (v1 is always both legs) —
   [`carpool-leg-to-from`](../planned/carpool-leg-to-from.md)
 - **Pickup vs drop-off at a teammate house** —

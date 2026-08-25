@@ -51,7 +51,7 @@ Far-future items (Later bucket) likewise never beat a sooner in-play event.
 - Only in-play item is Friday uncovered → Friday Focus.
 
 Carpool ride accept/decline as a Focus candidate is a follow-up
-([`agenda-focus-carpool-actions`](specs/planned/agenda-focus-carpool-actions.md))
+([`agenda-focus-carpool-actions`](specs/archive/agenda-focus-carpool-actions.md))
 after request/accept ships — do not fold into the ranking above yet.
 
 All *other* Agenda items are day-grouped collapsed `AgendaRow`s (expand for

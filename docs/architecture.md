@@ -242,7 +242,7 @@ Locked for [`garage-vehicles`](specs/archive/garage-vehicles.md) (lives in the
 
 Locked for [`team-carpool-space-invite`](specs/archive/team-carpool-space-invite.md)
 + [`carpool-request-accept`](specs/archive/carpool-request-accept.md)
-+ [`agenda-focus-carpool-actions`](specs/active/agenda-focus-carpool-actions.md):
++ [`agenda-focus-carpool-actions`](specs/archive/agenda-focus-carpool-actions.md):
 
 | Topic | Decision |
 |--------|----------|

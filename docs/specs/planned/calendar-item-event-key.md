@@ -25,7 +25,7 @@ stable id.
 - Rewriting coverage / RSVP / leave-by domain
 - Multi-stop pickup order or Open in Maps
 - Replacing heuristic join inside
-  [`agenda-focus-carpool-actions`](../active/agenda-focus-carpool-actions.md)
+  [`agenda-focus-carpool-actions`](../archive/agenda-focus-carpool-actions.md)
   before this slice ships (that PR keeps title+startsAt harden only)
 
 ## Notes
@@ -34,6 +34,6 @@ stable id.
   rows); web + `sharedLogic` join prefer exact key over heuristics.
 - Feeds already store nullable iCal UID on synced events — surface through
   calendar orchestrator rather than inventing a second identity.
-- Dep: finish or park active Agenda-primary carpool dogfood first; this is the
-  durable fix for join reliability.
-- Ranked **Upcoming** so it can `/spec` soon after the active carpool slice.
+- Dep: Agenda-primary carpool dogfood shipped (`agenda-focus-carpool-actions`);
+  this is the durable fix for join reliability.
+- Ranked **Upcoming** Next up after the archived carpool slice.
