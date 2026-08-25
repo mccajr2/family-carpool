@@ -23,6 +23,7 @@ function item(
     kidIds: partial.kidIds,
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
     leaveByAt: null,

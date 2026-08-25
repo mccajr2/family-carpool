@@ -17,6 +17,7 @@ function item(
     kidIds: ["k1"],
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
     leaveByAt: null,

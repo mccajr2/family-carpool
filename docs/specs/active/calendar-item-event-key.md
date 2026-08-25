@@ -92,8 +92,8 @@ Allowlist for `/implement`.
       keep existing ride tests green
 - [x] Backend (calendar): add `eventKey` to `CalendarItemResponse`; set from
       feeds helper in `fromFeed`; null in `fromManual`
-- [ ] Contract: add `eventKey` on `CalendarItem` in `contracts/openapi.yaml`
-- [ ] Web: add `eventKey` to `CalendarItem` in `web/src/api/types.ts`
+- [x] Contract: add `eventKey` on `CalendarItem` in `contracts/openapi.yaml`
+- [x] Web: add `eventKey` to `CalendarItem` in `web/src/api/types.ts`
 - [ ] Web: update `matchCalendarItemToRideEvent` to prefer exact `eventKey`;
       retain heuristic when key is null; extend `calendarRideJoin.test.ts`
 - [ ] Tests: calendar integration asserts FEED `eventKey` on list (and at least
