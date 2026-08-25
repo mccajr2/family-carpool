@@ -257,7 +257,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Web: Focus Request CTA + precedence (Assign secondary when both);
       Focus card tests
 - [x] Docs: architecture Rides default-kid / Accept→Yes wording
-- [ ] Mobile sharedLogic: align types/docs if OpenAPI create/accept semantics
+- [x] Mobile sharedLogic: align types/docs if OpenAPI create/accept semantics
       change; tests if client surface changes
 - [ ] Tests: web lint/test, backend carpool ride suites, sharedLogic — report
       real results

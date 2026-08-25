@@ -7,6 +7,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
@@ -176,6 +177,11 @@ class CarpoolClientTest {
                         request.url.encodedPath == "/api/carpool/spaces/s1/rides" &&
                             request.method == HttpMethod.Post -> {
                             assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
+                            // Omit kidIds so the server applies YES + NO_RESPONSE defaults.
+                            assertEquals(
+                                """{"eventKey":"UID:practice"}""",
+                                (request.body as TextContent).text,
+                            )
                             respond(
                                 content = rideJson,
                                 status = HttpStatusCode.Created,
@@ -272,14 +278,14 @@ class CarpoolClientTest {
                     )
                 }
             val client = CarpoolClient("http://localhost:8080", mockHttpClient(mockEngine))
-            val ask =
+            val event =
                 client
                     .listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z")
                     .single()
-                    .otherRequests
-                    .single()
+            val ask = event.otherRequests.single()
             assertTrue(ask.passedByMe)
             assertEquals(CarpoolRideStatus.PENDING, ask.status)
+            assertEquals(emptyList(), event.defaultKidIds)
         }
 }
 
@@ -371,6 +377,6 @@ class CarpoolModelsTest {
 private fun mockHttpClient(engine: MockEngine): HttpClient =
     HttpClient(engine) {
         install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            json(Json { ignoreUnknownKeys = true; explicitNulls = false })
         }
     }
