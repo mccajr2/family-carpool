@@ -88,7 +88,7 @@ Allowlist for `/implement`.
 
 - [x] Backend (feeds): extract public `FeedEventKey` (or equivalent) from
       carpool’s `RideEventKey` algorithm; unit-test UID and FP cases
-- [ ] Backend (carpool): make `RideEventKey` delegate to the feeds helper;
+- [x] Backend (carpool): make `RideEventKey` delegate to the feeds helper;
       keep existing ride tests green
 - [ ] Backend (calendar): add `eventKey` to `CalendarItemResponse`; set from
       feeds helper in `fromFeed`; null in `fromManual`
