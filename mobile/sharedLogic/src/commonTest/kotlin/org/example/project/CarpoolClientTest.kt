@@ -333,6 +333,39 @@ class CarpoolModelsTest {
             none.copy(status = CarpoolFeedStatusKind.AVAILABLE, spaceId = "s1", spaceName = "Soccer")
         assertEquals(CarpoolPrimaryAction.REQUEST, available.primaryAction(FamilyRole.CAREGIVER))
     }
+
+    @Test
+    fun createRideRequestOmitsNullKidIdsAndEncodesSubset() {
+        // Match createHttpClient: null kidIds omitted so server applies defaults
+        // (YES + NO_RESPONSE); subset override is an explicit kidIds array.
+        val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+        assertEquals(
+            """{"eventKey":"UID:practice"}""",
+            json.encodeToString(
+                CreateCarpoolRideRequest.serializer(),
+                CreateCarpoolRideRequest(eventKey = "UID:practice"),
+            ),
+        )
+        assertEquals(
+            """{"eventKey":"UID:practice","kidIds":["k1"]}""",
+            json.encodeToString(
+                CreateCarpoolRideRequest.serializer(),
+                CreateCarpoolRideRequest(eventKey = "UID:practice", kidIds = listOf("k1")),
+            ),
+        )
+    }
+
+    @Test
+    fun rideEventDecodesDefaultKidIdsForRequestPrefill() {
+        val json = Json { ignoreUnknownKeys = true }
+        val event =
+            json.decodeFromString(
+                CarpoolRideEvent.serializer(),
+                """{"eventKey":"UID:practice","title":"Practice","startsAt":"2026-08-21T16:00:00Z","endsAt":null,"defaultKidIds":["k1","k2"],"ownRequest":null,"otherRequests":[]}""",
+            )
+        assertEquals(listOf("k1", "k2"), event.defaultKidIds)
+        assertNull(event.ownRequest)
+    }
 }
 
 private fun mockHttpClient(engine: MockEngine): HttpClient =

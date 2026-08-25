@@ -149,6 +149,7 @@ class CarpoolClient(
         return response.body()
     }
 
+    /** Creates a PENDING ride; omit kidIds for server defaults (YES + NO_RESPONSE). */
     suspend fun createRide(
         accessToken: String,
         spaceId: String,
@@ -164,6 +165,7 @@ class CarpoolClient(
         return response.body()
     }
 
+    /** Accepts a PENDING ask; server sets RSVP YES for kids on that ride. */
     suspend fun acceptRide(
         accessToken: String,
         spaceId: String,
