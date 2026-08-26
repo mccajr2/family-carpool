@@ -530,6 +530,9 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
+      "House B · Mia · Home, 1 Main",
+    )
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
@@ -563,6 +566,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByRole("button", { name: "Decline coverage" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
   it("prefers Accept/Pass over Assign when uncovered and ride-eligible", () => {
@@ -601,6 +605,40 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
+    })
+  })
+
+  it("keeps Needs coverage and Assign while own ride is still PENDING", () => {
+    renderCard(
+      item({
+        id: "own-pending-gap",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: {
+          ...rideEvent,
+          ownRequest: {
+            ...pendingAsk,
+            id: "own",
+            status: "PENDING",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            kidIds: ["k1"],
+            kidFirstNames: ["Maya"],
+          },
+          otherRequests: [],
+        },
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true },
+        onAssignCoverage: vi.fn(),
+      },
+    )
+    const chips = screen.getByTestId("agenda-focus-chips")
+    expect(within(chips).getByText("Requested")).toBeInTheDocument()
+    expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
+      backgroundColor: "var(--fc-hero-surface)",
     })
   })
 })
@@ -651,6 +689,112 @@ describe("AgendaFocusCard Request CTA", () => {
     })
     expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+  })
+
+  it("hides Assign when every uncovered kid is on an ACCEPTED own ride", () => {
+    renderCard(
+      item({
+        id: "accepted-clears-gap",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:accepted",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: {
+            id: "r1",
+            spaceId: "s1",
+            eventKey: "UID:accepted",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            requestedByAdultId: "a1",
+            kidIds: ["k1"],
+            kidFirstNames: ["Maya"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            status: "ACCEPTED",
+            passedByMe: false,
+            acceptedByAdultId: "a2",
+            acceptingCircleId: "c2",
+            acceptingCircleName: "Sharks Family",
+            vehicleId: "v1",
+            vehicleLabel: "Van",
+          },
+          otherRequests: [],
+        },
+        onAssignCoverage: vi.fn(),
+      },
+    )
+    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-MANUAL-accepted-clears-gap")).toHaveStyle({
+      backgroundColor: "var(--fc-surface-raised)",
+    })
+  })
+
+  it("keeps Assign when some uncovered kids remain after an ACCEPTED ride", () => {
+    renderCard(
+      item({
+        id: "mixed-gap",
+        title: "Practice",
+        uncoveredKidIds: ["k1", "k2"],
+        kidIds: ["k1", "k2"],
+        rsvps: [
+          { kidId: "k1", status: "YES" },
+          { kidId: "k2", status: "YES" },
+        ],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:mixed",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: {
+            id: "r1",
+            spaceId: "s1",
+            eventKey: "UID:mixed",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            requestedByAdultId: "a1",
+            kidIds: ["k1"],
+            kidFirstNames: ["Maya"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            status: "ACCEPTED",
+            passedByMe: false,
+            acceptedByAdultId: "a2",
+            acceptingCircleId: "c2",
+            acceptingCircleName: "Sharks Family",
+            vehicleId: "v1",
+            vehicleLabel: "Van",
+          },
+          otherRequests: [],
+        },
+        assignDraft: { adultId: "a1", kidIds: ["k2"], soleAdult: true, soleKid: true },
+        onAssignCoverage: vi.fn(),
+      },
+    )
+    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    const chips = screen.getByTestId("agenda-focus-chips")
+    expect(within(chips).getByText("Riding with Sharks Family")).toBeInTheDocument()
+    expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()
+    const chipLabels = within(chips)
+      .getAllByText(/Riding with|Needs coverage/)
+      .map((el) => el.textContent)
+    expect(chipLabels.indexOf("Riding with Sharks Family")).toBeLessThan(
+      chipLabels.indexOf("Needs coverage"),
+    )
   })
 
   it("prefers Accept/Pass over Request", () => {

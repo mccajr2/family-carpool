@@ -23,9 +23,10 @@ to **Accept**.
 
 - Exposing a Pass **button** on the Carpool tab (wiring only) —
   [`agenda-carpool-action-parity`](agenda-carpool-action-parity.md)
-- Chip copy / Focus Request / incoming who/where density —
-  [`agenda-carpool-state-clarity`](agenda-carpool-state-clarity.md) (and any
-  already-shipped clarity work)
+- Chip copy, Focus Request CTA, incoming who/where —
+  [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md); further
+  density —
+  [`agenda-carpool-state-clarity`](agenda-carpool-state-clarity.md)
 - Notifying others that you passed or un-passed (push / in-app inbox)
 - Changing Pass so it cancels the request for everyone
 - Expo Agenda UI

@@ -188,12 +188,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
+| — | — | _(none)_ |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-ride-clarity       | 2026-08-26 | [archive](specs/archive/carpool-ride-clarity.md)        |
 | calendar-item-event-key    | 2026-08-25 | [archive](specs/archive/calendar-item-event-key.md)     |
 | agenda-focus-carpool-actions | 2026-08-24 | [archive](specs/archive/agenda-focus-carpool-actions.md) |
 | carpool-request-accept     | 2026-08-21 | [archive](specs/archive/carpool-request-accept.md)     |
@@ -359,6 +361,9 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-25 | Re-rank (carpool beta): promote `auth-email-delivery` → `rn-expo-scaffold` → `push-notifications` (ride request/accept/deny) as pre-beta after `calendar-item-event-key`; push **not** blocked on `in-app-notifications`. Governance: OpenAPI same-change = web (+ Expo when present), not frozen KMP (`AGENTS.md`, `mobile.mdc`, architecture Contract-first). |
 | 2026-08-25 | `/spec calendar-item-event-key`: nullable carpool-compatible `eventKey` on `CalendarItem` (FEED); shared feeds key helper; web exact-key join (heuristic fallback when null). No KMP/Expo. |
 | 2026-08-25 | `/pr calendar-item-event-key`: nullable `eventKey` on FEED `CalendarItem`; shared feeds key helper; web exact-key Agenda↔ride join. Next up `auth-email-delivery`. |
+| 2026-08-25 | `/roadmap` carpool dogfood: add `carpool-ride-clarity` (chips + Focus Request + incoming who/where) then `carpool-pass-reconsider` (Accept after Pass) ahead of pre-beta mail/Expo/push — the loop is not readable enough to notify on. Next up `carpool-ride-clarity`. |
+| 2026-08-25 | `/spec carpool-ride-clarity`: Agenda/Focus treats ACCEPTED own ride as not a coverage gap (**Riding with {circle}**); Focus Request via eventKey join; incoming ask shows circle + pickup. No OpenAPI. |
+| 2026-08-26 | `/pr carpool-ride-clarity`: Agenda/Focus **Riding with** chip (not Needs coverage for ACCEPTED own ride); Focus Request primary + Assign secondary; incoming ask shows circle · kids · pickup. Spec archived. Next up `carpool-pass-reconsider`. |
 | 2026-08-26 | `/roadmap` Calendar carpool dogfood carve-up: add `carpool-pass-reconsider` (rank 1) then `agenda-carpool-action-parity` / `agenda-carpool-state-clarity` / `agenda-ride-rider-chips`; park `member-profile-photos`. Lock Calendar reverse actions on Focus. Pre-beta mail/Expo/push shift to ranks 5–7. Next up `carpool-pass-reconsider`. |
 | 2026-08-26 | `/roadmap` Agenda chrome: add `agenda-chip-section-headers` (rank 4) — Feeds-style uppercase chips (supersede Title Case pills); section labels NEEDS YOUR ATTENTION / REST OF TODAY / TOMORROW / THIS WEEK / **LATER**; design-doc lock. Rider chips → rank 5. Next up unchanged. |
 
