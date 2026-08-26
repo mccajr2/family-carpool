@@ -1,6 +1,7 @@
 import type {
   CalendarCoverageAssignment,
   CalendarItem,
+  CarpoolRide,
   FamilyMember,
   Kid,
 } from "@/api/types"
@@ -81,15 +82,36 @@ export type AgendaItemStatusTag = {
 }
 
 /**
+ * Coverage API `uncoveredKidIds` minus kids already on this circle's ACCEPTED
+ * own ride. PENDING (and no ride) leave the gap unchanged — transport is not
+ * done until Accept. API uncovered stays orthogonal; chrome uses this list.
+ */
+export function remainingCoverageGapKidIds(
+  uncoveredKidIds: string[],
+  ownRequest: CarpoolRide | null | undefined,
+): string[] {
+  if (ownRequest?.status !== "ACCEPTED") {
+    return [...uncoveredKidIds]
+  }
+  const onRide = new Set(ownRequest.kidIds)
+  return uncoveredKidIds.filter((kidId) => !onRide.has(kidId))
+}
+
+/**
  * Collapsed-row tags and Focus header pills share this precedence (see
  * docs/agenda-coverage-web-contract.md). Focus passes `includeAllSet: true`.
+ * Pass `ownRequest` so Needs coverage uses remaining gap kids (ACCEPTED ride).
  */
 export function agendaItemStatusTags(
   item: CalendarItem,
   currentAdultId: string,
-  options: { outOfPlay?: boolean; includeAllSet?: boolean } = {},
+  options: {
+    outOfPlay?: boolean
+    includeAllSet?: boolean
+    ownRequest?: CarpoolRide | null
+  } = {},
 ): AgendaItemStatusTag[] {
-  const { outOfPlay = false, includeAllSet = false } = options
+  const { outOfPlay = false, includeAllSet = false, ownRequest } = options
   if (outOfPlay) {
     return [{ label: "Not going", tone: "muted" }]
   }
@@ -97,11 +119,12 @@ export function agendaItemStatusTags(
   const tags: AgendaItemStatusTag[] = []
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
 
   if (item.conflicts.length > 0) {
     tags.push({ label: "Overlaps", tone: "amber" })
   }
-  if (item.uncoveredKidIds.length > 0) {
+  if (gapKids.length > 0) {
     tags.push({ label: "Needs coverage", tone: "amber" })
   } else if (pendingForSelf) {
     tags.push({ label: "Confirm coverage", tone: "amber" })
@@ -115,17 +138,41 @@ export function agendaItemStatusTags(
   return tags
 }
 
+/**
+ * Insert the own-ride chip immediately after Overlaps (or first if none).
+ * Used by collapsed Agenda rows and Focus pills.
+ */
+export function insertOwnRideStatusChip(
+  tags: AgendaItemStatusTag[],
+  rideChip: AgendaItemStatusTag | null | undefined,
+): AgendaItemStatusTag[] {
+  if (rideChip == null) {
+    return tags
+  }
+  const overlapsIndex = tags.findIndex((tag) => tag.label === "Overlaps")
+  if (overlapsIndex >= 0) {
+    return [
+      ...tags.slice(0, overlapsIndex + 1),
+      rideChip,
+      ...tags.slice(overlapsIndex + 1),
+    ]
+  }
+  return [rideChip, ...tags]
+}
+
 /** Red status dot on collapsed rows; Focus urgent surface uses focusItemNeedsDecision. */
 export function agendaItemNeedsAttention(
   item: CalendarItem,
   currentAdultId: string,
   outOfPlay = false,
+  ownRequest?: CarpoolRide | null,
 ): boolean {
   if (outOfPlay) {
     return false
   }
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   return (
-    item.uncoveredKidIds.length > 0 ||
+    gapKids.length > 0 ||
     item.conflicts.length > 0 ||
     Boolean(pendingCoverageForAdult(item, currentAdultId))
   )

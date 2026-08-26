@@ -27,8 +27,10 @@ import {
   coverageKidNames,
   coverageStatusLabel,
   eventKidNames,
+  insertOwnRideStatusChip,
   memberLabel,
   pendingCoverageForAdult,
+  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 
 const RowChevron = resolveSemanticIcon("icon.chevron")
@@ -126,9 +128,13 @@ export function AgendaRow({
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-  const uncoveredKidNames = eventKidNames(item.uncoveredKidIds, circle.kids)
-  const tags = agendaItemStatusTags(item, currentAdultId, { outOfPlay })
-  const carpoolChip = agendaOwnRideStatusChip(rideEvent?.ownRequest)
+  const ownRequest = rideEvent?.ownRequest ?? null
+  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const uncoveredKidNames = eventKidNames(gapKidIds, circle.kids)
+  const tags = insertOwnRideStatusChip(
+    agendaItemStatusTags(item, currentAdultId, { outOfPlay, ownRequest }),
+    agendaOwnRideStatusChip(ownRequest),
+  )
   const coveringAvatars = confirmedCoveringAvatars(item, circle, outOfPlay)
   const coveringLabel =
     coveringAvatars.length > 0
@@ -166,7 +172,7 @@ export function AgendaRow({
             {item.location ? ` · ${item.location}` : ""}
           </span>
         </span>
-        {tags.length > 0 || carpoolChip != null ? (
+        {tags.length > 0 ? (
           <span className="flex flex-shrink-0 gap-[var(--fc-space-list-row-tag-gap)]">
             {tags.map((tag) => (
               <AgendaStatusChip
@@ -176,13 +182,6 @@ export function AgendaRow({
                 appearance="pill"
               />
             ))}
-            {carpoolChip != null ? (
-              <AgendaStatusChip
-                label={carpoolChip.label}
-                tone={carpoolChip.tone}
-                appearance="pill"
-              />
-            ) : null}
           </span>
         ) : null}
         {coveringAvatars.length > 0 ? (
@@ -341,7 +340,7 @@ export function AgendaRow({
                   </Button>
                 </div>
               ))}
-              {item.uncoveredKidIds.length > 0 ? (
+              {gapKidIds.length > 0 ? (
                 <p className="text-sm text-[var(--fc-danger)]">
                   {uncoveredKidNames ? `Needs coverage: ${uncoveredKidNames}` : "Needs coverage"}
                 </p>
@@ -368,7 +367,7 @@ export function AgendaRow({
                   </Button>
                 </div>
               ) : null}
-              {item.uncoveredKidIds.length > 0 && circle.members.length > 0 ? (
+              {gapKidIds.length > 0 && circle.members.length > 0 ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
                   {!assignDraft.soleAdult ? (
                     <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
@@ -393,7 +392,7 @@ export function AgendaRow({
                       <legend className="text-xs text-[var(--fc-text-secondary)]">
                         Uncovered kids
                       </legend>
-                      {item.uncoveredKidIds.map((kidId) => {
+                      {gapKidIds.map((kidId) => {
                         const kid = circle.kids.find((entry) => entry.id === kidId)
                         if (!kid) {
                           return null

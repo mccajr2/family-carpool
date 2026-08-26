@@ -119,7 +119,7 @@ export function eligiblePendingRideAccept(
   return null
 }
 
-/** Collapsed Agenda chip for this circle's active ride on the event. */
+/** Collapsed Agenda / Focus chip for this circle's active ride on the event. */
 export function agendaOwnRideStatusChip(
   ownRequest: CarpoolRide | null | undefined,
 ): { label: string; tone: "mint" | "amber" } | null {
@@ -129,7 +129,7 @@ export function agendaOwnRideStatusChip(
   if (ownRequest.status === "ACCEPTED") {
     const who = ownRequest.acceptingCircleName?.trim()
     return {
-      label: who ? `Accepted · ${circleDisplayName(who)}` : "Accepted",
+      label: who ? `Riding with ${circleDisplayName(who)}` : "Riding with a teammate",
       tone: "mint",
     }
   }
@@ -142,11 +142,20 @@ export function agendaOwnRideStatusChip(
 export function ownRideStatusLine(ride: CarpoolRide): string {
   if (ride.status === "ACCEPTED") {
     const who = ride.acceptingCircleName?.trim()
-    return who ? `Accepted · ${circleDisplayName(who)}` : "Accepted"
+    return who ? `Riding with ${circleDisplayName(who)}` : "Riding with a teammate"
   }
   if (ride.status === "PENDING") {
     return "Requested"
   }
   return ride.status
+}
+
+/**
+ * Focus Accept/Pass summary: requesting circle · kids · pickup (no seats —
+ * Carpool tab OtherRideRequest includes seats; Focus does not).
+ */
+export function incomingRideAskSummary(request: CarpoolRide): string {
+  const kids = request.kidFirstNames.join(", ")
+  return `${circleDisplayName(request.requestingCircleName)} · ${kids} · ${request.pickupPlaceName}, ${request.pickupAddress}`
 }
 

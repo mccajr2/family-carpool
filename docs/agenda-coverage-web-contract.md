@@ -199,27 +199,38 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Active rows (`PENDING` / `CONFIRMED`):  
   `{adult} · {kids} · {Pending|Confirmed}` (+ **Remove coverage**).
 - Declined rows are not shown as active coverage.
-- Uncovered kids: **Needs coverage** / **Needs coverage: {names}** (in-play
-  only — RSVP No kids are never uncovered).
+- Uncovered kids (API `uncoveredKidIds`): **Needs coverage** /
+  **Needs coverage: {names}** (in-play only — RSVP No kids are never
+  uncovered). Calendar chrome uses **remaining gap kids** =
+  `uncoveredKidIds` minus kids on this circle’s **`ACCEPTED` `ownRequest`**
+  (PENDING ride does not clear the gap). Names on the row copy are remaining
+  gap kids only.
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
 - **Collapsed status tags** (Focus pills + collapsed `AgendaRow` chips) share
-  one precedence via `agendaItemStatusTags` (`coverageDisplay.ts`):
-  `Overlaps` → `Needs coverage` (uncovered) → **Confirm coverage**
-  (pending-for-self) → **Awaiting confirm** (pending for someone else) →
-  `Confirmed` → `All set` (Focus only). List and Focus both use Title Case
-  pills with a leading dot (`appearance="pill"`). Pending-for-self drives
-  Focus urgent surface (no standalone list-row status dot).
+  one precedence via `agendaItemStatusTags` + `insertOwnRideStatusChip`
+  (`coverageDisplay.ts` / `carpoolDisplay.ts`):
+  `Overlaps` → own-ride chip (if any) → `Needs coverage` (remaining gap) →
+  **Confirm coverage** (pending-for-self) → **Awaiting confirm** (pending for
+  someone else) → `Confirmed` → `All set` (Focus only). Own-ride chip:
+  **Riding with {acceptingCircleName}** (mint; blank name → **Riding with a
+  teammate**) when `ACCEPTED`; **Requested** (amber) when `PENDING`. Do not
+  use “Accepted ·” / “Accepted:”. List and Focus both use Title Case pills
+  with a leading dot (`appearance="pill"`). Pending-for-self drives Focus
+  urgent surface (no standalone list-row status dot).
 
 ### Assign
 
-- Show assign UI only when there are uncovered kids and at least one member.
-- **Sole uncovered kid** → no kid checkboxes; that kid is implicit on Assign.
+- Show assign UI only when there are **remaining gap kids** and at least one
+  member (not raw `uncoveredKidIds` alone — ACCEPTED own-ride kids are out of
+  the gap).
+- **Sole remaining gap kid** → no kid checkboxes; that kid is implicit on
+  Assign.
 - **Sole circle adult** → no covering-adult picker; that adult is implicit.
 - Otherwise covering adult **defaults to the signed-in member** when they are
   in the circle (do not wipe that default when toggling kids).
-- Multiple uncovered kids → checkboxes **pre-checked for all uncovered**;
-  Assign enabled when ≥1 kid remains selected (and a covering adult is set).
-  Adults can deselect kids before assigning.
+- Multiple remaining gap kids → checkboxes **pre-checked for all remaining
+  gap kids**; Assign enabled when ≥1 kid remains selected (and a covering
+  adult is set). Adults can deselect kids before assigning.
 - Button label: **Assign coverage**.
 - Self-assign (covering adult === signed-in adult) → API returns `CONFIRMED`;
   UI must not imply a confirm step is still required for that assignment.

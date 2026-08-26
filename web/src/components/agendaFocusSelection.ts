@@ -1,7 +1,10 @@
 import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
 import { agendaDayBucketForStartsAt } from "@/components/agendaDayGroups"
 import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
-import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import {
+  pendingCoverageForAdult,
+  remainingCoverageGapKidIds,
+} from "@/components/coverageDisplay"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 export type FocusRideOptions = {
@@ -9,12 +12,17 @@ export type FocusRideOptions = {
   garage: Garage | null
 }
 
-/** Family decisions only — uncovered, conflict, or pending Confirm for self. */
+/**
+ * Family decisions only — remaining coverage gap, conflict, or pending Confirm
+ * for self. Pass ACCEPTED `ownRequest` so ride kids are not treated as a gap.
+ */
 export function focusItemNeedsFamilyDecision(
   item: CalendarItem,
   currentAdultId: string,
+  ownRequest?: CarpoolRide | null,
 ): boolean {
-  if (item.uncoveredKidIds.length > 0 || item.conflicts.length > 0) {
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  if (gapKids.length > 0 || item.conflicts.length > 0) {
     return true
   }
   if (currentAdultId && pendingCoverageForAdult(item, currentAdultId)) {
@@ -32,8 +40,9 @@ export function focusItemNeedsDecision(
   item: CalendarItem,
   currentAdultId: string,
   eligibleRideAccept: CarpoolRide | null = null,
+  ownRequest?: CarpoolRide | null,
 ): boolean {
-  if (focusItemNeedsFamilyDecision(item, currentAdultId)) {
+  if (focusItemNeedsFamilyDecision(item, currentAdultId, ownRequest)) {
     return true
   }
   return eligibleRideAccept != null
@@ -71,12 +80,15 @@ export function selectFocusItem(
     return null
   }
 
+  const ownRequestFor = (item: CalendarItem) =>
+    rideOptions?.rideEventForItem(item)?.ownRequest ?? null
+
   const earliestNeedsDecisionIn = (bucket: "today" | "tomorrow") => {
     const inBucket = inPlay.filter(
       (item) => agendaDayBucketForStartsAt(item.startsAt, now) === bucket,
     )
     const family = inBucket.find((item) =>
-      focusItemNeedsFamilyDecision(item, currentAdultId),
+      focusItemNeedsFamilyDecision(item, currentAdultId, ownRequestFor(item)),
     )
     if (family) {
       return family

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarCoverageAssignment, CalendarItem, FamilyMember, Kid } from "@/api/types"
+import type {
+  CalendarCoverageAssignment,
+  CalendarItem,
+  CarpoolRide,
+  FamilyMember,
+  Kid,
+} from "@/api/types"
 import {
   agendaItemNeedsAttention,
   agendaItemStatusTags,
@@ -10,7 +16,9 @@ import {
   coverageKidNames,
   coverageStatusLabel,
   eventKidNames,
+  insertOwnRideStatusChip,
   memberLabel,
+  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import { calendarSourceLabel as eventTimesSourceLabel } from "@/components/eventTimes"
 
@@ -58,6 +66,30 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: [{ kidId: "k1", status: "YES" }],
+    ...partial,
+  }
+}
+
+function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "r1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    requestingCircleId: "c1",
+    requestingCircleName: "Ours",
+    requestedByAdultId: "a1",
+    kidIds: ["k1"],
+    kidFirstNames: ["Maya"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "ACCEPTED",
+    passedByMe: false,
+    acceptedByAdultId: "a2",
+    acceptingCircleId: "c2",
+    acceptingCircleName: "Sharks Family",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
     ...partial,
   }
 }
@@ -147,6 +179,90 @@ describe("coverageDisplay", () => {
     const uncovered = calendarItem({ uncoveredKidIds: ["k1"] })
     expect(agendaItemStatusTags(uncovered, "a1")).toEqual([
       { label: "Needs coverage", tone: "amber" },
+    ])
+  })
+
+  it("subtracts ACCEPTED own-ride kids from the coverage gap", () => {
+    expect(remainingCoverageGapKidIds(["k1", "k2"], ownRide({ kidIds: ["k1"] }))).toEqual([
+      "k2",
+    ])
+    expect(remainingCoverageGapKidIds(["k1"], ownRide({ kidIds: ["k1"] }))).toEqual([])
+    expect(
+      remainingCoverageGapKidIds(["k1"], ownRide({ status: "PENDING", kidIds: ["k1"] })),
+    ).toEqual(["k1"])
+    expect(remainingCoverageGapKidIds(["k1"], null)).toEqual(["k1"])
+  })
+
+  it("omits Needs coverage when every uncovered kid is on an ACCEPTED ride", () => {
+    const item = calendarItem({ uncoveredKidIds: ["k1"] })
+    const accepted = ownRide({ kidIds: ["k1"] })
+    expect(agendaItemStatusTags(item, "a1", { ownRequest: accepted })).toEqual([])
+    expect(agendaItemNeedsAttention(item, "a1", false, accepted)).toBe(false)
+
+    const mixed = calendarItem({ uncoveredKidIds: ["k1", "k2"] })
+    expect(agendaItemStatusTags(mixed, "a1", { ownRequest: accepted })).toEqual([
+      { label: "Needs coverage", tone: "amber" },
+    ])
+    expect(agendaItemNeedsAttention(mixed, "a1", false, accepted)).toBe(true)
+
+    const pending = ownRide({ status: "PENDING", kidIds: ["k1"] })
+    expect(agendaItemStatusTags(item, "a1", { ownRequest: pending })).toEqual([
+      { label: "Needs coverage", tone: "amber" },
+    ])
+  })
+
+  it("composes Overlaps, Riding with, and remaining Needs coverage in order", () => {
+    const mixed = calendarItem({
+      uncoveredKidIds: ["k1", "k2"],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "other",
+          otherTitle: "Other",
+          otherStartsAt: "2030-08-15T18:00:00Z",
+        },
+      ],
+    })
+    const accepted = ownRide({ kidIds: ["k1"], acceptingCircleName: "House B" })
+    const tags = insertOwnRideStatusChip(
+      agendaItemStatusTags(mixed, "a1", { ownRequest: accepted }),
+      {
+        label: "Riding with House B",
+        tone: "mint",
+      },
+    )
+    expect(tags.map((tag) => tag.label)).toEqual([
+      "Overlaps",
+      "Riding with House B",
+      "Needs coverage",
+    ])
+  })
+
+  it("inserts the own-ride chip after Overlaps (or first when none)", () => {
+    const rideChip = { label: "Riding with House B", tone: "mint" as const }
+    expect(insertOwnRideStatusChip([], rideChip)).toEqual([rideChip])
+    expect(
+      insertOwnRideStatusChip([{ label: "Needs coverage", tone: "amber" }], rideChip),
+    ).toEqual([rideChip, { label: "Needs coverage", tone: "amber" }])
+    expect(
+      insertOwnRideStatusChip(
+        [
+          { label: "Overlaps", tone: "amber" },
+          { label: "Needs coverage", tone: "amber" },
+        ],
+        rideChip,
+      ),
+    ).toEqual([
+      { label: "Overlaps", tone: "amber" },
+      rideChip,
+      { label: "Needs coverage", tone: "amber" },
+    ])
+    expect(insertOwnRideStatusChip([{ label: "Confirmed", tone: "mint" }], null)).toEqual([
+      { label: "Confirmed", tone: "mint" },
     ])
   })
 })

@@ -10,6 +10,7 @@ import {
   enableCarpoolConfirmMessage,
   agendaOwnRideStatusChip,
   kidDisplayName,
+  incomingRideAskSummary,
   ownRideStatusLine,
   ownYesKidCount,
   rideSeatsLabel,
@@ -56,11 +57,40 @@ describe("carpoolDisplay", () => {
     ).toEqual({ label: "Requested", tone: "amber" })
     expect(
       agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
-    ).toEqual({ label: "Accepted · House B", tone: "mint" })
+    ).toEqual({ label: "Riding with House B", tone: "mint" })
+    expect(
+      agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "  " })),
+    ).toEqual({ label: "Riding with a teammate", tone: "mint" })
     expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
     expect(
       ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
-    ).toBe("Accepted · House B")
+    ).toBe("Riding with House B")
+    expect(ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: null }))).toBe(
+      "Riding with a teammate",
+    )
+  })
+
+  it("summarizes an incoming ask for Focus Accept/Pass", () => {
+    expect(
+      incomingRideAskSummary(
+        ride({
+          requestingCircleName: "House B",
+          kidFirstNames: ["Mia", "Leo"],
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main St",
+        }),
+      ),
+    ).toBe("House B · Mia, Leo · Home, 1 Main St")
+    expect(
+      incomingRideAskSummary(
+        ride({
+          requestingCircleName: "  ",
+          kidFirstNames: ["Mia"],
+          pickupPlaceName: "School",
+          pickupAddress: "2 Oak",
+        }),
+      ),
+    ).toBe("Your family · Mia · School, 2 Oak")
   })
 
   it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {

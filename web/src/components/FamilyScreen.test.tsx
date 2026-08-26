@@ -1752,6 +1752,131 @@ describe("FamilyScreen", () => {
     expect(focus.parentElement).not.toHaveAttribute("data-carpool-ride-key")
   })
 
+  it("shows Request primary and Assign secondary on Focus for joined requestable uncovered FEED", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const feedItem = calendarItem({
+      id: "e-feed",
+      source: "FEED",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-1",
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "UID:practice-1",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        otherRequests: [],
+      },
+    ])
+    const createRide = vi.fn().mockResolvedValue({
+      id: "ride-1",
+      spaceId: "s1",
+      eventKey: "UID:practice-1",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      status: "PENDING",
+      passedByMe: false,
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+      vehicleId: null,
+      vehicleLabel: null,
+    })
+    const getSummary = vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "Soccer",
+          status: "MEMBER",
+          spaceId: "s1",
+          spaceName: "Soccer",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "Soccer",
+          membership: "MEMBER",
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [
+            { circleId: "c1", circleName: "House", membership: "MEMBER" },
+          ],
+          pendingRequests: [],
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([feedItem]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, createRide })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
+    const agenda = await screen.findByLabelText("Agenda")
+    const focus = await within(agenda).findByTestId("agenda-focus-FEED-e-feed")
+    await waitFor(() => {
+      expect(focus.parentElement).toHaveAttribute("data-carpool-ride-key", "UID:practice-1")
+    })
+
+    const request = within(focus).getByRole("button", { name: "Request" })
+    const assign = within(focus).getByRole("button", { name: "Assign coverage" })
+    expect(request.compareDocumentPosition(assign) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(assign.className).toMatch(/bg-secondary/)
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+
+    await user.click(request)
+    await waitFor(() => {
+      expect(createRide).toHaveBeenCalledWith("tok", "s1", { eventKey: "UID:practice-1" })
+    })
+  })
+
   it("refreshes feeds from the list endpoint without syncing", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
