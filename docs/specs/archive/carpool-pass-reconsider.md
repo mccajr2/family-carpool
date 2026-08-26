@@ -19,7 +19,7 @@ cannot tell who actively declined vs who has not engaged.
 ## Non-goals
 
 - Exposing a Pass **button** on the Carpool tab (wiring only) —
-  [`agenda-carpool-action-parity`](../active/agenda-carpool-action-parity.md)
+  [`agenda-carpool-action-parity`](../archive/agenda-carpool-action-parity.md)
 - Chip / section chrome, Focus Request CTA density, incoming who/where polish —
   [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md),
   [`agenda-carpool-state-clarity`](../planned/agenda-carpool-state-clarity.md),

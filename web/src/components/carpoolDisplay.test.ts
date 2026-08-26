@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
 import {
+  acceptedByUsRequest,
   callerDrives,
   carpoolFeedStatusLabel,
   circleDisplayName,
@@ -9,6 +10,7 @@ import {
   eligibleVehiclesForAccept,
   enableCarpoolConfirmMessage,
   agendaOwnRideStatusChip,
+  isAcceptedByCircle,
   kidDisplayName,
   incomingRideAskSummary,
   ownRideStatusLine,
@@ -180,6 +182,28 @@ describe("carpoolDisplay", () => {
         { adultId: "a1", garage },
       ),
     ).toBeNull()
+  })
+
+  it("detects teammate asks this circle accepted", () => {
+    const ours = ride({
+      id: "accepted-us",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Ours",
+    })
+    const theirs = ride({
+      id: "accepted-them",
+      status: "ACCEPTED",
+      acceptingCircleId: "c9",
+      acceptingCircleName: "Them",
+    })
+    expect(isAcceptedByCircle(ours, "c1")).toBe(true)
+    expect(isAcceptedByCircle(theirs, "c1")).toBe(false)
+    expect(acceptedByUsRequest(event({ otherRequests: [theirs, ours] }), "c1")?.id).toBe(
+      "accepted-us",
+    )
+    expect(acceptedByUsRequest(event({ otherRequests: [theirs] }), "c1")).toBeNull()
+    expect(acceptedByUsRequest(null, "c1")).toBeNull()
   })
 })
 

@@ -414,4 +414,33 @@ describe("CarpoolPanel", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }))
     expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-2")
   })
+
+  it("passes a pending other ask and keeps Accept-after-Pass", async () => {
+    const user = userEvent.setup()
+    let passed = false
+    const listRides = vi.fn().mockImplementation(async () => [
+      event({
+        defaultKidIds: [],
+        otherRequests: [ride({ id: "ride-1", status: "PENDING", passedByMe: passed })],
+      }),
+    ])
+    const passRide = vi.fn().mockImplementation(async () => {
+      passed = true
+    })
+
+    renderPanel(
+      {
+        getSummary: vi.fn().mockResolvedValue(memberSpace),
+        listRides,
+        passRide,
+      },
+      { family: { getGarage: vi.fn().mockResolvedValue(garageWithVan) } },
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Pass" }))
+    expect(passRide).toHaveBeenCalledWith("tok", "s1", "ride-1")
+    expect(await screen.findByText("Passed")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
 })

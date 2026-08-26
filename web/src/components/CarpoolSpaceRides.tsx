@@ -5,6 +5,7 @@ import {
   callerDrives,
   circleDisplayName,
   eligibleVehiclesForAccept,
+  isAcceptedByCircle,
   kidDisplayName,
   ownRideStatusLine,
   rideSeatsLabel,
@@ -21,6 +22,7 @@ type CarpoolSpaceRidesProps = {
   busy: boolean
   onCreateRide: (eventKey: string, kidIds?: string[]) => void
   onAcceptRide: (rideId: string, vehicleId: string) => void
+  onPassRide: (rideId: string) => void
   onCancelRide: (rideId: string) => void
   onWithdrawRide: (rideId: string) => void
 }
@@ -34,6 +36,7 @@ export function CarpoolSpaceRides({
   busy,
   onCreateRide,
   onAcceptRide,
+  onPassRide,
   onCancelRide,
   onWithdrawRide,
 }: CarpoolSpaceRidesProps) {
@@ -107,6 +110,7 @@ export function CarpoolSpaceRides({
                   setVehicleSelection((prev) => ({ ...prev, [request.id]: vehicleId }))
                 }
                 onAccept={(vehicleId) => onAcceptRide(request.id, vehicleId)}
+                onPass={() => onPassRide(request.id)}
                 onWithdraw={() => onWithdrawRide(request.id)}
               />
             ))}
@@ -206,6 +210,7 @@ function OtherRideRequest({
   selectedVehicleId,
   onSelectVehicle,
   onAccept,
+  onPass,
   onWithdraw,
 }: {
   request: CarpoolRide
@@ -215,11 +220,14 @@ function OtherRideRequest({
   selectedVehicleId: string
   onSelectVehicle: (vehicleId: string) => void
   onAccept: (vehicleId: string) => void
+  onPass: () => void
   onWithdraw: () => void
 }) {
-  const acceptedByUs =
-    request.status === "ACCEPTED" && request.acceptingCircleId === circleId
+  const acceptedByUs = isAcceptedByCircle(request, circleId)
   const canAccept = request.status === "PENDING" && eligible.length > 0
+  // Pass: PENDING + not yet passedByMe. drives / vehicle not required (Focus
+  // Accept eligibility does not gate Pass on the tab).
+  const canPass = request.status === "PENDING" && !request.passedByMe
   const status =
     request.status === "ACCEPTED"
       ? `Accepted${
@@ -274,6 +282,11 @@ function OtherRideRequest({
             Accept
           </Button>
         </div>
+      ) : null}
+      {canPass ? (
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onPass}>
+          Pass
+        </Button>
       ) : null}
       {acceptedByUs ? (
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onWithdraw}>

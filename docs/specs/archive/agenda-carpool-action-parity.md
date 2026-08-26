@@ -1,10 +1,11 @@
 # Spec: agenda-carpool-action-parity
 
-Status: draft  
-Created: 2026-08-26  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
-Branch: `agenda-carpool-action-parity`  
-Added: 2026-08-26 · enhancement
+Created: 2026-08-26  
+Updated: 2026-08-26 (`/pr`)  
+Added: 2026-08-26 · enhancement  
+Branch: `agenda-carpool-action-parity`
 
 ## Problem
 
@@ -97,40 +98,40 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] Focus with own `PENDING` request shown: outline **Cancel** calls existing
+- [x] Focus with own `PENDING` request shown: outline **Cancel** calls existing
       cancel; Focus item is not also in the day list, so Cancel is reachable
       without opening Carpool.
-- [ ] Focus with own `ACCEPTED` request shown: outline **Cancel** likewise.
-- [ ] Focus when this circle accepted a teammate ask on that ride event: outline
+- [x] Focus with own `ACCEPTED` request shown: outline **Cancel** likewise.
+- [x] Focus when this circle accepted a teammate ask on that ride event: outline
       **Withdraw** calls existing withdraw; Accept/Pass primary chrome unchanged
       for eligible pending asks.
-- [ ] Expanded Agenda row with accepted-by-us: minimal status + outline
+- [x] Expanded Agenda row with accepted-by-us: minimal status + outline
       **Withdraw**; still Request/Cancel for own request; **no** Accept or Pass
       buttons on the row.
-- [ ] Carpool tab `PENDING` other request (not yet `passedByMe`): **Pass** button
+- [x] Carpool tab `PENDING` other request (not yet `passedByMe`): **Pass** button
       calls `/pass`; after pass, status reflects Passed and Accept-after-Pass
       still works; no un-pass control.
-- [ ] No OpenAPI / backend changes; no new design tokens; Focus still exactly one
+- [x] No OpenAPI / backend changes; no new design tokens; Focus still exactly one
       card; ranking rules unchanged.
-- [ ] Architecture Clients (and seams if needed) document Calendar Cancel /
+- [x] Architecture Clients (and seams if needed) document Calendar Cancel /
       Withdraw when those states are shown + Carpool Pass CTA.
-- [ ] Component tests would fail if Focus Cancel/Withdraw, row Withdraw, or
+- [x] Component tests would fail if Focus Cancel/Withdraw, row Withdraw, or
       Carpool Pass were removed; `cd web && npm test` (touched suites) and
       `npm run lint` pass.
 
 ## Tasks
 
-- [ ] Web: Focus outline Cancel when `ownRequest` is `PENDING` or `ACCEPTED`;
+- [x] Web: Focus outline Cancel when `ownRequest` is `PENDING` or `ACCEPTED`;
       wire to existing cancel handler; Focus card tests
-- [ ] Web: Focus outline Withdraw when accepted-by-us on Focus ride event; wire
+- [x] Web: Focus outline Withdraw when accepted-by-us on Focus ride event; wire
       withdraw on `FamilyScreen`; Focus card tests
-- [ ] Web: Expanded AgendaRow minimal accepted-by-us + Withdraw; no Accept/Pass
+- [x] Web: Expanded AgendaRow minimal accepted-by-us + Withdraw; no Accept/Pass
       on rows; row tests
-- [ ] Web: Carpool tab Pass on PENDING other requests (`!passedByMe`); keep
+- [x] Web: Carpool tab Pass on PENDING other requests (`!passedByMe`); keep
       Accept-after-Pass; `CarpoolSpaceRides` / panel tests
-- [ ] Docs: architecture Clients (+ seams only if required) for reverse-action /
+- [x] Docs: architecture Clients (+ seams only if required) for reverse-action /
       Pass surfaces
-- [ ] Tests: run web lint + relevant vitest; report real results
+- [x] Tests: run web lint + relevant vitest; report real results
 
 ## Open questions
 

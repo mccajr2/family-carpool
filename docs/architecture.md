@@ -100,7 +100,7 @@ Locked for `family-circle-and-kids` + `family-adult-invites-roles` +
 | Carpool | Opt-in **team space** keyed **one per normalized feed URL**. Membership is the **circle**. Organizer **Enable** owns; join by **code** (`ensureFeed` if URL missing) or **request** (owner admit/decline, in-app). **Ride requests** are space + feed-event scoped (`PENDING` \| `ACCEPTED` \| `CANCELLED`); members see kid first names, seats, and pickup address. HTTP `/api/carpool/*`. See Team carpool space below |
 | Leave-by | Per **signed-in adult** + calendar item (`source` + `id`): optional leave-from place override. Origin resolution order: **per-item override → membership default leave-from → first located place by name**. Estimate: `leaveBy ≈ startsAt − (travelDuration × TOD multiplier + fixedBuffer)` — math is in-process; **not** stored on the event. **Cheap list** never calls Nominatim/OSRM HTTP (`PENDING` on cache miss; `OK` when dest + duration are already in DB; `UNAVAILABLE` + `NO_ORIGIN` / `NO_DESTINATION` without fill-in). **Fill-in** is `GET /api/family/circle/calendar/leave-by?from&to` (full enrich, `OK` \| `UNAVAILABLE` only). Single-item mutation responses (leave-from PUT, RSVP PUT, coverage writes) still **fully enrich that one row**. Clients paint Agenda from the cheap list/cache **before** fill-in; near-term `[localTodayStart, +2 calendar days)` first, then the rest of the loaded window; Load more fills that page after near-term. Destination geocode reuses **`geocode_cache`** (`FamilyGeocodeApi`); driving duration is **`leaveby_route_cache`** (successful OSRM only). Recovery: origin via leave-from / Places locate / default leave-from; MANUAL destination via edit `location`; no lat/lng editors; no FEED destination override in this slice. Activity-type arrival lead times → [`event-arrival-lead-time`](specs/planned/event-arrival-lead-time.md). **OSRM is PoC-free routing**; upgrade path parked as [`paid-live-traffic`](roadmap.md) |
 | Empty circle | Allowed (add kids / places / feeds / manual events later) |
-| Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; **Carpool** = team spaces (per-feed status, Enable for Organizers, Have a code, request/admit/decline, member **circle names**, **upcoming feed rides** with Request / Accept / Cancel / Withdraw on web); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places, **Garage** for all members; Feeds for Organizers only — Caregiver row omitted, with the same per-feed carpool chrome as the Carpool tab) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
+| Signed-in shell | **Client IA only** (`app-shell-navigation`): four destinations in order **Calendar → Carpool → Family → More/Settings**. Calendar = Agenda; **Carpool** = team spaces (per-feed status, Enable for Organizers, Have a code, request/admit/decline, member **circle names**, **upcoming feed rides** with Request / Accept / Pass / Cancel / Withdraw on web); Family = circle/invite/members/kids/leave; More (mobile) / Settings (web) groups **General** (Places, **Garage** for all members; Feeds for Organizers only — Caregiver row omitted, with the same per-feed carpool chrome as the Carpool tab) and **Account** (email/role, danger-styled Sign out). Chrome adapts: **bottom tabs** on iOS/Android, **sidebar** on web (not a tab-bar clone). Shell appears only in Ready (has circle); default landing **Calendar**. Auth and create/join stay outside the shell |
 
 **Write authorization (three intentional categories):**
 
@@ -255,7 +255,7 @@ Locked for [`team-carpool-space-invite`](specs/archive/team-carpool-space-invite
 | Leave | Member anytime. Owner only if they are the **sole** member circle (space is then deleted). Otherwise **409** |
 | Existence | Same-URL non-members may see **that a space exists** (name + Request / Have a code). They do not see members, code, or rides until joined |
 | Rides | Space-scoped **RideRequest** on upcoming **feed** events (same local today → +30d spirit as Agenda). `defaultKidIds` / create default = feed-linked kids who are **not RSVP NO** (YES and No response) and not already on this circle’s ACCEPTED ride (subset override OK). **Create does not change RSVP** (requested kids may stay No response). Pickup = requester house address snapshot. Accept: other circle, `drives=true`, vehicle with enough remaining seats (`seats − 1 − own YES kids`), at most one ACCEPTED ride per vehicle per event; **successful Accept sets RSVP YES for kids on that ride** (requesting circle). Cancel / Withdraw / Pass do not auto-change RSVP. **Pass**: per-adult decline of a `PENDING` ask (request stays `PENDING` for others; list marks `passedByMe`; cleared on Accept/Cancel). Cancel (requesting) / Withdraw (accepting). Coverage orthogonal. No ride fields on `CalendarItem` |
-| Clients | **Web Calendar / Agenda is the primary ride surface** — carpool-eligible FEED rows Request / status; Focus CTA precedence Confirm → Accept/Pass → **Request** (Assign secondary if remaining coverage gap) → Assign → calm (family decisions beat ride Accepts in Today/Tomorrow ranking). **ACCEPTED own ride is not a Calendar coverage gap** in chrome: Needs coverage / Assign / Focus family-decision use remaining gap kids (`uncoveredKidIds` minus ACCEPTED `ownRequest.kidIds`); API `uncoveredKidIds` stays orthogonal. Status copy **Riding with {accepting circle}** (not “Accepted ·”). Focus Accept/Pass shows who/where: requesting circle · kid first names · pickup snapshot. **Carpool tab** remains membership + secondary ride list (honors `passedByMe`; no Accept after pass; same requestable-kid rules; may keep “Accepted by {circle}”). **Feeds** (Organizer) keeps per-feed Enable / Request / Owned chrome. Caregivers never gain Feeds manage. Android/iOS Agenda/Focus ride UI is parked (`carpool-request-accept-mobile`, `agenda-focus-card-mobile`); `sharedLogic` clients cover ride + pass paths |
+| Clients | **Web Calendar / Agenda is the primary ride surface** — carpool-eligible FEED rows Request / status; Focus CTA precedence Confirm → Accept/Pass → **Request** (Assign secondary if remaining coverage gap) → Assign → calm (family decisions beat ride Accepts in Today/Tomorrow ranking). **Calendar is self-sufficient for reverse actions when those states are shown** (Focus is not duplicated in the day list): outline **Cancel** for own `PENDING`/`ACCEPTED` on Focus; outline **Withdraw** for accepted-by-us on Focus and on expanded rows (minimal accepted-by-us status on the row). Expanded rows keep Request/Cancel for own request — **no** Accept/Pass on rows. **ACCEPTED own ride is not a Calendar coverage gap** in chrome: Needs coverage / Assign / Focus family-decision use remaining gap kids (`uncoveredKidIds` minus ACCEPTED `ownRequest.kidIds`); API `uncoveredKidIds` stays orthogonal. Status copy **Riding with {accepting circle}** (not “Accepted ·”). Focus Accept/Pass shows who/where: requesting circle · kid first names · pickup snapshot. **Carpool tab** remains membership + secondary ride list (**Pass** on PENDING other asks when `!passedByMe`; Accept-after-Pass kept; no un-pass; same requestable-kid rules; may keep “Accepted by {circle}”). **Feeds** (Organizer) keeps per-feed Enable / Request / Owned chrome. Caregivers never gain Feeds manage. Android/iOS Agenda/Focus ride UI is parked (`carpool-request-accept-mobile`, `agenda-focus-card-mobile`); `sharedLogic` clients cover ride + pass paths |
 | Out of scope | Partial accept; merge two families onto one vehicle (multi-stop); legs / meet-at / early-late; un-pass; least-privilege nanny roster → parked `carpool-least-privilege`; vehicles live in the **family garage** |
 
 ### Leave-by estimate (detail)
@@ -347,22 +347,25 @@ When a surface feels too dense:
    (possible follow-up id, e.g. `calendar-ux-disclosure`)
 4. Navigate away — only for real destination jobs (event compose; Open Places
    for `NO_ORIGIN`; Carpool tab for membership / secondary ride list). Ride
-   Request / Accept / Pass stay on Calendar Agenda + Focus — no nested Agenda
-   attribute screens for fields that belong on the item.
+   Request / Accept / Pass / Cancel / Withdraw stay reachable on Calendar
+   Agenda + Focus when those states are shown — no nested Agenda attribute
+   screens for fields that belong on the item.
 
 ### Forward-looking seams (structure only)
 
 - Agenda: schedule + RSVP attendance + coverage responsibility + leave-by +
   conflict amber + **carpool ride request/status** on eligible FEED rows;
   Focus may surface Accept/Pass or **Request** (exactly one card; CTA
-  precedence Confirm → Accept/Pass → Request → Assign). Request does not
-  require prior RSVP Yes; Accept sets Yes for kids on the ride.
+  precedence Confirm → Accept/Pass → Request → Assign) plus outline Cancel /
+  Withdraw when own PENDING/ACCEPTED or accepted-by-us applies. Request does
+  not require prior RSVP Yes; Accept sets Yes for kids on the ride.
 - Conflict chrome attaches to the **item**, not a new control dump (shipped).
 - Per-coverage leave-from is a later product slice; don’t bury leave-from where
   it can’t grow.
-- Carpool destination stays membership + secondary ride list — do not build a
-  second “open asks” inbox on Context / week glance; Calendar is primary for
-  ride actions.
+- Carpool destination stays membership + secondary ride list (including Pass
+  on PENDING other asks) — do not build a second “open asks” inbox on Context /
+  week glance; Calendar is primary and self-sufficient for ride actions
+  including Cancel / Withdraw when those states are shown.
 
 ## Repository layout
 

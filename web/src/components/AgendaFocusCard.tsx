@@ -5,6 +5,7 @@ import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import {
+  acceptedByUsRequest,
   callerDrives,
   eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
@@ -43,6 +44,8 @@ type AgendaFocusCardProps = {
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onCancelRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string) => void
   onOpenPlaces: () => void
   onEdit: () => void
 }
@@ -115,6 +118,8 @@ export function AgendaFocusCard({
   onAcceptRide,
   onPassRide,
   onCreateRide,
+  onCancelRide,
+  onWithdrawRide,
   onOpenPlaces,
   onEdit,
 }: AgendaFocusCardProps) {
@@ -125,6 +130,7 @@ export function AgendaFocusCard({
     garage,
   })
   const ownRequest = rideEvent?.ownRequest ?? null
+  const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const needsDecision = focusItemNeedsDecision(
     item,
     currentAdultId,
@@ -138,7 +144,8 @@ export function AgendaFocusCard({
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
-  // secondary if remaining gap) → Assign → calm Edit.
+  // secondary if remaining gap) → Assign → calm Edit. Outline Cancel /
+  // Withdraw sit beside that chrome (Focus is not in the day list).
   const showRideAcceptPass =
     !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
   const acceptVehicles = showRideAcceptPass
@@ -164,6 +171,11 @@ export function AgendaFocusCard({
     gapKidIds.length > 0 &&
     circle.members.length > 0 &&
     !pendingForSelf
+  const showCancelOwnRide =
+    ownRequest != null &&
+    (ownRequest.status === "PENDING" || ownRequest.status === "ACCEPTED") &&
+    onCancelRide != null
+  const showWithdrawAcceptedByUs = acceptedByUs != null && onWithdrawRide != null
   const showAssignSelect = showAssign && !assignDraft.soleAdult
   const showChangeSelect = Boolean(activeCoverage) && circle.members.length > 1 && !showAssignSelect
   const showCoveringSelect = showAssignSelect || showChangeSelect
@@ -467,6 +479,30 @@ export function AgendaFocusCard({
             disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
           >
             Assign coverage
+          </Button>
+        ) : null}
+        {showCancelOwnRide && ownRequest ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={needsDecision ? "secondary" : "outline"}
+            className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+            onClick={() => onCancelRide?.(ownRequest.id)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+        ) : null}
+        {showWithdrawAcceptedByUs && acceptedByUs ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={needsDecision ? "secondary" : "outline"}
+            className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+            onClick={() => onWithdrawRide?.(acceptedByUs.id)}
+            disabled={loading}
+          >
+            Withdraw
           </Button>
         ) : null}
         {showRemoveCoverage && activeCoverage ? (

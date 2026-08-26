@@ -66,12 +66,15 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
 const noop = {
   onCreateRide: vi.fn(),
   onAcceptRide: vi.fn(),
+  onPassRide: vi.fn(),
   onCancelRide: vi.fn(),
   onWithdrawRide: vi.fn(),
 }
 
 describe("CarpoolSpaceRides pass", () => {
-  it("offers Accept for a pending other ask the caller has not passed", () => {
+  it("offers Accept and Pass for a pending other ask the caller has not passed", async () => {
+    const user = userEvent.setup()
+    const onPassRide = vi.fn()
     render(
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride()] })]}
@@ -81,13 +84,17 @@ describe("CarpoolSpaceRides pass", () => {
         garage={garage}
         busy={false}
         {...noop}
+        onPassRide={onPassRide}
       />,
     )
     expect(screen.getByText("Needs a ride")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Pass" }))
+    expect(onPassRide).toHaveBeenCalledWith("ride-1")
   })
 
-  it("still offers Accept after the caller has passed", () => {
+  it("still offers Accept after the caller has passed, without Pass or un-pass", () => {
     render(
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride({ passedByMe: true })] })]}
@@ -102,6 +109,26 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByText("Practice")).toBeInTheDocument()
     expect(screen.getByText("Passed")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("offers Pass without drives/vehicle when Accept is unavailable", () => {
+    render(
+      <CarpoolSpaceRides
+        events={[event({ otherRequests: [ride()] })]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={{
+          members: [{ adultId: "a1", displayName: "Alex", drives: false }],
+          vehicles: [],
+        }}
+        busy={false}
+        {...noop}
+      />,
+    )
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
   })
 
   it("shows Passed by names on own PENDING request", () => {
