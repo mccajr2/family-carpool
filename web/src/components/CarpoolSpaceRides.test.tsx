@@ -103,6 +103,33 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByText("Passed")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
   })
+
+  it("shows Passed by names on own PENDING request", () => {
+    render(
+      <CarpoolSpaceRides
+        events={[
+          event({
+            ownRequest: ride({
+              id: "own-1",
+              requestingCircleId: "c1",
+              requestingCircleName: "Ours",
+              status: "PENDING",
+              passedByAdultNames: ["Sam", "Alex"],
+              kidFirstNames: ["Mia"],
+            }),
+          }),
+        ]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={garage}
+        busy={false}
+        {...noop}
+      />,
+    )
+    expect(screen.getByText(/Passed by Sam, Alex/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Requested/)).not.toBeInTheDocument()
+  })
 })
 
 describe("CarpoolSpaceRides request defaults", () => {

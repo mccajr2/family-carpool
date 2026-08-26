@@ -147,6 +147,9 @@ export function ownRideStatusLine(ride: CarpoolRide): string {
     return who ? `Riding with ${circleDisplayName(who)}` : "Riding with a teammate"
   }
   if (ride.status === "PENDING") {
+    if (ride.passedByAdultNames.length > 0) {
+      return `Passed by ${ride.passedByAdultNames.join(", ")}`
+    }
     return "Requested"
   }
   return ride.status

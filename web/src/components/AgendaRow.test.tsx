@@ -409,6 +409,29 @@ describe("AgendaRow", () => {
           ...requestedEvent,
           ownRequest: {
             ...requestedEvent.ownRequest!,
+            passedByAdultNames: ["Sam"],
+          },
+        }}
+        onCreateRide={onCreateRide}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+    expect(within(row).getByText(/Passed by Sam/)).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-band-carpool")).toHaveTextContent(/Passed by Sam/)
+    expect(within(row).getByTestId("agenda-band-carpool")).not.toHaveTextContent("Requested")
+
+    rerender(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          ...requestedEvent,
+          ownRequest: {
+            ...requestedEvent.ownRequest!,
             status: "ACCEPTED",
             acceptingCircleName: "House B",
           },

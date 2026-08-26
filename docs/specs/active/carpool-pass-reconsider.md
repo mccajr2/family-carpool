@@ -109,7 +109,7 @@ Allowlist for `/implement`.
       `passedByMe` (status may still say “Passed” for the passer)
 - [x] Web: keep Focus skip of `passedByMe` in `eligiblePendingRideAccept` /
       Focus tests
-- [ ] Web: own-request “Passed by …” via `ownRideStatusLine` (or sibling
+- [x] Web: own-request “Passed by …” via `ownRideStatusLine` (or sibling
       helper) on AgendaRow + Carpool own-request UI; component tests
 - [ ] Tests: run backend carpool ride tests + web vitest for touched files;
       report results
