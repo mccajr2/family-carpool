@@ -1,8 +1,9 @@
 # Spec: carpool-ride-clarity
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-25  
+Updated: 2026-08-26 (`/pr`)  
 Added: 2026-08-25 · enhancement  
 Branch: `carpool-ride-clarity`
 
@@ -119,46 +120,46 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] After this circle’s ride is `ACCEPTED`, collapsed Agenda and Focus pills
+- [x] After this circle’s ride is `ACCEPTED`, collapsed Agenda and Focus pills
       show **Riding with {accepting circle name}** (mint). They do **not**
       show **Needs coverage** for kids on that ride, and do **not** show
       **Accepted ·** / **Accepted:** copy.
-- [ ] When every `uncoveredKidIds` kid is on that `ACCEPTED` ride, Focus is
+- [x] When every `uncoveredKidIds` kid is on that `ACCEPTED` ride, Focus is
       not a family coverage decision: no **Assign coverage**, no urgent
       needs-decision surface **from coverage alone** (conflict / pending
       Confirm / eligible Accept still apply as today).
-- [ ] When some kids remain uncovered and not on the `ACCEPTED` ride, **Needs
+- [x] When some kids remain uncovered and not on the `ACCEPTED` ride, **Needs
       coverage** and **Assign coverage** still apply to those kids, and
       **Riding with {circle}** still shows.
-- [ ] Own `PENDING` request still shows **Requested**; **Needs coverage** /
+- [x] Own `PENDING` request still shows **Requested**; **Needs coverage** /
       **Assign** still apply (gap not cleared until accept).
-- [ ] Focus on a carpool-eligible FEED item that joins a listed ride event by
+- [x] Focus on a carpool-eligible FEED item that joins a listed ride event by
       `eventKey`, with `ownRequest == null` and non-empty `defaultKidIds`,
       shows **Request** as primary. If the item also has remaining gap kids,
       **Assign coverage** is secondary on the same card — not the only CTA.
       FamilyScreen (or equivalent joined-shell) test; would fail if Request
       were missing.
-- [ ] Focus Accept/Pass for an incoming `PENDING` ask shows requesting circle
+- [x] Focus Accept/Pass for an incoming `PENDING` ask shows requesting circle
       name, kid first names, and pickup place name + address from that ride.
       No new OpenAPI fields.
-- [ ] Carpool tab ride list copy is unchanged. No contract version bump.
+- [x] Carpool tab ride list copy is unchanged. No contract version bump.
 
 ## Tasks
 
-- [ ] Web: helper for remaining gap kids (`uncoveredKidIds` minus ACCEPTED
+- [x] Web: helper for remaining gap kids (`uncoveredKidIds` minus ACCEPTED
       `ownRequest.kidIds`); use it in coverage chips, Assign visibility, and
       `focusItemNeedsFamilyDecision` (not raw `uncoveredKidIds`)
-- [ ] Web: `agendaOwnRideStatusChip` / `ownRideStatusLine` → **Riding with
+- [x] Web: `agendaOwnRideStatusChip` / `ownRideStatusLine` → **Riding with
       {circle}**; Focus pills include the ride chip; coverage ladder uses
       remaining gap kids
-- [ ] Web: Focus incoming-ask summary line (circle · kids · pickup) above
+- [x] Web: Focus incoming-ask summary line (circle · kids · pickup) above
       Accept/Pass
-- [ ] Web: FamilyScreen test — Focus on joined requestable uncovered FEED
+- [x] Web: FamilyScreen test — Focus on joined requestable uncovered FEED
       (`eventKey` match) shows Request primary + Assign secondary
-- [ ] Docs: `docs/agenda-coverage-web-contract.md` Display ladder;
+- [x] Docs: `docs/agenda-coverage-web-contract.md` Display ladder;
       `docs/agenda-focus-card-addendum.md` pills; `docs/architecture.md`
       Team carpool **Clients** (+ Coverage chrome note)
-- [ ] Tests: `carpoolDisplay` / `coverageDisplay` / `agendaFocusSelection` /
+- [x] Tests: `carpoolDisplay` / `coverageDisplay` / `agendaFocusSelection` /
       `AgendaFocusCard` / `AgendaRow` unit tests for the AC above (including
       mixed remaining-gap + Riding with)
 

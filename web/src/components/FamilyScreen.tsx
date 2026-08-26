@@ -69,6 +69,7 @@ import {
 import {
   calendarItemKey,
   memberLabel,
+  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import {
   advanceCalendarWindow,
@@ -1506,9 +1507,11 @@ export function FamilyScreen({
   function coverageAssignState(
     item: CalendarItem,
     itemKey: string,
+    ownRequest?: CarpoolRideEvent["ownRequest"],
   ): { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean } {
+    const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
     const soleAdult = circle!.members.length === 1
-    const soleKid = item.uncoveredKidIds.length === 1
+    const soleKid = gapKids.length === 1
     const stored = assignCoverageDrafts[itemKey]
     const defaultAdultId =
       adult?.id && circle!.members.some((member) => member.adultId === adult.id)
@@ -1518,8 +1521,8 @@ export function FamilyScreen({
       ? circle!.members[0]!.adultId
       : stored?.adultId || defaultAdultId
     const kidIds = soleKid
-      ? item.uncoveredKidIds
-      : (stored?.kidIds ?? [...item.uncoveredKidIds])
+      ? gapKids
+      : (stored?.kidIds ?? [...gapKids])
     return { adultId, kidIds, soleAdult, soleKid }
   }
 
@@ -2555,6 +2558,7 @@ export function FamilyScreen({
                   assignDraft={coverageAssignState(
                     focusItem,
                     calendarItemKey(focusItem),
+                    calendarRideByItemKey.get(calendarItemKey(focusItem))?.ownRequest,
                   )}
                   coverageActionError={
                     coverageActionErrors[calendarItemKey(focusItem)]
@@ -2633,7 +2637,11 @@ export function FamilyScreen({
                             circle={circle}
                             currentAdultId={adult?.id ?? ""}
                             loading={status.kind === "loading"}
-                            assignDraft={coverageAssignState(item, itemKey)}
+                            assignDraft={coverageAssignState(
+                              item,
+                              itemKey,
+                              calendarRideByItemKey.get(itemKey)?.ownRequest,
+                            )}
                             coverageActionError={coverageActionErrors[itemKey]}
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
                             onCreateRide={(eventKey, kidIds) =>

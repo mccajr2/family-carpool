@@ -164,6 +164,37 @@ describe("focusItemNeedsDecision", () => {
     expect(focusItemNeedsFamilyDecision(calm, adultId)).toBe(false)
     expect(focusItemNeedsDecision(calm, adultId, null)).toBe(false)
   })
+
+  it("treats ACCEPTED own-ride kids as not a family coverage gap", () => {
+    const uncovered = item({
+      id: "covered-by-ride",
+      startsAt: localIso(2026, 8, 15, 18),
+      uncoveredKidIds: ["k1"],
+    })
+    const accepted = rideAsk({
+      status: "ACCEPTED",
+      kidIds: ["k1"],
+      acceptingCircleName: "Sharks Family",
+    })
+    expect(focusItemNeedsFamilyDecision(uncovered, adultId, accepted)).toBe(false)
+    expect(focusItemNeedsDecision(uncovered, adultId, null, accepted)).toBe(false)
+
+    const pending = rideAsk({ status: "PENDING", kidIds: ["k1"] })
+    expect(focusItemNeedsFamilyDecision(uncovered, adultId, pending)).toBe(true)
+
+    const mixed = item({
+      id: "mixed",
+      startsAt: localIso(2026, 8, 15, 18),
+      uncoveredKidIds: ["k1", "k2"],
+    })
+    expect(
+      focusItemNeedsFamilyDecision(
+        mixed,
+        adultId,
+        rideAsk({ status: "ACCEPTED", kidIds: ["k1"] }),
+      ),
+    ).toBe(true)
+  })
 })
 
 describe("selectFocusItem", () => {
@@ -185,6 +216,29 @@ describe("selectFocusItem", () => {
       conflicts: [conflict],
     })
     expect(selectFocusItem([calmEarly, conflictedLater], now, adultId)?.id).toBe("conflicted")
+  })
+
+  it("does not treat ACCEPTED own-ride gap clearance as a family decision", () => {
+    const calmEarly = item({
+      id: "calm",
+      startsAt: localIso(2026, 8, 15, 16),
+    })
+    const rideCovered = item({
+      id: "ride-covered",
+      startsAt: localIso(2026, 8, 15, 17),
+      uncoveredKidIds: ["k1"],
+    })
+    const options = rideOptionsFor({
+      "ride-covered": rideEvent({
+        ownRequest: rideAsk({
+          status: "ACCEPTED",
+          kidIds: ["k1"],
+          acceptingCircleName: "Sharks Family",
+        }),
+        otherRequests: [],
+      }),
+    })
+    expect(selectFocusItem([calmEarly, rideCovered], now, adultId, options)?.id).toBe("calm")
   })
 
   it("prefers tomorrow decisions over all-set today", () => {

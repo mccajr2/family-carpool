@@ -73,13 +73,17 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `location` is shown verbatim (full address until a venue lookup exists).
   Leave-from uses the **place name**, not the street address. No form labels
   (`Leave from`, `Manual`).
-- Status **pills** on Focus (`Overlaps`, `Needs coverage`, `Confirm coverage`,
-  `Awaiting confirm`, `Confirmed` / `All set`): Title Case with a leading status
-  dot (`focusStatusPill` 12.5/600). Same precedence as collapsed rows via
-  `agendaItemStatusTags` in `coverageDisplay.ts`. **Confirm coverage** when
+- Status **pills** on Focus (`Overlaps`, own-ride chip, `Needs coverage`,
+  `Confirm coverage`, `Awaiting confirm`, `Confirmed` / `All set`): Title Case
+  with a leading status dot (`focusStatusPill` 12.5/600). Same composition as
+  collapsed rows: `agendaItemStatusTags` + `insertOwnRideStatusChip` (ride chip
+  immediately after **Overlaps**, or first if none). **Confirm coverage** when
   `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
-  someone else; **Needs coverage** only when kids are still uncovered.
-  Collapsed `AgendaRow` uses the same Title Case pills
+  someone else; **Needs coverage** only for **remaining gap kids** (API
+  `uncoveredKidIds` minus kids on this circle’s **ACCEPTED** `ownRequest`;
+  PENDING ride does not clear the gap). Own-ride chip: **Riding with
+  {acceptingCircleName}** (mint; blank → **Riding with a teammate**) or
+  **Requested** (amber). Collapsed `AgendaRow` uses the same Title Case pills
   (`appearance="pill"`).
   Conflict **detail** lines are not on Focus; they stay in the expanded row.
 - Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
@@ -90,8 +94,14 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
     selected adult. Covered: current covering adult selected; changing it
     **reassigns**. Sole adult uncovered: no combobox (assign is implied).
   - **Sole adult** with active coverage → static name (same row, no picker).
-- **Primary CTA:** Assign coverage (uncovered), Confirm/Decline (pending for
-  self), or **Remove coverage** (active coverage that is not pending-for-self).
+- **Primary CTA** (precedence Confirm → Accept/Pass → Request → Assign →
+  calm): Confirm/Decline (pending for self); Accept/Pass for an eligible
+  incoming ask (with one summary line above:
+  `{requesting circle} · {kid first names} · {pickupPlaceName}, {pickupAddress}`
+  — circle via `circleDisplayName`, not the requesting adult); **Request**
+  primary with **Assign coverage** secondary when the joined ride event is
+  requestable and remaining gap kids remain; else Assign alone when there is
+  a remaining gap; else **Remove coverage** / calm Edit as today.
   **Edit** (manual) opens the existing compose dialog, including **Leave from**
   when the circle has more than one located place (needed because the Focus
   item is not duplicated in the day list).
@@ -113,8 +123,9 @@ Focus to close that gap. **Change covering adult** and **Remove coverage**
 do stay on Focus, because those writes would otherwise be unreachable.
 `agenda-list-chips` restyles **collapsed** rows only and must not change
 expand bands. `coverage-leave-from` belongs on expanded coverage rows, not
-Focus. `agenda-focus-carpool-actions` reuses the CTA row (Accept/Decline
-ride later). Mobile (`agenda-focus-card-mobile`) ports this slim card, not
+Focus. `agenda-focus-carpool-actions` / `carpool-ride-clarity` reuse the CTA
+row (Accept/Pass with who/where summary; Request primary + Assign secondary).
+Mobile (`agenda-focus-card-mobile`) ports this slim card, not
 the old form-hero.
 
 No accordion on Focus. No card chrome on any other item.

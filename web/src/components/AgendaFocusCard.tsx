@@ -8,14 +8,18 @@ import {
   callerDrives,
   eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
+  agendaOwnRideStatusChip,
+  incomingRideAskSummary,
 } from "@/components/carpoolDisplay"
 import {
   activeCoverages,
   agendaItemStatusTags,
   coverageAdultLabel,
   eventKidNames,
+  insertOwnRideStatusChip,
   memberLabel,
   pendingCoverageForAdult,
+  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 
@@ -59,8 +63,18 @@ function minutesUntil(iso: string | null | undefined): number | null {
   return Math.max(0, Math.round((target - Date.now()) / 60000))
 }
 
-function focusStatusChips(item: CalendarItem, currentAdultId: string) {
-  return agendaItemStatusTags(item, currentAdultId, { includeAllSet: true })
+function focusStatusChips(
+  item: CalendarItem,
+  currentAdultId: string,
+  ownRequest?: CarpoolRideEvent["ownRequest"],
+) {
+  return insertOwnRideStatusChip(
+    agendaItemStatusTags(item, currentAdultId, {
+      includeAllSet: true,
+      ownRequest,
+    }),
+    agendaOwnRideStatusChip(ownRequest),
+  )
 }
 
 function focusMetaLine(item: CalendarItem, circle: FamilyCircle): string | null {
@@ -110,14 +124,21 @@ export function AgendaFocusCard({
     adultId: currentAdultId,
     garage,
   })
-  const needsDecision = focusItemNeedsDecision(item, currentAdultId, eligibleRide)
+  const ownRequest = rideEvent?.ownRequest ?? null
+  const needsDecision = focusItemNeedsDecision(
+    item,
+    currentAdultId,
+    eligibleRide,
+    ownRequest,
+  )
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const statusChips = focusStatusChips(item, currentAdultId)
+  const statusChips = focusStatusChips(item, currentAdultId, ownRequest)
+  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
-  // secondary if uncovered) → Assign → calm Edit.
+  // secondary if remaining gap) → Assign → calm Edit.
   const showRideAcceptPass =
     !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
   const acceptVehicles = showRideAcceptPass
@@ -140,7 +161,7 @@ export function AgendaFocusCard({
     onCreateRide != null
   const showAssign =
     !showRideAcceptPass &&
-    item.uncoveredKidIds.length > 0 &&
+    gapKidIds.length > 0 &&
     circle.members.length > 0 &&
     !pendingForSelf
   const showAssignSelect = showAssign && !assignDraft.soleAdult
@@ -358,6 +379,13 @@ export function AgendaFocusCard({
         ) : null}
         {showRideAcceptPass && eligibleRide ? (
           <>
+            <p
+              data-testid="agenda-focus-incoming-ask"
+              className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+              style={{ color: onSecondaryVar }}
+            >
+              {incomingRideAskSummary(eligibleRide)}
+            </p>
             {acceptVehicles.length > 1 ? (
               <select
                 aria-label="Vehicle"

@@ -22,7 +22,7 @@ to **Accept**.
 ## Non-goals (sketch)
 
 - Chip copy, Focus Request CTA, incoming who/where —
-  [`carpool-ride-clarity`](../active/carpool-ride-clarity.md)
+  [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md)
 - Notifying others that you passed or un-passed (push / in-app inbox)
 - Changing Pass so it cancels the request for everyone
 - Expo Agenda UI

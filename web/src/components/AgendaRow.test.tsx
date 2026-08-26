@@ -417,7 +417,208 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Accepted · House B")).toBeInTheDocument()
+    expect(within(row).getByText("Riding with House B")).toBeInTheDocument()
+    expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
+  })
+
+  it("clears Needs coverage / Assign when ACCEPTED ride covers all uncovered kids", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-accepted",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      uncoveredKidIds: ["k1"],
+    })
+    const rideEvent = {
+      eventKey: "UID:accepted",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:accepted",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        acceptedByAdultId: "a2",
+        acceptingCircleId: "c2",
+        acceptingCircleName: "Sharks Family",
+        vehicleId: "v1",
+        vehicleLabel: "Van",
+      },
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
+    expect(within(row).getByText("Riding with Sharks Family")).toBeInTheDocument()
+    expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
+    expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(within(row).getByText("Riding with Sharks Family")).toBeInTheDocument()
+  })
+
+  it("keeps Needs coverage and Assign for remaining gap kids with Riding with chip", async () => {
+    const user = userEvent.setup()
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-mixed",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    const rideEvent = {
+      eventKey: "UID:mixed",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:mixed",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        acceptedByAdultId: "a2",
+        acceptingCircleId: "c2",
+        acceptingCircleName: "House B",
+        vehicleId: "v1",
+        vehicleLabel: "Van",
+      },
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k2"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-mixed")
+    expect(within(row).getByText("Riding with House B")).toBeInTheDocument()
+    expect(within(row).getByText("Needs coverage")).toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
+    expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+  })
+
+  it("keeps Needs coverage and Assign while own ride is still PENDING", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-pending",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      uncoveredKidIds: ["k1"],
+    })
+    const rideEvent = {
+      eventKey: "UID:pending",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:pending",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "PENDING" as const,
+        passedByMe: false,
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      },
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-pending")
+    expect(within(row).getByText("Requested")).toBeInTheDocument()
+    expect(within(row).getByText("Needs coverage")).toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(within(row).getByText("Needs coverage: Sam")).toBeInTheDocument()
   })
 
   it("shows Request for No-response defaults without telling adults to RSVP Yes first", async () => {
