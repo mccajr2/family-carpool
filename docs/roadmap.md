@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-25 (`/spec calendar-item-event-key`)
+Updated: 2026-08-25 (`/pr calendar-item-event-key`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -88,7 +88,7 @@ slice on web + RN together. KMP is **frozen**; retire via `kmp-mobile-retire`.
 | Visual language          | Destination mocks are the visual source of truth for **size, weight, spacing, and color** — tokens absorb those values (new/updated roles in the same PR); do not snap to a nearby existing role. **WCAG AA** (4.5:1 text, 3.0:1 icons) is the only allowed mock-hex exception. See `[docs/ui-system.md](ui-system.md)`. **One visual priority per screen**; everything else calmer. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Web typography: Space Grotesk (display) + Plus Jakarta Sans (body) — `[typography-web](specs/archive/typography-web.md)`. Expo typography/fonts are deferred until RN surfaces exist (KMP `typography-font-family` cancelled). `hero*` **color** roles are Focus-card urgent spotlight only. **Filters and states prefer chips** over body-copy labels on restyled surfaces. |
 | Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. Expo will use bottom tabs (IA parity, not KMP). Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Page frame:** flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only Context aside — `[web-shell-page-frame](specs/archive/web-shell-page-frame.md)`. **Week at a glance:** five-day coverage/status strip in that aside — `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. **Page header:** Calendar mock Today/date, `page`/`subtitle` type, main 36×44 / rail 28×20 padding — `[web-shell-page-header](specs/archive/web-shell-page-header.md)`. |
 | Agenda week strip        | **Five-day coverage/status** rail in Calendar Context (today + next four local days; event counts, not kids; no driver copy). Not the month/week grid (`family-calendar-grid`). Done: `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. KMP mobile port cancelled; Expo port carved later if needed. The mock’s numbered-stop **carpool card** + Open in Maps stays parked `[carpool-multi-stop](specs/planned/carpool-multi-stop.md)`. |
-| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm / **pending ride accept for self**) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/archive/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. **Agenda-primary carpool** (Done: `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`): Request/status on event cards; Focus Accept + Pass + **Request** (when eligible); **Within Today/Tomorrow** family decisions beat teammate ride Accept, then earliest `startsAt`; **own PENDING ride is not a Focus decision**; Request without prior RSVP Yes (**Accept** sets Yes). Never multi-hero or Context ask inbox. Focus chrome: slim summary + primary CTA; leave-from / full RSVP bands stay on expanded rows — `[agenda-focus-card-polish](specs/archive/agenda-focus-card-polish.md)`. Solid Agenda↔ride id: active `[calendar-item-event-key](specs/active/calendar-item-event-key.md)`. |
+| Focus card selection     | Exactly one Agenda item. **Next action**, not “earliest uncovered in the loaded window.” **Today/tomorrow** decisions (RSVP / uncovered / conflict / pending confirm / **pending ride accept for self**) beat a sooner all-set item; otherwise the **next in-play event to leave for** (on time first). Rest-of-week gaps surface in the list + `[agenda-week-glance](specs/archive/agenda-week-glance.md)` strip, not Focus. Done: `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`. **Agenda-primary carpool** (Done: `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`): Request/status on event cards; Focus Accept + Pass + **Request** (when eligible); **Within Today/Tomorrow** family decisions beat teammate ride Accept, then earliest `startsAt`; **own PENDING ride is not a Focus decision**; Request without prior RSVP Yes (**Accept** sets Yes). Never multi-hero or Context ask inbox. Focus chrome: slim summary + primary CTA; leave-from / full RSVP bands stay on expanded rows — `[agenda-focus-card-polish](specs/archive/agenda-focus-card-polish.md)`. Solid Agenda↔ride id: Done `[calendar-item-event-key](specs/archive/calendar-item-event-key.md)`. |
 
 
 
@@ -100,20 +100,19 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | calendar-item-event-key         | active  | 2026-08-21 · enhancement   | Expose feed `eventKey` on `CalendarItem` for solid Agenda↔ride join (replace flaky title/time match)                          |
-| 2    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
-| 3    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
-| 4    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
-| 5    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 6    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 7    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
-| 8    | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 9    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 10   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 11   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 12   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
-| 13   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 14   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
+| 2    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
+| 3    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
+| 4    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 5    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 6    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
+| 7    | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 8    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 9    | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 10   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 11   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
+| 12   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 13   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -183,13 +182,13 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
-| calendar-item-event-key | `calendar-item-event-key` | [active](specs/active/calendar-item-event-key.md) |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| calendar-item-event-key    | 2026-08-25 | [archive](specs/archive/calendar-item-event-key.md)     |
 | agenda-focus-carpool-actions | 2026-08-24 | [archive](specs/archive/agenda-focus-carpool-actions.md) |
 | carpool-request-accept     | 2026-08-21 | [archive](specs/archive/carpool-request-accept.md)     |
 | agenda-week-glance         | 2026-08-18 | [archive](specs/archive/agenda-week-glance.md)         |
@@ -353,4 +352,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-25 | Major re-rank (client strategy): lock **Expo (React Native)** as the mobile target; **web MVP dogfood first** (no parallel web+RN product delivery); freeze KMP; cancel KMP `*-mobile` ports + `ios-auth-unreachable-parity` + `typography-font-family`; park `rn-expo-scaffold` + `kmp-mobile-retire`. Next up unchanged: `calendar-item-event-key`. |
 | 2026-08-25 | Re-rank (carpool beta): promote `auth-email-delivery` → `rn-expo-scaffold` → `push-notifications` (ride request/accept/deny) as pre-beta after `calendar-item-event-key`; push **not** blocked on `in-app-notifications`. Governance: OpenAPI same-change = web (+ Expo when present), not frozen KMP (`AGENTS.md`, `mobile.mdc`, architecture Contract-first). |
 | 2026-08-25 | `/spec calendar-item-event-key`: nullable carpool-compatible `eventKey` on `CalendarItem` (FEED); shared feeds key helper; web exact-key join (heuristic fallback when null). No KMP/Expo. |
+| 2026-08-25 | `/pr calendar-item-event-key`: nullable `eventKey` on FEED `CalendarItem`; shared feeds key helper; web exact-key Agenda↔ride join. Next up `auth-email-delivery`. |
 

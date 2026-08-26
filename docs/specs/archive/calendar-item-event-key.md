@@ -1,8 +1,12 @@
 # Spec: calendar-item-event-key
 
-Status: draft  
+Status: done  
 Created: 2026-08-21  
-Parent: [docs/roadmap.md](../../roadmap.md)
+Updated: 2026-08-25 (`/pr`)  
+Approved: 2026-08-25  
+Parent: [docs/roadmap.md](../../roadmap.md)  
+Branch: `calendar-item-event-key`  
+Added: 2026-08-21 · enhancement
 
 ## Problem
 
@@ -64,25 +68,25 @@ Allowlist for `/implement`.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI `CalendarItem` includes nullable string `eventKey` (not required);
+- [x] OpenAPI `CalendarItem` includes nullable string `eventKey` (not required);
       description documents `UID:` / `FP:` parity with carpool ride keys and
       null for MANUAL
-- [ ] `GET /api/calendar` (and single-item enrich responses that return
+- [x] `GET /api/calendar` (and single-item enrich responses that return
       `CalendarItem`) include `eventKey` for FEED rows; MANUAL rows omit/null
-- [ ] FEED `eventKey` matches carpool’s key for the same `FeedCalendarEventDto`
+- [x] FEED `eventKey` matches carpool’s key for the same `FeedCalendarEventDto`
       (uid present → `UID:…`; uid absent → `FP:…` with same normalize rules)
-- [ ] Key formula lives in feeds’ public API; carpool uses that shared helper
+- [x] Key formula lives in feeds’ public API; carpool uses that shared helper
       (no duplicated divergent string building)
-- [ ] Web `CalendarItem` type includes `eventKey: string | null`
-- [ ] Web Agenda↔ride join: when `item.eventKey` is non-null, match the ride
+- [x] Web `CalendarItem` type includes `eventKey: string | null`
+- [x] Web Agenda↔ride join: when `item.eventKey` is non-null, match the ride
       event in the eligible space whose `eventKey` equals it (no title/time
       required for that hit)
-- [ ] When `item.eventKey` is null, existing title+startsAt(+location)
+- [x] When `item.eventKey` is null, existing title+startsAt(+location)
       heuristic still applies (MANUAL stays unmatched)
-- [ ] Unit/integration coverage: calendar FEED list asserts `eventKey`; shared
+- [x] Unit/integration coverage: calendar FEED list asserts `eventKey`; shared
       key helper / carpool delegation covered; web join tests cover exact-key
       hit and null-key fallback
-- [ ] Frozen KMP untouched; no Expo work in this PR
+- [x] Frozen KMP untouched; no Expo work in this PR
 
 ## Tasks
 
@@ -96,7 +100,7 @@ Allowlist for `/implement`.
 - [x] Web: add `eventKey` to `CalendarItem` in `web/src/api/types.ts`
 - [x] Web: update `matchCalendarItemToRideEvent` to prefer exact `eventKey`;
       retain heuristic when key is null; extend `calendarRideJoin.test.ts`
-- [ ] Tests: calendar integration asserts FEED `eventKey` on list (and at least
+- [x] Tests: calendar integration asserts FEED `eventKey` on list (and at least
       one enrich path if cheap); no KMP / Expo tasks
 
 ## Open questions
