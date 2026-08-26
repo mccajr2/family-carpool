@@ -105,7 +105,7 @@ Allowlist for `/implement`.
 - [x] Contract: `passedByAdultNames` on `CarpoolRide`; amend Pass /
       `passedByMe` descriptions; bump `info.version`
 - [x] Web API: types + `carpoolClient` fixtures/tests for the new field
-- [ ] Web: Carpool tab Accept enabled when `PENDING` + eligible even if
+- [x] Web: Carpool tab Accept enabled when `PENDING` + eligible even if
       `passedByMe` (status may still say “Passed” for the passer)
 - [ ] Web: keep Focus skip of `passedByMe` in `eligiblePendingRideAccept` /
       Focus tests

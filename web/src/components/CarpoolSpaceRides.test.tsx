@@ -87,7 +87,7 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
   })
 
-  it("does not offer Accept after the caller has passed", () => {
+  it("still offers Accept after the caller has passed", () => {
     render(
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride({ passedByMe: true })] })]}
@@ -101,8 +101,7 @@ describe("CarpoolSpaceRides pass", () => {
     )
     expect(screen.getByText("Practice")).toBeInTheDocument()
     expect(screen.getByText("Passed")).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("Vehicle")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
   })
 })
 

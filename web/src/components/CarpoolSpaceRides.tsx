@@ -215,8 +215,7 @@ function OtherRideRequest({
 }) {
   const acceptedByUs =
     request.status === "ACCEPTED" && request.acceptingCircleId === circleId
-  const canAccept =
-    request.status === "PENDING" && !request.passedByMe && eligible.length > 0
+  const canAccept = request.status === "PENDING" && eligible.length > 0
   const status =
     request.status === "ACCEPTED"
       ? `Accepted${
