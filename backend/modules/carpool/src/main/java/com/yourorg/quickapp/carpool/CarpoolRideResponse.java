@@ -17,6 +17,7 @@ public record CarpoolRideResponse(
         String pickupAddress,
         CarpoolRideStatus status,
         boolean passedByMe,
+        List<String> passedByAdultNames,
         UUID acceptedByAdultId,
         UUID acceptingCircleId,
         String acceptingCircleName,

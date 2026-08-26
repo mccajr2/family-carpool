@@ -43,4 +43,8 @@ class CarpoolRidePassEntity {
     UUID adultId() {
         return adultId;
     }
+
+    Instant createdAt() {
+        return createdAt;
+    }
 }

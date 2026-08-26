@@ -96,7 +96,7 @@ Allowlist for `/implement`.
 
 ## Tasks
 
-- [ ] Backend: resolve passer adultIds → `displayName` when mapping
+- [x] Backend: resolve passer adultIds → `displayName` when mapping
       `CarpoolRideResponse`; add `passedByAdultNames`; batch-load passes for
       listed ride ids (not N+1 per ride)
 - [ ] Backend: unit + integration tests — pass names on list / pass response;
