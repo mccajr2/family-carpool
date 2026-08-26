@@ -609,6 +609,21 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     })
   })
 
+  it("does not show Accept/Pass after the caller has passed", () => {
+    renderCard(item({ id: "passed-ask", title: "Practice" }), {
+      rideEvent: {
+        ...rideEvent,
+        otherRequests: [{ ...pendingAsk, passedByMe: true }],
+      },
+      garage,
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+    })
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
+  })
+
   it("keeps Needs coverage and Assign while own ride is still PENDING", () => {
     renderCard(
       item({

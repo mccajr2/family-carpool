@@ -89,8 +89,10 @@ export function eligibleVehiclesForAccept(options: {
 }
 
 /**
- * First other-circle PENDING ask this adult can Accept (not passed; has an
- * eligible vehicle). Own PENDING/ACCEPTED requests never qualify.
+ * First other-circle PENDING ask this adult can Accept for Focus ranking/CTAs
+ * (skips passedByMe soft declines; has an eligible vehicle). Own PENDING/
+ * ACCEPTED requests never qualify. Carpool tab Accept is gated separately and
+ * may still offer Accept after Pass.
  */
 export function eligiblePendingRideAccept(
   rideEvent: CarpoolRideEvent | null | undefined,

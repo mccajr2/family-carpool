@@ -107,7 +107,7 @@ Allowlist for `/implement`.
 - [x] Web API: types + `carpoolClient` fixtures/tests for the new field
 - [x] Web: Carpool tab Accept enabled when `PENDING` + eligible even if
       `passedByMe` (status may still say “Passed” for the passer)
-- [ ] Web: keep Focus skip of `passedByMe` in `eligiblePendingRideAccept` /
+- [x] Web: keep Focus skip of `passedByMe` in `eligiblePendingRideAccept` /
       Focus tests
 - [ ] Web: own-request “Passed by …” via `ownRideStatusLine` (or sibling
       helper) on AgendaRow + Carpool own-request UI; component tests
