@@ -615,6 +615,7 @@ class CarpoolRideServiceTest {
 
         var cancelled = service.cancel(adult, spaceId, pending.id());
         assertThat(cancelled.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(cancelled.passedByAdultNames()).isEmpty();
         verify(passes).deleteByRideId(pending.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
 
@@ -631,6 +632,7 @@ class CarpoolRideServiceTest {
         assertThat(withdrawn.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(withdrawn.vehicleId()).isNull();
         assertThat(withdrawn.acceptedByAdultId()).isNull();
+        assertThat(withdrawn.passedByAdultNames()).isEmpty();
         verify(passes, never()).deleteByRideId(accepted.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }
