@@ -102,9 +102,9 @@ Allowlist for `/implement`.
 - [x] Backend: unit + integration tests — pass names on list / pass response;
       Accept after pass still works; Focus-facing `passedByMe` still true after
       pass; names empty after Accept/Cancel
-- [ ] Contract: `passedByAdultNames` on `CarpoolRide`; amend Pass /
+- [x] Contract: `passedByAdultNames` on `CarpoolRide`; amend Pass /
       `passedByMe` descriptions; bump `info.version`
-- [ ] Web API: types + `carpoolClient` fixtures/tests for the new field
+- [x] Web API: types + `carpoolClient` fixtures/tests for the new field
 - [ ] Web: Carpool tab Accept enabled when `PENDING` + eligible even if
       `passedByMe` (status may still say “Passed” for the passer)
 - [ ] Web: keep Focus skip of `passedByMe` in `eligiblePendingRideAccept` /

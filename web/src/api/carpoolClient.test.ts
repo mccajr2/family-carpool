@@ -156,6 +156,7 @@ describe("CarpoolClient", () => {
       pickupAddress: "1 Main St",
       status: "PENDING",
       passedByMe: false,
+      passedByAdultNames: [],
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
@@ -192,7 +193,7 @@ describe("CarpoolClient", () => {
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...ride, passedByMe: true }), {
+        new Response(JSON.stringify({ ...ride, passedByMe: true, passedByAdultNames: ["Alex"] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -222,6 +223,7 @@ describe("CarpoolClient", () => {
     ).resolves.toMatchObject({ status: "ACCEPTED" })
     await expect(client.passRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       passedByMe: true,
+      passedByAdultNames: ["Alex"],
       status: "PENDING",
     })
     await expect(client.cancelRide("tok", "s1", "ride-1")).resolves.toMatchObject({

@@ -322,6 +322,7 @@ export type CarpoolRide = {
   pickupAddress: string
   status: CarpoolRideStatus
   passedByMe: boolean
+  passedByAdultNames: string[]
   acceptedByAdultId: string | null
   acceptingCircleId: string | null
   acceptingCircleName: string | null
