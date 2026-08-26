@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-08-26 (`/roadmap` Agenda chip + section-header chrome)
+Updated: 2026-08-26 (`/pr carpool-pass-reconsider`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -100,24 +100,23 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-pass-reconsider         | active  | 2026-08-25 · enhancement   | Pass = soft decline: hide from Focus; Accept still on Carpool tab while PENDING; requester sees Passed by …                  |
-| 2    | agenda-carpool-action-parity    | planned | 2026-08-26 · enhancement   | Calendar self-sufficient ride lifecycle: Cancel on Focus; Withdraw when we accepted; Pass CTA on Carpool tab (not un-pass)    |
-| 3    | agenda-carpool-state-clarity    | planned | 2026-08-26 · enhancement   | Focus + expanded AgendaRow ride lines show who/where/kids/seats (match Carpool tab density; keep Focus slim otherwise)        |
-| 4    | agenda-chip-section-headers     | planned | 2026-08-26 · enhancement   | Agenda status chips = Feeds (uppercase, no bullet); section labels NEEDS YOUR ATTENTION…LATER; update design docs             |
-| 5    | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who’s riding (reuse covering-avatar pattern); names only — no photos                 |
-| 6    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
-| 7    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
-| 8    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
-| 9    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 10   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 11   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
-| 12   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 13   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 14   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 15   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 16   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
-| 17   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 18   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | agenda-carpool-action-parity    | planned | 2026-08-26 · enhancement   | Calendar self-sufficient ride lifecycle: Cancel on Focus; Withdraw when we accepted; Pass CTA on Carpool tab (not un-pass)    |
+| 2    | agenda-carpool-state-clarity    | planned | 2026-08-26 · enhancement   | Focus + expanded AgendaRow ride lines show who/where/kids/seats (match Carpool tab density; keep Focus slim otherwise)        |
+| 3    | agenda-chip-section-headers     | planned | 2026-08-26 · enhancement   | Agenda status chips = Feeds (uppercase, no bullet); section labels NEEDS YOUR ATTENTION…LATER; update design docs             |
+| 4    | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who’s riding (reuse covering-avatar pattern); names only — no photos                 |
+| 5    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
+| 6    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
+| 7    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
+| 8    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 9    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 10   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
+| 11   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 12   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft “cutting it close” warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 13   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 14   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 15   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
+| 16   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 17   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
@@ -188,13 +187,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
-| carpool-pass-reconsider | `carpool-pass-reconsider` | [active](specs/active/carpool-pass-reconsider.md) |
+| — | — | _(none)_ |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-pass-reconsider    | 2026-08-26 | [archive](specs/archive/carpool-pass-reconsider.md)     |
 | carpool-ride-clarity       | 2026-08-26 | [archive](specs/archive/carpool-ride-clarity.md)        |
 | calendar-item-event-key    | 2026-08-25 | [archive](specs/archive/calendar-item-event-key.md)     |
 | agenda-focus-carpool-actions | 2026-08-24 | [archive](specs/archive/agenda-focus-carpool-actions.md) |
@@ -367,4 +367,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-26 | `/roadmap` Calendar carpool dogfood carve-up: add `carpool-pass-reconsider` (rank 1) then `agenda-carpool-action-parity` / `agenda-carpool-state-clarity` / `agenda-ride-rider-chips`; park `member-profile-photos`. Lock Calendar reverse actions on Focus. Pre-beta mail/Expo/push shift to ranks 5–7. Next up `carpool-pass-reconsider`. |
 | 2026-08-26 | `/roadmap` Agenda chrome: add `agenda-chip-section-headers` (rank 4) — Feeds-style uppercase chips (supersede Title Case pills); section labels NEEDS YOUR ATTENTION / REST OF TODAY / TOMORROW / THIS WEEK / **LATER**; design-doc lock. Rider chips → rank 5. Next up unchanged. |
 | 2026-08-26 | `/spec carpool-pass-reconsider`: Pass = soft decline (Focus skip); Accept after Pass on Carpool tab; `passedByAdultNames` + requester “Passed by …”. No un-pass / nudge. |
+| 2026-08-26 | `/pr carpool-pass-reconsider`: Pass = soft decline (Focus skip); Accept after Pass on Carpool tab; requester “Passed by …”. Spec archived. Next up `agenda-carpool-action-parity`. |
 

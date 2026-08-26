@@ -1,8 +1,11 @@
 # Spec: carpool-pass-reconsider
 
-Status: draft  
+Status: done  
+Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-26  
-Parent: [docs/roadmap.md](../../roadmap.md)
+Updated: 2026-08-26 (`/pr`)  
+Added: 2026-08-25 · enhancement  
+Branch: `carpool-pass-reconsider`
 
 ## Problem
 
@@ -76,22 +79,22 @@ Allowlist for `/implement`.
 
 ## Acceptance criteria
 
-- [ ] While a ride is `PENDING`, an adult who has `passedByMe: true` can still
+- [x] While a ride is `PENDING`, an adult who has `passedByMe: true` can still
       **Accept** from the Carpool tab (eligible vehicle / seats / `drives`
       unchanged). Successful Accept clears pass rows as today.
-- [ ] Focus selection and Focus Accept/Pass CTAs still **ignore** asks the
+- [x] Focus selection and Focus Accept/Pass CTAs still **ignore** asks the
       caller has passed (`eligiblePendingRideAccept` continues to skip
       `passedByMe`). Passing soft-snoozes the ask out of Focus.
-- [ ] List-rides (and pass `200` body) include `passedByAdultNames: string[]`
+- [x] List-rides (and pass `200` body) include `passedByAdultNames: string[]`
       on each ride: display names of adults who passed, ordered by pass time;
       `[]` when none or after passes were cleared (Accept / Cancel).
-- [ ] Requesting circle sees **Passed by …** on their own `PENDING` request
+- [x] Requesting circle sees **Passed by …** on their own `PENDING` request
       when the array is non-empty (Agenda expanded own-request status + Carpool
       tab own-request row). Empty → no passer line (still “Requested”).
-- [ ] OpenAPI documents soft-decline Pass + Accept-after-Pass for non-Focus
+- [x] OpenAPI documents soft-decline Pass + Accept-after-Pass for non-Focus
       surfaces; removes “must not offer Accept” for `passedByMe`; bumps
       `info.version`. Web types/client updated in the same change.
-- [ ] No new un-pass endpoint; second Pass remains idempotent; Pass still does
+- [x] No new un-pass endpoint; second Pass remains idempotent; Pass still does
       not change RSVP or ride status.
 
 ## Tasks
@@ -111,7 +114,7 @@ Allowlist for `/implement`.
       Focus tests
 - [x] Web: own-request “Passed by …” via `ownRideStatusLine` (or sibling
       helper) on AgendaRow + Carpool own-request UI; component tests
-- [ ] Tests: run backend carpool ride tests + web vitest for touched files;
+- [x] Tests: run backend carpool ride tests + web vitest for touched files;
       report results
 
 ## Open questions
