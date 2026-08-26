@@ -100,7 +100,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-pass-reconsider         | planned | 2026-08-25 · enhancement   | Pass is not final — Accept stays available while the ride is still PENDING (no one else has taken it)                         |
+| 1    | carpool-pass-reconsider         | active  | 2026-08-25 · enhancement   | Pass = soft decline: hide from Focus; Accept still on Carpool tab while PENDING; requester sees Passed by …                  |
 | 2    | agenda-carpool-action-parity    | planned | 2026-08-26 · enhancement   | Calendar self-sufficient ride lifecycle: Cancel on Focus; Withdraw when we accepted; Pass CTA on Carpool tab (not un-pass)    |
 | 3    | agenda-carpool-state-clarity    | planned | 2026-08-26 · enhancement   | Focus + expanded AgendaRow ride lines show who/where/kids/seats (match Carpool tab density; keep Focus slim otherwise)        |
 | 4    | agenda-chip-section-headers     | planned | 2026-08-26 · enhancement   | Agenda status chips = Feeds (uppercase, no bullet); section labels NEEDS YOUR ATTENTION…LATER; update design docs             |
@@ -188,7 +188,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | --- | --- | --- |
-| — | — | _(none)_ |
+| carpool-pass-reconsider | `carpool-pass-reconsider` | [active](specs/active/carpool-pass-reconsider.md) |
 
 ## Done
 
@@ -366,4 +366,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-26 | `/pr carpool-ride-clarity`: Agenda/Focus **Riding with** chip (not Needs coverage for ACCEPTED own ride); Focus Request primary + Assign secondary; incoming ask shows circle · kids · pickup. Spec archived. Next up `carpool-pass-reconsider`. |
 | 2026-08-26 | `/roadmap` Calendar carpool dogfood carve-up: add `carpool-pass-reconsider` (rank 1) then `agenda-carpool-action-parity` / `agenda-carpool-state-clarity` / `agenda-ride-rider-chips`; park `member-profile-photos`. Lock Calendar reverse actions on Focus. Pre-beta mail/Expo/push shift to ranks 5–7. Next up `carpool-pass-reconsider`. |
 | 2026-08-26 | `/roadmap` Agenda chrome: add `agenda-chip-section-headers` (rank 4) — Feeds-style uppercase chips (supersede Title Case pills); section labels NEEDS YOUR ATTENTION / REST OF TODAY / TOMORROW / THIS WEEK / **LATER**; design-doc lock. Rider chips → rank 5. Next up unchanged. |
+| 2026-08-26 | `/spec carpool-pass-reconsider`: Pass = soft decline (Focus skip); Accept after Pass on Carpool tab; `passedByAdultNames` + requester “Passed by …”. No un-pass / nudge. |
 
