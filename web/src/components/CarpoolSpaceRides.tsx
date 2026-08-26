@@ -6,6 +6,7 @@ import {
   circleDisplayName,
   eligibleVehiclesForAccept,
   kidDisplayName,
+  ownRideStatusLine,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
 import { formatIsoForDisplay } from "@/components/eventTimes"
@@ -125,15 +126,18 @@ function OwnRideStatus({
   busy: boolean
   onCancel: () => void
 }) {
-  const statusLabel = ride.status === "ACCEPTED" ? "Accepted" : "Requested"
-  const accepter = ride.acceptingCircleName
-    ? ` by ${circleDisplayName(ride.acceptingCircleName)}`
-    : ""
+  const statusLabel =
+    ride.status === "ACCEPTED"
+      ? `Accepted${
+          ride.acceptingCircleName
+            ? ` by ${circleDisplayName(ride.acceptingCircleName)}`
+            : ""
+        }`
+      : ownRideStatusLine(ride)
   return (
     <div className="flex flex-col gap-1">
       <p className="text-sm text-muted-foreground">
         {statusLabel}
-        {ride.status === "ACCEPTED" ? accepter : ""}
         {" · "}
         {ride.kidFirstNames.join(", ")}
         {" · "}
@@ -215,8 +219,7 @@ function OtherRideRequest({
 }) {
   const acceptedByUs =
     request.status === "ACCEPTED" && request.acceptingCircleId === circleId
-  const canAccept =
-    request.status === "PENDING" && !request.passedByMe && eligible.length > 0
+  const canAccept = request.status === "PENDING" && eligible.length > 0
   const status =
     request.status === "ACCEPTED"
       ? `Accepted${

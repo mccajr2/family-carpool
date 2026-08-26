@@ -85,6 +85,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     pickupAddress: "1 Main",
     status: "ACCEPTED",
     passedByMe: false,
+    passedByAdultNames: [],
     acceptedByAdultId: "a2",
     acceptingCircleId: "c2",
     acceptingCircleName: "Sharks Family",

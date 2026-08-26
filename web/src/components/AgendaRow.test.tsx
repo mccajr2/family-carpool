@@ -373,6 +373,7 @@ describe("AgendaRow", () => {
         pickupAddress: "1 Main",
         status: "PENDING" as const,
         passedByMe: false,
+        passedByAdultNames: [],
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
@@ -396,6 +397,29 @@ describe("AgendaRow", () => {
     expect(within(row).getByText("Requested")).toBeInTheDocument()
     await user.click(within(row).getByRole("button", { name: "Cancel" }))
     expect(onCancelRide).toHaveBeenCalledWith("ride-1")
+
+    rerender(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          ...requestedEvent,
+          ownRequest: {
+            ...requestedEvent.ownRequest!,
+            passedByAdultNames: ["Sam"],
+          },
+        }}
+        onCreateRide={onCreateRide}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+    expect(within(row).getByText(/Passed by Sam/)).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-band-carpool")).toHaveTextContent(/Passed by Sam/)
+    expect(within(row).getByTestId("agenda-band-carpool")).not.toHaveTextContent("Requested")
 
     rerender(
       <AgendaRow
@@ -451,6 +475,7 @@ describe("AgendaRow", () => {
         pickupAddress: "1 Main",
         status: "ACCEPTED" as const,
         passedByMe: false,
+        passedByAdultNames: [],
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks Family",
@@ -526,6 +551,7 @@ describe("AgendaRow", () => {
         pickupAddress: "1 Main",
         status: "ACCEPTED" as const,
         passedByMe: false,
+        passedByAdultNames: [],
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
@@ -589,6 +615,7 @@ describe("AgendaRow", () => {
         pickupAddress: "1 Main",
         status: "PENDING" as const,
         passedByMe: false,
+        passedByAdultNames: [],
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,

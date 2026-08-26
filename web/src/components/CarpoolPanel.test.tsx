@@ -92,6 +92,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     pickupAddress: "1 Main St",
     status: "PENDING",
     passedByMe: false,
+    passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,

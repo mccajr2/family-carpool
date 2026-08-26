@@ -9,6 +9,8 @@ interface CarpoolRidePassRepository extends JpaRepository<CarpoolRidePassEntity,
 
     boolean existsByRideIdAndAdultId(UUID rideId, UUID adultId);
 
+    List<CarpoolRidePassEntity> findByRideIdIn(Collection<UUID> rideIds);
+
     List<CarpoolRidePassEntity> findByRideIdInAndAdultId(Collection<UUID> rideIds, UUID adultId);
 
     void deleteByRideId(UUID rideId);

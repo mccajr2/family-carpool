@@ -63,6 +63,11 @@ describe("carpoolDisplay", () => {
     ).toEqual({ label: "Riding with a teammate", tone: "mint" })
     expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
     expect(
+      ownRideStatusLine(
+        ride({ status: "PENDING", passedByAdultNames: ["Sam", "Alex"] }),
+      ),
+    ).toBe("Passed by Sam, Alex")
+    expect(
       ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
     ).toBe("Riding with House B")
     expect(ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: null }))).toBe(
@@ -193,6 +198,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     pickupAddress: "1 Main St",
     status: "PENDING",
     passedByMe: false,
+    passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,

@@ -176,7 +176,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.19.0");
+        assertThat(yaml).contains("version: 0.20.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -243,7 +243,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.19.0");
+        assertThat(yaml).contains("version: 0.20.0");
     }
 
     @Test
@@ -274,6 +274,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("ownRequest:");
         assertThat(yaml).contains("otherRequests:");
         assertThat(yaml).contains("passedByMe:");
+        assertThat(yaml).contains("passedByAdultNames:");
         assertThat(yaml).contains("kidFirstNames:");
         assertThat(yaml).contains("pickupPlaceName:");
         assertThat(yaml).contains("pickupAddress:");
@@ -283,11 +284,14 @@ class OpenApiContractTest {
         assertThat(yaml).contains("drives=false returns 403");
         assertThat(yaml).contains("GET /api/carpool/spaces/{spaceId}/rides");
         assertThat(yaml).contains("passedByMe true");
+        assertThat(yaml).contains("soft decline");
+        assertThat(yaml).contains("Accept remains allowed while PENDING");
         assertThat(yaml).contains("idempotent");
         assertThat(yaml).contains("YES and NO_RESPONSE both qualify");
         assertThat(yaml).contains("Create does not change RSVP");
-        assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that ride");
-        assertThat(yaml).contains("version: 0.19.0");
+        assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that");
+        assertThat(yaml).contains("Allowed even when the caller previously passed");
+        assertThat(yaml).contains("version: 0.20.0");
     }
 
     @Test

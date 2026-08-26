@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.auth.AdultResponse;
+import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.carpool.AcceptCarpoolRideRequest;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CarpoolSpaceMembership;
@@ -45,6 +46,9 @@ import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class CarpoolRideServiceTest {
+
+    @Mock
+    private AdultSessionApi adultSessionApi;
 
     @Mock
     private FamilyMembershipApi familyMembershipApi;
@@ -103,6 +107,7 @@ class CarpoolRideServiceTest {
     void setUp() {
         service =
                 new CarpoolRideService(
+                        adultSessionApi,
                         familyMembershipApi,
                         familyPlaceApi,
                         familyGarageApi,
@@ -178,6 +183,7 @@ class CarpoolRideServiceTest {
         assertThat(created.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(created.kidIds()).containsExactly(kidA, kidB);
         assertThat(created.seats()).isEqualTo(2);
+        assertThat(created.passedByAdultNames()).isEmpty();
         assertThat(created.pickupPlaceName()).isEqualTo("Home");
         ArgumentCaptor<CarpoolRideRequestEntity> saved =
                 ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
@@ -356,6 +362,7 @@ class CarpoolRideServiceTest {
         assertThat(accepted.vehicleId()).isEqualTo(vehicleId);
         assertThat(accepted.vehicleLabel()).isEqualTo("Van");
         assertThat(accepted.passedByMe()).isFalse();
+        assertThat(accepted.passedByAdultNames()).isEmpty();
         verify(passes).deleteByRideId(pending.id());
         verify(rsvpApi)
                 .setStatus(
@@ -382,6 +389,14 @@ class CarpoolRideServiceTest {
         when(rides.findByIdAndSpaceId(other.id(), spaceId)).thenReturn(Optional.of(other));
         when(passes.existsByRideIdAndAdultId(other.id(), adultId)).thenReturn(false);
         when(passes.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        CarpoolRidePassEntity ownPass =
+                new CarpoolRidePassEntity(
+                        UUID.randomUUID(),
+                        other.id(),
+                        adultId,
+                        Instant.parse("2026-08-15T12:00:00Z"));
+        when(passes.findByRideIdIn(List.of(other.id()))).thenReturn(List.of(ownPass));
+        when(adultSessionApi.requireAdult(adultId)).thenReturn(adult);
         when(familyMembershipApi.findCircles(List.of(otherCircleId, circleId)))
                 .thenReturn(
                         List.of(
@@ -391,6 +406,7 @@ class CarpoolRideServiceTest {
         var first = service.pass(adult, spaceId, other.id());
         assertThat(first.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(first.passedByMe()).isTrue();
+        assertThat(first.passedByAdultNames()).containsExactly("Alex");
         ArgumentCaptor<CarpoolRidePassEntity> saved =
                 ArgumentCaptor.forClass(CarpoolRidePassEntity.class);
         verify(passes).save(saved.capture());
@@ -400,6 +416,7 @@ class CarpoolRideServiceTest {
         when(passes.existsByRideIdAndAdultId(other.id(), adultId)).thenReturn(true);
         var second = service.pass(adult, spaceId, other.id());
         assertThat(second.passedByMe()).isTrue();
+        assertThat(second.passedByAdultNames()).containsExactly("Alex");
         verify(passes).save(any());
     }
 
@@ -437,11 +454,12 @@ class CarpoolRideServiceTest {
         CarpoolRideRequestEntity other = pendingOtherRide(List.of(kidA));
         when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
                 .thenReturn(List.of(other));
-        when(passes.findByRideIdInAndAdultId(any(), eq(adultId)))
+        when(passes.findByRideIdIn(any()))
                 .thenReturn(
                         List.of(
                                 new CarpoolRidePassEntity(
                                         UUID.randomUUID(), other.id(), adultId, Instant.now())));
+        when(adultSessionApi.requireAdult(adultId)).thenReturn(adult);
         when(familyMembershipApi.findCircles(any()))
                 .thenReturn(List.of(new FamilyCircleName(otherCircleId, "House B")));
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
@@ -454,8 +472,57 @@ class CarpoolRideServiceTest {
         assertThat(listed).hasSize(1);
         assertThat(listed.getFirst().otherRequests()).hasSize(1);
         assertThat(listed.getFirst().otherRequests().getFirst().passedByMe()).isTrue();
+        assertThat(listed.getFirst().otherRequests().getFirst().passedByAdultNames())
+                .containsExactly("Alex");
         assertThat(listed.getFirst().otherRequests().getFirst().status())
                 .isEqualTo(CarpoolRideStatus.PENDING);
+    }
+
+    @Test
+    void listOrdersPassedByAdultNamesByPassCreatedAt() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        FeedCalendarEventDto event = practiceEvent(List.of(kidA));
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of(event));
+        CarpoolRideRequestEntity own = pendingOwnRide(List.of(kidA));
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of(own));
+        UUID passerEarly = UUID.fromString("01900000-0000-7000-8000-0000000000a1");
+        UUID passerLate = UUID.fromString("01900000-0000-7000-8000-0000000000a2");
+        when(passes.findByRideIdIn(any()))
+                .thenReturn(
+                        List.of(
+                                new CarpoolRidePassEntity(
+                                        UUID.randomUUID(),
+                                        own.id(),
+                                        passerLate,
+                                        Instant.parse("2026-08-15T13:00:00Z")),
+                                new CarpoolRidePassEntity(
+                                        UUID.randomUUID(),
+                                        own.id(),
+                                        passerEarly,
+                                        Instant.parse("2026-08-15T12:00:00Z"))));
+        when(adultSessionApi.requireAdult(passerEarly))
+                .thenReturn(new AdultResponse(passerEarly, "early@example.com", "Early"));
+        when(adultSessionApi.requireAdult(passerLate))
+                .thenReturn(new AdultResponse(passerLate, "late@example.com", "Late"));
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        stubRsvps(List.of(yes(kidA)));
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed.getFirst().ownRequest().passedByMe()).isFalse();
+        assertThat(listed.getFirst().ownRequest().passedByAdultNames())
+                .containsExactly("Early", "Late");
+        verify(passes).findByRideIdIn(any());
+        verify(passes, never()).findByRideIdInAndAdultId(any(), any());
     }
 
     @Test
@@ -548,6 +615,7 @@ class CarpoolRideServiceTest {
 
         var cancelled = service.cancel(adult, spaceId, pending.id());
         assertThat(cancelled.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(cancelled.passedByAdultNames()).isEmpty();
         verify(passes).deleteByRideId(pending.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
 
@@ -564,6 +632,7 @@ class CarpoolRideServiceTest {
         assertThat(withdrawn.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(withdrawn.vehicleId()).isNull();
         assertThat(withdrawn.acceptedByAdultId()).isNull();
+        assertThat(withdrawn.passedByAdultNames()).isEmpty();
         verify(passes, never()).deleteByRideId(accepted.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
     }

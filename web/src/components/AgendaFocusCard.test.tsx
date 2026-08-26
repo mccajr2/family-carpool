@@ -498,6 +498,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     pickupAddress: "1 Main",
     status: "PENDING" as const,
     passedByMe: false,
+    passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
@@ -606,6 +607,21 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
     })
+  })
+
+  it("does not show Accept/Pass after the caller has passed", () => {
+    renderCard(item({ id: "passed-ask", title: "Practice" }), {
+      rideEvent: {
+        ...rideEvent,
+        otherRequests: [{ ...pendingAsk, passedByMe: true }],
+      },
+      garage,
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+    })
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
   it("keeps Needs coverage and Assign while own ride is still PENDING", () => {
@@ -719,6 +735,7 @@ describe("AgendaFocusCard Request CTA", () => {
             pickupAddress: "1 Main",
             status: "ACCEPTED",
             passedByMe: false,
+            passedByAdultNames: [],
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
@@ -773,6 +790,7 @@ describe("AgendaFocusCard Request CTA", () => {
             pickupAddress: "1 Main",
             status: "ACCEPTED",
             passedByMe: false,
+            passedByAdultNames: [],
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
@@ -817,6 +835,7 @@ describe("AgendaFocusCard Request CTA", () => {
             pickupAddress: "1 Main",
             status: "PENDING",
             passedByMe: false,
+            passedByAdultNames: [],
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.19.0
+  version: 0.20.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -36,7 +36,10 @@ info:
     ride requests per event (kid first names, seat counts, pickup address) via
     GET /api/carpool/spaces/{spaceId}/rides — not on the summary. List rides
     marks other PENDING asks the calling adult has passed with
-    `passedByMe: true` (request stays PENDING for everyone else). Create ride
+    `passedByMe: true` (soft decline: request stays PENDING; Pass is not final —
+    Accept remains allowed while PENDING on non-Focus surfaces). Each ride
+    includes `passedByAdultNames` (passer display names ordered by pass time).
+    Create ride
     defaults to feed-linked kids who are not RSVP NO (YES and NO_RESPONSE both qualify)
     and not already on this circle's ACCEPTED ride; create does not change RSVP.
     Accept sets RSVP YES for the kids on that ride (requesting circle). An Organizer
@@ -87,11 +90,13 @@ tags:
       feed events with ride overlays, create ride requests (both legs; pickup
       at the requester's house; default kids = not RSVP NO and still need a
       ride; create leaves RSVP unchanged), accept another circle's pending
-      request (sets RSVP YES for kids on the ride), pass on another circle's
-      pending request (per-adult; request stays PENDING), cancel their own
-      request, or withdraw an acceptance. Ride kid first names, seat counts,
-      and pickup address are visible to every adult in member circles. Paths
-      are under `/api/carpool/*`, not nested under `/api/family`.
+      request (sets RSVP YES for kids on the ride; allowed after Pass while
+      still PENDING), pass on another circle's pending request (per-adult soft
+      decline; request stays PENDING; Focus clients may skip passed asks),
+      cancel their own request, or withdraw an acceptance. Ride kid first
+      names, seat counts, pickup address, and passer adult display names are
+      visible to every adult in member circles. Paths are under
+      `/api/carpool/*`, not nested under `/api/family`.
 
 paths:
   /api/auth/request-code:
@@ -3079,12 +3084,14 @@ paths:
         YES and NO_RESPONSE both qualify; for Request pre-fill), this
         circle's active ride request if any (PENDING or ACCEPTED), and other
         member circles' PENDING/ACCEPTED requests (circle name, kid first
-        names, seat count, pickup name+address). Passed asks remain in
-        otherRequests with passedByMe true for the calling adult (still
-        PENDING for everyone else; clients must not offer Accept for those).
-        Empty array when no upcoming feed events match. from must be strictly
-        before to and the window must not exceed 31 days (400 otherwise).
-        Non-member or unknown space returns 404.
+        names, seat count, pickup name+address, passedByAdultNames). Passed
+        asks remain in otherRequests with passedByMe true for the calling
+        adult (still PENDING for everyone else). Pass is a soft decline:
+        non-Focus surfaces may still offer Accept while the ride is PENDING;
+        Focus ranking/CTAs may skip asks the caller has passed. Empty array
+        when no upcoming feed events match. from must be strictly before to
+        and the window must not exceed 31 days (400 otherwise). Non-member or
+        unknown space returns 404.
       security:
         - bearerAuth: []
       parameters:
@@ -3207,12 +3214,13 @@ paths:
         is all-or-nothing when remaining vehicle seats (including driver and
         this circle's RSVP YES kids on the event) are at least the request's
         seat count, and this vehicle has no other ACCEPTED ride for the event.
-        Success sets ACCEPTED, records accepter, circle, and vehicle, and
-        sets RSVP YES for the requesting circle's kids on that ride. Cancel,
-        Withdraw, and Pass do not auto-change RSVP. Own circle's request
-        returns 409. drives=false returns 403. Unknown or not allowed vehicle
-        returns 404. Not enough seats, vehicle already committed, or ride not
-        PENDING returns 409.
+        Success sets ACCEPTED, records accepter, circle, and vehicle, clears
+        pass rows, and sets RSVP YES for the requesting circle's kids on that
+        ride. Allowed even when the caller previously passed (passedByMe).
+        Cancel, Withdraw, and Pass do not auto-change RSVP. Own circle's
+        request returns 409. drives=false returns 403. Unknown or not allowed
+        vehicle returns 404. Not enough seats, vehicle already committed, or
+        ride not PENDING returns 409.
       security:
         - bearerAuth: []
       parameters:
@@ -3276,14 +3284,16 @@ paths:
       tags: [carpool]
       summary: Pass on another circle's pending ride request
       description: >
-        Space-member adult whose circle is not the requesting circle. Records
-        that this adult will not accept this PENDING ride; the request stays
-        PENDING for everyone else. drives / vehicle eligibility is not
-        required. Empty body. Own circle's request returns 409. Ride not
-        PENDING returns 409. Non-member or unknown ride returns 404. Second
-        pass by the same adult is idempotent (200, no-op). Passes are cleared
-        when the ride is Cancelled or Accepted; they survive Withdraw back to
-        PENDING. No un-pass in this revision.
+        Space-member adult whose circle is not the requesting circle. Soft
+        decline: records that this adult is not taking this PENDING ask right
+        now; the request stays PENDING for everyone else and Accept remains
+        allowed while PENDING (Focus clients may skip passed asks). drives /
+        vehicle eligibility is not required. Empty body. Own circle's request
+        returns 409. Ride not PENDING returns 409. Non-member or unknown ride
+        returns 404. Second pass by the same adult is idempotent (200, no-op).
+        Passes are cleared when the ride is Cancelled or Accepted; they
+        survive Withdraw back to PENDING. No un-pass in this revision. The
+        200 body includes passedByAdultNames for the ride.
       security:
         - bearerAuth: []
       parameters:
@@ -4879,6 +4889,7 @@ components:
         - pickupAddress
         - status
         - passedByMe
+        - passedByAdultNames
       properties:
         id:
           type: string
@@ -4935,7 +4946,17 @@ components:
             Always false on ownRequest, on ACCEPTED/CANCELLED rides, and on
             create/accept/cancel/withdraw responses. On list rides, true only
             for otherRequests entries the caller has passed; those rows stay
-            visible so clients can suppress Accept without hiding the ask.
+            visible. Soft decline: non-Focus surfaces may still offer Accept
+            while status is PENDING; Focus ranking/CTAs may skip passed asks.
+        passedByAdultNames:
+          type: array
+          description: >
+            Display names of adults who have passed on this ride, ordered by
+            pass createdAt ascending. Empty when none, and after passes are
+            cleared (Accept or Cancel). Present on list rides and on pass
+            responses; empty on create/accept/cancel/withdraw.
+          items:
+            type: string
         acceptedByAdultId:
           type: string
           format: uuid
@@ -4998,13 +5019,15 @@ components:
           description: >
             This circle's active request (PENDING or ACCEPTED), if any. Null
             when none or last request was CANCELLED. passedByMe is always
-            false here.
+            false here; passedByAdultNames lists adults from other circles
+            who passed (for requester visibility).
         otherRequests:
           type: array
           description: >
             Other member circles' PENDING or ACCEPTED requests on this event.
             Includes PENDING asks the calling adult has passed
-            (passedByMe true); clients must not offer Accept for those.
+            (passedByMe true). Soft decline: Accept may still be offered on
+            non-Focus surfaces while PENDING.
           items:
             $ref: "#/components/schemas/CarpoolRide"
 

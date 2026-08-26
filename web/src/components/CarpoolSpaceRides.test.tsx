@@ -40,6 +40,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     pickupAddress: "1 Main",
     status: "PENDING",
     passedByMe: false,
+    passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
@@ -86,7 +87,7 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
   })
 
-  it("does not offer Accept after the caller has passed", () => {
+  it("still offers Accept after the caller has passed", () => {
     render(
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride({ passedByMe: true })] })]}
@@ -100,8 +101,34 @@ describe("CarpoolSpaceRides pass", () => {
     )
     expect(screen.getByText("Practice")).toBeInTheDocument()
     expect(screen.getByText("Passed")).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("Vehicle")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+  })
+
+  it("shows Passed by names on own PENDING request", () => {
+    render(
+      <CarpoolSpaceRides
+        events={[
+          event({
+            ownRequest: ride({
+              id: "own-1",
+              requestingCircleId: "c1",
+              requestingCircleName: "Ours",
+              status: "PENDING",
+              passedByAdultNames: ["Sam", "Alex"],
+              kidFirstNames: ["Mia"],
+            }),
+          }),
+        ]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={garage}
+        busy={false}
+        {...noop}
+      />,
+    )
+    expect(screen.getByText(/Passed by Sam, Alex/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Requested/)).not.toBeInTheDocument()
   })
 })
 

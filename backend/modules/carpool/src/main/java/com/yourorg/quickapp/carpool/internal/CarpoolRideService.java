@@ -1,6 +1,7 @@
 package com.yourorg.quickapp.carpool.internal;
 
 import com.yourorg.quickapp.auth.AdultResponse;
+import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.carpool.AcceptCarpoolRideRequest;
 import com.yourorg.quickapp.carpool.CarpoolRideEventResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
@@ -27,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -49,6 +51,7 @@ public class CarpoolRideService {
     private static final List<CarpoolRideStatus> ACTIVE =
             List.of(CarpoolRideStatus.PENDING, CarpoolRideStatus.ACCEPTED);
 
+    private final AdultSessionApi adultSessionApi;
     private final FamilyMembershipApi familyMembershipApi;
     private final FamilyPlaceApi familyPlaceApi;
     private final FamilyGarageApi familyGarageApi;
@@ -61,6 +64,7 @@ public class CarpoolRideService {
     private final CarpoolRidePassRepository passes;
 
     public CarpoolRideService(
+            AdultSessionApi adultSessionApi,
             FamilyMembershipApi familyMembershipApi,
             FamilyPlaceApi familyPlaceApi,
             FamilyGarageApi familyGarageApi,
@@ -71,6 +75,7 @@ public class CarpoolRideService {
             CarpoolMembershipRepository memberships,
             CarpoolRideRequestRepository rides,
             CarpoolRidePassRepository passes) {
+        this.adultSessionApi = adultSessionApi;
         this.familyMembershipApi = familyMembershipApi;
         this.familyPlaceApi = familyPlaceApi;
         this.familyGarageApi = familyGarageApi;
@@ -114,17 +119,13 @@ public class CarpoolRideService {
         }
         Map<UUID, String> circleNames = circleNames(circleIds);
         Map<UUID, String> vehicleLabels = vehicleLabels(vehicleCircleIds);
-        Set<UUID> passedRideIds =
+        Set<UUID> listedRideIds =
                 ridesByKey.values().stream()
                         .flatMap(List::stream)
                         .map(CarpoolRideRequestEntity::id)
                         .collect(Collectors.toSet());
-        Set<UUID> passedByCaller =
-                passedRideIds.isEmpty()
-                        ? Set.of()
-                        : passes.findByRideIdInAndAdultId(passedRideIds, adult.id()).stream()
-                                .map(CarpoolRidePassEntity::rideId)
-                                .collect(Collectors.toSet());
+        Map<UUID, List<CarpoolRidePassEntity>> passesByRide = passesByRideId(listedRideIds);
+        Map<UUID, String> adultDisplayNames = adultDisplayNames(passesByRide.values());
         List<CarpoolRideEventResponse> result = new ArrayList<>();
         for (FeedCalendarEventDto event : events) {
             String eventKey = RideEventKey.of(event);
@@ -132,11 +133,19 @@ public class CarpoolRideService {
             CarpoolRideResponse own = null;
             List<CarpoolRideResponse> others = new ArrayList<>();
             for (CarpoolRideRequestEntity ride : overlay) {
+                List<CarpoolRidePassEntity> ridePasses =
+                        passesByRide.getOrDefault(ride.id(), List.of());
                 boolean passedByMe =
                         !ride.requestingCircleId().equals(circleId)
-                                && passedByCaller.contains(ride.id());
+                                && ridePasses.stream()
+                                        .anyMatch(pass -> pass.adultId().equals(adult.id()));
                 CarpoolRideResponse dto =
-                        toRideResponse(ride, circleNames, vehicleLabels, passedByMe);
+                        toRideResponse(
+                                ride,
+                                circleNames,
+                                vehicleLabels,
+                                passedByMe,
+                                passedByAdultNames(ridePasses, adultDisplayNames));
                 if (ride.requestingCircleId().equals(circleId)) {
                     own = dto;
                 } else {
@@ -210,7 +219,8 @@ public class CarpoolRideService {
                 created,
                 circleNames(List.of(circleId)),
                 Map.of(),
-                false);
+                false,
+                List.of());
     }
 
     @Transactional
@@ -262,7 +272,8 @@ public class CarpoolRideService {
         passes.deleteByRideId(ride.id());
         ensureRequestingKidsYes(ride, adult.id());
         Map<UUID, String> names = circleNames(List.of(ride.requestingCircleId(), circleId));
-        return toRideResponse(ride, names, Map.of(vehicle.id(), vehicle.label()), false);
+        return toRideResponse(
+                ride, names, Map.of(vehicle.id(), vehicle.label()), false, List.of());
     }
 
     @Transactional
@@ -282,11 +293,15 @@ public class CarpoolRideService {
                     new CarpoolRidePassEntity(
                             UUID.randomUUID(), ride.id(), adult.id(), Instant.now()));
         }
+        List<CarpoolRidePassEntity> ridePasses =
+                passesByRideId(List.of(ride.id())).getOrDefault(ride.id(), List.of());
+        Map<UUID, String> adultDisplayNames = adultDisplayNames(List.of(ridePasses));
         return toRideResponse(
                 ride,
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
                 Map.of(),
-                true);
+                true,
+                passedByAdultNames(ridePasses, adultDisplayNames));
     }
 
     @Transactional
@@ -306,7 +321,8 @@ public class CarpoolRideService {
         ride.cancel();
         rides.save(ride);
         passes.deleteByRideId(ride.id());
-        return toRideResponse(ride, circleNames(List.of(circleId)), Map.of(), false);
+        return toRideResponse(
+                ride, circleNames(List.of(circleId)), Map.of(), false, List.of());
     }
 
     @Transactional
@@ -325,7 +341,11 @@ public class CarpoolRideService {
         ride.withdraw();
         rides.save(ride);
         return toRideResponse(
-                ride, circleNames(List.of(ride.requestingCircleId(), circleId)), Map.of(), false);
+                ride,
+                circleNames(List.of(ride.requestingCircleId(), circleId)),
+                Map.of(),
+                false,
+                List.of());
     }
 
     private List<UUID> defaultKidIds(UUID circleId, UUID spaceId, FeedCalendarEventDto event) {
@@ -465,7 +485,8 @@ public class CarpoolRideService {
             CarpoolRideRequestEntity ride,
             Map<UUID, String> circleNames,
             Map<UUID, String> vehicleLabels,
-            boolean passedByMe) {
+            boolean passedByMe,
+            List<String> passedByAdultNames) {
         List<UUID> kidIds = ride.kids().stream().map(RideKidSnapshot::kidId).toList();
         List<String> firstNames = ride.kids().stream().map(RideKidSnapshot::firstName).toList();
         String vehicleLabel =
@@ -484,11 +505,53 @@ public class CarpoolRideService {
                 ride.pickupAddress(),
                 ride.status(),
                 passedByMe,
+                List.copyOf(passedByAdultNames),
                 ride.acceptedByAdultId(),
                 ride.acceptingCircleId(),
                 ride.acceptingCircleId() == null ? null : circleNames.get(ride.acceptingCircleId()),
                 ride.vehicleId(),
                 vehicleLabel);
+    }
+
+    private Map<UUID, List<CarpoolRidePassEntity>> passesByRideId(Collection<UUID> rideIds) {
+        if (rideIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, List<CarpoolRidePassEntity>> byRide = new HashMap<>();
+        for (CarpoolRidePassEntity pass : passes.findByRideIdIn(rideIds)) {
+            byRide.computeIfAbsent(pass.rideId(), ignored -> new ArrayList<>()).add(pass);
+        }
+        for (List<CarpoolRidePassEntity> group : byRide.values()) {
+            group.sort(Comparator.comparing(CarpoolRidePassEntity::createdAt));
+        }
+        return byRide;
+    }
+
+    private Map<UUID, String> adultDisplayNames(
+            Collection<List<CarpoolRidePassEntity>> passGroups) {
+        Set<UUID> adultIds = new HashSet<>();
+        for (List<CarpoolRidePassEntity> group : passGroups) {
+            for (CarpoolRidePassEntity pass : group) {
+                adultIds.add(pass.adultId());
+            }
+        }
+        Map<UUID, String> names = new HashMap<>();
+        for (UUID passerId : adultIds) {
+            names.put(passerId, adultSessionApi.requireAdult(passerId).displayName());
+        }
+        return names;
+    }
+
+    private static List<String> passedByAdultNames(
+            List<CarpoolRidePassEntity> ridePasses, Map<UUID, String> adultDisplayNames) {
+        if (ridePasses.isEmpty()) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>(ridePasses.size());
+        for (CarpoolRidePassEntity pass : ridePasses) {
+            names.add(adultDisplayNames.get(pass.adultId()));
+        }
+        return names;
     }
 
     private Map<UUID, String> circleNames(Collection<UUID> circleIds) {
