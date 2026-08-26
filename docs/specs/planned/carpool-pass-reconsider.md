@@ -21,8 +21,12 @@ to **Accept**.
 
 ## Non-goals (sketch)
 
+- Exposing a Pass **button** on the Carpool tab (wiring only) —
+  [`agenda-carpool-action-parity`](agenda-carpool-action-parity.md)
 - Chip copy, Focus Request CTA, incoming who/where —
-  [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md)
+  [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md); further
+  density —
+  [`agenda-carpool-state-clarity`](agenda-carpool-state-clarity.md)
 - Notifying others that you passed or un-passed (push / in-app inbox)
 - Changing Pass so it cancels the request for everyone
 - Expo Agenda UI
@@ -34,3 +38,5 @@ to **Accept**.
 - `/spec` should pick: allow Accept despite `passedByMe` (simplest) vs an
   explicit un-pass. Either way, Accept stays gated on `PENDING` and existing
   seat/driver rules; if someone else already accepted, there is nothing to take.
+- Coordinate with action-parity: Pass CTA on tab is that slice; **un-pass /
+  Accept-after-Pass** stays here.
