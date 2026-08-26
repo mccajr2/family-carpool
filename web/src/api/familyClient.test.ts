@@ -399,6 +399,7 @@ describe("FamilyClient", () => {
         kidIds: ["k1"],
         feedId: null,
         feedName: null,
+        eventKey: null,
         leaveFromPlaceId: "p1",
         leaveFromPlaceName: "Mom's house",
         leaveByAt: "2026-08-15T15:25:00Z",
@@ -419,6 +420,7 @@ describe("FamilyClient", () => {
         kidIds: ["k1"],
         feedId: "f1",
         feedName: "U12",
+        eventKey: "UID:practice@example.com",
         leaveFromPlaceId: null,
         leaveFromPlaceName: null,
         leaveByAt: null,
@@ -437,8 +439,13 @@ describe("FamilyClient", () => {
     await expect(
       client.listCalendar("tok", "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"),
     ).resolves.toMatchObject([
-      { source: "MANUAL", leaveByStatus: "OK" },
-      { source: "FEED", feedName: "U12", leaveByStatus: "UNAVAILABLE" },
+      { source: "MANUAL", leaveByStatus: "OK", eventKey: null },
+      {
+        source: "FEED",
+        feedName: "U12",
+        leaveByStatus: "UNAVAILABLE",
+        eventKey: "UID:practice@example.com",
+      },
     ])
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(
@@ -494,6 +501,7 @@ describe("FamilyClient", () => {
       kidIds: ["k1"],
       feedId: null,
       feedName: null,
+      eventKey: null,
       leaveFromPlaceId: "p1",
       leaveFromPlaceName: "Mom's house",
       leaveByAt: "2026-08-15T15:25:00Z",
@@ -579,6 +587,7 @@ describe("FamilyClient", () => {
       kidIds: ["k1"],
       feedId: null,
       feedName: null,
+      eventKey: null,
       leaveFromPlaceId: null,
       leaveFromPlaceName: null,
       leaveByAt: null,
@@ -654,6 +663,7 @@ describe("FamilyClient", () => {
       kidIds: ["k1"],
       feedId: null,
       feedName: null,
+      eventKey: null,
       leaveFromPlaceId: null,
       leaveFromPlaceName: null,
       leaveByAt: null,

@@ -27,6 +27,7 @@ function item(
     kidIds,
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
     leaveByAt: null,

@@ -4516,6 +4516,15 @@ components:
           nullable: true
           description: Present when source is FEED; omitted/null for MANUAL
           example: U12
+        eventKey:
+          type: string
+          nullable: true
+          description: >
+            Carpool-compatible event identity, same formula as
+            CarpoolRide.eventKey. `UID:<icalUid>` when the feed event has an
+            iCal UID; otherwise `FP:<normalized title>|<startsAt>|<normalized
+            location>`. Null for MANUAL items.
+          example: "UID:abc123@example.com"
         leaveFromPlaceId:
           type: string
           format: uuid

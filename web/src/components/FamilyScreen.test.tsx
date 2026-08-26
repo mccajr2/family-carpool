@@ -52,6 +52,7 @@ function calendarItem(
     location: null,
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
     leaveByAt: null,

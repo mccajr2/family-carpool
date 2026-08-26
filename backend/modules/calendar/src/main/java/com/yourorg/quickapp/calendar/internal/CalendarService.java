@@ -19,6 +19,7 @@ import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
+import com.yourorg.quickapp.feeds.FeedEventKey;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
@@ -554,6 +555,7 @@ public class CalendarService {
                 event.kidIds(),
                 event.feedId(),
                 event.feedName(),
+                FeedEventKey.of(event),
                 leaveBy,
                 coverages,
                 rsvps,
@@ -576,6 +578,7 @@ public class CalendarService {
                 event.endsAt(),
                 event.location(),
                 event.kidIds(),
+                null,
                 null,
                 null,
                 leaveBy,
@@ -630,6 +633,7 @@ public class CalendarService {
             List<UUID> kidIds,
             UUID feedId,
             String feedName,
+            String eventKey,
             LeaveByEnrichmentDto leaveBy,
             List<CoverageAssignmentDto> coverages,
             List<RsvpDto> rsvps,
@@ -658,6 +662,7 @@ public class CalendarService {
                 kidIds,
                 feedId,
                 feedName,
+                eventKey,
                 leaveBy.leaveFromPlaceId(),
                 leaveBy.leaveFromPlaceName(),
                 leaveBy.leaveByAt(),

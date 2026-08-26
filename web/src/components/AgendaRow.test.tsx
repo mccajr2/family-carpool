@@ -17,6 +17,7 @@ function item(
     kidIds,
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: "p1",
     leaveFromPlaceName: "Mom's house",
     leaveByAt: "2030-08-15T16:30:00.000Z",

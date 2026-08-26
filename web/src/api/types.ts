@@ -136,6 +136,7 @@ export type CalendarItem = {
   kidIds: string[]
   feedId: string | null
   feedName: string | null
+  eventKey: string | null
   leaveFromPlaceId: string | null
   leaveFromPlaceName: string | null
   leaveByAt: string | null

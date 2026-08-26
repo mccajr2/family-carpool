@@ -31,7 +31,7 @@ events — no Request on the hero when that is the next action.
 - Context “open asks” aggregation panel or Week-glance rewrite
 - Adding ride fields to `CalendarItem` / mega calendar OpenAPI rewrite —
   stable `uid`/`eventKey` on calendar is
-  [`calendar-item-event-key`](../planned/calendar-item-event-key.md) (after
+  [`calendar-item-event-key`](../archive/calendar-item-event-key.md) (after
   this slice’s heuristic harden)
 - Multi-stop / Open in Maps ([`carpool-multi-stop`](../planned/carpool-multi-stop.md))
 - Carpool tab visual restyle ([`carpool-page-redesign`](../planned/carpool-page-redesign.md))
@@ -146,7 +146,7 @@ seams** / Busy ladder for Agenda-primary rides + Request-without-prior-Yes
 
 **Web join (this slice):** Heuristic match only (title+startsAt; location
 disambiguates). Stable join via calendar `uid`/`eventKey` is
-[`calendar-item-event-key`](../planned/calendar-item-event-key.md) — out of
+[`calendar-item-event-key`](../archive/calendar-item-event-key.md) — out of
 this PR.
 
 **Mobile:** OpenAPI + `sharedLogic` `CarpoolClient` only — no Android/iOS UI.
@@ -266,5 +266,5 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 - None — Request leaves No response; Accept sets Yes for ride kids; Focus
   Request CTA (no Focus RSVP band); heuristic match this slice; stable
-  calendar `uid`/`eventKey` → [`calendar-item-event-key`](../planned/calendar-item-event-key.md)
+  calendar `uid`/`eventKey` → [`calendar-item-event-key`](../archive/calendar-item-event-key.md)
   (2026-08-21).

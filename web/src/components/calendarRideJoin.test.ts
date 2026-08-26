@@ -25,9 +25,10 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
 function item(
   partial: Partial<CalendarItem> &
     Pick<CalendarItem, "source" | "feedId" | "title" | "startsAt">,
-): Pick<CalendarItem, "source" | "feedId" | "title" | "startsAt" | "location"> {
+): Pick<CalendarItem, "source" | "feedId" | "title" | "startsAt" | "location" | "eventKey"> {
   return {
     location: null,
+    eventKey: null,
     ...partial,
   }
 }
@@ -256,6 +257,70 @@ describe("matchCalendarItemToRideEvent", () => {
           feedId: "f1",
           title: "Practice",
           startsAt: "2026-08-22T16:00:00Z",
+        }),
+        spaceIds,
+        rides,
+      ),
+    ).toBeNull()
+  })
+
+  it("matches exact eventKey without requiring title or startsAt", () => {
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Renamed practice",
+          startsAt: "2026-08-22T18:00:00Z",
+          eventKey: "UID:game-1",
+        }),
+        spaceIds,
+        rides,
+      ),
+    ).toBe(practice)
+  })
+
+  it("does not fall back to heuristic when eventKey is set but unmatched", () => {
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          eventKey: "UID:other-event",
+        }),
+        spaceIds,
+        rides,
+      ),
+    ).toBeNull()
+  })
+
+  it("keeps title+startsAt heuristic when eventKey is null", () => {
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "FEED",
+          feedId: "f1",
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          eventKey: null,
+        }),
+        spaceIds,
+        rides,
+      ),
+    ).toBe(practice)
+  })
+
+  it("does not match MANUAL even when eventKey is set", () => {
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "MANUAL",
+          feedId: null,
+          title: "Practice",
+          startsAt: "2026-08-21T16:00:00Z",
+          eventKey: "UID:game-1",
         }),
         spaceIds,
         rides,

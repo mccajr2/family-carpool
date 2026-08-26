@@ -271,6 +271,7 @@ class CoverageCalendarIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(practiceId))
                 .andExpect(jsonPath("$.source").value("FEED"))
+                .andExpect(jsonPath("$.eventKey").value("UID:stub-game-1@example.com"))
                 .andExpect(jsonPath("$.coverages[0].status").value("PENDING"));
     }
 

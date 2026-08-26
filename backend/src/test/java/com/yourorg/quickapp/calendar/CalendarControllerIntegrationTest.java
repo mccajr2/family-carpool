@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.calendar;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -104,11 +105,15 @@ class CalendarControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].title").value("Dentist"))
                 .andExpect(jsonPath("$[0].source").value("MANUAL"))
+                .andExpect(jsonPath("$[0].eventKey").value(nullValue()))
                 .andExpect(jsonPath("$[1].title").value("Practice"))
                 .andExpect(jsonPath("$[1].source").value("FEED"))
                 .andExpect(jsonPath("$[1].feedName").value("U12"))
                 .andExpect(jsonPath("$[1].kidIds[0]").value(kidId))
-                .andExpect(jsonPath("$[2].title").value("Scrimmage"));
+                .andExpect(jsonPath("$[1].eventKey").value("UID:stub-game-1@example.com"))
+                .andExpect(jsonPath("$[2].title").value("Scrimmage"))
+                .andExpect(
+                        jsonPath("$[2].eventKey").value("FP:scrimmage|2026-08-16T09:00:00Z|"));
 
         mockMvc.perform(
                         get("/api/family/circle/calendar")

@@ -21,6 +21,8 @@ node_modules/
 
 # --- backend additions ---
 !gradle/wrapper/gradle-wrapper.jar
+**/bin/
+*.class
 DerivedData/
 *.xcuserstate
 .aider*

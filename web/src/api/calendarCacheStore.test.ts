@@ -40,6 +40,7 @@ function item(partial: Partial<CalendarItem> & Pick<CalendarItem, "id" | "title"
     kidIds: ["k1"],
     feedId: null,
     feedName: null,
+    eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
     leaveByAt: null,
@@ -88,6 +89,26 @@ describe("CalendarCacheStore", () => {
     )
     const loaded = store.load("a1", "c1")
     expect(loaded?.items[0]?.rsvps).toEqual([])
+  })
+
+  it("fills missing eventKey when loading a pre-eventKey snapshot", () => {
+    const storage = memoryStorage()
+    const store = new CalendarCacheStore(storage)
+    const legacyItem = item({ id: "e1", title: "Practice" })
+    delete (legacyItem as { eventKey?: CalendarItem["eventKey"] }).eventKey
+    storage.setItem(
+      "family-carpool.calendar-cache:a1:c1",
+      JSON.stringify({
+        adultId: "a1",
+        circleId: "c1",
+        from: "from",
+        to: "to",
+        items: [legacyItem],
+        fetchedAt: 1,
+      }),
+    )
+    const loaded = store.load("a1", "c1")
+    expect(loaded?.items[0]?.eventKey).toBeNull()
   })
 
   it("patches one item without changing window bounds", () => {

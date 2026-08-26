@@ -1,5 +1,15 @@
 plugins {
     `kotlin-dsl`
+    `java-gradle-plugin`
+}
+
+gradlePlugin {
+    plugins {
+        create("quickappModuleConventions") {
+            id = "quickapp.module-conventions"
+            implementationClass = "com.yourorg.quickapp.gradle.QuickappModuleConventionsPlugin"
+        }
+    }
 }
 
 repositories {

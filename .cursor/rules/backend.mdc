@@ -63,12 +63,10 @@ alwaysApply: false
   `dependencyResolutionManagement` inside the root `settings.gradle.kts` — not
   per-module. A module with no repository access will fail to resolve any
   dependency with a "no repositories are defined" error.
-- Precompiled script plugins (files like `quickapp.module-conventions.gradle.kts`
-  inside `build-logic`) cannot use the generated `libs.x.y` version-catalog
-  shortcut — Gradle doesn't guarantee those accessors work inside a file that's
-  itself defining a plugin. Use
-  `extensions.getByType<VersionCatalogsExtension>().named("libs")` and
-  `.findLibrary(...)` / `.findVersion(...)` instead.
+- The shared convention plugin (`QuickappModuleConventionsPlugin` in
+  `build-logic`) uses `extensions.getByType<VersionCatalogsExtension>().named("libs")`
+  and `.findLibrary(...)` / `.findVersion(...)` for version-catalog lookups —
+  do not use the generated `libs.x.y` shortcut in build-logic Kotlin.
 
 ## Running tests
 ./gradlew :backend:test                    # all backend unit tests
