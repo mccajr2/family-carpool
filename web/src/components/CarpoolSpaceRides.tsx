@@ -5,10 +5,11 @@ import {
   callerDrives,
   circleDisplayName,
   eligibleVehiclesForAccept,
+  incomingRideAskSummary,
   isAcceptedByCircle,
   kidDisplayName,
+  ownRideDetailLine,
   ownRideStatusLine,
-  rideSeatsLabel,
 } from "@/components/carpoolDisplay"
 import { formatIsoForDisplay } from "@/components/eventTimes"
 import { Button } from "@/components/ui/button"
@@ -140,15 +141,7 @@ function OwnRideStatus({
       : ownRideStatusLine(ride)
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm text-muted-foreground">
-        {statusLabel}
-        {" · "}
-        {ride.kidFirstNames.join(", ")}
-        {" · "}
-        {rideSeatsLabel(ride.seats)}
-        {" · "}
-        {ride.pickupPlaceName}, {ride.pickupAddress}
-      </p>
+      <p className="text-sm text-muted-foreground">{ownRideDetailLine(ride, statusLabel)}</p>
       <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onCancel}>
         Cancel
       </Button>
@@ -242,10 +235,7 @@ function OtherRideRequest({
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm">
-        {circleDisplayName(request.requestingCircleName)} · {request.kidFirstNames.join(", ")} ·{" "}
-        {rideSeatsLabel(request.seats)} · {request.pickupPlaceName}, {request.pickupAddress}
-      </p>
+      <p className="text-sm">{incomingRideAskSummary(request)}</p>
       <p className="text-xs text-muted-foreground">{status}</p>
       {canAccept && eligible.length === 1 ? (
         <Button

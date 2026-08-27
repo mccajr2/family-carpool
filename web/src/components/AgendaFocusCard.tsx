@@ -6,11 +6,13 @@ import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import {
   acceptedByUsRequest,
+  acceptedByUsRideDetailLine,
   callerDrives,
   eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
   agendaOwnRideStatusChip,
   incomingRideAskSummary,
+  ownRideDetailLine,
 } from "@/components/carpoolDisplay"
 import {
   activeCoverages,
@@ -484,28 +486,46 @@ export function AgendaFocusCard({
           </Button>
         ) : null}
         {showCancelOwnRide && ownRequest ? (
-          <Button
-            type="button"
-            size="sm"
-            variant={needsDecision ? "secondary" : "outline"}
-            className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-            onClick={() => onCancelRide?.(ownRequest.id)}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
+          <>
+            <p
+              data-testid="agenda-focus-own-ride"
+              className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+              style={{ color: onSecondaryVar }}
+            >
+              {ownRideDetailLine(ownRequest)}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant={needsDecision ? "secondary" : "outline"}
+              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              onClick={() => onCancelRide?.(ownRequest.id)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+          </>
         ) : null}
         {showWithdrawAcceptedByUs && acceptedByUs ? (
-          <Button
-            type="button"
-            size="sm"
-            variant={needsDecision ? "secondary" : "outline"}
-            className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-            onClick={() => onWithdrawRide?.(acceptedByUs.id)}
-            disabled={loading}
-          >
-            Withdraw
-          </Button>
+          <>
+            <p
+              data-testid="agenda-focus-accepted-by-us"
+              className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+              style={{ color: onSecondaryVar }}
+            >
+              {acceptedByUsRideDetailLine(acceptedByUs)}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant={needsDecision ? "secondary" : "outline"}
+              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              onClick={() => onWithdrawRide?.(acceptedByUs.id)}
+              disabled={loading}
+            >
+              Withdraw
+            </Button>
+          </>
         ) : null}
         {showRemoveCoverage && activeCoverage ? (
           <Button

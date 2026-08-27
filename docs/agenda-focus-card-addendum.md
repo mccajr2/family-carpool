@@ -102,11 +102,17 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
 - **Primary CTA** (precedence Confirm → Accept/Pass → Request → Assign →
   calm): Confirm/Decline (pending for self); Accept/Pass for an eligible
   incoming ask (with one summary line above:
-  `{requesting circle} · {kid first names} · {pickupPlaceName}, {pickupAddress}`
-  — circle via `circleDisplayName`, not the requesting adult); **Request**
+  `{requesting circle} · {kid first names} · {seats} · {pickupPlaceName}, {pickupAddress}`
+  — same field set as Carpool tab `OtherRideRequest`; circle via
+  `circleDisplayName`, not the requesting adult); **Request**
   primary with **Assign coverage** secondary when the joined ride event is
   requestable and remaining gap kids remain; else Assign alone when there is
   a remaining gap; else **Remove coverage** / calm Edit as today.
+  Outline **Cancel** (own `PENDING`/`ACCEPTED`) and **Withdraw**
+  (accepted-by-us) sit beside that chrome with a matching ride detail line:
+  own = Calendar status (`Requested` / `Riding with …`) · kids · seats ·
+  pickup; accepted-by-us = requesting circle · kids · seats · pickup.
+  Own-ride **chips** stay; Focus stays summary + CTAs (no restored bands).
   **Edit** (manual) opens the existing compose dialog, including **Leave from**
   when the circle has more than one located place (needed because the Focus
   item is not duplicated in the day list).
@@ -128,8 +134,10 @@ Focus to close that gap. **Change covering adult** and **Remove coverage**
 do stay on Focus, because those writes would otherwise be unreachable.
 `agenda-list-chips` restyles **collapsed** rows only and must not change
 expand bands. `coverage-leave-from` belongs on expanded coverage rows, not
-Focus. `agenda-focus-carpool-actions` / `carpool-ride-clarity` reuse the CTA
-row (Accept/Pass with who/where summary; Request primary + Assign secondary).
+Focus. `agenda-focus-carpool-actions` / `carpool-ride-clarity` /
+`agenda-carpool-state-clarity` reuse the CTA row (Accept/Pass with
+who/where/kids/seats summary; Request primary + Assign secondary; own and
+accepted-by-us detail lines at the same density on Focus and expanded rows).
 Mobile (`agenda-focus-card-mobile`) ports this slim card, not
 the old form-hero.
 

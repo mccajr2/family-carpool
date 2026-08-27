@@ -173,12 +173,35 @@ export function ownRideStatusLine(ride: CarpoolRide): string {
   return ride.status
 }
 
+/** Kids · seats · pickup — shared field tail for ride detail lines. */
+export function rideKidsSeatsPickup(ride: CarpoolRide): string {
+  return `${ride.kidFirstNames.join(", ")} · ${rideSeatsLabel(ride.seats)} · ${ride.pickupPlaceName}, ${ride.pickupAddress}`
+}
+
 /**
- * Focus Accept/Pass summary: requesting circle · kids · pickup (no seats —
- * Carpool tab OtherRideRequest includes seats; Focus does not).
+ * Incoming Accept/Pass ask (Focus + Carpool tab OtherRideRequest): requesting
+ * circle · kids · seats · pickup.
  */
 export function incomingRideAskSummary(request: CarpoolRide): string {
-  const kids = request.kidFirstNames.join(", ")
-  return `${circleDisplayName(request.requestingCircleName)} · ${kids} · ${request.pickupPlaceName}, ${request.pickupAddress}`
+  return `${circleDisplayName(request.requestingCircleName)} · ${rideKidsSeatsPickup(request)}`
+}
+
+/**
+ * Own PENDING / ACCEPTED detail line (Calendar wording): status · kids · seats ·
+ * pickup. Pass `statusLabel` to reuse the field set with tab phrasing.
+ */
+export function ownRideDetailLine(
+  ride: CarpoolRide,
+  statusLabel: string = ownRideStatusLine(ride),
+): string {
+  return `${statusLabel} · ${rideKidsSeatsPickup(ride)}`
+}
+
+/**
+ * Accepted-by-us detail line: requesting circle · kids · seats · pickup
+ * (same field set as an incoming ask).
+ */
+export function acceptedByUsRideDetailLine(ride: CarpoolRide): string {
+  return incomingRideAskSummary(ride)
 }
 

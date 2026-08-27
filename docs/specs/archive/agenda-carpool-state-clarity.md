@@ -1,6 +1,6 @@
 # Spec: agenda-carpool-state-clarity
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-26  
 Added: 2026-08-26 · enhancement  
@@ -82,40 +82,40 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] Focus Accept/Pass incoming ask summary includes **seats** with requesting
+- [x] Focus Accept/Pass incoming ask summary includes **seats** with requesting
       circle, kid first names, and pickup (`place, address`) — same field set as
       Carpool tab `OtherRideRequest` summary (order may match the shared helper).
-- [ ] Focus with own `PENDING` or `ACCEPTED` shown: a ride detail line (not
+- [x] Focus with own `PENDING` or `ACCEPTED` shown: a ride detail line (not
       chip-only) includes status wording + kids + seats + pickup; outline
       **Cancel** still present; existing own-ride chips still render.
-- [ ] Focus with accepted-by-us: a ride detail line includes requesting circle +
+- [x] Focus with accepted-by-us: a ride detail line includes requesting circle +
       kids + seats + pickup; outline **Withdraw** still present.
-- [ ] Expanded AgendaRow own request: status · kids · seats · **pickup** (pickup
+- [x] Expanded AgendaRow own request: status · kids · seats · **pickup** (pickup
       was the main gap).
-- [ ] Expanded AgendaRow accepted-by-us: requesting circle · kids · seats ·
+- [x] Expanded AgendaRow accepted-by-us: requesting circle · kids · seats ·
       pickup (not kids-only minimal line).
-- [ ] Collapsed Agenda chips and Focus chip ladder unchanged; Focus still exactly
+- [x] Collapsed Agenda chips and Focus chip ladder unchanged; Focus still exactly
       one card; ranking / CTA precedence unchanged; no OpenAPI / backend / new
       tokens.
-- [ ] Architecture Clients (+ Focus addendum) document Calendar ride-line density
+- [x] Architecture Clients (+ Focus addendum) document Calendar ride-line density
       for those states.
-- [ ] Component / unit tests would fail if seats were dropped from Focus
+- [x] Component / unit tests would fail if seats were dropped from Focus
       incoming, pickup from own Focus/row lines, or seats/pickup from
       accepted-by-us lines; `cd web && npm test` (touched suites) and
       `npm run lint` pass.
 
 ## Tasks
 
-- [ ] Web: Shared ride-line helpers in `carpoolDisplay.ts` (incoming + own +
+- [x] Web: Shared ride-line helpers in `carpoolDisplay.ts` (incoming + own +
       accepted-by-us field sets); unit tests; wire Focus incoming to include seats
-- [ ] Web: Focus own `PENDING`/`ACCEPTED` detail line (kids · seats · pickup) with
+- [x] Web: Focus own `PENDING`/`ACCEPTED` detail line (kids · seats · pickup) with
       Cancel; keep chips; Focus tests
-- [ ] Web: Focus accepted-by-us detail line (circle · kids · seats · pickup) with
+- [x] Web: Focus accepted-by-us detail line (circle · kids · seats · pickup) with
       Withdraw; Focus tests
-- [ ] Web: Expanded AgendaRow own + accepted-by-us lines match that density; row
+- [x] Web: Expanded AgendaRow own + accepted-by-us lines match that density; row
       tests
-- [ ] Docs: architecture Clients + Focus addendum (and web contract only if stale)
-- [ ] Tests: run web lint + relevant vitest; report real results
+- [x] Docs: architecture Clients + Focus addendum (and web contract only if stale)
+- [x] Tests: run web lint + relevant vitest; report real results
 
 ## Open questions
 
