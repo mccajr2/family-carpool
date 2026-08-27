@@ -186,7 +186,6 @@ export function AgendaRow({
                 key={tag.label}
                 label={tag.label}
                 tone={tag.tone}
-                appearance="pill"
               />
             ))}
           </span>

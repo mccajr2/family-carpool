@@ -2786,7 +2786,15 @@ describe("FamilyScreen", () => {
     expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")
     expect(list.className).toContain("--fc-space-2xl")
-    expect(within(list).getByRole("heading", { name: "Later" })).toBeInTheDocument()
+    expect(within(list).queryByRole("heading", { name: "NEEDS YOUR ATTENTION" })).not.toBeInTheDocument()
+    expect(within(list).getByRole("heading", { name: "LATER" })).toBeInTheDocument()
+    const laterHeading = within(list).getByRole("heading", { name: "LATER" })
+    expect(laterHeading.className).toMatch(/--fc-font-feed-section-label-size/)
+    expect(laterHeading.className).toMatch(/--fc-font-feed-section-label-weight/)
+    expect(laterHeading.className).toMatch(/uppercase/)
+    expect(laterHeading.className).toMatch(/--fc-text-secondary/)
+    expect(laterHeading.className).not.toMatch(/font-semibold/)
+    expect(laterHeading.className).not.toMatch(/--fc-text-primary/)
     const rows = within(list).getAllByRole("listitem")
     expect(rows).toHaveLength(1)
     expect(rows[0]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e2")
@@ -2795,6 +2803,93 @@ describe("FamilyScreen", () => {
     expect(card.className).toContain("rounded-[var(--fc-radius-md)]")
     expect(card.className).toContain("bg-[var(--fc-surface-raised)]")
     expect(within(card).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
+    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
+    expect(within(focus).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
+  })
+
+  it("places decision Focus under NEEDS YOUR ATTENTION and splits today list rows", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayAfternoon = new Date(todayStart)
+    todayAfternoon.setHours(15, 0, 0, 0)
+    const todayEvening = new Date(todayStart)
+    todayEvening.setHours(18, 0, 0, 0)
+    const tomorrowMorning = new Date(todayStart)
+    tomorrowMorning.setDate(tomorrowMorning.getDate() + 1)
+    tomorrowMorning.setHours(10, 0, 0, 0)
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "gap",
+              source: "MANUAL",
+              title: "Gap practice",
+              startsAt: todayAfternoon.toISOString(),
+              kidIds: ["k1"],
+              uncoveredKidIds: ["k1"],
+            }),
+            calendarItem({
+              id: "calm",
+              source: "MANUAL",
+              title: "Calm later today",
+              startsAt: todayEvening.toISOString(),
+              kidIds: ["k1"],
+            }),
+            calendarItem({
+              id: "tmw",
+              source: "MANUAL",
+              title: "Tomorrow game",
+              startsAt: tomorrowMorning.toISOString(),
+              kidIds: ["k1"],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const list = within(agenda).getByTestId("agenda-list")
+    const needsAttention = within(list).getByRole("region", {
+      name: "NEEDS YOUR ATTENTION",
+    })
+    expect(within(needsAttention).getByRole("heading", { name: "NEEDS YOUR ATTENTION" })).toBeInTheDocument()
+    expect(within(needsAttention).getByTestId("agenda-focus-MANUAL-gap")).toBeInTheDocument()
+    expect(within(needsAttention).queryByTestId("agenda-item-MANUAL-gap")).not.toBeInTheDocument()
+    expect(within(list).getByRole("heading", { name: "REST OF TODAY" })).toBeInTheDocument()
+    expect(within(list).getByTestId("agenda-item-MANUAL-calm")).toBeInTheDocument()
+    expect(within(list).getByRole("heading", { name: "TOMORROW" })).toBeInTheDocument()
+    expect(within(list).getByTestId("agenda-item-MANUAL-tmw")).toBeInTheDocument()
+    expect(within(list).queryByRole("heading", { name: "LATER" })).not.toBeInTheDocument()
+    expect(within(list).queryByRole("heading", { name: "Today" })).not.toBeInTheDocument()
   })
 
   it("does not also render the focus item as a flat row", async () => {

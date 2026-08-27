@@ -73,20 +73,23 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   `location` is shown verbatim (full address until a venue lookup exists).
   Leave-from uses the **place name**, not the street address. No form labels
   (`Leave from`, `Manual`).
-- Status **pills** on Focus (`Overlaps`, own-ride chip, `Needs coverage`,
-  `Confirm coverage`, `Awaiting confirm`, `Confirmed` / `All set`): Title Case
-  with a leading status dot (`focusStatusPill` 12.5/600). Same composition as
-  collapsed rows: `agendaItemStatusTags` + `insertOwnRideStatusChip` (ride chip
-  immediately after **Overlaps**, or first if none). **Confirm coverage** when
-  `PENDING` for the signed-in adult; **Awaiting confirm** when pending for
-  someone else; **Needs coverage** only for **remaining gap kids** (API
-  `uncoveredKidIds` minus kids on this circle’s **ACCEPTED** `ownRequest`;
-  PENDING ride does not clear the gap). Own-ride chip: **Riding with
-  {acceptingCircleName}** (mint; blank → **Riding with a teammate**) or
-  **Requested** (amber). Focus-only **All set** is omitted when an own-ride
-  chip is present (do not stack **Riding with …** + **All set**). Collapsed
-  `AgendaRow` uses the same Title Case pills (`appearance="pill"`) and never
-  shows **All set**.
+- Status **chips** on Focus (`Overlaps`, own-ride chip, `Needs coverage`,
+  `Confirm coverage`, `Awaiting confirm`, `Confirmed` / `All set`): Feeds-
+  aligned uppercase tags (`feedChip*` size/weight/padding) — **no** leading
+  status dot. Title Case pills (`focusStatusPill` / `appearance="pill"`) are
+  **superseded** on Agenda. Same composition as collapsed rows:
+  `agendaItemStatusTags` + `insertOwnRideStatusChip` (ride chip immediately
+  after **Overlaps**, or first if none). Label strings stay Title Case in
+  helpers; uppercase is presentation. **Confirm coverage** when `PENDING` for
+  the signed-in adult; **Awaiting confirm** when pending for someone else;
+  **Needs coverage** only for **remaining gap kids** (API `uncoveredKidIds`
+  minus kids on this circle’s **ACCEPTED** `ownRequest`; PENDING ride does not
+  clear the gap). Own-ride chip: **Riding with {acceptingCircleName}** (mint;
+  blank → **Riding with a teammate**) or **Requested** (amber). Focus-only
+  **All set** is omitted when an own-ride chip is present (do not stack
+  **Riding with …** + **All set**). Collapsed `AgendaRow` uses the same Feeds
+  chip language (default `AgendaStatusChip` tag) and never shows **All set**.
+  Hero tone fills still apply on the urgent Focus surface.
   Conflict **detail** lines are not on Focus; they stay in the expanded row.
 - Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
   horizontal row in both uncovered and covered states: **Covering** label

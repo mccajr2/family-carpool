@@ -59,13 +59,17 @@ import { AgendaFocusCard } from "@/components/AgendaFocusCard"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
-import { groupAgendaByDay } from "@/components/agendaDayGroups"
-import { selectFocusItem } from "@/components/agendaFocusSelection"
+import { groupAgendaListSections } from "@/components/agendaDayGroups"
+import {
+  focusItemNeedsDecision,
+  selectFocusItem,
+} from "@/components/agendaFocusSelection"
 import {
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
   ridesBySpaceRecordToMap,
 } from "@/components/calendarRideJoin"
+import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
 import {
   calendarItemKey,
   memberLabel,
@@ -1999,12 +2003,81 @@ export function FamilyScreen({
     garage: calendarGarage,
   })
   const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
+  const focusRideEvent = focusItem
+    ? (calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null)
+    : null
+  const focusNeedsDecision =
+    focusItem != null &&
+    focusItemNeedsDecision(
+      focusItem,
+      adult?.id ?? "",
+      eligiblePendingRideAccept(focusRideEvent, {
+        adultId: adult?.id ?? "",
+        garage: calendarGarage,
+      }),
+      focusRideEvent?.ownRequest ?? null,
+    )
+  const { floatFocusAbove, sections: agendaSections } = groupAgendaListSections(restItems, {
+    currentAdultId: adult?.id ?? "",
+    focusNeedsDecision,
+    ownRequestFor: (item) =>
+      calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null,
+  })
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const editingCalendarItem =
     editingEventId != null
       ? calendarItems.find((row) => row.source === "MANUAL" && row.id === editingEventId)
       : undefined
   const carpoolAccessToken = session.getAccessToken()
+
+  const agendaFocusCard =
+    focusItem != null ? (
+      <div
+        data-carpool-ride-key={
+          calendarRideByItemKey.get(calendarItemKey(focusItem))?.eventKey
+        }
+      >
+        <AgendaFocusCard
+          item={focusItem}
+          circle={circle}
+          currentAdultId={adult?.id ?? ""}
+          loading={status.kind === "loading"}
+          assignDraft={coverageAssignState(
+            focusItem,
+            calendarItemKey(focusItem),
+            calendarRideByItemKey.get(calendarItemKey(focusItem))?.ownRequest,
+          )}
+          coverageActionError={coverageActionErrors[calendarItemKey(focusItem)]}
+          rideEvent={calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null}
+          garage={calendarGarage}
+          onUpdateAssignDraft={(patch) =>
+            updateAssignCoverageDraft(calendarItemKey(focusItem), patch)
+          }
+          onAssignCoverage={(coveringAdultId, kidIds) =>
+            void onAssignCoverage(focusItem, coveringAdultId, kidIds)
+          }
+          onReassignCoverage={(assignmentId, coveringAdultId, kidIds) =>
+            void onReassignCoverage(focusItem, assignmentId, coveringAdultId, kidIds)
+          }
+          onConfirmCoverage={(assignmentId) =>
+            void onConfirmCoverage(focusItem, assignmentId)
+          }
+          onDeclineCoverage={(assignmentId) => void onDeclineCoverage(assignmentId)}
+          onRemoveCoverage={(assignmentId) => void onRemoveCoverage(assignmentId)}
+          onAcceptRide={(rideId, vehicleId) =>
+            void onAcceptAgendaRide(focusItem, rideId, vehicleId)
+          }
+          onPassRide={(rideId) => void onPassAgendaRide(focusItem, rideId)}
+          onCreateRide={(eventKey, kidIds) =>
+            void onCreateAgendaRide(focusItem, eventKey, kidIds)
+          }
+          onCancelRide={(rideId) => void onCancelAgendaRide(focusItem, rideId)}
+          onWithdrawRide={(rideId) => void onWithdrawAgendaRide(focusItem, rideId)}
+          onOpenPlaces={() => setDestination("places")}
+          onEdit={() => openEditEvent(focusItem)}
+        />
+      </div>
+    ) : null
 
   const contentTitle =
     destination === "calendar"
@@ -2566,63 +2639,13 @@ export function FamilyScreen({
             )
           ) : (
             <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]">
-              {focusItem ? (
-                <div
-                  data-carpool-ride-key={
-                    calendarRideByItemKey.get(calendarItemKey(focusItem))?.eventKey
-                  }
-                >
-                <AgendaFocusCard
-                  item={focusItem}
-                  circle={circle}
-                  currentAdultId={adult?.id ?? ""}
-                  loading={status.kind === "loading"}
-                  assignDraft={coverageAssignState(
-                    focusItem,
-                    calendarItemKey(focusItem),
-                    calendarRideByItemKey.get(calendarItemKey(focusItem))?.ownRequest,
-                  )}
-                  coverageActionError={
-                    coverageActionErrors[calendarItemKey(focusItem)]
-                  }
-                  rideEvent={calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null}
-                  garage={calendarGarage}
-                  onUpdateAssignDraft={(patch) =>
-                    updateAssignCoverageDraft(calendarItemKey(focusItem), patch)
-                  }
-                  onAssignCoverage={(coveringAdultId, kidIds) =>
-                    void onAssignCoverage(focusItem, coveringAdultId, kidIds)
-                  }
-                  onReassignCoverage={(assignmentId, coveringAdultId, kidIds) =>
-                    void onReassignCoverage(focusItem, assignmentId, coveringAdultId, kidIds)
-                  }
-                  onConfirmCoverage={(assignmentId) =>
-                    void onConfirmCoverage(focusItem, assignmentId)
-                  }
-                  onDeclineCoverage={(assignmentId) =>
-                    void onDeclineCoverage(assignmentId)
-                  }
-                  onRemoveCoverage={(assignmentId) => void onRemoveCoverage(assignmentId)}
-                  onAcceptRide={(rideId, vehicleId) =>
-                    void onAcceptAgendaRide(focusItem, rideId, vehicleId)
-                  }
-                  onPassRide={(rideId) => void onPassAgendaRide(focusItem, rideId)}
-                  onCreateRide={(eventKey, kidIds) =>
-                    void onCreateAgendaRide(focusItem, eventKey, kidIds)
-                  }
-                  onCancelRide={(rideId) => void onCancelAgendaRide(focusItem, rideId)}
-                  onWithdrawRide={(rideId) => void onWithdrawAgendaRide(focusItem, rideId)}
-                  onOpenPlaces={() => setDestination("places")}
-                  onEdit={() => openEditEvent(focusItem)}
-                />
-                </div>
-              ) : null}
-              {restItems.length > 0 ? (
+              {floatFocusAbove ? agendaFocusCard : null}
+              {agendaSections.length > 0 ? (
             <div
               data-testid="agenda-list"
               className="flex flex-col gap-[var(--fc-space-2xl)]"
             >
-              {groupAgendaByDay(restItems).map((group) => (
+              {agendaSections.map((group) => (
                 <section
                   key={group.label}
                   aria-label={
@@ -2633,7 +2656,7 @@ export function FamilyScreen({
                   className="flex flex-col gap-[var(--fc-space-lg)]"
                 >
                   <header className="flex items-baseline gap-[var(--fc-space-sm)]">
-                    <h3 className="text-sm font-semibold text-[var(--fc-text-primary)]">
+                    <h3 className={`${feedSectionLabelClass} mb-0`}>
                       {group.label}
                     </h3>
                     {group.dateLabel ? (
@@ -2642,6 +2665,12 @@ export function FamilyScreen({
                       </span>
                     ) : null}
                   </header>
+                  {!floatFocusAbove &&
+                  group.label === "NEEDS YOUR ATTENTION" &&
+                  agendaFocusCard != null
+                    ? agendaFocusCard
+                    : null}
+                  {group.items.length > 0 ? (
                   <ul className="flex flex-col gap-[var(--fc-space-md)]">
                     {group.items.map((item) => {
                       const itemKey = calendarItemKey(item)
@@ -2702,6 +2731,7 @@ export function FamilyScreen({
                       )
                     })}
                   </ul>
+                  ) : null}
                 </section>
               ))}
             </div>

@@ -18,22 +18,31 @@ This addendum is entirely about visual presentation.
 
 ## New rules
 
-1. **Day grouping.** Agenda items render under "Today" / "Tomorrow" / "This
-   week" / "Later" headers (`agendaDayGroups.ts`), not one continuous list.
-   Empty groups don't render a header with nothing under it.
+1. **Section grouping.** Agenda list sections use all-caps Feeds-style
+   labels (`groupAgendaListSections` in `agendaDayGroups.ts`): **NEEDS YOUR
+   ATTENTION** / **REST OF TODAY** / **TOMORROW** / **THIS WEEK** / **LATER**
+   (`feedSectionLabel*` chrome). Empty sections omit their headers.
+   - **NEEDS YOUR ATTENTION:** Focus when `focusItemNeedsDecision` (family
+     decision or eligible ride Accept/Pass), then other local-today in-play
+     rows with `agendaItemNeedsAttention`. Focus is never also a list row.
+   - **REST OF TODAY:** remaining local-today list rows (including out-of-play);
+     does not host Focus.
+   - Calm Focus (`focusItemNeedsDecision` false) **floats above** all sections
+     with no section header — not under **REST OF TODAY**.
 2. **Every row is a card**, not a spacing-only stack: bordered, rounded
    (`radius.md`), `surfaceRaised` background — see `AgendaRow.tsx`.
 3. **Rows are collapsed by default.** Summary only: title, time + location,
-   Title Case status pills (leading dot), covering-adult initials avatars when
-   coverage is confirmed, and a trailing expand chevron. Tap/click expands the
-   field-row bands (leave-from, per-kid RSVP, coverage, manual actions) —
-   reusing the same coverage/RSVP/leave-by helpers, not new logic. The Focus
-   card above the list is **not** an always-expanded twin of this row; it is
-   slim summary + CTA
+   Feeds-aligned uppercase status chips (`feedChip*`, no leading dot — Title
+   Case pills superseded), covering-adult initials avatars when coverage is
+   confirmed, and a trailing expand chevron. Tap/click expands the field-row
+   bands (leave-from, per-kid RSVP, coverage, manual actions) — reusing the
+   same coverage/RSVP/leave-by helpers, not new logic. The Focus card is
+   **not** an always-expanded twin of this row; it is slim summary + CTA
    ([`docs/agenda-focus-card-addendum.md`](agenda-focus-card-addendum.md)).
 4. **Out-of-play items** (every kid RSVP `NO`) render at reduced opacity
-   with a single muted "Not going" pill — no other pills, no coverage/travel
-   content even when expanded (same rule as before, just restyled).
+   with a single muted **Not going** chip — no other status chips, no
+   coverage/travel content even when expanded (same rule as before, just
+   restyled).
 5. **The accordion restriction from the old contract is lifted.** Rows may
    expand/collapse; this was previously explicitly disallowed ("no
    accordion... in this slice") and is now intentional.

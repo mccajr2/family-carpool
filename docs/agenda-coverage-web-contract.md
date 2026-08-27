@@ -206,7 +206,7 @@ Toolkit chrome may differ; **layout and strings** must not.
   (PENDING ride does not clear the gap). Names on the row copy are remaining
   gap kids only.
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
-- **Collapsed status tags** (Focus pills + collapsed `AgendaRow` chips) share
+- **Collapsed status tags** (Focus + collapsed `AgendaRow`) share
   one precedence via `agendaItemStatusTags` + `insertOwnRideStatusChip`
   (`coverageDisplay.ts` / `carpoolDisplay.ts`):
   `Overlaps` → own-ride chip (if any) → `Needs coverage` (remaining gap) →
@@ -214,10 +214,12 @@ Toolkit chrome may differ; **layout and strings** must not.
   someone else) → `Confirmed` → `All set` (Focus only, and only when there is
   **no** own-ride chip). Own-ride chip: **Riding with {acceptingCircleName}**
   (mint; blank name → **Riding with a teammate**) when `ACCEPTED`; **Requested**
-  (amber) when `PENDING`. Do not use “Accepted ·” / “Accepted:”. List and Focus
-  both use Title Case pills with a leading dot (`appearance="pill"`).
-  Pending-for-self drives Focus urgent surface (no standalone list-row status
-  dot).
+  (amber) when `PENDING`. Do not use “Accepted ·” / “Accepted:”.
+  **Presentation:** Feeds-aligned uppercase chips (`AgendaStatusChip`
+  default/`tag`, `feedChip*` tokens) — **no** leading dot, **no** Title Case
+  pills (`appearance="pill"` retired on Agenda surfaces). Canonical label
+  strings stay Title Case in helpers; uppercase is CSS. Pending-for-self drives
+  Focus urgent surface (no standalone list-row status dot).
 
 ### Assign
 
@@ -293,7 +295,7 @@ must not flag events that Focus/rows treat as covered by an ACCEPTED ride.
 
 Two uncovered kids on **one** event still **1 needs coverage**. Pending for
 someone else without uncovered / conflict is calm (**All set**) — same as
-Focus `focusItemNeedsDecision` (list pill **Awaiting confirm** is not a
+Focus `focusItemNeedsDecision` (list chip **Awaiting confirm** is not a
 week-glance line).
 
 Do **not** emit **need drivers** / **Needs driver**. Rows are not buttons or
