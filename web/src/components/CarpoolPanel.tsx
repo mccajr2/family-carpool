@@ -228,6 +228,11 @@ export function CarpoolPanel({
                       .then(() => undefined),
                   )
                 }
+                onPassRide={(rideId) =>
+                  void run(() =>
+                    carpoolClient.passRide(accessToken, space.id, rideId).then(() => undefined),
+                  )
+                }
                 onCancelRide={(rideId) =>
                   void run(() =>
                     carpoolClient.cancelRide(accessToken, space.id, rideId).then(() => undefined),

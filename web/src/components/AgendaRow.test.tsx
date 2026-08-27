@@ -696,4 +696,137 @@ describe("AgendaRow", () => {
     await user.click(within(band).getByRole("button", { name: "Request" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
   })
+
+  it("shows minimal accepted-by-us status and Withdraw when expanded", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    const feedItem = item({
+      id: "feed-withdraw",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-w",
+    })
+    const rideEvent = {
+      eventKey: "UID:practice-w",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: null,
+      otherRequests: [
+        {
+          id: "ask-accepted",
+          spaceId: "s1",
+          eventKey: "UID:practice-w",
+          requestingCircleId: "c2",
+          requestingCircleName: "House B",
+          requestedByAdultId: "a2",
+          kidIds: ["k2"],
+          kidFirstNames: ["Mia"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          status: "ACCEPTED" as const,
+          passedByMe: false,
+          passedByAdultNames: [],
+          acceptedByAdultId: "a1",
+          acceptingCircleId: "c1",
+          acceptingCircleName: "Test",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+        },
+      ],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onWithdrawRide={onWithdrawRide}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-withdraw")
+    expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const band = within(row).getByTestId("agenda-band-carpool")
+    expect(within(band).getByTestId("agenda-row-accepted-by-us")).toHaveTextContent(
+      "Accepted · House B · Mia",
+    )
+    expect(within(band).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(within(band).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    await user.click(within(band).getByRole("button", { name: "Withdraw" }))
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+  })
+
+  it("keeps Request/Cancel for own request and does not add Accept/Pass on the row", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-no-accept",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-na",
+    })
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:practice-na",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "pending-other",
+              spaceId: "s1",
+              eventKey: "UID:practice-na",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        onWithdrawRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-no-accept")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const band = within(row).getByTestId("agenda-band-carpool")
+    expect(within(band).getByRole("button", { name: "Request" })).toBeInTheDocument()
+    expect(within(band).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(within(band).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(within(band).queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
+  })
 })

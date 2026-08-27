@@ -9,7 +9,9 @@ import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import {
+  acceptedByUsRequest,
   agendaOwnRideStatusChip,
+  circleDisplayName,
   kidDisplayName,
   ownRideStatusLine,
   rideSeatsLabel,
@@ -69,6 +71,7 @@ type AgendaRowProps = {
   rideEvent?: CarpoolRideEvent | null
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string) => void
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
@@ -109,6 +112,7 @@ export function AgendaRow({
   rideEvent = null,
   onCreateRide,
   onCancelRide,
+  onWithdrawRide,
   onUpdateAssignDraft,
   onAssignCoverage,
   onConfirmCoverage,
@@ -129,6 +133,7 @@ export function AgendaRow({
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const ownRequest = rideEvent?.ownRequest ?? null
+  const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const uncoveredKidNames = eventKidNames(gapKidIds, circle.kids)
   const tags = insertOwnRideStatusChip(
@@ -142,11 +147,13 @@ export function AgendaRow({
       : undefined
   const defaultRideKids = rideEvent?.defaultKidIds ?? []
   const rideKidSelection = selectedRideKidIds ?? defaultRideKids
+  // Own Request/Cancel, and/or minimal accepted-by-us + Withdraw. No Accept/Pass
+  // on expanded rows (those stay on Focus / Carpool tab).
   const showCarpoolBand =
     !outOfPlay &&
     rideEvent != null &&
-    (rideEvent.ownRequest != null || defaultRideKids.length > 0) &&
-    (onCreateRide != null || onCancelRide != null)
+    (ownRequest != null || defaultRideKids.length > 0 || acceptedByUs != null) &&
+    (onCreateRide != null || onCancelRide != null || onWithdrawRide != null)
 
   return (
     <div
@@ -471,7 +478,7 @@ export function AgendaRow({
                     </Button>
                   ) : null}
                 </div>
-              ) : (
+              ) : defaultRideKids.length > 0 ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
                   {defaultRideKids.length > 1
                     ? defaultRideKids.map((kidId) => {
@@ -518,7 +525,29 @@ export function AgendaRow({
                     </Button>
                   ) : null}
                 </div>
-              )}
+              ) : null}
+              {acceptedByUs != null ? (
+                <div
+                  data-testid="agenda-row-accepted-by-us"
+                  className="flex items-center justify-between gap-[var(--fc-space-md)]"
+                >
+                  <span className="text-sm text-[var(--fc-text-secondary)]">
+                    Accepted · {circleDisplayName(acceptedByUs.requestingCircleName)} ·{" "}
+                    {acceptedByUs.kidFirstNames.join(", ")}
+                  </span>
+                  {onWithdrawRide != null ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={loading}
+                      onClick={() => onWithdrawRide(acceptedByUs.id)}
+                    >
+                      Withdraw
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 

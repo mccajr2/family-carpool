@@ -211,15 +211,15 @@ Toolkit chrome may differ; **layout and strings** must not.
   (`coverageDisplay.ts` / `carpoolDisplay.ts`):
   `Overlaps` → own-ride chip (if any) → `Needs coverage` (remaining gap) →
   **Confirm coverage** (pending-for-self) → **Awaiting confirm** (pending for
-  someone else) → `Confirmed` → `All set` (Focus only). Own-ride chip:
-  **Riding with {acceptingCircleName}** (mint; blank name → **Riding with a
-  teammate**) when `ACCEPTED`; **Requested** (amber) when `PENDING`. Do not
-  use “Accepted ·” / “Accepted:”. **Presentation:** Feeds-aligned uppercase
-  chips (`AgendaStatusChip` default/`tag`, `feedChip*` tokens) — **no**
-  leading dot, **no** Title Case pills (`appearance="pill"` retired on Agenda
-  surfaces). Canonical label strings stay Title Case in helpers; uppercase is
-  CSS. Pending-for-self drives Focus urgent surface (no standalone list-row
-  status dot).
+  someone else) → `Confirmed` → `All set` (Focus only, and only when there is
+  **no** own-ride chip). Own-ride chip: **Riding with {acceptingCircleName}**
+  (mint; blank name → **Riding with a teammate**) when `ACCEPTED`; **Requested**
+  (amber) when `PENDING`. Do not use “Accepted ·” / “Accepted:”.
+  **Presentation:** Feeds-aligned uppercase chips (`AgendaStatusChip`
+  default/`tag`, `feedChip*` tokens) — **no** leading dot, **no** Title Case
+  pills (`appearance="pill"` retired on Agenda surfaces). Canonical label
+  strings stay Title Case in helpers; uppercase is CSS. Pending-for-self drives
+  Focus urgent surface (no standalone list-row status dot).
 
 ### Assign
 
@@ -284,10 +284,14 @@ First match:
 | Condition | Copy | Flag |
 |-----------|------|------|
 | Zero items that local day | **No events** | none |
-| `n` in-play with `uncoveredKidIds.length > 0` | **1 needs coverage** / **{n} need coverage** | amber |
+| `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids on this circle’s **ACCEPTED** `ownRequest`; PENDING does not clear) | **1 needs coverage** / **{n} need coverage** | amber |
 | else `n` in-play with `conflicts.length > 0` | **1 overlaps** / **{n} overlap** | amber |
 | else `n` in-play pending-for-self | **1 to confirm** / **{n} to confirm** | amber |
 | else (in-play all-set, pending-for-others, out-of-play only) | **All set** | none |
+
+Wire the same ride join as Agenda rows (`ownRequestForItem` from
+`calendarRideByItemKey`). API `uncoveredKidIds` stays orthogonal; the strip
+must not flag events that Focus/rows treat as covered by an ACCEPTED ride.
 
 Two uncovered kids on **one** event still **1 needs coverage**. Pending for
 someone else without uncovered / conflict is calm (**All set**) — same as

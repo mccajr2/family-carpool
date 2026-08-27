@@ -85,9 +85,11 @@ copy of `AgendaRow`. Same data and the same assign/confirm/edit **handlers**
   **Needs coverage** only for **remaining gap kids** (API `uncoveredKidIds`
   minus kids on this circle’s **ACCEPTED** `ownRequest`; PENDING ride does not
   clear the gap). Own-ride chip: **Riding with {acceptingCircleName}** (mint;
-  blank → **Riding with a teammate**) or **Requested** (amber). Collapsed
-  `AgendaRow` uses the same Feeds chip language (default `AgendaStatusChip`
-  tag). Hero tone fills still apply on the urgent Focus surface.
+  blank → **Riding with a teammate**) or **Requested** (amber). Focus-only
+  **All set** is omitted when an own-ride chip is present (do not stack
+  **Riding with …** + **All set**). Collapsed `AgendaRow` uses the same Feeds
+  chip language (default `AgendaStatusChip` tag) and never shows **All set**.
+  Hero tone fills still apply on the urgent Focus surface.
   Conflict **detail** lines are not on Focus; they stay in the expanded row.
 - Isolated countdown ring. Under the ring (`focusRingCoveringGap` 10), one
   horizontal row in both uncovered and covered states: **Covering** label
