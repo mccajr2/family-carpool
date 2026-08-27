@@ -3222,7 +3222,13 @@ export function FamilyScreen({
           aria-label="Context"
           className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] px-[var(--fc-space-week-glance-pad-x)] py-[var(--fc-space-main-y)]"
         >
-          <AgendaWeekGlance items={visibleCalendarItems} currentAdultId={adult?.id ?? ""} />
+          <AgendaWeekGlance
+            items={visibleCalendarItems}
+            currentAdultId={adult?.id ?? ""}
+            ownRequestForItem={(item) =>
+              calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null
+            }
+          />
         </aside>
       ) : null}
     </div>

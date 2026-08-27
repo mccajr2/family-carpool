@@ -978,9 +978,19 @@ describe("AgendaFocusCard Request CTA", () => {
     expect(
       within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).queryByText("All set"),
+    ).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-accepted-clears-gap")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
     })
+  })
+
+  it("keeps Focus-only All set when there is no own-ride chip", () => {
+    renderCard(item({ id: "all-set-calm", title: "Practice", uncoveredKidIds: [] }))
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).getByText("All set"),
+    ).toBeInTheDocument()
   })
 
   it("keeps Assign when some uncovered kids remain after an ACCEPTED ride", () => {

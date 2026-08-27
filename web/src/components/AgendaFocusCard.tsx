@@ -71,12 +71,15 @@ function focusStatusChips(
   currentAdultId: string,
   ownRequest?: CarpoolRideEvent["ownRequest"],
 ) {
+  const rideChip = agendaOwnRideStatusChip(ownRequest)
+  // Own-ride chip already signals calm/transport status — don't stack Focus-only
+  // "All set" beside "Riding with …" / "Requested" (rows never show All set).
   return insertOwnRideStatusChip(
     agendaItemStatusTags(item, currentAdultId, {
-      includeAllSet: true,
+      includeAllSet: rideChip == null,
       ownRequest,
     }),
-    agendaOwnRideStatusChip(ownRequest),
+    rideChip,
   )
 }
 

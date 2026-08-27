@@ -1,6 +1,9 @@
-import type { CalendarItem } from "@/api/types"
+import type { CalendarItem, CarpoolRide } from "@/api/types"
 import { addDays, startOfLocalDay } from "@/components/agendaDayGroups"
-import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import {
+  pendingCoverageForAdult,
+  remainingCoverageGapKidIds,
+} from "@/components/coverageDisplay"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
@@ -14,6 +17,11 @@ export type WeekGlanceDay = {
   flagged: boolean
 }
 
+/** Resolve this circle's own ride request for an Agenda item (ACCEPTED clears gap chrome). */
+export type WeekGlanceOwnRequestForItem = (
+  item: CalendarItem,
+) => CarpoolRide | null | undefined
+
 function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
@@ -25,13 +33,17 @@ function countCopy(n: number, singular: string, plural: string): string {
 function statusForDay(
   itemsOnDay: CalendarItem[],
   currentAdultId: string,
+  ownRequestForItem?: WeekGlanceOwnRequestForItem,
 ): Pick<WeekGlanceDay, "copy" | "flagged"> {
   if (itemsOnDay.length === 0) {
     return { copy: "No events", flagged: false }
   }
 
   const inPlay = itemsOnDay.filter((item) => !isAgendaItemOutOfPlay(item))
-  const uncovered = inPlay.filter((item) => item.uncoveredKidIds.length > 0)
+  const uncovered = inPlay.filter(
+    (item) =>
+      remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequestForItem?.(item)).length > 0,
+  )
   if (uncovered.length > 0) {
     return {
       copy: countCopy(uncovered.length, "needs coverage", "need coverage"),
@@ -63,11 +75,14 @@ function statusForDay(
 /**
  * Five local days starting today, with one status line each, derived from the
  * already-loaded (kid-filtered) Agenda window. Unparseable `startsAt` is skipped.
+ * Pass `ownRequestForItem` so ACCEPTED own rides clear kids from the coverage
+ * gap the same way Focus / Agenda rows do.
  */
 export function agendaWeekGlanceDays(
   items: CalendarItem[],
   now: Date = new Date(),
   currentAdultId: string = "",
+  ownRequestForItem?: WeekGlanceOwnRequestForItem,
 ): WeekGlanceDay[] {
   const todayStart = startOfLocalDay(now)
   const byDay = new Map<string, CalendarItem[]>()
@@ -89,7 +104,11 @@ export function agendaWeekGlanceDays(
   const days: WeekGlanceDay[] = []
   for (let offset = 0; offset < WEEK_GLANCE_DAY_COUNT; offset++) {
     const date = addDays(todayStart, offset)
-    const { copy, flagged } = statusForDay(byDay.get(localDayKey(date)) ?? [], currentAdultId)
+    const { copy, flagged } = statusForDay(
+      byDay.get(localDayKey(date)) ?? [],
+      currentAdultId,
+      ownRequestForItem,
+    )
     days.push({
       date,
       weekdayLabel: WEEKDAY_LABELS[date.getDay()],
