@@ -141,8 +141,9 @@ describe("AgendaFocusCard header chrome", () => {
     )
     const overlaps = within(screen.getByTestId("agenda-focus-chips")).getByText("Overlaps")
     expect(overlaps).toBeInTheDocument()
-    expect(overlaps.className).not.toMatch(/uppercase/)
-    expect(within(overlaps).getByTestId("agenda-status-pill-dot")).toBeInTheDocument()
+    expect(overlaps.className).toMatch(/uppercase/)
+    expect(overlaps.className).toMatch(/--fc-font-feed-chip-size/)
+    expect(screen.queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(screen.queryByText("Sam overlaps Other")).not.toBeInTheDocument()
   })
 
@@ -213,9 +214,13 @@ describe("AgendaFocusCard hero surface", () => {
     const card = screen.getByTestId("agenda-focus-MANUAL-calm")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
     expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed")).toBeInTheDocument()
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).not.toMatch(
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).toMatch(
       /uppercase/,
     )
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).toMatch(
+      /--fc-font-feed-chip-size/,
+    )
+    expect(screen.queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
     expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Alex")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-covering").className).toMatch(/items-center/)

@@ -96,10 +96,10 @@ tokens.
 | Primitive | Behavior / visual rules |
 |-----------|-------------------------|
 | List row | Title; optional subtitle/meta; optional trailing action; disclosure chevron when the row navigates. Leading glyphs use **semantic icon names** (below). |
-| Grouped section | Section label + stacked rows (Settings-style). Prefer flat grouping over decorative cards. |
+| Grouped section | Section label + stacked rows. Agenda list uses Feeds section-label chrome (`feedSectionLabel*`, all-caps slate) for **NEEDS YOUR ATTENTION** / **REST OF TODAY** / **TOMORROW** / **THIS WEEK** / **LATER** — not sentence-case primary headings. Prefer flat grouping over decorative cards. |
 | Card | Use only when a bordered/raised container is needed for interaction or understanding; default is no card chrome. |
 | Button | Variants: **primary** (`accent` / `accentOn`), **secondary** (bordered / muted surface), **danger** (`danger` / `dangerOn`). |
-| Badge / chip | Compact status or filter label; small type (`caption`); quiet fill or border from tokens. |
+| Badge / chip | Compact status or filter label. **Agenda + Feeds status chips** share `feedChip*` (11/700, pad 4×10), uppercase via CSS, no leading bullet — Title Case pills with a status dot are retired on Agenda (`AgendaStatusChip` tag / `CarpoolFeedStatusChip`). Filter chips may use other roles (`filterChip*`). Quiet fill or border from tone tokens. |
 | Empty state | Short message + optional action; body/secondary text roles. |
 | Modal / sheet | Title, body, dismiss + primary actions; presentation may be dialog (web) vs sheet (mobile). |
 | Nav container | **Allowed to diverge:** bottom tabs (iOS/Android) vs sidebar (web) per `app-shell-navigation`. Icons still use semantic names. |

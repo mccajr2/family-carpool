@@ -1,9 +1,9 @@
 # Spec: agenda-chip-section-headers
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-26  
-Updated: 2026-08-26 (`/spec` — calm Focus floats; omit empty sections)  
+Updated: 2026-08-26 (`/pr`)  
 Added: 2026-08-26 · enhancement  
 Branch: `agenda-chip-section-headers`
 
@@ -140,48 +140,48 @@ Allowlist for `/implement`.
 
 ## Acceptance criteria
 
-- [ ] Focus status chips render **uppercase**, **no leading dot**, using
+- [x] Focus status chips render **uppercase**, **no leading dot**, using
       `feedChip*` typography/padding (WCAG AA on text fills).
-- [ ] Collapsed `AgendaRow` status chips match Focus/Feeds chip language (not
+- [x] Collapsed `AgendaRow` status chips match Focus/Feeds chip language (not
       Title Case pills).
-- [ ] `appearance="pill"` is not used on Focus or Agenda rows; pill dot test id
+- [x] `appearance="pill"` is not used on Focus or Agenda rows; pill dot test id
       absent from those surfaces.
-- [ ] `agendaItemStatusTags` precedence and label semantics unchanged (only
+- [x] `agendaItemStatusTags` precedence and label semantics unchanged (only
       presentation changes).
-- [ ] Agenda list uses section labels **NEEDS YOUR ATTENTION**, **REST OF
+- [x] Agenda list uses section labels **NEEDS YOUR ATTENTION**, **REST OF
       TODAY**, **TOMORROW**, **THIS WEEK**, **LATER** (all caps); empty sections
       omitted; **LATER** not “Upcoming”.
-- [ ] When Focus needs a decision (`focusItemNeedsDecision`), it renders under
+- [x] When Focus needs a decision (`focusItemNeedsDecision`), it renders under
       **NEEDS YOUR ATTENTION** as the hero (Accept/Pass/Confirm/etc. included).
-- [ ] When Focus is calm, it floats above sections with **no** section header
+- [x] When Focus is calm, it floats above sections with **no** section header
       (not under **REST OF TODAY**).
-- [ ] Other **NEEDS YOUR ATTENTION** list rows are today + `agendaItemNeedsAttention`
+- [x] Other **NEEDS YOUR ATTENTION** list rows are today + `agendaItemNeedsAttention`
       only (no Accept/Pass on rows); remaining today list rows under **REST OF TODAY**.
-- [ ] Empty sections are omitted (including no **NEEDS YOUR ATTENTION** when
+- [x] Empty sections are omitted (including no **NEEDS YOUR ATTENTION** when
       Focus is calm and there are no other attention rows).
-- [ ] Focus item is never duplicated as a collapsed list row.
-- [ ] Section headers use Feeds section-label styling (uppercase slate), not
+- [x] Focus item is never duplicated as a collapsed list row.
+- [x] Section headers use Feeds section-label styling (uppercase slate), not
       sentence-case primary headings.
-- [ ] Design docs listed in Approach explicitly supersede Title Case pill
+- [x] Design docs listed in Approach explicitly supersede Title Case pill
       language for Agenda.
-- [ ] Component tests would fail if pills or old section labels return;
+- [x] Component tests would fail if pills or old section labels return;
       `cd web && npm test` (touched suites) + `npm run lint` + `npm run build`
       pass.
 
 ## Tasks
 
-- [ ] Web: align `AgendaStatusChip` tag mode to `feedChip*` tokens; keep hero
+- [x] Web: align `AgendaStatusChip` tag mode to `feedChip*` tokens; keep hero
       tone variants; document pill retirement
-- [ ] Web: switch `AgendaFocusCard` + `AgendaRow` to Feeds-style chips (remove
+- [x] Web: switch `AgendaFocusCard` + `AgendaRow` to Feeds-style chips (remove
       `appearance="pill"`)
-- [ ] Web: add section grouper; decision Focus under **NEEDS YOUR ATTENTION**,
+- [x] Web: add section grouper; decision Focus under **NEEDS YOUR ATTENTION**,
       calm Focus floats above sections; omit empty sections; wire ownRequest /
       ride eligibility for predicates
-- [ ] Web: render section headers with Feeds section-label styling
-- [ ] Tokens: consolidate or alias chip/section roles only if needed (regenerate,
-      WCAG AA)
-- [ ] Docs: update coverage / Focus / full-redesign addenda + `ui-system.md`
-- [ ] Tests: update/add chip + section tests; run web lint, test, build
+- [x] Web: render section headers with Feeds section-label styling
+- [x] Tokens: consolidate or alias chip/section roles only if needed (regenerate,
+      WCAG AA) — not needed; reuse `feedChip*` + `feedSectionLabel*`
+- [x] Docs: update coverage / Focus / full-redesign addenda + `ui-system.md`
+- [x] Tests: update/add chip + section tests; run web lint, test, build
 
 ## Open questions
 

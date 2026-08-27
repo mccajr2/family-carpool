@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem } from "@/api/types"
-import { groupAgendaByDay } from "@/components/agendaDayGroups"
+import type { CalendarItem, CarpoolRide } from "@/api/types"
+import {
+  AGENDA_LIST_SECTION_LABEL,
+  groupAgendaByDay,
+  groupAgendaListSections,
+} from "@/components/agendaDayGroups"
 
-function item(id: string, startsAt: string): CalendarItem {
+function item(
+  id: string,
+  startsAt: string,
+  overrides: Partial<CalendarItem> = {},
+): CalendarItem {
   return {
     id,
     source: "MANUAL",
@@ -24,6 +32,7 @@ function item(id: string, startsAt: string): CalendarItem {
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    ...overrides,
   }
 }
 
@@ -82,5 +91,116 @@ describe("groupAgendaByDay", () => {
     const groups = groupAgendaByDay([item("late", lateTonight)], now)
     expect(groups).toHaveLength(1)
     expect(groups[0].label).toBe("Today")
+  })
+})
+
+describe("groupAgendaListSections", () => {
+  const now = new Date(2026, 7, 15, 12, 0, 0, 0)
+  const adultId = "a1"
+
+  it("splits today attention vs rest of today and uses all-caps labels", () => {
+    const attention = item("gap", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: ["k1"],
+    })
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const tomorrow = item("tomorrow", localIso(2026, 8, 16, 9))
+    const thisWeek = item("week", localIso(2026, 8, 18, 10))
+    const later = item("later", localIso(2026, 8, 25, 10))
+
+    const { floatFocusAbove, sections } = groupAgendaListSections(
+      [attention, calmToday, tomorrow, thisWeek, later],
+      { now, currentAdultId: adultId, focusNeedsDecision: false },
+    )
+
+    expect(floatFocusAbove).toBe(true)
+    expect(sections.map((s) => s.label)).toEqual([
+      AGENDA_LIST_SECTION_LABEL.needsAttention,
+      AGENDA_LIST_SECTION_LABEL.restOfToday,
+      AGENDA_LIST_SECTION_LABEL.tomorrow,
+      AGENDA_LIST_SECTION_LABEL.thisWeek,
+      AGENDA_LIST_SECTION_LABEL.later,
+    ])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["gap"])
+    expect(sections[1].items.map((i) => i.id)).toEqual(["calm"])
+    expect(sections[2].dateLabel).toBe(
+      new Date(2026, 7, 16).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
+    )
+  })
+
+  it("keeps NEEDS YOUR ATTENTION when Focus needs a decision with no other attention rows", () => {
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const { floatFocusAbove, sections } = groupAgendaListSections([calmToday], {
+      now,
+      currentAdultId: adultId,
+      focusNeedsDecision: true,
+    })
+
+    expect(floatFocusAbove).toBe(false)
+    expect(sections.map((s) => s.label)).toEqual([
+      AGENDA_LIST_SECTION_LABEL.needsAttention,
+      AGENDA_LIST_SECTION_LABEL.restOfToday,
+    ])
+    expect(sections[0].items).toEqual([])
+    expect(sections[1].items.map((i) => i.id)).toEqual(["calm"])
+  })
+
+  it("omits NEEDS YOUR ATTENTION when Focus is calm and there are no attention rows", () => {
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const { floatFocusAbove, sections } = groupAgendaListSections([calmToday], {
+      now,
+      currentAdultId: adultId,
+      focusNeedsDecision: false,
+    })
+
+    expect(floatFocusAbove).toBe(true)
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+  })
+
+  it("puts out-of-play today rows under REST OF TODAY, not attention", () => {
+    const skipped = item("skip", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO" }],
+    })
+    const { sections } = groupAgendaListSections([skipped], {
+      now,
+      currentAdultId: adultId,
+      focusNeedsDecision: false,
+    })
+
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["skip"])
+  })
+
+  it("wires ownRequest so covered gap kids leave attention", () => {
+    const gap = item("gap", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: ["k1"],
+    })
+    const ownRequest = {
+      id: "r1",
+      status: "ACCEPTED",
+      kidIds: ["k1"],
+    } as CarpoolRide
+
+    const { sections } = groupAgendaListSections([gap], {
+      now,
+      currentAdultId: adultId,
+      focusNeedsDecision: false,
+      ownRequestFor: () => ownRequest,
+    })
+
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+  })
+
+  it("omits empty day sections", () => {
+    const later = item("later", localIso(2026, 8, 25, 10))
+    const { sections } = groupAgendaListSections([later], {
+      now,
+      currentAdultId: adultId,
+      focusNeedsDecision: false,
+    })
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.later])
   })
 })

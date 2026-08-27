@@ -2,7 +2,11 @@ export type AgendaStatusChipTone = "mint" | "amber" | "route" | "muted"
 
 export type AgendaStatusChipVariant = "default" | "hero"
 
-/** `tag` = uppercase compact chip. `pill` = Title Case + leading dot (Focus + collapsed AgendaRow). */
+/**
+ * `tag` = Feeds-aligned uppercase chip (`feedChip*` tokens). Default for Agenda.
+ * `pill` = Title Case + leading dot — retired for Focus and collapsed AgendaRow
+ * (superseded by Feeds chip language; kept only so callers can migrate off).
+ */
 export type AgendaStatusChipAppearance = "tag" | "pill"
 
 /** Shared tag/chip tones for collapsed AgendaRow tags and Focus header chips. */
@@ -67,8 +71,13 @@ type AgendaStatusChipProps = {
   label: string
   tone: AgendaStatusChipTone
   variant?: AgendaStatusChipVariant
+  /** @deprecated Prefer `tag` (Feeds language). Pill is retired on Agenda surfaces. */
   appearance?: AgendaStatusChipAppearance
 }
+
+/** Feeds-aligned geometry/typography; tone fills stay Agenda-specific (incl. hero). */
+const agendaStatusChipTagClass =
+  "rounded-full px-[var(--fc-space-feed-chip-pad-x)] py-[var(--fc-space-feed-chip-pad-y)] text-[length:var(--fc-font-feed-chip-size)] uppercase leading-[var(--fc-font-feed-chip-line)] font-[number:var(--fc-font-feed-chip-weight)]"
 
 export function AgendaStatusChip({
   label,
@@ -98,9 +107,7 @@ export function AgendaStatusChip({
   }
 
   return (
-    <span
-      className={`rounded-full px-[var(--fc-space-md)] py-[2px] text-[length:var(--fc-font-status-chip-size)] uppercase leading-[var(--fc-font-status-chip-line)] tracking-wide font-[number:var(--fc-font-status-chip-weight)] ${toneClass}`}
-    >
+    <span className={`${agendaStatusChipTagClass} ${toneClass}`}>
       {label}
     </span>
   )

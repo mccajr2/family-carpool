@@ -241,7 +241,6 @@ export function AgendaFocusCard({
                   label={chip.label}
                   tone={chip.tone}
                   variant={needsDecision ? "hero" : "default"}
-                  appearance="pill"
                 />
               ))}
             </div>
