@@ -30,7 +30,7 @@ them.
 - Focus selection / ranking rules or carpool ride CTAs (Accept/Pass/Request/
   Cancel/Withdraw)
 - Ride who/where/kids/seats density —
-  [`agenda-carpool-state-clarity`](../planned/agenda-carpool-state-clarity.md)
+  [`agenda-carpool-state-clarity`](../active/agenda-carpool-state-clarity.md)
 - Rider initials circles —
   [`agenda-ride-rider-chips`](../planned/agenda-ride-rider-chips.md)
 - Kid-filter chip restyle (already mock-aligned via `AgendaKidFilterChip`)

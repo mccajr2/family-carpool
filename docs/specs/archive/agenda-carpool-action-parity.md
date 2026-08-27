@@ -23,7 +23,7 @@ tab for soft decline.
 - Full Accept / Pass action clone on expanded Agenda rows (rows keep
   Request / Cancel only for own-request flows)
 - Who / where / kids / seats copy density —
-  [`agenda-carpool-state-clarity`](../planned/agenda-carpool-state-clarity.md)
+  [`agenda-carpool-state-clarity`](../active/agenda-carpool-state-clarity.md)
 - Accept-after-Pass behavior or un-pass —
   already done in
   [`carpool-pass-reconsider`](../archive/carpool-pass-reconsider.md); do not
@@ -137,4 +137,4 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 - None blocking. Minimal accepted-by-us line on the expanded row is only enough
   to host Withdraw — density polish is
-  [`agenda-carpool-state-clarity`](../planned/agenda-carpool-state-clarity.md).
+  [`agenda-carpool-state-clarity`](../active/agenda-carpool-state-clarity.md).

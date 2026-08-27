@@ -22,7 +22,7 @@ cannot tell who actively declined vs who has not engaged.
   [`agenda-carpool-action-parity`](../archive/agenda-carpool-action-parity.md)
 - Chip / section chrome, Focus Request CTA density, incoming who/where polish —
   [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md),
-  [`agenda-carpool-state-clarity`](../planned/agenda-carpool-state-clarity.md),
+  [`agenda-carpool-state-clarity`](../active/agenda-carpool-state-clarity.md),
   [`agenda-chip-section-headers`](../planned/agenda-chip-section-headers.md)
 - Push / in-app inbox / emergency **nudge** when coverage is still missing
   (leave the door open; `push-notifications` and later product work)
