@@ -88,6 +88,24 @@ export function eligibleVehiclesForAccept(options: {
   })
 }
 
+/** Teammate ask this circle accepted (Withdraw target) — not our own request. */
+export function isAcceptedByCircle(request: CarpoolRide, circleId: string): boolean {
+  return request.status === "ACCEPTED" && request.acceptingCircleId === circleId
+}
+
+/** First other-circle ride on the event that this circle accepted. */
+export function acceptedByUsRequest(
+  rideEvent: CarpoolRideEvent | null | undefined,
+  circleId: string,
+): CarpoolRide | null {
+  if (rideEvent == null || !circleId) {
+    return null
+  }
+  return (
+    rideEvent.otherRequests.find((request) => isAcceptedByCircle(request, circleId)) ?? null
+  )
+}
+
 /**
  * First other-circle PENDING ask this adult can Accept for Focus ranking/CTAs
  * (skips passedByMe soft declines; has an eligible vehicle). Own PENDING/

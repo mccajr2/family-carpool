@@ -1,10 +1,15 @@
 import type { CalendarItem } from "@/api/types"
-import { agendaWeekGlanceDays } from "@/components/agendaWeekGlanceDays"
+import {
+  agendaWeekGlanceDays,
+  type WeekGlanceOwnRequestForItem,
+} from "@/components/agendaWeekGlanceDays"
 
 type AgendaWeekGlanceProps = {
   items: CalendarItem[]
   currentAdultId: string
   now?: Date
+  /** When set, ACCEPTED own rides clear kids from the day coverage rollup. */
+  ownRequestForItem?: WeekGlanceOwnRequestForItem
 }
 
 const titleClass =
@@ -30,8 +35,9 @@ export function AgendaWeekGlance({
   items,
   currentAdultId,
   now = new Date(),
+  ownRequestForItem,
 }: AgendaWeekGlanceProps) {
-  const days = agendaWeekGlanceDays(items, now, currentAdultId)
+  const days = agendaWeekGlanceDays(items, now, currentAdultId, ownRequestForItem)
 
   return (
     <div className="flex flex-col gap-[var(--fc-space-lg)]">

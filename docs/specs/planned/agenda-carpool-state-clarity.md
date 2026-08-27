@@ -22,7 +22,7 @@ without knowing who or where — every shown ride state needs decision-critical
 ## Non-goals (sketch)
 
 - Cancel / Withdraw / Pass wiring —
-  [`agenda-carpool-action-parity`](agenda-carpool-action-parity.md)
+  [`agenda-carpool-action-parity`](../archive/agenda-carpool-action-parity.md)
 - Rider initials circles —
   [`agenda-ride-rider-chips`](agenda-ride-rider-chips.md)
 - Restoring full RSVP / leave-from / conflict-detail bands on Focus

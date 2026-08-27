@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem } from "@/api/types"
+import type { CalendarItem, CarpoolRide } from "@/api/types"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
 import { agendaWeekGlanceDays } from "@/components/agendaWeekGlanceDays"
 
@@ -64,6 +64,30 @@ function pendingFor(coveringAdultId: string) {
     assignedByAdultId: "other",
     kidIds: ["k1"],
     status: "PENDING" as const,
+  }
+}
+
+function acceptedOwnRide(kidIds: string[]): CarpoolRide {
+  return {
+    id: "r1",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    requestingCircleId: "c1",
+    requestingCircleName: "Ours",
+    requestedByAdultId: adultId,
+    kidIds,
+    kidFirstNames: kidIds.map((id) => id),
+    seats: kidIds.length,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "ACCEPTED",
+    passedByMe: false,
+    passedByAdultNames: [],
+    acceptedByAdultId: "a2",
+    acceptingCircleId: "c2",
+    acceptingCircleName: "Sharks Family",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
   }
 }
 
@@ -291,5 +315,61 @@ describe("agendaWeekGlanceDays", () => {
       expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
     )
     expect(days[1]).toEqual(expect.objectContaining({ copy: "No events", flagged: false }))
+  })
+
+  it("treats ACCEPTED own rides as clearing coverage gap kids (same as Focus/rows)", () => {
+    const coveredA = item({
+      id: "a",
+      startsAt: localIso(2026, 8, 12, 16),
+      uncoveredKidIds: ["k1"],
+    })
+    const coveredB = item({
+      id: "b",
+      startsAt: localIso(2026, 8, 12, 18),
+      uncoveredKidIds: ["k1"],
+    })
+    const ownById = new Map<string, CarpoolRide>([
+      ["a", acceptedOwnRide(["k1"])],
+      ["b", acceptedOwnRide(["k1"])],
+    ])
+    const cleared = agendaWeekGlanceDays(
+      [coveredA, coveredB],
+      now,
+      adultId,
+      (calendarItem) => ownById.get(calendarItem.id) ?? null,
+    )
+    expect(cleared[0]).toEqual(expect.objectContaining({ copy: "All set", flagged: false }))
+
+    const pendingRide: CarpoolRide = { ...acceptedOwnRide(["k1"]), status: "PENDING" }
+    const stillOpen = agendaWeekGlanceDays(
+      [coveredA],
+      now,
+      adultId,
+      () => pendingRide,
+    )
+    expect(stillOpen[0]).toEqual(
+      expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
+    )
+
+    const partial = agendaWeekGlanceDays(
+      [
+        item({
+          id: "partial",
+          startsAt: localIso(2026, 8, 12, 16),
+          kidIds: ["k1", "k2"],
+          uncoveredKidIds: ["k1", "k2"],
+          rsvps: [
+            { kidId: "k1", status: "YES" },
+            { kidId: "k2", status: "YES" },
+          ],
+        }),
+      ],
+      now,
+      adultId,
+      () => acceptedOwnRide(["k1"]),
+    )
+    expect(partial[0]).toEqual(
+      expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
+    )
   })
 })

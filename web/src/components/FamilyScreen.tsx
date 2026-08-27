@@ -1269,6 +1269,28 @@ export function FamilyScreen({
     }
   }
 
+  async function onWithdrawAgendaRide(item: CalendarItem, rideId: string) {
+    if (item.feedId == null || calendarCarpoolSummary == null) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.withdrawRide(token, spaceId, rideId)
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onAddFeed() {
     setStatus({ kind: "loading" })
     try {
@@ -2588,6 +2610,8 @@ export function FamilyScreen({
                   onCreateRide={(eventKey, kidIds) =>
                     void onCreateAgendaRide(focusItem, eventKey, kidIds)
                   }
+                  onCancelRide={(rideId) => void onCancelAgendaRide(focusItem, rideId)}
+                  onWithdrawRide={(rideId) => void onWithdrawAgendaRide(focusItem, rideId)}
                   onOpenPlaces={() => setDestination("places")}
                   onEdit={() => openEditEvent(focusItem)}
                 />
@@ -2648,6 +2672,7 @@ export function FamilyScreen({
                               void onCreateAgendaRide(item, eventKey, kidIds)
                             }
                             onCancelRide={(rideId) => void onCancelAgendaRide(item, rideId)}
+                            onWithdrawRide={(rideId) => void onWithdrawAgendaRide(item, rideId)}
                             onUpdateAssignDraft={(patch) =>
                               updateAssignCoverageDraft(itemKey, patch)
                             }
@@ -3197,7 +3222,13 @@ export function FamilyScreen({
           aria-label="Context"
           className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] px-[var(--fc-space-week-glance-pad-x)] py-[var(--fc-space-main-y)]"
         >
-          <AgendaWeekGlance items={visibleCalendarItems} currentAdultId={adult?.id ?? ""} />
+          <AgendaWeekGlance
+            items={visibleCalendarItems}
+            currentAdultId={adult?.id ?? ""}
+            ownRequestForItem={(item) =>
+              calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null
+            }
+          />
         </aside>
       ) : null}
     </div>

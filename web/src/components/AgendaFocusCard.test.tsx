@@ -604,6 +604,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
     })
@@ -656,6 +657,231 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
       backgroundColor: "var(--fc-hero-surface)",
     })
+  })
+})
+
+describe("AgendaFocusCard Cancel CTA", () => {
+  const ownPending = {
+    id: "own-ride",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    requestingCircleId: "c1",
+    requestingCircleName: "Ours",
+    requestedByAdultId: "a1",
+    kidIds: ["k1"],
+    kidFirstNames: ["Maya"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "PENDING" as const,
+    passedByMe: false,
+    passedByAdultNames: [],
+    acceptedByAdultId: null,
+    acceptingCircleId: null,
+    acceptingCircleName: null,
+    vehicleId: null,
+    vehicleLabel: null,
+  }
+
+  const ownRideEvent = {
+    eventKey: "UID:practice",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequest: ownPending,
+    otherRequests: [],
+  }
+
+  it("shows outline Cancel for own PENDING and calls onCancelRide", async () => {
+    const user = userEvent.setup()
+    const onCancelRide = vi.fn()
+    renderCard(item({ id: "cancel-pending", title: "Practice" }), {
+      rideEvent: ownRideEvent,
+      onCancelRide,
+    })
+    const cancel = screen.getByRole("button", { name: "Cancel" })
+    expect(cancel).toBeInTheDocument()
+    expect(cancel.className).toMatch(/outline|border/)
+    expect(screen.getByTestId("agenda-focus-MANUAL-cancel-pending")).toHaveStyle({
+      backgroundColor: "var(--fc-surface-raised)",
+    })
+    await user.click(cancel)
+    expect(onCancelRide).toHaveBeenCalledWith("own-ride")
+  })
+
+  it("shows outline Cancel for own ACCEPTED and calls onCancelRide", async () => {
+    const user = userEvent.setup()
+    const onCancelRide = vi.fn()
+    renderCard(item({ id: "cancel-accepted", title: "Practice" }), {
+      rideEvent: {
+        ...ownRideEvent,
+        ownRequest: {
+          ...ownPending,
+          status: "ACCEPTED",
+          acceptedByAdultId: "a2",
+          acceptingCircleId: "c2",
+          acceptingCircleName: "Sharks Family",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+        },
+      },
+      onCancelRide,
+    })
+    const cancel = screen.getByRole("button", { name: "Cancel" })
+    expect(cancel).toBeInTheDocument()
+    await user.click(cancel)
+    expect(onCancelRide).toHaveBeenCalledWith("own-ride")
+  })
+
+  it("keeps Cancel outline beside Assign when own PENDING still has a coverage gap", () => {
+    renderCard(
+      item({
+        id: "cancel-with-assign",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: ownRideEvent,
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true },
+        onAssignCoverage: vi.fn(),
+        onCancelRide: vi.fn(),
+      },
+    )
+    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
+  })
+})
+
+describe("AgendaFocusCard Withdraw CTA", () => {
+  const acceptedByUsAsk = {
+    id: "accepted-ask",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidIds: ["k2"],
+    kidFirstNames: ["Mia"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    status: "ACCEPTED" as const,
+    passedByMe: false,
+    passedByAdultNames: [],
+    acceptedByAdultId: "a1",
+    acceptingCircleId: "c1",
+    acceptingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+  }
+
+  const garage = {
+    members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+    vehicles: [
+      {
+        id: "v1",
+        ownerAdultId: "a1",
+        driverAdultIds: ["a1"],
+        keptAtPlaceId: null,
+        label: "Van",
+        year: 2019,
+        make: "Honda",
+        model: "Odyssey",
+        seats: 8,
+        suggestedSeats: 8,
+      },
+    ],
+  }
+
+  it("shows outline Withdraw when this circle accepted a teammate ask", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    renderCard(item({ id: "withdraw-focus", title: "Practice" }), {
+      rideEvent: {
+        eventKey: "UID:practice",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: [],
+        ownRequest: null,
+        otherRequests: [acceptedByUsAsk],
+      },
+      onWithdrawRide,
+    })
+    const withdraw = screen.getByRole("button", { name: "Withdraw" })
+    expect(withdraw).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-MANUAL-withdraw-focus")).toHaveStyle({
+      backgroundColor: "var(--fc-surface-raised)",
+    })
+    await user.click(withdraw)
+    expect(onWithdrawRide).toHaveBeenCalledWith("accepted-ask")
+  })
+
+  it("does not show Withdraw for an ACCEPTED ask accepted by another circle", () => {
+    renderCard(item({ id: "other-accepted", title: "Practice" }), {
+      rideEvent: {
+        eventKey: "UID:practice",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: [],
+        ownRequest: null,
+        otherRequests: [{ ...acceptedByUsAsk, acceptingCircleId: "c9", acceptingCircleName: "Them" }],
+      },
+      onWithdrawRide: vi.fn(),
+    })
+    expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
+  })
+
+  it("keeps Accept/Pass primary when another pending ask is eligible alongside accepted-by-us", () => {
+    renderCard(item({ id: "withdraw-with-accept", title: "Practice" }), {
+      rideEvent: {
+        eventKey: "UID:practice",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: [],
+        ownRequest: null,
+        otherRequests: [
+          acceptedByUsAsk,
+          {
+            ...acceptedByUsAsk,
+            id: "pending-ask",
+            status: "PENDING",
+            acceptedByAdultId: null,
+            acceptingCircleId: null,
+            acceptingCircleName: null,
+            vehicleId: null,
+            vehicleLabel: null,
+          },
+        ],
+      },
+      garage: {
+        members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+        vehicles: [
+          ...garage.vehicles,
+          {
+            id: "v2",
+            ownerAdultId: "a1",
+            driverAdultIds: ["a1"],
+            keptAtPlaceId: null,
+            label: "SUV",
+            year: 2021,
+            make: "Toyota",
+            model: "Highlander",
+            seats: 7,
+            suggestedSeats: 7,
+          },
+        ],
+      },
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+      onWithdrawRide: vi.fn(),
+    })
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Withdraw" })).toBeInTheDocument()
   })
 })
 
@@ -752,9 +978,19 @@ describe("AgendaFocusCard Request CTA", () => {
     expect(
       within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).queryByText("All set"),
+    ).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-accepted-clears-gap")).toHaveStyle({
       backgroundColor: "var(--fc-surface-raised)",
     })
+  })
+
+  it("keeps Focus-only All set when there is no own-ride chip", () => {
+    renderCard(item({ id: "all-set-calm", title: "Practice", uncoveredKidIds: [] }))
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).getByText("All set"),
+    ).toBeInTheDocument()
   })
 
   it("keeps Assign when some uncovered kids remain after an ACCEPTED ride", () => {
