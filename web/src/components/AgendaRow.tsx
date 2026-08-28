@@ -10,11 +10,10 @@ import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import {
   acceptedByUsRequest,
+  acceptedByUsRideDetailLine,
   agendaOwnRideStatusChip,
-  circleDisplayName,
   kidDisplayName,
-  ownRideStatusLine,
-  rideSeatsLabel,
+  ownRideDetailLine,
 } from "@/components/carpoolDisplay"
 import {
   isAgendaItemOutOfPlay,
@@ -459,12 +458,11 @@ export function AgendaRow({
               <span className="text-xs text-[var(--fc-text-secondary)]">Carpool</span>
               {rideEvent.ownRequest != null ? (
                 <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
-                  <span className="text-sm text-[var(--fc-text-secondary)]">
-                    {ownRideStatusLine(rideEvent.ownRequest)}
-                    {" · "}
-                    {rideEvent.ownRequest.kidFirstNames.join(", ")}
-                    {" · "}
-                    {rideSeatsLabel(rideEvent.ownRequest.seats)}
+                  <span
+                    data-testid="agenda-row-own-ride"
+                    className="text-sm text-[var(--fc-text-secondary)]"
+                  >
+                    {ownRideDetailLine(rideEvent.ownRequest)}
                   </span>
                   {onCancelRide != null ? (
                     <Button
@@ -532,8 +530,7 @@ export function AgendaRow({
                   className="flex items-center justify-between gap-[var(--fc-space-md)]"
                 >
                   <span className="text-sm text-[var(--fc-text-secondary)]">
-                    Accepted · {circleDisplayName(acceptedByUs.requestingCircleName)} ·{" "}
-                    {acceptedByUs.kidFirstNames.join(", ")}
+                    {acceptedByUsRideDetailLine(acceptedByUs)}
                   </span>
                   {onWithdrawRide != null ? (
                     <Button

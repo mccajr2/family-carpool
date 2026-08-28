@@ -537,7 +537,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
-      "House B · Mia · Home, 1 Main",
+      "House B · Mia · 1 seat · Home, 1 Main",
     )
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
@@ -705,6 +705,10 @@ describe("AgendaFocusCard Cancel CTA", () => {
       rideEvent: ownRideEvent,
       onCancelRide,
     })
+    expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
+      "Requested · Maya · 1 seat · Home, 1 Main",
+    )
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Requested")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     expect(cancel.className).toMatch(/outline|border/)
@@ -733,6 +737,12 @@ describe("AgendaFocusCard Cancel CTA", () => {
       },
       onCancelRide,
     })
+    expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
+      "Riding with Sharks Family · Maya · 1 seat · Home, 1 Main",
+    )
+    expect(
+      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
+    ).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     await user.click(cancel)
@@ -814,6 +824,9 @@ describe("AgendaFocusCard Withdraw CTA", () => {
       },
       onWithdrawRide,
     })
+    expect(screen.getByTestId("agenda-focus-accepted-by-us")).toHaveTextContent(
+      "House B · Mia · 1 seat · Home, 1 Main",
+    )
     const withdraw = screen.getByRole("button", { name: "Withdraw" })
     expect(withdraw).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-withdraw-focus")).toHaveStyle({

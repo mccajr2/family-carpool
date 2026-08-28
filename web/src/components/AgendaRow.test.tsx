@@ -397,6 +397,9 @@ describe("AgendaRow", () => {
       />,
     )
     expect(within(row).getByText("Requested")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
+      "Requested · Sam · 1 seat · Home, 1 Main",
+    )
     await user.click(within(row).getByRole("button", { name: "Cancel" }))
     expect(onCancelRide).toHaveBeenCalledWith("ride-1")
 
@@ -420,7 +423,9 @@ describe("AgendaRow", () => {
       />,
     )
     expect(within(row).getByText(/Passed by Sam/)).toBeInTheDocument()
-    expect(within(row).getByTestId("agenda-band-carpool")).toHaveTextContent(/Passed by Sam/)
+    expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
+      "Passed by Sam · Sam · 1 seat · Home, 1 Main",
+    )
     expect(within(row).getByTestId("agenda-band-carpool")).not.toHaveTextContent("Requested")
 
     rerender(
@@ -444,6 +449,9 @@ describe("AgendaRow", () => {
       />,
     )
     expect(within(row).getByText("Riding with House B")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
+      "Riding with House B · Sam · 1 seat · Home, 1 Main",
+    )
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
   })
 
@@ -697,7 +705,7 @@ describe("AgendaRow", () => {
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
   })
 
-  it("shows minimal accepted-by-us status and Withdraw when expanded", async () => {
+  it("shows accepted-by-us ride density and Withdraw when expanded", async () => {
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()
     const feedItem = item({
@@ -758,7 +766,7 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByRole("button", { expanded: false }))
     const band = within(row).getByTestId("agenda-band-carpool")
     expect(within(band).getByTestId("agenda-row-accepted-by-us")).toHaveTextContent(
-      "Accepted · House B · Mia",
+      "House B · Mia · 1 seat · Home, 1 Main",
     )
     expect(within(band).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(within(band).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()

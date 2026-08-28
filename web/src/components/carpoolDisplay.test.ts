@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
 import {
   acceptedByUsRequest,
+  acceptedByUsRideDetailLine,
   callerDrives,
   carpoolFeedStatusLabel,
   circleDisplayName,
@@ -13,8 +14,10 @@ import {
   isAcceptedByCircle,
   kidDisplayName,
   incomingRideAskSummary,
+  ownRideDetailLine,
   ownRideStatusLine,
   ownYesKidCount,
+  rideKidsSeatsPickup,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
 
@@ -77,27 +80,92 @@ describe("carpoolDisplay", () => {
     )
   })
 
-  it("summarizes an incoming ask for Focus Accept/Pass", () => {
+  it("formats kids · seats · pickup for shared ride detail tails", () => {
+    expect(
+      rideKidsSeatsPickup(
+        ride({
+          kidFirstNames: ["Mia", "Leo"],
+          seats: 2,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main St",
+        }),
+      ),
+    ).toBe("Mia, Leo · 2 seats · Home, 1 Main St")
+  })
+
+  it("summarizes an incoming ask with seats for Focus Accept/Pass", () => {
     expect(
       incomingRideAskSummary(
         ride({
           requestingCircleName: "House B",
           kidFirstNames: ["Mia", "Leo"],
+          seats: 2,
           pickupPlaceName: "Home",
           pickupAddress: "1 Main St",
         }),
       ),
-    ).toBe("House B · Mia, Leo · Home, 1 Main St")
+    ).toBe("House B · Mia, Leo · 2 seats · Home, 1 Main St")
     expect(
       incomingRideAskSummary(
         ride({
           requestingCircleName: "  ",
           kidFirstNames: ["Mia"],
+          seats: 1,
           pickupPlaceName: "School",
           pickupAddress: "2 Oak",
         }),
       ),
-    ).toBe("Your family · Mia · School, 2 Oak")
+    ).toBe("Your family · Mia · 1 seat · School, 2 Oak")
+  })
+
+  it("builds own and accepted-by-us ride detail lines with Calendar field density", () => {
+    expect(
+      ownRideDetailLine(
+        ride({
+          status: "PENDING",
+          kidFirstNames: ["Maya"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+        }),
+      ),
+    ).toBe("Requested · Maya · 1 seat · Home, 1 Main")
+    expect(
+      ownRideDetailLine(
+        ride({
+          status: "ACCEPTED",
+          acceptingCircleName: "House B",
+          kidFirstNames: ["Maya"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+        }),
+      ),
+    ).toBe("Riding with House B · Maya · 1 seat · Home, 1 Main")
+    expect(
+      ownRideDetailLine(
+        ride({
+          status: "ACCEPTED",
+          acceptingCircleName: "House B",
+          kidFirstNames: ["Maya"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+        }),
+        "Accepted by House B",
+      ),
+    ).toBe("Accepted by House B · Maya · 1 seat · Home, 1 Main")
+    expect(
+      acceptedByUsRideDetailLine(
+        ride({
+          requestingCircleName: "House B",
+          kidFirstNames: ["Mia"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+        }),
+      ),
+    ).toBe("House B · Mia · 1 seat · Home, 1 Main")
   })
 
   it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {
