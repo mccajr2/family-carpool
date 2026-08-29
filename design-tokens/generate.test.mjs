@@ -277,7 +277,7 @@ test("agenda-coverage-web-contract records Week at a glance copy", () => {
     "utf8",
   )
   assert.match(contract, /^## Week at a glance$/m)
-  assert.match(contract, /today \+ the next four local days/)
+  assert.match(contract, /today \+ the next six local days/)
   assert.match(contract, /1 needs coverage/)
   assert.match(contract, /\{n\} need coverage/)
   assert.match(contract, /1 overlaps/)

@@ -10,6 +10,7 @@ import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
 import {
+  advanceCalendarWindow,
   defaultCalendarWindow,
   formatLocalTodayLabel,
   nearTermLeaveByWindow,
@@ -18,6 +19,9 @@ import {
 import { LEAVE_BY_PENDING_LABEL } from "@/components/leaveByDisplay"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import { FamilyScreen } from "@/components/FamilyScreen"
+
+/** Fixed "today" for 2030-dated calendar fixtures in this file. */
+const AGENDA_TEST_NOW = new Date("2030-08-14T12:00:00.000Z")
 
 function heroCarouselIn(agenda: HTMLElement) {
   return within(agenda).getByTestId("hero-attention-carousel")
@@ -196,6 +200,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         authClient={mockAuthClient({ getMe, logout })}
         familyClient={mockFamilyClient({
@@ -280,6 +285,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         authClient={mockAuthClient({ getMe })}
         familyClient={mockFamilyClient({
@@ -344,6 +350,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -418,7 +425,7 @@ describe("FamilyScreen", () => {
       kids: [],
       places: [],
     })
-    const window = defaultCalendarWindow()
+    const window = defaultCalendarWindow(AGENDA_TEST_NOW)
     const bootstrap = new FamilyBootstrapStore()
     bootstrap.save({
       adultId: "1",
@@ -449,6 +456,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         bootstrapCacheStore={bootstrap}
@@ -482,6 +490,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -529,6 +538,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -616,6 +626,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -709,6 +720,7 @@ describe("FamilyScreen", () => {
     const updateEvent = vi.fn()
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -786,6 +798,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -879,6 +892,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -961,6 +975,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -994,6 +1009,186 @@ describe("FamilyScreen", () => {
     expect(secondCall[1]).toBe(listCalendar.mock.calls[0][2])
   })
 
+  it("keeps Load more rows when now is omitted (AuthScreen path)", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const anchor = new Date()
+    anchor.setHours(12, 0, 0, 0)
+    const nearStart = new Date(anchor)
+    nearStart.setDate(nearStart.getDate() + 1)
+    const laterStart = new Date(anchor)
+    laterStart.setDate(laterStart.getDate() + 40)
+
+    const listCalendar = vi
+      .fn()
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: nearStart.toISOString(),
+          kidIds: ["k1"],
+        }),
+      ])
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: laterStart.toISOString(),
+          kidIds: ["k1"],
+        }),
+      ])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Near")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId("agenda-revalidating")).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: "Load more" }))
+    expect(await within(agenda).findByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+      expect(screen.queryByTestId("agenda-revalidating")).not.toBeInTheDocument()
+    })
+    expect(listCalendar).toHaveBeenCalledTimes(2)
+  })
+
+  it("restores an extended cached agenda window after reload", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const initialWindow = defaultCalendarWindow(AGENDA_TEST_NOW)
+    const extendedTo = advanceCalendarWindow(initialWindow.to).to
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "CAREGIVER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "CAREGIVER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: null,
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: initialWindow.from,
+      to: extendedTo,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+        calendarItem({
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: "2030-09-20T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+
+    const listCalendar = vi.fn().mockResolvedValue([
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Near",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+      calendarItem({
+        id: "e2",
+        source: "MANUAL",
+        title: "Later",
+        startsAt: "2030-09-20T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+    ])
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendar).toHaveBeenCalled()
+      const [, from, to] = listCalendar.mock.calls[0]!
+      expect(from).toBe(initialWindow.from)
+      expect(to).toBe(extendedTo)
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    })
+  })
+
   it("hides empty agenda copy while Load more is in flight", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
@@ -1016,6 +1211,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1046,11 +1242,11 @@ describe("FamilyScreen", () => {
 
     await user.click(screen.getByRole("button", { name: "Load more" }))
     await waitFor(() => {
-      expect(
-        within(agenda).queryByText("No events in the loaded window."),
-      ).not.toBeInTheDocument()
       expect(screen.getByRole("button", { name: /Loading/ })).toBeInTheDocument()
     })
+    expect(
+      within(agenda).getByText("No events in the loaded window."),
+    ).toBeInTheDocument()
 
     finishLoadMore()
     expect(
@@ -1070,6 +1266,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1162,6 +1359,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1212,7 +1410,9 @@ describe("FamilyScreen", () => {
       .spyOn(FamilyClient.prototype, "getCircle")
       .mockResolvedValue(null)
 
-    render(<FamilyScreen session={session} onSignedOut={vi.fn()} />)
+    render(
+      <FamilyScreen now={AGENDA_TEST_NOW} session={session} onSignedOut={vi.fn()} />,
+    )
 
     expect(await screen.findByRole("button", { name: "Create family" })).toBeInTheDocument()
     await waitFor(() => {
@@ -1256,6 +1456,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1346,6 +1547,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1408,6 +1610,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1510,6 +1713,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1579,7 +1783,7 @@ describe("FamilyScreen", () => {
       id: "e1",
       source: "FEED",
       title: "Practice",
-      startsAt: "2026-08-20T16:00:00Z",
+      startsAt: "2030-08-20T16:00:00Z",
       kidIds: [],
       feedId: "f1",
       feedName: "Soccer",
@@ -1626,6 +1830,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1729,6 +1934,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1768,7 +1974,7 @@ describe("FamilyScreen", () => {
     const to = listRides.mock.calls[0]?.[3] as string
     expect(
       (new Date(to).getTime() - new Date(from).getTime()) / (24 * 60 * 60 * 1000),
-    ).toBe(30)
+    ).toBe(14)
 
     const agenda = await screen.findByLabelText("Agenda")
     const row = within(agenda).getByTestId("agenda-item-FEED-e-feed")
@@ -1860,6 +2066,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1944,6 +2151,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -1994,6 +2202,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         authClient={mockAuthClient({ logout })}
         familyClient={mockFamilyClient({
@@ -2102,6 +2311,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -2159,7 +2369,7 @@ describe("FamilyScreen", () => {
     expect(
       within(context).getByRole("heading", { name: "Week at a glance" }),
     ).toBeInTheDocument()
-    expect(within(context).getAllByRole("listitem")).toHaveLength(5)
+    expect(within(context).getAllByRole("listitem")).toHaveLength(7)
     expect(screen.queryByText(/open in maps/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/need drivers/i)).not.toBeInTheDocument()
 
@@ -2199,6 +2409,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -2297,6 +2508,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle,
@@ -2327,6 +2539,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockReturnValue(new Promise(() => {})),
@@ -2356,6 +2569,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         authClient={mockAuthClient({ logout })}
         familyClient={mockFamilyClient({
@@ -2429,6 +2643,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -2515,6 +2730,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -2611,6 +2827,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue({
@@ -2711,6 +2928,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -2764,6 +2982,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -2861,6 +3080,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -2968,6 +3188,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3019,8 +3240,93 @@ describe("FamilyScreen", () => {
         kidIds: ["k2"],
       })
     })
-    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    await waitFor(() => {
+      expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(1)
+    })
     expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(carousel).queryByText("Riley needs a ride")).not.toBeInTheDocument()
+  })
+
+  it("shows All caught up when the last carousel item is resolved", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const gapSam = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Sam practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...gapSam,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([gapSam]),
+          assignCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(heroCarouselIn(agenda)).getByTestId("hero-attention-slide")).toBeInTheDocument()
+
+    await user.click(
+      within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }),
+    )
+
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
+    })
+    expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    expect(within(agenda).getByText("Nothing needs you right now")).toBeInTheDocument()
+    expect(
+      within(agenda).getByText(
+        /Every ride this week is either covered or waiting on someone else/,
+      ),
+    ).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("hero-attention-slide")).not.toBeInTheDocument()
   })
 
   it("separates agenda items with a clear vertical buffer", async () => {
@@ -3033,6 +3339,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3057,14 +3364,14 @@ describe("FamilyScreen", () => {
               id: "e1",
               source: "MANUAL",
               title: "Practice",
-              startsAt: "2030-08-15T17:00:00.000Z",
+              startsAt: "2030-08-25T17:00:00.000Z",
               kidIds: ["k1"],
             }),
             calendarItem({
               id: "e2",
               source: "MANUAL",
               title: "Game",
-              startsAt: "2030-08-16T17:00:00.000Z",
+              startsAt: "2030-08-26T17:00:00.000Z",
               kidIds: ["k1"],
             }),
           ]),
@@ -3116,7 +3423,7 @@ describe("FamilyScreen", () => {
       displayName: "Alex",
     })
 
-    const todayStart = new Date()
+    const todayStart = new Date(AGENDA_TEST_NOW)
     todayStart.setHours(0, 0, 0, 0)
     const todayAfternoon = new Date(todayStart)
     todayAfternoon.setHours(15, 0, 0, 0)
@@ -3128,6 +3435,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3200,6 +3508,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3282,6 +3591,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3391,6 +3701,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3474,6 +3785,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3555,6 +3867,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3638,6 +3951,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3740,6 +4054,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3822,6 +4137,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3897,6 +4213,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -3981,6 +4298,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4062,6 +4380,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4112,6 +4431,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4200,6 +4520,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4252,6 +4573,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4356,6 +4678,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4442,6 +4765,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4500,7 +4824,7 @@ describe("FamilyScreen", () => {
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const window = defaultCalendarWindow()
+    const window = defaultCalendarWindow(AGENDA_TEST_NOW)
     const circle = circleFixture({
       id: "c1",
       name: "House",
@@ -4560,6 +4884,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         bootstrapCacheStore={bootstrap}
@@ -4607,7 +4932,7 @@ describe("FamilyScreen", () => {
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const window = defaultCalendarWindow()
+    const window = defaultCalendarWindow(AGENDA_TEST_NOW)
     const circle = circleFixture({
       id: "c1",
       name: "House",
@@ -4652,6 +4977,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         bootstrapCacheStore={bootstrap}
@@ -4703,6 +5029,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         authClient={mockAuthClient({ logout })}
@@ -4804,6 +5131,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4868,6 +5196,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -4955,9 +5284,9 @@ describe("FamilyScreen", () => {
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const loaded = defaultCalendarWindow()
-    const near = nearTermLeaveByWindow(loaded.from, loaded.to)!
-    const rest = remainderAfterNearTermLeaveByWindow(loaded.from, loaded.to)!
+    const loaded = defaultCalendarWindow(AGENDA_TEST_NOW)
+    const near = nearTermLeaveByWindow(loaded.from, loaded.to, AGENDA_TEST_NOW)!
+    const rest = remainderAfterNearTermLeaveByWindow(loaded.from, loaded.to, AGENDA_TEST_NOW)!
     let releaseNear!: (rows: unknown[]) => void
     const listCalendarLeaveBy = vi
       .fn()
@@ -4971,6 +5300,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5029,7 +5359,7 @@ describe("FamilyScreen", () => {
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const window = defaultCalendarWindow()
+    const window = defaultCalendarWindow(AGENDA_TEST_NOW)
     const circle = circleFixture({
       id: "c1",
       name: "House",
@@ -5086,6 +5416,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         bootstrapCacheStore={bootstrap}
@@ -5144,7 +5475,7 @@ describe("FamilyScreen", () => {
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const window = defaultCalendarWindow()
+    const window = defaultCalendarWindow(AGENDA_TEST_NOW)
     const circle = circleFixture({
       id: "c1",
       name: "House",
@@ -5197,6 +5528,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         calendarCacheStore={cache}
         bootstrapCacheStore={bootstrap}
@@ -5237,6 +5569,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5316,6 +5649,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5385,6 +5719,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5438,6 +5773,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5523,6 +5859,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5597,6 +5934,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(
@@ -5644,6 +5982,7 @@ describe("FamilyScreen", () => {
 
     render(
       <FamilyScreen
+        now={AGENDA_TEST_NOW}
         session={session}
         familyClient={mockFamilyClient({
           getCircle: vi.fn().mockResolvedValue(

@@ -206,10 +206,10 @@ describe("HeroAttentionCarousel", () => {
 
   it("marks the first dot active by default and advances via arrow click", async () => {
     const user = userEvent.setup()
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    const scrollTo = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
-      value: scrollIntoView,
+      value: scrollTo,
     })
 
     render(
@@ -218,22 +218,25 @@ describe("HeroAttentionCarousel", () => {
         slidePropsForItem={(item, index) => baseSlideProps(item, index)}
       />,
     )
+
+    const scroller = screen.getByTestId("hero-attention-scroller")
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 420 })
 
     const dots = screen.getAllByTestId("hero-attention-dot")
     expect(dots[0]).toHaveAttribute("data-active", "true")
     expect(dots[1]).toHaveAttribute("data-active", "false")
 
     await user.click(screen.getByRole("button", { name: "Next item" }))
-    expect(scrollIntoView).toHaveBeenCalled()
+    expect(scrollTo).toHaveBeenCalled()
     expect(dots[1]).toHaveAttribute("data-active", "true")
   })
 
   it("scrolls to a slide when a dot is clicked", async () => {
     const user = userEvent.setup()
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    const scrollTo = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
-      value: scrollIntoView,
+      value: scrollTo,
     })
 
     render(
@@ -243,9 +246,12 @@ describe("HeroAttentionCarousel", () => {
       />,
     )
 
+    const scroller = screen.getByTestId("hero-attention-scroller")
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 420 })
+
     const dots = screen.getAllByTestId("hero-attention-dot")
     await user.click(dots[1]!)
-    expect(scrollIntoView).toHaveBeenCalled()
+    expect(scrollTo).toHaveBeenCalled()
     expect(dots[1]).toHaveAttribute("data-active", "true")
   })
 
@@ -258,12 +264,8 @@ describe("HeroAttentionCarousel", () => {
     )
 
     const scroller = screen.getByTestId("hero-attention-scroller")
-    const track = scroller.firstElementChild as HTMLElement
-    const shells = Array.from(track.children) as HTMLElement[]
-
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 420 })
     Object.defineProperty(scroller, "scrollLeft", { configurable: true, value: 0 })
-    Object.defineProperty(shells[0]!, "offsetLeft", { configurable: true, value: 0 })
-    Object.defineProperty(shells[1]!, "offsetLeft", { configurable: true, value: 420 })
 
     fireEvent.scroll(scroller)
     expect(screen.getAllByTestId("hero-attention-dot")[0]).toHaveAttribute("data-active", "true")
@@ -275,10 +277,10 @@ describe("HeroAttentionCarousel", () => {
 
   it("advances active slide with keyboard arrows when focused", async () => {
     const user = userEvent.setup()
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    const scrollTo = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
-      value: scrollIntoView,
+      value: scrollTo,
     })
 
     render(
@@ -289,12 +291,13 @@ describe("HeroAttentionCarousel", () => {
     )
 
     const scroller = screen.getByTestId("hero-attention-scroller")
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 420 })
     scroller.focus()
     await user.keyboard("{ArrowRight}")
 
     const dots = screen.getAllByTestId("hero-attention-dot")
     expect(dots[1]).toHaveAttribute("data-active", "true")
-    expect(scrollIntoView).toHaveBeenCalled()
+    expect(scrollTo).toHaveBeenCalled()
   })
 })
 

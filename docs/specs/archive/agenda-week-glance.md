@@ -8,7 +8,10 @@ Branch: `agenda-week-glance`
 Added: 2026-08-17 · enhancement
 
 Scope: **web Calendar Context aside only** — fill the empty right column with
-a five-day coverage/status strip derived from the already-loaded Agenda.
+a coverage/status strip derived from the already-loaded Agenda.
+**Amendment (2026-08-28):** strip expanded from five to **seven** local days
+to match the hero carousel / **This week** horizon — see
+[`agenda-coverage-web-contract.md`](../../agenda-coverage-web-contract.md).
 No OpenAPI, backend, iOS, or Android. Same calendar GET / kid filter /
 handlers — presentation + a client rollup.
 

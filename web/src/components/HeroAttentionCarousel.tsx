@@ -1,6 +1,7 @@
 import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react"
 import {
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -19,6 +20,19 @@ export type HeroAttentionCarouselProps = {
 
 function slideKey(item: QueueItem): string {
   return item.kind === "request" ? `req-${item.request.id}` : `own-${item.game.id}`
+}
+
+function activeIndexFromScroll(scroller: HTMLElement, cardCount: number): number {
+  if (cardCount <= 1 || scroller.clientWidth === 0) {
+    return 0
+  }
+  return Math.max(
+    0,
+    Math.min(
+      cardCount - 1,
+      Math.floor((scroller.scrollLeft + scroller.clientWidth / 2) / scroller.clientWidth),
+    ),
+  )
 }
 
 function HeroAttentionEmpty() {
@@ -65,38 +79,45 @@ export function HeroAttentionCarousel({
   const regionId = useId()
   const cardCount = queue.length
 
+  const syncActiveIndexFromScroll = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) {
+      return
+    }
+    setActiveIndex(activeIndexFromScroll(el, cardCount))
+  }, [cardCount])
+
   const scrollToIndex = useCallback(
     (idx: number) => {
+      const clamped = Math.max(0, Math.min(idx, cardCount - 1))
+      setActiveIndex(clamped)
       const el = scrollerRef.current
-      if (!el) {
+      if (!el || el.clientWidth === 0) {
         return
       }
-      const clamped = Math.max(0, Math.min(idx, cardCount - 1))
-      const track = el.children[0]
-      const card = track?.children[clamped] as HTMLElement | undefined
-      card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })
-      setActiveIndex(clamped)
+      el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" })
     },
     [cardCount],
   )
 
-  const handleScroll = useCallback(() => {
+  useEffect(() => {
+    setActiveIndex((current) => Math.min(current, Math.max(0, cardCount - 1)))
+  }, [cardCount])
+
+  useEffect(() => {
     const el = scrollerRef.current
-    const track = el?.children[0] as HTMLElement | undefined
-    if (!el || !track) {
+    if (!el || cardCount <= 1) {
       return
     }
-    let closest = 0
-    let bestDist = Infinity
-    Array.from(track.children).forEach((child, index) => {
-      const dist = Math.abs((child as HTMLElement).offsetLeft - el.scrollLeft)
-      if (dist < bestDist) {
-        bestDist = dist
-        closest = index
-      }
-    })
-    setActiveIndex(closest)
-  }, [])
+
+    const onScroll = () => syncActiveIndexFromScroll()
+    el.addEventListener("scroll", onScroll, { passive: true })
+    el.addEventListener("scrollend", onScroll)
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      el.removeEventListener("scrollend", onScroll)
+    }
+  }, [cardCount, queue, syncActiveIndexFromScroll])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowLeft") {
@@ -126,39 +147,24 @@ export function HeroAttentionCarousel({
             ref={scrollerRef}
             data-testid="hero-attention-scroller"
             tabIndex={cardCount > 1 ? 0 : undefined}
-            onScroll={handleScroll}
             onKeyDown={cardCount > 1 ? handleKeyDown : undefined}
-            className="overflow-x-auto pb-[var(--fc-space-sm)] [scrollbar-width:none] focus:outline-none [&::-webkit-scrollbar]:hidden"
-            style={{ scrollSnapType: "x mandatory" }}
+            className="flex snap-x snap-mandatory overflow-x-auto pb-[var(--fc-space-sm)] [scrollbar-width:none] focus:outline-none [&::-webkit-scrollbar]:hidden"
             aria-roledescription="carousel"
             aria-label="Needs your attention"
           >
-            <div
-              className="flex"
-              style={{
-                width: "max-content",
-                gap: "var(--fc-space-hero-carousel-gap)",
-              }}
-            >
-              {queue.map((item, index) => {
-                const slideProps = slidePropsForItem(item, index)
-                return (
+            {queue.map((item, index) => {
+              const slideProps = slidePropsForItem(item, index)
+              return (
                 <div
                   key={slideKey(item)}
                   data-testid="hero-attention-slide-shell"
                   data-slide-index={index}
-                  className="shrink-0"
-                  style={{
-                    scrollSnapAlign: "center",
-                    width:
-                      "min(var(--fc-space-hero-carousel-slide-max), 84vw)",
-                  }}
+                  className="min-w-full shrink-0 snap-start snap-always"
                 >
                   <HeroAttentionSlide {...slideProps} />
                 </div>
-                )
-              })}
-            </div>
+              )
+            })}
           </div>
 
           {cardCount > 1 ? (
@@ -176,22 +182,36 @@ export function HeroAttentionCarousel({
               >
                 <ChevronLeft size={16} aria-hidden />
               </button>
-              <div className="flex items-center gap-1.5">
+              <div
+                className="inline-flex shrink-0 items-center gap-1.5"
+                role="tablist"
+                aria-label="Carousel slides"
+              >
                 {queue.map((item, index) => (
                   <button
                     key={slideKey(item)}
                     type="button"
+                    role="tab"
                     aria-label={`Go to item ${index + 1} of ${cardCount}`}
+                    aria-selected={index === activeIndex}
                     aria-current={index === activeIndex ? "true" : undefined}
                     data-testid="hero-attention-dot"
                     data-active={index === activeIndex ? "true" : "false"}
-                    className="rounded-full transition-all"
+                    className="block shrink-0 rounded-full border-0 p-0 transition-[width,background-color]"
                     style={{
                       width:
                         index === activeIndex
                           ? "var(--fc-space-hero-carousel-dot-active-w)"
                           : "var(--fc-space-hero-carousel-dot-h)",
                       height: "var(--fc-space-hero-carousel-dot-h)",
+                      minWidth:
+                        index === activeIndex
+                          ? "var(--fc-space-hero-carousel-dot-active-w)"
+                          : "var(--fc-space-hero-carousel-dot-h)",
+                      maxWidth:
+                        index === activeIndex
+                          ? "var(--fc-space-hero-carousel-dot-active-w)"
+                          : "var(--fc-space-hero-carousel-dot-h)",
                       background:
                         index === activeIndex
                           ? "var(--fc-text-primary)"

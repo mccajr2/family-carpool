@@ -1,4 +1,5 @@
 import type { CalendarItem, CalendarLeaveBy } from "@/api/types"
+import { mergeCalendarItems } from "@/components/eventTimes"
 
 export function calendarRowKey(source: string, id: string): string {
   return `${source}:${id}`
@@ -40,6 +41,19 @@ export function mergeCheapCalendarItems(
   return incoming.map((row) =>
     mergeCheapCalendarItem(row, byKey.get(calendarRowKey(row.source, row.id))),
   )
+}
+
+/** Revalidate a loaded window without dropping items outside `[from, to)`. */
+export function mergeCalendarWindowRefresh(
+  incoming: CalendarItem[],
+  previous: CalendarItem[],
+  window: { from: string; to: string },
+): CalendarItem[] {
+  const outside = previous.filter(
+    (item) => item.startsAt < window.from || item.startsAt >= window.to,
+  )
+  const refreshed = mergeCheapCalendarItems(incoming, previous)
+  return mergeCalendarItems(outside, refreshed)
 }
 
 /** Fill-in always overwrites leave-by fields for matching (source, id). */

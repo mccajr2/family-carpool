@@ -7,6 +7,7 @@ import {
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
   formatEventWhen,
+  filterCalendarItemsInWindow,
   formatFocusEventWhen,
   formatIsoForDisplay,
   formatLocalTodayLabel,
@@ -90,14 +91,14 @@ describe("formatLocalTodayLabel", () => {
 })
 
 describe("defaultCalendarWindow", () => {
-  it("spans local midnight today through plus 30 days", () => {
+  it("spans local midnight today through plus 14 days", () => {
     const now = new Date("2026-08-10T15:30:00")
     const { from, to } = defaultCalendarWindow(now)
     const fromDate = new Date(from)
     const toDate = new Date(to)
     expect(fromDate.getHours()).toBe(0)
     expect(fromDate.getMinutes()).toBe(0)
-    expect((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)).toBe(30)
+    expect((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)).toBe(14)
   })
 })
 
@@ -154,6 +155,25 @@ describe("ensureCalendarWindowCovers", () => {
     const covered = ensureCalendarWindowCovers(first.to, far)
     expect(far < covered).toBe(true)
     expect(covered > first.to).toBe(true)
+  })
+})
+
+describe("filterCalendarItemsInWindow", () => {
+  it("keeps items in the half-open [from, to) window", () => {
+    const items = [
+      { startsAt: "2026-08-14T12:00:00Z" },
+      { startsAt: "2026-08-15T12:00:00Z" },
+      { startsAt: "2026-08-28T12:00:00Z" },
+    ]
+    const filtered = filterCalendarItemsInWindow(
+      items,
+      "2026-08-14T00:00:00.000Z",
+      "2026-08-28T00:00:00.000Z",
+    )
+    expect(filtered.map((item) => item.startsAt)).toEqual([
+      "2026-08-14T12:00:00Z",
+      "2026-08-15T12:00:00Z",
+    ])
   })
 })
 

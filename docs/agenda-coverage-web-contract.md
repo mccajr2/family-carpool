@@ -32,6 +32,44 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
   - each item: bottom border + `--fc-space-xl` (24px) padding (omitted on last)
   - Controls for one item must not read as belonging to the next.
 
+## Loaded window (web)
+
+- **Initial display:** local today through **+14 days** (`CALENDAR_INITIAL_DAYS`
+  in `eventTimes.ts`). Session start always caps `calendarLoadedTo` here even
+  when the calendar cache holds a longer range from prior **Load more** clicks.
+- **Load more:** extends the displayed window by **+30 days**
+  (`CALENDAR_PAGE_DAYS`) per click; may reveal cached rows before fetching.
+- **Hero carousel** and **Week at a glance** use the **near-term horizon** only:
+  local today through **+7 days** (`AGENDA_NEAR_TERM_DAYS` in
+  `agendaDayGroups.ts`) — same window as the **This week** list bucket.
+- Flat list rows, carousel slides, and the Context strip all derive from
+  `agendaWindowItems` — kid-filtered items with `startsAt` in
+  `[calendarLoadedFrom, calendarLoadedTo)`.
+
+### Hero carousel queue
+
+Build slides from `getQueue(mapCalendarItemsToCoverageGames(...))` inside the
+near-term horizon only. A slide **leaves the carousel on the next render** once
+the signed-in adult no longer has a decision on that kid row:
+
+| Kid-row `ownRide` | In carousel? |
+| --- | --- |
+| `unassigned` | Yes — pick a driver or ask the team |
+| `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline |
+| `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
+| `"requested"` (asked the team) | No — waiting on teammates |
+| `{ driver, confirmed: true }` | No — covered |
+| Pending inbound carpool request (actionable) | Yes — Accept / Decline |
+
+When the filtered queue is empty, render the **All caught up** hero
+(`heroGlow`, `CheckCircle2` 28px in `heroSuccess`, uppercase **All caught up**,
+title **Nothing needs you right now**, body copy per
+`docs/ui-system/carpool-hero-flow-mockup-v6.jsx`) — not carousel dots/arrows.
+Section label **Needs your attention** stays above the hero in both states.
+
+Resolving the last slide must land on that empty hero without a full-page
+refresh. List rows for queued events stay excluded until they leave the queue.
+
 ## Presentation hierarchy
 
 Agenda presentation hierarchy is now governed by
@@ -259,17 +297,16 @@ Toolkit chrome may differ; **decisions and strings** must not.
 
 ### Window
 
-- Always **today + the next four local days** (five rows; never omit a day).
-  Same local-day math as Agenda grouping (`startOfLocalDay` / `addDays`).
-- Subset of the seven-day **This week** list bucket (`weekEnd` = today+7).
-  Days today+5 and today+6 can still appear under **This week**; they are not
-  in the strip.
+- Always **today + the next six local days** (seven rows; never omit a day).
+  Same local-day math as Agenda grouping (`startOfLocalDay` / `addDays`) and
+  the hero carousel horizon (`AGENDA_NEAR_TERM_DAYS` = 7).
+- Aligns with the full **This week** list bucket (`weekEnd` = today+7).
 - Bucket an item onto the local calendar day of `startsAt`. Unparseable
   `startsAt` is skipped (no throw). Overnight events count on the start day
   only.
-- Derive from the kid-filtered loaded Agenda window (web:
-  `visibleCalendarItems`) — the same list as Focus + rows, **including** the
-  Focus item. Do not fetch a wider range.
+- Derive from the kid-filtered **display** window (web: `agendaWindowItems`) —
+  the same near-term slice as the hero carousel + flat list rows. Do not fetch
+  a wider range.
 
 ### Per-day status (one line)
 
@@ -322,7 +359,7 @@ Match this contract for each item before calling the port done:
    clearing adult, Save → Saving… without Sign out → Working…).
 10. Focus card selection + rendering — web only — not yet ported.
 11. Full Agenda row redesign (day-grouping, card rows, expand/collapse) — web only — not yet ported.
-12. Week at a glance (five-day Context strip) — web only — not yet ported.
+12. Week at a glance (seven-day Context strip) — web only — not yet ported.
 
 ## Toolkit differences (OK)
 

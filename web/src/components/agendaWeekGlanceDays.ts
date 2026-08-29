@@ -1,5 +1,5 @@
 import type { CalendarItem, CarpoolRide } from "@/api/types"
-import { addDays, startOfLocalDay } from "@/components/agendaDayGroups"
+import { addDays, AGENDA_NEAR_TERM_DAYS, startOfLocalDay } from "@/components/agendaDayGroups"
 import {
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
@@ -8,7 +8,7 @@ import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
 
-export const WEEK_GLANCE_DAY_COUNT = 5
+export const WEEK_GLANCE_DAY_COUNT = AGENDA_NEAR_TERM_DAYS
 
 export type WeekGlanceDay = {
   date: Date
@@ -73,7 +73,7 @@ function statusForDay(
 }
 
 /**
- * Five local days starting today, with one status line each, derived from the
+ * Seven local days starting today, with one status line each, derived from the
  * already-loaded (kid-filtered) Agenda window. Unparseable `startsAt` is skipped.
  * Pass `ownRequestForItem` so ACCEPTED own rides clear kids from the coverage
  * gap the same way Focus / Agenda rows do.

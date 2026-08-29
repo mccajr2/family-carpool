@@ -5,6 +5,7 @@ import {
   acceptedRiders,
   autoDeclineUnofferable,
   coverageGameEventKey,
+  filterQueueWithinHorizon,
   getQueue,
   isConfirmedDriver,
   isPendingHouseholdConfirm,
@@ -191,7 +192,7 @@ describe("getQueue", () => {
         ownRide: "unassigned",
       }),
       game({
-        id: "gap-early",
+        id: "asked-team",
         order: 100,
         ownRide: "requested",
       }),
@@ -212,11 +213,29 @@ describe("getQueue", () => {
     const queue = getQueue(games)
 
     expect(queue.map((item) => item.kind + ":" + item.game.id)).toEqual([
-      "ownRide:gap-early",
       "ownRide:gap-late",
       "request:resolved-with-ask",
       "request:resolved-with-ask-late",
     ])
+  })
+
+  it("queues unassigned and pending-for-self only — not asked-team or waiting on others", () => {
+    const queue = getQueue([
+      game({ id: "unassigned", order: 100, ownRide: "unassigned" }),
+      game({ id: "asked-team", order: 110, ownRide: "requested" }),
+      game({
+        id: "wait-jordan",
+        order: 120,
+        ownRide: { driver: "Jordan", confirmed: false },
+      }),
+      game({
+        id: "confirm-you",
+        order: 130,
+        ownRide: { driver: "You", confirmed: false },
+      }),
+    ])
+
+    expect(queue.map((item) => item.game.id)).toEqual(["unassigned", "confirm-you"])
   })
 
   it("returns an empty queue when every game is resolved", () => {
@@ -248,6 +267,32 @@ describe("getQueue", () => {
 
     expect(queue).toHaveLength(1)
     expect(queue[0]).toMatchObject({ kind: "request", request: { id: "live" } })
+  })
+})
+
+describe("filterQueueWithinHorizon", () => {
+  const now = new Date("2030-08-15T12:00:00")
+
+  it("keeps items starting within the next seven local days", () => {
+    const queue = getQueue([
+      game({
+        id: "this-week",
+        order: Date.parse("2030-08-16T17:00:00.000Z"),
+        startsAt: "2030-08-16T17:00:00.000Z",
+        ownRide: "unassigned",
+      }),
+      game({
+        id: "later",
+        order: Date.parse("2030-08-25T17:00:00.000Z"),
+        startsAt: "2030-08-25T17:00:00.000Z",
+        ownRide: "unassigned",
+      }),
+    ])
+
+    const filtered = filterQueueWithinHorizon(queue, now)
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]).toMatchObject({ game: { id: "this-week" } })
   })
 })
 
