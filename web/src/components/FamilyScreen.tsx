@@ -1633,34 +1633,6 @@ export function FamilyScreen({
     }
   }
 
-  async function onReassignCoverage(
-    item: CalendarItem,
-    assignmentId: string,
-    coveringAdultId: string,
-    kidIds: string[],
-  ) {
-    const itemKey = calendarItemKey(item)
-    clearCoverageActionError(itemKey)
-    setStatus({ kind: "loading" })
-    try {
-      const token = await requireToken()
-      const updated = await familyClient.reassignCalendarCoverage(token, assignmentId, {
-        coveringAdultId,
-        kidIds,
-      })
-      replaceCalendarItem(updated)
-      setStatus({ kind: "idle" })
-    } catch (error) {
-      setStatus({ kind: "idle" })
-      setCoverageActionError(
-        itemKey,
-        error instanceof Error
-          ? coverageDoubleBookMessage(error.message)
-          : "Something went wrong",
-      )
-    }
-  }
-
   async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
     const itemKey = calendarItemKey(item)
     clearCoverageActionError(itemKey)

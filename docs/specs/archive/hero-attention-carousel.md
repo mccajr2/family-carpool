@@ -1,6 +1,6 @@
 # Spec: hero-attention-carousel
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -241,7 +241,7 @@ No contract changes.
 - [x] Web: wire `FamilyScreen` — games → `getQueue`, carousel, list exclusion
 - [x] Web: `groupAgendaListSections` `queueHasItems` + carousel-always-above
 - [x] Docs: supersession note in `docs/agenda-focus-card-addendum.md`
-- [ ] Tests: carousel shell (dots, arrows, snap index); empty hero copy; slide
+- [x] Tests: carousel shell (dots, arrows, snap index); empty hero copy; slide
   labels; per-slide CTAs; list exclusion; token/CSS smoke via existing generate
   test; update `FamilyScreen.test.tsx`
 

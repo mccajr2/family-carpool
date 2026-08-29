@@ -11,7 +11,7 @@ Replaces the "Presentation hierarchy" → "Selection A" section of
 ## Supersession (web Calendar hero)
 
 **Single-item Focus selection** in [New rule](#new-rule) below is **superseded
-on web** by [`hero-attention-carousel`](specs/active/hero-attention-carousel.md)
+on web** by [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md)
 and [ADR-0001: Own-child coverage outranks carpool requests](decisions/ADR-0001-coverage-priority-rule.md).
 
 The Calendar hero is now `HeroAttentionCarousel` in `FamilyScreen`, driven

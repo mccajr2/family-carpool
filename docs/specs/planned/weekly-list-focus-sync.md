@@ -1,10 +1,10 @@
 # Spec: weekly-list-focus-sync
 
-Status: draft (planned — promote to `active/` after [`hero-attention-carousel`](../active/hero-attention-carousel.md) merges)  
+Status: draft (planned — next up for `/spec`)  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
-Depends on: [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`household-driver-assignment`](../archive/household-driver-assignment.md), [`unified-ride-status-chip`](../archive/unified-ride-status-chip.md), [`hero-attention-carousel`](../active/hero-attention-carousel.md)  
+Depends on: [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`household-driver-assignment`](../archive/household-driver-assignment.md), [`unified-ride-status-chip`](../archive/unified-ride-status-chip.md), [`hero-attention-carousel`](../archive/hero-attention-carousel.md)  
 Blocks: [`ride-revert-undo`](ride-revert-undo.md), [`attendance-manual-toggle`](attendance-manual-toggle.md) expanded-row UX (stubs reference mock sections deferred here)
 
 ## Problem
@@ -21,7 +21,7 @@ Parents scanning **REST OF TODAY** / **THIS WEEK** cannot tell which row matches
 
 ## Non-goals
 
-- Hero carousel ([`hero-attention-carousel`](../active/hero-attention-carousel.md))
+- Hero carousel ([`hero-attention-carousel`](../archive/hero-attention-carousel.md))
 - Replacing [`AgendaWeekGlance`](../../web/src/components/AgendaWeekGlance.tsx) Context aside
 - Reordering list by priority (stay chronological within day sections)
 - **`RevertRideLink`** expanded copy/actions ([`ride-revert-undo`](ride-revert-undo.md) — rank 3)
@@ -132,7 +132,7 @@ No contract changes.
 - Assign: `web/src/components/DriverPicker.tsx`
 - Row: `web/src/components/AgendaRow.tsx`
 - Integration: `web/src/components/FamilyScreen.tsx`
-- Hero handoff: `docs/specs/active/hero-attention-carousel.md` (shared `queue` build)
+- Hero handoff: `docs/specs/archive/hero-attention-carousel.md` (shared `queue` build)
 - Tests: `AgendaRow.test.tsx`, `FamilyScreen.test.tsx`
 
 ## Acceptance criteria

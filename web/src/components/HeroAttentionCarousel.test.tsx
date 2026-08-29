@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -170,6 +170,11 @@ describe("HeroAttentionCarousel", () => {
     expect(screen.getByTestId("hero-attention-empty")).toBeInTheDocument()
     expect(screen.getByText("All caught up")).toBeInTheDocument()
     expect(screen.getByText("Nothing needs you right now")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Every ride this week is either covered or waiting on someone else/,
+      ),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId("hero-attention-controls")).not.toBeInTheDocument()
   })
 
@@ -242,6 +247,54 @@ describe("HeroAttentionCarousel", () => {
     await user.click(dots[1]!)
     expect(scrollIntoView).toHaveBeenCalled()
     expect(dots[1]).toHaveAttribute("data-active", "true")
+  })
+
+  it("syncs active dot to the closest slide on scroll", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    const scroller = screen.getByTestId("hero-attention-scroller")
+    const track = scroller.firstElementChild as HTMLElement
+    const shells = Array.from(track.children) as HTMLElement[]
+
+    Object.defineProperty(scroller, "scrollLeft", { configurable: true, value: 0 })
+    Object.defineProperty(shells[0]!, "offsetLeft", { configurable: true, value: 0 })
+    Object.defineProperty(shells[1]!, "offsetLeft", { configurable: true, value: 420 })
+
+    fireEvent.scroll(scroller)
+    expect(screen.getAllByTestId("hero-attention-dot")[0]).toHaveAttribute("data-active", "true")
+
+    Object.defineProperty(scroller, "scrollLeft", { configurable: true, value: 420 })
+    fireEvent.scroll(scroller)
+    expect(screen.getAllByTestId("hero-attention-dot")[1]).toHaveAttribute("data-active", "true")
+  })
+
+  it("advances active slide with keyboard arrows when focused", async () => {
+    const user = userEvent.setup()
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    })
+
+    render(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    const scroller = screen.getByTestId("hero-attention-scroller")
+    scroller.focus()
+    await user.keyboard("{ArrowRight}")
+
+    const dots = screen.getAllByTestId("hero-attention-dot")
+    expect(dots[1]).toHaveAttribute("data-active", "true")
+    expect(scrollIntoView).toHaveBeenCalled()
   })
 })
 

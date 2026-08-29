@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-27  
-**Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`hero-attention-carousel`](../specs/active/hero-attention-carousel.md)
+**Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`hero-attention-carousel`](../specs/archive/hero-attention-carousel.md)
 
 ## Context
 
