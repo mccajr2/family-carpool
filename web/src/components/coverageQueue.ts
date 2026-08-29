@@ -65,11 +65,15 @@ export function isUnassigned(ownRide: OwnRideStatus): boolean {
   return ownRide === "unassigned"
 }
 
-export function isPendingHouseholdConfirm(ownRide: OwnRideStatus): boolean {
+export function isPendingHouseholdConfirm(
+  ownRide: OwnRideStatus,
+): ownRide is { driver: string; confirmed: false } {
   return typeof ownRide === "object" && !ownRide.confirmed
 }
 
-export function isConfirmedDriver(ownRide: OwnRideStatus): boolean {
+export function isConfirmedDriver(
+  ownRide: OwnRideStatus,
+): ownRide is { driver: string; confirmed: true } {
   return typeof ownRide === "object" && ownRide.confirmed
 }
 

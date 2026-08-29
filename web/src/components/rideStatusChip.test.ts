@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CalendarConflict, CarpoolRide } from "@/api/types"
 import {
   carpoolAskChipForRideEvent,
   pickMostUrgentGameRow,
@@ -31,6 +31,20 @@ function game(
     attendance: "going",
     ownRide: "unassigned",
     requests: [],
+    ...partial,
+  }
+}
+
+function kidConflict(partial: Partial<CalendarConflict> = {}): CalendarConflict {
+  return {
+    type: "KID_TIME_OVERLAP",
+    kidId: "k1",
+    adultId: null,
+    adultDisplayName: null,
+    otherSource: "MANUAL",
+    otherItemId: "other",
+    otherTitle: "Game",
+    otherStartsAt: "2030-08-15T17:30:00.000Z",
     ...partial,
   }
 }
@@ -213,16 +227,7 @@ describe("rideStatusChipsForItem", () => {
   it("orders Overlaps before ride-status and picks most urgent kid row", () => {
     const item = calendarItem({
       kidIds: ["k1", "k2"],
-      conflicts: [
-        {
-          type: "KID_TIME_OVERLAP",
-          kidId: "k1",
-          adultId: null,
-          adultDisplayName: null,
-          otherSource: "MANUAL",
-          otherItemId: "other",
-        },
-      ],
+      conflicts: [kidConflict()],
     })
     const games = [
       game({
@@ -269,16 +274,7 @@ describe("rideStatusChipsForItem", () => {
 
   it("composes overlaps, ride-status, and carpool ask in order", () => {
     const item = calendarItem({
-      conflicts: [
-        {
-          type: "KID_TIME_OVERLAP",
-          kidId: "k1",
-          adultId: null,
-          adultDisplayName: null,
-          otherSource: "MANUAL",
-          otherItemId: "other",
-        },
-      ],
+      conflicts: [kidConflict()],
     })
     const games = [
       game({
@@ -305,16 +301,7 @@ describe("rideStatusChipsForItem", () => {
 
   it("omits Overlaps on out-of-play items", () => {
     const item = calendarItem({
-      conflicts: [
-        {
-          type: "KID_TIME_OVERLAP",
-          kidId: "k1",
-          adultId: null,
-          adultDisplayName: null,
-          otherSource: "MANUAL",
-          otherItemId: "other",
-        },
-      ],
+      conflicts: [kidConflict()],
     })
     const games = [game({ id: "g", order: 100, attendance: "not_going" })]
 
