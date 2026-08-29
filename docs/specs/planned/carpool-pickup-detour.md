@@ -8,7 +8,7 @@ Added: 2026-08-28 · initial
 Thin stub from hero & coverage flow redesign import. **Not implementable yet.**
 Run `/spec carpool-pickup-detour` before any code.
 
-**Depends on:** [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`unified-ride-status-chip`](../planned/unified-ride-status-chip.md), [`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md)
+**Depends on:** [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`unified-ride-status-chip`](../active/unified-ride-status-chip.md), [`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md)
 
 ## Problem
 
