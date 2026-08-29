@@ -4,6 +4,7 @@ import type { CalendarItem, CarpoolRide, CarpoolRideEvent, FamilyMember } from "
 import {
   acceptedRiders,
   autoDeclineUnofferable,
+  coverageGameEventKey,
   getQueue,
   isConfirmedDriver,
   isPendingHouseholdConfirm,
@@ -134,6 +135,12 @@ describe("coverageQueue helpers", () => {
     })
     expect(pendingRequests(event).map((row) => row.id)).toEqual(["p1"])
     expect(acceptedRiders(event).map((row) => row.id)).toEqual(["a1"])
+  })
+})
+
+describe("coverageGameEventKey", () => {
+  it("strips the kid suffix from a coverage game id", () => {
+    expect(coverageGameEventKey("MANUAL-e1:k1")).toBe("MANUAL-e1")
   })
 })
 

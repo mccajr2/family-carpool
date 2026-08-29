@@ -234,11 +234,11 @@ No contract changes.
 
 ## Tasks
 
-- [ ] Tokens: add hero carousel roles from mock table; regenerate CSS
-- [ ] Web: `HeroAttentionCarousel` + `HeroAttentionSlide` per mock
-- [ ] Web: extend `DriverPicker` `hero` styling to match mock `dark` variant
-- [ ] Web: days ring helper (or adapt `agendaFocusRing.ts`) for carousel
-- [ ] Web: wire `FamilyScreen` — games → `getQueue`, carousel, list exclusion
+- [x] Tokens: add hero carousel roles from mock table; regenerate CSS
+- [x] Web: `HeroAttentionCarousel` + `HeroAttentionSlide` per mock
+- [x] Web: extend `DriverPicker` `hero` styling to match mock `dark` variant
+- [x] Web: days ring helper (or adapt `agendaFocusRing.ts`) for carousel
+- [x] Web: wire `FamilyScreen` — games → `getQueue`, carousel, list exclusion
 - [ ] Web: `groupAgendaListSections` `queueHasItems` + carousel-always-above
 - [ ] Docs: supersession note in `docs/agenda-focus-card-addendum.md`
 - [ ] Tests: carousel shell (dots, arrows, snap index); empty hero copy; slide

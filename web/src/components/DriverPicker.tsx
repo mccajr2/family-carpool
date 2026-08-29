@@ -52,12 +52,37 @@ function DriverMemberChip({
   hero = false,
   onClick,
 }: DriverMemberChipProps) {
-  const selectedClass = hero
-    ? "border-[var(--fc-hero-on)] bg-[var(--fc-hero-on)] text-[var(--fc-hero-surface)]"
-    : "border-[var(--fc-text-primary)] bg-[var(--fc-text-primary)] text-[var(--fc-accent-on)]"
-  const unselectedClass = hero
-    ? "border-[color-mix(in_srgb,var(--fc-hero-on)_20%,transparent)] bg-[color-mix(in_srgb,var(--fc-hero-on)_8%,transparent)] text-[var(--fc-hero-on-secondary)] hover:border-[color-mix(in_srgb,var(--fc-hero-on)_35%,transparent)]"
-    : "border-[var(--fc-border)] bg-[var(--fc-surface-raised)] text-[var(--fc-text-secondary)] hover:border-[color-mix(in_srgb,var(--fc-text-secondary)_35%,var(--fc-border))]"
+  if (hero) {
+    return (
+      <button
+        type="button"
+        aria-pressed={selected}
+        disabled={disabled}
+        onClick={onClick}
+        data-testid="driver-picker-chip"
+        data-selected={selected ? "true" : "false"}
+        className="rounded-full border-0 px-3.5 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        style={
+          selected
+            ? {
+                background: "var(--fc-hero-on)",
+                color: "var(--fc-text-primary)",
+              }
+            : {
+                background: "rgba(255,255,255,0.1)",
+                color: "var(--fc-hero-on)",
+              }
+        }
+      >
+        {label}
+      </button>
+    )
+  }
+
+  const selectedClass =
+    "border-[var(--fc-text-primary)] bg-[var(--fc-text-primary)] text-[var(--fc-accent-on)]"
+  const unselectedClass =
+    "border-[var(--fc-border)] bg-[var(--fc-surface-raised)] text-[var(--fc-text-secondary)] hover:border-[color-mix(in_srgb,var(--fc-text-secondary)_35%,var(--fc-border))]"
 
   return (
     <button
@@ -91,11 +116,74 @@ export function DriverPicker({
   showTeamSection = true,
 }: DriverPickerProps) {
   const confirmLabel = confirmDriverLabel(selectedAdultId, members, currentAdultId)
-  const onSecondaryVar = hero ? "var(--fc-hero-on-secondary)" : "var(--fc-text-secondary)"
-  const dividerVar = hero ? "rgba(255,255,255,0.12)" : "var(--fc-border)"
-  const surfaceVar = hero ? "var(--fc-hero-surface)" : undefined
-  const onVar = hero ? "var(--fc-hero-on)" : undefined
 
+  if (hero) {
+    return (
+      <div data-testid="driver-picker" className="w-full">
+        <div className="mb-3 flex flex-col gap-3">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Household driver"
+          >
+            {members.map((member) => (
+              <DriverMemberChip
+                key={member.adultId}
+                label={householdDriverChipLabel(member, currentAdultId)}
+                selected={member.adultId === selectedAdultId}
+                disabled={loading}
+                hero
+                onClick={() => onSelectedAdultChange(member.adultId)}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            data-testid="driver-picker-confirm"
+            className="w-fit rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: "var(--fc-hero-on)",
+              color: "var(--fc-text-primary)",
+            }}
+            onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
+            disabled={loading || !selectedAdultId || kidIds.length === 0}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+        {showTeamSection ? (
+          <div
+            data-testid="driver-picker-team-section"
+            className="mt-5 border-t pt-4"
+            style={{ borderColor: "rgba(255,255,255,0.14)" }}
+          >
+            <p
+              className="mb-2 text-xs"
+              style={{ color: "var(--fc-hero-on-secondary)" }}
+            >
+              Nobody in the household free?
+            </p>
+            <button
+              type="button"
+              data-testid="driver-picker-team-ask"
+              className="rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                background: "var(--fc-hero-decline-bg)",
+                color: "var(--fc-hero-on)",
+              }}
+              onClick={onAskTeam}
+              disabled={loading}
+            >
+              Ask the team for a ride
+            </button>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const onSecondaryVar = "var(--fc-text-secondary)"
+  const dividerVar = "var(--fc-border)"
   return (
     <div
       data-testid="driver-picker"
@@ -112,7 +200,7 @@ export function DriverPicker({
             label={householdDriverChipLabel(member, currentAdultId)}
             selected={member.adultId === selectedAdultId}
             disabled={loading}
-            hero={hero}
+            hero={false}
             onClick={() => onSelectedAdultChange(member.adultId)}
           />
         ))}
@@ -121,7 +209,6 @@ export function DriverPicker({
         type="button"
         size="sm"
         className="w-fit text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-        style={hero ? { backgroundColor: onVar, color: surfaceVar } : undefined}
         onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
         disabled={loading || !selectedAdultId || kidIds.length === 0}
       >
@@ -142,7 +229,7 @@ export function DriverPicker({
           <Button
             type="button"
             size="sm"
-            variant={hero ? "secondary" : "outline"}
+            variant="outline"
             className="w-fit text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
             onClick={onAskTeam}
             disabled={loading}

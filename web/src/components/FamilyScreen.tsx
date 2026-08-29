@@ -55,21 +55,23 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { AgendaFocusCard } from "@/components/AgendaFocusCard"
+import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
+import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
-  focusItemNeedsDecision,
-  selectFocusItem,
-} from "@/components/agendaFocusSelection"
+  coverageGameEventKey,
+  getQueue,
+  mapCalendarItemsToCoverageGames,
+  type QueueItem,
+} from "@/components/coverageQueue"
 import {
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
   ridesBySpaceRecordToMap,
 } from "@/components/calendarRideJoin"
-import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
 import {
   calendarItemKey,
   memberLabel,
@@ -2010,28 +2012,25 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
-  const focusItem = selectFocusItem(visibleCalendarItems, new Date(), adult?.id ?? "", {
-    rideEventForItem: (item) => calendarRideByItemKey.get(calendarItemKey(item)) ?? null,
-    garage: calendarGarage,
-  })
-  const restItems = visibleCalendarItems.filter((item) => item !== focusItem)
-  const focusRideEvent = focusItem
-    ? (calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null)
-    : null
-  const focusNeedsDecision =
-    focusItem != null &&
-    focusItemNeedsDecision(
-      focusItem,
-      adult?.id ?? "",
-      eligiblePendingRideAccept(focusRideEvent, {
-        adultId: adult?.id ?? "",
-        garage: calendarGarage,
-      }),
-      focusRideEvent?.ownRequest ?? null,
-    )
-  const { floatFocusAbove, sections: agendaSections } = groupAgendaListSections(restItems, {
+  const coverageMapOptions = {
     currentAdultId: adult?.id ?? "",
-    focusNeedsDecision,
+    members: circle.members,
+  }
+  const coverageGames = mapCalendarItemsToCoverageGames(
+    visibleCalendarItems,
+    (item) => calendarRideByItemKey.get(calendarItemKey(item)) ?? null,
+    coverageMapOptions,
+  )
+  const attentionQueue = getQueue(coverageGames)
+  const queuedCalendarItemKeys = new Set(
+    attentionQueue.map((item) => coverageGameEventKey(item.game.id)),
+  )
+  const listCalendarItems = visibleCalendarItems.filter(
+    (item) => !queuedCalendarItemKeys.has(calendarItemKey(item)),
+  )
+  const { sections: agendaSections } = groupAgendaListSections(listCalendarItems, {
+    currentAdultId: adult?.id ?? "",
+    focusNeedsDecision: false,
     ownRequestFor: (item) =>
       calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null,
   })
@@ -2042,54 +2041,55 @@ export function FamilyScreen({
       : undefined
   const carpoolAccessToken = session.getAccessToken()
 
-  const agendaFocusCard =
-    focusItem != null ? (
-      <div
-        data-carpool-ride-key={
-          calendarRideByItemKey.get(calendarItemKey(focusItem))?.eventKey
+  const slidePropsForQueueItem = (queueItem: QueueItem, index: number): HeroAttentionSlideProps => {
+    const itemKey = coverageGameEventKey(queueItem.game.id)
+    const calendarItemForSlide = visibleCalendarItems.find(
+      (row) => calendarItemKey(row) === itemKey,
+    )
+    if (calendarItemForSlide == null) {
+      throw new Error(`Missing calendar item for queue game ${queueItem.game.id}`)
+    }
+    const rideEvent = calendarRideByItemKey.get(itemKey) ?? null
+    const baseAssign = coverageAssignState(
+      calendarItemForSlide,
+      itemKey,
+      rideEvent?.ownRequest,
+    )
+    return {
+      item: queueItem,
+      index,
+      queueLength: attentionQueue.length,
+      calendarItem: calendarItemForSlide,
+      circle,
+      currentAdultId: adult?.id ?? "",
+      loading: status.kind === "loading",
+      garage: calendarGarage,
+      rideEvent,
+      assignDraft: { adultId: baseAssign.adultId, kidIds: [queueItem.game.kidId] },
+      onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
+      onAssignCoverage: (coveringAdultId, kidIds) =>
+        void onAssignCoverage(calendarItemForSlide, coveringAdultId, kidIds),
+      onConfirmCoverage: (assignmentId) =>
+        void onConfirmCoverage(calendarItemForSlide, assignmentId),
+      onDeclineCoverage: (assignmentId) => void onDeclineCoverage(assignmentId),
+      onAskTeam: () => {
+        const eventKey = rideEvent?.eventKey
+        if (eventKey) {
+          void onCreateAgendaRide(calendarItemForSlide, eventKey, [queueItem.game.kidId])
         }
-      >
-        <AgendaFocusCard
-          item={focusItem}
-          circle={circle}
-          currentAdultId={adult?.id ?? ""}
-          loading={status.kind === "loading"}
-          assignDraft={coverageAssignState(
-            focusItem,
-            calendarItemKey(focusItem),
-            calendarRideByItemKey.get(calendarItemKey(focusItem))?.ownRequest,
-          )}
-          coverageActionError={coverageActionErrors[calendarItemKey(focusItem)]}
-          rideEvent={calendarRideByItemKey.get(calendarItemKey(focusItem)) ?? null}
-          garage={calendarGarage}
-          onUpdateAssignDraft={(patch) =>
-            updateAssignCoverageDraft(calendarItemKey(focusItem), patch)
-          }
-          onAssignCoverage={(coveringAdultId, kidIds) =>
-            void onAssignCoverage(focusItem, coveringAdultId, kidIds)
-          }
-          onReassignCoverage={(assignmentId, coveringAdultId, kidIds) =>
-            void onReassignCoverage(focusItem, assignmentId, coveringAdultId, kidIds)
-          }
-          onConfirmCoverage={(assignmentId) =>
-            void onConfirmCoverage(focusItem, assignmentId)
-          }
-          onDeclineCoverage={(assignmentId) => void onDeclineCoverage(assignmentId)}
-          onRemoveCoverage={(assignmentId) => void onRemoveCoverage(assignmentId)}
-          onAcceptRide={(rideId, vehicleId) =>
-            void onAcceptAgendaRide(focusItem, rideId, vehicleId)
-          }
-          onPassRide={(rideId) => void onPassAgendaRide(focusItem, rideId)}
-          onCreateRide={(eventKey, kidIds) =>
-            void onCreateAgendaRide(focusItem, eventKey, kidIds)
-          }
-          onCancelRide={(rideId) => void onCancelAgendaRide(focusItem, rideId)}
-          onWithdrawRide={(rideId) => void onWithdrawAgendaRide(focusItem, rideId)}
-          onOpenPlaces={() => setDestination("places")}
-          onEdit={() => openEditEvent(focusItem)}
-        />
-      </div>
-    ) : null
+      },
+      onAcceptRide: (rideId, vehicleId) =>
+        void onAcceptAgendaRide(calendarItemForSlide, rideId, vehicleId),
+      onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
+    }
+  }
+
+  const heroAttentionCarousel = (
+    <HeroAttentionCarousel
+      queue={attentionQueue}
+      slidePropsForItem={slidePropsForQueueItem}
+    />
+  )
 
   const contentTitle =
     destination === "calendar"
@@ -2651,7 +2651,7 @@ export function FamilyScreen({
             )
           ) : (
             <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-2xl)]">
-              {floatFocusAbove ? agendaFocusCard : null}
+              {heroAttentionCarousel}
               {agendaSections.length > 0 ? (
             <div
               data-testid="agenda-list"
@@ -2677,11 +2677,6 @@ export function FamilyScreen({
                       </span>
                     ) : null}
                   </header>
-                  {!floatFocusAbove &&
-                  group.label === "NEEDS YOUR ATTENTION" &&
-                  agendaFocusCard != null
-                    ? agendaFocusCard
-                    : null}
                   {group.items.length > 0 ? (
                   <ul className="flex flex-col gap-[var(--fc-space-md)]">
                     {group.items.map((item) => {
