@@ -31,8 +31,8 @@ export type AgendaListSection = {
 
 export type AgendaListGrouping = {
   /**
-   * When true, calm Focus floats above all sections (no section header).
-   * When false, decision Focus belongs under NEEDS YOUR ATTENTION.
+   * When true, the hero carousel floats above all list sections (no duplicate
+   * NEEDS YOUR ATTENTION header in the flat list).
    */
   floatFocusAbove: boolean
   sections: AgendaListSection[]
@@ -138,16 +138,16 @@ export function groupAgendaByDay(
 export type GroupAgendaListSectionsOptions = {
   now?: Date
   currentAdultId: string
-  /** True when the Focus item needs a decision (family or eligible Accept/Pass). */
-  focusNeedsDecision: boolean
+  /** True when the hero carousel has queue slides (carousel owns NEEDS YOUR ATTENTION). */
+  queueHasItems: boolean
   ownRequestFor?: (item: CalendarItem) => CarpoolRide | null | undefined
 }
 
 /**
  * Agenda list sections for Calendar: NEEDS YOUR ATTENTION / REST OF TODAY /
- * TOMORROW / THIS WEEK / LATER. `restItems` must already exclude the Focus
- * item. Empty sections omitted; NEEDS YOUR ATTENTION is kept when Focus needs
- * a decision even if there are no other attention rows.
+ * TOMORROW / THIS WEEK / LATER. `restItems` must already exclude carousel
+ * queue items. Empty sections omitted. When `queueHasItems`, the carousel
+ * renders above the list and today attention rows stay under REST OF TODAY.
  */
 export function groupAgendaListSections(
   restItems: CalendarItem[],
@@ -187,14 +187,18 @@ export function groupAgendaListSections(
         ownRequestFor(item),
       )
     ) {
-      needsAttentionItems.push(item)
+      if (options.queueHasItems) {
+        restOfTodayItems.push(item)
+      } else {
+        needsAttentionItems.push(item)
+      }
     } else {
       restOfTodayItems.push(item)
     }
   }
 
   const sections: AgendaListSection[] = []
-  if (options.focusNeedsDecision || needsAttentionItems.length > 0) {
+  if (!options.queueHasItems && needsAttentionItems.length > 0) {
     sections.push({
       label: AGENDA_LIST_SECTION_LABEL.needsAttention,
       items: needsAttentionItems,
@@ -227,7 +231,7 @@ export function groupAgendaListSections(
   }
 
   return {
-    floatFocusAbove: !options.focusNeedsDecision,
+    floatFocusAbove: true,
     sections,
   }
 }

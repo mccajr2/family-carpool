@@ -109,7 +109,7 @@ describe("groupAgendaListSections", () => {
 
     const { floatFocusAbove, sections } = groupAgendaListSections(
       [attention, calmToday, tomorrow, thisWeek, later],
-      { now, currentAdultId: adultId, focusNeedsDecision: false },
+      { now, currentAdultId: adultId, queueHasItems: false },
     )
 
     expect(floatFocusAbove).toBe(true)
@@ -130,29 +130,54 @@ describe("groupAgendaListSections", () => {
     )
   })
 
-  it("keeps NEEDS YOUR ATTENTION when Focus needs a decision with no other attention rows", () => {
-    const calmToday = item("calm", localIso(2026, 8, 15, 14))
-    const { floatFocusAbove, sections } = groupAgendaListSections([calmToday], {
-      now,
-      currentAdultId: adultId,
-      focusNeedsDecision: true,
+  it("omits NEEDS YOUR ATTENTION list section when queueHasItems and folds today attention into REST OF TODAY", () => {
+    const attention = item("gap", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: ["k1"],
     })
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const { floatFocusAbove, sections } = groupAgendaListSections(
+      [attention, calmToday],
+      {
+        now,
+        currentAdultId: adultId,
+        queueHasItems: true,
+      },
+    )
 
-    expect(floatFocusAbove).toBe(false)
+    expect(floatFocusAbove).toBe(true)
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["gap", "calm"])
+  })
+
+  it("keeps NEEDS YOUR ATTENTION in the list when queue is empty and today rows need attention", () => {
+    const attention = item("gap", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: ["k1"],
+    })
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const { floatFocusAbove, sections } = groupAgendaListSections(
+      [attention, calmToday],
+      {
+        now,
+        currentAdultId: adultId,
+        queueHasItems: false,
+      },
+    )
+
+    expect(floatFocusAbove).toBe(true)
     expect(sections.map((s) => s.label)).toEqual([
       AGENDA_LIST_SECTION_LABEL.needsAttention,
       AGENDA_LIST_SECTION_LABEL.restOfToday,
     ])
-    expect(sections[0].items).toEqual([])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["gap"])
     expect(sections[1].items.map((i) => i.id)).toEqual(["calm"])
   })
 
-  it("omits NEEDS YOUR ATTENTION when Focus is calm and there are no attention rows", () => {
+  it("omits NEEDS YOUR ATTENTION when queue is empty and there are no attention rows", () => {
     const calmToday = item("calm", localIso(2026, 8, 15, 14))
     const { floatFocusAbove, sections } = groupAgendaListSections([calmToday], {
       now,
       currentAdultId: adultId,
-      focusNeedsDecision: false,
+      queueHasItems: false,
     })
 
     expect(floatFocusAbove).toBe(true)
@@ -167,7 +192,7 @@ describe("groupAgendaListSections", () => {
     const { sections } = groupAgendaListSections([skipped], {
       now,
       currentAdultId: adultId,
-      focusNeedsDecision: false,
+      queueHasItems: false,
     })
 
     expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
@@ -187,7 +212,7 @@ describe("groupAgendaListSections", () => {
     const { sections } = groupAgendaListSections([gap], {
       now,
       currentAdultId: adultId,
-      focusNeedsDecision: false,
+      queueHasItems: false,
       ownRequestFor: () => ownRequest,
     })
 
@@ -199,7 +224,7 @@ describe("groupAgendaListSections", () => {
     const { sections } = groupAgendaListSections([later], {
       now,
       currentAdultId: adultId,
-      focusNeedsDecision: false,
+      queueHasItems: false,
     })
     expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.later])
   })

@@ -2030,7 +2030,7 @@ export function FamilyScreen({
   )
   const { sections: agendaSections } = groupAgendaListSections(listCalendarItems, {
     currentAdultId: adult?.id ?? "",
-    focusNeedsDecision: false,
+    queueHasItems: attentionQueue.length > 0,
     ownRequestFor: (item) =>
       calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null,
   })

@@ -239,7 +239,7 @@ No contract changes.
 - [x] Web: extend `DriverPicker` `hero` styling to match mock `dark` variant
 - [x] Web: days ring helper (or adapt `agendaFocusRing.ts`) for carousel
 - [x] Web: wire `FamilyScreen` — games → `getQueue`, carousel, list exclusion
-- [ ] Web: `groupAgendaListSections` `queueHasItems` + carousel-always-above
+- [x] Web: `groupAgendaListSections` `queueHasItems` + carousel-always-above
 - [ ] Docs: supersession note in `docs/agenda-focus-card-addendum.md`
 - [ ] Tests: carousel shell (dots, arrows, snap index); empty hero copy; slide
   labels; per-slide CTAs; list exclusion; token/CSS smoke via existing generate
