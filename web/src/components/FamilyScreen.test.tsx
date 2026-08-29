@@ -2672,7 +2672,7 @@ describe("FamilyScreen", () => {
     )
   })
 
-  it("shows needs coverage when uncovered kids are present", async () => {
+  it("shows ride needed when uncovered kids are present", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -2721,7 +2721,7 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(focus).getByTestId("agenda-focus-chips")).toHaveTextContent("Needs coverage")
+    expect(within(focus).getByTestId("agenda-focus-chips")).toHaveTextContent("Ride needed")
   })
 
   it("separates agenda items with a clear vertical buffer", async () => {
@@ -3036,7 +3036,7 @@ describe("FamilyScreen", () => {
         coveringAdultId: "2",
         kidIds: ["k2"],
       })
-      expect(within(agenda).getByText("Awaiting confirm")).toBeInTheDocument()
+      expect(within(agenda).getByText("Waiting on Jordan")).toBeInTheDocument()
     })
     expect(within(agenda).queryByText("Needs coverage: Riley")).not.toBeInTheDocument()
     const resolved = (await assignCalendarCoverage.mock.results[0]!.value) as CalendarItem
@@ -3827,8 +3827,8 @@ describe("FamilyScreen", () => {
       })
     })
     expect(within(agenda).getByLabelText("Covering adult for Practice")).toHaveValue("2")
-    expect(within(agenda).getByText("Awaiting confirm")).toBeInTheDocument()
-    expect(within(agenda).queryByText("Confirmed")).not.toBeInTheDocument()
+    expect(within(agenda).getByText("Waiting on Jordan")).toBeInTheDocument()
+    expect(within(agenda).queryByText("You're driving")).not.toBeInTheDocument()
   })
 
   it("shows amber conflict lines from server conflicts on Agenda items", async () => {
@@ -5421,7 +5421,7 @@ describe("FamilyScreen", () => {
     )
 
     const item = await screen.findByTestId("agenda-focus-MANUAL-e1")
-    expect(within(item).getByTestId("agenda-focus-chips")).toHaveTextContent("Needs coverage")
+    expect(within(item).getByTestId("agenda-focus-chips")).toHaveTextContent("Ride needed")
     expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(item).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
   })
