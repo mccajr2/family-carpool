@@ -8,7 +8,7 @@ Added: 2026-08-28 · initial
 Thin stub from hero & coverage flow redesign import. **Not implementable yet.**
 Run `/spec attendance-manual-toggle` before any code.
 
-**Depends on:** [`coverage-priority-engine`](../active/coverage-priority-engine.md)  
+**Depends on:** [`coverage-priority-engine`](../archive/coverage-priority-engine.md)  
 **Governs:** [ADR-0003](../../decisions/ADR-0003-attendance-manual-default-going.md)
 
 ## Problem

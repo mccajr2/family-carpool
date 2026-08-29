@@ -100,7 +100,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | household-driver-assignment     | planned | 2026-08-28 · initial       | DriverPicker: household chips + confirm, separated "Ask the team" path; household member confirm state                        |
+| 1    | household-driver-assignment     | active  | 2026-08-28 · initial       | DriverPicker: household chips + confirm, separated "Ask the team" path; household member confirm state                        |
 | 2    | unified-ride-status-chip        | planned | 2026-08-28 · initial       | One glanceable status chip per game incl. **You're driving · +N**; separate CarpoolAskChip for inbound asks                   |
 | 3    | hero-attention-carousel         | planned | 2026-08-28 · initial       | Swipeable "Needs your attention" carousel over `getQueue`; every slide actionable; empty → all caught up                      |
 | 4    | weekly-list-focus-sync          | planned | 2026-08-28 · initial       | Collapsed-by-default agenda rows; highlight syncs to `getQueue[0]`; chronological list order                                    |
@@ -191,7 +191,9 @@ Superseded by Expo migration (KMP ports / KMP-only fixes). Do not promote.
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None._
+| Id                          | Branch                      | Spec                                                        |
+| --------------------------- | --------------------------- | ----------------------------------------------------------- |
+| household-driver-assignment | `household-driver-assignment` | [active](specs/active/household-driver-assignment.md) |
 
 ## Done
 
@@ -384,4 +386,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-27 | `/pr agenda-carpool-state-clarity`: Focus + expanded AgendaRow ride lines match Carpool tab who/where/kids/seats density. Spec archived. Next up `assign-cancels-carpool-request`. |
 | 2026-08-28 | `/roadmap` hero & coverage flow redesign import: 10 ranked slices (mockup-validated) at ranks 1–10; ADRs in `docs/decisions/`; rank 1 **active** [`coverage-priority-engine`](specs/active/coverage-priority-engine.md); stubs for ranks 2–10; cancelled `assign-cancels-carpool-request`. Next up `/implement coverage-priority-engine`. |
 | 2026-08-28 | `/pr coverage-priority-engine`: shared `coverageQueue.ts` module with `getQueue`, view-model types, derived helpers, `autoDeclineUnofferable`, and calendar mappers. Spec archived. Next up `household-driver-assignment`. |
+| 2026-08-28 | `/spec household-driver-assignment`: DriverPicker component + Focus integration; household confirm via existing PENDING coverage; ADR-0003 RSVP reset on assign. Spec active. Next up `/implement household-driver-assignment`. |
 
