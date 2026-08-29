@@ -52,7 +52,7 @@ const conflict = {
   otherStartsAt: "2030-08-15T18:00:00Z",
 }
 
-/** Wednesday 12 Aug 2026 — Friday is within the five-day strip. */
+/** Wednesday 12 Aug 2026 — Friday is within the seven-day strip. */
 const now = new Date(2026, 7, 12, 12, 0, 0, 0)
 const adultId = "adult-1"
 
@@ -92,17 +92,24 @@ function acceptedOwnRide(kidIds: string[]): CarpoolRide {
 }
 
 describe("agendaWeekGlanceDays", () => {
-  it("returns today through today+4 weekday labels and omits today+5 / today+6", () => {
+  it("returns today through today+6 weekday labels and omits today+7", () => {
     const days = agendaWeekGlanceDays(
       [
-        item({ id: "plus5", startsAt: localIso(2026, 8, 17, 10), uncoveredKidIds: ["k1"] }),
-        item({ id: "plus6", startsAt: localIso(2026, 8, 18, 10), uncoveredKidIds: ["k1"] }),
+        item({ id: "plus7", startsAt: localIso(2026, 8, 19, 10), uncoveredKidIds: ["k1"] }),
       ],
       now,
       adultId,
     )
-    expect(days).toHaveLength(5)
-    expect(days.map((d) => d.weekdayLabel)).toEqual(["Wed", "Thu", "Fri", "Sat", "Sun"])
+    expect(days).toHaveLength(7)
+    expect(days.map((d) => d.weekdayLabel)).toEqual([
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
+      "Mon",
+      "Tue",
+    ])
     expect(days.every((d) => d.copy === "No events" && !d.flagged)).toBe(true)
   })
 

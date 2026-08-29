@@ -4,6 +4,7 @@ import {
   applyLeaveByFillIn,
   mergeCheapCalendarItem,
   mergeCheapCalendarItems,
+  mergeCalendarWindowRefresh,
 } from "@/api/calendarLeaveBy"
 import type { CalendarItem, CalendarLeaveBy } from "@/api/types"
 
@@ -135,6 +136,26 @@ describe("mergeCheapCalendarItems", () => {
     const merged = mergeCheapCalendarItems(incoming, cached)
     expect(merged[0]?.leaveByStatus).toBe("OK")
     expect(merged[1]?.leaveByStatus).toBe("PENDING")
+  })
+})
+
+describe("mergeCalendarWindowRefresh", () => {
+  it("refreshes the window without dropping items outside it", () => {
+    const window = {
+      from: "2026-08-14T00:00:00.000Z",
+      to: "2026-08-28T00:00:00.000Z",
+    }
+    const previous = [
+      item({ id: "near", title: "Near", startsAt: "2026-08-15T12:00:00.000Z", leaveByStatus: "OK", leaveByAt: "2026-08-15T11:00:00.000Z" }),
+      item({ id: "far", title: "Far", startsAt: "2026-12-01T12:00:00.000Z" }),
+    ]
+    const incoming = [
+      item({ id: "near", title: "Near", startsAt: "2026-08-15T12:00:00.000Z", leaveByStatus: "PENDING" }),
+      item({ id: "new", title: "New", startsAt: "2026-08-20T12:00:00.000Z" }),
+    ]
+    const merged = mergeCalendarWindowRefresh(incoming, previous, window)
+    expect(merged.map((row) => row.id)).toEqual(["near", "new", "far"])
+    expect(merged.find((row) => row.id === "near")?.leaveByStatus).toBe("OK")
   })
 })
 

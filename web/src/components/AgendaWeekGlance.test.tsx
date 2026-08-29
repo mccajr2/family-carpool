@@ -37,7 +37,7 @@ function localIso(year: number, month: number, day: number, hour = 12): string {
 const now = new Date(2026, 7, 12, 12, 0, 0, 0)
 
 describe("AgendaWeekGlance", () => {
-  it("renders the heading, five weekday rows, a flag, and no Maps or driver copy", () => {
+  it("renders the heading, seven weekday rows, a flag, and no Maps or driver copy", () => {
     render(
       <AgendaWeekGlance
         now={now}
@@ -59,9 +59,9 @@ describe("AgendaWeekGlance", () => {
     expect(heading.className).not.toMatch(/hero/)
 
     const rows = screen.getAllByRole("listitem")
-    expect(rows).toHaveLength(5)
-    expect(rows.map((row) => within(row).getByText(/^(Wed|Thu|Fri|Sat|Sun)$/i).textContent)).toEqual(
-      ["Wed", "Thu", "Fri", "Sat", "Sun"],
+    expect(rows).toHaveLength(7)
+    expect(rows.map((row) => within(row).getByText(/^(Wed|Thu|Fri|Sat|Sun|Mon|Tue)$/i).textContent)).toEqual(
+      ["Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"],
     )
     expect(within(rows[0]).getByText("1 needs coverage")).toBeInTheDocument()
     expect(within(rows[0]).getByText("Wed").className).toMatch(/--fc-text-secondary/)

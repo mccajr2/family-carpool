@@ -215,7 +215,7 @@ describe("CarpoolPanel", () => {
     const from = listRides.mock.calls[0]?.[2] as string
     const to = listRides.mock.calls[0]?.[3] as string
     expect((new Date(to).getTime() - new Date(from).getTime()) / (24 * 60 * 60 * 1000)).toBe(
-      30,
+      14,
     )
   })
 

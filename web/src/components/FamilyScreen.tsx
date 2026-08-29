@@ -7,7 +7,7 @@ import {
   CalendarCacheStore,
   maxIsoInstant,
 } from "@/api/calendarCacheStore"
-import { applyLeaveByFillIn, mergeCheapCalendarItems } from "@/api/calendarLeaveBy"
+import { applyLeaveByFillIn, mergeCalendarWindowRefresh } from "@/api/calendarLeaveBy"
 import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
@@ -64,6 +64,7 @@ import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
   coverageGameEventKey,
   getQueue,
+  filterQueueWithinHorizon,
   mapCalendarItemsToCoverageGames,
   type QueueItem,
 } from "@/components/coverageQueue"
@@ -83,6 +84,7 @@ import {
   coerceEndsAfterStart,
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
+  filterCalendarItemsInWindow,
   formatLocalTodayLabel,
   mergeCalendarItems,
   nearTermLeaveByWindow,
@@ -113,6 +115,8 @@ type FamilyScreenProps = {
   carpoolClient?: CarpoolClient
   calendarCacheStore?: CalendarCacheStore
   bootstrapCacheStore?: FamilyBootstrapStore
+  /** Test hook — local "today" for agenda grouping and carousel horizon. */
+  now?: Date
   onSignedOut: () => void
 }
 
@@ -177,8 +181,10 @@ export function FamilyScreen({
   carpoolClient: carpoolClientProp,
   calendarCacheStore: calendarCacheStoreProp,
   bootstrapCacheStore: bootstrapCacheStoreProp,
+  now: nowProp,
   onSignedOut,
 }: FamilyScreenProps) {
+  const now = nowProp ?? new Date()
   // Default param `new FamilyClient()` would be a new instance every render and
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
@@ -235,11 +241,12 @@ export function FamilyScreen({
     () => initialCalendar?.items ?? [],
   )
   const [calendarLoadedTo, setCalendarLoadedTo] = useState(
-    () => initialCalendar?.to ?? defaultCalendarWindow().to,
+    () => defaultCalendarWindow(nowProp).to,
   )
   const [calendarFetchedAt, setCalendarFetchedAt] = useState<number | null>(
     () => initialCalendar?.fetchedAt ?? null,
   )
+  const [calendarLoadingMore, setCalendarLoadingMore] = useState(false)
   const [calendarRevalidating, setCalendarRevalidating] = useState(
     () => initialCalendar != null,
   )
@@ -502,7 +509,7 @@ export function FamilyScreen({
       armNearTermGate()
       void (async () => {
         try {
-          const near = nearTermLeaveByWindow(loadedFrom, loadedTo)
+          const near = nearTermLeaveByWindow(loadedFrom, loadedTo, now)
           if (near) {
             await fetchAndApplyLeaveBy(token, near.from, near.to, gen)
           }
@@ -512,13 +519,13 @@ export function FamilyScreen({
         if (gen !== leaveByFillGenRef.current) {
           return
         }
-        const rest = remainderAfterNearTermLeaveByWindow(loadedFrom, loadedTo)
+        const rest = remainderAfterNearTermLeaveByWindow(loadedFrom, loadedTo, now)
         if (rest) {
           await fetchAndApplyLeaveBy(token, rest.from, rest.to, gen)
         }
       })()
     },
-    [armNearTermGate, fetchAndApplyLeaveBy, resolveNearTermGate],
+    [armNearTermGate, fetchAndApplyLeaveBy, now, resolveNearTermGate],
   )
 
   const fetchAndPersistCalendar = useCallback(
@@ -528,16 +535,19 @@ export function FamilyScreen({
       circleId: string,
       loadedTo: string,
     ): Promise<{ items: CalendarItem[]; from: string; to: string }> => {
-      const window = calendarWindowThrough(loadedTo)
+      const window = calendarWindowThrough(loadedTo, now)
       const items = await familyClient.listCalendar(token, window.from, window.to)
-      const previous = calendarCache.load(adultId, circleId)?.items ?? []
-      const merged = mergeCheapCalendarItems(items, previous)
-      setCalendarItems(merged)
+      let merged: CalendarItem[] = items
+      setCalendarItems((current) => {
+        const previous = current.length > 0 ? current : calendarCache.load(adultId, circleId)?.items ?? []
+        merged = mergeCalendarWindowRefresh(items, previous, window)
+        return merged
+      })
       setCalendarLoadedTo(loadedTo)
       persistCalendarSnapshot(adultId, circleId, window.from, window.to, merged)
       return { items: merged, from: window.from, to: window.to }
     },
-    [calendarCache, familyClient, persistCalendarSnapshot],
+    [calendarCache, familyClient, now, persistCalendarSnapshot],
   )
 
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
@@ -588,7 +598,7 @@ export function FamilyScreen({
   }
 
   async function loadMoreCalendar() {
-    setStatus({ kind: "loading" })
+    setCalendarLoadingMore(true)
     try {
       const token = await requireToken()
       const page = advanceCalendarWindow(calendarLoadedTo)
@@ -602,7 +612,6 @@ export function FamilyScreen({
         return merged
       })
       setCalendarLoadedTo(page.to)
-      setStatus({ kind: "idle" })
       await nearTermGateRef.current.promise
       const gen = leaveByFillGenRef.current
       await fetchAndApplyLeaveBy(token, page.from, page.to, gen)
@@ -611,6 +620,8 @@ export function FamilyScreen({
         kind: "error",
         message: error instanceof Error ? error.message : "Something went wrong",
       })
+    } finally {
+      setCalendarLoadingMore(false)
     }
   }
 
@@ -673,19 +684,18 @@ export function FamilyScreen({
         const hadCache = cached != null
 
         if (loaded && adultId) {
+          const initialTo = defaultCalendarWindow(now).to
           if (cached) {
             setCalendarItems(cached.items)
-            setCalendarLoadedTo(cached.to)
+            setCalendarLoadedTo(initialTo)
             setCalendarFetchedAt(cached.fetchedAt)
             armNearTermGate()
             setCalendarRevalidating(true)
             setStatus({ kind: "idle" })
           }
 
-          const today = defaultCalendarWindow()
-          const to = cached ? maxIsoInstant(today.to, cached.to) : today.to
           try {
-            const painted = await fetchAndPersistCalendar(token, adultId, loaded.id, to)
+            const painted = await fetchAndPersistCalendar(token, adultId, loaded.id, initialTo)
             if (!cancelled) {
               startLeaveByFill(token, painted.from, painted.to)
             } else {
@@ -1984,23 +1994,30 @@ export function FamilyScreen({
     agendaKidFilter == null
       ? calendarItems
       : calendarItems.filter((item) => item.kidIds.includes(agendaKidFilter))
+  const agendaLoadedWindow = calendarWindowThrough(calendarLoadedTo, now)
+  const agendaWindowItems = filterCalendarItemsInWindow(
+    visibleCalendarItems,
+    agendaLoadedWindow.from,
+    agendaLoadedWindow.to,
+  )
   const coverageMapOptions = {
     currentAdultId: adult?.id ?? "",
     members: circle.members,
   }
   const coverageGames = mapCalendarItemsToCoverageGames(
-    visibleCalendarItems,
+    agendaWindowItems,
     (item) => calendarRideByItemKey.get(calendarItemKey(item)) ?? null,
     coverageMapOptions,
   )
-  const attentionQueue = getQueue(coverageGames)
+  const attentionQueue = filterQueueWithinHorizon(getQueue(coverageGames), now)
   const queuedCalendarItemKeys = new Set(
     attentionQueue.map((item) => coverageGameEventKey(item.game.id)),
   )
-  const listCalendarItems = visibleCalendarItems.filter(
+  const listCalendarItems = agendaWindowItems.filter(
     (item) => !queuedCalendarItemKeys.has(calendarItemKey(item)),
   )
   const { sections: agendaSections } = groupAgendaListSections(listCalendarItems, {
+    now,
     currentAdultId: adult?.id ?? "",
     queueHasItems: attentionQueue.length > 0,
     ownRequestFor: (item) =>
@@ -2015,7 +2032,7 @@ export function FamilyScreen({
 
   const slidePropsForQueueItem = (queueItem: QueueItem, index: number): HeroAttentionSlideProps => {
     const itemKey = coverageGameEventKey(queueItem.game.id)
-    const calendarItemForSlide = visibleCalendarItems.find(
+    const calendarItemForSlide = agendaWindowItems.find(
       (row) => calendarItemKey(row) === itemKey,
     )
     if (calendarItemForSlide == null) {
@@ -2565,7 +2582,6 @@ export function FamilyScreen({
           {destination === "calendar" ? (
             <>
               <section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
-          <p className="text-sm font-medium">Agenda</p>
           {calendarRevalidating ? (
             <p
               data-testid="agenda-revalidating"
@@ -2613,7 +2629,7 @@ export function FamilyScreen({
               ))}
             </div>
           ) : null}
-          {visibleCalendarItems.length === 0 ? (
+          {agendaWindowItems.length === 0 ? (
             // While calendar list is busy, do not claim the window is empty —
             // busy feedback lives on Load more → Loading….
             status.kind === "loading" && !eventComposeOpen ? null : (
@@ -2721,9 +2737,9 @@ export function FamilyScreen({
             type="button"
             variant="outline"
             onClick={() => void loadMoreCalendar()}
-            disabled={status.kind === "loading"}
+            disabled={calendarLoadingMore}
           >
-            {status.kind === "loading" && !eventComposeOpen ? (
+            {calendarLoadingMore ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden />
                 Loading…
@@ -3232,8 +3248,9 @@ export function FamilyScreen({
           className="flex w-80 shrink-0 flex-col border-l border-[var(--fc-border)] px-[var(--fc-space-week-glance-pad-x)] py-[var(--fc-space-main-y)]"
         >
           <AgendaWeekGlance
-            items={visibleCalendarItems}
+            items={agendaWindowItems}
             currentAdultId={adult?.id ?? ""}
+            now={now}
             ownRequestForItem={(item) =>
               calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null
             }

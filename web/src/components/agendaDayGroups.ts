@@ -41,6 +41,9 @@ export type AgendaListGrouping = {
 /** Today / Tomorrow / This week (days 3–6) / Later — matches groupAgendaByDay buckets. */
 export type AgendaDayBucket = "today" | "tomorrow" | "this-week" | "later"
 
+/** Local calendar days in the hero carousel and week-at-a-glance strip (today + next 6). */
+export const AGENDA_NEAR_TERM_DAYS = 7
+
 export type AgendaDayBoundaries = {
   todayStart: Date
   tomorrowStart: Date
@@ -66,7 +69,7 @@ export function agendaDayBoundaries(now: Date = new Date()): AgendaDayBoundaries
     todayStart,
     tomorrowStart: addDays(todayStart, 1),
     dayAfterTomorrowStart: addDays(todayStart, 2),
-    weekEnd: addDays(todayStart, 7),
+    weekEnd: addDays(todayStart, AGENDA_NEAR_TERM_DAYS),
   }
 }
 

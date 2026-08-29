@@ -28,7 +28,7 @@ const flagClass =
   "ml-auto h-[var(--fc-space-week-flag)] w-[var(--fc-space-week-flag)] shrink-0 rounded-full bg-[var(--fc-danger)]"
 
 /**
- * Compact five-day coverage/status strip for Calendar Context.
+ * Compact seven-day coverage/status strip for Calendar Context.
  * Rows are not interactive — jump-to-day stays the calendar grid.
  */
 export function AgendaWeekGlance({

@@ -21,6 +21,7 @@ import {
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import { rsvpStatusForKid } from "@/components/rsvpDisplay"
+import { agendaDayBoundaries } from "@/components/agendaDayGroups"
 
 export type Attendance = "going" | "not_going"
 
@@ -140,6 +141,21 @@ export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
   }
 
   return [...ownRideItems, ...requestItems]
+}
+
+/** Hero carousel horizon — same seven-day window as agenda "This week". */
+export function filterQueueWithinHorizon(
+  queue: readonly QueueItem[],
+  now: Date = new Date(),
+): QueueItem[] {
+  const { todayStart, weekEnd } = agendaDayBoundaries(now)
+  return queue.filter((item) => {
+    const startsAt = new Date(item.game.startsAt)
+    if (Number.isNaN(startsAt.getTime())) {
+      return false
+    }
+    return startsAt >= todayStart && startsAt < weekEnd
+  })
 }
 
 /**

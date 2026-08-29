@@ -5,6 +5,7 @@ import {
   acceptedRiders,
   autoDeclineUnofferable,
   coverageGameEventKey,
+  filterQueueWithinHorizon,
   getQueue,
   isConfirmedDriver,
   isPendingHouseholdConfirm,
@@ -248,6 +249,32 @@ describe("getQueue", () => {
 
     expect(queue).toHaveLength(1)
     expect(queue[0]).toMatchObject({ kind: "request", request: { id: "live" } })
+  })
+})
+
+describe("filterQueueWithinHorizon", () => {
+  const now = new Date("2030-08-15T12:00:00")
+
+  it("keeps items starting within the next seven local days", () => {
+    const queue = getQueue([
+      game({
+        id: "this-week",
+        order: Date.parse("2030-08-16T17:00:00.000Z"),
+        startsAt: "2030-08-16T17:00:00.000Z",
+        ownRide: "unassigned",
+      }),
+      game({
+        id: "later",
+        order: Date.parse("2030-08-25T17:00:00.000Z"),
+        startsAt: "2030-08-25T17:00:00.000Z",
+        ownRide: "unassigned",
+      }),
+    ])
+
+    const filtered = filterQueueWithinHorizon(queue, now)
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]).toMatchObject({ game: { id: "this-week" } })
   })
 })
 

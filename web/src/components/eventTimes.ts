@@ -126,8 +126,11 @@ export function formatLocalTodayLabel(now: Date = new Date()): string {
   })
 }
 
-/** Default agenda page size in local calendar days. */
+/** Default agenda page size in local calendar days (Load more increments). */
 export const CALENDAR_PAGE_DAYS = 30
+
+/** Initial agenda fetch: local today through +14 days (two weeks). */
+export const CALENDAR_INITIAL_DAYS = 14
 
 /** Near-term leave-by fill-in: local today through +2 calendar days. */
 export const LEAVE_BY_NEAR_TERM_DAYS = 2
@@ -138,9 +141,9 @@ function startOfLocalDay(now: Date): Date {
   return start
 }
 
-/** Default agenda window: local start-of-today → +30 days, as UTC ISO instants. */
+/** Default agenda window: local start-of-today → +14 days, as UTC ISO instants. */
 export function defaultCalendarWindow(now: Date = new Date()): { from: string; to: string } {
-  return advanceCalendarWindow(startOfLocalDay(now).toISOString(), CALENDAR_PAGE_DAYS)
+  return advanceCalendarWindow(startOfLocalDay(now).toISOString(), CALENDAR_INITIAL_DAYS)
 }
 
 /**
@@ -249,6 +252,15 @@ export function mergeCalendarItems<T extends { id: string; source: string; start
       ? `${a.source}:${a.id}`.localeCompare(`${b.source}:${b.id}`)
       : a.startsAt.localeCompare(b.startsAt),
   )
+}
+
+/** Keep only items whose `startsAt` falls in the half-open `[from, to)` window. */
+export function filterCalendarItemsInWindow<T extends { startsAt: string }>(
+  items: T[],
+  fromIso: string,
+  toIso: string,
+): T[] {
+  return items.filter((item) => item.startsAt >= fromIso && item.startsAt < toIso)
 }
 
 export function calendarSourceLabel(
