@@ -343,6 +343,24 @@ describe("mapCalendarItemToCoverageGames", () => {
     )
     expect(pendingConfirm[0]?.ownRide).toEqual({ driver: "Jordan", confirmed: false })
 
+    const selfConfirmed = mapCalendarItemToCoverageGames(
+      calendarItem({
+        coverages: [
+          {
+            id: "c-self",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+      null,
+      mapOptions,
+    )
+    expect(selfConfirmed[0]?.ownRide).toEqual({ driver: "You", confirmed: true })
+
     const requested = mapCalendarItemToCoverageGames(
       calendarItem({ uncoveredKidIds: ["k1"] }),
       rideEvent({ ownRequest: ownRide({ status: "PENDING" }) }),

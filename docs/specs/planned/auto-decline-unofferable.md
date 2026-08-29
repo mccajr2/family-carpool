@@ -8,7 +8,7 @@ Added: 2026-08-28 · initial
 Thin stub from hero & coverage flow redesign import. **Not implementable yet.**
 Run `/spec auto-decline-unofferable` before any code.
 
-**Depends on:** [`coverage-priority-engine`](../active/coverage-priority-engine.md), [`ride-revert-undo`](../planned/ride-revert-undo.md)  
+**Depends on:** [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`ride-revert-undo`](../planned/ride-revert-undo.md)  
 **Governs:** [ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md)
 
 ## Problem

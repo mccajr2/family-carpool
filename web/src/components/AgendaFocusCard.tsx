@@ -24,6 +24,7 @@ import {
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
+import { DriverPicker } from "@/components/DriverPicker"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
@@ -164,9 +165,7 @@ export function AgendaFocusCard({
     : []
   const acceptVehicle =
     acceptVehicles.length === 1 ? acceptVehicles[0]!.id : acceptVehicleId
-  const showRequest =
-    !pendingForSelf &&
-    !showRideAcceptPass &&
+  const canAskTeam =
     rideEvent != null &&
     rideEvent.ownRequest == null &&
     rideEvent.defaultKidIds.length > 0 &&
@@ -176,14 +175,16 @@ export function AgendaFocusCard({
     gapKidIds.length > 0 &&
     circle.members.length > 0 &&
     !pendingForSelf
+  const showRequest =
+    !pendingForSelf && !showRideAcceptPass && canAskTeam && !showAssign
   const showCancelOwnRide =
     ownRequest != null &&
     (ownRequest.status === "PENDING" || ownRequest.status === "ACCEPTED") &&
     onCancelRide != null
   const showWithdrawAcceptedByUs = acceptedByUs != null && onWithdrawRide != null
-  const showAssignSelect = showAssign && !assignDraft.soleAdult
-  const showChangeSelect = Boolean(activeCoverage) && circle.members.length > 1 && !showAssignSelect
-  const showCoveringSelect = showAssignSelect || showChangeSelect
+  const showChangeSelect =
+    Boolean(activeCoverage) && circle.members.length > 1 && !showAssign
+  const showCoveringSelect = showChangeSelect
   const showCoveringRow = showCoveringSelect || Boolean(activeCoverage)
   const showRemoveCoverage = Boolean(activeCoverage) && !pendingForSelf
   const metaLine = focusMetaLine(item, circle)
@@ -331,20 +332,12 @@ export function AgendaFocusCard({
                   aria-label={`Covering adult for ${item.title}`}
                   className="rounded-md border bg-transparent px-[var(--fc-space-md)] py-[var(--fc-space-focus-covering-pad-y)] text-[length:var(--fc-font-focus-covering-size)] leading-[var(--fc-font-focus-covering-line)] font-[number:var(--fc-font-focus-covering-weight)]"
                   style={{ borderColor: dividerVar, color: onVar }}
-                  value={
-                    showChangeSelect && activeCoverage
-                      ? activeCoverage.coveringAdultId
-                      : assignDraft.adultId
-                  }
+                  value={activeCoverage!.coveringAdultId}
                   onChange={(e) => {
                     const adultId = e.target.value
-                    if (showChangeSelect && activeCoverage) {
-                      if (adultId !== activeCoverage.coveringAdultId) {
-                        onReassignCoverage(activeCoverage.id, adultId, activeCoverage.kidIds)
-                      }
-                      return
+                    if (adultId !== activeCoverage!.coveringAdultId) {
+                      onReassignCoverage(activeCoverage!.id, adultId, activeCoverage!.kidIds)
                     }
-                    onUpdateAssignDraft({ adultId })
                   }}
                   disabled={loading}
                 >
@@ -455,35 +448,61 @@ export function AgendaFocusCard({
           </Button>
         ) : null}
         {showAssign ? (
-          <Button
-            type="button"
-            size="sm"
-            className={
-              showRequest
-                ? "text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-                : "text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-            }
-            style={
-              showRequest
-                ? undefined
-                : needsDecision
-                  ? { backgroundColor: onVar, color: surfaceVar }
-                  : undefined
-            }
-            variant={
-              showRequest
-                ? needsDecision
-                  ? "secondary"
-                  : "outline"
-                : !needsDecision
-                  ? "default"
-                  : undefined
-            }
-            onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
-            disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
-          >
-            Assign coverage
-          </Button>
+          <div className="flex w-full flex-col gap-[var(--fc-space-md)]">
+            {!assignDraft.soleKid ? (
+              <fieldset
+                className="flex flex-col gap-[var(--fc-space-xs)]"
+                data-testid="agenda-focus-kid-subset"
+              >
+                <legend
+                  className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+                  style={{ color: onSecondaryVar }}
+                >
+                  Uncovered kids
+                </legend>
+                {gapKidIds.map((kidId) => {
+                  const kid = circle.kids.find((entry) => entry.id === kidId)
+                  if (!kid) {
+                    return null
+                  }
+                  return (
+                    <label
+                      key={kidId}
+                      className="flex items-center gap-[var(--fc-space-sm)] text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+                      style={{ color: onVar }}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={`Cover ${kid.displayName} for ${item.title}`}
+                        checked={assignDraft.kidIds.includes(kidId)}
+                        onChange={() =>
+                          onUpdateAssignDraft({
+                            kidIds: assignDraft.kidIds.includes(kidId)
+                              ? assignDraft.kidIds.filter((id) => id !== kidId)
+                              : [...assignDraft.kidIds, kidId],
+                          })
+                        }
+                        disabled={loading}
+                      />
+                      {kid.displayName}
+                    </label>
+                  )
+                })}
+              </fieldset>
+            ) : null}
+            <DriverPicker
+              members={circle.members}
+              currentAdultId={currentAdultId}
+              selectedAdultId={assignDraft.adultId}
+              onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
+              kidIds={assignDraft.kidIds}
+              loading={loading}
+              onAssignCoverage={onAssignCoverage}
+              onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
+              showTeamSection={canAskTeam}
+              hero={needsDecision}
+            />
+          </div>
         ) : null}
         {showCancelOwnRide && ownRequest ? (
           <>

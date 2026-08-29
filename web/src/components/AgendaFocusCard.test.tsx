@@ -255,6 +255,8 @@ describe("AgendaFocusCard hero surface", () => {
     expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(screen.queryByText("Assigned to you")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Decline coverage" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
   })
 
@@ -310,17 +312,14 @@ describe("AgendaFocusCard assign", () => {
         onAssignCoverage,
       },
     )
-    const coveringRow = screen.getByTestId("agenda-focus-covering")
-    expect(within(coveringRow).getByText("Covering")).toBeInTheDocument()
-    expect(coveringRow.className).toMatch(/items-center/)
-    expect(coveringRow.className).not.toMatch(/flex-col/)
-    const covering = screen.getByLabelText("Covering adult for Practice")
-    expect(covering).toHaveValue("a1")
-    await user.click(screen.getByRole("button", { name: "Assign coverage" }))
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "You" })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: "Confirm I'll drive" }))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
-  it("assigns a different adult after the covering combobox changes", async () => {
+  it("assigns a different adult after selecting another household chip", async () => {
     const user = userEvent.setup()
     const onAssignCoverage = vi.fn()
     const onUpdateAssignDraft = vi.fn()
@@ -337,9 +336,94 @@ describe("AgendaFocusCard assign", () => {
         onUpdateAssignDraft,
       },
     )
-    expect(screen.getByLabelText("Covering adult for Practice")).toHaveValue("a2")
-    await user.click(screen.getByRole("button", { name: "Assign coverage" }))
+    expect(screen.getByRole("button", { name: "Jordan" })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: "Ask Jordan to drive" }))
     expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1"])
+  })
+
+  it("calls onUpdateAssignDraft when another household chip is selected", async () => {
+    const user = userEvent.setup()
+    const onUpdateAssignDraft = vi.fn()
+    renderCard(
+      item({
+        id: "assign-chip",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        circle: twoAdultCircle,
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: false, soleKid: true },
+        onUpdateAssignDraft,
+      },
+    )
+    await user.click(screen.getByRole("button", { name: "Jordan" }))
+    expect(onUpdateAssignDraft).toHaveBeenCalledWith({ adultId: "a2" })
+  })
+
+  it("shows kid subset checkboxes above DriverPicker when multiple kids need coverage", () => {
+    renderCard(
+      item({
+        id: "assign-multi",
+        title: "Practice",
+        kidIds: ["k1", "k2"],
+        uncoveredKidIds: ["k1", "k2"],
+      }),
+      {
+        circle: {
+          ...twoAdultCircle,
+          kids: [
+            { id: "k1", displayName: "Sam" },
+            { id: "k2", displayName: "Riley" },
+          ],
+        },
+        assignDraft: {
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        },
+      },
+    )
+
+    const subset = screen.getByTestId("agenda-focus-kid-subset")
+    expect(subset).toHaveTextContent("Uncovered kids")
+    expect(screen.getByLabelText("Cover Sam for Practice")).toBeChecked()
+    expect(screen.getByLabelText("Cover Riley for Practice")).toBeChecked()
+    expect(subset.compareDocumentPosition(screen.getByTestId("driver-picker")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("assigns only selected kids after deselecting a subset checkbox", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    const onUpdateAssignDraft = vi.fn()
+    renderCard(
+      item({
+        id: "assign-subset",
+        title: "Practice",
+        kidIds: ["k1", "k2"],
+        uncoveredKidIds: ["k1", "k2"],
+      }),
+      {
+        circle: {
+          ...twoAdultCircle,
+          kids: [
+            { id: "k1", displayName: "Sam" },
+            { id: "k2", displayName: "Riley" },
+          ],
+        },
+        assignDraft: {
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        },
+        onAssignCoverage,
+        onUpdateAssignDraft,
+      },
+    )
+
+    await user.click(screen.getByLabelText("Cover Riley for Practice"))
+    expect(onUpdateAssignDraft).toHaveBeenCalledWith({ kidIds: ["k1"] })
   })
 })
 
@@ -535,7 +619,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
       "House B · Mia · 1 seat · Home, 1 Main",
     )
@@ -591,7 +675,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     )
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
   })
 
   it("does not show Accept/Pass for own PENDING request", () => {
@@ -658,7 +742,8 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Requested")).toBeInTheDocument()
     expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
       backgroundColor: "var(--fc-hero-surface)",
     })
@@ -763,7 +848,8 @@ describe("AgendaFocusCard Cancel CTA", () => {
         onCancelRide: vi.fn(),
       },
     )
-    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
 })
@@ -914,7 +1000,7 @@ describe("AgendaFocusCard Request CTA", () => {
     otherRequests: [],
   }
 
-  it("shows Request as primary with Assign secondary on uncovered carpool FEED", async () => {
+  it("shows DriverPicker with team ask on uncovered carpool FEED", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const onAssignCoverage = vi.fn()
@@ -934,10 +1020,12 @@ describe("AgendaFocusCard Request CTA", () => {
         onAssignCoverage,
       },
     )
-    expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ask the team for a ride" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Request" }))
+    await user.click(screen.getByRole("button", { name: "Ask the team for a ride" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice")
     expect(onAssignCoverage).not.toHaveBeenCalled()
   })
@@ -948,7 +1036,7 @@ describe("AgendaFocusCard Request CTA", () => {
       onCreateRide: vi.fn(),
     })
     expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
   })
 
   it("hides Assign when every uncovered kid is on an ACCEPTED own ride", () => {
@@ -991,7 +1079,7 @@ describe("AgendaFocusCard Request CTA", () => {
         onAssignCoverage: vi.fn(),
       },
     )
-    expect(screen.queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(
       within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
@@ -1057,7 +1145,8 @@ describe("AgendaFocusCard Request CTA", () => {
         onAssignCoverage: vi.fn(),
       },
     )
-    expect(screen.getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Riding with Sharks Family")).toBeInTheDocument()
     expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()

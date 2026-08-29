@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Governs:** [`coverage-priority-engine`](../specs/active/coverage-priority-engine.md), [`attendance-manual-toggle`](../specs/planned/attendance-manual-toggle.md)
+**Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`attendance-manual-toggle`](../specs/planned/attendance-manual-toggle.md)
 
 ## Context
 

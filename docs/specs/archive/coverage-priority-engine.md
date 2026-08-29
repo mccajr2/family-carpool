@@ -20,7 +20,7 @@ queue (`getQueue`), and the `autoDeclineUnofferable` transform. **No UI.**
 
 ## Non-goals
 
-- Any rendering ([`household-driver-assignment`](../planned/household-driver-assignment.md), [`hero-attention-carousel`](../planned/hero-attention-carousel.md), [`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md))
+- Any rendering ([`household-driver-assignment`](../active/household-driver-assignment.md), [`hero-attention-carousel`](../planned/hero-attention-carousel.md), [`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md))
 - Wiring `autoDeclineUnofferable` into live mutation handlers ([`auto-decline-unofferable`](../planned/auto-decline-unofferable.md))
 - Replacing `selectFocusItem` or `AgendaFocusCard` in this PR (those migrate in later ranks)
 - OpenAPI / backend persistence for the new attendance model (client view-model + mapping shim is enough here; full RSVP migration is [`attendance-manual-toggle`](../planned/attendance-manual-toggle.md))
@@ -52,7 +52,7 @@ this slice — assume readable from existing family context.
 
 **Downstream contract:** assigning any real driver must also reset attendance to
 `"going"` ([ADR-0003](../../decisions/ADR-0003-attendance-manual-default-going.md)) —
-implemented in [`household-driver-assignment`](../planned/household-driver-assignment.md).
+implemented in [`household-driver-assignment`](../active/household-driver-assignment.md).
 
 ## Context
 
@@ -85,4 +85,4 @@ implemented in [`household-driver-assignment`](../planned/household-driver-assig
   calendar row (`kidIds`); inbound `requests` are duplicated on each kid row for
   the same event so `getQueue` stays kid-accurate for own-ride gaps while sharing
   event-level carpool asks.
-- **Household confirm state:** map from existing `CoverageStatus.PENDING` on assignments until [`household-driver-assignment`](../planned/household-driver-assignment.md) introduces explicit household-driver ask UX.
+- **Household confirm state:** map from existing `CoverageStatus.PENDING` on assignments until [`household-driver-assignment`](../active/household-driver-assignment.md) introduces explicit household-driver ask UX.
