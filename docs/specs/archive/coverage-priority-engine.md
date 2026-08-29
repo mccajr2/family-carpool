@@ -1,9 +1,10 @@
 # Spec: coverage-priority-engine
 
-Status: in-progress  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial (hero & coverage flow redesign import)  
+Branch: `coverage-priority-engine`  
 Governs: [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md), [ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md), [ADR-0003](../../decisions/ADR-0003-attendance-manual-default-going.md)
 
 ## Problem
@@ -64,21 +65,24 @@ implemented in [`household-driver-assignment`](../planned/household-driver-assig
 
 ## Acceptance criteria
 
-- [ ] View-model types and mapper exist; deviations from the package sketch are documented in this spec or PR description.
-- [ ] `getQueue`, all five derived helpers, and `autoDeclineUnofferable` live in one shared module importable by downstream ranks.
-- [ ] Unit tests cover: an own-ride gap beats a sooner pending request; a `not_going` game never produces a queue item even if `ownRide` is unassigned; multiple gaps/requests ordered soonest-first by `order`; all-resolved input returns `[]`.
-- [ ] `autoDeclineUnofferable` only fires on `ownRide === "requested"` — tests assert pending requests survive untouched for `"unassigned"` and `{ driver, confirmed: false }`.
-- [ ] No new UI re-implements queue sort/filter logic; existing `selectFocusItem` left untouched until [`hero-attention-carousel`](../planned/hero-attention-carousel.md).
-- [ ] Downstream contract documented: driver assignment resets attendance to `"going"`.
+- [x] View-model types and mapper exist; deviations from the package sketch are documented in this spec or PR description.
+- [x] `getQueue`, all five derived helpers, and `autoDeclineUnofferable` live in one shared module importable by downstream ranks.
+- [x] Unit tests cover: an own-ride gap beats a sooner pending request; a `not_going` game never produces a queue item even if `ownRide` is unassigned; multiple gaps/requests ordered soonest-first by `order`; all-resolved input returns `[]`.
+- [x] `autoDeclineUnofferable` only fires on `ownRide === "requested"` — tests assert pending requests survive untouched for `"unassigned"` and `{ driver, confirmed: false }`.
+- [x] No new UI re-implements queue sort/filter logic; existing `selectFocusItem` left untouched until [`hero-attention-carousel`](../planned/hero-attention-carousel.md).
+- [x] Downstream contract documented: driver assignment resets attendance to `"going"`.
 
 ## Tasks
 
-- [ ] Web: add `coverageQueue.ts` with types, helpers, `getQueue`, `autoDeclineUnofferable`
-- [ ] Web: add mapper from `CalendarItem` + `CarpoolRideEvent` → `CoverageGameEvent` (minimal fields needed for queue logic)
-- [ ] Tests: `coverageQueue.test.ts` covering priority ordering, `not_going` exclusion, empty queue, auto-decline guard
-- [ ] Docs: note in PR if backend persistence for view-model fields is a separate workstream
+- [x] Web: add `coverageQueue.ts` with types, helpers, `getQueue`, `autoDeclineUnofferable`
+- [x] Web: add mapper from `CalendarItem` + `CarpoolRideEvent` → `CoverageGameEvent` (minimal fields needed for queue logic)
+- [x] Tests: `coverageQueue.test.ts` covering priority ordering, `not_going` exclusion, empty queue, auto-decline guard
+- [x] Docs: note in PR if backend persistence for view-model fields is a separate workstream
 
 ## Open questions
 
-- **Mapper granularity:** one `CoverageGameEvent` per calendar row vs per kid — resolve during implementation to match how multi-kid events join rides; queue logic must stay correct either way.
+- **Mapper granularity:** **Resolved** — one `CoverageGameEvent` per kid on the
+  calendar row (`kidIds`); inbound `requests` are duplicated on each kid row for
+  the same event so `getQueue` stays kid-accurate for own-ride gaps while sharing
+  event-level carpool asks.
 - **Household confirm state:** map from existing `CoverageStatus.PENDING` on assignments until [`household-driver-assignment`](../planned/household-driver-assignment.md) introduces explicit household-driver ask UX.
