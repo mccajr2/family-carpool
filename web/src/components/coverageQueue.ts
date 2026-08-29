@@ -96,7 +96,12 @@ function isInPlay(game: CoverageGameEvent): boolean {
   return game.attendance !== "not_going"
 }
 
-/** Own-child ride still unresolved (not confirmed driving or riding with a teammate). */
+/**
+ * Own-child row that needs a decision from the signed-in adult in the hero
+ * carousel. Unassigned gaps and pending confirm-for-self only — "Asked the
+ * team" and waiting on another household driver are out of queue (see mock
+ * `getQueue` + empty-state copy).
+ */
 function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (!isInPlay(game)) {
     return false
@@ -104,10 +109,14 @@ function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (isConfirmedDriver(game.ownRide)) {
     return false
   }
+  if (isUnassigned(game.ownRide)) {
+    return true
+  }
   return (
-    isUnassigned(game.ownRide) ||
-    game.ownRide === "requested" ||
-    isPendingHouseholdConfirm(game.ownRide)
+    typeof game.ownRide === "object" &&
+    "driver" in game.ownRide &&
+    !game.ownRide.confirmed &&
+    game.ownRide.driver === "You"
   )
 }
 

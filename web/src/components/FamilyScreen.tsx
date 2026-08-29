@@ -184,7 +184,10 @@ export function FamilyScreen({
   now: nowProp,
   onSignedOut,
 }: FamilyScreenProps) {
-  const now = nowProp ?? new Date()
+  // Stable when `now` is omitted (AuthScreen). A fresh Date each render would
+  // retrigger load/revalidate effects and freeze "Updating…" / reset Load more.
+  const [defaultNow] = useState(() => new Date())
+  const now = nowProp ?? defaultNow
   // Default param `new FamilyClient()` would be a new instance every render and
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
@@ -241,7 +244,7 @@ export function FamilyScreen({
     () => initialCalendar?.items ?? [],
   )
   const [calendarLoadedTo, setCalendarLoadedTo] = useState(
-    () => defaultCalendarWindow(nowProp).to,
+    () => initialCalendar?.to ?? defaultCalendarWindow(nowProp).to,
   )
   const [calendarFetchedAt, setCalendarFetchedAt] = useState<number | null>(
     () => initialCalendar?.fetchedAt ?? null,
@@ -685,9 +688,10 @@ export function FamilyScreen({
 
         if (loaded && adultId) {
           const initialTo = defaultCalendarWindow(now).to
+          const loadedTo = cached ? maxIsoInstant(initialTo, cached.to) : initialTo
           if (cached) {
             setCalendarItems(cached.items)
-            setCalendarLoadedTo(initialTo)
+            setCalendarLoadedTo(loadedTo)
             setCalendarFetchedAt(cached.fetchedAt)
             armNearTermGate()
             setCalendarRevalidating(true)
@@ -695,7 +699,7 @@ export function FamilyScreen({
           }
 
           try {
-            const painted = await fetchAndPersistCalendar(token, adultId, loaded.id, initialTo)
+            const painted = await fetchAndPersistCalendar(token, adultId, loaded.id, loadedTo)
             if (!cancelled) {
               startLeaveByFill(token, painted.from, painted.to)
             } else {

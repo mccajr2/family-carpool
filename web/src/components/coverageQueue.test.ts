@@ -192,7 +192,7 @@ describe("getQueue", () => {
         ownRide: "unassigned",
       }),
       game({
-        id: "gap-early",
+        id: "asked-team",
         order: 100,
         ownRide: "requested",
       }),
@@ -213,11 +213,29 @@ describe("getQueue", () => {
     const queue = getQueue(games)
 
     expect(queue.map((item) => item.kind + ":" + item.game.id)).toEqual([
-      "ownRide:gap-early",
       "ownRide:gap-late",
       "request:resolved-with-ask",
       "request:resolved-with-ask-late",
     ])
+  })
+
+  it("queues unassigned and pending-for-self only — not asked-team or waiting on others", () => {
+    const queue = getQueue([
+      game({ id: "unassigned", order: 100, ownRide: "unassigned" }),
+      game({ id: "asked-team", order: 110, ownRide: "requested" }),
+      game({
+        id: "wait-jordan",
+        order: 120,
+        ownRide: { driver: "Jordan", confirmed: false },
+      }),
+      game({
+        id: "confirm-you",
+        order: 130,
+        ownRide: { driver: "You", confirmed: false },
+      }),
+    ])
+
+    expect(queue.map((item) => item.game.id)).toEqual(["unassigned", "confirm-you"])
   })
 
   it("returns an empty queue when every game is resolved", () => {

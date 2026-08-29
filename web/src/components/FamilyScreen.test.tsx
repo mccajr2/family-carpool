@@ -10,6 +10,7 @@ import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyClient } from "@/api/familyClient"
 import type { CalendarItem } from "@/api/types"
 import {
+  advanceCalendarWindow,
   defaultCalendarWindow,
   formatLocalTodayLabel,
   nearTermLeaveByWindow,
@@ -1006,6 +1007,186 @@ describe("FamilyScreen", () => {
     expect(listCalendar).toHaveBeenCalledTimes(2)
     const secondCall = listCalendar.mock.calls[1]
     expect(secondCall[1]).toBe(listCalendar.mock.calls[0][2])
+  })
+
+  it("keeps Load more rows when now is omitted (AuthScreen path)", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "2",
+      email: "other@example.com",
+      displayName: "Jordan",
+    })
+
+    const anchor = new Date()
+    anchor.setHours(12, 0, 0, 0)
+    const nearStart = new Date(anchor)
+    nearStart.setDate(nearStart.getDate() + 1)
+    const laterStart = new Date(anchor)
+    laterStart.setDate(laterStart.getDate() + 40)
+
+    const listCalendar = vi
+      .fn()
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: nearStart.toISOString(),
+          kidIds: ["k1"],
+        }),
+      ])
+      .mockResolvedValueOnce([
+        calendarItem({
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: laterStart.toISOString(),
+          kidIds: ["k1"],
+        }),
+      ])
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "CAREGIVER",
+            members: [
+              {
+                adultId: "2",
+                email: "other@example.com",
+                displayName: "Jordan",
+                role: "CAREGIVER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByText("Near")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId("agenda-revalidating")).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: "Load more" }))
+    expect(await within(agenda).findByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+      expect(screen.queryByTestId("agenda-revalidating")).not.toBeInTheDocument()
+    })
+    expect(listCalendar).toHaveBeenCalledTimes(2)
+  })
+
+  it("restores an extended cached agenda window after reload", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const initialWindow = defaultCalendarWindow(AGENDA_TEST_NOW)
+    const extendedTo = advanceCalendarWindow(initialWindow.to).to
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "CAREGIVER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "CAREGIVER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [],
+    })
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: null,
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: initialWindow.from,
+      to: extendedTo,
+      items: [
+        calendarItem({
+          id: "e1",
+          source: "MANUAL",
+          title: "Near",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+        calendarItem({
+          id: "e2",
+          source: "MANUAL",
+          title: "Later",
+          startsAt: "2030-09-20T17:00:00.000Z",
+          kidIds: ["k1"],
+        }),
+      ],
+      fetchedAt: Date.now(),
+    })
+
+    const listCalendar = vi.fn().mockResolvedValue([
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Near",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+      calendarItem({
+        id: "e2",
+        source: "MANUAL",
+        title: "Later",
+        startsAt: "2030-09-20T17:00:00.000Z",
+        kidIds: ["k1"],
+      }),
+    ])
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          listCalendar,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(await within(agenda).findByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(listCalendar).toHaveBeenCalled()
+      const [, from, to] = listCalendar.mock.calls[0]!
+      expect(from).toBe(initialWindow.from)
+      expect(to).toBe(extendedTo)
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    })
   })
 
   it("hides empty agenda copy while Load more is in flight", async () => {
@@ -3059,8 +3240,93 @@ describe("FamilyScreen", () => {
         kidIds: ["k2"],
       })
     })
-    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    await waitFor(() => {
+      expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(1)
+    })
     expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(carousel).queryByText("Riley needs a ride")).not.toBeInTheDocument()
+  })
+
+  it("shows All caught up when the last carousel item is resolved", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const gapSam = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Sam practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...gapSam,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([gapSam]),
+          assignCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(heroCarouselIn(agenda)).getByTestId("hero-attention-slide")).toBeInTheDocument()
+
+    await user.click(
+      within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }),
+    )
+
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
+    })
+    expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    expect(within(agenda).getByText("Nothing needs you right now")).toBeInTheDocument()
+    expect(
+      within(agenda).getByText(
+        /Every ride this week is either covered or waiting on someone else/,
+      ),
+    ).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("hero-attention-slide")).not.toBeInTheDocument()
   })
 
   it("separates agenda items with a clear vertical buffer", async () => {

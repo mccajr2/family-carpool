@@ -33,10 +33,14 @@ function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (isConfirmedDriver(game.ownRide)) {
     return false
   }
+  if (isUnassigned(game.ownRide)) {
+    return true
+  }
   return (
-    isUnassigned(game.ownRide) ||
-    game.ownRide === "requested" ||
-    isPendingHouseholdConfirm(game.ownRide)
+    typeof game.ownRide === "object" &&
+    "driver" in game.ownRide &&
+    !game.ownRide.confirmed &&
+    game.ownRide.driver === "You"
   )
 }
 

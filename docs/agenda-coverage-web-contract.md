@@ -46,6 +46,30 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
   `agendaWindowItems` — kid-filtered items with `startsAt` in
   `[calendarLoadedFrom, calendarLoadedTo)`.
 
+### Hero carousel queue
+
+Build slides from `getQueue(mapCalendarItemsToCoverageGames(...))` inside the
+near-term horizon only. A slide **leaves the carousel on the next render** once
+the signed-in adult no longer has a decision on that kid row:
+
+| Kid-row `ownRide` | In carousel? |
+| --- | --- |
+| `unassigned` | Yes — pick a driver or ask the team |
+| `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline |
+| `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
+| `"requested"` (asked the team) | No — waiting on teammates |
+| `{ driver, confirmed: true }` | No — covered |
+| Pending inbound carpool request (actionable) | Yes — Accept / Decline |
+
+When the filtered queue is empty, render the **All caught up** hero
+(`heroGlow`, `CheckCircle2` 28px in `heroSuccess`, uppercase **All caught up**,
+title **Nothing needs you right now**, body copy per
+`docs/ui-system/carpool-hero-flow-mockup-v6.jsx`) — not carousel dots/arrows.
+Section label **Needs your attention** stays above the hero in both states.
+
+Resolving the last slide must land on that empty hero without a full-page
+refresh. List rows for queued events stay excluded until they leave the queue.
+
 ## Presentation hierarchy
 
 Agenda presentation hierarchy is now governed by
