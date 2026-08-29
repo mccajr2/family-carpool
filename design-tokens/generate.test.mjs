@@ -66,6 +66,19 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-space-week-item-pad-y: 10px;/)
   assert.match(css, /--fc-space-week-day-width: 38px;/)
   assert.match(css, /--fc-space-week-flag: 7px;/)
+  assert.match(css, /--fc-hero-glow: radial-gradient\(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%\);/)
+  assert.match(css, /--fc-hero-ring: #E3A15B;/)
+  assert.match(css, /--fc-hero-most-urgent-badge: rgba\(227,161,91,0.18\);/)
+  assert.match(css, /--fc-hero-carousel-dot-inactive: #C9C6BC;/)
+  assert.match(css, /--fc-hero-carousel-control-bg: #ECEBE6;/)
+  assert.match(css, /--fc-hero-decline-bg: rgba\(255,255,255,0.12\);/)
+  assert.match(css, /--fc-space-hero-carousel-gap: 16px;/)
+  assert.match(css, /--fc-space-hero-carousel-slide-max: 640px;/)
+  assert.match(css, /--fc-space-hero-carousel-slide-vw: 84px;/)
+  assert.match(css, /--fc-space-hero-slide-pad: 28px;/)
+  assert.match(css, /--fc-space-hero-empty-pad: 32px;/)
+  assert.match(css, /--fc-space-hero-carousel-dot-active-w: 18px;/)
+  assert.match(css, /--fc-space-hero-carousel-dot-h: 7px;/)
   assert.doesNotMatch(css, /--fc-space-railX:/)
   assert.doesNotMatch(css, /--fc-font-focusTitle-size/)
   const kotlin = readFileSync(
@@ -121,6 +134,12 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "heroDanger",
     "heroSuccess",
     "heroAccent",
+    "heroGlow",
+    "heroRing",
+    "heroMostUrgentBadge",
+    "heroCarouselDotInactive",
+    "heroCarouselControlBg",
+    "heroDeclineBg",
     "railSurface",
     "railOn",
     "railOnSecondary",
@@ -203,6 +222,19 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.equal(tokens.spacing.weekItemPadY, 10)
   assert.equal(tokens.spacing.weekDayWidth, 38)
   assert.equal(tokens.spacing.weekFlag, 7)
+  assert.equal(tokens.spacing.heroCarouselGap, 16)
+  assert.equal(tokens.spacing.heroCarouselSlideMax, 640)
+  assert.equal(tokens.spacing.heroCarouselSlideVw, 84)
+  assert.equal(tokens.spacing.heroSlidePad, 28)
+  assert.equal(tokens.spacing.heroEmptyPad, 32)
+  assert.equal(tokens.spacing.heroCarouselDotActiveW, 18)
+  assert.equal(tokens.spacing.heroCarouselDotH, 7)
+  assert.equal(
+    tokens.color.light.heroGlow,
+    "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
+  )
+  assert.equal(tokens.color.light.heroRing, "#E3A15B")
+  assert.equal(tokens.color.light.heroCarouselControlBg, "#ECEBE6")
   assert.equal(tokens.typography.fontFamily, "Plus Jakarta Sans")
   assert.equal(tokens.typography.displayFontFamily, "Space Grotesk")
   assert.ok(tokens.icons.includes("icon.places"))
@@ -221,6 +253,20 @@ test("tokens.json declares light and dark color roles and icons", () => {
       tokens.color.light[role],
       tokens.color.dark[role],
       `rail* must be theme-independent (${role})`,
+    )
+  }
+  for (const role of [
+    "heroGlow",
+    "heroRing",
+    "heroMostUrgentBadge",
+    "heroCarouselDotInactive",
+    "heroCarouselControlBg",
+    "heroDeclineBg",
+  ]) {
+    assert.equal(
+      tokens.color.light[role],
+      tokens.color.dark[role],
+      `hero carousel* must be theme-independent (${role})`,
     )
   }
 })

@@ -19,6 +19,21 @@ import { LEAVE_BY_PENDING_LABEL } from "@/components/leaveByDisplay"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
+function heroCarouselIn(agenda: HTMLElement) {
+  return within(agenda).getByTestId("hero-attention-carousel")
+}
+
+function heroSlideIn(agenda: HTMLElement, title?: string) {
+  const slides = within(heroCarouselIn(agenda)).getAllByTestId("hero-attention-slide")
+  if (title) {
+    const match = slides.find((slide) => within(slide).queryByText(title))
+    if (match) {
+      return match
+    }
+  }
+  return slides[0]!
+}
+
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
@@ -84,6 +99,16 @@ async function expandAgendaItem(
   item: HTMLElement,
 ) {
   await user.click(within(item).getByRole("button", { expanded: false }))
+}
+
+async function editAgendaItemById(
+  user: ReturnType<typeof userEvent.setup>,
+  agenda: HTMLElement,
+  testId: string,
+) {
+  const item = within(agenda).getByTestId(testId)
+  await expandAgendaItem(user, item)
+  await user.click(within(item).getByRole("button", { name: "Edit" }))
 }
 
 function circleFixture(
@@ -663,7 +688,7 @@ describe("FamilyScreen", () => {
     )
     expect(screen.queryByRole("dialog", { name: "Add event" })).not.toBeInTheDocument()
 
-    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e1")
     const edit = await screen.findByRole("dialog", { name: "Edit event" })
     await user.click(within(edit).getByRole("button", { name: "Remove event" }))
     await waitFor(() => {
@@ -720,7 +745,7 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
-    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e1")
 
     const compose = await screen.findByRole("dialog", { name: "Edit event" })
     const title = within(compose).getByLabelText("Event title")
@@ -796,7 +821,7 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e1")
     const compose = await screen.findByRole("dialog", { name: "Edit event" })
     await user.click(within(compose).getByRole("button", { name: "Save" }))
 
@@ -880,7 +905,7 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     expect(await within(agenda).findByText("Dentist")).toBeInTheDocument()
-    await user.click(within(agenda).getByRole("button", { name: "Edit" }))
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e1")
 
     const compose = await screen.findByRole("dialog", { name: "Edit event" })
     const title = within(compose).getByLabelText("Event title")
@@ -1101,8 +1126,9 @@ describe("FamilyScreen", () => {
     expect(filter.className).toMatch(/--fc-space-filter-chip-gap/)
     await expandAgendaItem(user, within(agenda).getByTestId("agenda-item-FEED-f1"))
     expect(within(agenda).getByText("Soccer")).toBeInTheDocument()
-    expect(within(agenda).getAllByRole("button", { name: "Edit" })).toHaveLength(1)
     expect(within(agenda).queryByRole("button", { name: "Remove event" })).not.toBeInTheDocument()
+    await expandAgendaItem(user, within(agenda).getByTestId("agenda-item-MANUAL-e1"))
+    expect(within(agenda).getAllByRole("button", { name: "Edit" })).toHaveLength(1)
 
     await user.click(riley)
     expect(riley).toHaveAttribute("aria-pressed", "true")
@@ -1749,8 +1775,8 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(row).toHaveAttribute("data-carpool-ride-key", "UID:practice-1")
     })
-    const focus = within(agenda).getByTestId("agenda-focus-FEED-focus-decoy")
-    expect(focus.parentElement).not.toHaveAttribute("data-carpool-ride-key")
+    const focus = within(agenda).getByTestId("hero-attention-empty")
+    expect(focus).toBeInTheDocument()
   })
 
   it("shows Request primary and Assign secondary on Focus for joined requestable uncovered FEED", async () => {
@@ -1862,10 +1888,9 @@ describe("FamilyScreen", () => {
 
     expect(await findCalendarPageHeading()).toBeInTheDocument()
     const agenda = await screen.findByLabelText("Agenda")
-    const focus = await within(agenda).findByTestId("agenda-focus-FEED-e-feed")
-    await waitFor(() => {
-      expect(focus.parentElement).toHaveAttribute("data-carpool-ride-key", "UID:practice-1")
-    })
+    const focus = heroSlideIn(agenda)
+    expect(within(agenda).queryByTestId("agenda-item-FEED-e-feed")).not.toBeInTheDocument()
+    expect(within(focus).getByText("Sam needs a ride")).toBeInTheDocument()
 
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker")).toBeInTheDocument()
@@ -1875,7 +1900,10 @@ describe("FamilyScreen", () => {
 
     await user.click(teamAsk)
     await waitFor(() => {
-      expect(createRide).toHaveBeenCalledWith("tok", "s1", { eventKey: "UID:practice-1" })
+      expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "UID:practice-1",
+        kidIds: ["k1"],
+      })
     })
   })
 
@@ -2444,8 +2472,7 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    await user.click(within(focus).getByRole("button", { name: "Edit" }))
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e1")
 
     const compose = await screen.findByRole("dialog", { name: "Edit event" })
     const leaveFrom = within(compose).getByLabelText("Leave from for event")
@@ -2641,7 +2668,8 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const origin = within(agenda).getByTestId("agenda-focus-MANUAL-e-origin")
+    const origin = within(agenda).getByTestId("agenda-item-MANUAL-e-origin")
+    await expandAgendaItem(user, origin)
     expect(within(origin).getByRole("button", { name: "Open Places" })).toBeInTheDocument()
     await expandAgendaItem(
       user,
@@ -2667,9 +2695,10 @@ describe("FamilyScreen", () => {
     expect(
       within(agendaAgain).queryByRole("button", { name: "Edit location" }),
     ).not.toBeInTheDocument()
-    expect(within(agendaAgain).getAllByRole("button", { name: "Edit" }).length).toBeGreaterThan(
-      0,
-    )
+    await expandAgendaItem(user, within(agendaAgain).getByTestId("agenda-item-MANUAL-e-dest"))
+    expect(
+      within(agendaAgain).getAllByRole("button", { name: "Edit" }).length,
+    ).toBeGreaterThan(0)
   })
 
   it("shows ride needed when uncovered kids are present", async () => {
@@ -2720,8 +2749,278 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(focus).getByTestId("agenda-focus-chips")).toHaveTextContent("Ride needed")
+    const slide = heroSlideIn(agenda, "Riley needs a ride")
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(slide).getByText("Riley needs a ride")).toBeInTheDocument()
+  })
+
+  it("renders hero attention carousel from getQueue and excludes queued items from the list", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              kidIds: ["k1"],
+              uncoveredKidIds: ["k1"],
+              rsvps: [{ kidId: "k1", status: "YES" }],
+            }),
+            calendarItem({
+              id: "e2",
+              source: "MANUAL",
+              title: "Game",
+              startsAt: "2030-08-16T17:00:00.000Z",
+              kidIds: ["k1"],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(heroCarouselIn(agenda)).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+  })
+
+  it("shows carousel controls for a multi-item queue and drops resolved slides on rerender", async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    })
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const gapSam = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Sam practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const gapRiley = calendarItem({
+      id: "e2",
+      source: "MANUAL",
+      title: "Riley game",
+      startsAt: "2030-08-16T17:00:00.000Z",
+      kidIds: ["k2"],
+      uncoveredKidIds: ["k2"],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...gapSam,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([gapSam, gapRiley]),
+          assignCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const carousel = heroCarouselIn(agenda)
+    expect(within(carousel).getByTestId("hero-attention-controls")).toBeInTheDocument()
+    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    expect(within(carousel).getByText("· 2 things need you")).toBeInTheDocument()
+
+    const firstSlide = heroSlideIn(agenda, "Sam needs a ride")
+    await user.click(within(firstSlide).getByRole("button", { name: "Confirm I'll drive" }))
+
+    await waitFor(() => {
+      expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
+        coveringAdultId: "1",
+        kidIds: ["k1"],
+      })
+    })
+    await waitFor(() => {
+      expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(1)
+    })
+    expect(within(carousel).getByText("Riley needs a ride")).toBeInTheDocument()
+    expect(within(carousel).queryByTestId("hero-attention-controls")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
+  })
+
+  it("lets the second carousel slide stay actionable without resolving the first", async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    })
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const gapSam = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Sam practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const gapRiley = calendarItem({
+      id: "e2",
+      source: "MANUAL",
+      title: "Riley game",
+      startsAt: "2030-08-16T17:00:00.000Z",
+      kidIds: ["k2"],
+      uncoveredKidIds: ["k2"],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...gapRiley,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov2",
+          coveringAdultId: "2",
+          coveringAdultDisplayName: "Jordan",
+          assignedByAdultId: "1",
+          kidIds: ["k2"],
+          status: "PENDING",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([gapSam, gapRiley]),
+          assignCalendarCoverage,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const carousel = heroCarouselIn(agenda)
+    expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
+
+    await user.click(within(carousel).getByRole("button", { name: "Next item" }))
+    const secondSlide = heroSlideIn(agenda, "Riley needs a ride")
+    expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
+    await user.click(within(secondSlide).getByRole("button", { name: "Jordan" }))
+    await user.click(within(secondSlide).getByRole("button", { name: "Ask Jordan to drive" }))
+
+    await waitFor(() => {
+      expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e2", {
+        coveringAdultId: "2",
+        kidIds: ["k2"],
+      })
+    })
+    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
   })
 
   it("separates agenda items with a clear vertical buffer", async () => {
@@ -2783,8 +3082,8 @@ describe("FamilyScreen", () => {
       "aria-pressed",
       "true",
     )
-    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")
     expect(list.className).toContain("--fc-space-2xl")
     expect(within(list).queryByRole("heading", { name: "NEEDS YOUR ATTENTION" })).not.toBeInTheDocument()
@@ -2797,19 +3096,19 @@ describe("FamilyScreen", () => {
     expect(laterHeading.className).not.toMatch(/font-semibold/)
     expect(laterHeading.className).not.toMatch(/--fc-text-primary/)
     const rows = within(list).getAllByRole("listitem")
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e2")
-    const card = within(rows[0]).getByTestId("agenda-row-MANUAL-e2")
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e1")
+    expect(rows[1]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e2")
+    const card = within(rows[1]).getByTestId("agenda-row-MANUAL-e2")
     expect(card.className).toContain("border-[var(--fc-border)]")
     expect(card.className).toContain("rounded-[var(--fc-radius-md)]")
     expect(card.className).toContain("bg-[var(--fc-surface-raised)]")
     expect(within(card).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
-    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(focus).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
     expect(within(card).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
   })
 
-  it("places decision Focus under NEEDS YOUR ATTENTION and splits today list rows", async () => {
+  it("places decision hero carousel above the list and splits today list rows", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -2878,13 +3177,11 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
+    expect(heroCarouselIn(agenda)).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")
-    const needsAttention = within(list).getByRole("region", {
-      name: "NEEDS YOUR ATTENTION",
-    })
-    expect(within(needsAttention).getByRole("heading", { name: "NEEDS YOUR ATTENTION" })).toBeInTheDocument()
-    expect(within(needsAttention).getByTestId("agenda-focus-MANUAL-gap")).toBeInTheDocument()
-    expect(within(needsAttention).queryByTestId("agenda-item-MANUAL-gap")).not.toBeInTheDocument()
+    expect(within(list).queryByRole("heading", { name: "NEEDS YOUR ATTENTION" })).not.toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-gap")).not.toBeInTheDocument()
     expect(within(list).getByRole("heading", { name: "REST OF TODAY" })).toBeInTheDocument()
     expect(within(list).getByTestId("agenda-item-MANUAL-calm")).toBeInTheDocument()
     expect(within(list).getByRole("heading", { name: "TOMORROW" })).toBeInTheDocument()
@@ -2945,12 +3242,10 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(within(agenda).getAllByTestId(/^agenda-focus-(MANUAL|FEED)-/)).toHaveLength(1)
-    // Sooner all-set event is Focus; later uncovered stays in the flat list.
-    expect(within(agenda).getByTestId("agenda-focus-MANUAL-e1")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
-    expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-focus-MANUAL-e2")).not.toBeInTheDocument()
+    expect(heroCarouselIn(agenda)).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
   })
 
   it("assigns coverage for uncovered kids", async () => {
@@ -3023,20 +3318,19 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const focus = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    await user.click(within(focus).getByRole("button", { name: "Jordan" }))
+    const slide = heroSlideIn(agenda, "Riley needs a ride")
+    await user.click(within(slide).getByRole("button", { name: "Jordan" }))
     // Single uncovered kid is auto-selected — no checkbox to click.
     expect(
       within(agenda).queryByLabelText("Cover Riley for Practice"),
     ).not.toBeInTheDocument()
-    await user.click(within(focus).getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
         coveringAdultId: "2",
         kidIds: ["k2"],
       })
-      expect(within(agenda).getByText("Waiting on Jordan")).toBeInTheDocument()
     })
     expect(within(agenda).queryByText("Needs coverage: Riley")).not.toBeInTheDocument()
     const resolved = (await assignCalendarCoverage.mock.results[0]!.value) as CalendarItem
@@ -3216,16 +3510,8 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
-    await expandAgendaItem(user, item)
-    const assignButton = within(item).getByRole("button", { name: "Assign coverage" })
-    expect(assignButton).toBeEnabled()
-    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
-    // Deselect Riley — Assign stays enabled and must not clear default adult.
-    await user.click(within(item).getByLabelText("Cover Riley for Practice"))
-    expect(assignButton).toBeEnabled()
-    await user.click(assignButton)
+    const slide = heroSlideIn(agenda, "Sam needs a ride")
+    await user.click(within(slide).getByRole("button", { name: "Confirm I'll drive" }))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3233,7 +3519,6 @@ describe("FamilyScreen", () => {
         kidIds: ["k1"],
       })
     })
-    expect(within(agenda).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
   })
 
   it("keeps uncovered kids pre-selected when changing covering adult", async () => {
@@ -3306,26 +3591,15 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
-    await expandAgendaItem(user, item)
-    const assignButton = within(item).getByRole("button", { name: "Assign coverage" })
-    expect(assignButton).toBeEnabled()
-    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
+    const slide = heroSlideIn(agenda, "Sam needs a ride")
+    await user.click(within(slide).getByRole("button", { name: "Jordan" }))
+    expect(within(slide).getByRole("button", { name: "Ask Jordan to drive" })).toBeEnabled()
+    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
 
-    await user.selectOptions(
-      within(item).getByLabelText("Covering adult for Practice"),
-      "2",
-    )
-    expect(within(item).getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(within(item).getByLabelText("Cover Riley for Practice")).toBeChecked()
-    expect(assignButton).toBeEnabled()
-
-    await user.click(assignButton)
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
         coveringAdultId: "2",
-        kidIds: ["k1", "k2"],
+        kidIds: ["k1"],
       })
     })
   })
@@ -3405,8 +3679,9 @@ describe("FamilyScreen", () => {
         kidIds: ["k1"],
       })
     })
-    expect(within(agenda).getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
-    expect(within(agenda).getByTestId("agenda-focus-covering")).toHaveTextContent("Alex")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    expect(within(item).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
   })
 
   it("resets RSVP to Yes for assigned kids marked not going", async () => {
@@ -3496,7 +3771,9 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.click(within(item).getByRole("button", { name: "Assign coverage" }))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3660,9 +3937,10 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(confirmCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
     })
-    expect(within(agenda).getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
-    expect(within(agenda).getByLabelText("Covering adult for Practice")).toHaveValue("2")
-    expect(within(agenda).getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    expect(within(item).getByText(/Jordan · Sam · Confirmed/)).toBeInTheDocument()
+    expect(within(item).getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
     expect(
       within(agenda).queryByRole("button", { name: "Confirm coverage" }),
     ).not.toBeInTheDocument()
@@ -3730,13 +4008,15 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Remove coverage" }))
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.click(within(item).getByRole("button", { name: "Remove coverage" }))
 
     await waitFor(() => {
       expect(removeCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
     })
-    expect(within(agenda).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(agenda).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
   })
 
   it("reassigns Focus coverage when the covering combobox changes", async () => {
@@ -3815,23 +4095,14 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.selectOptions(
-      within(agenda).getByLabelText("Covering adult for Practice"),
-      "2",
-    )
-
-    await waitFor(() => {
-      expect(reassignCalendarCoverage).toHaveBeenCalledWith("tok", "cov1", {
-        coveringAdultId: "2",
-        kidIds: ["k1"],
-      })
-    })
-    expect(within(agenda).getByLabelText("Covering adult for Practice")).toHaveValue("2")
-    expect(within(agenda).getByText("Waiting on Jordan")).toBeInTheDocument()
-    expect(within(agenda).queryByText("You're driving")).not.toBeInTheDocument()
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    expect(within(item).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
+    expect(within(item).queryByLabelText("Covering adult for Practice")).not.toBeInTheDocument()
   })
 
   it("shows amber conflict lines from server conflicts on Agenda items", async () => {
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -3888,9 +4159,10 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const conflicts = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(conflicts).getByTestId("agenda-focus-chips")).toHaveTextContent("Overlaps")
-    expect(within(conflicts).queryByText("Sam overlaps Game")).not.toBeInTheDocument()
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    expect(within(item).getByText("Overlaps")).toBeInTheDocument()
+    expect(within(item).getByText("Sam overlaps Game")).toBeInTheDocument()
   })
 
   it("surfaces friendly copy when confirm hits overlapping double-CONFIRMED 409", async () => {
@@ -3961,19 +4233,12 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm coverage" }))
+    await user.click(within(agenda).getByTestId("hero-attention-confirm-coverage"))
 
     await waitFor(() => {
-      expect(within(agenda).getByRole("alert")).toHaveTextContent(
-        "Already confirmed on an overlapping event — decline or reassign first.",
-      )
+      expect(confirmCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
     })
-    const item = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(
-      within(item).getByText(
-        "Already confirmed on an overlapping event — decline or reassign first.",
-      ),
-    ).toBeInTheDocument()
+    expect(within(agenda).queryByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
   })
 
   it("groups Agenda item bands and emphasizes Confirm as the primary CTA", async () => {
@@ -4042,7 +4307,7 @@ describe("FamilyScreen", () => {
                   coveringAdultDisplayName: "Jordan",
                   assignedByAdultId: "1",
                   kidIds: ["k1"],
-                  status: "PENDING",
+                  status: "CONFIRMED",
                 },
               ],
             }),
@@ -4072,10 +4337,9 @@ describe("FamilyScreen", () => {
     )
     expect(within(people).getByText("Manual")).toBeInTheDocument()
     expect(within(people).getByText("Sam")).toBeInTheDocument()
-    expect(within(coverage).getByText(/Jordan · Sam · Pending/)).toBeInTheDocument()
+    expect(within(coverage).getByText(/Jordan · Sam · Confirmed/)).toBeInTheDocument()
 
-    const primaryCta = within(coverage).getByTestId("agenda-cta-primary")
-    expect(primaryCta).toHaveTextContent("Confirm coverage")
+    expect(within(coverage).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
     const manualActions = within(item).getByTestId("agenda-band-manual-actions")
     expect(coverage.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
@@ -4127,9 +4391,9 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    const coverage = within(agenda).getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(coverage).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(coverage).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    const slide = heroSlideIn(agenda, "Sam needs a ride")
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
   })
 
   it("sets default leave-from from the Places screen", async () => {
@@ -4495,12 +4759,12 @@ describe("FamilyScreen", () => {
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(await within(agenda).findByText("Game")).toBeInTheDocument()
+    expect(await within(agenda).findByText("Sam needs a ride")).toBeInTheDocument()
     await waitFor(() => {
       expect(cache.load("1", "c1")?.items).toHaveLength(1)
     })
 
-    await user.click(within(agenda).getByRole("button", { name: "Confirm coverage" }))
+    await user.click(within(agenda).getByTestId("hero-attention-confirm-coverage"))
     await waitFor(() => {
       expect(confirmCalendarCoverage).toHaveBeenCalled()
     })
@@ -4661,8 +4925,7 @@ describe("FamilyScreen", () => {
     )
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
-    const card = screen.getByTestId("agenda-focus-MANUAL-e1")
-    expect(within(card).getByText("Sam · Rink · Leaving from Mom's house")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
     expect(listCalendarLeaveBy).toHaveBeenCalled()
     expect(screen.queryByText(LEAVE_BY_PENDING_LABEL)).not.toBeInTheDocument()
     expect(screen.queryByText(/^Leave by ~/)).not.toBeInTheDocument()
@@ -4680,7 +4943,7 @@ describe("FamilyScreen", () => {
     ])
 
     await waitFor(() => {
-      expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent("Practice")
+      expect(screen.getByTestId("agenda-item-MANUAL-e1")).toHaveTextContent("Practice")
     })
     expect(screen.getByText("Practice")).toBeInTheDocument()
   })
@@ -4853,7 +5116,7 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(listCalendarLeaveBy).toHaveBeenCalled()
     })
-    expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent("Practice")
+    expect(screen.getByTestId("agenda-item-MANUAL-e1")).toHaveTextContent("Practice")
     expect(screen.queryByText(LEAVE_BY_PENDING_LABEL)).not.toBeInTheDocument()
 
     releaseFill([
@@ -4960,7 +5223,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent("Practice")
+      expect(screen.getByTestId("agenda-item-MANUAL-e1")).toHaveTextContent("Practice")
     })
   })
 
@@ -5012,7 +5275,7 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByText("Practice")).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId("agenda-focus-MANUAL-e1")).toHaveTextContent("Practice")
+      expect(screen.getByTestId("agenda-item-MANUAL-e1")).toHaveTextContent("Practice")
     })
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
@@ -5111,7 +5374,8 @@ describe("FamilyScreen", () => {
       title: "Practice",
       startsAt: "2030-08-15T17:00:00.000Z",
       kidIds: ["k1"],
-      uncoveredKidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "NO" }],
     })
     const setCalendarRsvp = vi.fn().mockResolvedValue({
       ...baseItem,
@@ -5140,7 +5404,7 @@ describe("FamilyScreen", () => {
               places: [],
             }),
           ),
-          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), baseItem]),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
           setCalendarRsvp,
         })}
         onSignedOut={vi.fn()}
@@ -5158,8 +5422,9 @@ describe("FamilyScreen", () => {
         status: "YES",
       })
     })
-    expect(rsvp).toHaveValue("YES")
-    expect(within(item).getByText("Needs coverage: Sam")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
+    })
   })
 
   it("deemphasizes out-of-play rows and hides leave-by and coverage", async () => {
@@ -5420,9 +5685,10 @@ describe("FamilyScreen", () => {
       />,
     )
 
-    const item = await screen.findByTestId("agenda-focus-MANUAL-e1")
-    expect(within(item).getByTestId("agenda-focus-chips")).toHaveTextContent("Ride needed")
-    expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(item).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Sam needs a ride")
+    expect(within(slide).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
   })
 })

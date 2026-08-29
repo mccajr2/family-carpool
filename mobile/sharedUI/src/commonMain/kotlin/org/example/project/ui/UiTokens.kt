@@ -21,6 +21,12 @@ object UiTokens {
         val heroDanger: String,
         val heroSuccess: String,
         val heroAccent: String,
+        val heroGlow: String,
+        val heroRing: String,
+        val heroMostUrgentBadge: String,
+        val heroCarouselDotInactive: String,
+        val heroCarouselControlBg: String,
+        val heroDeclineBg: String,
         val railSurface: String,
         val railOn: String,
         val railOnSecondary: String,
@@ -48,6 +54,12 @@ object UiTokens {
             heroDanger = "#F2994A",
             heroSuccess = "#3DCF8E",
             heroAccent = "#5E6DFF",
+            heroGlow = "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
+            heroRing = "#E3A15B",
+            heroMostUrgentBadge = "rgba(227,161,91,0.18)",
+            heroCarouselDotInactive = "#C9C6BC",
+            heroCarouselControlBg = "#ECEBE6",
+            heroDeclineBg = "rgba(255,255,255,0.12)",
             railSurface = "#16181A",
             railOn = "#FFFFFF",
             railOnSecondary = "#9AA0A8",
@@ -73,6 +85,12 @@ object UiTokens {
             heroDanger = "#F2994A",
             heroSuccess = "#3DCF8E",
             heroAccent = "#5E6DFF",
+            heroGlow = "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
+            heroRing = "#E3A15B",
+            heroMostUrgentBadge = "rgba(227,161,91,0.18)",
+            heroCarouselDotInactive = "#C9C6BC",
+            heroCarouselControlBg = "#ECEBE6",
+            heroDeclineBg = "rgba(255,255,255,0.12)",
             railSurface = "#16181A",
             railOn = "#FFFFFF",
             railOnSecondary = "#9AA0A8",
@@ -140,6 +158,13 @@ object UiTokens {
         const val weekItemPadY: Int = 10
         const val weekDayWidth: Int = 38
         const val weekFlag: Int = 7
+        const val heroCarouselGap: Int = 16
+        const val heroCarouselSlideMax: Int = 640
+        const val heroCarouselSlideVw: Int = 84
+        const val heroSlidePad: Int = 28
+        const val heroEmptyPad: Int = 32
+        const val heroCarouselDotActiveW: Int = 18
+        const val heroCarouselDotH: Int = 7
     }
 
     object Radius {

@@ -24,6 +24,12 @@ enum UiTokens {
         let heroDanger: String
         let heroSuccess: String
         let heroAccent: String
+        let heroGlow: String
+        let heroRing: String
+        let heroMostUrgentBadge: String
+        let heroCarouselDotInactive: String
+        let heroCarouselControlBg: String
+        let heroDeclineBg: String
         let railSurface: String
         let railOn: String
         let railOnSecondary: String
@@ -51,6 +57,12 @@ enum UiTokens {
             heroDanger: "#F2994A",
             heroSuccess: "#3DCF8E",
             heroAccent: "#5E6DFF",
+            heroGlow: "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
+            heroRing: "#E3A15B",
+            heroMostUrgentBadge: "rgba(227,161,91,0.18)",
+            heroCarouselDotInactive: "#C9C6BC",
+            heroCarouselControlBg: "#ECEBE6",
+            heroDeclineBg: "rgba(255,255,255,0.12)",
             railSurface: "#16181A",
             railOn: "#FFFFFF",
             railOnSecondary: "#9AA0A8",
@@ -76,6 +88,12 @@ enum UiTokens {
             heroDanger: "#F2994A",
             heroSuccess: "#3DCF8E",
             heroAccent: "#5E6DFF",
+            heroGlow: "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
+            heroRing: "#E3A15B",
+            heroMostUrgentBadge: "rgba(227,161,91,0.18)",
+            heroCarouselDotInactive: "#C9C6BC",
+            heroCarouselControlBg: "#ECEBE6",
+            heroDeclineBg: "rgba(255,255,255,0.12)",
             railSurface: "#16181A",
             railOn: "#FFFFFF",
             railOnSecondary: "#9AA0A8",
@@ -143,6 +161,13 @@ enum UiTokens {
         static let weekItemPadY: CGFloat = 10
         static let weekDayWidth: CGFloat = 38
         static let weekFlag: CGFloat = 7
+        static let heroCarouselGap: CGFloat = 16
+        static let heroCarouselSlideMax: CGFloat = 640
+        static let heroCarouselSlideVw: CGFloat = 84
+        static let heroSlidePad: CGFloat = 28
+        static let heroEmptyPad: CGFloat = 32
+        static let heroCarouselDotActiveW: CGFloat = 18
+        static let heroCarouselDotH: CGFloat = 7
     }
 
     enum Radius {

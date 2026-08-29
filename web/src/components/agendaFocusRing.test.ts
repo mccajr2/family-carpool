@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { formatRingCountdown } from "@/components/agendaFocusRing"
+import {
+  formatHeroDaysRing,
+  formatRingCountdown,
+  heroDaysRingFromStartsAt,
+  heroDaysUntilEvent,
+} from "@/components/agendaFocusRing"
 
 describe("formatRingCountdown", () => {
   it("shows minutes under an hour", () => {
@@ -22,5 +27,28 @@ describe("formatRingCountdown", () => {
 
   it("shows an em dash only when minutes are unknown", () => {
     expect(formatRingCountdown(null)).toEqual({ label: "—", unit: "" })
+  })
+})
+
+describe("hero carousel days ring", () => {
+  const now = new Date(2030, 7, 28, 12, 0, 0)
+
+  it("counts whole local calendar days until the event", () => {
+    const tomorrow = new Date(2030, 7, 29, 17, 0, 0).toISOString()
+    expect(heroDaysUntilEvent(tomorrow, now)).toBe(1)
+    const sameDay = new Date(2030, 7, 28, 20, 0, 0).toISOString()
+    expect(heroDaysUntilEvent(sameDay, now)).toBe(0)
+    expect(heroDaysUntilEvent("not-a-date", now)).toBe(0)
+  })
+
+  it("formats DAY vs DAYS labels per mock", () => {
+    expect(formatHeroDaysRing(0)).toEqual({ label: "0", unit: "DAYS" })
+    expect(formatHeroDaysRing(1)).toEqual({ label: "1", unit: "DAY" })
+    expect(formatHeroDaysRing(3)).toEqual({ label: "3", unit: "DAYS" })
+  })
+
+  it("builds ring copy from startsAt", () => {
+    const tomorrow = new Date(2030, 7, 29, 17, 0, 0).toISOString()
+    expect(heroDaysRingFromStartsAt(tomorrow, now)).toEqual({ label: "1", unit: "DAY" })
   })
 })

@@ -8,6 +8,22 @@ Replaces the "Presentation hierarchy" → "Selection A" section of
 **unchanged** — selection + urgent/calm surface mapping live here and in
 `web/src/components/agendaFocusSelection.ts`.
 
+## Supersession (web Calendar hero)
+
+**Single-item Focus selection** in [New rule](#new-rule) below is **superseded
+on web** by [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md)
+and [ADR-0001: Own-child coverage outranks carpool requests](decisions/ADR-0001-coverage-priority-rule.md).
+
+The Calendar hero is now `HeroAttentionCarousel` in `FamilyScreen`, driven
+exclusively by `getQueue` — one swipeable slide per queue item in ADR-0001
+order, not one promoted item from `selectFocusItem`. The `selectFocusItem`
+module and its tests remain until list-focus sync ships; they are no longer
+wired to the hero.
+
+Sections below on Focus card **content**, **tokens**, and the **port
+checklist** still apply to handler reuse in slide bodies and to the planned
+mobile port until those clients adopt the carousel spec.
+
 ## Why this supersedes Selection A
 
 Selection A ("spacing / proximity only, no card/bordered/muted-band chrome")
@@ -17,6 +33,9 @@ distinctiveness is now a product priority, not a nice-to-have, and is worth
 the added implementation cost on each client.
 
 ## New rule
+
+> **Web hero:** superseded — see [Supersession (web Calendar hero)](#supersession-web-calendar-hero).
+> Still governs mobile port and documents the legacy `selectFocusItem` predicate.
 
 **Exactly one Agenda item at a time** may use Focus card treatment: bordered/
 raised container, larger type, and a status-color accent. Selection criteria,

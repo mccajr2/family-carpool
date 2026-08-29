@@ -62,6 +62,25 @@ function heroPairings(scheme) {
   ]
 }
 
+/** Hero attention carousel — white-on-gradient; worst case ≈ darkest gradient stop (#11131C). */
+function heroCarouselPairings(scheme) {
+  const c = tokens.color[scheme]
+  const heroGlowDark = "#11131C"
+  const light = tokens.color.light
+  return [
+    { name: "heroOn on heroGlow (dark stop)", fg: c.heroOn, bg: heroGlowDark, min: 4.5 },
+    { name: "heroOnSecondary on heroGlow (dark stop)", fg: c.heroOnSecondary, bg: heroGlowDark, min: 4.5 },
+    { name: "heroSuccess on heroGlow (dark stop)", fg: c.heroSuccess, bg: heroGlowDark, min: 4.5 },
+    { name: "heroRing on heroGlow (dark stop, icon)", fg: c.heroRing, bg: heroGlowDark, min: 3 },
+    {
+      name: "textPrimary on heroCarouselControlBg (chevron)",
+      fg: light.textPrimary,
+      bg: c.heroCarouselControlBg,
+      min: 4.5,
+    },
+  ]
+}
+
 /** Signed-in web shell rail — always-dark, independent of page theme. */
 function railPairings(scheme) {
   const c = tokens.color[scheme]
@@ -120,6 +139,16 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Focus card hero* WCAG AA pairings (${scheme})`, () => {
     for (const p of heroPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`Hero attention carousel WCAG AA pairings (${scheme})`, () => {
+    for (const p of heroCarouselPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

@@ -61,6 +61,12 @@ export type QueueItem =
   | { kind: "ownRide"; game: CoverageGameEvent }
   | { kind: "request"; game: CoverageGameEvent; request: CarpoolRequest }
 
+/** `{calendarItemKey}:{kidId}` → calendar item key for list exclusion / lookup. */
+export function coverageGameEventKey(gameId: string): string {
+  const separator = gameId.lastIndexOf(":")
+  return separator === -1 ? gameId : gameId.slice(0, separator)
+}
+
 export function isUnassigned(ownRide: OwnRideStatus): boolean {
   return ownRide === "unassigned"
 }

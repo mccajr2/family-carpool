@@ -139,3 +139,48 @@ describe("DriverPicker", () => {
     expect(screen.queryByRole("button", { name: "Ask the team for a ride" })).not.toBeInTheDocument()
   })
 })
+
+describe("DriverPicker hero styling", () => {
+  it("uses white/ink chips and a white primary confirm on hero glow", () => {
+    render(<DriverPicker {...defaultProps} hero />)
+
+    const youChip = screen.getByRole("button", { name: "You" })
+    const jordanChip = screen.getByRole("button", { name: "Jordan" })
+    expect(youChip).toHaveAttribute("data-selected", "true")
+    expect(youChip).toHaveStyle({
+      background: "var(--fc-hero-on)",
+      color: "var(--fc-text-primary)",
+    })
+    expect(jordanChip).toHaveAttribute("data-selected", "false")
+    expect(jordanChip).toHaveStyle({
+      background: "rgba(255, 255, 255, 0.1)",
+      color: "var(--fc-hero-on)",
+    })
+
+    expect(screen.getByTestId("driver-picker-confirm")).toHaveStyle({
+      background: "var(--fc-hero-on)",
+      color: "var(--fc-text-primary)",
+    })
+  })
+
+  it("separates the team ask with a divider and ghost button on hero", () => {
+    render(<DriverPicker {...defaultProps} hero />)
+
+    const teamSection = screen.getByTestId("driver-picker-team-section")
+    expect(teamSection.className).toMatch(/border-t/)
+    expect(teamSection.className).toMatch(/mt-5/)
+    expect(teamSection).toHaveStyle({ borderColor: "rgba(255, 255, 255, 0.14)" })
+    expect(screen.getByTestId("driver-picker-team-ask")).toHaveStyle({
+      background: "var(--fc-hero-decline-bg)",
+      color: "var(--fc-hero-on)",
+    })
+  })
+
+  it("disables hero actions while loading", () => {
+    render(<DriverPicker {...defaultProps} hero loading />)
+
+    expect(screen.getByRole("button", { name: "You" })).toBeDisabled()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeDisabled()
+    expect(screen.getByTestId("driver-picker-team-ask")).toBeDisabled()
+  })
+})
