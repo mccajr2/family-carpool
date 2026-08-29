@@ -27,6 +27,15 @@ describe("AgendaStatusChip", () => {
     expect(screen.queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
   })
 
+  it("uses hero accent fill for route tone on Focus chips", () => {
+    render(
+      <AgendaStatusChip label="You're driving · +1" tone="route" variant="hero" />,
+    )
+    const chip = screen.getByText("You're driving · +1")
+    expect(chip.className).toMatch(/--fc-hero-accent/)
+    expect(chip.className).toMatch(/uppercase/)
+  })
+
   it("still supports retired pill appearance for migration", () => {
     render(<AgendaStatusChip label="Confirmed" tone="mint" appearance="pill" />)
     const chip = screen.getByText("Confirmed")

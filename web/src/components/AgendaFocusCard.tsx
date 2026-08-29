@@ -10,22 +10,24 @@ import {
   callerDrives,
   eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
-  agendaOwnRideStatusChip,
   incomingRideAskSummary,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
+import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
   activeCoverages,
-  agendaItemStatusTags,
   coverageAdultLabel,
   eventKidNames,
-  insertOwnRideStatusChip,
   memberLabel,
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import { DriverPicker } from "@/components/DriverPicker"
 import { formatFocusEventWhen } from "@/components/eventTimes"
+import {
+  carpoolAskChipForRideEvent,
+  rideStatusChipsForItem,
+} from "@/components/rideStatusChip"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -67,23 +69,6 @@ function minutesUntil(iso: string | null | undefined): number | null {
   const target = new Date(iso).getTime()
   if (Number.isNaN(target)) return null
   return Math.max(0, Math.round((target - Date.now()) / 60000))
-}
-
-function focusStatusChips(
-  item: CalendarItem,
-  currentAdultId: string,
-  ownRequest?: CarpoolRideEvent["ownRequest"],
-) {
-  const rideChip = agendaOwnRideStatusChip(ownRequest)
-  // Own-ride chip already signals calm/transport status — don't stack Focus-only
-  // "All set" beside "Riding with …" / "Requested" (rows never show All set).
-  return insertOwnRideStatusChip(
-    agendaItemStatusTags(item, currentAdultId, {
-      includeAllSet: rideChip == null,
-      ownRequest,
-    }),
-    rideChip,
-  )
 }
 
 function focusMetaLine(item: CalendarItem, circle: FamilyCircle): string | null {
@@ -146,7 +131,15 @@ export function AgendaFocusCard({
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const statusChips = focusStatusChips(item, currentAdultId, ownRequest)
+  const statusChips = useMemo(() => {
+    const games = mapCalendarItemToCoverageGames(item, rideEvent, {
+      currentAdultId,
+      members: circle.members,
+    })
+    const rideChips = rideStatusChipsForItem(item, games, ownRequest)
+    const askChip = carpoolAskChipForRideEvent(games)
+    return askChip != null ? [...rideChips, askChip] : rideChips
+  }, [item, rideEvent, currentAdultId, circle.members, ownRequest])
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
@@ -258,7 +251,7 @@ export function AgendaFocusCard({
                   key={chip.label}
                   label={chip.label}
                   tone={chip.tone}
-                  variant={needsDecision ? "hero" : "default"}
+                  variant="hero"
                 />
               ))}
             </div>

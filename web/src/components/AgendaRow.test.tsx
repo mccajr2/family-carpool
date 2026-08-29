@@ -128,7 +128,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
   })
 
-  it("shows Confirm coverage tag when pending for the signed-in adult", () => {
+  it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
     renderRow(
       item({
         id: "pending",
@@ -146,16 +146,16 @@ describe("AgendaRow", () => {
       }),
     )
     const row = screen.getByTestId("agenda-row-MANUAL-pending")
-    expect(within(row).getByText("Confirm coverage")).toBeInTheDocument()
-    expect(within(row).getByText("Confirm coverage").className).toMatch(/uppercase/)
-    expect(within(row).getByText("Confirm coverage").className).toMatch(/--fc-font-feed-chip-size/)
+    expect(within(row).getByText("Confirm you'll drive")).toBeInTheDocument()
+    expect(within(row).getByText("Confirm you'll drive").className).toMatch(/uppercase/)
+    expect(within(row).getByText("Confirm you'll drive").className).toMatch(/--fc-font-feed-chip-size/)
     expect(within(row).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
-    expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
-    expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
+    expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
+    expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
   })
 
-  it("shows Awaiting confirm tag when pending for someone else", () => {
+  it("shows Waiting on tag when pending for someone else", () => {
     const twoAdultCircle: FamilyCircle = {
       ...circle,
       members: [
@@ -187,9 +187,70 @@ describe("AgendaRow", () => {
       />,
     )
     const row = screen.getByTestId("agenda-row-MANUAL-waiting")
-    expect(within(row).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(within(row).getByText("Waiting on Jordan")).toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
-    expect(within(row).queryByText("Confirmed")).not.toBeInTheDocument()
+    expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
+  })
+
+  it("uses default accent fill for route tone on collapsed rows", () => {
+    render(
+      <AgendaRow
+        item={item({
+          id: "route-row",
+          title: "Practice",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+          ],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:game",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "accepted-1",
+              spaceId: "s1",
+              eventKey: "UID:game",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "ACCEPTED" as const,
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: "a1",
+              acceptingCircleId: "c1",
+              acceptingCircleName: null,
+              vehicleId: "v1",
+              vehicleLabel: "Van",
+            },
+          ],
+        }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-route-row")
+    const routeChip = within(row).getByText("You're driving · +1")
+    expect(routeChip.className).toMatch(/--fc-accent/)
+    expect(routeChip.className).not.toMatch(/--fc-hero-accent/)
   })
 
   it("shows covering avatars and a token chevron on confirmed in-play rows, without a standalone status dot", () => {
@@ -210,7 +271,7 @@ describe("AgendaRow", () => {
       }),
     )
     const row = screen.getByTestId("agenda-row-MANUAL-covered")
-    expect(within(row).getByText("Confirmed")).toBeInTheDocument()
+    expect(within(row).getByText("You're driving")).toBeInTheDocument()
     expect(within(row).getByLabelText("Covering: Alex")).toHaveTextContent("A")
     expect(within(row).getByTestId("agenda-row-chevron")).toBeInTheDocument()
     expect(row.querySelector("[class*='h-[9px]']")).toBeNull()
@@ -299,7 +360,7 @@ describe("AgendaRow", () => {
     expect(within(rowB).getByTestId("agenda-band-people")).toBeInTheDocument()
   })
 
-  it("shows Requested chip collapsed and Request/Cancel when expanded for a ride event", async () => {
+  it("shows Asked the team chip collapsed and Request/Cancel when expanded for a ride event", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const onCancelRide = vi.fn()
@@ -347,7 +408,7 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-1")
-    expect(within(row).queryByText("Requested")).not.toBeInTheDocument()
+    expect(within(row).queryByText("Asked the team")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -396,7 +457,7 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Requested")).toBeInTheDocument()
+    expect(within(row).getByText("Asked the team")).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam · 1 seat · Home, 1 Main",
     )
@@ -519,7 +580,7 @@ describe("AgendaRow", () => {
     expect(within(row).getByText("Riding with Sharks Family")).toBeInTheDocument()
   })
 
-  it("keeps Needs coverage and Assign for remaining gap kids with Riding with chip", async () => {
+  it("keeps Ride needed chip and Assign for remaining gap kids after a teammate ride", async () => {
     const user = userEvent.setup()
     const twoKids: FamilyCircle = {
       ...circle,
@@ -586,8 +647,8 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-mixed")
-    expect(within(row).getByText("Riding with House B")).toBeInTheDocument()
-    expect(within(row).getByText("Needs coverage")).toBeInTheDocument()
+    expect(within(row).getByText("Ride needed")).toBeInTheDocument()
+    expect(within(row).queryByText("Riding with House B")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
@@ -595,7 +656,7 @@ describe("AgendaRow", () => {
     expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
   })
 
-  it("keeps Needs coverage and Assign while own ride is still PENDING", async () => {
+  it("keeps Ride needed chip and Assign while own ride is still PENDING", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-pending",
@@ -650,8 +711,8 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-pending")
-    expect(within(row).getByText("Requested")).toBeInTheDocument()
-    expect(within(row).getByText("Needs coverage")).toBeInTheDocument()
+    expect(within(row).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()

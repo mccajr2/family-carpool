@@ -191,7 +191,7 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-urgent")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Needs coverage")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Ride needed")).toBeInTheDocument()
   })
 
   it("uses surfaceRaised for a resolved all-set item", () => {
@@ -213,13 +213,10 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-calm")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed")).toBeInTheDocument()
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).toMatch(
-      /uppercase/,
-    )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirmed").className).toMatch(
-      /--fc-font-feed-chip-size/,
-    )
+    const drivingChip = within(screen.getByTestId("agenda-focus-chips")).getByText("You're driving")
+    expect(drivingChip.className).toMatch(/uppercase/)
+    expect(drivingChip.className).toMatch(/--fc-font-feed-chip-size/)
+    expect(drivingChip.className).toMatch(/--fc-hero-success/)
     expect(screen.queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
     expect(within(screen.getByTestId("agenda-focus-covering")).getByText("Alex")).toBeInTheDocument()
@@ -251,8 +248,8 @@ describe("AgendaFocusCard hero surface", () => {
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-self")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
     expect(screen.queryByText("All set")).not.toBeInTheDocument()
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirm coverage")).toBeInTheDocument()
-    expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirm you'll drive")).toBeInTheDocument()
+    expect(screen.queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.queryByText("Assigned to you")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
@@ -279,9 +276,9 @@ describe("AgendaFocusCard hero surface", () => {
     )
     const card = screen.getByTestId("agenda-focus-MANUAL-pending-other")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-surface-raised)" })
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Awaiting confirm")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Waiting on Jordan")).toBeInTheDocument()
     expect(screen.queryByText("All set")).not.toBeInTheDocument()
-    expect(screen.queryByText("Confirmed")).not.toBeInTheDocument()
+    expect(screen.queryByText("You're driving")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-covering")).toHaveTextContent("Covering")
     expect(within(screen.getByTestId("agenda-focus-covering")).getByText(/Jordan · Pending/)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
@@ -659,6 +656,47 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
+  it("uses hero route fill when confirmed driver is carpooling teammates", () => {
+    renderCard(
+      item({
+        id: "route-carpool",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+      {
+        rideEvent: {
+          ...rideEvent,
+          otherRequests: [
+            {
+              ...pendingAsk,
+              id: "accepted-1",
+              status: "ACCEPTED" as const,
+              acceptingCircleId: "c1",
+              acceptedByAdultId: "a1",
+              vehicleId: "v1",
+            },
+          ],
+        },
+      },
+    )
+    expect(screen.getByTestId("agenda-focus-MANUAL-route-carpool")).toHaveStyle({
+      backgroundColor: "var(--fc-surface-raised)",
+    })
+    const routeChip = within(screen.getByTestId("agenda-focus-chips")).getByText(
+      "You're driving · +1",
+    )
+    expect(routeChip.className).toMatch(/--fc-hero-accent/)
+  })
+
   it("prefers Accept/Pass over Assign when uncovered and ride-eligible", () => {
     renderCard(
       item({
@@ -714,7 +752,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
-  it("keeps Needs coverage and Assign while own ride is still PENDING", () => {
+  it("keeps Ride needed chip and Assign while own ride is still PENDING", () => {
     renderCard(
       item({
         id: "own-pending-gap",
@@ -740,8 +778,8 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
       },
     )
     const chips = screen.getByTestId("agenda-focus-chips")
-    expect(within(chips).getByText("Requested")).toBeInTheDocument()
-    expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()
+    expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
@@ -793,7 +831,7 @@ describe("AgendaFocusCard Cancel CTA", () => {
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
       "Requested · Maya · 1 seat · Home, 1 Main",
     )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Requested")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     expect(cancel.className).toMatch(/outline|border/)
@@ -1092,11 +1130,12 @@ describe("AgendaFocusCard Request CTA", () => {
     })
   })
 
-  it("keeps Focus-only All set when there is no own-ride chip", () => {
+  it("shows a calm ride-status chip when there is no transport gap", () => {
     renderCard(item({ id: "all-set-calm", title: "Practice", uncoveredKidIds: [] }))
     expect(
-      within(screen.getByTestId("agenda-focus-chips")).getByText("All set"),
+      within(screen.getByTestId("agenda-focus-chips")).getByText("Assigned driving"),
     ).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).queryByText("All set")).not.toBeInTheDocument()
   })
 
   it("keeps Assign when some uncovered kids remain after an ACCEPTED ride", () => {
@@ -1148,14 +1187,8 @@ describe("AgendaFocusCard Request CTA", () => {
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     const chips = screen.getByTestId("agenda-focus-chips")
-    expect(within(chips).getByText("Riding with Sharks Family")).toBeInTheDocument()
-    expect(within(chips).getByText("Needs coverage")).toBeInTheDocument()
-    const chipLabels = within(chips)
-      .getAllByText(/Riding with|Needs coverage/)
-      .map((el) => el.textContent)
-    expect(chipLabels.indexOf("Riding with Sharks Family")).toBeLessThan(
-      chipLabels.indexOf("Needs coverage"),
-    )
+    expect(within(chips).getByText("Ride needed")).toBeInTheDocument()
+    expect(within(chips).queryByText("Riding with Sharks Family")).not.toBeInTheDocument()
   })
 
   it("prefers Accept/Pass over Request", () => {

@@ -11,28 +11,30 @@ import { conflictDisplayLines } from "@/components/conflictDisplay"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
-  agendaOwnRideStatusChip,
   kidDisplayName,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
-import {
-  isAgendaItemOutOfPlay,
-  rsvpStatusForKid,
-  rsvpStatusLabel,
-} from "@/components/rsvpDisplay"
+import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
   activeCoverages,
-  agendaItemStatusTags,
   calendarSourceLabel,
   coverageAdultLabel,
   coverageKidNames,
   coverageStatusLabel,
   eventKidNames,
-  insertOwnRideStatusChip,
   memberLabel,
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
+import {
+  carpoolAskChipForRideEvent,
+  rideStatusChipsForItem,
+} from "@/components/rideStatusChip"
+import {
+  isAgendaItemOutOfPlay,
+  rsvpStatusForKid,
+  rsvpStatusLabel,
+} from "@/components/rsvpDisplay"
 
 const RowChevron = resolveSemanticIcon("icon.chevron")
 
@@ -135,10 +137,13 @@ export function AgendaRow({
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const uncoveredKidNames = eventKidNames(gapKidIds, circle.kids)
-  const tags = insertOwnRideStatusChip(
-    agendaItemStatusTags(item, currentAdultId, { outOfPlay, ownRequest }),
-    agendaOwnRideStatusChip(ownRequest),
-  )
+  const coverageGames = mapCalendarItemToCoverageGames(item, rideEvent, {
+    currentAdultId,
+    members: circle.members,
+  })
+  const askChip = carpoolAskChipForRideEvent(coverageGames)
+  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
+  const tags = askChip != null ? [...rideChips, askChip] : rideChips
   const coveringAvatars = confirmedCoveringAvatars(item, circle, outOfPlay)
   const coveringLabel =
     coveringAvatars.length > 0

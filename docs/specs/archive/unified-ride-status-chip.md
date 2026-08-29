@@ -1,6 +1,6 @@
 # Spec: unified-ride-status-chip
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -142,44 +142,44 @@ No contract changes.
 
 ## Acceptance criteria
 
-- [ ] Pure helpers return ride-status + carpool-ask chip descriptors from
+- [x] Pure helpers return ride-status + carpool-ask chip descriptors from
   `CoverageGameEvent[]` + `currentAdultId` with the label/tone table above;
   `not_going` on all kids yields only **Not going** (muted).
-- [ ] **You're driving · +{n}** uses `route` tone when the signed-in adult is
+- [x] **You're driving · +{n}** uses `route` tone when the signed-in adult is
   confirmed driver (`driver === "You"`) and `acceptedRiders.length > 0`; **You're
   driving** without suffix uses `mint` when `acceptedRiders` is empty.
-- [ ] **{name} driving · +{n}** uses `route` tone when another household adult is
+- [x] **{name} driving · +{n}** uses `route` tone when another household adult is
   confirmed driver and `acceptedRiders.length > 0`; **{name} driving** without
   suffix uses `mint` when `acceptedRiders` is empty.
-- [ ] Pending household assignee sees **Confirm you'll drive** (amber), not
+- [x] Pending household assignee sees **Confirm you'll drive** (amber), not
   **Confirm coverage**; assigner sees **Waiting on {name}** (amber).
-- [ ] **Ride needed** replaces **Needs coverage** on collapsed Focus + AgendaRow
+- [x] **Ride needed** replaces **Needs coverage** on collapsed Focus + AgendaRow
   chips (expanded row copy may still name uncovered kids — unchanged).
-- [ ] **Asked the team** replaces **Requested** for team-ask state (`ownRide ===
+- [x] **Asked the team** replaces **Requested** for team-ask state (`ownRide ===
   "requested"`).
-- [ ] **Riding with {name}** applies when `ownRequest.status === "ACCEPTED"` (mint),
+- [x] **Riding with {name}** applies when `ownRequest.status === "ACCEPTED"` (mint),
   not **{name} driving**.
-- [ ] **Overlaps** remains a separate chip when conflicts exist; ordering is
+- [x] **Overlaps** remains a separate chip when conflicts exist; ordering is
   Overlaps → ride-status → carpool-ask(s).
-- [ ] **CarpoolAskChip** shows actionable inbound pending count; ride-status chip
+- [x] **CarpoolAskChip** shows actionable inbound pending count; ride-status chip
   does **not** include that count.
-- [ ] Multi-kid events: chip reflects the most urgent in-play kid row on that
+- [x] Multi-kid events: chip reflects the most urgent in-play kid row on that
   item (test: one uncovered kid + one confirmed driver kid → **Ride needed**).
-- [ ] Out-of-play items: single **Not going** chip, no carpool-ask or overlaps
+- [x] Out-of-play items: single **Not going** chip, no carpool-ask or overlaps
   chips.
-- [ ] `hero-attention-carousel` / `weekly-list-focus-sync` can import chip
+- [x] `hero-attention-carousel` / `weekly-list-focus-sync` can import chip
   helpers without re-deriving labels (exported functions + tests are the
   contract).
-- [ ] No OpenAPI or backend changes.
+- [x] No OpenAPI or backend changes.
 
 ## Tasks
 
-- [ ] Web: add `rideStatusChip.ts` (or extend `coverageQueue.ts`) with
+- [x] Web: add `rideStatusChip.ts` (or extend `coverageQueue.ts`) with
   `rideStatusChipsForItem(...)` and `carpoolAskChipForRideEvent(...)` (+ any
   small `pickMostUrgentGameRow` helper scoped to one calendar item)
-- [ ] Web: wire `AgendaFocusCard` + collapsed `AgendaRow` to new helpers;
+- [x] Web: wire `AgendaFocusCard` + collapsed `AgendaRow` to new helpers;
   remove `focusStatusChips` / `agendaItemStatusTags` composition for those surfaces
-- [ ] Web: ensure `route` tone is used on Focus hero chips when applicable
-- [ ] Tests: unit tests for label/tone mapping, multi-kid urgency, not_going,
+- [x] Web: ensure `route` tone is used on Focus hero chips when applicable
+- [x] Tests: unit tests for label/tone mapping, multi-kid urgency, not_going,
   +N suffix (You and other household driver), carpool-ask count, overlaps ordering
-- [ ] Tests: update Focus + AgendaRow tests that assert old chip strings
+- [x] Tests: update Focus + AgendaRow tests that assert old chip strings
