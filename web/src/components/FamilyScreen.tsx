@@ -1595,12 +1595,24 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      const updated = await familyClient.assignCalendarCoverage(
+      let updated = await familyClient.assignCalendarCoverage(
         token,
         item.source,
         item.id,
         { coveringAdultId, kidIds },
       )
+      const kidsNeedingRsvpReset = kidIds.filter(
+        (kidId) => rsvpStatusForKid(item, kidId) === "NO",
+      )
+      for (const kidId of kidsNeedingRsvpReset) {
+        updated = await familyClient.setCalendarRsvp(
+          token,
+          updated.source,
+          updated.id,
+          kidId,
+          { status: "YES" },
+        )
+      }
       replaceCalendarItem(updated)
       setAssignCoverageDrafts((current) => {
         const next = { ...current }

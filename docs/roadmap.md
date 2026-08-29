@@ -100,29 +100,28 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | household-driver-assignment     | active  | 2026-08-28 · initial       | DriverPicker: household chips + confirm, separated "Ask the team" path; household member confirm state                        |
-| 2    | unified-ride-status-chip        | planned | 2026-08-28 · initial       | One glanceable status chip per game incl. **You're driving · +N**; separate CarpoolAskChip for inbound asks                   |
-| 3    | hero-attention-carousel         | planned | 2026-08-28 · initial       | Swipeable "Needs your attention" carousel over `getQueue`; every slide actionable; empty → all caught up                      |
-| 4    | weekly-list-focus-sync          | planned | 2026-08-28 · initial       | Collapsed-by-default agenda rows; highlight syncs to `getQueue[0]`; chronological list order                                    |
-| 5    | ride-revert-undo                | planned | 2026-08-28 · initial       | One-click, no-dialog undos for every resolved ride state; **drive** vocabulary for ride-side copy                             |
-| 6    | auto-decline-unofferable        | planned | 2026-08-28 · initial       | Wire auto-decline when own ride is `"requested"` — can't offer a ride you don't have                                        |
-| 7    | attendance-manual-toggle        | planned | 2026-08-28 · initial       | Manual not-going toggle only; default going; never a hero item; **going** vocabulary                                         |
-| 8    | carpool-pickup-detour           | planned | 2026-08-28 · initial       | Pickup town + color-coded detour minutes before Accept/Decline on carpool asks                                                |
-| 9    | coverage-copy-a11y-polish       | planned | 2026-08-28 · initial       | Copy constants, layout separation, a11y/responsive polish pass across ranks 2–9                                               |
-| 10   | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who's riding (reuse covering-avatar pattern); names only — no photos                 |
-| 11   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
-| 12   | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
-| 13   | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
-| 14   | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 15   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 16   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
-| 17   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 18   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 19   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 20   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 21   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
-| 22   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 23   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | unified-ride-status-chip        | planned | 2026-08-28 · initial       | One glanceable status chip per game incl. **You're driving · +N**; separate CarpoolAskChip for inbound asks                   |
+| 2    | hero-attention-carousel         | planned | 2026-08-28 · initial       | Swipeable "Needs your attention" carousel over `getQueue`; every slide actionable; empty → all caught up                      |
+| 3    | weekly-list-focus-sync          | planned | 2026-08-28 · initial       | Collapsed-by-default agenda rows; highlight syncs to `getQueue[0]`; chronological list order                                    |
+| 4    | ride-revert-undo                | planned | 2026-08-28 · initial       | One-click, no-dialog undos for every resolved ride state; **drive** vocabulary for ride-side copy                             |
+| 5    | auto-decline-unofferable        | planned | 2026-08-28 · initial       | Wire auto-decline when own ride is `"requested"` — can't offer a ride you don't have                                        |
+| 6    | attendance-manual-toggle        | planned | 2026-08-28 · initial       | Manual not-going toggle only; default going; never a hero item; **going** vocabulary                                         |
+| 7    | carpool-pickup-detour           | planned | 2026-08-28 · initial       | Pickup town + color-coded detour minutes before Accept/Decline on carpool asks                                                |
+| 8    | coverage-copy-a11y-polish       | planned | 2026-08-28 · initial       | Copy constants, layout separation, a11y/responsive polish pass across ranks 2–9                                               |
+| 9    | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who's riding (reuse covering-avatar pattern); names only — no photos                 |
+| 10   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
+| 11   | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
+| 12   | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — pre-beta differentiator; not blocked on in-app inbox          |
+| 13   | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 14   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 15   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times: game ~30m / practice ~15m / other ~0 (defaults); refine leave-by target                          |
+| 16   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 17   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 18   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 19   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 20   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
+| 21   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 22   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -191,15 +190,14 @@ Superseded by Expo migration (KMP ports / KMP-only fixes). Do not promote.
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-| Id                          | Branch                      | Spec                                                        |
-| --------------------------- | --------------------------- | ----------------------------------------------------------- |
-| household-driver-assignment | `household-driver-assignment` | [active](specs/active/household-driver-assignment.md) |
+_None._
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| household-driver-assignment | 2026-08-28 | [archive](specs/archive/household-driver-assignment.md) |
 | coverage-priority-engine   | 2026-08-28 | [archive](specs/archive/coverage-priority-engine.md)   |
 | agenda-carpool-state-clarity | 2026-08-27 | [archive](specs/archive/agenda-carpool-state-clarity.md) |
 | agenda-chip-section-headers | 2026-08-26 | [archive](specs/archive/agenda-chip-section-headers.md) |
@@ -387,4 +385,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-28 | `/roadmap` hero & coverage flow redesign import: 10 ranked slices (mockup-validated) at ranks 1–10; ADRs in `docs/decisions/`; rank 1 **active** [`coverage-priority-engine`](specs/active/coverage-priority-engine.md); stubs for ranks 2–10; cancelled `assign-cancels-carpool-request`. Next up `/implement coverage-priority-engine`. |
 | 2026-08-28 | `/pr coverage-priority-engine`: shared `coverageQueue.ts` module with `getQueue`, view-model types, derived helpers, `autoDeclineUnofferable`, and calendar mappers. Spec archived. Next up `household-driver-assignment`. |
 | 2026-08-28 | `/spec household-driver-assignment`: DriverPicker component + Focus integration; household confirm via existing PENDING coverage; ADR-0003 RSVP reset on assign. Spec active. Next up `/implement household-driver-assignment`. |
+| 2026-08-28 | `/pr household-driver-assignment`: DriverPicker household chips + team ask on Focus card; ADR-0003 RSVP reset on assign. Spec archived. Next up `unified-ride-status-chip`. |
 

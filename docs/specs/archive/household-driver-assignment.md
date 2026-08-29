@@ -1,6 +1,6 @@
 # Spec: household-driver-assignment
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -89,25 +89,25 @@ to `AgendaFocusCard`.
 
 ## Acceptance criteria
 
-- [ ] `DriverPicker` renders household member chips (You + other adults), default **You** selected.
-- [ ] Confirm label is **Confirm I'll drive** for You, **Ask {name} to drive** for any other selected adult.
-- [ ] Confirm calls `onAssignCoverage(adultId, kidIds)` with the selected adult and current kid subset.
-- [ ] **Nobody in the household free?** caption and **Ask the team for a ride** button are visually separated from household chips (divider or spacing — not inline with chips).
-- [ ] Team button calls `onAskTeam` / `onCreateRide` for the event; standalone Focus **Request** button is hidden when `DriverPicker` is shown.
-- [ ] Self-assign produces `CONFIRMED` coverage; other-assign produces `PENDING` — verified by component or integration test against mocked API responses.
-- [ ] Assignee `pendingForSelf` flow still shows Confirm/Decline (regression test).
-- [ ] After household assign, any assigned kid with RSVP `NO` is updated to `YES` before calendar item refresh (ADR-0003).
-- [ ] `mapCalendarItemToCoverageGames` reflects post-action state: self → `{ driver: "You", confirmed: true }`, other pending → `{ driver, confirmed: false }`, team ask → `"requested"`.
-- [ ] `DriverPicker` exported and mountable without Focus (props-only) for [`hero-attention-carousel`](../planned/hero-attention-carousel.md).
+- [x] `DriverPicker` renders household member chips (You + other adults), default **You** selected.
+- [x] Confirm label is **Confirm I'll drive** for You, **Ask {name} to drive** for any other selected adult.
+- [x] Confirm calls `onAssignCoverage(adultId, kidIds)` with the selected adult and current kid subset.
+- [x] **Nobody in the household free?** caption and **Ask the team for a ride** button are visually separated from household chips (divider or spacing — not inline with chips).
+- [x] Team button calls `onAskTeam` / `onCreateRide` for the event; standalone Focus **Request** button is hidden when `DriverPicker` is shown.
+- [x] Self-assign produces `CONFIRMED` coverage; other-assign produces `PENDING` — verified by component or integration test against mocked API responses.
+- [x] Assignee `pendingForSelf` flow still shows Confirm/Decline (regression test).
+- [x] After household assign, any assigned kid with RSVP `NO` is updated to `YES` before calendar item refresh (ADR-0003).
+- [x] `mapCalendarItemToCoverageGames` reflects post-action state: self → `{ driver: "You", confirmed: true }`, other pending → `{ driver, confirmed: false }`, team ask → `"requested"`.
+- [x] `DriverPicker` exported and mountable without Focus (props-only) for [`hero-attention-carousel`](../planned/hero-attention-carousel.md).
 
 ## Tasks
 
-- [ ] Web: add `DriverPicker.tsx` (+ colocated `DriverPicker.test.tsx`) with chips, confirm, separated team section
-- [ ] Web: integrate `DriverPicker` into `AgendaFocusCard` — replace assign `<select>` + **Assign coverage** + standalone **Request** when `showAssign`
-- [ ] Web: in `FamilyScreen` (or assign handler), chain `setCalendarRsvp(..., YES)` for assigned kids currently `NO` after successful household assign
-- [ ] Web: preserve multi-kid subset UI when `!assignDraft.soleKid`
-- [ ] Tests: `DriverPicker.test.tsx` — chip selection, confirm labels, team button separation, disabled while loading
-- [ ] Tests: update `AgendaFocusCard.test.tsx` / `FamilyScreen.test.tsx` — household self vs other assign, team ask replaces Request, RSVP reset on assign, assignee confirm unchanged
+- [x] Web: add `DriverPicker.tsx` (+ colocated `DriverPicker.test.tsx`) with chips, confirm, separated team section
+- [x] Web: integrate `DriverPicker` into `AgendaFocusCard` — replace assign `<select>` + **Assign coverage** + standalone **Request** when `showAssign`
+- [x] Web: in `FamilyScreen` (or assign handler), chain `setCalendarRsvp(..., YES)` for assigned kids currently `NO` after successful household assign
+- [x] Web: preserve multi-kid subset UI when `!assignDraft.soleKid`
+- [x] Tests: `DriverPicker.test.tsx` — chip selection, confirm labels, team button separation, disabled while loading
+- [x] Tests: update `AgendaFocusCard.test.tsx` / `FamilyScreen.test.tsx` — household self vs other assign, team ask replaces Request, RSVP reset on assign, assignee confirm unchanged
 
 ## Open questions
 
