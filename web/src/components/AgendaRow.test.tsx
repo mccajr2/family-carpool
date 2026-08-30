@@ -78,12 +78,7 @@ function renderRow(calendarItem: CalendarItem) {
 }
 
 describe("AgendaRow", () => {
-  it("applies the display font to the row title", () => {
-    renderRow(item({ id: "a", title: "Practice" }))
-    expect(screen.getByText("Practice")).toHaveClass("fc-display")
-  })
-
-  it("lets the title and time wrap instead of nowrap truncate, so the page-frame 1fr track can shrink", () => {
+  it("renders GameCard hierarchy with list-row tokens and no title truncate", () => {
     renderRow(
       item({
         id: "a",
@@ -91,12 +86,50 @@ describe("AgendaRow", () => {
         location: "450 Huron Ave, Cambridge",
       }),
     )
-    const title = screen.getByText("Birthday Party — Maya at the Community Center")
+    const row = screen.getByTestId("agenda-row-MANUAL-a")
+    expect(row.className).toMatch(/--fc-radius-xl/)
+    expect(row.className).toMatch(/--fc-surface-raised/)
+    expect(within(row).queryByTestId("agenda-row-team")).not.toBeInTheDocument()
+    const title = within(row).getByTestId("agenda-row-title")
+    expect(title).toHaveTextContent("Birthday Party — Maya at the Community Center")
+    expect(title.className).toMatch(/--fc-font-list-row-title-size/)
     expect(title.className).not.toMatch(/truncate/)
     expect(title.className).not.toMatch(/whitespace-nowrap/)
-    const time = screen.getByText(/450 Huron Ave/)
-    expect(time.className).not.toMatch(/truncate/)
-    expect(time.className).not.toMatch(/whitespace-nowrap/)
+    const when = within(row).getByTestId("agenda-row-when")
+    expect(when.className).toMatch(/--fc-font-list-row-meta-size/)
+    expect(when.className).not.toMatch(/truncate/)
+    const where = within(row).getByTestId("agenda-row-where")
+    expect(where).toHaveTextContent("450 Huron Ave, Cambridge")
+    expect(where.className).not.toMatch(/truncate/)
+  })
+
+  it("shows feed name as uppercase team label and focuses with ring tokens", () => {
+    render(
+      <AgendaRow
+        item={item({
+          id: "feed",
+          source: "FEED",
+          title: "vs Hawks",
+          feedName: "U12 Soccer",
+          location: "Field 2",
+        })}
+        isFocused
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-FEED-feed")
+    expect(row).toHaveAttribute("data-focused", "true")
+    expect(row.className).toMatch(/--fc-list-row-focus-border/)
+    expect(row.style.boxShadow).toContain("--fc-list-row-focus-halo")
+    const team = within(row).getByTestId("agenda-row-team")
+    expect(team).toHaveTextContent("U12 Soccer")
+    expect(team.className).toMatch(/uppercase/)
+    expect(team.className).toMatch(/--fc-font-list-row-team-size/)
+    expect(within(row).getByTestId("agenda-row-title")).toHaveTextContent("vs Hawks")
   })
 
   it("renders an out-of-play item muted with only a Not going tag and no coverage/travel when expanded", async () => {
@@ -126,6 +159,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
     expect(within(row).queryByText("Leave from")).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
   })
 
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
@@ -253,7 +287,7 @@ describe("AgendaRow", () => {
     expect(routeChip.className).not.toMatch(/--fc-hero-accent/)
   })
 
-  it("shows covering avatars and a token chevron on confirmed in-play rows, without a standalone status dot", () => {
+  it("shows status chips and a chevron on confirmed in-play rows, without covering avatars or a status dot", () => {
     renderRow(
       item({
         id: "covered",
@@ -272,12 +306,12 @@ describe("AgendaRow", () => {
     )
     const row = screen.getByTestId("agenda-row-MANUAL-covered")
     expect(within(row).getByText("You're driving")).toBeInTheDocument()
-    expect(within(row).getByLabelText("Covering: Alex")).toHaveTextContent("A")
+    expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-chevron")).toBeInTheDocument()
     expect(row.querySelector("[class*='h-[9px]']")).toBeNull()
   })
 
-  it("stacks up to two covering avatars when two adults are confirmed", () => {
+  it("does not render covering avatars when multiple adults are confirmed", () => {
     const twoAdultCircle: FamilyCircle = {
       ...circle,
       members: [
@@ -317,9 +351,9 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    const avatars = screen.getByLabelText("Covering: Alex, Jordan Lee")
-    expect(avatars).toHaveTextContent("A")
-    expect(avatars).toHaveTextContent("JL")
+    expect(screen.queryByLabelText("Covering: Alex, Jordan Lee")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
+    expect(screen.getByText("You're driving")).toBeInTheDocument()
   })
 
   it("toggles expand/collapse per row without affecting other rows", async () => {
@@ -577,6 +611,7 @@ describe("AgendaRow", () => {
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(within(row).getByText("Riding with Sharks Family")).toBeInTheDocument()
   })
 
@@ -653,7 +688,8 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
     expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
-    expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
   })
 
   it("keeps Ride needed chip and Assign while own ride is still PENDING", async () => {
@@ -715,8 +751,59 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByRole("button", { name: "Assign coverage" })).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     expect(within(row).getByText("Needs coverage: Sam")).toBeInTheDocument()
+  })
+
+  it("shows DriverPicker instead of Request in the carpool band when there is a coverage gap", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const onAssignCoverage = vi.fn()
+    const feedItem = item({
+      id: "feed-gap",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const rideEvent = {
+      eventKey: "UID:gap",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-gap")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const coverage = within(row).getByTestId("agenda-band-coverage")
+    expect(within(coverage).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
+    await user.click(within(coverage).getByRole("button", { name: "Ask the team for a ride" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
+    await user.click(within(coverage).getByRole("button", { name: "Confirm I'll drive" }))
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
   it("shows Request for No-response defaults without telling adults to RSVP Yes first", async () => {
@@ -825,17 +912,175 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-FEED-feed-withdraw")
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const band = within(row).getByTestId("agenda-band-carpool")
-    expect(within(band).getByTestId("agenda-row-accepted-by-us")).toHaveTextContent(
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).getByTestId("agenda-inbound-request-ask-accepted")).toHaveTextContent(
       "House B · Mia · 1 seat · Home, 1 Main",
     )
-    expect(within(band).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(within(band).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
-    await user.click(within(band).getByRole("button", { name: "Withdraw" }))
+    expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    await user.click(within(inbound).getByRole("button", { name: "Withdraw" }))
     expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
   })
 
-  it("keeps Request/Cancel for own request and does not add Accept/Pass on the row", async () => {
+  it("shows Accept and Pass for pending inbound asks outside the hero queue", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+    const onPassRide = vi.fn()
+    const garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [
+        {
+          id: "v1",
+          ownerAdultId: "a1",
+          driverAdultIds: ["a1"],
+          keptAtPlaceId: null,
+          label: "Van",
+          year: 2019,
+          make: "HONDA",
+          model: "Odyssey",
+          seats: 8,
+          suggestedSeats: 8,
+        },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-accept",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-accept",
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        garage={garage}
+        rideEvent={{
+          eventKey: "UID:practice-accept",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "pending-other",
+              spaceId: "s1",
+              eventKey: "UID:practice-accept",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={onAcceptRide}
+        onPassRide={onPassRide}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        onWithdrawRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-accept")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    await user.click(within(inbound).getByRole("button", { name: "Accept" }))
+    expect(onAcceptRide).toHaveBeenCalledWith("pending-other", "v1")
+    await user.click(within(inbound).getByRole("button", { name: "Pass" }))
+    expect(onPassRide).toHaveBeenCalledWith("pending-other")
+  })
+
+  it("hides Accept and Pass when the ask is active in the hero queue", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-queued",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-queued",
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        garage={{
+          members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+          vehicles: [],
+        }}
+        heroQueuedRequestIds={new Set(["pending-other"])}
+        rideEvent={{
+          eventKey: "UID:practice-queued",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "pending-other",
+              spaceId: "s1",
+              eventKey: "UID:practice-queued",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        onWithdrawRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-queued")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).getByText("Handle in Needs your attention above")).toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("keeps Request/Cancel for own request without duplicate inbound Accept/Pass", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-no-accept",
@@ -859,29 +1104,7 @@ describe("AgendaRow", () => {
           endsAt: null,
           defaultKidIds: ["k1"],
           ownRequest: null,
-          otherRequests: [
-            {
-              id: "pending-other",
-              spaceId: "s1",
-              eventKey: "UID:practice-na",
-              requestingCircleId: "c2",
-              requestingCircleName: "House B",
-              requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
-          ],
+          otherRequests: [],
         }}
         onCreateRide={vi.fn()}
         onCancelRide={vi.fn()}
@@ -894,8 +1117,6 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByRole("button", { expanded: false }))
     const band = within(row).getByTestId("agenda-band-carpool")
     expect(within(band).getByRole("button", { name: "Request" })).toBeInTheDocument()
-    expect(within(band).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(within(band).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
-    expect(within(band).queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-band-inbound-requests")).not.toBeInTheDocument()
   })
 })

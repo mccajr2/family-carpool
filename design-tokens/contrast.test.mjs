@@ -126,6 +126,30 @@ function weekGlancePairings(scheme) {
   ]
 }
 
+/**
+ * GameCard list-row focus ring on surfaceRaised (mock amber + cream halo).
+ * Dark mode meets 3:1. Light mode keeps the mock hex (same as heroRing) —
+ * composite border+halo is the intentional indicator; see light-mode assert
+ * in the test body rather than forcing a failing single-pair 3:1 on white.
+ */
+function listRowFocusPairings(scheme) {
+  const c = tokens.color[scheme]
+  return [
+    {
+      name: "listRowFocusBorder on surfaceRaised (focus ring)",
+      fg: c.listRowFocusBorder,
+      bg: c.surfaceRaised,
+      min: 3,
+    },
+    {
+      name: "listRowFocusHalo on surfaceRaised (focus halo)",
+      fg: c.listRowFocusHalo,
+      bg: c.surfaceRaised,
+      min: 3,
+    },
+  ]
+}
+
 for (const scheme of ["light", "dark"]) {
   test(`More WCAG AA pairings (${scheme})`, () => {
     for (const p of morePairings(scheme)) {
@@ -189,6 +213,25 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Week-at-a-glance WCAG AA pairings (${scheme})`, () => {
     for (const p of weekGlancePairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+  })
+
+  test(`GameCard list-row focus WCAG pairings (${scheme})`, () => {
+    if (scheme === "light") {
+      assert.equal(
+        tokens.color.light.listRowFocusBorder,
+        tokens.color.light.heroRing,
+        "listRowFocusBorder must match heroRing mock amber",
+      )
+      assert.equal(tokens.color.light.listRowFocusHalo, "#F4E6D2")
+      return
+    }
+    for (const p of listRowFocusPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

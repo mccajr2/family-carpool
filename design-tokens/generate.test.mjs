@@ -43,6 +43,18 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-font-filter-chip-size: 13.5px;/)
   assert.match(css, /--fc-space-filter-chip-gap: 8px;/)
   assert.match(css, /--fc-space-list-row-avatar: 26px;/)
+  assert.match(css, /--fc-space-list-row-gap: 12px;/)
+  assert.match(css, /--fc-space-list-row-pad-x: 24px;/)
+  assert.match(css, /--fc-space-list-row-pad-y: 20px;/)
+  assert.match(css, /--fc-space-list-row-kid-avatar: 28px;/)
+  assert.match(css, /--fc-space-list-row-focus-halo-spread: 3px;/)
+  assert.match(css, /--fc-list-row-focus-border: #E3A15B;/)
+  assert.match(css, /--fc-list-row-focus-halo: #F4E6D2;/)
+  assert.match(css, /--fc-font-list-row-team-size: 12px;/)
+  assert.match(css, /--fc-font-list-row-team-weight: 700;/)
+  assert.match(css, /--fc-font-list-row-title-size: 18px;/)
+  assert.match(css, /--fc-font-list-row-title-weight: 700;/)
+  assert.match(css, /--fc-font-list-row-meta-size: 14px;/)
   assert.match(css, /--fc-font-list-row-chevron-size: 18px;/)
   assert.match(css, /--fc-font-focus-ring-unit-weight: 600;/)
   assert.match(css, /--fc-font-feed-name-size: 16.5px;/)
@@ -140,6 +152,8 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "heroCarouselDotInactive",
     "heroCarouselControlBg",
     "heroDeclineBg",
+    "listRowFocusBorder",
+    "listRowFocusHalo",
     "railSurface",
     "railOn",
     "railOnSecondary",
@@ -229,11 +243,24 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.equal(tokens.spacing.heroEmptyPad, 32)
   assert.equal(tokens.spacing.heroCarouselDotActiveW, 18)
   assert.equal(tokens.spacing.heroCarouselDotH, 7)
+  assert.equal(tokens.spacing.listRowGap, 12)
+  assert.equal(tokens.spacing.listRowPadX, 24)
+  assert.equal(tokens.spacing.listRowPadY, 20)
+  assert.equal(tokens.spacing.listRowKidAvatar, 28)
+  assert.equal(tokens.spacing.listRowFocusHaloSpread, 3)
+  assert.equal(tokens.typography.scale.listRowTeam.size, 12)
+  assert.equal(tokens.typography.scale.listRowTeam.weight, "700")
+  assert.equal(tokens.typography.scale.listRowTitle.size, 18)
+  assert.equal(tokens.typography.scale.listRowTitle.weight, "700")
+  assert.equal(tokens.typography.scale.listRowMeta.size, 14)
+  assert.equal(tokens.typography.scale.listRowMeta.weight, "400")
   assert.equal(
     tokens.color.light.heroGlow,
     "radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%)",
   )
   assert.equal(tokens.color.light.heroRing, "#E3A15B")
+  assert.equal(tokens.color.light.listRowFocusBorder, "#E3A15B")
+  assert.equal(tokens.color.light.listRowFocusHalo, "#F4E6D2")
   assert.equal(tokens.color.light.heroCarouselControlBg, "#ECEBE6")
   assert.equal(tokens.typography.fontFamily, "Plus Jakarta Sans")
   assert.equal(tokens.typography.displayFontFamily, "Space Grotesk")
@@ -267,6 +294,13 @@ test("tokens.json declares light and dark color roles and icons", () => {
       tokens.color.light[role],
       tokens.color.dark[role],
       `hero carousel* must be theme-independent (${role})`,
+    )
+  }
+  for (const role of ["listRowFocusBorder", "listRowFocusHalo"]) {
+    assert.equal(
+      tokens.color.light[role],
+      tokens.color.dark[role],
+      `listRow focus* must be theme-independent (${role})`,
     )
   }
 })

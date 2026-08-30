@@ -1322,7 +1322,9 @@ describe("FamilyScreen", () => {
     expect(allKids.className).toMatch(/--fc-font-filter-chip-size/)
     expect(filter.className).toMatch(/--fc-space-filter-chip-gap/)
     await expandAgendaItem(user, within(agenda).getByTestId("agenda-item-FEED-f1"))
-    expect(within(agenda).getByText("Soccer")).toBeInTheDocument()
+    const feedRow = within(agenda).getByTestId("agenda-row-FEED-f1")
+    expect(within(feedRow).getByTestId("agenda-row-team")).toHaveTextContent("Soccer")
+    expect(within(agenda).getAllByText("Soccer").length).toBeGreaterThanOrEqual(1)
     expect(within(agenda).queryByRole("button", { name: "Remove event" })).not.toBeInTheDocument()
     await expandAgendaItem(user, within(agenda).getByTestId("agenda-item-MANUAL-e1"))
     expect(within(agenda).getAllByRole("button", { name: "Edit" })).toHaveLength(1)
@@ -2096,7 +2098,11 @@ describe("FamilyScreen", () => {
     expect(await findCalendarPageHeading()).toBeInTheDocument()
     const agenda = await screen.findByLabelText("Agenda")
     const focus = heroSlideIn(agenda)
-    expect(within(agenda).queryByTestId("agenda-item-FEED-e-feed")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-FEED-e-feed")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-FEED-e-feed")).toHaveAttribute(
+      "data-focused",
+      "true",
+    )
     expect(within(focus).getByText("Sam needs a ride")).toBeInTheDocument()
 
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
@@ -2972,7 +2978,7 @@ describe("FamilyScreen", () => {
     expect(within(slide).getByText("Riley needs a ride")).toBeInTheDocument()
   })
 
-  it("renders hero attention carousel from getQueue and excludes queued items from the list", async () => {
+  it("renders hero attention carousel from getQueue and includes queued items in the list", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -3028,8 +3034,16 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     expect(heroCarouselIn(agenda)).toBeInTheDocument()
     expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e1")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
     expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e1")).toHaveAttribute(
+      "data-focused",
+      "true",
+    )
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e2")).toHaveAttribute(
+      "data-focused",
+      "false",
+    )
   })
 
   it("shows carousel controls for a multi-item queue and drops resolved slides on rerender", async () => {
@@ -3137,7 +3151,11 @@ describe("FamilyScreen", () => {
     expect(within(carousel).getByText("Riley needs a ride")).toBeInTheDocument()
     expect(within(carousel).queryByTestId("hero-attention-controls")).not.toBeInTheDocument()
     expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e2")).toHaveAttribute(
+      "data-focused",
+      "true",
+    )
   })
 
   it("lets the second carousel slide stay actionable without resolving the first", async () => {
@@ -3408,8 +3426,15 @@ describe("FamilyScreen", () => {
     expect(rows[1]).toHaveAttribute("data-testid", "agenda-item-MANUAL-e2")
     const card = within(rows[1]).getByTestId("agenda-row-MANUAL-e2")
     expect(card.className).toContain("border-[var(--fc-border)]")
-    expect(card.className).toContain("rounded-[var(--fc-radius-md)]")
+    expect(card.className).toContain("rounded-[var(--fc-radius-xl)]")
     expect(card.className).toContain("bg-[var(--fc-surface-raised)]")
+    expect(card).toHaveAttribute("data-focused", "false")
+    expect(within(rows[0]).getByTestId("agenda-row-MANUAL-e1")).toHaveAttribute(
+      "data-focused",
+      "false",
+    )
+    expect(within(card).getByTestId("agenda-row-title")).toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-row-when")).toBeInTheDocument()
     expect(within(card).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
     expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
     expect(within(card).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
@@ -3489,8 +3514,18 @@ describe("FamilyScreen", () => {
     expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
     const list = within(agenda).getByTestId("agenda-list")
     expect(within(list).queryByRole("heading", { name: "NEEDS YOUR ATTENTION" })).not.toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-gap")).not.toBeInTheDocument()
+    expect(within(list).getByTestId("agenda-item-MANUAL-gap")).toBeInTheDocument()
+    expect(within(list).getByTestId("agenda-row-MANUAL-gap")).toHaveAttribute(
+      "data-focused",
+      "true",
+    )
     expect(within(list).getByRole("heading", { name: "REST OF TODAY" })).toBeInTheDocument()
+    const todayRows = within(list)
+      .getByRole("heading", { name: "REST OF TODAY" })
+      .closest("section")
+      ?.querySelectorAll("[data-testid^='agenda-item-']")
+    expect(todayRows?.[0]).toHaveAttribute("data-testid", "agenda-item-MANUAL-gap")
+    expect(todayRows?.[1]).toHaveAttribute("data-testid", "agenda-item-MANUAL-calm")
     expect(within(list).getByTestId("agenda-item-MANUAL-calm")).toBeInTheDocument()
     expect(within(list).getByRole("heading", { name: "TOMORROW" })).toBeInTheDocument()
     expect(within(list).getByTestId("agenda-item-MANUAL-tmw")).toBeInTheDocument()
@@ -3498,7 +3533,7 @@ describe("FamilyScreen", () => {
     expect(within(list).queryByRole("heading", { name: "Today" })).not.toBeInTheDocument()
   })
 
-  it("does not also render the focus item as a flat row", async () => {
+  it("renders the most urgent queue item in both carousel and flat list", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -3554,7 +3589,15 @@ describe("FamilyScreen", () => {
     expect(heroCarouselIn(agenda)).toBeInTheDocument()
     expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
     expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
-    expect(within(agenda).queryByTestId("agenda-item-MANUAL-e2")).not.toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e2")).toHaveAttribute(
+      "data-focused",
+      "true",
+    )
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e1")).toHaveAttribute(
+      "data-focused",
+      "false",
+    )
   })
 
   it("assigns coverage for uncovered kids", async () => {
@@ -4088,7 +4131,7 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    await user.click(within(item).getByRole("button", { name: "Assign coverage" }))
+    await user.click(within(item).getByRole("button", { name: "Confirm I'll drive" }))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -6029,5 +6072,314 @@ describe("FamilyScreen", () => {
     expect(within(slide).getByText("Sam needs a ride")).toBeInTheDocument()
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+  })
+
+  describe("weekly list focus sync", () => {
+    function weeklyListSession() {
+      const session = new AuthSessionHolder()
+      session.setSession("tok", {
+        id: "1",
+        email: "parent@example.com",
+        displayName: "Alex",
+      })
+      return session
+    }
+
+    function weeklyListCircle() {
+      return circleFixture({
+        id: "c1",
+        name: "House",
+        role: "ORGANIZER",
+        members: [
+          {
+            adultId: "1",
+            email: "parent@example.com",
+            displayName: "Alex",
+            role: "ORGANIZER",
+          },
+        ],
+        kids: [{ id: "k1", displayName: "Sam" }],
+        places: [],
+      })
+    }
+
+    it("applies list-row focus ring only on attentionQueue[0]", async () => {
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={weeklyListSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(weeklyListCircle()),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "e1",
+                source: "MANUAL",
+                title: "Covered practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+              }),
+              calendarItem({
+                id: "e2",
+                source: "MANUAL",
+                title: "Uncovered game",
+                startsAt: "2030-08-16T17:00:00.000Z",
+                kidIds: ["k1"],
+                uncoveredKidIds: ["k1"],
+              }),
+            ]),
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      const focusedRow = within(agenda).getByTestId("agenda-row-MANUAL-e2")
+      const calmRow = within(agenda).getByTestId("agenda-row-MANUAL-e1")
+
+      expect(focusedRow).toHaveAttribute("data-focused", "true")
+      expect(focusedRow.className).toMatch(/--fc-list-row-focus-border/)
+      expect(focusedRow.style.boxShadow).toContain("--fc-list-row-focus-halo")
+
+      expect(calmRow).toHaveAttribute("data-focused", "false")
+      expect(calmRow.className).toContain("border-[var(--fc-border)]")
+      expect(calmRow.className).not.toMatch(/--fc-list-row-focus-border/)
+      expect(calmRow.style.boxShadow).toBe("")
+    })
+
+    it("renders attentionQueue[0] in the hero carousel and flat list together", async () => {
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={weeklyListSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(weeklyListCircle()),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "gap",
+                source: "MANUAL",
+                title: "Gap practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                uncoveredKidIds: ["k1"],
+              }),
+            ]),
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      expect(heroCarouselIn(agenda)).toBeInTheDocument()
+      expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-gap")).toBeInTheDocument()
+      expect(within(agenda).getByTestId("agenda-row-MANUAL-gap")).toHaveAttribute(
+        "data-focused",
+        "true",
+      )
+    })
+
+    it("shows DriverPicker in an expanded list gap row without legacy assign controls", async () => {
+      const user = userEvent.setup()
+
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={weeklyListSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(weeklyListCircle()),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "gap",
+                source: "MANUAL",
+                title: "Gap practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                uncoveredKidIds: ["k1"],
+              }),
+            ]),
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      const listRow = within(agenda).getByTestId("agenda-item-MANUAL-gap")
+      await expandAgendaItem(user, listRow)
+
+      expect(within(listRow).getByTestId("driver-picker")).toBeInTheDocument()
+      expect(within(listRow).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
+      expect(within(listRow).queryByRole("combobox", { name: /driver/i })).not.toBeInTheDocument()
+    })
+
+    it("hides inbound Accept and Pass on the list row when the ask is in the hero queue", async () => {
+      const user = userEvent.setup()
+      const pendingInbound = {
+        id: "pending-inbound",
+        spaceId: "s1",
+        eventKey: "UID:practice-inbound",
+        requestingCircleId: "c2",
+        requestingCircleName: "House B",
+        requestedByAdultId: "a2",
+        kidIds: ["k2"],
+        kidFirstNames: ["Mia"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "PENDING" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      }
+      const feedItem = calendarItem({
+        id: "e-feed-inbound",
+        source: "FEED",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+        feedId: "f1",
+        feedName: "Soccer",
+        eventKey: "UID:practice-inbound",
+        uncoveredKidIds: [],
+        rsvps: [{ kidId: "k1", status: "YES" }],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      })
+      const listRides = vi.fn().mockResolvedValue([
+        {
+          eventKey: "UID:practice-inbound",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [pendingInbound],
+        },
+      ])
+      const getSummary = vi.fn().mockResolvedValue({
+        circleRole: "ORGANIZER",
+        feeds: [
+          {
+            feedId: "f1",
+            feedName: "Soccer",
+            status: "OWNER",
+            spaceId: "s1",
+            spaceName: "Soccer",
+          },
+        ],
+        spaces: [
+          {
+            id: "s1",
+            name: "Soccer",
+            membership: "OWNER",
+            inviteCode: "AB12CD34",
+            callerFeedId: "f1",
+            members: [{ circleId: "c1", circleName: "House", membership: "OWNER" }],
+            pendingRequests: [],
+          },
+        ],
+      })
+
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={weeklyListSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(weeklyListCircle()),
+            getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+            listFeeds: vi.fn().mockResolvedValue([]),
+            listCalendar: vi.fn().mockResolvedValue([feedItem]),
+            getGarage: vi.fn().mockResolvedValue({
+              members: [{ adultId: "1", displayName: "Alex", drives: true }],
+              vehicles: [
+                {
+                  id: "v1",
+                  ownerAdultId: "1",
+                  driverAdultIds: ["1"],
+                  keptAtPlaceId: null,
+                  label: "SUV",
+                  year: 2021,
+                  make: "Honda",
+                  model: "Pilot",
+                  seats: 5,
+                  suggestedSeats: null,
+                },
+              ],
+            }),
+          })}
+          carpoolClient={mockCarpoolClient({ getSummary, listRides })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      const listRow = within(agenda).getByTestId("agenda-item-FEED-e-feed-inbound")
+      await waitFor(() => {
+        expect(listRides).toHaveBeenCalledWith(
+          "tok",
+          "s1",
+          expect.any(String),
+          expect.any(String),
+        )
+      })
+      await waitFor(() => {
+        expect(listRow).toHaveAttribute("data-carpool-ride-key", "UID:practice-inbound")
+      })
+
+      const slide = heroSlideIn(agenda)
+      expect(within(slide).getByText("House B need a ride for Mia")).toBeInTheDocument()
+      expect(within(slide).getByRole("button", { name: "Accept" })).toBeInTheDocument()
+
+      expect(within(listRow).getByTestId("agenda-row-FEED-e-feed-inbound")).toHaveAttribute(
+        "data-focused",
+        "true",
+      )
+
+      await expandAgendaItem(user, listRow)
+      const inbound = within(listRow).getByTestId("agenda-band-inbound-requests")
+      expect(within(inbound).getByText("Handle in Needs your attention above")).toBeInTheDocument()
+      expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+      expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    })
+
+    it("leaves every list row unfocused when attentionQueue is empty", async () => {
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={weeklyListSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(weeklyListCircle()),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "e1",
+                source: "MANUAL",
+                title: "Practice",
+                startsAt: "2030-08-25T17:00:00.000Z",
+                kidIds: ["k1"],
+              }),
+            ]),
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
+      expect(within(agenda).getByTestId("agenda-row-MANUAL-e1")).toHaveAttribute(
+        "data-focused",
+        "false",
+      )
+    })
   })
 })

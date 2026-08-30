@@ -1,6 +1,6 @@
 # Spec: weekly-list-focus-sync
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -125,7 +125,7 @@ Lock from mock `GameCard` (do not snap):
 | Role | Mock | Notes |
 | ---- | ---- | ----- |
 | `listRowFocusBorder` | `#E3A15B` | Same amber as mock `C.ring` / carousel `heroRing` |
-| `listRowFocusHalo` | `#F4E6D2` | 3px spread (`amberBg`) |
+| `listRowFocusHalo` | `#F4E6D2` | 3px spread (`amberBg`); width locked as `listRowFocusHaloSpread` |
 | `listRowPadX` | `24` | `px-6` |
 | `listRowPadY` | `20` | `py-5` |
 | `listRowTeam` | `12/16/700` uppercase | Feed/team label |
@@ -133,6 +133,7 @@ Lock from mock `GameCard` (do not snap):
 | `listRowMeta` | `14/20/400` | Time + location lines |
 | `listRowKidAvatar` | `28` | Expanded kid circle |
 | `listRowGap` | `12` | `space-y-3` between cards |
+| `listRowFocusHaloSpread` | `3` | Box-shadow spread for focus halo |
 
 Regenerate CSS; WCAG-check focus halo + border on `surfaceRaised`.
 
@@ -160,35 +161,35 @@ No contract changes.
 
 ## Acceptance criteria
 
-- [ ] Queue calendar items render in the flat list **and** in the carousel (list exclusion removed).
-- [ ] `isFocused` derives only from `attentionQueue[0]` via `coverageGameEventKey` —
+- [x] Queue calendar items render in the flat list **and** in the carousel (list exclusion removed).
+- [x] `isFocused` derives only from `attentionQueue[0]` via `coverageGameEventKey` —
   no local priority sort in `AgendaRow`.
-- [ ] Focused row shows mock focus ring (`listRowFocusBorder` + 3px
+- [x] Focused row shows mock focus ring (`listRowFocusBorder` + 3px
   `listRowFocusHalo`); non-focused rows use normal `border`.
-- [ ] When `attentionQueue` is empty, no row is focused; hero remains **All caught up**.
-- [ ] Collapsed header matches mock hierarchy: team/feed label, bold title line,
+- [x] When `attentionQueue` is empty, no row is focused; hero remains **All caught up**.
+- [x] Collapsed header matches mock hierarchy: team/feed label, bold title line,
   Clock + when, MapPin + where, chips + chevron; full-width toggle button.
-- [ ] Rows default collapsed; expand/collapse unchanged.
-- [ ] Expanded own-ride gap uses `DriverPicker` (non-hero); legacy assign
+- [x] Rows default collapsed; expand/collapse unchanged.
+- [x] Expanded own-ride gap uses `DriverPicker` (non-hero); legacy assign
   `<select>` + **Assign coverage** removed for gap state.
 - [ ] Multi-kid events: per-kid status in expanded header band when mock shows
   kid row (initial + chip per kid).
-- [ ] Inbound request band lists other-circle requests; no duplicate Accept/Pass
+- [x] Inbound request band lists other-circle requests; no duplicate Accept/Pass
   for requests still active in the hero carousel queue.
-- [ ] List order remains chronological; section headers unchanged.
-- [ ] New list-row tokens locked; `generate.mjs --check` passes.
-- [ ] No OpenAPI or backend changes.
-- [ ] `npm run lint`, `npm test`, and `npm run build` pass in `web/`.
+- [x] List order remains chronological; section headers unchanged.
+- [x] New list-row tokens locked; `generate.mjs --check` passes.
+- [x] No OpenAPI or backend changes.
+- [x] `npm run lint`, `npm test`, and `npm run build` pass in `web/`.
 
 ## Tasks
 
-- [ ] Tokens: list-row focus + GameCard spacing/type roles from mock
-- [ ] Web: `FamilyScreen` — remove queue list exclusion; compute `focusedCalendarItemKey` from `attentionQueue[0]`; pass `isFocused` to each `AgendaRow`
-- [ ] Web: restyle collapsed `AgendaRow` header per mock `GameCard`
-- [ ] Web: expanded gap → `DriverPicker`; remove legacy assign dropdown path
-- [ ] Web: inbound request summary band (structure from mock `RequestRow`; no detour line)
-- [ ] Web: `groupAgendaListSections` / tests — queue items in list with carousel above
-- [ ] Tests: focus ring on/off; focused key tracks `queue[0]`; queue item in list + carousel; DriverPicker in expanded gap; no Accept on row when ask is in carousel queue
+- [x] Tokens: list-row focus + GameCard spacing/type roles from mock
+- [x] Web: `FamilyScreen` — remove queue list exclusion; compute `focusedCalendarItemKey` from `attentionQueue[0]`; pass `isFocused` to each `AgendaRow`
+- [x] Web: restyle collapsed `AgendaRow` header per mock `GameCard`
+- [x] Web: expanded gap → `DriverPicker`; remove legacy assign dropdown path
+- [x] Web: inbound request summary band (structure from mock `RequestRow`; no detour line)
+- [x] Web: `groupAgendaListSections` / tests — queue items in list with carousel above
+- [x] Tests: focus ring on/off; focused key tracks `queue[0]`; queue item in list + carousel; DriverPicker in expanded gap; no Accept on row when ask is in carousel queue
 
 ## Open questions
 

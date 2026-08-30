@@ -2014,13 +2014,18 @@ export function FamilyScreen({
     coverageMapOptions,
   )
   const attentionQueue = filterQueueWithinHorizon(getQueue(coverageGames), now)
-  const queuedCalendarItemKeys = new Set(
-    attentionQueue.map((item) => coverageGameEventKey(item.game.id)),
+  const focusedCalendarItemKey =
+    attentionQueue[0] != null
+      ? coverageGameEventKey(attentionQueue[0].game.id)
+      : null
+  const heroQueuedRequestIds = new Set(
+    attentionQueue
+      .filter((queueItem): queueItem is Extract<typeof queueItem, { kind: "request" }> =>
+        queueItem.kind === "request",
+      )
+      .map((queueItem) => queueItem.request.id),
   )
-  const listCalendarItems = agendaWindowItems.filter(
-    (item) => !queuedCalendarItemKeys.has(calendarItemKey(item)),
-  )
-  const { sections: agendaSections } = groupAgendaListSections(listCalendarItems, {
+  const { sections: agendaSections } = groupAgendaListSections(agendaWindowItems, {
     now,
     currentAdultId: adult?.id ?? "",
     queueHasItems: attentionQueue.length > 0,
@@ -2670,7 +2675,7 @@ export function FamilyScreen({
                     ) : null}
                   </header>
                   {group.items.length > 0 ? (
-                  <ul className="flex flex-col gap-[var(--fc-space-md)]">
+                  <ul className="flex flex-col gap-[var(--fc-space-list-row-gap)]">
                     {group.items.map((item) => {
                       const itemKey = calendarItemKey(item)
                       return (
@@ -2686,6 +2691,7 @@ export function FamilyScreen({
                         >
                           <AgendaRow
                             item={item}
+                            isFocused={itemKey === focusedCalendarItemKey}
                             circle={circle}
                             currentAdultId={adult?.id ?? ""}
                             loading={status.kind === "loading"}
@@ -2696,11 +2702,17 @@ export function FamilyScreen({
                             )}
                             coverageActionError={coverageActionErrors[itemKey]}
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
+                            garage={calendarGarage}
+                            heroQueuedRequestIds={heroQueuedRequestIds}
                             onCreateRide={(eventKey, kidIds) =>
                               void onCreateAgendaRide(item, eventKey, kidIds)
                             }
                             onCancelRide={(rideId) => void onCancelAgendaRide(item, rideId)}
                             onWithdrawRide={(rideId) => void onWithdrawAgendaRide(item, rideId)}
+                            onAcceptRide={(rideId, vehicleId) =>
+                              void onAcceptAgendaRide(item, rideId, vehicleId)
+                            }
+                            onPassRide={(rideId) => void onPassAgendaRide(item, rideId)}
                             onUpdateAssignDraft={(patch) =>
                               updateAssignCoverageDraft(itemKey, patch)
                             }

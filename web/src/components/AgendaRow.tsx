@@ -1,7 +1,8 @@
 import { useState } from "react"
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle, RsvpStatus } from "@/api/types"
+import { ChevronDown, ChevronUp, Clock } from "lucide-react"
+import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
-import { accountInitials } from "@/components/accountInitials"
+import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { Button } from "@/components/ui/button"
 import { resolveSemanticIcon } from "@/components/uiIcons"
@@ -10,11 +11,11 @@ import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import {
   acceptedByUsRequest,
-  acceptedByUsRideDetailLine,
   kidDisplayName,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
+import { DriverPicker } from "@/components/DriverPicker"
 import {
   activeCoverages,
   calendarSourceLabel,
@@ -22,7 +23,6 @@ import {
   coverageKidNames,
   coverageStatusLabel,
   eventKidNames,
-  memberLabel,
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
@@ -36,43 +36,38 @@ import {
   rsvpStatusLabel,
 } from "@/components/rsvpDisplay"
 
-const RowChevron = resolveSemanticIcon("icon.chevron")
+const MapPinIcon = resolveSemanticIcon("icon.places")
 
-function confirmedCoveringAvatars(
-  item: CalendarItem,
-  circle: FamilyCircle,
-  outOfPlay: boolean,
-): { adultId: string; name: string; initials: string }[] {
-  if (outOfPlay) {
-    return []
+/** Team/feed label for GameCard header — omit for manual events without a feed name. */
+function agendaRowTeamLabel(item: CalendarItem): string | null {
+  const feedName = item.feedName?.trim()
+  if (feedName) {
+    return feedName
   }
-  return activeCoverages(item)
-    .filter((coverage) => coverage.status === "CONFIRMED")
-    .slice(0, 2)
-    .map((coverage) => {
-      const name = coverageAdultLabel(coverage, circle.members)
-      const member = circle.members.find((m) => m.adultId === coverage.coveringAdultId)
-      return {
-        adultId: coverage.coveringAdultId,
-        name,
-        initials: accountInitials(name, member?.email ?? ""),
-      }
-    })
+  if (item.source === "FEED") {
+    return calendarSourceLabel(item.source, item.feedName)
+  }
+  return null
 }
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
 type AgendaRowProps = {
   item: CalendarItem
+  isFocused?: boolean
   circle: FamilyCircle
   currentAdultId: string
   loading: boolean
   assignDraft: AssignDraft
   coverageActionError?: string
   rideEvent?: CarpoolRideEvent | null
+  garage?: Garage | null
+  heroQueuedRequestIds?: ReadonlySet<string>
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
+  onAcceptRide?: (rideId: string, vehicleId: string) => void
+  onPassRide?: (rideId: string) => void
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
@@ -86,16 +81,13 @@ type AgendaRowProps = {
 }
 
 /**
- * Redesigned flat Agenda row: collapsed by default (title, time, status
- * pills, covering avatars, chevron), tap/click to expand the same field-row
- * bands as AgendaFocusCard (leave-from, per-kid RSVP, coverage, manual
- * actions). Out-of-play items (every kid RSVP No) render muted and start
- * collapsed with no auto-expand affordance beyond the summary + "Not going"
- * pill.
+ * Flat Agenda GameCard row: collapsed by default with mock hierarchy
+ * (team/feed label, title, Clock when, MapPin where, chips + chevron),
+ * tap to expand field bands. Out-of-play items render muted.
  *
- * Title and time wrap — do not add `truncate` / `whitespace-nowrap`. Ellipsis
+ * Title and meta wrap — do not add `truncate` / `whitespace-nowrap`. Ellipsis
  * here sets the page-frame grid item's min-content to ~820px, so Calendar's
- * `1fr` column cannot shrink with the window (mock `.row-main` wraps).
+ * `1fr` column cannot shrink with the window.
  *
  * NOTE: a "N stops" carpool tag was part of the original mockup but is not
  * included here — CalendarItem has no per-event stop/pickup-order field in
@@ -105,15 +97,20 @@ type AgendaRowProps = {
  */
 export function AgendaRow({
   item,
+  isFocused = false,
   circle,
   currentAdultId,
   loading,
   assignDraft,
   coverageActionError,
   rideEvent = null,
+  garage = null,
+  heroQueuedRequestIds,
   onCreateRide,
   onCancelRide,
   onWithdrawRide,
+  onAcceptRide,
+  onPassRide,
   onUpdateAssignDraft,
   onAssignCoverage,
   onConfirmCoverage,
@@ -137,6 +134,17 @@ export function AgendaRow({
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const uncoveredKidNames = eventKidNames(gapKidIds, circle.kids)
+  const canAskTeam =
+    rideEvent != null &&
+    rideEvent.ownRequest == null &&
+    rideEvent.defaultKidIds.length > 0 &&
+    onCreateRide != null
+  const showAssign =
+    !outOfPlay &&
+    !pendingForSelf &&
+    gapKidIds.length > 0 &&
+    circle.members.length > 0
+  const showRequestInCarpool = canAskTeam && !showAssign
   const coverageGames = mapCalendarItemToCoverageGames(item, rideEvent, {
     currentAdultId,
     members: circle.members,
@@ -144,93 +152,103 @@ export function AgendaRow({
   const askChip = carpoolAskChipForRideEvent(coverageGames)
   const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
   const tags = askChip != null ? [...rideChips, askChip] : rideChips
-  const coveringAvatars = confirmedCoveringAvatars(item, circle, outOfPlay)
-  const coveringLabel =
-    coveringAvatars.length > 0
-      ? `Covering: ${coveringAvatars.map((adult) => adult.name).join(", ")}`
-      : undefined
+  const teamLabel = agendaRowTeamLabel(item)
+  const whenLabel = formatEventWhen(item.startsAt, item.endsAt)
+  const locationLabel = item.location?.trim() || null
   const defaultRideKids = rideEvent?.defaultKidIds ?? []
   const rideKidSelection = selectedRideKidIds ?? defaultRideKids
-  // Own Request/Cancel, and/or minimal accepted-by-us + Withdraw. No Accept/Pass
-  // on expanded rows (those stay on Focus / Carpool tab).
+  // Own Request/Cancel in the carpool band; inbound asks use AgendaInboundRequestRow.
   const showCarpoolBand =
     !outOfPlay &&
     rideEvent != null &&
     (ownRequest != null || defaultRideKids.length > 0 || acceptedByUs != null) &&
     (onCreateRide != null || onCancelRide != null || onWithdrawRide != null)
 
+  const ChevronIcon = open ? ChevronUp : ChevronDown
+  const focusRingStyle = isFocused
+    ? {
+        borderColor: "var(--fc-list-row-focus-border)",
+        boxShadow:
+          "0 0 0 var(--fc-space-list-row-focus-halo-spread) var(--fc-list-row-focus-halo)",
+      }
+    : undefined
+
   return (
     <div
       data-testid={`agenda-row-${item.source}-${item.id}`}
+      data-focused={isFocused ? "true" : "false"}
       data-out-of-play={outOfPlay ? "true" : "false"}
-      className={`rounded-[var(--fc-radius-md)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] px-[var(--fc-space-lg)] py-[var(--fc-space-md)] transition-colors ${outOfPlay ? "opacity-60" : ""}`}
+      className={`overflow-hidden rounded-[var(--fc-radius-xl)] border bg-[var(--fc-surface-raised)] transition-colors ${
+        isFocused
+          ? "border-[var(--fc-list-row-focus-border)]"
+          : "border-[var(--fc-border)]"
+      } ${outOfPlay ? "opacity-60" : ""}`}
+      style={focusRingStyle}
     >
       <div data-testid="agenda-band-primary">
       <button
         type="button"
-        className="flex min-w-0 w-full items-center gap-[var(--fc-space-list-row-gap)] text-left"
+        className="flex min-w-0 w-full items-center justify-between gap-[var(--fc-space-lg)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)] text-left"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
         <span className="min-w-0 flex-1">
+          {teamLabel != null ? (
+            <span
+              data-testid="agenda-row-team"
+              className="block uppercase tracking-wide text-[length:var(--fc-font-list-row-team-size)] leading-[var(--fc-font-list-row-team-line)] font-[number:var(--fc-font-list-row-team-weight)] text-[var(--fc-text-secondary)]"
+            >
+              {teamLabel}
+            </span>
+          ) : null}
           <span
-            className={`fc-display block text-[15.5px] font-semibold ${outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"}`}
+            data-testid="agenda-row-title"
+            className={`block text-[length:var(--fc-font-list-row-title-size)] leading-[var(--fc-font-list-row-title-line)] font-[number:var(--fc-font-list-row-title-weight)] ${
+              outOfPlay ? "text-[var(--fc-text-secondary)]" : "text-[var(--fc-text-primary)]"
+            }`}
           >
             {item.title}
           </span>
-          <span className="block text-xs text-[var(--fc-text-secondary)]">
-            {formatEventWhen(item.startsAt, item.endsAt)}
-            {item.location ? ` · ${item.location}` : ""}
-          </span>
-        </span>
-        {tags.length > 0 ? (
-          <span className="flex flex-shrink-0 gap-[var(--fc-space-list-row-tag-gap)]">
-            {tags.map((tag) => (
-              <AgendaStatusChip
-                key={tag.label}
-                label={tag.label}
-                tone={tag.tone}
-              />
-            ))}
-          </span>
-        ) : null}
-        {coveringAvatars.length > 0 ? (
           <span
-            className="flex flex-shrink-0"
-            data-testid="agenda-row-covering-avatars"
-            aria-label={coveringLabel}
+            data-testid="agenda-row-when"
+            className="mt-0.5 flex items-center gap-1.5 text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
           >
-            {coveringAvatars.map((adult, index) => (
-              <span
-                key={adult.adultId}
-                aria-hidden
-                className="flex shrink-0 items-center justify-center rounded-full border-[length:var(--fc-space-list-row-avatar-border)] border-[var(--fc-surface-raised)] bg-[color-mix(in_srgb,var(--fc-accent)_14%,transparent)] font-[family-name:var(--fc-font-family-display)] text-[length:var(--fc-font-list-row-avatar-label-size)] leading-[var(--fc-font-list-row-avatar-label-line)] font-[number:var(--fc-font-list-row-avatar-label-weight)] text-[var(--fc-accent)]"
-                style={{
-                  width: "var(--fc-space-list-row-avatar)",
-                  height: "var(--fc-space-list-row-avatar)",
-                  marginLeft: index === 0 ? undefined : "calc(var(--fc-space-list-row-avatar-overlap) * -1)",
-                }}
-              >
-                {adult.initials}
-              </span>
-            ))}
+            <Clock aria-hidden className="size-[14px] shrink-0" />
+            {whenLabel}
           </span>
-        ) : null}
-        <RowChevron
-          aria-hidden
-          data-testid="agenda-row-chevron"
-          className="flex-shrink-0 text-[var(--fc-text-secondary)] transition-transform"
-          style={{
-            width: "var(--fc-font-list-row-chevron-size)",
-            height: "var(--fc-font-list-row-chevron-size)",
-            transform: open ? "rotate(90deg)" : undefined,
-          }}
-        />
+          {locationLabel != null ? (
+            <span
+              data-testid="agenda-row-where"
+              className="flex items-center gap-1.5 text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
+            >
+              <MapPinIcon aria-hidden className="size-[14px] shrink-0" />
+              {locationLabel}
+            </span>
+          ) : null}
+        </span>
+        <span className="flex max-w-[50%] shrink-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)]">
+          {tags.map((tag) => (
+            <AgendaStatusChip
+              key={tag.label}
+              label={tag.label}
+              tone={tag.tone}
+            />
+          ))}
+          <ChevronIcon
+            aria-hidden
+            data-testid="agenda-row-chevron"
+            className="shrink-0 text-[var(--fc-text-secondary)]"
+            style={{
+              width: "var(--fc-font-list-row-chevron-size)",
+              height: "var(--fc-font-list-row-chevron-size)",
+            }}
+          />
+        </span>
       </button>
       </div>
 
       {open ? (
-        <div className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]">
+        <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
           {!outOfPlay && conflictLines.length > 0 ? (
             <ul
               data-testid={`agenda-conflicts-${item.source}-${item.id}`}
@@ -377,26 +395,8 @@ export function AgendaRow({
                   </Button>
                 </div>
               ) : null}
-              {gapKidIds.length > 0 && circle.members.length > 0 ? (
+              {showAssign ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
-                  {!assignDraft.soleAdult ? (
-                    <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
-                      <span className="text-xs text-[var(--fc-text-secondary)]">Covering adult</span>
-                      <select
-                        aria-label={`Covering adult for ${item.title}`}
-                        className="h-9 rounded-md border border-[var(--fc-border)] bg-transparent px-2 text-sm"
-                        value={assignDraft.adultId}
-                        onChange={(e) => onUpdateAssignDraft({ adultId: e.target.value })}
-                        disabled={loading}
-                      >
-                        {circle.members.map((m) => (
-                          <option key={m.adultId} value={m.adultId}>
-                            {memberLabel(m)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
                   {!assignDraft.soleKid ? (
                     <fieldset className="flex flex-col gap-[var(--fc-space-xs)]">
                       <legend className="text-xs text-[var(--fc-text-secondary)]">
@@ -431,16 +431,24 @@ export function AgendaRow({
                       })}
                     </fieldset>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={pendingForSelf ? "outline" : "default"}
-                    data-testid={pendingForSelf ? undefined : "agenda-cta-primary"}
-                    onClick={() => onAssignCoverage(assignDraft.adultId, assignDraft.kidIds)}
-                    disabled={loading || !assignDraft.adultId || assignDraft.kidIds.length === 0}
-                  >
-                    Assign coverage
-                  </Button>
+                  <DriverPicker
+                    members={circle.members}
+                    currentAdultId={currentAdultId}
+                    selectedAdultId={assignDraft.adultId}
+                    onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
+                    kidIds={assignDraft.kidIds}
+                    loading={loading}
+                    onAssignCoverage={onAssignCoverage}
+                    onAskTeam={() => {
+                      if (rideEvent?.eventKey && onCreateRide) {
+                        const allGap =
+                          assignDraft.kidIds.length === gapKidIds.length &&
+                          assignDraft.kidIds.every((id) => gapKidIds.includes(id))
+                        onCreateRide(rideEvent.eventKey, allGap ? undefined : assignDraft.kidIds)
+                      }
+                    }}
+                    showTeamSection={canAskTeam}
+                  />
                 </div>
               ) : null}
               {coverageActionError ? (
@@ -481,7 +489,7 @@ export function AgendaRow({
                     </Button>
                   ) : null}
                 </div>
-              ) : defaultRideKids.length > 0 ? (
+              ) : showRequestInCarpool && defaultRideKids.length > 0 ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
                   {defaultRideKids.length > 1
                     ? defaultRideKids.map((kidId) => {
@@ -529,27 +537,29 @@ export function AgendaRow({
                   ) : null}
                 </div>
               ) : null}
-              {acceptedByUs != null ? (
-                <div
-                  data-testid="agenda-row-accepted-by-us"
-                  className="flex items-center justify-between gap-[var(--fc-space-md)]"
-                >
-                  <span className="text-sm text-[var(--fc-text-secondary)]">
-                    {acceptedByUsRideDetailLine(acceptedByUs)}
-                  </span>
-                  {onWithdrawRide != null ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={loading}
-                      onClick={() => onWithdrawRide(acceptedByUs.id)}
-                    >
-                      Withdraw
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
+            </div>
+          ) : null}
+
+          {!outOfPlay && rideEvent != null && rideEvent.otherRequests.length > 0 ? (
+            <div
+              data-testid="agenda-band-inbound-requests"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {rideEvent.otherRequests.map((request) => (
+                <AgendaInboundRequestRow
+                  key={request.id}
+                  request={request}
+                  circleId={circle.id}
+                  currentAdultId={currentAdultId}
+                  garage={garage}
+                  rideEvent={rideEvent}
+                  loading={loading}
+                  inHeroQueue={heroQueuedRequestIds?.has(request.id) ?? false}
+                  onAcceptRide={onAcceptRide}
+                  onPassRide={onPassRide}
+                  onWithdrawRide={onWithdrawRide}
+                />
+              ))}
             </div>
           ) : null}
 
