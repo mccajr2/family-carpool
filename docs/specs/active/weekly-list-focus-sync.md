@@ -1,61 +1,84 @@
 # Spec: weekly-list-focus-sync
 
-Status: draft (planned — next up for `/spec`)  
+Status: draft  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
-Depends on: [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`household-driver-assignment`](../archive/household-driver-assignment.md), [`unified-ride-status-chip`](../archive/unified-ride-status-chip.md), [`hero-attention-carousel`](../archive/hero-attention-carousel.md)  
-Blocks: [`ride-revert-undo`](ride-revert-undo.md), [`attendance-manual-toggle`](attendance-manual-toggle.md) expanded-row UX (stubs reference mock sections deferred here)
+Branch: `weekly-list-focus-sync`  
+Depends on: [`hero-attention-carousel`](../archive/hero-attention-carousel.md), [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`household-driver-assignment`](../archive/household-driver-assignment.md), [`unified-ride-status-chip`](../archive/unified-ride-status-chip.md)  
+Blocks: [`ride-revert-undo`](../planned/ride-revert-undo.md), [`attendance-manual-toggle`](../planned/attendance-manual-toggle.md) expanded-row UX (stubs reference mock sections deferred here)  
+Governs: [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md)
 
 ## Problem
 
-Agenda list rows are collapsed by default and use unified ride-status chips, but
-they still look and behave like generic event rows — not the **GameCard** pattern
-from the hero-flow mock. There is no visual link between the carousel’s most
-urgent item and its twin in the chronological list, and expanded rows still use
-the legacy assign `<select>` + **Assign coverage** pattern instead of
-`DriverPicker` (deferred from [`household-driver-assignment`](../archive/household-driver-assignment.md)).
+[`hero-attention-carousel`](../archive/hero-attention-carousel.md) ships the
+**Needs your attention** carousel and **All caught up** empty hero (no calm
+“next event” card). Agenda list rows are collapsed by default with unified
+chips, but they still look like generic event rows — not the mock **`GameCard`**
+pattern — and the carousel temporarily **excludes** queue calendar items from
+the flat list (`queuedCalendarItemKeys` filter in `FamilyScreen`).
 
-Parents scanning **REST OF TODAY** / **THIS WEEK** cannot tell which row matches
-`getQueue(games)[0]` without re-deriving priority locally.
+The mock shows every game in the chronological **This week** list with an amber
+focus ring on `getQueue(games)[0]`, while the carousel handles actions above.
+Without list inclusion + focus sync, parents scanning **REST OF TODAY** /
+**THIS WEEK** cannot see which row matches the most urgent queue item. Expanded
+rows still use the legacy assign `<select>` + **Assign coverage** instead of
+`DriverPicker` (deferred from [`household-driver-assignment`](../archive/household-driver-assignment.md)).
 
 ## Non-goals
 
-- Hero carousel ([`hero-attention-carousel`](../archive/hero-attention-carousel.md))
+- Hero carousel shell, slides, or **All caught up** copy ([`hero-attention-carousel`](../archive/hero-attention-carousel.md) — done)
+- Calm “next event” hero — retired; empty `getQueue` → **All caught up** only
 - Replacing [`AgendaWeekGlance`](../../web/src/components/AgendaWeekGlance.tsx) Context aside
 - Reordering list by priority (stay chronological within day sections)
-- **`RevertRideLink`** expanded copy/actions ([`ride-revert-undo`](ride-revert-undo.md) — rank 3)
-- **`AttendanceToggle`** going / not-going UI ([`attendance-manual-toggle`](attendance-manual-toggle.md) — rank 5; keep existing RSVP `<select>` in expanded band for now)
-- **`PickupLine`** detour minutes/tone ([`carpool-pickup-detour`](carpool-pickup-detour.md) — rank 6)
+- Highlight tracking the **active carousel slide** — mock + roadmap lock **`getQueue[0]`** only (list anchor stays on most urgent while user swipes other slides)
+- **`RevertRideLink`** expanded copy/actions ([`ride-revert-undo`](../planned/ride-revert-undo.md) — rank 2)
+- **`AttendanceToggle`** going / not-going UI ([`attendance-manual-toggle`](../planned/attendance-manual-toggle.md) — rank 4; keep existing RSVP `<select>` in expanded band for now)
+- **`PickupLine`** detour minutes/tone ([`carpool-pickup-detour`](../planned/carpool-pickup-detour.md) — rank 5)
 - Inbound **Accept / Pass** on expanded rows when the same ask is still in the hero
   carousel (hero wins; expanded row shows summary only for queued asks)
 - OpenAPI / backend changes
 - iOS / Expo
-- Full copy/a11y polish ([`coverage-copy-a11y-polish`](coverage-copy-a11y-polish.md))
+- Full copy/a11y polish ([`coverage-copy-a11y-polish`](../planned/coverage-copy-a11y-polish.md))
 
 ## Approach
 
-Restyle collapsed `AgendaRow` to match mock **`GameCard`**, wire **focus highlight**
-from shared `getQueue`, and replace expanded assign UI with **`DriverPicker`**
-when the row has an own-ride gap. **Visual source:**
+Restyle collapsed `AgendaRow` to match mock **`GameCard`**, restore **full list
+inclusion** (undo carousel list exclusion), wire **focus highlight** from shared
+`getQueue[0]`, and replace expanded assign UI with **`DriverPicker`** when the
+row has an own-ride gap. **Visual source:**
 [`docs/ui-system/carpool-hero-flow-mockup-v6.jsx`](../../ui-system/carpool-hero-flow-mockup-v6.jsx) →
 `GameCard`, collapsed header, expanded body structure (minus deferred subcomponents).
 
 ### Focus sync (behavior)
 
-In `FamilyScreen`, after building `coverageGames` + `queue = getQueue(games)`:
+In `FamilyScreen`, reuse the existing `coverageGames` + `attentionQueue` build
+(already shared with `HeroAttentionCarousel`):
 
 ```text
-focusedEventKey = queue[0]?.game.id.split(":")[0] ?? null   // calendarItemKey prefix
+focusedCalendarItemKey =
+  attentionQueue[0] != null
+    ? coverageGameEventKey(attentionQueue[0].game.id)
+    : null
 ```
 
-Pass `isFocused={calendarItemKey(item) === focusedEventKey}` into each `AgendaRow`.
-**Never** recompute priority in the row — only compare to `queue[0]`.
+Pass `isFocused={calendarItemKey(item) === focusedCalendarItemKey}` into each
+`AgendaRow`. **Never** recompute priority in the row — only compare to
+`attentionQueue[0]`.
 
-When the queue is empty, no row is focused. When the focused item is excluded
-from the list (carousel spec), highlight is a no-op for that item; the next visible
-row is not promoted (highlight applies only when the top queue item’s calendar
-row is still in the list — e.g. conflict-only sections or post-carousel edge cases).
+When the queue is empty, no row is focused (hero shows **All caught up**).
+
+### List inclusion (supersedes carousel minimal exclusion)
+
+**Remove** the `listCalendarItems` filter that drops queue calendar keys.
+Pass **`agendaWindowItems`** (or equivalent full in-window set) into
+`groupAgendaListSections`. Queue items appear **both** in the carousel and as
+collapsed rows in their chronological section — matching the mock’s
+`sorted.map(… GameCard …)` under **This week**.
+
+Update `groupAgendaListSections` / tests as needed: when `queueHasItems`, today
+attention rows that are also in the queue remain in **REST OF TODAY** (carousel
+owns **NEEDS YOUR ATTENTION** chrome; list does not duplicate that header).
 
 ### Collapsed row (`GameCard` header — mock lines 428–441)
 
@@ -84,15 +107,14 @@ Align band **order** with mock where components exist:
 2. **`DriverPicker`** (light / non-hero): when row has own-ride gap
    (`unassigned` or pending household confirm for any in-play kid) — **replaces**
    expanded assign `<select>` + **Assign coverage** + standalone Request band for
-   gap state. Same handlers as Focus/carousel.
+   gap state. Same handlers as carousel slides.
 3. **Leave-from / leave-by / conflicts / RSVP** bands: keep existing expanded
    fields below DriverPicker until attendance rank replaces RSVP selects.
 4. **Inbound request list** (mock `RequestRow`): new subcomponent or band showing
    each `otherRequests` entry — circle · kids · status chip; **Accept/Pass only**
    when that request is **not** represented in the current hero queue. Pending
-   requests already in carousel slides render summary + “Handle in Needs your
-   attention above” muted line (or hide actions — pick one in implement; default:
-   hide duplicate actions).
+   requests already in carousel slides render summary + muted
+   “Handle in Needs your attention above” line (default: hide duplicate actions).
 5. **Revert links** — omit until `ride-revert-undo`.
 6. **Attendance toggle** — omit until `attendance-manual-toggle`.
 
@@ -117,8 +139,7 @@ Regenerate CSS; WCAG-check focus halo + border on `surfaceRaised`.
 ### List sections
 
 Keep existing **`groupAgendaListSections`** labels (NEEDS YOUR ATTENTION / REST OF
-TODAY / …) — mock’s flat **This week** label is demo simplification only. Rows
-render inside current sections unchanged.
+TODAY / …). Mock’s flat **This week** label is demo simplification only.
 
 No contract changes.
 
@@ -127,20 +148,24 @@ No contract changes.
 - **Visual mock:** `docs/ui-system/carpool-hero-flow-mockup-v6.jsx` → `GameCard`,
   `RequestRow` (structure only; detour line deferred)
 - Design: `docs/ui-system.md`
-- Queue: `web/src/components/coverageQueue.ts` → `getQueue`, `mapCalendarItemToCoverageGames`
+- Queue: `web/src/components/coverageQueue.ts` → `getQueue`, `coverageGameEventKey`, `mapCalendarItemToCoverageGames`
+- Carousel (done): `web/src/components/HeroAttentionCarousel.tsx`, `HeroAttentionSlide.tsx`
 - Chips: `web/src/components/rideStatusChip.ts`
 - Assign: `web/src/components/DriverPicker.tsx`
 - Row: `web/src/components/AgendaRow.tsx`
 - Integration: `web/src/components/FamilyScreen.tsx`
-- Hero handoff: `docs/specs/archive/hero-attention-carousel.md` (shared `queue` build)
+- Sections: `web/src/components/agendaDayGroups.ts`
+- Hero handoff: `docs/specs/archive/hero-attention-carousel.md`
 - Tests: `AgendaRow.test.tsx`, `FamilyScreen.test.tsx`
 
 ## Acceptance criteria
 
-- [ ] `isFocused` derives only from `getQueue(games)[0]` event key passed by
-  `FamilyScreen` — no local priority sort in `AgendaRow`.
+- [ ] Queue calendar items render in the flat list **and** in the carousel (list exclusion removed).
+- [ ] `isFocused` derives only from `attentionQueue[0]` via `coverageGameEventKey` —
+  no local priority sort in `AgendaRow`.
 - [ ] Focused row shows mock focus ring (`listRowFocusBorder` + 3px
   `listRowFocusHalo`); non-focused rows use normal `border`.
+- [ ] When `attentionQueue` is empty, no row is focused; hero remains **All caught up**.
 - [ ] Collapsed header matches mock hierarchy: team/feed label, bold title line,
   Clock + when, MapPin + where, chips + chevron; full-width toggle button.
 - [ ] Rows default collapsed; expand/collapse unchanged.
@@ -153,24 +178,20 @@ No contract changes.
 - [ ] List order remains chronological; section headers unchanged.
 - [ ] New list-row tokens locked; `generate.mjs --check` passes.
 - [ ] No OpenAPI or backend changes.
+- [ ] `npm run lint`, `npm test`, and `npm run build` pass in `web/`.
 
 ## Tasks
 
 - [ ] Tokens: list-row focus + GameCard spacing/type roles from mock
-- [ ] Web: `FamilyScreen` — compute `focusedEventKey` from shared `queue`, pass
-  `isFocused` to each `AgendaRow`
+- [ ] Web: `FamilyScreen` — remove queue list exclusion; compute `focusedCalendarItemKey` from `attentionQueue[0]`; pass `isFocused` to each `AgendaRow`
 - [ ] Web: restyle collapsed `AgendaRow` header per mock `GameCard`
 - [ ] Web: expanded gap → `DriverPicker`; remove legacy assign dropdown path
-- [ ] Web: inbound request summary band (structure from mock `RequestRow`; no
-  detour line)
-- [ ] Tests: focus ring on/off; focused key tracks `queue[0]`; DriverPicker in
-  expanded gap; no Accept on row when ask is in carousel queue
+- [ ] Web: inbound request summary band (structure from mock `RequestRow`; no detour line)
+- [ ] Web: `groupAgendaListSections` / tests — queue items in list with carousel above
+- [ ] Tests: focus ring on/off; focused key tracks `queue[0]`; queue item in list + carousel; DriverPicker in expanded gap; no Accept on row when ask is in carousel queue
 
 ## Open questions
 
 - **Title split:** When `CalendarItem.title` is the only title field, use it as
   the bold “vs …” line and omit a separate team line unless `feedName` exists —
   document in PR if feed/manual events need a follow-up title helper.
-- **Queued row exclusion:** After carousel ships, top-priority rows may be
-  absent from the list — focus highlight applies only when that calendar key is
-  still rendered (expected rare once carousel excludes queue items).
