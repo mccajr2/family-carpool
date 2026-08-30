@@ -112,7 +112,7 @@ describe("groupAgendaListSections", () => {
       { now, currentAdultId: adultId, queueHasItems: false },
     )
 
-    expect(floatFocusAbove).toBe(true)
+    expect(floatFocusAbove).toBe(false)
     expect(sections.map((s) => s.label)).toEqual([
       AGENDA_LIST_SECTION_LABEL.needsAttention,
       AGENDA_LIST_SECTION_LABEL.restOfToday,
@@ -163,7 +163,7 @@ describe("groupAgendaListSections", () => {
       },
     )
 
-    expect(floatFocusAbove).toBe(true)
+    expect(floatFocusAbove).toBe(false)
     expect(sections.map((s) => s.label)).toEqual([
       AGENDA_LIST_SECTION_LABEL.needsAttention,
       AGENDA_LIST_SECTION_LABEL.restOfToday,
@@ -180,8 +180,42 @@ describe("groupAgendaListSections", () => {
       queueHasItems: false,
     })
 
-    expect(floatFocusAbove).toBe(true)
+    expect(floatFocusAbove).toBe(false)
     expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+  })
+
+  it("includes queue attention rows in REST OF TODAY without excluding them when queueHasItems", () => {
+    const earlierGap = item("urgent", localIso(2026, 8, 15, 9), {
+      uncoveredKidIds: ["k1"],
+    })
+    const calmToday = item("calm", localIso(2026, 8, 15, 14))
+    const laterGap = item("gap", localIso(2026, 8, 15, 18), {
+      uncoveredKidIds: ["k1"],
+    })
+
+    const { sections } = groupAgendaListSections([earlierGap, calmToday, laterGap], {
+      now,
+      currentAdultId: adultId,
+      queueHasItems: true,
+    })
+
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["urgent", "calm", "gap"])
+  })
+
+  it("keeps tomorrow attention rows in TOMORROW when queueHasItems", () => {
+    const tomorrowGap = item("tmw-gap", localIso(2026, 8, 16, 9), {
+      uncoveredKidIds: ["k1"],
+    })
+
+    const { sections } = groupAgendaListSections([tomorrowGap], {
+      now,
+      currentAdultId: adultId,
+      queueHasItems: true,
+    })
+
+    expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.tomorrow])
+    expect(sections[0].items.map((i) => i.id)).toEqual(["tmw-gap"])
   })
 
   it("puts out-of-play today rows under REST OF TODAY, not attention", () => {

@@ -24,6 +24,8 @@
   --fc-hero-carousel-dot-inactive: #C9C6BC;
   --fc-hero-carousel-control-bg: #ECEBE6;
   --fc-hero-decline-bg: rgba(255,255,255,0.12);
+  --fc-list-row-focus-border: #E3A15B;
+  --fc-list-row-focus-halo: #F4E6D2;
   --fc-rail-surface: #16181A;
   --fc-rail-on: #FFFFFF;
   --fc-rail-on-secondary: #9AA0A8;
@@ -53,7 +55,11 @@
   --fc-space-filter-chip-pad-y: 9px;
   --fc-space-filter-chip-pad-x: 16px;
   --fc-space-filter-chip-margin-bottom: 28px;
-  --fc-space-list-row-gap: 16px;
+  --fc-space-list-row-gap: 12px;
+  --fc-space-list-row-pad-x: 24px;
+  --fc-space-list-row-pad-y: 20px;
+  --fc-space-list-row-kid-avatar: 28px;
+  --fc-space-list-row-focus-halo-spread: 3px;
   --fc-space-list-row-tag-gap: 6px;
   --fc-space-list-row-avatar: 26px;
   --fc-space-list-row-avatar-border: 2px;
@@ -149,6 +155,15 @@
   --fc-font-list-row-chevron-size: 18px;
   --fc-font-list-row-chevron-line: 18px;
   --fc-font-list-row-chevron-weight: 400;
+  --fc-font-list-row-team-size: 12px;
+  --fc-font-list-row-team-line: 16px;
+  --fc-font-list-row-team-weight: 700;
+  --fc-font-list-row-title-size: 18px;
+  --fc-font-list-row-title-line: 22px;
+  --fc-font-list-row-title-weight: 700;
+  --fc-font-list-row-meta-size: 14px;
+  --fc-font-list-row-meta-line: 20px;
+  --fc-font-list-row-meta-weight: 400;
   --fc-font-page-size: 34px;
   --fc-font-page-line: 40px;
   --fc-font-page-weight: 700;
@@ -222,6 +237,8 @@
   --fc-hero-carousel-dot-inactive: #C9C6BC;
   --fc-hero-carousel-control-bg: #ECEBE6;
   --fc-hero-decline-bg: rgba(255,255,255,0.12);
+  --fc-list-row-focus-border: #E3A15B;
+  --fc-list-row-focus-halo: #F4E6D2;
   --fc-rail-surface: #16181A;
   --fc-rail-on: #FFFFFF;
   --fc-rail-on-secondary: #9AA0A8;
@@ -255,6 +272,8 @@
     --fc-hero-carousel-dot-inactive: #C9C6BC;
     --fc-hero-carousel-control-bg: #ECEBE6;
     --fc-hero-decline-bg: rgba(255,255,255,0.12);
+    --fc-list-row-focus-border: #E3A15B;
+    --fc-list-row-focus-halo: #F4E6D2;
     --fc-rail-surface: #16181A;
     --fc-rail-on: #FFFFFF;
     --fc-rail-on-secondary: #9AA0A8;

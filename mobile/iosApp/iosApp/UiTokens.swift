@@ -30,6 +30,8 @@ enum UiTokens {
         let heroCarouselDotInactive: String
         let heroCarouselControlBg: String
         let heroDeclineBg: String
+        let listRowFocusBorder: String
+        let listRowFocusHalo: String
         let railSurface: String
         let railOn: String
         let railOnSecondary: String
@@ -63,6 +65,8 @@ enum UiTokens {
             heroCarouselDotInactive: "#C9C6BC",
             heroCarouselControlBg: "#ECEBE6",
             heroDeclineBg: "rgba(255,255,255,0.12)",
+            listRowFocusBorder: "#E3A15B",
+            listRowFocusHalo: "#F4E6D2",
             railSurface: "#16181A",
             railOn: "#FFFFFF",
             railOnSecondary: "#9AA0A8",
@@ -94,6 +98,8 @@ enum UiTokens {
             heroCarouselDotInactive: "#C9C6BC",
             heroCarouselControlBg: "#ECEBE6",
             heroDeclineBg: "rgba(255,255,255,0.12)",
+            listRowFocusBorder: "#E3A15B",
+            listRowFocusHalo: "#F4E6D2",
             railSurface: "#16181A",
             railOn: "#FFFFFF",
             railOnSecondary: "#9AA0A8",
@@ -127,7 +133,11 @@ enum UiTokens {
         static let filterChipPadY: CGFloat = 9
         static let filterChipPadX: CGFloat = 16
         static let filterChipMarginBottom: CGFloat = 28
-        static let listRowGap: CGFloat = 16
+        static let listRowGap: CGFloat = 12
+        static let listRowPadX: CGFloat = 24
+        static let listRowPadY: CGFloat = 20
+        static let listRowKidAvatar: CGFloat = 28
+        static let listRowFocusHaloSpread: CGFloat = 3
         static let listRowTagGap: CGFloat = 6
         static let listRowAvatar: CGFloat = 26
         static let listRowAvatarBorder: CGFloat = 2
@@ -201,6 +211,9 @@ enum UiTokens {
         static let filterChip = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
         static let listRowAvatarLabel = TypeScale(size: 10.5, lineHeight: 14, weight: "700")
         static let listRowChevron = TypeScale(size: 18, lineHeight: 18, weight: "400")
+        static let listRowTeam = TypeScale(size: 12, lineHeight: 16, weight: "700")
+        static let listRowTitle = TypeScale(size: 18, lineHeight: 22, weight: "700")
+        static let listRowMeta = TypeScale(size: 14, lineHeight: 20, weight: "400")
         static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
         static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
         static let feedName = TypeScale(size: 16.5, lineHeight: 22, weight: "700")

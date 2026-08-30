@@ -148,12 +148,13 @@ export type GroupAgendaListSectionsOptions = {
 
 /**
  * Agenda list sections for Calendar: NEEDS YOUR ATTENTION / REST OF TODAY /
- * TOMORROW / THIS WEEK / LATER. `restItems` must already exclude carousel
- * queue items. Empty sections omitted. When `queueHasItems`, the carousel
- * renders above the list and today attention rows stay under REST OF TODAY.
+ * TOMORROW / THIS WEEK / LATER. Pass the full in-window calendar set (same
+ * items as the hero carousel — queue rows are not excluded). Empty sections
+ * omitted. When `queueHasItems`, the carousel owns NEEDS YOUR ATTENTION chrome
+ * and today attention rows stay under REST OF TODAY in chronological order.
  */
 export function groupAgendaListSections(
-  restItems: CalendarItem[],
+  items: CalendarItem[],
   options: GroupAgendaListSectionsOptions,
 ): AgendaListGrouping {
   const now = options.now ?? new Date()
@@ -165,7 +166,7 @@ export function groupAgendaListSections(
   const thisWeek: CalendarItem[] = []
   const later: CalendarItem[] = []
 
-  for (const item of restItems) {
+  for (const item of items) {
     const bucket = agendaDayBucketForStartsAt(item.startsAt, now)
     if (bucket === "today") {
       today.push(item)
@@ -234,7 +235,7 @@ export function groupAgendaListSections(
   }
 
   return {
-    floatFocusAbove: true,
+    floatFocusAbove: options.queueHasItems,
     sections,
   }
 }

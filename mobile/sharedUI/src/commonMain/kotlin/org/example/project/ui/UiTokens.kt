@@ -27,6 +27,8 @@ object UiTokens {
         val heroCarouselDotInactive: String,
         val heroCarouselControlBg: String,
         val heroDeclineBg: String,
+        val listRowFocusBorder: String,
+        val listRowFocusHalo: String,
         val railSurface: String,
         val railOn: String,
         val railOnSecondary: String,
@@ -60,6 +62,8 @@ object UiTokens {
             heroCarouselDotInactive = "#C9C6BC",
             heroCarouselControlBg = "#ECEBE6",
             heroDeclineBg = "rgba(255,255,255,0.12)",
+            listRowFocusBorder = "#E3A15B",
+            listRowFocusHalo = "#F4E6D2",
             railSurface = "#16181A",
             railOn = "#FFFFFF",
             railOnSecondary = "#9AA0A8",
@@ -91,6 +95,8 @@ object UiTokens {
             heroCarouselDotInactive = "#C9C6BC",
             heroCarouselControlBg = "#ECEBE6",
             heroDeclineBg = "rgba(255,255,255,0.12)",
+            listRowFocusBorder = "#E3A15B",
+            listRowFocusHalo = "#F4E6D2",
             railSurface = "#16181A",
             railOn = "#FFFFFF",
             railOnSecondary = "#9AA0A8",
@@ -124,7 +130,11 @@ object UiTokens {
         const val filterChipPadY: Int = 9
         const val filterChipPadX: Int = 16
         const val filterChipMarginBottom: Int = 28
-        const val listRowGap: Int = 16
+        const val listRowGap: Int = 12
+        const val listRowPadX: Int = 24
+        const val listRowPadY: Int = 20
+        const val listRowKidAvatar: Int = 28
+        const val listRowFocusHaloSpread: Int = 3
         const val listRowTagGap: Int = 6
         const val listRowAvatar: Int = 26
         const val listRowAvatarBorder: Int = 2
@@ -194,6 +204,9 @@ object UiTokens {
         val filterChip = TypeScale(size = 13.5f, lineHeight = 18f, weight = "600")
         val listRowAvatarLabel = TypeScale(size = 10.5f, lineHeight = 14f, weight = "700")
         val listRowChevron = TypeScale(size = 18f, lineHeight = 18f, weight = "400")
+        val listRowTeam = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
+        val listRowTitle = TypeScale(size = 18f, lineHeight = 22f, weight = "700")
+        val listRowMeta = TypeScale(size = 14f, lineHeight = 20f, weight = "400")
         val page = TypeScale(size = 34f, lineHeight = 40f, weight = "700")
         val subtitle = TypeScale(size = 14f, lineHeight = 20f, weight = "500")
         val feedName = TypeScale(size = 16.5f, lineHeight = 22f, weight = "700")
