@@ -1,6 +1,6 @@
 # Spec: ride-revert-undo
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -162,18 +162,18 @@ Ride-revert paths in this spec do **not** change attendance. Revert links stay
 
 ## Acceptance criteria
 
-- [ ] Expanded Agenda kid row shows **`RevertRideLink`** (underlined text, no dialog) when own-ride is resolved and **`DriverPicker`** is hidden; link hidden for unassigned / pending household confirm / out-of-play.
-- [ ] Confirmed-driver revert copy uses **drive** vocabulary per mock (You vs other household driver vs teammate ride vs cancel team ask).
-- [ ] Clicking confirmed-driver revert removes coverage and returns the kid to an own-ride gap; **`DriverPicker`** appears on refresh without a confirmation step.
-- [ ] Removing CONFIRMED coverage (self or other household driver on the assignment) auto-withdraws every ACCEPTED inbound carpool ride on that event where the caller's circle was the acceptor — verified in one backend integration test (single transaction; ride returns to PENDING).
-- [ ] Withdrawing inbound acceptance does **not** remove caller's own coverage; documents or tests note requester-side gap behavior per cross-domain table (or open question closed in PR).
-- [ ] Cancel team ask (`ownRequest` PENDING) and cancel teammate ride (`ownRequest` ACCEPTED) each use one click → `cancelCarpoolRide`; no dialog.
-- [ ] Inbound ACCEPTED-by-us row shows **Can't take them anymore** link (not outline Withdraw); one click → withdraw; own ride status unchanged.
-- [ ] **Reconsider** appears on declined inbound asks when `canOffer`; one click → accept with eligible vehicle rules unchanged.
-- [ ] **Undo** appears after the viewer withdraws an acceptance in-session (before reload); one click re-accepts.
-- [ ] No revert links on hero carousel slides (queue gaps only).
-- [ ] OpenAPI documents auto-withdraw side effect on `removeCalendarCoverage`; web client unchanged signature.
-- [ ] `npm run lint`, `npm test`, and `npm run build` pass in `web/`; backend calendar + carpool tests pass for touched code.
+- [x] Expanded Agenda kid row shows **`RevertRideLink`** (underlined text, no dialog) when own-ride is resolved and **`DriverPicker`** is hidden; link hidden for unassigned / pending household confirm / out-of-play.
+- [x] Confirmed-driver revert copy uses **drive** vocabulary per mock (You vs other household driver vs teammate ride vs cancel team ask).
+- [x] Clicking confirmed-driver revert removes coverage and returns the kid to an own-ride gap; **`DriverPicker`** appears on refresh without a confirmation step.
+- [x] Removing CONFIRMED coverage (self or other household driver on the assignment) auto-withdraws every ACCEPTED inbound carpool ride on that event where the caller's circle was the acceptor — verified in one backend integration test (single transaction; ride returns to PENDING).
+- [x] Withdrawing inbound acceptance does **not** remove caller's own coverage; documents or tests note requester-side gap behavior per cross-domain table (or open question closed in PR).
+- [x] Cancel team ask (`ownRequest` PENDING) and cancel teammate ride (`ownRequest` ACCEPTED) each use one click → `cancelCarpoolRide`; no dialog.
+- [x] Inbound ACCEPTED-by-us row shows **Can't take them anymore** link (not outline Withdraw); one click → withdraw; own ride status unchanged.
+- [x] **Reconsider** appears on declined inbound asks when `canOffer`; one click → accept with eligible vehicle rules unchanged.
+- [x] **Undo** appears after the viewer withdraws an acceptance in-session (before reload); one click re-accepts.
+- [x] No revert links on hero carousel slides (queue gaps only).
+- [x] OpenAPI documents auto-withdraw side effect on `removeCalendarCoverage`; web client unchanged signature.
+- [x] `npm run lint`, `npm test`, and `npm run build` pass in `web/`; backend calendar + carpool tests pass for touched code.
 
 ## Tasks
 
@@ -183,10 +183,10 @@ Ride-revert paths in this spec do **not** change attendance. Revert links stay
 - [x] Web: `AgendaInboundRequestRow` — Can't take them anymore / Reconsider / Undo links; tests
 - [x] Web: `AgendaRow` expanded body — per-kid `RevertRideLink`, remove **Remove coverage** admin button; align band order with mock
 - [x] Web: `FamilyScreen` — `onCantMakeIt` orchestration (remove coverage, cancel own ride, reload); `recentlyWithdrawnRideIds` for Undo affordance
-- [ ] Tests: revert confirmed driver → gap + DriverPicker; cancel team ask; withdraw inbound; auto-withdraw coupling; copy locks drive vocabulary
+- [x] Tests: revert confirmed driver → gap + DriverPicker; cancel team ask; withdraw inbound; auto-withdraw coupling; copy locks drive vocabulary
 
 ## Open questions
 
 - **Multi-kid same event:** one `RevertRideLink` per kid row from `mapCalendarItemToCoverageGames` (not one link per calendar item) — confirm in PR if multi-kid expanded layout needs spacing tweak.
 - **Undo without session memory:** if product later wants Undo after full page reload, add a `withdrawnByMe` (or similar) field in a follow-up contract slice — not required for this PR.
-- **Withdraw → requester queue state:** PENDING `ownRequest` after acceptor withdraw may not match ADR-0002 “unassigned” on the requester's account — resolve in implementation (see cross-domain coupling table).
+- **Withdraw → requester queue state:** **Closed for this PR (flagged).** After the acceptor withdraws, the requester still sees a PENDING `ownRequest` ("Asked the team") rather than an unassigned gap. That is a known ADR-0002 mismatch; fixing it needs a view-model or contract follow-up — not silently patched here. Acceptor-side withdraw keeps the caller's own coverage (tested).

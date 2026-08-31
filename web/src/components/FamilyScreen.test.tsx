@@ -4389,6 +4389,11 @@ describe("FamilyScreen", () => {
     })
     expect(within(heroSlideIn(agenda)).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    // List row stays expanded after revert — gap shows DriverPicker, no revert link.
+    expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(
+      within(item).queryByRole("button", { name: "Can't drive anymore? Reassign the ride" }),
+    ).not.toBeInTheDocument()
   })
 
   it("reassigns Focus coverage when the covering combobox changes", async () => {
@@ -6700,6 +6705,8 @@ describe("FamilyScreen", () => {
       await waitFor(() => {
         expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
       })
+      // ADR-0002 §2: withdraw inbound does not drop caller's own coverage.
+      expect(within(item).getAllByText("You're driving").length).toBeGreaterThan(0)
       await waitFor(() => {
         expect(within(item).getByRole("button", { name: "Undo" })).toBeInTheDocument()
       })
@@ -6708,6 +6715,158 @@ describe("FamilyScreen", () => {
       await waitFor(() => {
         expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in", { vehicleId: "v1" })
       })
+    })
+
+    it("cancels an ACCEPTED teammate ride via RevertRideLink", async () => {
+      const user = userEvent.setup()
+      const cancelRide = vi.fn().mockResolvedValue({
+        id: "ride-teammate",
+        spaceId: "s1",
+        eventKey: "UID:team",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "CANCELLED",
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      })
+      const acceptedOwn = {
+        id: "ride-teammate",
+        spaceId: "s1",
+        eventKey: "UID:team",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: "a2",
+        acceptingCircleId: "c2",
+        acceptingCircleName: "House B",
+        vehicleId: "v9",
+        vehicleLabel: "Van",
+      }
+      const listRides = vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            eventKey: "UID:team",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: [],
+            ownRequest: acceptedOwn,
+            otherRequests: [],
+          },
+        ])
+        .mockResolvedValue([
+          {
+            eventKey: "UID:team",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            otherRequests: [],
+          },
+        ])
+
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={revertSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(revertCircle()),
+            getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+            listFeeds: vi.fn().mockResolvedValue([]),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "e-team",
+                source: "FEED",
+                title: "Practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                feedId: "f1",
+                feedName: "Soccer",
+                eventKey: "UID:team",
+                uncoveredKidIds: ["k1"],
+                rsvps: [{ kidId: "k1", status: "YES" }],
+              }),
+            ]),
+            getGarage: vi.fn().mockResolvedValue(garage),
+          })}
+          carpoolClient={mockCarpoolClient({
+            getSummary: vi.fn().mockResolvedValue(carpoolSummary),
+            listRides,
+            cancelRide,
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      await waitFor(() => expect(listRides).toHaveBeenCalled())
+      const item = within(agenda).getByTestId("agenda-item-FEED-e-team")
+      await expandAgendaItem(user, item)
+      await user.click(
+        within(item).getByRole("button", {
+          name: "House B can't drive anymore? Find a new ride",
+        }),
+      )
+      await waitFor(() => {
+        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-teammate")
+      })
+    })
+
+    it("does not put RevertRideLink on hero carousel gap slides", async () => {
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={revertSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(revertCircle()),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "gap",
+                source: "MANUAL",
+                title: "Gap practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                uncoveredKidIds: ["k1"],
+              }),
+            ]),
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      const slide = heroSlideIn(agenda)
+      expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+      expect(
+        within(slide).queryByRole("button", { name: /can't drive anymore/i }),
+      ).not.toBeInTheDocument()
+      expect(
+        within(slide).queryByRole("button", { name: /cancel this ask/i }),
+      ).not.toBeInTheDocument()
+      expect(
+        within(slide).queryByRole("button", { name: /find a new ride/i }),
+      ).not.toBeInTheDocument()
     })
   })
 })

@@ -157,9 +157,13 @@ describe("AgendaRow", () => {
     expect(within(row).getByTestId("rsvp-MANUAL-skip-k1")).toHaveValue("NO")
     expect(within(row).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-band-kids")).not.toBeInTheDocument()
     expect(within(row).queryByText("Leave from")).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(
+      within(row).queryByRole("button", { name: /can't drive anymore/i }),
+    ).not.toBeInTheDocument()
   })
 
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
@@ -1191,5 +1195,105 @@ describe("AgendaRow", () => {
       within(kid).getByRole("button", { name: "Can't drive anymore? Reassign the ride" }),
     )
     expect(onRemoveCoverage).toHaveBeenCalledWith("cov1")
+  })
+
+  it("hides RevertRideLink for unassigned and pending household confirm", async () => {
+    const user = userEvent.setup()
+    const gapItem = item({
+      id: "gap",
+      title: "Practice",
+      uncoveredKidIds: ["k1"],
+    })
+    render(
+      <AgendaRow
+        item={gapItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const gapRow = screen.getByTestId("agenda-row-MANUAL-gap")
+    await user.click(within(gapRow).getByRole("button", { expanded: false }))
+    expect(within(gapRow).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(
+      within(gapRow).queryByRole("button", { name: /can't drive anymore|cancel this ask/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("hides RevertRideLink when pending household confirm for viewer", async () => {
+    const user = userEvent.setup()
+    render(
+      <AgendaRow
+        item={item({
+          id: "pending-self",
+          title: "Practice",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a2",
+              kidIds: ["k1"],
+              status: "PENDING",
+            },
+          ],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const pendingRow = screen.getByTestId("agenda-row-MANUAL-pending-self")
+    await user.click(within(pendingRow).getByRole("button", { expanded: false }))
+    expect(within(pendingRow).getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    expect(
+      within(pendingRow).queryByRole("button", { name: /can't drive anymore|cancel this ask/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("names other household driver on RevertRideLink", async () => {
+    const user = userEvent.setup()
+    const twoAdults: FamilyCircle = {
+      ...circle,
+      members: [
+        { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+        { adultId: "a2", email: "j@example.com", displayName: "Jordan", role: "CAREGIVER" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "other-driver",
+          title: "Practice",
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a2",
+              coveringAdultDisplayName: "Jordan",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+          ],
+        })}
+        circle={twoAdults}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: false, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-other-driver")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).getByRole("button", {
+        name: "Jordan can't drive anymore? Reassign the ride",
+      }),
+    ).toBeInTheDocument()
   })
 })
