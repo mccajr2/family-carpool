@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.20.0
+  version: 0.21.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -14,7 +14,9 @@ info:
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
     per-kid event RSVP (Yes / No / No response), coverage responsibility
     assignments (assign / reassign / remove; assignee confirm or decline;
-    assign/confirm set RSVP Yes and reject No kids), server-computed schedule conflicts
+    assign/confirm set RSVP Yes and reject No kids; removing CONFIRMED coverage
+    auto-withdraws ACCEPTED inbound carpool rides accepted by the caller's
+    circle), server-computed schedule conflicts
     on calendar items (kid time-overlaps ignore RSVP No; adult
     coverage overlaps; confirm/self-assign that would create two overlapping
     CONFIRMED coverages for one adult returns 409), a circle garage
@@ -2252,6 +2254,10 @@ paths:
       summary: Remove a coverage assignment
       description: >
         Any circle member. Deletes the assignment. RSVP statuses are unchanged.
+        Removing a CONFIRMED assignment on a feed event also withdraws, in the
+        same transaction, every ACCEPTED inbound carpool ride on that event
+        where the caller's circle is the accepting circle (rides return to
+        PENDING). PENDING or MANUAL assignments have no carpool side effect.
         Unknown assignment id returns 404.
       security:
         - bearerAuth: []
