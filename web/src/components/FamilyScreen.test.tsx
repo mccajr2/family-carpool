@@ -6399,4 +6399,315 @@ describe("FamilyScreen", () => {
       )
     })
   })
+
+  describe("ride revert undo", () => {
+    function revertSession() {
+      const session = new AuthSessionHolder()
+      session.setSession("tok", {
+        id: "1",
+        email: "parent@example.com",
+        displayName: "Alex",
+      })
+      return session
+    }
+
+    function revertCircle() {
+      return circleFixture({
+        id: "c1",
+        name: "House",
+        role: "ORGANIZER",
+        members: [
+          {
+            adultId: "1",
+            email: "parent@example.com",
+            displayName: "Alex",
+            role: "ORGANIZER",
+          },
+        ],
+        kids: [{ id: "k1", displayName: "Sam" }],
+        places: [],
+      })
+    }
+
+    const garage = {
+      members: [{ adultId: "1", displayName: "Alex", drives: true }],
+      vehicles: [
+        {
+          id: "v1",
+          ownerAdultId: "1",
+          driverAdultIds: ["1"],
+          keptAtPlaceId: null,
+          label: "SUV",
+          year: 2021,
+          make: "Honda",
+          model: "Pilot",
+          seats: 5,
+          suggestedSeats: null,
+        },
+      ],
+    }
+
+    const carpoolSummary = {
+      circleRole: "ORGANIZER" as const,
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "Soccer",
+          status: "OWNER" as const,
+          spaceId: "s1",
+          spaceName: "Soccer",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "Soccer",
+          membership: "OWNER" as const,
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [{ circleId: "c1", circleName: "House", membership: "OWNER" as const }],
+          pendingRequests: [],
+        },
+      ],
+    }
+
+    it("cancels a PENDING team ask via RevertRideLink without a dialog", async () => {
+      const user = userEvent.setup()
+      const cancelRide = vi.fn().mockResolvedValue({
+        id: "ride-ask",
+        spaceId: "s1",
+        eventKey: "UID:ask",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "CANCELLED",
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      })
+      const ownPending = {
+        id: "ride-ask",
+        spaceId: "s1",
+        eventKey: "UID:ask",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "PENDING" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      }
+      const listRides = vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            eventKey: "UID:ask",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: ownPending,
+            otherRequests: [],
+          },
+        ])
+        .mockResolvedValue([
+          {
+            eventKey: "UID:ask",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            otherRequests: [],
+          },
+        ])
+
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={revertSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(revertCircle()),
+            getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+            listFeeds: vi.fn().mockResolvedValue([]),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "e-ask",
+                source: "FEED",
+                title: "Practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                feedId: "f1",
+                feedName: "Soccer",
+                eventKey: "UID:ask",
+                uncoveredKidIds: ["k1"],
+                rsvps: [{ kidId: "k1", status: "YES" }],
+              }),
+            ]),
+            getGarage: vi.fn().mockResolvedValue(garage),
+          })}
+          carpoolClient={mockCarpoolClient({
+            getSummary: vi.fn().mockResolvedValue(carpoolSummary),
+            listRides,
+            cancelRide,
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      await waitFor(() => expect(listRides).toHaveBeenCalled())
+      const item = within(agenda).getByTestId("agenda-item-FEED-e-ask")
+      await expandAgendaItem(user, item)
+      await user.click(
+        within(item).getByRole("button", {
+          name: "No longer need a ride? Cancel this ask",
+        }),
+      )
+      await waitFor(() => {
+        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-ask")
+      })
+    })
+
+    it("shows Undo after withdraw and re-accepts on click", async () => {
+      const user = userEvent.setup()
+      const acceptedInbound = {
+        id: "ask-in",
+        spaceId: "s1",
+        eventKey: "UID:withdraw",
+        requestingCircleId: "c2",
+        requestingCircleName: "House B",
+        requestedByAdultId: "a2",
+        kidIds: ["k2"],
+        kidFirstNames: ["Mia"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: "1",
+        acceptingCircleId: "c1",
+        acceptingCircleName: "House",
+        vehicleId: "v1",
+        vehicleLabel: "SUV",
+      }
+      const pendingAfterWithdraw = {
+        ...acceptedInbound,
+        status: "PENDING" as const,
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      }
+      const withdrawRide = vi.fn().mockResolvedValue(pendingAfterWithdraw)
+      const acceptRide = vi.fn().mockResolvedValue(acceptedInbound)
+      const listRides = vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            eventKey: "UID:withdraw",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            otherRequests: [acceptedInbound],
+          },
+        ])
+        .mockResolvedValue([
+          {
+            eventKey: "UID:withdraw",
+            title: "Practice",
+            startsAt: "2030-08-15T17:00:00.000Z",
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            otherRequests: [pendingAfterWithdraw],
+          },
+        ])
+
+      render(
+        <FamilyScreen
+          now={AGENDA_TEST_NOW}
+          session={revertSession()}
+          familyClient={mockFamilyClient({
+            getCircle: vi.fn().mockResolvedValue(revertCircle()),
+            getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+            listFeeds: vi.fn().mockResolvedValue([]),
+            listCalendar: vi.fn().mockResolvedValue([
+              calendarItem({
+                id: "e-w",
+                source: "FEED",
+                title: "Practice",
+                startsAt: "2030-08-15T17:00:00.000Z",
+                kidIds: ["k1"],
+                feedId: "f1",
+                feedName: "Soccer",
+                eventKey: "UID:withdraw",
+                uncoveredKidIds: [],
+                rsvps: [{ kidId: "k1", status: "YES" }],
+                coverages: [
+                  {
+                    id: "cov1",
+                    coveringAdultId: "1",
+                    coveringAdultDisplayName: "Alex",
+                    assignedByAdultId: "1",
+                    kidIds: ["k1"],
+                    status: "CONFIRMED",
+                  },
+                ],
+              }),
+            ]),
+            getGarage: vi.fn().mockResolvedValue(garage),
+          })}
+          carpoolClient={mockCarpoolClient({
+            getSummary: vi.fn().mockResolvedValue(carpoolSummary),
+            listRides,
+            withdrawRide,
+            acceptRide,
+          })}
+          onSignedOut={vi.fn()}
+        />,
+      )
+
+      const agenda = await screen.findByLabelText("Agenda")
+      await waitFor(() => expect(listRides).toHaveBeenCalled())
+      const item = within(agenda).getByTestId("agenda-item-FEED-e-w")
+      await expandAgendaItem(user, item)
+      await user.click(
+        within(item).getByRole("button", { name: "Can't take them anymore" }),
+      )
+      await waitFor(() => {
+        expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
+      })
+      await waitFor(() => {
+        expect(within(item).getByRole("button", { name: "Undo" })).toBeInTheDocument()
+      })
+      expect(within(item).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+      await user.click(within(item).getByRole("button", { name: "Undo" }))
+      await waitFor(() => {
+        expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in", { vehicleId: "v1" })
+      })
+    })
+  })
 })

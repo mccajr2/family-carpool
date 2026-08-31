@@ -182,7 +182,7 @@ Ride-revert paths in this spec do **not** change attendance. Revert links stay
 - [x] Web: `RevertRideLink` component + copy helper + colocated tests
 - [x] Web: `AgendaInboundRequestRow` — Can't take them anymore / Reconsider / Undo links; tests
 - [x] Web: `AgendaRow` expanded body — per-kid `RevertRideLink`, remove **Remove coverage** admin button; align band order with mock
-- [ ] Web: `FamilyScreen` — `onCantMakeIt` orchestration (remove coverage, cancel own ride, reload); `recentlyWithdrawnRideIds` for Undo affordance
+- [x] Web: `FamilyScreen` — `onCantMakeIt` orchestration (remove coverage, cancel own ride, reload); `recentlyWithdrawnRideIds` for Undo affordance
 - [ ] Tests: revert confirmed driver → gap + DriverPicker; cancel team ask; withdraw inbound; auto-withdraw coupling; copy locks drive vocabulary
 
 ## Open questions

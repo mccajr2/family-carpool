@@ -62,10 +62,18 @@ import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
+  activeCoverages,
+  calendarItemKey,
+  memberLabel,
+  remainingCoverageGapKidIds,
+} from "@/components/coverageDisplay"
+import {
   coverageGameEventKey,
   getQueue,
   filterQueueWithinHorizon,
+  isConfirmedDriver,
   mapCalendarItemsToCoverageGames,
+  type CoverageGameEvent,
   type QueueItem,
 } from "@/components/coverageQueue"
 import {
@@ -73,11 +81,6 @@ import {
   matchCalendarItemToRideEvent,
   ridesBySpaceRecordToMap,
 } from "@/components/calendarRideJoin"
-import {
-  calendarItemKey,
-  memberLabel,
-  remainingCoverageGapKidIds,
-} from "@/components/coverageDisplay"
 import {
   advanceCalendarWindow,
   calendarWindowThrough,
@@ -287,6 +290,10 @@ export function FamilyScreen({
   const [coverageActionErrors, setCoverageActionErrors] = useState<
     Record<string, string>
   >({})
+  /** Session-local Undo after withdraw; survives API reload until accept or remount. */
+  const [recentlyWithdrawnRideIds, setRecentlyWithdrawnRideIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set())
   const circleRef = useRef(circle)
   circleRef.current = circle
   const adultRef = useRef(adult)
@@ -1245,6 +1252,34 @@ export function FamilyScreen({
     }
   }
 
+  async function onCantMakeItAgenda(item: CalendarItem, game: CoverageGameEvent) {
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
+    const ownRequest = rideEvent?.ownRequest ?? null
+
+    if (game.ownRide === "requested" && ownRequest != null) {
+      await onCancelAgendaRide(item, ownRequest.id)
+      return
+    }
+
+    if (!isConfirmedDriver(game.ownRide)) {
+      return
+    }
+
+    const teammateRide =
+      ownRequest?.status === "ACCEPTED" && ownRequest.kidIds.includes(game.kidId)
+    if (teammateRide && ownRequest != null) {
+      await onCancelAgendaRide(item, ownRequest.id)
+      return
+    }
+
+    const coverage = activeCoverages(item).find(
+      (row) => row.status === "CONFIRMED" && row.kidIds.includes(game.kidId),
+    )
+    if (coverage != null) {
+      await onRemoveCoverage(coverage.id)
+    }
+  }
+
   async function onAcceptAgendaRide(item: CalendarItem, rideId: string, vehicleId: string) {
     if (item.feedId == null || calendarCarpoolSummary == null) {
       return
@@ -1257,6 +1292,14 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       await carpoolClient.acceptRide(token, spaceId, rideId, { vehicleId })
+      setRecentlyWithdrawnRideIds((current) => {
+        if (!current.has(rideId)) {
+          return current
+        }
+        const next = new Set(current)
+        next.delete(rideId)
+        return next
+      })
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1301,6 +1344,11 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       await carpoolClient.withdrawRide(token, spaceId, rideId)
+      setRecentlyWithdrawnRideIds((current) => {
+        const next = new Set(current)
+        next.add(rideId)
+        return next
+      })
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1688,6 +1736,8 @@ export function FamilyScreen({
       const token = await requireToken()
       const updated = await familyClient.removeCalendarCoverage(token, assignmentId)
       replaceCalendarItem(updated)
+      // Auto-withdraw side effect on CONFIRMED remove — refresh inbound asks / chips.
+      await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -2704,6 +2754,7 @@ export function FamilyScreen({
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
                             garage={calendarGarage}
                             heroQueuedRequestIds={heroQueuedRequestIds}
+                            recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
                             onCreateRide={(eventKey, kidIds) =>
                               void onCreateAgendaRide(item, eventKey, kidIds)
                             }
@@ -2713,6 +2764,7 @@ export function FamilyScreen({
                               void onAcceptAgendaRide(item, rideId, vehicleId)
                             }
                             onPassRide={(rideId) => void onPassAgendaRide(item, rideId)}
+                            onCantMakeIt={(game) => void onCantMakeItAgenda(item, game)}
                             onUpdateAssignDraft={(patch) =>
                               updateAssignCoverageDraft(itemKey, patch)
                             }
