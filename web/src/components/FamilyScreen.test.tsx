@@ -4038,7 +4038,11 @@ describe("FamilyScreen", () => {
     })
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    expect(within(item).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
+    expect(within(item).getAllByText("You're driving").length).toBeGreaterThan(0)
+    expect(
+      within(item).getByRole("button", { name: "Can't drive anymore? Reassign the ride" }),
+    ).toBeInTheDocument()
+    expect(within(item).queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
   })
 
   it("resets RSVP to Yes for assigned kids marked not going", async () => {
@@ -4299,8 +4303,13 @@ describe("FamilyScreen", () => {
     })
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    expect(within(item).getByText(/Jordan · Sam · Confirmed/)).toBeInTheDocument()
-    expect(within(item).getByRole("button", { name: "Remove coverage" })).toBeInTheDocument()
+    expect(within(item).getAllByText("You're driving").length).toBeGreaterThan(0)
+    expect(
+      within(item).getByRole("button", {
+        name: "Can't drive anymore? Reassign the ride",
+      }),
+    ).toBeInTheDocument()
+    expect(within(item).queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
     expect(
       within(agenda).queryByRole("button", { name: "Confirm coverage" }),
     ).not.toBeInTheDocument()
@@ -4371,7 +4380,9 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    await user.click(within(item).getByRole("button", { name: "Remove coverage" }))
+    await user.click(
+      within(item).getByRole("button", { name: "Can't drive anymore? Reassign the ride" }),
+    )
 
     await waitFor(() => {
       expect(removeCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
@@ -4459,7 +4470,7 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    expect(within(item).getByText(/Alex · Sam · Confirmed/)).toBeInTheDocument()
+    expect(within(item).getAllByText("You're driving").length).toBeGreaterThan(0)
     expect(within(item).queryByLabelText("Covering adult for Practice")).not.toBeInTheDocument()
   })
 
@@ -4686,27 +4697,33 @@ describe("FamilyScreen", () => {
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
     const primary = within(item).getByTestId("agenda-band-primary")
+    const kids = within(item).getByTestId("agenda-band-kids")
     const travel = within(item).getByTestId("agenda-band-travel")
     const people = within(item).getByTestId("agenda-band-people")
-    const coverage = within(item).getByTestId("agenda-band-coverage")
 
-    expect(primary.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(primary.compareDocumentPosition(kids) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(kids.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(travel.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(people.compareDocumentPosition(coverage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     expect(within(primary).getByText("Practice")).toBeInTheDocument()
     expect(within(primary).getByText(/Field/)).toBeInTheDocument()
+    expect(within(kids).getByText("You're driving")).toBeInTheDocument()
+    expect(
+      within(kids).getByRole("button", {
+        name: "Can't drive anymore? Reassign the ride",
+      }),
+    ).toBeInTheDocument()
+    expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
     expect(within(travel).getByTestId("leave-by-MANUAL-e1")).toBeInTheDocument()
     expect(within(travel).getByTestId("leave-from-label-MANUAL-e1")).toHaveTextContent(
       "Mom's house",
     )
     expect(within(people).getByText("Manual")).toBeInTheDocument()
     expect(within(people).getByText("Sam")).toBeInTheDocument()
-    expect(within(coverage).getByText(/Jordan · Sam · Confirmed/)).toBeInTheDocument()
 
-    expect(within(coverage).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
+    expect(within(item).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
     const manualActions = within(item).getByTestId("agenda-band-manual-actions")
-    expect(coverage.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(people.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
     expect(within(manualActions).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
   })
