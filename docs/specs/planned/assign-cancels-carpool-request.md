@@ -7,9 +7,10 @@ Added: 2026-08-26 · enhancement
 Cancelled: 2026-08-28
 
 **Superseded by** hero & coverage flow redesign:
-[`auto-decline-unofferable`](auto-decline-unofferable.md) (ask-team path) and
-[`ride-revert-undo`](ride-revert-undo.md) (assign/cancel lifecycle). Do not
-promote or `/spec` this id.
+[`auto-decline-unofferable`](../active/auto-decline-unofferable.md) (ask-team
+auto-decline **and** Assign→cancel open team ask) and
+[`ride-revert-undo`](../archive/ride-revert-undo.md) (assign/cancel lifecycle).
+Do not promote or `/spec` this id.
 
 ## Problem (historical)
 
@@ -20,5 +21,5 @@ parent and leave the carpool request live.
 ## Notes
 
 - Original stub preserved for traceability only.
-- Assign-after-coverage coupling may still need explicit handling in
-  `/spec auto-decline-unofferable` if not fully covered by `"requested"` trigger.
+- Ask-team auto-decline **and** Assign→cancel open team ask are specified in
+  [`auto-decline-unofferable`](../active/auto-decline-unofferable.md).
