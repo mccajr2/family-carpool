@@ -128,7 +128,7 @@ Allowlist for `/implement`:
 
 - [x] Docs: update `docs/agenda-coverage-web-contract.md` People / RSVP to the
       two-state going / not-going toggle + API mapping note
-- [ ] Web: add small attendance helpers/copy (e.g. extend `rsvpDisplay.ts` or
+- [x] Web: add small attendance helpers/copy (e.g. extend `rsvpDisplay.ts` or
       colocated `attendanceToggle.ts`) — labels, `going`/`not_going` ↔ RSVP
       write targets; keep `mapRsvpToAttendance` as single read mapper
 - [ ] Web: replace AgendaRow People-band `<select>` with per-kid
