@@ -197,6 +197,61 @@ describe("AgendaRow", () => {
     expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
   })
 
+  it("hides per-kid driver/coverage chrome for not-going kids on mixed multi-kid items", async () => {
+    const user = userEvent.setup()
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "mixed",
+          title: "Game",
+          kidIds: ["k1", "k2"],
+          uncoveredKidIds: ["k2"],
+          rsvps: [
+            { kidId: "k1", status: "NO" },
+            { kidId: "k2", status: "YES" },
+          ],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k2"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-mixed")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+
+    const samRow = within(row).getByTestId("agenda-kid-row-k1")
+    expect(within(samRow).getByTestId("rsvp-MANUAL-mixed-k1")).toHaveAttribute(
+      "data-attendance",
+      "not_going",
+    )
+    expect(within(samRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(samRow).queryByRole("button", { name: "Confirm coverage" })).not.toBeInTheDocument()
+    expect(
+      within(samRow).queryByRole("button", { name: /can't drive anymore/i }),
+    ).not.toBeInTheDocument()
+    expect(within(samRow).queryByText("Sam")).not.toBeInTheDocument()
+
+    const rileyRow = within(row).getByTestId("agenda-kid-row-k2")
+    expect(within(rileyRow).getByText("Riley")).toBeInTheDocument()
+    expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(rileyRow).getByTestId("rsvp-MANUAL-mixed-k2")).toHaveAttribute(
+      "data-attendance",
+      "going",
+    )
+    expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
+    expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
+  })
+
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
     renderRow(
       item({

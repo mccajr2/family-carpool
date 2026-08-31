@@ -111,7 +111,7 @@ Allowlist for `/implement`:
       coverage-release confirm; cancel leaves RSVP unchanged.
 - [ ] A kid marked not going is out of `getQueue` for that game (no new
       attendance hero/queue item ever appears).
-- [ ] When every kid on the item is not going, the row stays out-of-play
+- [x] When every kid on the item is not going, the row stays out-of-play
       (deemphasized; existing `isAgendaItemOutOfPlay` / Not going chip behavior
       unchanged).
 - [ ] Assigning a real household driver still resets that kid to going (RSVP
@@ -135,7 +135,7 @@ Allowlist for `/implement`:
       AttendanceToggle links (mock placement relative to coverage/revert)
 - [x] Web: wire FamilyScreen handler — confirm-on-coverage-release for not
       going; write `NO` / `YES`; patch cache; busy/disabled while loading
-- [ ] Web: hide per-kid driver/coverage chrome when that kid is not going
+- [x] Web: hide per-kid driver/coverage chrome when that kid is not going
       (reuse existing `attendance !== "not_going"` gates; ensure multi-kid
       items only hide the not-going kid's controls)
 - [ ] Tests: AgendaRow / FamilyScreen — toggle copy, `setCalendarRsvp` args,

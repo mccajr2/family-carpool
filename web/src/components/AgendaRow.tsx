@@ -66,11 +66,11 @@ function isHouseholdConfirmedDriver(
 }
 
 /**
- * Unassigned gaps get DriverPicker (including not-going gap kids so assign can
- * reset RSVP). Pending confirm-for-self keeps Confirm/Decline.
+ * Unassigned gaps get DriverPicker. Not-going kids hide all driver/coverage
+ * chrome but keep AttendanceToggle (ADR-0003).
  */
 function showDriverPickerForKid(game: CoverageGameEvent): boolean {
-  return isUnassigned(game.ownRide)
+  return game.attendance !== "not_going" && isUnassigned(game.ownRide)
 }
 
 function showRevertLinkForKid(
@@ -195,13 +195,6 @@ export function AgendaRow({
     circle.members.length > 0
   const showRequestInCarpool = canAskTeam && !showAssign
   const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
-  // In-play kids always; also unassigned gap kids marked not going so assign can
-  // reset RSVP YES (existing assign side effect — mock hides not_going otherwise).
-  const kidBandGames = coverageGames.filter(
-    (game) =>
-      game.attendance !== "not_going" ||
-      (isUnassigned(game.ownRide) && unassignedGapKidIds.includes(game.kidId)),
-  )
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
   const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
@@ -355,8 +348,7 @@ export function AgendaRow({
                 const chip = rideStatusChipForGameRow(game, ownRequest)
                 const pendingSelfForKid =
                   pendingForSelf != null && pendingForSelf.kidIds.includes(game.kidId)
-                const showKidChrome =
-                  !outOfPlay && kidBandGames.some((row) => row.kidId === game.kidId)
+                const showKidChrome = !outOfPlay && game.attendance !== "not_going"
                 const showPicker = showKidChrome && showAssign && showDriverPickerForKid(game)
                 const showRevert =
                   showKidChrome && showRevertLinkForKid(game, pendingSelfForKid)
