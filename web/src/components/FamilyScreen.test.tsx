@@ -5890,7 +5890,7 @@ describe("FamilyScreen", () => {
     expect(within(item).getByRole("button", { name: "Edit" })).toBeInTheDocument()
   })
 
-  it("confirms before No when the kid has active coverage", async () => {
+  it("confirms before marking not going when the kid has active coverage", async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true)
     const session = new AuthSessionHolder()
@@ -5969,7 +5969,93 @@ describe("FamilyScreen", () => {
       })
     })
     expect(within(agenda).queryByText(/Alex · Sam · Confirmed/)).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(within(covered).getByTestId("rsvp-MANUAL-e1-k1")).toHaveAttribute(
+        "data-attendance",
+        "not_going",
+      )
+    })
     confirmSpy.mockRestore()
+  })
+
+  it("disables attendance toggle while RSVP write is in flight", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    let resolveRsvp!: (value: CalendarItem) => void
+    const setCalendarRsvp = vi.fn(
+      () =>
+        new Promise<CalendarItem>((resolve) => {
+          resolveRsvp = resolve
+        }),
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    const toggle = within(item).getByRole("button", { name: "Mark Sam as not going" })
+    void user.click(toggle)
+
+    await waitFor(() => {
+      expect(toggle).toBeDisabled()
+    })
+    expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k1", {
+      status: "NO",
+    })
+
+    resolveRsvp({
+      ...baseItem,
+      rsvps: [{ kidId: "k1", status: "NO" }],
+      uncoveredKidIds: [],
+    })
+    await waitFor(() => {
+      expect(
+        within(item).getByRole("button", { name: "Mark as going again" }),
+      ).not.toBeDisabled()
+    })
   })
 
   it("does not set RSVP No when coverage release confirm is cancelled", async () => {

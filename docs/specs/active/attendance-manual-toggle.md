@@ -107,7 +107,7 @@ Allowlist for `/implement`:
       queue mapping; UI never offers setting `NO_RESPONSE`.
 - [x] Copy uses **going** / **not going** only — no "make it", no ride-side
       **drive** wording on this control.
-- [ ] Marking not going while the kid has active coverage shows the existing
+- [x] Marking not going while the kid has active coverage shows the existing
       coverage-release confirm; cancel leaves RSVP unchanged.
 - [ ] A kid marked not going is out of `getQueue` for that game (no new
       attendance hero/queue item ever appears).
@@ -116,7 +116,7 @@ Allowlist for `/implement`:
       unchanged).
 - [ ] Assigning a real household driver still resets that kid to going (RSVP
       `YES`) — regression covered by existing assign tests; do not break.
-- [ ] Calendar cache patches on attendance writes like other single-item
+- [x] Calendar cache patches on attendance writes like other single-item
       mutations.
 - [x] `docs/agenda-coverage-web-contract.md` People / RSVP sections describe the
       toggle (not three-way Yes/No/No response).
@@ -133,7 +133,7 @@ Allowlist for `/implement`:
       write targets; keep `mapRsvpToAttendance` as single read mapper
 - [x] Web: replace AgendaRow People-band `<select>` with per-kid
       AttendanceToggle links (mock placement relative to coverage/revert)
-- [ ] Web: wire FamilyScreen handler — confirm-on-coverage-release for not
+- [x] Web: wire FamilyScreen handler — confirm-on-coverage-release for not
       going; write `NO` / `YES`; patch cache; busy/disabled while loading
 - [ ] Web: hide per-kid driver/coverage chrome when that kid is not going
       (reuse existing `attendance !== "not_going"` gates; ensure multi-kid
