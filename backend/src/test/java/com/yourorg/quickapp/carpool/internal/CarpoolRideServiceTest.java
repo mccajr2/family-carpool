@@ -653,6 +653,69 @@ class CarpoolRideServiceTest {
                 .isEqualTo(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void withdrawAcceptedInboundForFeedEventWithdrawsMatchingAcceptedRides() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity inbound = pendingOtherRide(List.of(kidB));
+        inbound.accept(adultId, circleId, vehicleId);
+        CarpoolRideRequestEntity second = pendingOtherRide(List.of(kidA));
+        second.accept(adultId, circleId, vehicleId);
+        when(rides.findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
+                        List.of(spaceId),
+                        "UID:game-1",
+                        circleId,
+                        CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of(inbound, second));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.withdrawAcceptedInboundForFeedEvent(adultId, eventId);
+
+        assertThat(inbound.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(inbound.acceptingCircleId()).isNull();
+        assertThat(inbound.vehicleId()).isNull();
+        assertThat(second.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        verify(rides).save(inbound);
+        verify(rides).save(second);
+        verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void withdrawAcceptedInboundForFeedEventNoopsWhenEventMissing() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId)).thenReturn(Optional.empty());
+
+        service.withdrawAcceptedInboundForFeedEvent(adultId, eventId);
+
+        verify(memberships, never()).findByCircleIdOrderByCreatedAtAsc(any());
+        verify(rides, never()).save(any());
+    }
+
+    @Test
+    void withdrawAcceptedInboundForFeedEventNoopsWhenNoSpaceMemberships() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId)).thenReturn(List.of());
+
+        service.withdrawAcceptedInboundForFeedEvent(adultId, eventId);
+
+        verify(rides, never())
+                .findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
+                        any(), any(), any(), any());
+        verify(rides, never()).save(any());
+    }
+
     private void stubMemberSpace() {
         when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
         when(spaces.findById(spaceId)).thenReturn(Optional.of(space()));

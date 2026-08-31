@@ -348,6 +348,36 @@ public class CarpoolRideService {
                 List.of());
     }
 
+    /**
+     * Same-transaction side effect of removing CONFIRMED coverage: return every
+     * inbound ACCEPTED ride on this feed event to PENDING when this circle was
+     * the acceptor.
+     */
+    @Transactional
+    public void withdrawAcceptedInboundForFeedEvent(UUID actorAdultId, UUID feedEventId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(actorAdultId);
+        Optional<FeedCalendarEventDto> event =
+                feedCalendarApi.findEventInCircle(circleId, feedEventId);
+        if (event.isEmpty()) {
+            return;
+        }
+        String eventKey = RideEventKey.of(event.get());
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+        if (spaceIds.isEmpty()) {
+            return;
+        }
+        List<CarpoolRideRequestEntity> accepted =
+                rides.findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
+                        spaceIds, eventKey, circleId, CarpoolRideStatus.ACCEPTED);
+        for (CarpoolRideRequestEntity ride : accepted) {
+            ride.withdraw();
+            rides.save(ride);
+        }
+    }
+
     private List<UUID> defaultKidIds(UUID circleId, UUID spaceId, FeedCalendarEventDto event) {
         List<UUID> feedKids = event.kidIds() == null ? List.of() : event.kidIds();
         if (feedKids.isEmpty()) {

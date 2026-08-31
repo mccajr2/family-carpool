@@ -7,6 +7,11 @@ import {
   AgendaInboundRequestRow,
   inboundRequestStatusChip,
 } from "@/components/AgendaInboundRequestRow"
+import {
+  REVERT_INBOUND_CANT_TAKE_THEM,
+  REVERT_INBOUND_RECONSIDER,
+  REVERT_INBOUND_UNDO,
+} from "@/components/revertRideCopy"
 
 const garage = {
   members: [{ adultId: "a1", displayName: "Alex", drives: true }],
@@ -48,6 +53,17 @@ const pendingAsk: CarpoolRide = {
   vehicleLabel: null,
 }
 
+const acceptedByUs: CarpoolRide = {
+  ...pendingAsk,
+  id: "ask-accepted",
+  status: "ACCEPTED",
+  acceptedByAdultId: "a1",
+  acceptingCircleId: "c1",
+  acceptingCircleName: "Ours",
+  vehicleId: "v1",
+  vehicleLabel: "Van",
+}
+
 const rideEvent: CarpoolRideEvent = {
   eventKey: "UID:game",
   title: "Practice",
@@ -63,6 +79,15 @@ describe("inboundRequestStatusChip", () => {
     expect(inboundRequestStatusChip(pendingAsk, "c1")).toEqual({
       label: "Needs a ride",
       tone: "amber",
+    })
+  })
+
+  it("labels auto-declined asks with the mock Declined copy", () => {
+    expect(
+      inboundRequestStatusChip(pendingAsk, "c1", { autoDeclined: true }),
+    ).toEqual({
+      label: "Declined — you needed a ride too",
+      tone: "muted",
     })
   })
 })
@@ -111,5 +136,123 @@ describe("AgendaInboundRequestRow", () => {
     ).toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("replaces Withdraw with Can't take them anymore underlined link", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+
+    render(
+      <AgendaInboundRequestRow
+        request={acceptedByUs}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={{ ...rideEvent, otherRequests: [acceptedByUs] }}
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
+    const link = screen.getByRole("button", { name: REVERT_INBOUND_CANT_TAKE_THEM })
+    expect(link).toHaveClass("underline")
+    await user.click(link)
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+  })
+
+  it("shows Reconsider when autoDeclined and canOffer", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+
+    render(
+      <AgendaInboundRequestRow
+        request={pendingAsk}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={rideEvent}
+        canOffer
+        autoDeclined
+        onAcceptRide={onAcceptRide}
+        onPassRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Declined — you needed a ride too")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: REVERT_INBOUND_RECONSIDER }))
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+  })
+
+  it("hides Reconsider when autoDeclined but canOffer is false", () => {
+    render(
+      <AgendaInboundRequestRow
+        request={pendingAsk}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={rideEvent}
+        autoDeclined
+        onAcceptRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Declined — you needed a ride too")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows Undo when recentlyWithdrawn and canOffer", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+
+    render(
+      <AgendaInboundRequestRow
+        request={pendingAsk}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={rideEvent}
+        canOffer
+        recentlyWithdrawn
+        onAcceptRide={onAcceptRide}
+        onPassRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: REVERT_INBOUND_UNDO }))
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+  })
+
+  it("keeps Accept for passed asks without Reconsider/Undo", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+    const passed = { ...pendingAsk, passedByMe: true }
+
+    render(
+      <AgendaInboundRequestRow
+        request={passed}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={{ ...rideEvent, otherRequests: [passed] }}
+        canOffer
+        onAcceptRide={onAcceptRide}
+        onPassRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Passed")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: REVERT_INBOUND_UNDO })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Accept" }))
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
   })
 })

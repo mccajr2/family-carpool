@@ -9,6 +9,7 @@ import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
 import com.yourorg.quickapp.calendar.CalendarRsvpResponse;
+import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -41,6 +42,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CalendarService {
@@ -52,6 +54,7 @@ public class CalendarService {
     private final CoverageApi coverageApi;
     private final RsvpApi rsvpApi;
     private final AdultSessionApi adultSessionApi;
+    private final CarpoolApi carpoolApi;
 
     public CalendarService(
             FamilyMembershipApi familyMembershipApi,
@@ -60,7 +63,8 @@ public class CalendarService {
             LeaveByApi leaveByApi,
             CoverageApi coverageApi,
             RsvpApi rsvpApi,
-            AdultSessionApi adultSessionApi) {
+            AdultSessionApi adultSessionApi,
+            CarpoolApi carpoolApi) {
         this.familyMembershipApi = familyMembershipApi;
         this.feedCalendarApi = feedCalendarApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
@@ -68,6 +72,7 @@ public class CalendarService {
         this.coverageApi = coverageApi;
         this.rsvpApi = rsvpApi;
         this.adultSessionApi = adultSessionApi;
+        this.carpoolApi = carpoolApi;
     }
 
     public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
@@ -224,8 +229,13 @@ public class CalendarService {
         return requireItem(adult.id(), circleId, source, updated.itemId());
     }
 
+    @Transactional
     public CalendarItemResponse removeCoverage(AdultResponse adult, UUID assignmentId) {
         CoverageAssignmentDto existing = coverageApi.requireAssignment(adult.id(), assignmentId);
+        if (existing.status() == CoverageStatus.CONFIRMED
+                && existing.itemSource() == CoverageItemSource.FEED) {
+            carpoolApi.withdrawAcceptedInboundForFeedEvent(adult.id(), existing.itemId());
+        }
         coverageApi.remove(adult.id(), assignmentId);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         return requireItem(
