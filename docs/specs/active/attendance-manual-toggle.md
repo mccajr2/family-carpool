@@ -118,7 +118,7 @@ Allowlist for `/implement`:
       `YES`) — regression covered by existing assign tests; do not break.
 - [ ] Calendar cache patches on attendance writes like other single-item
       mutations.
-- [ ] `docs/agenda-coverage-web-contract.md` People / RSVP sections describe the
+- [x] `docs/agenda-coverage-web-contract.md` People / RSVP sections describe the
       toggle (not three-way Yes/No/No response).
 - [ ] No OpenAPI, backend, or `RsvpStatus` type rename in this PR.
 - [ ] Component/unit tests cover toggle copy, API mapping (`going`↔`YES`,
@@ -126,7 +126,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Docs: update `docs/agenda-coverage-web-contract.md` People / RSVP to the
+- [x] Docs: update `docs/agenda-coverage-web-contract.md` People / RSVP to the
       two-state going / not-going toggle + API mapping note
 - [ ] Web: add small attendance helpers/copy (e.g. extend `rsvpDisplay.ts` or
       colocated `attendanceToggle.ts`) — labels, `going`/`not_going` ↔ RSVP
