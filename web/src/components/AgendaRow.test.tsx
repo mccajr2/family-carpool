@@ -853,7 +853,7 @@ describe("AgendaRow", () => {
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
   })
 
-  it("shows accepted-by-us ride density and Withdraw when expanded", async () => {
+  it("shows accepted-by-us ride density and Can't take them anymore when expanded", async () => {
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()
     const feedItem = item({
@@ -918,7 +918,9 @@ describe("AgendaRow", () => {
     )
     expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
-    await user.click(within(inbound).getByRole("button", { name: "Withdraw" }))
+    await user.click(
+      within(inbound).getByRole("button", { name: "Can't take them anymore" }),
+    )
     expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
   })
 

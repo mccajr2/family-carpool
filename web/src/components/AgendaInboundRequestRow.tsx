@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Car } from "lucide-react"
+import { Car, Undo2 } from "lucide-react"
 
 import type { CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
 import { AgendaStatusChip, type AgendaStatusChipTone } from "@/components/agendaStatusChip"
@@ -10,7 +10,15 @@ import {
   incomingRideAskSummary,
   isAcceptedByCircle,
 } from "@/components/carpoolDisplay"
+import {
+  REVERT_INBOUND_CANT_TAKE_THEM,
+  REVERT_INBOUND_RECONSIDER,
+  REVERT_INBOUND_UNDO,
+} from "@/components/revertRideCopy"
 import { Button } from "@/components/ui/button"
+
+const revertLinkClassName =
+  "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
 
 export type AgendaInboundRequestRowProps = {
   request: CarpoolRide
@@ -20,6 +28,15 @@ export type AgendaInboundRequestRowProps = {
   rideEvent: CarpoolRideEvent
   loading?: boolean
   inHeroQueue?: boolean
+  /** Confirmed driver on this event row — gates Reconsider / Undo. */
+  canOffer?: boolean
+  /** Session-local: viewer withdrew this acceptance before reload. */
+  recentlyWithdrawn?: boolean
+  /**
+   * Rank-2 auto-decline flag (not on CarpoolRide yet). When true, show Declined
+   * chip + Reconsider when canOffer — no Accept/Pass.
+   */
+  autoDeclined?: boolean
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
@@ -28,9 +45,13 @@ export type AgendaInboundRequestRowProps = {
 export function inboundRequestStatusChip(
   request: CarpoolRide,
   circleId: string,
+  options: { autoDeclined?: boolean } = {},
 ): { label: string; tone: AgendaStatusChipTone } {
   if (isAcceptedByCircle(request, circleId)) {
     return { label: "Accepted", tone: "mint" }
+  }
+  if (options.autoDeclined) {
+    return { label: "Declined — you needed a ride too", tone: "muted" }
   }
   if (request.passedByMe) {
     return { label: "Passed", tone: "muted" }
@@ -46,7 +67,8 @@ export function inboundRequestStatusChip(
 
 /**
  * Expanded Agenda row inbound ask — mock RequestRow structure (summary + chip;
- * Accept/Pass when actionable and not duplicated in the hero carousel).
+ * Accept/Pass when actionable and not duplicated in the hero carousel;
+ * reverse links: Can't take them anymore / Reconsider / Undo).
  */
 export function AgendaInboundRequestRow({
   request,
@@ -56,6 +78,9 @@ export function AgendaInboundRequestRow({
   rideEvent,
   loading = false,
   inHeroQueue = false,
+  canOffer = false,
+  recentlyWithdrawn = false,
+  autoDeclined = false,
   onAcceptRide,
   onPassRide,
   onWithdrawRide,
@@ -70,24 +95,68 @@ export function AgendaInboundRequestRow({
     event: rideEvent,
     request,
   })
-  const canAccept =
-    !inHeroQueue &&
-    request.status === "PENDING" &&
-    !request.passedByMe &&
-    eligible.length > 0 &&
-    onAcceptRide != null
-  const canPass =
-    !inHeroQueue &&
-    request.status === "PENDING" &&
-    !request.passedByMe &&
-    onPassRide != null
   const vehicleId =
     eligible.length === 1 ? eligible[0]!.id : selectedVehicleId || eligible[0]?.id || ""
-  const statusChip = inboundRequestStatusChip(request, circleId)
+
   const showHeroHandoff =
     inHeroQueue &&
     request.status === "PENDING" &&
-    !request.passedByMe
+    !request.passedByMe &&
+    !autoDeclined &&
+    !recentlyWithdrawn
+
+  // Pass soft-decline: expanded row may still Accept (Focus skips passed asks).
+  const canAccept =
+    !showHeroHandoff &&
+    !autoDeclined &&
+    !recentlyWithdrawn &&
+    request.status === "PENDING" &&
+    eligible.length > 0 &&
+    onAcceptRide != null
+  const canPass =
+    !showHeroHandoff &&
+    !autoDeclined &&
+    !recentlyWithdrawn &&
+    request.status === "PENDING" &&
+    !request.passedByMe &&
+    onPassRide != null
+
+  const canReconsider =
+    !showHeroHandoff &&
+    autoDeclined &&
+    canOffer &&
+    request.status === "PENDING" &&
+    eligible.length > 0 &&
+    onAcceptRide != null
+  const canUndo =
+    !showHeroHandoff &&
+    recentlyWithdrawn &&
+    canOffer &&
+    request.status === "PENDING" &&
+    eligible.length > 0 &&
+    onAcceptRide != null
+  const canCantTakeThem =
+    !showHeroHandoff && acceptedByUs && onWithdrawRide != null
+
+  const statusChip = inboundRequestStatusChip(request, circleId, { autoDeclined })
+  const showVehicleSelect =
+    (canAccept || canReconsider || canUndo) && eligible.length > 1
+  const showSingleVehicleAccept = canAccept && eligible.length === 1
+  const showSingleVehicleReconsider = canReconsider && eligible.length === 1
+  const showSingleVehicleUndo = canUndo && eligible.length === 1
+  const showPrimaryActions =
+    showSingleVehicleAccept ||
+    canPass ||
+    canCantTakeThem ||
+    showSingleVehicleReconsider ||
+    showSingleVehicleUndo
+
+  function acceptWithVehicle() {
+    if (!vehicleId) {
+      return
+    }
+    onAcceptRide?.(request.id, vehicleId)
+  }
 
   return (
     <div
@@ -114,7 +183,7 @@ export function AgendaInboundRequestRow({
         </p>
       ) : null}
 
-      {!showHeroHandoff && canAccept && eligible.length > 1 ? (
+      {!showHeroHandoff && showVehicleSelect ? (
         <div className="mt-[var(--fc-space-sm)] flex flex-wrap items-center gap-[var(--fc-space-sm)]">
           <select
             aria-label={`Vehicle for ${circleDisplayName(request.requestingCircleName)}`}
@@ -130,20 +199,43 @@ export function AgendaInboundRequestRow({
               </option>
             ))}
           </select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={loading || !vehicleId}
-            onClick={() => onAcceptRide?.(request.id, vehicleId)}
-          >
-            Accept
-          </Button>
+          {canAccept ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={loading || !vehicleId}
+              onClick={acceptWithVehicle}
+            >
+              Accept
+            </Button>
+          ) : null}
+          {canReconsider ? (
+            <button
+              type="button"
+              disabled={loading || !vehicleId}
+              onClick={acceptWithVehicle}
+              className={revertLinkClassName}
+            >
+              {REVERT_INBOUND_RECONSIDER}
+            </button>
+          ) : null}
+          {canUndo ? (
+            <button
+              type="button"
+              disabled={loading || !vehicleId}
+              onClick={acceptWithVehicle}
+              className={`${revertLinkClassName} inline-flex items-center gap-1`}
+            >
+              <Undo2 aria-hidden size={12} />
+              {REVERT_INBOUND_UNDO}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {!showHeroHandoff && (canAccept || canPass || acceptedByUs) ? (
-        <div className="mt-[var(--fc-space-sm)] flex flex-wrap gap-[var(--fc-space-sm)]">
-          {canAccept && eligible.length === 1 ? (
+      {!showHeroHandoff && showPrimaryActions ? (
+        <div className="mt-[var(--fc-space-sm)] flex flex-wrap items-center gap-[var(--fc-space-sm)]">
+          {showSingleVehicleAccept ? (
             <Button
               type="button"
               size="sm"
@@ -164,17 +256,37 @@ export function AgendaInboundRequestRow({
               Pass
             </Button>
           ) : null}
-          {acceptedByUs && onWithdrawRide != null ? (
-            <Button
+          {canCantTakeThem ? (
+            <button
               type="button"
-              size="sm"
-              variant="outline"
               data-testid="agenda-row-accepted-by-us-withdraw"
               disabled={loading}
               onClick={() => onWithdrawRide(request.id)}
+              className={revertLinkClassName}
             >
-              Withdraw
-            </Button>
+              {REVERT_INBOUND_CANT_TAKE_THEM}
+            </button>
+          ) : null}
+          {showSingleVehicleReconsider ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onAcceptRide?.(request.id, eligible[0]!.id)}
+              className={revertLinkClassName}
+            >
+              {REVERT_INBOUND_RECONSIDER}
+            </button>
+          ) : null}
+          {showSingleVehicleUndo ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onAcceptRide?.(request.id, eligible[0]!.id)}
+              className={`${revertLinkClassName} inline-flex items-center gap-1`}
+            >
+              <Undo2 aria-hidden size={12} />
+              {REVERT_INBOUND_UNDO}
+            </button>
           ) : null}
         </div>
       ) : null}
