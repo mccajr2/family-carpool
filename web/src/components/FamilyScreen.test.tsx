@@ -4045,7 +4045,7 @@ describe("FamilyScreen", () => {
     expect(within(item).queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
   })
 
-  it("resets RSVP to Yes for assigned kids marked not going", async () => {
+  it("assigns a gap kid after marking them going again from not going", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -4066,38 +4066,28 @@ describe("FamilyScreen", () => {
         { kidId: "k2", status: "NO" },
       ],
     })
-    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+    const goingAgainItem = {
       ...baseItem,
-      uncoveredKidIds: [],
-      coverages: [
-        {
-          id: "cov1",
-          coveringAdultId: "1",
-          coveringAdultDisplayName: "Alex",
-          assignedByAdultId: "1",
-          kidIds: ["k2"],
-          status: "CONFIRMED",
-        },
-      ],
-    })
-    const setCalendarRsvp = vi.fn().mockResolvedValue({
-      ...baseItem,
-      uncoveredKidIds: [],
-      coverages: [
-        {
-          id: "cov1",
-          coveringAdultId: "1",
-          coveringAdultDisplayName: "Alex",
-          assignedByAdultId: "1",
-          kidIds: ["k2"],
-          status: "CONFIRMED",
-        },
-      ],
       rsvps: [
         { kidId: "k1", status: "YES" },
         { kidId: "k2", status: "YES" },
       ],
+    }
+    const assignCalendarCoverage = vi.fn().mockResolvedValue({
+      ...goingAgainItem,
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+        },
+      ],
     })
+    const setCalendarRsvp = vi.fn().mockResolvedValue(goingAgainItem)
 
     render(
       <FamilyScreen
@@ -4135,17 +4125,26 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    await user.click(within(item).getByRole("button", { name: "Confirm I'll drive" }))
+    const rileyRow = within(item).getByTestId("agenda-kid-row-k2")
+    expect(within(rileyRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    await user.click(within(rileyRow).getByRole("button", { name: "Mark as going again" }))
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k2", {
+        status: "YES",
+      })
+    })
+    await waitFor(() => {
+      expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
+    })
+    await user.click(within(rileyRow).getByRole("button", { name: "Confirm I'll drive" }))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
         coveringAdultId: "1",
         kidIds: ["k2"],
       })
-      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k2", {
-        status: "YES",
-      })
     })
+    expect(setCalendarRsvp).toHaveBeenCalledTimes(1)
   })
 
   it("does not reset RSVP when assigned kids are already going", async () => {
@@ -5756,6 +5755,80 @@ describe("FamilyScreen", () => {
     expect(pageCall?.[1]).toBe(listCalendar.mock.calls[1]?.[1])
     expect(pageCall?.[2]).toBe(listCalendar.mock.calls[1]?.[2])
     expect(listCalendarLeaveBy.mock.calls[0]?.[2]).toBe(nearTermTo)
+  })
+
+  it("removes kid from hero queue when marked not going and never enqueues attendance", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const setCalendarRsvp = vi.fn().mockResolvedValue({
+      ...baseItem,
+      rsvps: [{ kidId: "k1", status: "NO" }],
+      uncoveredKidIds: [],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    expect(within(heroSlideIn(agenda)).getByText("Sam needs a ride")).toBeInTheDocument()
+
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.click(
+      within(item).getByRole("button", { name: "Mark Sam as not going" }),
+    )
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    })
+    expect(within(agenda).queryByText("Sam needs a ride")).not.toBeInTheDocument()
+    expect(within(agenda).queryByText(/mark.*attendance|RSVP reminder|not sure/i)).not.toBeInTheDocument()
   })
 
   it("sets RSVP Yes and patches the Agenda item", async () => {

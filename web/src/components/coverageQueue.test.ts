@@ -376,6 +376,28 @@ describe("mapCalendarItemToCoverageGames", () => {
     })
   })
 
+  it("maps NO_RESPONSE and missing RSVP rows to going attendance", () => {
+    const withNoResponse = mapCalendarItemToCoverageGames(
+      calendarItem({
+        kidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+        uncoveredKidIds: ["k1"],
+      }),
+      null,
+      mapOptions,
+    )
+    expect(withNoResponse[0]?.attendance).toBe("going")
+
+    const stale = calendarItem({
+      kidIds: ["k1"],
+      rsvps: [],
+      uncoveredKidIds: ["k1"],
+    })
+    delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
+    const withoutRow = mapCalendarItemToCoverageGames(stale, null, mapOptions)
+    expect(withoutRow[0]?.attendance).toBe("going")
+  })
+
   it("maps pending household confirm and requested own rides from API shapes", () => {
     const pendingConfirm = mapCalendarItemToCoverageGames(
       calendarItem({

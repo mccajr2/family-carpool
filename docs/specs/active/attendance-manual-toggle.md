@@ -109,7 +109,7 @@ Allowlist for `/implement`:
       **drive** wording on this control.
 - [x] Marking not going while the kid has active coverage shows the existing
       coverage-release confirm; cancel leaves RSVP unchanged.
-- [ ] A kid marked not going is out of `getQueue` for that game (no new
+- [x] A kid marked not going is out of `getQueue` for that game (no new
       attendance hero/queue item ever appears).
 - [x] When every kid on the item is not going, the row stays out-of-play
       (deemphasized; existing `isAgendaItemOutOfPlay` / Not going chip behavior
@@ -121,7 +121,7 @@ Allowlist for `/implement`:
 - [x] `docs/agenda-coverage-web-contract.md` People / RSVP sections describe the
       toggle (not three-way Yes/No/No response).
 - [ ] No OpenAPI, backend, or `RsvpStatus` type rename in this PR.
-- [ ] Component/unit tests cover toggle copy, API mapping (`going`↔`YES`,
+- [x] Component/unit tests cover toggle copy, API mapping (`going`↔`YES`,
       `not_going`↔`NO`), and "does not enqueue attendance" behavior.
 
 ## Tasks
@@ -138,7 +138,7 @@ Allowlist for `/implement`:
 - [x] Web: hide per-kid driver/coverage chrome when that kid is not going
       (reuse existing `attendance !== "not_going"` gates; ensure multi-kid
       items only hide the not-going kid's controls)
-- [ ] Tests: AgendaRow / FamilyScreen — toggle copy, `setCalendarRsvp` args,
+- [x] Tests: AgendaRow / FamilyScreen — toggle copy, `setCalendarRsvp` args,
       confirm cancel, out-of-play when all not going, queue exclusion
       regression via `coverageQueue` / existing helpers
 - [ ] Tests: ensure no regression on assign → RSVP `YES` reset

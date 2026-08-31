@@ -252,6 +252,24 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
   })
 
+  it("treats NO_RESPONSE RSVP as going in the attendance toggle", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "default-going",
+        title: "Practice",
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-default-going")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const toggle = within(row).getByTestId("rsvp-MANUAL-default-going-k1")
+    expect(toggle).toHaveAttribute("data-attendance", "going")
+    expect(toggle).toHaveTextContent("Mark Sam as not going")
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(within(row).queryByText("No response")).not.toBeInTheDocument()
+  })
+
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
     renderRow(
       item({
