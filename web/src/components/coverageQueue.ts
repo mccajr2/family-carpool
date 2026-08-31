@@ -190,6 +190,62 @@ export function autoDeclineUnofferable(
   })
 }
 
+/**
+ * Re-apply sticky session auto-decline ids after remap. OpenAPI rides stay
+ * PENDING; the client keeps showing them as auto-declined until Accept /
+ * Reconsider clears the id — even after ownRide leaves `"requested"`.
+ */
+function applySessionAutoDeclined(
+  games: readonly CoverageGameEvent[],
+  sessionAutoDeclinedIds: ReadonlySet<string>,
+): CoverageGameEvent[] {
+  if (sessionAutoDeclinedIds.size === 0) {
+    return [...games]
+  }
+  return games.map((game) => ({
+    ...game,
+    requests: game.requests.map((request) => {
+      if (!sessionAutoDeclinedIds.has(request.id) || request.status !== "pending") {
+        return request
+      }
+      return { ...request, status: "declined" as const, autoDeclined: true }
+    }),
+  }))
+}
+
+function collectAutoDeclinedRideIds(
+  games: readonly CoverageGameEvent[],
+): string[] {
+  const ids = new Set<string>()
+  for (const game of games) {
+    for (const request of game.requests) {
+      if (request.autoDeclined) {
+        ids.add(request.id)
+      }
+    }
+  }
+  return [...ids]
+}
+
+/**
+ * Central post-remap step: run `autoDeclineUnofferable`, then sticky session
+ * ids. `newlyDeclinedRideIds` are ids marked by the transform while
+ * `ownRide === "requested"` — callers add them to the session set.
+ */
+export function applyAutoDeclinedViewModel(
+  games: readonly CoverageGameEvent[],
+  sessionAutoDeclinedIds: ReadonlySet<string> = new Set(),
+): { games: CoverageGameEvent[]; newlyDeclinedRideIds: string[] } {
+  const transformed = autoDeclineUnofferable(games)
+  const newlyDeclinedRideIds = collectAutoDeclinedRideIds(transformed).filter(
+    (id) => !sessionAutoDeclinedIds.has(id),
+  )
+  return {
+    games: applySessionAutoDeclined(transformed, sessionAutoDeclinedIds),
+    newlyDeclinedRideIds,
+  }
+}
+
 export type MapCoverageGamesOptions = {
   currentAdultId: string
   members: FamilyMember[]

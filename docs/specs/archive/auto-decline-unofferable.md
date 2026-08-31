@@ -1,6 +1,6 @@
 # Spec: auto-decline-unofferable
 
-Status: draft  
+Status: done  
 Created: 2026-08-28  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
@@ -106,44 +106,44 @@ kids).
 
 ## Acceptance criteria
 
-- [ ] After **Ask the team** succeeds, every previously pending inbound ask on
+- [x] After **Ask the team** succeeds, every previously pending inbound ask on
       that event shows chip **Declined — you needed a ride too**; Accept/Pass
       are hidden; the ask is excluded from `getQueue` / hero actionable pending
       (via `autoDeclined`).
-- [ ] Auto-decline of inbound asks fires **only** when view-model
+- [x] Auto-decline of inbound asks fires **only** when view-model
       `ownRide === "requested"` — not for `"unassigned"` or
       `{ driver, confirmed: false }`.
-- [ ] Auto-declined ride ids survive leaving `"requested"` (e.g. cancel ask or
+- [x] Auto-declined ride ids survive leaving `"requested"` (e.g. cancel ask or
       later assign) until Accept/Reconsider clears them; with a confirmed
       household driver (`canOffer`), **Reconsider** appears and calling it
       accepts via existing `acceptRide`.
-- [ ] **Assign** household coverage while a PENDING `ownRequest` covers any of
+- [x] **Assign** household coverage while a PENDING `ownRequest` covers any of
       the assigned kids cancels that team ask (existing `cancelRide`) with **no
       confirmation dialog**; after reload, own ride is no longer `"requested"`.
-- [ ] Reload while own ride is still `"requested"` re-applies auto-decline to
+- [x] Reload while own ride is still `"requested"` re-applies auto-decline to
       current pending inbound asks (invariant does not depend on a single
       click-handler remembering to run).
-- [ ] No new OpenAPI fields; no warning copy before **Ask the team**.
-- [ ] Tests cover: ask-team → inbound chip + queue exclusion; assign-with-open-ask
+- [x] No new OpenAPI fields; no warning copy before **Ask the team**.
+- [x] Tests cover: ask-team → inbound chip + queue exclusion; assign-with-open-ask
       → `cancelRide` called; unassigned / pending-confirm do not auto-decline;
       Reconsider path still works when `autoDeclined` + `canOffer`.
 
 ## Tasks
 
-- [ ] Web: session `autoDeclinedRideIds` (or equivalent) in `FamilyScreen`;
+- [x] Web: session `autoDeclinedRideIds` (or equivalent) in `FamilyScreen`;
       merge into coverage view-model / inbound row props after remap +
       `autoDeclineUnofferable`
-- [ ] Web: wire `autoDeclined` through `AgendaRow` → `AgendaInboundRequestRow`;
+- [x] Web: wire `autoDeclined` through `AgendaRow` → `AgendaInboundRequestRow`;
       clear id on Accept/Reconsider success
-- [ ] Web: in `onAssignCoverage` success path, cancel PENDING `ownRequest`
+- [x] Web: in `onAssignCoverage` success path, cancel PENDING `ownRequest`
       when kid sets intersect; reload rides (and calendar as today)
-- [ ] Web: ensure Ask-the-team / remap paths cannot leave pending inbound
+- [x] Web: ensure Ask-the-team / remap paths cannot leave pending inbound
       actionable while `ownRide === "requested"` (central post-update step,
       not only the createRide handler)
-- [ ] Tests: `FamilyScreen` / `AgendaRow` (or focused unit tests) for ask-team
+- [x] Tests: `FamilyScreen` / `AgendaRow` (or focused unit tests) for ask-team
       auto-decline UI + assign→cancel-own-ask; extend `coverageQueue` only if
       merge helpers are new
-- [ ] Docs: point ADR-0002 / roadmap Coverage links at this active spec while
+- [x] Docs: point ADR-0002 / roadmap Coverage links at this active spec while
       in flight (this PR)
 
 ## Open questions

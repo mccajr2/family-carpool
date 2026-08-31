@@ -11,6 +11,7 @@ import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
 import {
+  applyAutoDeclinedViewModel,
   isConfirmedDriver,
   isUnassigned,
   mapCalendarItemToCoverageGames,
@@ -70,23 +71,27 @@ function isHouseholdConfirmedDriver(
 
 /**
  * Unassigned gaps get DriverPicker (including not-going gap kids so assign can
- * reset RSVP). Pending confirm-for-self keeps Confirm/Decline.
+ * reset RSVP). Open team ask ("requested") also gets DriverPicker — Assign
+ * cancels the ask (auto-decline-unofferable). Pending confirm-for-self keeps
+ * Confirm/Decline.
  */
 function showDriverPickerForKid(game: CoverageGameEvent): boolean {
-  return isUnassigned(game.ownRide)
+  return isUnassigned(game.ownRide) || game.ownRide === "requested"
 }
 
 function showRevertLinkForKid(
   game: CoverageGameEvent,
   pendingSelfForKid: boolean,
 ): boolean {
-  // Mutually exclusive with DriverPicker / Confirm-for-self. RevertRideLink
-  // returns null when ownRide is still unresolved (unassigned / pending).
-  return (
-    game.attendance !== "not_going" &&
-    !showDriverPickerForKid(game) &&
-    !pendingSelfForKid
-  )
+  if (game.attendance === "not_going" || pendingSelfForKid) {
+    return false
+  }
+  // Confirmed drivers: revert only (no picker).
+  if (isConfirmedDriver(game.ownRide)) {
+    return true
+  }
+  // Asked the team: Cancel-ask link alongside Assign (Assign also cancels).
+  return game.ownRide === "requested"
 }
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
@@ -103,6 +108,8 @@ type AgendaRowProps = {
   garage?: Garage | null
   heroQueuedRequestIds?: ReadonlySet<string>
   recentlyWithdrawnRideIds?: ReadonlySet<string>
+  /** Session-local auto-decline ids — inbound chip + Reconsider until Accept. */
+  autoDeclinedRideIds?: ReadonlySet<string>
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
@@ -149,6 +156,7 @@ export function AgendaRow({
   garage = null,
   heroQueuedRequestIds,
   recentlyWithdrawnRideIds,
+  autoDeclinedRideIds,
   onCreateRide,
   onCancelRide,
   onWithdrawRide,
@@ -175,15 +183,25 @@ export function AgendaRow({
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const ownRequest = rideEvent?.ownRequest ?? null
-  const coverageGames = mapCalendarItemToCoverageGames(item, rideEvent, {
-    currentAdultId,
-    members: circle.members,
-  })
+  const { games: coverageGames } = applyAutoDeclinedViewModel(
+    mapCalendarItemToCoverageGames(item, rideEvent, {
+      currentAdultId,
+      members: circle.members,
+    }),
+    autoDeclinedRideIds ?? new Set(),
+  )
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   // Gap copy only for true unassigned kids — team ask / teammate ride use chips + revert.
   const unassignedGapKidIds = gapKidIds.filter((kidId) => {
     const game = coverageGames.find((row) => row.kidId === kidId)
     return game == null || isUnassigned(game.ownRide)
+  })
+  // Assign is available for unassigned gaps and open team asks (Assign cancels the ask).
+  const assignableGapKidIds = gapKidIds.filter((kidId) => {
+    const game = coverageGames.find((row) => row.kidId === kidId)
+    return (
+      game == null || isUnassigned(game.ownRide) || game.ownRide === "requested"
+    )
   })
   const uncoveredKidNames = eventKidNames(unassignedGapKidIds, circle.kids)
   const canAskTeam =
@@ -194,7 +212,7 @@ export function AgendaRow({
   const showAssign =
     !outOfPlay &&
     !pendingForSelf &&
-    unassignedGapKidIds.length > 0 &&
+    assignableGapKidIds.length > 0 &&
     circle.members.length > 0
   const showRequestInCarpool = canAskTeam && !showAssign
   const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
@@ -632,6 +650,11 @@ export function AgendaRow({
                   inHeroQueue={heroQueuedRequestIds?.has(request.id) ?? false}
                   canOffer={canOffer}
                   recentlyWithdrawn={recentlyWithdrawnRideIds?.has(request.id) ?? false}
+                  autoDeclined={coverageGames.some((game) =>
+                    game.requests.some(
+                      (row) => row.id === request.id && row.autoDeclined === true,
+                    ),
+                  )}
                   onAcceptRide={onAcceptRide}
                   onPassRide={onPassRide}
                   onWithdrawRide={onWithdrawRide}

@@ -35,7 +35,7 @@ pass that separates presentation from enforceable invariants.
   Expo push beta relies on a second client (`rn-expo-scaffold` /
   `push-notifications`).
 - Inventory starting points: `autoDeclined` /
-  [`auto-decline-unofferable`](../active/auto-decline-unofferable.md);
+  [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md);
   `recentlyWithdrawnRideIds` / [`ride-revert-undo`](../archive/ride-revert-undo.md);
   Pass soft-decline (`passedByMe` — already server-backed); ADR-0002
   remove-coverage auto-withdraw (already server); Assign→cancel open ask

@@ -717,7 +717,7 @@ describe("AgendaRow", () => {
     ).toBeInTheDocument()
   })
 
-  it("shows RevertRideLink cancel ask instead of Assign while own ride is PENDING", async () => {
+  it("shows Assign and Cancel ask while own ride is PENDING", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-pending",
@@ -776,7 +776,9 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    // Assign cancels the open ask (auto-decline-unofferable); Cancel ask still available.
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage: Sam")).not.toBeInTheDocument()
     expect(
       within(row).getByRole("button", {
@@ -1038,6 +1040,333 @@ describe("AgendaRow", () => {
     expect(onAcceptRide).toHaveBeenCalledWith("pending-other", "v1")
     await user.click(within(inbound).getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("pending-other")
+  })
+
+  it("auto-declines pending inbound when own ride is requested", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-auto-decline",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-auto",
+      uncoveredKidIds: [],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:practice-auto",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: {
+            id: "own-ask",
+            spaceId: "s1",
+            eventKey: "UID:practice-auto",
+            requestingCircleId: "c1",
+            requestingCircleName: "Test",
+            requestedByAdultId: "a1",
+            kidIds: ["k1"],
+            kidFirstNames: ["Sam"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            status: "PENDING",
+            passedByMe: false,
+            passedByAdultNames: [],
+            acceptedByAdultId: null,
+            acceptingCircleId: null,
+            acceptingCircleName: null,
+            vehicleId: null,
+            vehicleLabel: null,
+          },
+          otherRequests: [
+            {
+              id: "inbound-ask",
+              spaceId: "s1",
+              eventKey: "UID:practice-auto",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-auto-decline")
+    expect(within(row).queryByText("1 carpool ask")).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).getByText("Declined — you needed a ride too")).toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("does not auto-decline inbound when own ride is unassigned", async () => {
+    const user = userEvent.setup()
+    const garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [
+        {
+          id: "v1",
+          ownerAdultId: "a1",
+          driverAdultIds: ["a1"],
+          keptAtPlaceId: null,
+          label: "Van",
+          year: 2019,
+          make: "HONDA",
+          model: "Odyssey",
+          seats: 8,
+          suggestedSeats: 8,
+        },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-no-auto-unassigned",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:no-auto-u",
+      uncoveredKidIds: ["k1"],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        garage={garage}
+        rideEvent={{
+          eventKey: "UID:no-auto-u",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "still-pending",
+              spaceId: "s1",
+              eventKey: "UID:no-auto-u",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+        onCreateRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-no-auto-unassigned")
+    expect(within(row).getByText("1 carpool ask")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).queryByText("Declined — you needed a ride too")).not.toBeInTheDocument()
+    expect(within(inbound).getByRole("button", { name: "Accept" })).toBeInTheDocument()
+  })
+
+  it("does not auto-decline inbound when own ride is pending household confirm", async () => {
+    const user = userEvent.setup()
+    const garage = {
+      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
+      vehicles: [
+        {
+          id: "v1",
+          ownerAdultId: "a1",
+          driverAdultIds: ["a1"],
+          keptAtPlaceId: null,
+          label: "Van",
+          year: 2019,
+          make: "HONDA",
+          model: "Odyssey",
+          seats: 8,
+          suggestedSeats: 8,
+        },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-no-auto-confirm",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:no-auto-c",
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov-pending",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a2",
+          kidIds: ["k1"],
+          status: "PENDING",
+        },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        garage={garage}
+        rideEvent={{
+          eventKey: "UID:no-auto-c",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "still-pending",
+              spaceId: "s1",
+              eventKey: "UID:no-auto-c",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-no-auto-confirm")
+    expect(within(row).getByText("1 carpool ask")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).queryByText("Declined — you needed a ride too")).not.toBeInTheDocument()
+    expect(within(inbound).getByRole("button", { name: "Accept" })).toBeInTheDocument()
+  })
+
+  it("keeps auto-declined inbound sticky via session ids after own ask ends", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-sticky-decline",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-sticky",
+      uncoveredKidIds: ["k1"],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        autoDeclinedRideIds={new Set(["sticky-ask"])}
+        rideEvent={{
+          eventKey: "UID:practice-sticky",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [
+            {
+              id: "sticky-ask",
+              spaceId: "s1",
+              eventKey: "UID:practice-sticky",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              vehicleId: null,
+              vehicleLabel: null,
+            },
+          ],
+        }}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+        onCreateRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-sticky-decline")
+    expect(within(row).queryByText("1 carpool ask")).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(within(inbound).getByText("Declined — you needed a ride too")).toBeInTheDocument()
+    expect(within(inbound).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
   })
 
   it("hides Accept and Pass when the ask is active in the hero queue", async () => {

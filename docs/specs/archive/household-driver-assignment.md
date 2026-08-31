@@ -26,7 +26,7 @@ confirm, confirmed driver, or team-requested).
 - **Agenda row** expanded assign UX ([`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md))
 - **Unified status chip** copy/tones ([`unified-ride-status-chip`](../planned/unified-ride-status-chip.md)) — pending household confirm may still use existing "Covering … · Pending" until rank 2
 - **Full inbox** for the asked household member — assignee **Confirm/Decline** on Focus (existing) is enough; no new notification surface
-- **`autoDeclineUnofferable` wiring** ([`auto-decline-unofferable`](../planned/auto-decline-unofferable.md)) — team ask creates `"requested"` state; auto-decline stays a later rank
+- **`autoDeclineUnofferable` wiring** ([`auto-decline-unofferable`](../archive/auto-decline-unofferable.md)) — team ask creates `"requested"` state; auto-decline stays a later rank
 - **Ride revert / undo** links ([`ride-revert-undo`](../planned/ride-revert-undo.md))
 - **Attendance toggle UI** ([`attendance-manual-toggle`](../planned/attendance-manual-toggle.md)) — only the ADR-0003 side effect on assign (RSVP → YES) lands here
 - **OpenAPI / backend** changes — existing coverage assign/confirm/decline + carpool create + RSVP endpoints are sufficient
