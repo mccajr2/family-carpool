@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Governs:** [`ride-revert-undo`](../specs/planned/ride-revert-undo.md), [`auto-decline-unofferable`](../specs/planned/auto-decline-unofferable.md)
+**Governs:** [`ride-revert-undo`](../specs/active/ride-revert-undo.md), [`auto-decline-unofferable`](../specs/planned/auto-decline-unofferable.md)
 
 ## Context
 
