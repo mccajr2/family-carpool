@@ -154,16 +154,120 @@ describe("AgendaRow", () => {
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByTestId("rsvp-MANUAL-skip-k1")).toHaveValue("NO")
+    const attendance = within(row).getByTestId("rsvp-MANUAL-skip-k1")
+    expect(attendance).toHaveAttribute("data-attendance", "not_going")
+    expect(attendance).toHaveTextContent("Sam is marked not going.")
+    expect(
+      within(row).getByRole("button", { name: "Mark as going again" }),
+    ).toBeInTheDocument()
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
-    expect(within(row).queryByTestId("agenda-band-kids")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-band-kids")).toBeInTheDocument()
     expect(within(row).queryByText("Leave from")).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(
       within(row).queryByRole("button", { name: /can't drive anymore/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows Mark as not going under the kid band and writes NO via onSetRsvp", async () => {
+    const user = userEvent.setup()
+    const onSetRsvp = vi.fn()
+    render(
+      <AgendaRow
+        item={item({ id: "going", title: "Game" })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+        onSetRsvp={onSetRsvp}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-going")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const toggle = within(row).getByTestId("rsvp-MANUAL-going-k1")
+    expect(toggle).toHaveAttribute("data-attendance", "going")
+    expect(toggle).toHaveTextContent("Mark Sam as not going")
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(within(row).queryByText("No response")).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
+  })
+
+  it("hides per-kid driver/coverage chrome for not-going kids on mixed multi-kid items", async () => {
+    const user = userEvent.setup()
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "mixed",
+          title: "Game",
+          kidIds: ["k1", "k2"],
+          uncoveredKidIds: ["k2"],
+          rsvps: [
+            { kidId: "k1", status: "NO" },
+            { kidId: "k2", status: "YES" },
+          ],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k2"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-mixed")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+
+    const samRow = within(row).getByTestId("agenda-kid-row-k1")
+    expect(within(samRow).getByTestId("rsvp-MANUAL-mixed-k1")).toHaveAttribute(
+      "data-attendance",
+      "not_going",
+    )
+    expect(within(samRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(samRow).queryByRole("button", { name: "Confirm coverage" })).not.toBeInTheDocument()
+    expect(
+      within(samRow).queryByRole("button", { name: /can't drive anymore/i }),
+    ).not.toBeInTheDocument()
+    expect(within(samRow).queryByText("Sam")).not.toBeInTheDocument()
+
+    const rileyRow = within(row).getByTestId("agenda-kid-row-k2")
+    expect(within(rileyRow).getByText("Riley")).toBeInTheDocument()
+    expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(rileyRow).getByTestId("rsvp-MANUAL-mixed-k2")).toHaveAttribute(
+      "data-attendance",
+      "going",
+    )
+    expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
+    expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
+  })
+
+  it("treats NO_RESPONSE RSVP as going in the attendance toggle", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "default-going",
+        title: "Practice",
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-default-going")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const toggle = within(row).getByTestId("rsvp-MANUAL-default-going-k1")
+    expect(toggle).toHaveAttribute("data-attendance", "going")
+    expect(toggle).toHaveTextContent("Mark Sam as not going")
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(within(row).queryByText("No response")).not.toBeInTheDocument()
   })
 
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {

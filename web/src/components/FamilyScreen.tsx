@@ -1803,13 +1803,14 @@ export function FamilyScreen({
     kidId: string,
     statusValue: RsvpStatus,
   ) {
+    // Attendance toggle writes YES (going) or NO (not going) only — never NO_RESPONSE.
+    if (statusValue !== "YES" && statusValue !== "NO") {
+      return
+    }
     if (rsvpStatusForKid(item, kidId) === statusValue) {
       return
     }
-    if (
-      (statusValue === "NO" || statusValue === "NO_RESPONSE") &&
-      kidHasActiveCoverage(item, kidId)
-    ) {
+    if (statusValue === "NO" && kidHasActiveCoverage(item, kidId)) {
       const kidName =
         circle?.kids.find((kid) => kid.id === kidId)?.displayName?.trim() || "this kid"
       if (!window.confirm(rsvpCoverageReleaseMessage(kidName))) {

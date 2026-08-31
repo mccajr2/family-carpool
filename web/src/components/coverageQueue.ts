@@ -251,7 +251,8 @@ export type MapCoverageGamesOptions = {
   members: FamilyMember[]
 }
 
-function mapRsvpToAttendance(status: RsvpStatus): Attendance {
+/** Single read mapper: YES / NO_RESPONSE / missing → going; NO → not_going. */
+export function mapRsvpToAttendance(status: RsvpStatus): Attendance {
   return status === "NO" ? "not_going" : "going"
 }
 

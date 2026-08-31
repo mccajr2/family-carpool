@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`attendance-manual-toggle`](../specs/planned/attendance-manual-toggle.md)
+**Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`attendance-manual-toggle`](../specs/active/attendance-manual-toggle.md)
 
 ## Context
 
@@ -23,7 +23,7 @@ An earlier iteration modeled attendance as a three-way RSVP: "going," "not sure,
 
 ## Supersedes
 
-- Three-way **Yes / No / No response** RSVP UX on Agenda for this feature area (locked decision updated 2026-08-28). API migration deferred to [`attendance-manual-toggle`](../specs/planned/attendance-manual-toggle.md); rank 1 may map existing RSVP values client-side (`YES`/`NO_RESPONSE` → going, `NO` → not_going).
+- Three-way **Yes / No / No response** RSVP UX on Agenda for this feature area (locked decision updated 2026-08-28). [`attendance-manual-toggle`](../specs/active/attendance-manual-toggle.md) ships the two-state UI with client-side mapping (`YES`/`NO_RESPONSE` → going, `NO` → not_going); OpenAPI enum rename remains deferred.
 
 ## Alternatives considered
 
