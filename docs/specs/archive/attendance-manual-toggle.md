@@ -1,8 +1,8 @@
 # Spec: attendance-manual-toggle
 
-Status: approved  
+Status: done  
 Created: 2026-08-28  
-Approved: 2026-08-31  
+Completed: 2026-08-31  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
 Branch: `attendance-manual-toggle`  
@@ -114,13 +114,13 @@ Allowlist for `/implement`:
 - [x] When every kid on the item is not going, the row stays out-of-play
       (deemphasized; existing `isAgendaItemOutOfPlay` / Not going chip behavior
       unchanged).
-- [ ] Assigning a real household driver still resets that kid to going (RSVP
+- [x] Assigning a real household driver still resets that kid to going (RSVP
       `YES`) — regression covered by existing assign tests; do not break.
 - [x] Calendar cache patches on attendance writes like other single-item
       mutations.
 - [x] `docs/agenda-coverage-web-contract.md` People / RSVP sections describe the
       toggle (not three-way Yes/No/No response).
-- [ ] No OpenAPI, backend, or `RsvpStatus` type rename in this PR.
+- [x] No OpenAPI, backend, or `RsvpStatus` type rename in this PR.
 - [x] Component/unit tests cover toggle copy, API mapping (`going`↔`YES`,
       `not_going`↔`NO`), and "does not enqueue attendance" behavior.
 
@@ -141,7 +141,7 @@ Allowlist for `/implement`:
 - [x] Tests: AgendaRow / FamilyScreen — toggle copy, `setCalendarRsvp` args,
       confirm cancel, out-of-play when all not going, queue exclusion
       regression via `coverageQueue` / existing helpers
-- [ ] Tests: ensure no regression on assign → RSVP `YES` reset
+- [x] Tests: ensure no regression on assign → RSVP `YES` reset
 
 ## Open questions
 
