@@ -5,10 +5,10 @@ import {
   markAsNotGoingLabel,
   markedNotGoingMessage,
   rsvpWriteForAttendanceAction,
-} from "@/components/attendanceToggle"
+} from "@/components/AttendanceToggle"
 import { mapRsvpToAttendance } from "@/components/coverageQueue"
 
-describe("attendanceToggle", () => {
+describe("attendance toggle helpers", () => {
   it("maps going / not_going UI actions to YES / NO writes", () => {
     expect(rsvpWriteForAttendanceAction("not_going")).toBe("NO")
     expect(rsvpWriteForAttendanceAction("going")).toBe("YES")

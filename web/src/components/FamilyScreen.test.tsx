@@ -5814,8 +5814,9 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    const rsvp = within(item).getByTestId("rsvp-MANUAL-e1-k1")
-    await user.selectOptions(rsvp, "YES")
+    await user.click(
+      within(item).getByRole("button", { name: "Mark as going again" }),
+    )
 
     await waitFor(() => {
       expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k1", {
@@ -5882,7 +5883,10 @@ describe("FamilyScreen", () => {
     await expandAgendaItem(user, item)
     expect(within(item).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
-    expect(within(item).getByTestId("rsvp-MANUAL-e1-k1")).toHaveValue("NO")
+    expect(within(item).getByTestId("rsvp-MANUAL-e1-k1")).toHaveAttribute(
+      "data-attendance",
+      "not_going",
+    )
     expect(within(item).getByRole("button", { name: "Edit" })).toBeInTheDocument()
   })
 
@@ -5954,7 +5958,9 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const covered = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, covered)
-    await user.selectOptions(within(covered).getByTestId("rsvp-MANUAL-e1-k1"), "NO")
+    await user.click(
+      within(covered).getByRole("button", { name: "Mark Sam as not going" }),
+    )
 
     expect(confirmSpy).toHaveBeenCalledWith("This will remove coverage for Sam.")
     await waitFor(() => {
@@ -6029,11 +6035,16 @@ describe("FamilyScreen", () => {
     const agenda = await screen.findByLabelText("Agenda")
     const covered = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, covered)
-    await user.selectOptions(within(covered).getByTestId("rsvp-MANUAL-e1-k1"), "NO")
+    await user.click(
+      within(covered).getByRole("button", { name: "Mark Sam as not going" }),
+    )
 
     expect(confirmSpy).toHaveBeenCalled()
     expect(setCalendarRsvp).not.toHaveBeenCalled()
-    expect(within(covered).getByTestId("rsvp-MANUAL-e1-k1")).toHaveValue("YES")
+    expect(within(covered).getByTestId("rsvp-MANUAL-e1-k1")).toHaveAttribute(
+      "data-attendance",
+      "going",
+    )
     confirmSpy.mockRestore()
   })
 

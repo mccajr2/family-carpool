@@ -154,16 +154,47 @@ describe("AgendaRow", () => {
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByTestId("rsvp-MANUAL-skip-k1")).toHaveValue("NO")
+    const attendance = within(row).getByTestId("rsvp-MANUAL-skip-k1")
+    expect(attendance).toHaveAttribute("data-attendance", "not_going")
+    expect(attendance).toHaveTextContent("Sam is marked not going.")
+    expect(
+      within(row).getByRole("button", { name: "Mark as going again" }),
+    ).toBeInTheDocument()
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
-    expect(within(row).queryByTestId("agenda-band-kids")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-band-kids")).toBeInTheDocument()
     expect(within(row).queryByText("Leave from")).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(
       within(row).queryByRole("button", { name: /can't drive anymore/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows Mark as not going under the kid band and writes NO via onSetRsvp", async () => {
+    const user = userEvent.setup()
+    const onSetRsvp = vi.fn()
+    render(
+      <AgendaRow
+        item={item({ id: "going", title: "Game" })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+        onSetRsvp={onSetRsvp}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-going")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const toggle = within(row).getByTestId("rsvp-MANUAL-going-k1")
+    expect(toggle).toHaveAttribute("data-attendance", "going")
+    expect(toggle).toHaveTextContent("Mark Sam as not going")
+    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(within(row).queryByText("No response")).not.toBeInTheDocument()
+    await user.click(toggle)
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
   })
 
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {

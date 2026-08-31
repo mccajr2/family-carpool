@@ -96,16 +96,16 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] Expanded Agenda People band has **no** Yes / No / No response `<select>`
+- [x] Expanded Agenda People band has **no** Yes / No / No response `<select>`
       (or equivalent three-way control).
-- [ ] Per kid on the item: when mapped attendance is **going**, show link
+- [x] Per kid on the item: when mapped attendance is **going**, show link
       **Mark {displayName} as not going**; when **not going**, show
       **{displayName} is marked not going.** with link **Mark as going again**.
-- [ ] "Mark as not going" calls `setCalendarRsvp(..., NO)`; "Mark as going
+- [x] "Mark as not going" calls `setCalendarRsvp(..., NO)`; "Mark as going
       again" calls `setCalendarRsvp(..., YES)`.
-- [ ] `NO_RESPONSE` / missing RSVP row still reads as **going** in UI and
+- [x] `NO_RESPONSE` / missing RSVP row still reads as **going** in UI and
       queue mapping; UI never offers setting `NO_RESPONSE`.
-- [ ] Copy uses **going** / **not going** only — no "make it", no ride-side
+- [x] Copy uses **going** / **not going** only — no "make it", no ride-side
       **drive** wording on this control.
 - [ ] Marking not going while the kid has active coverage shows the existing
       coverage-release confirm; cancel leaves RSVP unchanged.
@@ -131,7 +131,7 @@ Allowlist for `/implement`:
 - [x] Web: add small attendance helpers/copy (e.g. extend `rsvpDisplay.ts` or
       colocated `attendanceToggle.ts`) — labels, `going`/`not_going` ↔ RSVP
       write targets; keep `mapRsvpToAttendance` as single read mapper
-- [ ] Web: replace AgendaRow People-band `<select>` with per-kid
+- [x] Web: replace AgendaRow People-band `<select>` with per-kid
       AttendanceToggle links (mock placement relative to coverage/revert)
 - [ ] Web: wire FamilyScreen handler — confirm-on-coverage-release for not
       going; write `NO` / `YES`; patch cache; busy/disabled while loading
