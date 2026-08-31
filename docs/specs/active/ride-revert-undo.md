@@ -177,7 +177,7 @@ Ride-revert paths in this spec do **not** change attendance. Revert links stay
 
 ## Tasks
 
-- [ ] Backend: extend `removeCoverage` to withdraw ACCEPTED inbound rides on the same event/space when caller's circle is acceptor; unit + integration tests
+- [x] Backend: extend `removeCoverage` to withdraw ACCEPTED inbound rides on the same event/space when caller's circle is acceptor; unit + integration tests
 - [ ] Contract: amend `removeCalendarCoverage` description (+ bump `info.version` if behavior text is contract-significant)
 - [ ] Web: `RevertRideLink` component + copy helper + colocated tests
 - [ ] Web: `AgendaInboundRequestRow` — Can't take them anymore / Reconsider / Undo links; tests

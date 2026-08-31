@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,6 +17,7 @@ import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
+import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -43,6 +45,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -71,6 +74,9 @@ class CalendarServiceTest {
 
     @Mock
     private AdultSessionApi adultSessionApi;
+
+    @Mock
+    private CarpoolApi carpoolApi;
 
     @InjectMocks
     private CalendarService calendarService;
@@ -498,6 +504,120 @@ class CalendarServiceTest {
                 .singleElement()
                 .satisfies(rsvp -> assertThat(rsvp.status()).isEqualTo(RsvpStatus.NO));
         assertThat(response.uncoveredKidIds()).isEmpty();
+    }
+
+    @Test
+    void removeConfirmedFeedCoverageWithdrawsAcceptedInboundThenRemoves() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.FEED,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        feedId,
+                                        "U12",
+                                        "practice-uid@example.com",
+                                        "Practice",
+                                        startsAt,
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidId))));
+
+        CalendarItemResponse response = calendarService.removeCoverage(adult, assignmentId);
+
+        InOrder order = inOrder(carpoolApi, coverageApi);
+        order.verify(carpoolApi).withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
+        order.verify(coverageApi).remove(adult.id(), assignmentId);
+        assertThat(response.coverages()).isEmpty();
+        assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+    }
+
+    @Test
+    void removePendingFeedCoverageDoesNotWithdrawInbound() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.FEED,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.PENDING,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        feedId,
+                                        "U12",
+                                        "practice-uid@example.com",
+                                        "Practice",
+                                        startsAt,
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidId))));
+
+        calendarService.removeCoverage(adult, assignmentId);
+
+        verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
+        verify(coverageApi).remove(adult.id(), assignmentId);
+    }
+
+    @Test
+    void removeConfirmedManualCoverageDoesNotWithdrawInbound() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "Practice", startsAt, null, "Rink", List.of(kidId))));
+
+        calendarService.removeCoverage(adult, assignmentId);
+
+        verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
+        verify(coverageApi).remove(adult.id(), assignmentId);
     }
 
     @Test
