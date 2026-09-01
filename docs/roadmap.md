@@ -100,7 +100,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-pickup-detour           | planned | 2026-08-28 · initial       | Pickup town + color-coded detour minutes before Accept/Decline on carpool asks                                                |
+| 1    | carpool-pickup-detour           | active  | 2026-08-28 · initial       | Pickup town + color-coded detour minutes before Accept/Decline on carpool asks                                                |
 | 2    | coverage-copy-a11y-polish       | planned | 2026-08-28 · initial       | Copy constants, layout separation, a11y/responsive polish pass across ranks 2–9                                               |
 | 3    | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who's riding (reuse covering-avatar pattern); names only — no photos                 |
 | 4    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
@@ -185,7 +185,7 @@ Superseded by Expo migration (KMP ports / KMP-only fixes). Do not promote.
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None._
+| carpool-pickup-detour | `carpool-pickup-detour` | [active](specs/active/carpool-pickup-detour.md) |
 
 ## Done
 
