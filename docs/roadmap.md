@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-01 (`/roadmap` add `ride-commitment-conflict`)
+Updated: 2026-09-01 (`/spec coverage-copy-a11y-polish`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -100,7 +100,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | coverage-copy-a11y-polish       | planned | 2026-08-28 · initial       | Copy constants, layout separation, a11y/responsive polish pass across ranks 2–10                                              |
+| 1    | coverage-copy-a11y-polish       | active  | 2026-08-28 · initial       | Copy constants, layout separation, a11y/responsive polish pass on shipped hero & coverage Agenda surfaces                   |
 | 2    | agenda-ride-rider-chips         | planned | 2026-08-26 · enhancement   | Initials circles + first-name labels for who's riding (reuse covering-avatar pattern); names only — no photos                 |
 | 3    | ride-commitment-conflict        | planned | 2026-09-01 · initial       | Surface contradictory ride commitments (need ride + accepted inbound, mutual swap); Phase 1 web chips/Focus; Phase 2 → audit   |
 | 4    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
@@ -185,7 +185,9 @@ Superseded by Expo migration (KMP ports / KMP-only fixes). Do not promote.
 
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
-_None._
+| Id | Branch | Spec |
+| -- | ------ | ---- |
+| coverage-copy-a11y-polish | `coverage-copy-a11y-polish` | [active](specs/active/coverage-copy-a11y-polish.md) |
 
 ## Done
 
@@ -401,4 +403,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-08-31 | Consolidated PR #84 + #85: merged `auto-decline-unofferable` and `attendance-manual-toggle` on branch `auto-decline-unofferable`. Next up `carpool-pickup-detour`. |
 | 2026-09-01 | `/pr carpool-pickup-detour`: server `pickupTown` + viewer-specific `detourMinutes` on inbound asks; `PickupLine` on hero, Agenda inbound, and Carpool tab. Spec archived. Next up `coverage-copy-a11y-polish`. |
 | 2026-09-01 | `/roadmap`: add [`ride-commitment-conflict`](specs/planned/ride-commitment-conflict.md) at rank 3 (Agenda ride UX cluster; Phase 2 feeds `client-server-invariant-audit`). Next up unchanged: `coverage-copy-a11y-polish`. |
+| 2026-09-01 | `/spec coverage-copy-a11y-polish`: promote stub — shared `coverageCopy`, DriverPicker separation, hero a11y/responsive polish on Calendar Agenda. Spec active on branch `coverage-copy-a11y-polish`. Next up `/implement coverage-copy-a11y-polish`. |
+| 2026-09-01 | Spec `coverage-copy-a11y-polish` approved (light+dark contrast gate, hero CTA theme-token fix). Next up `/implement coverage-copy-a11y-polish`. |
 
