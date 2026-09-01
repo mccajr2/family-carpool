@@ -507,6 +507,105 @@ class CalendarServiceTest {
     }
 
     @Test
+    void setRsvpNoOnFeedWithdrawsInboundWhenLastConfirmedCoverageReleased() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        feedId,
+                                        "U12",
+                                        "practice-uid@example.com",
+                                        "Practice",
+                                        startsAt,
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.FEED), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.FEED, itemId, kidId, RsvpStatus.NO)));
+
+        calendarService.setRsvp(adult, CalendarItemSource.FEED, itemId, kidId, RsvpStatus.NO);
+
+        InOrder order = inOrder(coverageApi, carpoolApi, rsvpApi);
+        order.verify(coverageApi)
+                .releaseKidFromActiveRows(
+                        circleId, CoverageItemSource.FEED, itemId, kidId);
+        order.verify(carpoolApi).withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
+        order.verify(rsvpApi)
+                .setStatus(
+                        circleId,
+                        RsvpItemSource.FEED,
+                        itemId,
+                        kidId,
+                        RsvpStatus.NO,
+                        adult.id());
+    }
+
+    @Test
+    void setRsvpNoOnFeedDoesNotWithdrawInboundWhenOtherConfirmedKidRemains() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        feedId,
+                                        "U12",
+                                        "practice-uid@example.com",
+                                        "Practice",
+                                        startsAt,
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidA, kidB))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.FEED,
+                                        itemId,
+                                        adult.id(),
+                                        adult.id(),
+                                        List.of(kidB),
+                                        CoverageStatus.CONFIRMED,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.FEED), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.FEED, itemId, kidA, RsvpStatus.NO),
+                                new RsvpDto(
+                                        RsvpItemSource.FEED,
+                                        itemId,
+                                        kidB,
+                                        RsvpStatus.NO_RESPONSE)));
+
+        calendarService.setRsvp(adult, CalendarItemSource.FEED, itemId, kidA, RsvpStatus.NO);
+
+        verify(coverageApi)
+                .releaseKidFromActiveRows(
+                        circleId, CoverageItemSource.FEED, itemId, kidA);
+        verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
+    }
+
+    @Test
     void removeConfirmedFeedCoverageWithdrawsAcceptedInboundThenRemoves() {
         UUID itemId = UUID.randomUUID();
         UUID kidId = UUID.randomUUID();

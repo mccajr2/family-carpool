@@ -19,6 +19,7 @@ import {
   insertOwnRideStatusChip,
   memberLabel,
   remainingCoverageGapKidIds,
+  pendingOwnAskIdToCancelOnAssign,
 } from "@/components/coverageDisplay"
 import { calendarSourceLabel as eventTimesSourceLabel } from "@/components/eventTimes"
 
@@ -192,6 +193,21 @@ describe("coverageDisplay", () => {
       remainingCoverageGapKidIds(["k1"], ownRide({ status: "PENDING", kidIds: ["k1"] })),
     ).toEqual(["k1"])
     expect(remainingCoverageGapKidIds(["k1"], null)).toEqual(["k1"])
+  })
+
+  it("cancels PENDING own ask when Assign kid sets intersect", () => {
+    expect(
+      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "PENDING", kidIds: ["k1", "k2"] }), [
+        "k2",
+      ]),
+    ).toBe("r1")
+    expect(
+      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "PENDING", kidIds: ["k1"] }), ["k2"]),
+    ).toBeNull()
+    expect(
+      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "ACCEPTED", kidIds: ["k1"] }), ["k1"]),
+    ).toBeNull()
+    expect(pendingOwnAskIdToCancelOnAssign(null, ["k1"])).toBeNull()
   })
 
   it("omits Needs coverage when every uncovered kid is on an ACCEPTED ride", () => {

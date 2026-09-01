@@ -65,9 +65,11 @@ import {
   activeCoverages,
   calendarItemKey,
   memberLabel,
+  pendingOwnAskIdToCancelOnAssign,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import {
+  applyAutoDeclinedViewModel,
   coverageGameEventKey,
   getQueue,
   filterQueueWithinHorizon,
@@ -294,6 +296,13 @@ export function FamilyScreen({
   const [recentlyWithdrawnRideIds, setRecentlyWithdrawnRideIds] = useState<
     ReadonlySet<string>
   >(() => new Set())
+  /**
+   * Session-local auto-decline of inbound asks while own ride is `"requested"`.
+   * Survives leaving `"requested"` until Accept/Reconsider (OpenAPI stays PENDING).
+   */
+  const [autoDeclinedRideIds, setAutoDeclinedRideIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   const circleRef = useRef(circle)
   circleRef.current = circle
   const adultRef = useRef(adult)
@@ -1300,6 +1309,14 @@ export function FamilyScreen({
         next.delete(rideId)
         return next
       })
+      setAutoDeclinedRideIds((current) => {
+        if (!current.has(rideId)) {
+          return current
+        }
+        const next = new Set(current)
+        next.delete(rideId)
+        return next
+      })
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1683,6 +1700,20 @@ export function FamilyScreen({
         delete next[itemKey]
         return next
       })
+      const ownRequest =
+        calendarRideByItemKey.get(itemKey)?.ownRequest ?? null
+      const cancelRideId = pendingOwnAskIdToCancelOnAssign(ownRequest, kidIds)
+      if (
+        cancelRideId != null &&
+        item.feedId != null &&
+        calendarCarpoolSummary != null
+      ) {
+        const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+        if (spaceId != null) {
+          await carpoolClient.cancelRide(token, spaceId, cancelRideId)
+          await reloadCalendarCarpoolRides(token)
+        }
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({ kind: "idle" })
@@ -1772,13 +1803,14 @@ export function FamilyScreen({
     kidId: string,
     statusValue: RsvpStatus,
   ) {
+    // Attendance toggle writes YES (going) or NO (not going) only — never NO_RESPONSE.
+    if (statusValue !== "YES" && statusValue !== "NO") {
+      return
+    }
     if (rsvpStatusForKid(item, kidId) === statusValue) {
       return
     }
-    if (
-      (statusValue === "NO" || statusValue === "NO_RESPONSE") &&
-      kidHasActiveCoverage(item, kidId)
-    ) {
+    if (statusValue === "NO" && kidHasActiveCoverage(item, kidId)) {
       const kidName =
         circle?.kids.find((kid) => kid.id === kidId)?.displayName?.trim() || "this kid"
       if (!window.confirm(rsvpCoverageReleaseMessage(kidName))) {
@@ -2058,11 +2090,33 @@ export function FamilyScreen({
     currentAdultId: adult?.id ?? "",
     members: circle.members,
   }
-  const coverageGames = mapCalendarItemsToCoverageGames(
+  const remappedCoverageGames = mapCalendarItemsToCoverageGames(
     agendaWindowItems,
     (item) => calendarRideByItemKey.get(calendarItemKey(item)) ?? null,
     coverageMapOptions,
   )
+  // Central post-remap invariant (mock setGames wrapper): every path that
+  // updates rides — Ask the team, reload, cancel — re-runs this; do not
+  // special-case auto-decline inside createRide / cancelRide handlers.
+  const { games: coverageGames, newlyDeclinedRideIds } = applyAutoDeclinedViewModel(
+    remappedCoverageGames,
+    autoDeclinedRideIds,
+  )
+  // Adjust session set during render (not useEffect) — this block sits after
+  // early returns for !circle, so a hook here would change hook order.
+  if (newlyDeclinedRideIds.some((id) => !autoDeclinedRideIds.has(id))) {
+    setAutoDeclinedRideIds((current) => {
+      let changed = false
+      const next = new Set(current)
+      for (const id of newlyDeclinedRideIds) {
+        if (!next.has(id)) {
+          next.add(id)
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }
   const attentionQueue = filterQueueWithinHorizon(getQueue(coverageGames), now)
   const focusedCalendarItemKey =
     attentionQueue[0] != null
@@ -2755,6 +2809,7 @@ export function FamilyScreen({
                             garage={calendarGarage}
                             heroQueuedRequestIds={heroQueuedRequestIds}
                             recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
+                            autoDeclinedRideIds={autoDeclinedRideIds}
                             onCreateRide={(eventKey, kidIds) =>
                               void onCreateAgendaRide(item, eventKey, kidIds)
                             }

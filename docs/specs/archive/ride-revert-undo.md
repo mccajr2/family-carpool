@@ -7,7 +7,7 @@ Added: 2026-08-28 · initial
 Branch: `ride-revert-undo`  
 Depends on: [`coverage-priority-engine`](../archive/coverage-priority-engine.md), [`household-driver-assignment`](../archive/household-driver-assignment.md), [`unified-ride-status-chip`](../archive/unified-ride-status-chip.md), [`weekly-list-focus-sync`](../archive/weekly-list-focus-sync.md)  
 Governs: [ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md)  
-Blocks: [`auto-decline-unofferable`](../planned/auto-decline-unofferable.md) (Reconsider on auto-declined asks)
+Blocks: [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md) (Reconsider on auto-declined asks)
 
 ## Problem
 
@@ -26,7 +26,7 @@ vocabulary (never **make it** — that belongs to attendance in rank 3).
 
 - Confirmation dialogs, apology copy, or optional reason notes before any revert
   ([ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md))
-- **`autoDeclineUnofferable` mutation wiring** ([`auto-decline-unofferable`](../planned/auto-decline-unofferable.md) — rank 2); this slice ships Reconsider UI gated on `canOffer` so rank 2 can flip `autoDeclined` without UI rework
+- **`autoDeclineUnofferable` mutation wiring** ([`auto-decline-unofferable`](../archive/auto-decline-unofferable.md) — rank 2); this slice ships Reconsider UI gated on `canOffer` so rank 2 can flip `autoDeclined` without UI rework
 - **`AttendanceToggle`** going / not-going UI ([`attendance-manual-toggle`](../planned/attendance-manual-toggle.md))
 - **`PickupLine`** detour minutes ([`carpool-pickup-detour`](../planned/carpool-pickup-detour.md))
 - Revert links on hero carousel slides (queue items are gaps / pending asks only — resolved rides are not carousel slides)
@@ -117,7 +117,7 @@ implementers do not rediscover them ad hoc.
 | **Withdraw inbound → requester side** | Affected family should land in an **unassigned / gap** queue state ([ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md) consequences + [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md)). Today a surviving PENDING `ownRequest` can map to **Asked the team** instead of a gap — resolve in implementation (view-model rule, withdraw side effect, or follow-up). | **Resolve or flag** in PR |
 | Cancel team ask / cancel teammate ride | Single `cancelCarpoolRide`; no coverage cross-call | UI + existing API |
 | Reconsider / Undo | Single `acceptCarpoolRide`; clears pass rows on success (existing) | UI + existing API |
-| **Ask team / assign while inbound asks pending** | Auto-decline unofferable inbound asks on forward mutations | **Deferred** — [`auto-decline-unofferable`](../planned/auto-decline-unofferable.md) (rank 2); cross-link only |
+| **Ask team / assign while inbound asks pending** | Auto-decline unofferable inbound asks on forward mutations | **Deferred** — [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md) (rank 2); cross-link only |
 | Assign coverage while open team ask still live | Historical assign/cancel coupling | **Deferred** — rank 2 may subsume; see cancelled [`assign-cancels-carpool-request`](../planned/assign-cancels-carpool-request.md) |
 
 **Attendance / RSVP (transitional — not this PR's UI work)**
@@ -148,7 +148,7 @@ Ride-revert paths in this spec do **not** change attendance. Revert links stay
 - **Visual mock:** `docs/ui-system/carpool-hero-flow-mockup-v6.jsx` → `RevertRideLink`, `RequestRow`, `onCantMakeIt`
 - Design: `docs/ui-system.md`
 - ADRs: [`ADR-0002`](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md) (ride cancel), [`ADR-0003`](../../decisions/ADR-0003-attendance-manual-default-going.md) (attendance ≠ RSVP UI)
-- Forward coupling (rank 2): [`auto-decline-unofferable`](../planned/auto-decline-unofferable.md)
+- Forward coupling (rank 2): [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md)
 - Attendance UI (rank 3): [`attendance-manual-toggle`](../planned/attendance-manual-toggle.md)
 - Queue / view-model: `web/src/components/coverageQueue.ts` → `isConfirmedDriver`, `mapCalendarItemToCoverageGames`, `OwnRideStatus`
 - Chips: `web/src/components/rideStatusChip.ts`

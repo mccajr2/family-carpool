@@ -90,17 +90,18 @@ Starting target for ports (adjust only with a written regroup outcome):
    stronger type / weight than meta.
 2. **Travel / origin** — leave-by + Leave from (+ **Open Places** when
    `NO_ORIGIN`). Keep travel together; not in the title band.
-3. **People / source** — source label + **per-kid RSVP** field rows (name
-   leading, Yes / No / No response trailing).
+3. **People / source** — source label + **per-kid attendance toggle** (two-state
+   going / not going text links — not a field-row chooser).
 4. **Coverage / actions** — active coverage lines, needs-coverage,
    Confirm/Decline, Assign — one spacing-grouped region, no inner card/band.
 5. **Manual actions** — Edit / Remove for manual rows only (outside coverage so
    they remain when the row is out of play).
 
-**Out of play** (every kid on the item is RSVP **No**): deemphasize the item
+**Out of play** (every kid on the item is **not going**): deemphasize the item
 (muted / reduced opacity); hide Travel, Coverage, and conflict amber; keep
-Primary summary, People RSVP rows, and Manual Edit/Remove. Mixed Yes/No stays
-in play; No kids are omitted from uncovered / Assign.
+Primary summary, People attendance toggles, and Manual Edit/Remove. Mixed
+going / not going stays in play; not-going kids are omitted from uncovered /
+Assign.
 
 ### Situational primary CTA
 
@@ -131,7 +132,7 @@ kids sit between identity and leave-by, so “who” and “when to leave” blu
 |------|----------|-----|
 | Primary | title, when, location, **conflict status lines** (when `conflicts` non-empty) | Event identity first; amber conflict copy attaches here as a status affordance — not a new control dump |
 | Travel / origin | leave-by, Leave from, Open Places (`NO_ORIGIN`) | Keep leave timing + origin together so adults answer “when do I leave / from where?” in one place; recovery stays with the gap |
-| People / source | source label, **per-kid RSVP** field rows | Who is going (Yes / No / No response); attendance is separate from coverage |
+| People / source | source label, **per-kid attendance toggle** | Who is going / not going; attendance is separate from coverage |
 | Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign | Responsibility + situational CTAs; Edit/Remove moved to Manual actions |
 | Manual actions | Edit / Remove (manual only) | Stay available when out of play; never fake primary when Confirm/Assign exists |
 
@@ -238,7 +239,7 @@ Toolkit chrome may differ; **layout and strings** must not.
   `{adult} · {kids} · {Pending|Confirmed}` (+ **Remove coverage**).
 - Declined rows are not shown as active coverage.
 - Uncovered kids (API `uncoveredKidIds`): **Needs coverage** /
-  **Needs coverage: {names}** (in-play only — RSVP No kids are never
+  **Needs coverage: {names}** (in-play only — not-going kids are never
   uncovered). Calendar chrome uses **remaining gap kids** =
   `uncoveredKidIds` minus kids on this circle’s **`ACCEPTED` `ownRequest`**
   (PENDING ride does not clear the gap). Names on the row copy are remaining
@@ -275,17 +276,51 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Button label: **Assign coverage**.
 - Self-assign (covering adult === signed-in adult) → API returns `CONFIRMED`;
   UI must not imply a confirm step is still required for that assignment.
-- Assign / confirm also set those kids’ RSVP to **Yes** (server); assigning a
-  **No** kid fails.
+- Assign / confirm also set those kids’ RSVP to **Yes** / going (server);
+  assigning a **not going** kid fails.
 
-## RSVP
+## RSVP / attendance
 
-- People band: each kid is a **field row** (name leading, chooser trailing:
-  No response / Yes / No). `data-testid` / a11y id `rsvp-{source}-{id}-{kidId}`.
-- Client confirm only when setting No or No response while the kid has active
-  coverage: `This will remove coverage for {kidName}.` Cancel leaves RSVP
-  unchanged. No confirm when uncovered.
-- Patch the calendar cache on RSVP writes like other single-item mutations.
+Web Agenda uses a **two-state attendance toggle** (ADR-0003). Product copy is
+always **going** / **not going** — never "make it", and never ride-side
+**drive** wording on this control. OpenAPI still uses `YES` / `NO` /
+`NO_RESPONSE`; the client maps — no enum rename in this surface.
+
+### Read mapping
+
+| API `RsvpStatus` (or missing row) | UI / queue attendance |
+| --- | --- |
+| `YES` | `going` |
+| `NO_RESPONSE` / missing | `going` (default; no action required) |
+| `NO` | `not_going` |
+
+### Write mapping (People band only)
+
+| UI action | API write |
+| --- | --- |
+| **Mark {displayName} as not going** | `NO` |
+| **Mark as going again** | `YES` |
+
+UI never offers setting `NO_RESPONSE`. Attendance never creates a hero / queue
+item; marking not going may *remove* a ride-needed gap (`isInPlay`).
+
+### Control (expanded Agenda row)
+
+- Per kid on the item (under DriverPicker / RevertRideLink on the expanded
+  row; multi-kid items get one toggle each):
+  - **going:** text link **Mark {displayName} as not going**
+  - **not going:** `{displayName} is marked not going.` + link **Mark as going
+    again**
+- When a kid is not going, hide that kid’s driver / coverage chrome; keep the
+  toggle so they can reverse.
+- `data-testid` / a11y id `rsvp-{source}-{id}-{kidId}` (stable id; control is
+  no longer a `<select>`).
+- Client confirm only when marking **not going** while the kid has active
+  (`PENDING` / `CONFIRMED`) coverage: `This will remove coverage for
+  {kidName}.` Cancel leaves attendance unchanged. No confirm when uncovered or
+  when marking going again.
+- Patch the calendar cache on attendance writes like other single-item
+  mutations.
 
 ## Week at a glance
 
@@ -350,11 +385,13 @@ Match this contract for each item before calling the port done:
    always chooser with None.
 5. Coverage lines, needs-coverage, confirm/decline, assign defaults + self-confirm.
 6. Default leave-from on Places.
-7. Field rows: Leave from / Covering adult / My default leave-from / per-kid
-   RSVP are horizontal (label leading, value/picker trailing).
+7. Field rows: Leave from / Covering adult / My default leave-from are
+   horizontal (label leading, value/picker trailing). Per-kid attendance is
+   the two-state toggle (not a field-row chooser).
 8. Presentation hierarchy: bands + one situational primary CTA;
-   out-of-play chrome when all kids RSVP No; coverage-release confirm copy.
-   Flat-row chrome is `docs/agenda-full-redesign-addendum.md` (web).
+   out-of-play chrome when all kids are not going; coverage-release confirm
+   when marking not going with active coverage. Flat-row chrome is
+   `docs/agenda-full-redesign-addendum.md` (web).
 9. Tests covering the matrix above (especially sole kid, kid-toggle without
    clearing adult, Save → Saving… without Sign out → Working…).
 10. Focus card selection + rendering — web only — not yet ported.

@@ -21,7 +21,7 @@ queue (`getQueue`), and the `autoDeclineUnofferable` transform. **No UI.**
 ## Non-goals
 
 - Any rendering ([`household-driver-assignment`](../active/household-driver-assignment.md), [`hero-attention-carousel`](../planned/hero-attention-carousel.md), [`weekly-list-focus-sync`](../planned/weekly-list-focus-sync.md))
-- Wiring `autoDeclineUnofferable` into live mutation handlers ([`auto-decline-unofferable`](../planned/auto-decline-unofferable.md))
+- Wiring `autoDeclineUnofferable` into live mutation handlers ([`auto-decline-unofferable`](../archive/auto-decline-unofferable.md))
 - Replacing `selectFocusItem` or `AgendaFocusCard` in this PR (those migrate in later ranks)
 - OpenAPI / backend persistence for the new attendance model (client view-model + mapping shim is enough here; full RSVP migration is [`attendance-manual-toggle`](../planned/attendance-manual-toggle.md))
 - Re-adding a three-option cancellation panel or three-way RSVP control (deliberately cut — see ADRs)

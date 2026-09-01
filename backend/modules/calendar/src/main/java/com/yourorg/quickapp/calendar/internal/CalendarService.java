@@ -263,6 +263,7 @@ public class CalendarService {
                 updated.itemId());
     }
 
+    @Transactional
     public CalendarItemResponse setRsvp(
             AdultResponse adult,
             CalendarItemSource source,
@@ -275,12 +276,22 @@ public class CalendarService {
             throw new CalendarException(HttpStatus.BAD_REQUEST, "Kid is not on this calendar item");
         }
         if (status == RsvpStatus.NO || status == RsvpStatus.NO_RESPONSE) {
-            coverageApi.releaseKidFromActiveRows(
-                    circleId, toCoverageSource(source), itemId, kidId);
+            CoverageItemSource coverageSource = toCoverageSource(source);
+            coverageApi.releaseKidFromActiveRows(circleId, coverageSource, itemId, kidId);
+            if (source == CalendarItemSource.FEED
+                    && !hasConfirmedCoverage(circleId, coverageSource, itemId)) {
+                carpoolApi.withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
+            }
         }
         rsvpApi.setStatus(
                 circleId, toRsvpSource(source), itemId, kidId, status, adult.id());
         return requireItem(adult.id(), circleId, source, itemId);
+    }
+
+    private boolean hasConfirmedCoverage(
+            UUID circleId, CoverageItemSource source, UUID itemId) {
+        return coverageApi.listForItem(circleId, source, itemId).stream()
+                .anyMatch(coverage -> coverage.status() == CoverageStatus.CONFIRMED);
     }
 
     private static void requireValidRange(Instant from, Instant to) {

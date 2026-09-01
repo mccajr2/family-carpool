@@ -98,6 +98,24 @@ export function remainingCoverageGapKidIds(
 }
 
 /**
+ * When household Assign covers any kid on an open PENDING team ask, cancel that
+ * ask (ADR-0002 — one action, no dialog). Returns the ride id to cancel, or null.
+ */
+export function pendingOwnAskIdToCancelOnAssign(
+  ownRequest: CarpoolRide | null | undefined,
+  assignedKidIds: readonly string[],
+): string | null {
+  if (ownRequest == null || ownRequest.status !== "PENDING") {
+    return null
+  }
+  const assigned = new Set(assignedKidIds)
+  if (!ownRequest.kidIds.some((kidId) => assigned.has(kidId))) {
+    return null
+  }
+  return ownRequest.id
+}
+
+/**
  * Collapsed-row tags and Focus header pills share this precedence (see
  * docs/agenda-coverage-web-contract.md). Focus passes `includeAllSet: true`.
  * Pass `ownRequest` so Needs coverage uses remaining gap kids (ACCEPTED ride).

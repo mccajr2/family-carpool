@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CalendarItem, CarpoolRide, CarpoolRideEvent, FamilyMember } from "@/api/types"
 import {
   acceptedRiders,
+  applyAutoDeclinedViewModel,
   autoDeclineUnofferable,
   coverageGameEventKey,
   filterQueueWithinHorizon,
@@ -349,6 +350,142 @@ describe("autoDeclineUnofferable", () => {
   })
 })
 
+describe("applyAutoDeclinedViewModel", () => {
+  it("auto-declines pending inbound when ownRide is requested and reports new ids", () => {
+    const games = [
+      game({
+        id: "asked",
+        order: 1,
+        ownRide: "requested",
+        requests: [request({ id: "inbound-1" }), request({ id: "already", status: "accepted" })],
+      }),
+    ]
+
+    const result = applyAutoDeclinedViewModel(games)
+
+    expect(result.newlyDeclinedRideIds).toEqual(["inbound-1"])
+    expect(result.games[0]?.requests).toEqual([
+      expect.objectContaining({
+        id: "inbound-1",
+        status: "declined",
+        autoDeclined: true,
+      }),
+      expect.objectContaining({ id: "already", status: "accepted" }),
+    ])
+    expect(getQueue(result.games)).toEqual([])
+  })
+
+  it("keeps session auto-declined ids sticky after ownRide leaves requested", () => {
+    const games = [
+      game({
+        id: "after-cancel",
+        order: 1,
+        ownRide: "unassigned",
+        requests: [request({ id: "sticky-inbound" })],
+      }),
+    ]
+
+    const result = applyAutoDeclinedViewModel(games, new Set(["sticky-inbound"]))
+
+    expect(result.newlyDeclinedRideIds).toEqual([])
+    expect(result.games[0]?.requests[0]).toEqual(
+      expect.objectContaining({
+        id: "sticky-inbound",
+        status: "declined",
+        autoDeclined: true,
+      }),
+    )
+    expect(getQueue(result.games).some((item) => item.kind === "request")).toBe(false)
+  })
+
+  it("does not sticky-decline when id is absent and ownRide is not requested", () => {
+    const games = [
+      game({
+        id: "gap",
+        order: 1,
+        ownRide: "unassigned",
+        requests: [request({ id: "still-pending" })],
+      }),
+      game({
+        id: "confirm",
+        order: 2,
+        ownRide: { driver: "You", confirmed: false },
+        requests: [request({ id: "also-pending" })],
+      }),
+    ]
+
+    const result = applyAutoDeclinedViewModel(games, new Set())
+
+    expect(result.newlyDeclinedRideIds).toEqual([])
+    expect(result.games).toEqual(games)
+  })
+
+  it("omits already-sessioned ids from newlyDeclinedRideIds", () => {
+    const games = [
+      game({
+        id: "asked",
+        order: 1,
+        ownRide: "requested",
+        requests: [request({ id: "known" }), request({ id: "fresh" })],
+      }),
+    ]
+
+    const result = applyAutoDeclinedViewModel(games, new Set(["known"]))
+
+    expect(result.newlyDeclinedRideIds).toEqual(["fresh"])
+  })
+
+  it("re-applies auto-decline after remap while ownRide stays requested", () => {
+    // Simulates reload: API still returns PENDING inbound + PENDING own ask.
+    const remapped = mapCalendarItemsToCoverageGames(
+      [
+        calendarItem({
+          id: "e1",
+          kidIds: ["k1"],
+          uncoveredKidIds: ["k1"],
+          eventKey: "UID:reload",
+        }),
+      ],
+      () =>
+        rideEvent({
+          eventKey: "UID:reload",
+          ownRequest: ownRide({
+            id: "own-ask",
+            eventKey: "UID:reload",
+            status: "PENDING",
+            kidIds: ["k1"],
+          }),
+          otherRequests: [
+            ownRide({
+              id: "inbound",
+              eventKey: "UID:reload",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              status: "PENDING",
+            }),
+          ],
+        }),
+      mapOptions,
+    )
+
+    const rawInbound = remapped[0]?.requests.find((row) => row.id === "inbound")
+    expect(rawInbound).toMatchObject({ status: "pending" })
+    expect(rawInbound?.autoDeclined).toBeUndefined()
+
+    const { games, newlyDeclinedRideIds } = applyAutoDeclinedViewModel(remapped)
+
+    expect(newlyDeclinedRideIds).toEqual(["inbound"])
+    expect(games[0]?.requests.find((row) => row.id === "inbound")).toMatchObject({
+      status: "declined",
+      autoDeclined: true,
+    })
+    expect(getQueue(games).some((item) => item.kind === "request")).toBe(false)
+  })
+})
+
 describe("mapCalendarItemToCoverageGames", () => {
   it("maps RSVP values to attendance and per-kid ownRide states", () => {
     const item = calendarItem({
@@ -374,6 +511,28 @@ describe("mapCalendarItemToCoverageGames", () => {
       kidId: "k2",
       attendance: "not_going",
     })
+  })
+
+  it("maps NO_RESPONSE and missing RSVP rows to going attendance", () => {
+    const withNoResponse = mapCalendarItemToCoverageGames(
+      calendarItem({
+        kidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+        uncoveredKidIds: ["k1"],
+      }),
+      null,
+      mapOptions,
+    )
+    expect(withNoResponse[0]?.attendance).toBe("going")
+
+    const stale = calendarItem({
+      kidIds: ["k1"],
+      rsvps: [],
+      uncoveredKidIds: ["k1"],
+    })
+    delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
+    const withoutRow = mapCalendarItemToCoverageGames(stale, null, mapOptions)
+    expect(withoutRow[0]?.attendance).toBe("going")
   })
 
   it("maps pending household confirm and requested own rides from API shapes", () => {
