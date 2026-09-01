@@ -30,6 +30,8 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
     private static final String TO = "2026-09-01T00:00:00Z";
     private static final String EVENT_KEY = "UID:stub-game-1@example.com";
     private static final String FEED_URL = "https://example.com/carpool-remove-coverage.ics";
+    private static final String RSVP_WITHDRAW_FEED_URL =
+            "https://example.com/carpool-rsvp-withdraw.ics";
 
     @DynamicPropertySource
     static void datasourceProps(DynamicPropertyRegistry registry) {
@@ -121,6 +123,111 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.coverages").isEmpty());
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.status")
+                                .value("PENDING"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.id")
+                                .value(rideId));
+    }
+
+    @Test
+    void markingNotGoingWithdrawsAcceptedInboundRideToPending() throws Exception {
+        String driver = signIn("rsvp-withdraw-driver@example.com");
+        String requester = signIn("rsvp-withdraw-requester@example.com");
+
+        createCircle(driver, "Alex", "House Driver");
+        createCircle(requester, "Sam", "House Requester");
+
+        String driverKid = addKid(driver, "Apollo");
+        String requesterKid = addKid(requester, "Declan");
+        String feedDriver = createFeed(driver, "Soccer", RSVP_WITHDRAW_FEED_URL, driverKid);
+        createFeed(requester, "Soccer", RSVP_WITHDRAW_FEED_URL, requesterKid);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedDriver + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceDriver = feedEventId(driver, "Practice");
+        String practiceRequester = feedEventId(requester, "Practice");
+        setRsvpYes(driver, practiceDriver, driverKid);
+        setRsvpYes(requester, practiceRequester, requesterKid);
+        addPlace(driver, "Home A", "12 Oak St");
+        addPlace(requester, "Home B", "34 Pine St");
+        String vehicleId = addVehicle(driver, "Van", 7);
+
+        String driverAdultId = organizerAdultId(driver);
+        mockMvc.perform(
+                        post("/api/family/circle/calendar/FEED/"
+                                        + practiceDriver
+                                        + "/coverages")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"coveringAdultId\":\""
+                                                + driverAdultId
+                                                + "\",\"kidIds\":[\""
+                                                + driverKid
+                                                + "\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.coverages[0].status").value("CONFIRMED"));
+
+        MvcResult created =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.status").value("PENDING"))
+                        .andReturn();
+        String rideId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/"
+                                        + practiceDriver
+                                        + "/rsvps/"
+                                        + driverKid)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"NO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coverages").isEmpty())
+                .andExpect(jsonPath("$.rsvps[?(@.kidId=='" + driverKid + "')].status").value("NO"));
 
         mockMvc.perform(
                         get("/api/carpool/spaces/" + spaceId + "/rides")
