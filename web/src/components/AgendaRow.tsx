@@ -37,6 +37,8 @@ import {
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
+import { ridersForGameRow, ridersForItem } from "@/components/riderChips"
+import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 const MapPinIcon = resolveSemanticIcon("icon.places")
@@ -220,7 +222,13 @@ export function AgendaRow({
   const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
-  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
+  const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
+  const rideChips = rideStatusChipsForItem(
+    item,
+    coverageGames,
+    ownRequest,
+    circle.kids,
+  )
   const tags = askChip != null ? [...rideChips, askChip] : rideChips
   const teamLabel = agendaRowTeamLabel(item)
   const whenLabel = formatEventWhen(item.startsAt, item.endsAt)
@@ -320,6 +328,14 @@ export function AgendaRow({
               {locationLabel}
             </span>
           ) : null}
+          {itemRiders.length > 0 ? (
+            <RiderChips
+              riders={itemRiders}
+              variant="compact"
+              data-testid="agenda-row-rider-chips"
+              className="mt-0.5"
+            />
+          ) : null}
         </span>
         <span
           data-testid="agenda-row-chip-strip"
@@ -370,7 +386,12 @@ export function AgendaRow({
               {coverageGames.map((game) => {
                 const kid = circle.kids.find((row) => row.id === game.kidId)
                 const kidName = kid?.displayName?.trim() || "Kid"
-                const initial = kidName.charAt(0).toUpperCase() || "?"
+                const kidRiders = ridersForGameRow(
+                  game,
+                  coverageGames,
+                  ownRequest,
+                  circle.kids,
+                )
                 const chip = rideStatusChipForGameRow(game, ownRequest)
                 const pendingSelfForKid =
                   pendingForSelf != null && pendingForSelf.kidIds.includes(game.kidId)
@@ -389,13 +410,23 @@ export function AgendaRow({
                       <>
                         <div className="flex items-center justify-between gap-[var(--fc-space-md)] py-[var(--fc-space-sm)]">
                           <div className="flex min-w-0 items-center gap-[var(--fc-space-sm)] text-sm text-[var(--fc-text-primary)]">
-                            <span
-                              aria-hidden
-                              className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-[var(--fc-accent-on)] bg-[var(--fc-accent)]"
-                            >
-                              {initial}
-                            </span>
-                            <span className="min-w-0">{kidName}</span>
+                            {kidRiders.length > 0 ? (
+                              <RiderChips
+                                riders={kidRiders}
+                                variant="inline"
+                                data-testid={`agenda-kid-rider-chips-${game.kidId}`}
+                              />
+                            ) : (
+                              <>
+                                <span
+                                  aria-hidden
+                                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-[var(--fc-accent-on)] bg-[var(--fc-accent)]"
+                                >
+                                  {kidName.charAt(0).toUpperCase() || "?"}
+                                </span>
+                                <span className="min-w-0">{kidName}</span>
+                              </>
+                            )}
                           </div>
                           <AgendaStatusChip label={chip.label} tone={chip.tone} />
                         </div>

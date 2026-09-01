@@ -335,7 +335,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
   })
 
-  it("uses default accent fill for route tone on collapsed rows", () => {
+  it("shows rider chips and drops the accepted-rider suffix when driving with passengers", () => {
     render(
       <AgendaRow
         item={item({
@@ -376,8 +376,8 @@ describe("AgendaRow", () => {
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+              pickupTown: null,
+              detourMinutes: null,
               status: "ACCEPTED" as const,
               passedByMe: false,
               passedByAdultNames: [],
@@ -393,9 +393,12 @@ detourMinutes: null,
       />,
     )
     const row = screen.getByTestId("agenda-row-MANUAL-route-row")
-    const routeChip = within(row).getByText("You're driving · +1")
-    expect(routeChip.className).toMatch(/--fc-accent/)
-    expect(routeChip.className).not.toMatch(/--fc-hero-accent/)
+    const drivingChip = within(row).getByText("You're driving")
+    expect(drivingChip.className).toMatch(/--fc-success/)
+    expect(within(row).queryByText("You're driving · +1")).not.toBeInTheDocument()
+    const riderChips = within(row).getByTestId("agenda-row-rider-chips")
+    expect(riderChips).toHaveAttribute("aria-label", "Riding: Sam, Mia")
+    expect(within(riderChips).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent("Sam, Mia")
   })
 
   it("shows status chips and a chevron on confirmed in-play rows, without covering avatars or a status dot", () => {
@@ -1797,5 +1800,257 @@ detourMinutes: null,
     expect(strip.className).toMatch(/max-\[390px\]:w-full/)
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText("Overlaps")).toBeInTheDocument()
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText(RIDE_NEEDED)).toBeInTheDocument()
+  })
+
+  it("shows compact rider chips on teammate rides and not on ride-needed rows", () => {
+    const feedItem = item({
+      id: "feed-accepted",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      uncoveredKidIds: ["k1"],
+    })
+    const rideEvent = {
+      eventKey: "UID:accepted",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:accepted",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: null,
+        detourMinutes: null,
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: "a2",
+        acceptingCircleId: "c2",
+        acceptingCircleName: "Sharks",
+        vehicleId: null,
+        vehicleLabel: null,
+      },
+      otherRequests: [],
+    }
+
+    const { rerender } = render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
+    expect(within(row).getByTestId("agenda-row-rider-chips")).toHaveAttribute(
+      "aria-label",
+      "Riding: Sam",
+    )
+
+    rerender(
+      <AgendaRow
+        item={item({ id: "gap", title: "Practice", uncoveredKidIds: ["k1"] })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const gapRow = screen.getByTestId("agenda-row-MANUAL-gap")
+    expect(within(gapRow).getByText("Ride needed")).toBeInTheDocument()
+    expect(within(gapRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+  })
+
+  it("uses RiderChips in the expanded per-kid header for confirmed drivers", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "covered",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+          },
+        ],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-covered")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const kidChips = within(row).getByTestId("agenda-kid-rider-chips-k1")
+    expect(kidChips).toHaveAttribute("aria-label", "Riding: Sam")
+    const circle = within(kidChips).getByText("S")
+    expect(circle.style.width).toBe("var(--fc-space-list-row-kid-avatar)")
+    expect(within(kidChips).getByTestId("agenda-kid-rider-chips-k1-name")).toHaveTextContent("Sam")
+  })
+
+  it("lists both circle kids on a collapsed row when they share a confirmed driver", () => {
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "shared-driver",
+          title: "Practice",
+          kidIds: ["k1", "k2"],
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1", "k2"],
+              status: "CONFIRMED",
+            },
+          ],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: false }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-shared-driver")
+    const riderChips = within(row).getByTestId("agenda-row-rider-chips")
+    expect(riderChips).toHaveAttribute("aria-label", "Riding: Sam, Riley")
+    expect(within(riderChips).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent(
+      "Sam, Riley",
+    )
+  })
+
+  it("omits rider chips for asked-team, pending-confirm, and not-going collapsed rows", () => {
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-asked",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+    })
+    const askedEvent = {
+      eventKey: "UID:asked",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: {
+        id: "ride-1",
+        spaceId: "s1",
+        eventKey: "UID:asked",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: null,
+        detourMinutes: null,
+        status: "PENDING" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: null,
+        acceptingCircleId: null,
+        acceptingCircleName: null,
+        vehicleId: null,
+        vehicleLabel: null,
+      },
+      otherRequests: [],
+    }
+
+    const { rerender } = render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={askedEvent}
+        onCreateRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+    const askedRow = screen.getByTestId("agenda-row-FEED-feed-asked")
+    expect(within(askedRow).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(askedRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+
+    rerender(
+      <AgendaRow
+        item={item({
+          id: "pending",
+          title: "Practice",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a2",
+              kidIds: ["k1"],
+              status: "PENDING",
+            },
+          ],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const pendingRow = screen.getByTestId("agenda-row-MANUAL-pending")
+    expect(within(pendingRow).getByText("Confirm you'll drive")).toBeInTheDocument()
+    expect(within(pendingRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+
+    rerender(
+      <AgendaRow
+        item={item({
+          id: "skip",
+          title: "Skip practice",
+          rsvps: [{ kidId: "k1", status: "NO" }],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const outRow = screen.getByTestId("agenda-row-MANUAL-skip")
+    expect(within(outRow).getByText("Not going")).toBeInTheDocument()
+    expect(within(outRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
   })
 })

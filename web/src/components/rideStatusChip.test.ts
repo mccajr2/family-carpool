@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CalendarConflict, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CalendarConflict, CarpoolRide, Kid } from "@/api/types"
 import {
   ASKED_THE_TEAM,
   ATTENDANCE_NOT_GOING_CHIP,
@@ -208,6 +208,20 @@ describe("rideStatusChipForGameRow", () => {
     })
   })
 
+  it("omits accepted-rider suffix when suppressAcceptedRiderCount is true", () => {
+    const withRiders = game({
+      id: "g",
+      order: 1,
+      ownRide: { driver: "You", confirmed: true },
+      requests: [request({ id: "a1", status: "accepted" })],
+    })
+
+    expect(rideStatusChipForGameRow(withRiders, null, true)).toEqual({
+      label: "You're driving",
+      tone: "mint",
+    })
+  })
+
   it("labels teammate ride from ACCEPTED ownRequest, not household driving", () => {
     const row = game({
       id: "g",
@@ -313,6 +327,42 @@ describe("rideStatusChipsForItem", () => {
       { label: OVERLAPS_CHIP, tone: "amber" },
       { label: drivingChipLabel("You", 1), tone: "route" },
       { label: CARPOOL_ASK_SINGULAR, tone: "amber" },
+    ])
+  })
+
+  it("omits accepted-rider suffix on collapsed chips when rider chips will render", () => {
+    const item = calendarItem()
+    const games = [
+      game({
+        id: "host",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [request({ id: "a1", status: "accepted", kidFirstNames: ["Mia"] })],
+      }),
+    ]
+    const kids: Kid[] = [{ id: "k1", displayName: "Sam" }]
+
+    expect(rideStatusChipsForItem(item, games, null, kids)).toEqual([
+      { label: "You're driving", tone: "mint" },
+    ])
+    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+      { label: "You're driving · +1", tone: "route" },
+    ])
+  })
+
+  it("keeps the accepted-rider suffix when kids are omitted from rideStatusChipsForItem", () => {
+    const item = calendarItem()
+    const games = [
+      game({
+        id: "host",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [request({ id: "a1", status: "accepted", kidFirstNames: ["Mia"] })],
+      }),
+    ]
+
+    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+      { label: "You're driving · +1", tone: "route" },
     ])
   })
 
