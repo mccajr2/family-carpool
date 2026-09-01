@@ -28,6 +28,11 @@ import {
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import {
+  CONFIRM_COVERAGE,
+  DECLINE_COVERAGE,
+  needsCoverageWithKids,
+} from "@/components/coverageCopy"
+import {
   carpoolAskChipForRideEvent,
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
@@ -278,7 +283,7 @@ export function AgendaRow({
       <div data-testid="agenda-band-primary">
       <button
         type="button"
-        className="flex min-w-0 w-full items-center justify-between gap-[var(--fc-space-lg)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)] text-left"
+        className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)] text-left"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
@@ -316,7 +321,10 @@ export function AgendaRow({
             </span>
           ) : null}
         </span>
-        <span className="flex max-w-[50%] shrink-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)]">
+        <span
+          data-testid="agenda-row-chip-strip"
+          className="flex min-w-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)] max-[390px]:w-full max-[390px]:max-w-none max-[390px]:justify-start min-[391px]:max-w-[50%] min-[391px]:shrink-0"
+        >
           {tags.map((tag) => (
             <AgendaStatusChip
               key={tag.label}
@@ -401,7 +409,7 @@ export function AgendaRow({
                               onClick={() => onConfirmCoverage(pendingForSelf.id)}
                               disabled={loading}
                             >
-                              Confirm coverage
+                              {CONFIRM_COVERAGE}
                             </Button>
                             <Button
                               type="button"
@@ -410,7 +418,7 @@ export function AgendaRow({
                               onClick={() => onDeclineCoverage(pendingForSelf.id)}
                               disabled={loading}
                             >
-                              Decline coverage
+                              {DECLINE_COVERAGE}
                             </Button>
                           </div>
                         ) : null}
@@ -545,7 +553,7 @@ export function AgendaRow({
             >
               {unassignedGapKidIds.length > 0 ? (
                 <p className="text-sm text-[var(--fc-danger)]">
-                  {uncoveredKidNames ? `Needs coverage: ${uncoveredKidNames}` : "Needs coverage"}
+                  {needsCoverageWithKids(uncoveredKidNames)}
                 </p>
               ) : null}
               {coverageActionError ? (

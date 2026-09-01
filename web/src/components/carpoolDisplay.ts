@@ -6,6 +6,11 @@ import type {
   Kid,
   Vehicle,
 } from "@/api/types"
+import {
+  ASKED_THE_TEAM,
+  RIDING_WITH_TEAMMATE,
+  ridingWithCircleLabel,
+} from "@/components/coverageCopy"
 
 export function circleDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim()
@@ -149,12 +154,12 @@ export function agendaOwnRideStatusChip(
   if (ownRequest.status === "ACCEPTED") {
     const who = ownRequest.acceptingCircleName?.trim()
     return {
-      label: who ? `Riding with ${circleDisplayName(who)}` : "Riding with a teammate",
+      label: who ? ridingWithCircleLabel(who) : RIDING_WITH_TEAMMATE,
       tone: "mint",
     }
   }
   if (ownRequest.status === "PENDING") {
-    return { label: "Requested", tone: "amber" }
+    return { label: ASKED_THE_TEAM, tone: "amber" }
   }
   return null
 }

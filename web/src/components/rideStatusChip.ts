@@ -4,7 +4,6 @@
  */
 
 import type { CalendarItem, CarpoolRide } from "@/api/types"
-import { circleDisplayName } from "@/components/carpoolDisplay"
 import {
   acceptedRiders,
   isConfirmedDriver,
@@ -14,6 +13,18 @@ import {
   type CarpoolRequest,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
+import {
+  ASKED_THE_TEAM,
+  ATTENDANCE_NOT_GOING_CHIP,
+  CONFIRM_YOU_WILL_DRIVE,
+  OVERLAPS_CHIP,
+  RIDE_NEEDED,
+  RIDING_WITH_TEAMMATE,
+  carpoolAskCountLabel,
+  drivingChipLabel,
+  ridingWithCircleLabel,
+  waitingOnDriverLabel,
+} from "@/components/coverageCopy"
 
 export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
 
@@ -83,19 +94,13 @@ function teammateRideChip(
 ): RideStatusChipDescriptor {
   const who = ownRequest.acceptingCircleName?.trim()
   return {
-    label: who
-      ? `Riding with ${circleDisplayName(who)}`
-      : "Riding with a teammate",
+    label: who ? ridingWithCircleLabel(who) : RIDING_WITH_TEAMMATE,
     tone: "mint",
   }
 }
 
 function drivingLabel(driver: string, riderCount: number): RideStatusChipDescriptor {
-  const base = driver === "You" ? "You're driving" : `${driver} driving`
-  if (riderCount > 0) {
-    return { label: `${base} · +${riderCount}`, tone: "route" }
-  }
-  return { label: base, tone: "mint" }
+  return { label: drivingChipLabel(driver, riderCount), tone: riderCount > 0 ? "route" : "mint" }
 }
 
 /**
@@ -112,22 +117,22 @@ export function rideStatusChipForGameRow(
   const { ownRide } = game
 
   if (isUnassigned(ownRide)) {
-    return { label: "Ride needed", tone: "amber" }
+    return { label: RIDE_NEEDED, tone: "amber" }
   }
   if (ownRide === "requested") {
-    return { label: "Asked the team", tone: "amber" }
+    return { label: ASKED_THE_TEAM, tone: "amber" }
   }
   if (isPendingHouseholdConfirm(ownRide)) {
     if (ownRide.driver === "You") {
-      return { label: "Confirm you'll drive", tone: "amber" }
+      return { label: CONFIRM_YOU_WILL_DRIVE, tone: "amber" }
     }
-    return { label: `Waiting on ${ownRide.driver}`, tone: "amber" }
+    return { label: waitingOnDriverLabel(ownRide.driver), tone: "amber" }
   }
   if (isConfirmedDriver(ownRide)) {
     return drivingLabel(ownRide.driver, acceptedRiders(game).length)
   }
 
-  return { label: "Ride needed", tone: "amber" }
+  return { label: RIDE_NEEDED, tone: "amber" }
 }
 
 /**
@@ -141,13 +146,13 @@ export function rideStatusChipsForItem(
 ): RideStatusChipDescriptor[] {
   const allNotGoing = games.length > 0 && games.every((game) => !isInPlay(game))
   if (allNotGoing) {
-    return [{ label: "Not going", tone: "muted" }]
+    return [{ label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" }]
   }
 
   const chips: RideStatusChipDescriptor[] = []
 
   if (item.conflicts.length > 0) {
-    chips.push({ label: "Overlaps", tone: "amber" })
+    chips.push({ label: OVERLAPS_CHIP, tone: "amber" })
   }
 
   const urgent = pickMostUrgentGameRow(games)
@@ -185,7 +190,7 @@ export function carpoolAskChipForRideEvent(
   }
 
   return {
-    label: count === 1 ? "1 carpool ask" : `${count} carpool asks`,
+    label: carpoolAskCountLabel(count),
     tone: "amber",
   }
 }

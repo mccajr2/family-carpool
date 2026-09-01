@@ -4,6 +4,16 @@ import {
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
+import {
+  ALL_SET,
+  WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
+  WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
+  WEEK_GLANCE_NO_EVENTS,
+  WEEK_GLANCE_OVERLAPS_PLURAL,
+  WEEK_GLANCE_OVERLAPS_SINGULAR,
+  WEEK_GLANCE_TO_CONFIRM,
+  weekGlanceCountCopy,
+} from "@/components/coverageCopy"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
@@ -27,7 +37,7 @@ function localDayKey(d: Date): string {
 }
 
 function countCopy(n: number, singular: string, plural: string): string {
-  return n === 1 ? `1 ${singular}` : `${n} ${plural}`
+  return weekGlanceCountCopy(n, singular, plural)
 }
 
 function statusForDay(
@@ -36,7 +46,7 @@ function statusForDay(
   ownRequestForItem?: WeekGlanceOwnRequestForItem,
 ): Pick<WeekGlanceDay, "copy" | "flagged"> {
   if (itemsOnDay.length === 0) {
-    return { copy: "No events", flagged: false }
+    return { copy: WEEK_GLANCE_NO_EVENTS, flagged: false }
   }
 
   const inPlay = itemsOnDay.filter((item) => !isAgendaItemOutOfPlay(item))
@@ -46,7 +56,11 @@ function statusForDay(
   )
   if (uncovered.length > 0) {
     return {
-      copy: countCopy(uncovered.length, "needs coverage", "need coverage"),
+      copy: countCopy(
+        uncovered.length,
+        WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
+        WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
+      ),
       flagged: true,
     }
   }
@@ -54,7 +68,11 @@ function statusForDay(
   const overlapping = inPlay.filter((item) => item.conflicts.length > 0)
   if (overlapping.length > 0) {
     return {
-      copy: countCopy(overlapping.length, "overlaps", "overlap"),
+      copy: countCopy(
+        overlapping.length,
+        WEEK_GLANCE_OVERLAPS_SINGULAR,
+        WEEK_GLANCE_OVERLAPS_PLURAL,
+      ),
       flagged: true,
     }
   }
@@ -64,12 +82,12 @@ function statusForDay(
   )
   if (toConfirm.length > 0) {
     return {
-      copy: countCopy(toConfirm.length, "to confirm", "to confirm"),
+      copy: countCopy(toConfirm.length, WEEK_GLANCE_TO_CONFIRM, WEEK_GLANCE_TO_CONFIRM),
       flagged: true,
     }
   }
 
-  return { copy: "All set", flagged: false }
+  return { copy: ALL_SET, flagged: false }
 }
 
 /**

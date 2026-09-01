@@ -1,7 +1,8 @@
 import type { CalendarItem, Kid } from "@/api/types"
 import { circleDisplayName } from "@/components/carpoolDisplay"
 import { calendarSourceLabel } from "@/components/coverageDisplay"
-import type { CarpoolRequest } from "@/components/coverageQueue"
+import { CONFIRM_COVERAGE, kidNeedsRideTitle } from "@/components/coverageCopy"
+import type { CarpoolRequest, QueueItem } from "@/components/coverageQueue"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 
 export function heroKidFirstName(kidId: string, kids: readonly Kid[]): string {
@@ -38,4 +39,18 @@ export function heroRequestTitle(request: CarpoolRequest): string {
 /** Pickup place + address only (no detour copy). */
 export function heroPickupSummary(request: CarpoolRequest): string {
   return `${request.pickupPlaceName}, ${request.pickupAddress}`
+}
+
+/** Accessible name for a hero carousel slide shell (title-derived). */
+export function heroAttentionSlideAriaLabel(
+  item: QueueItem,
+  options: { kidFirstName: string; pendingConfirm: boolean },
+): string {
+  if (item.kind === "request") {
+    return heroRequestTitle(item.request)
+  }
+  if (options.pendingConfirm) {
+    return CONFIRM_COVERAGE
+  }
+  return kidNeedsRideTitle(options.kidFirstName)
 }

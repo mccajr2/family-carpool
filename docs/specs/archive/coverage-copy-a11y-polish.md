@@ -1,7 +1,8 @@
 # Spec: coverage-copy-a11y-polish
 
-Status: draft  
+Status: done  
 Created: 2026-09-01  
+Completed: 2026-09-01  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-08-28 · initial  
 Branch: `coverage-copy-a11y-polish`  
@@ -182,34 +183,34 @@ Verify at `md` rail + main frame (signed-in grid), not isolated component width.
 
 ## Acceptance criteria
 
-- [ ] `coverageCopy.ts` exports all Agenda coverage/ride user strings listed in Approach §1; no duplicate literals for those strings in the files above (grep CI-friendly)
-- [ ] Attendance strings use **going** / **not going** only; ride strings use **drive** / **driving** / **ride** — no cross-domain bleed (e.g. no **Confirm going** on DriverPicker)
-- [ ] Collapsed ride gap chip is **Ride needed**; open team ask chip is **Asked the team** (not **Requested**)
-- [ ] Week-glance flagged days use **needs coverage** / **need coverage** wording (not **ride**)
-- [ ] `DriverPicker` household block and team fallback are visually distinct on hero and list paths (divider + spacing); `data-testid="driver-picker-team-section"` unchanged
-- [ ] Carousel scroller, dot tabs, and driver chips show visible keyboard focus (not `outline-none` without substitute)
-- [ ] `aria-live="polite"` announces hero empty state when queue goes from ≥1 item to 0; does not fire on carousel slide index changes alone
-- [ ] `HeroAttentionDaysRing` is `aria-hidden`
-- [ ] Each hero slide has an accessible name (title-derived `aria-label` on slide shell)
-- [ ] At 390px width, carousel controls and collapsed chip rows render without horizontal overflow/clipping (manual or Playwright)
-- [ ] Hero slide CTAs and filled buttons use theme-independent text on `heroOn` fills — no `textPrimary` on white in dark mode
-- [ ] `design-tokens/contrast.test.mjs` passes for **both** `light` and `dark` including extended hero gradient stops, hero CTA pairings, and Agenda chip tones on `surfaceRaised`
-- [ ] Manual light/dark spot-check on Calendar: hero queue slides + empty state text readable
-- [ ] Existing component tests updated; new `coverageCopy.test.ts` locks vocabulary split and unified labels
-- [ ] `npm run lint` + `npm test` pass in `web/`; design-tokens contrast tests pass
+- [x] `coverageCopy.ts` exports all Agenda coverage/ride user strings listed in Approach §1; no duplicate literals for those strings in the files above (grep CI-friendly)
+- [x] Attendance strings use **going** / **not going** only; ride strings use **drive** / **driving** / **ride** — no cross-domain bleed (e.g. no **Confirm going** on DriverPicker)
+- [x] Collapsed ride gap chip is **Ride needed**; open team ask chip is **Asked the team** (not **Requested**)
+- [x] Week-glance flagged days use **needs coverage** / **need coverage** wording (not **ride**)
+- [x] `DriverPicker` household block and team fallback are visually distinct on hero and list paths (divider + spacing); `data-testid="driver-picker-team-section"` unchanged
+- [x] Carousel scroller, dot tabs, and driver chips show visible keyboard focus (not `outline-none` without substitute)
+- [x] `aria-live="polite"` announces hero empty state when queue goes from ≥1 item to 0; does not fire on carousel slide index changes alone
+- [x] `HeroAttentionDaysRing` is `aria-hidden`
+- [x] Each hero slide has an accessible name (title-derived `aria-label` on slide shell)
+- [x] At 390px width, carousel controls and collapsed chip rows render without horizontal overflow/clipping (manual or Playwright)
+- [x] Hero slide CTAs and filled buttons use theme-independent text on `heroOn` fills — no `textPrimary` on white in dark mode
+- [x] `design-tokens/contrast.test.mjs` passes for **both** `light` and `dark` including extended hero gradient stops, hero CTA pairings, and Agenda chip tones on `surfaceRaised`
+- [x] Manual light/dark spot-check on Calendar: hero queue slides + empty state text readable
+- [x] Existing component tests updated; new `coverageCopy.test.ts` locks vocabulary split and unified labels
+- [x] `npm run lint` + `npm test` pass in `web/`; design-tokens contrast tests pass
 
 ## Tasks
 
-- [ ] Web: add `coverageCopy.ts`; migrate strings from listed modules; re-export or thin-wrap existing helpers
-- [ ] Web: unify chip labels in `rideStatusChip.ts` / `coverageDisplay.ts` to constants
-- [ ] Web: `DriverPicker` separation polish (hero + list)
-- [ ] Web: hero carousel a11y — focus rings, `aria-live`, slide `aria-label`s, days ring `aria-hidden`
-- [ ] Web: responsive checks — carousel, chips, `DriverPicker` at narrow width
-- [ ] Web: fix hero CTA / filled-button text — theme-independent ink on `heroOn` (dark-mode legibility)
-- [ ] Tokens: extend `contrast.test.mjs` pairings; fix failing `tokens.json` roles for light + dark
-- [ ] Web: `AgendaStatusChip` tone contrast verify (token tweak only if failing)
-- [ ] Tests: `coverageCopy.test.ts` — vocabulary + label constants
-- [ ] Tests: update `HeroAttentionCarousel.test.tsx`, `DriverPicker.test.tsx`, `AgendaRow.test.tsx`, `rideStatusChip` / chip tests for new strings and a11y attributes
+- [x] Web: add `coverageCopy.ts`; migrate strings from listed modules; re-export or thin-wrap existing helpers
+- [x] Web: unify chip labels in `rideStatusChip.ts` / `coverageDisplay.ts` to constants
+- [x] Web: `DriverPicker` separation polish (hero + list)
+- [x] Web: hero carousel a11y — focus rings, `aria-live`, slide `aria-label`s, days ring `aria-hidden`
+- [x] Web: responsive checks — carousel, chips, `DriverPicker` at narrow width
+- [x] Web: fix hero CTA / filled-button text — theme-independent ink on `heroOn` (dark-mode legibility)
+- [x] Tokens: extend `contrast.test.mjs` pairings; fix failing `tokens.json` roles for light + dark
+- [x] Web: `AgendaStatusChip` tone contrast verify (token tweak only if failing)
+- [x] Tests: `coverageCopy.test.ts` — vocabulary + label constants
+- [x] Tests: update `HeroAttentionCarousel.test.tsx`, `DriverPicker.test.tsx`, `AgendaRow.test.tsx`, `rideStatusChip` / chip tests for new strings and a11y attributes
 
 ## Open questions
 

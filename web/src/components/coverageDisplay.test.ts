@@ -21,6 +21,13 @@ import {
   remainingCoverageGapKidIds,
   pendingOwnAskIdToCancelOnAssign,
 } from "@/components/coverageDisplay"
+import {
+  AWAITING_CONFIRM,
+  CONFIRM_COVERAGE,
+  COVERAGE_CONFIRMED,
+  NEEDS_COVERAGE,
+  OVERLAPS_CHIP,
+} from "@/components/coverageCopy"
 import { calendarSourceLabel as eventTimesSourceLabel } from "@/components/eventTimes"
 
 const kids: Kid[] = [
@@ -162,7 +169,7 @@ describe("coverageDisplay", () => {
       ],
     })
     expect(agendaItemStatusTags(pendingSelf, "a1")).toEqual([
-      { label: "Confirm coverage", tone: "amber" },
+      { label: CONFIRM_COVERAGE, tone: "amber" },
     ])
     expect(agendaItemNeedsAttention(pendingSelf, "a1")).toBe(true)
 
@@ -176,13 +183,13 @@ describe("coverageDisplay", () => {
       ],
     })
     expect(agendaItemStatusTags(pendingOther, "a1")).toEqual([
-      { label: "Awaiting confirm", tone: "amber" },
+      { label: AWAITING_CONFIRM, tone: "amber" },
     ])
     expect(agendaItemNeedsAttention(pendingOther, "a1")).toBe(false)
 
     const uncovered = calendarItem({ uncoveredKidIds: ["k1"] })
     expect(agendaItemStatusTags(uncovered, "a1")).toEqual([
-      { label: "Needs coverage", tone: "amber" },
+      { label: NEEDS_COVERAGE, tone: "amber" },
     ])
   })
 
@@ -220,13 +227,13 @@ describe("coverageDisplay", () => {
 
     const mixed = calendarItem({ uncoveredKidIds: ["k1", "k2"] })
     expect(agendaItemStatusTags(mixed, "a1", { ownRequest: accepted })).toEqual([
-      { label: "Needs coverage", tone: "amber" },
+      { label: NEEDS_COVERAGE, tone: "amber" },
     ])
     expect(agendaItemNeedsAttention(mixed, "a1", false, accepted)).toBe(true)
 
     const pending = ownRide({ status: "PENDING", kidIds: ["k1"] })
     expect(agendaItemStatusTags(item, "a1", { ownRequest: pending })).toEqual([
-      { label: "Needs coverage", tone: "amber" },
+      { label: NEEDS_COVERAGE, tone: "amber" },
     ])
   })
 
@@ -255,9 +262,9 @@ describe("coverageDisplay", () => {
       },
     )
     expect(tags.map((tag) => tag.label)).toEqual([
-      "Overlaps",
+      OVERLAPS_CHIP,
       "Riding with House B",
-      "Needs coverage",
+      NEEDS_COVERAGE,
     ])
   })
 
@@ -265,23 +272,23 @@ describe("coverageDisplay", () => {
     const rideChip = { label: "Riding with House B", tone: "mint" as const }
     expect(insertOwnRideStatusChip([], rideChip)).toEqual([rideChip])
     expect(
-      insertOwnRideStatusChip([{ label: "Needs coverage", tone: "amber" }], rideChip),
-    ).toEqual([rideChip, { label: "Needs coverage", tone: "amber" }])
+      insertOwnRideStatusChip([{ label: NEEDS_COVERAGE, tone: "amber" }], rideChip),
+    ).toEqual([rideChip, { label: NEEDS_COVERAGE, tone: "amber" }])
     expect(
       insertOwnRideStatusChip(
         [
-          { label: "Overlaps", tone: "amber" },
-          { label: "Needs coverage", tone: "amber" },
+          { label: OVERLAPS_CHIP, tone: "amber" },
+          { label: NEEDS_COVERAGE, tone: "amber" },
         ],
         rideChip,
       ),
     ).toEqual([
-      { label: "Overlaps", tone: "amber" },
+      { label: OVERLAPS_CHIP, tone: "amber" },
       rideChip,
-      { label: "Needs coverage", tone: "amber" },
+      { label: NEEDS_COVERAGE, tone: "amber" },
     ])
-    expect(insertOwnRideStatusChip([{ label: "Confirmed", tone: "mint" }], null)).toEqual([
-      { label: "Confirmed", tone: "mint" },
+    expect(insertOwnRideStatusChip([{ label: COVERAGE_CONFIRMED, tone: "mint" }], null)).toEqual([
+      { label: COVERAGE_CONFIRMED, tone: "mint" },
     ])
   })
 })

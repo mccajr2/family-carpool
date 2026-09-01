@@ -13,6 +13,7 @@ export function HeroAttentionDaysRing({
   return (
     <div
       data-testid={testId}
+      aria-hidden
       className="flex shrink-0 flex-col items-center justify-center rounded-full text-[var(--fc-hero-on)]"
       style={{
         width: 84,

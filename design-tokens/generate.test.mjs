@@ -28,7 +28,7 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /\.dark, \[data-theme="dark"\] \{[\s\S]*--fc-rail-surface: #16181A;/)
   assert.match(css, /--fc-rail-on: #FFFFFF;/)
   assert.match(css, /--fc-rail-active: #242832;/)
-  assert.match(css, /--fc-rail-accent: #5E6DFF;/)
+  assert.match(css, /--fc-rail-accent: #8894FF;/)
   assert.match(css, /--fc-rail-danger: #F2994A;/)
   assert.match(css, /--fc-space-rail-x: 20px;/)
   assert.match(css, /--fc-space-rail-y: 28px;/)
@@ -128,8 +128,8 @@ test("tokens.json declares light and dark color roles and icons", () => {
   const tokens = JSON.parse(readFileSync(join(__dirname, "tokens.json"), "utf8"))
   assert.equal(tokens.meta.provisional, false)
   assert.equal(tokens.color.light.textSecondary, "#686F79")
-  assert.equal(tokens.color.light.danger, "#A9590C")
-  assert.equal(tokens.color.light.success, "#187D58")
+  assert.equal(tokens.color.light.danger, "#A24F0A")
+  assert.equal(tokens.color.light.success, "#167452")
   assert.equal(tokens.color.dark.danger, "#F2994A")
   for (const role of [
     "accent",
@@ -142,6 +142,7 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "textSecondary",
     "heroSurface",
     "heroOn",
+    "heroOnInverse",
     "heroOnSecondary",
     "heroDanger",
     "heroSuccess",

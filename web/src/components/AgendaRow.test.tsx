@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
+import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, CONFIRM_ILL_DRIVE, RIDE_NEEDED } from "@/components/coverageCopy"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -144,9 +145,9 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-MANUAL-skip")
     expect(row).toHaveClass("opacity-60")
-    expect(within(row).getByText("Not going")).toBeInTheDocument()
-    expect(within(row).getByText("Not going").className).toMatch(/uppercase/)
-    expect(within(row).getByText("Not going").className).toMatch(/--fc-font-feed-chip-size/)
+    expect(within(row).getByText(ATTENDANCE_NOT_GOING_CHIP)).toBeInTheDocument()
+    expect(within(row).getByText(ATTENDANCE_NOT_GOING_CHIP).className).toMatch(/uppercase/)
+    expect(within(row).getByText(ATTENDANCE_NOT_GOING_CHIP).className).toMatch(/--fc-font-feed-chip-size/)
     expect(within(row).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
@@ -294,7 +295,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-row-covering-avatars")).not.toBeInTheDocument()
     expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
-    expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
+    expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
   })
 
   it("shows Waiting on tag when pending for someone else", () => {
@@ -552,7 +553,7 @@ detourMinutes: null,
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-1")
-    expect(within(row).queryByText("Asked the team")).not.toBeInTheDocument()
+    expect(within(row).queryByText(ASKED_THE_TEAM)).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -603,7 +604,7 @@ detourMinutes: null,
         {...noopHandlers}
       />,
     )
-    expect(within(row).getAllByText("Asked the team").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText(ASKED_THE_TEAM).length).toBeGreaterThan(0)
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam · 1 seat · Home, 1 Main",
     )
@@ -811,7 +812,7 @@ detourMinutes: null,
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-mixed")
-    expect(within(row).getByText("Ride needed")).toBeInTheDocument()
+    expect(within(row).getByText(RIDE_NEEDED)).toBeInTheDocument()
     expect(within(row).queryByText("Riding with House B")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -819,7 +820,7 @@ detourMinutes: null,
     expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
     const riley = within(row).getByTestId("agenda-kid-row-k2")
     expect(within(riley).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(riley).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(riley).getByRole("button", { name: CONFIRM_ILL_DRIVE })).toBeInTheDocument()
     const sam = within(row).getByTestId("agenda-kid-row-k1")
     expect(within(sam).queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(
@@ -886,13 +887,13 @@ detourMinutes: null,
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-pending")
-    expect(within(row).getByText("Asked the team")).toBeInTheDocument()
-    expect(within(row).queryByText("Ride needed")).not.toBeInTheDocument()
+    expect(within(row).getByText(ASKED_THE_TEAM)).toBeInTheDocument()
+    expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     // Assign cancels the open ask (auto-decline-unofferable); Cancel ask still available.
     expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(row).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(row).getByRole("button", { name: CONFIRM_ILL_DRIVE })).toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage: Sam")).not.toBeInTheDocument()
     expect(
       within(row).getByRole("button", {
@@ -947,7 +948,7 @@ detourMinutes: null,
     expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     await user.click(within(kid).getByRole("button", { name: "Ask the team for a ride" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
-    await user.click(within(kid).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(kid).getByRole("button", { name: CONFIRM_ILL_DRIVE }))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
@@ -1754,5 +1755,46 @@ detourMinutes: null,
         name: "Jordan can't drive anymore? Reassign the ride",
       }),
     ).toBeInTheDocument()
+  })
+
+  it("wraps collapsed chip tags on narrow widths", () => {
+    render(
+      <div style={{ width: "390px" }}>
+        <AgendaRow
+          item={item({
+            id: "narrow-chips",
+            uncoveredKidIds: ["k1"],
+            conflicts: [
+              {
+                type: "KID_TIME_OVERLAP",
+                kidId: "k1",
+                adultId: null,
+                adultDisplayName: null,
+                otherSource: "MANUAL",
+                otherItemId: "other",
+                otherTitle: "Other game",
+                otherStartsAt: "2030-08-15T18:00:00.000Z",
+              },
+            ],
+          })}
+          circle={circle}
+          currentAdultId="a1"
+          loading={false}
+          assignDraft={{
+            adultId: "a1",
+            kidIds: ["k1"],
+            soleAdult: true,
+            soleKid: true,
+          }}
+          {...noopHandlers}
+        />
+      </div>,
+    )
+
+    const strip = screen.getByTestId("agenda-row-chip-strip")
+    expect(strip.className).toMatch(/flex-wrap/)
+    expect(strip.className).toMatch(/max-\[390px\]:w-full/)
+    expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText("Overlaps")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText(RIDE_NEEDED)).toBeInTheDocument()
   })
 })

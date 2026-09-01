@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarItem, CalendarConflict, CarpoolRide } from "@/api/types"
 import {
+  ASKED_THE_TEAM,
+  ATTENDANCE_NOT_GOING_CHIP,
+  CARPOOL_ASK_SINGULAR,
+  CONFIRM_YOU_WILL_DRIVE,
+  OVERLAPS_CHIP,
+  RIDE_NEEDED,
+  YOURE_DRIVING,
+  carpoolAskCountLabel,
+  drivingChipLabel,
+  ridingWithCircleLabel,
+  waitingOnDriverLabel,
+} from "@/components/coverageCopy"
+import {
   carpoolAskChipForRideEvent,
   pickMostUrgentGameRow,
   rideStatusChipForGameRow,
@@ -137,11 +150,11 @@ describe("pickMostUrgentGameRow", () => {
 describe("rideStatusChipForGameRow", () => {
   it("maps own-ride states to label and tone", () => {
     expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "unassigned" }), null)).toEqual({
-      label: "Ride needed",
+      label: RIDE_NEEDED,
       tone: "amber",
     })
     expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "requested" }), null)).toEqual({
-      label: "Asked the team",
+      label: ASKED_THE_TEAM,
       tone: "amber",
     })
     expect(
@@ -149,13 +162,13 @@ describe("rideStatusChipForGameRow", () => {
         game({ id: "g", order: 1, ownRide: { driver: "You", confirmed: false } }),
         null,
       ),
-    ).toEqual({ label: "Confirm you'll drive", tone: "amber" })
+    ).toEqual({ label: CONFIRM_YOU_WILL_DRIVE, tone: "amber" })
     expect(
       rideStatusChipForGameRow(
         game({ id: "g", order: 1, ownRide: { driver: "Jordan", confirmed: false } }),
         null,
       ),
-    ).toEqual({ label: "Waiting on Jordan", tone: "amber" })
+    ).toEqual({ label: waitingOnDriverLabel("Jordan"), tone: "amber" })
   })
 
   it("uses route tone for confirmed driver with accepted riders", () => {
@@ -166,7 +179,7 @@ describe("rideStatusChipForGameRow", () => {
       requests: [request({ id: "a1", status: "accepted" })],
     })
     expect(rideStatusChipForGameRow(withRiders, null)).toEqual({
-      label: "You're driving · +1",
+      label: drivingChipLabel("You", 1),
       tone: "route",
     })
 
@@ -176,7 +189,7 @@ describe("rideStatusChipForGameRow", () => {
       ownRide: { driver: "You", confirmed: true },
     })
     expect(rideStatusChipForGameRow(solo, null)).toEqual({
-      label: "You're driving",
+      label: YOURE_DRIVING,
       tone: "mint",
     })
 
@@ -190,7 +203,7 @@ describe("rideStatusChipForGameRow", () => {
       ],
     })
     expect(rideStatusChipForGameRow(otherDriver, null)).toEqual({
-      label: "Jordan driving · +2",
+      label: drivingChipLabel("Jordan", 2),
       tone: "route",
     })
   })
@@ -209,7 +222,7 @@ describe("rideStatusChipForGameRow", () => {
     })
 
     expect(rideStatusChipForGameRow(row, accepted)).toEqual({
-      label: "Riding with Sharks",
+      label: ridingWithCircleLabel("Sharks"),
       tone: "mint",
     })
   })
@@ -224,7 +237,7 @@ describe("rideStatusChipsForItem", () => {
     ]
 
     expect(rideStatusChipsForItem(item, games, null)).toEqual([
-      { label: "Not going", tone: "muted" },
+      { label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" },
     ])
   })
 
@@ -249,8 +262,8 @@ describe("rideStatusChipsForItem", () => {
     ]
 
     expect(rideStatusChipsForItem(item, games, null)).toEqual([
-      { label: "Overlaps", tone: "amber" },
-      { label: "Ride needed", tone: "amber" },
+      { label: OVERLAPS_CHIP, tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
     ])
   })
 
@@ -272,7 +285,7 @@ describe("rideStatusChipsForItem", () => {
     ]
 
     expect(rideStatusChipsForItem(item, games, null)).toEqual([
-      { label: "Ride needed", tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
     ])
   })
 
@@ -292,14 +305,14 @@ describe("rideStatusChipsForItem", () => {
     const askChip = carpoolAskChipForRideEvent(games)
 
     expect(rideChips).toEqual([
-      { label: "Overlaps", tone: "amber" },
-      { label: "You're driving · +1", tone: "route" },
+      { label: OVERLAPS_CHIP, tone: "amber" },
+      { label: drivingChipLabel("You", 1), tone: "route" },
     ])
-    expect(askChip).toEqual({ label: "1 carpool ask", tone: "amber" })
+    expect(askChip).toEqual({ label: CARPOOL_ASK_SINGULAR, tone: "amber" })
     expect([...rideChips, askChip!]).toEqual([
-      { label: "Overlaps", tone: "amber" },
-      { label: "You're driving · +1", tone: "route" },
-      { label: "1 carpool ask", tone: "amber" },
+      { label: OVERLAPS_CHIP, tone: "amber" },
+      { label: drivingChipLabel("You", 1), tone: "route" },
+      { label: CARPOOL_ASK_SINGULAR, tone: "amber" },
     ])
   })
 
@@ -310,7 +323,7 @@ describe("rideStatusChipsForItem", () => {
     const games = [game({ id: "g", order: 100, attendance: "not_going" })]
 
     expect(rideStatusChipsForItem(item, games, null)).toEqual([
-      { label: "Not going", tone: "muted" },
+      { label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" },
     ])
   })
 })
@@ -329,7 +342,7 @@ describe("carpoolAskChipForRideEvent", () => {
     ]
 
     expect(carpoolAskChipForRideEvent(games)).toEqual({
-      label: "2 carpool asks",
+      label: carpoolAskCountLabel(2),
       tone: "amber",
     })
   })
@@ -343,7 +356,7 @@ describe("carpoolAskChipForRideEvent", () => {
       }),
     ]
     expect(carpoolAskChipForRideEvent(games)).toEqual({
-      label: "2 carpool asks",
+      label: carpoolAskCountLabel(2),
       tone: "amber",
     })
 
