@@ -4,15 +4,18 @@ import {
   isUnassigned,
   type OwnRideStatus,
 } from "@/components/coverageQueue"
+import {
+  REVERT_CANCEL_TEAM_ASK,
+  REVERT_REASSIGN_YOU,
+  revertOtherDriverLabel,
+  revertTeammateDriverLabel,
+} from "@/components/coverageCopy"
 
-/** Inbound ACCEPTED-by-us → withdraw (mock RequestRow). */
-export const REVERT_INBOUND_CANT_TAKE_THEM = "Can't take them anymore"
-
-/** Declined inbound → re-accept when canOffer. */
-export const REVERT_INBOUND_RECONSIDER = "Reconsider"
-
-/** Session-local after withdraw → re-accept when canOffer. */
-export const REVERT_INBOUND_UNDO = "Undo"
+export {
+  REVERT_INBOUND_CANT_TAKE_THEM,
+  REVERT_INBOUND_RECONSIDER,
+  REVERT_INBOUND_UNDO,
+} from "@/components/coverageCopy"
 
 /**
  * Underlined own-ride revert copy (drive vocabulary — never “make it” / “going”).
@@ -23,7 +26,7 @@ export function revertOwnRideLabel(
   options: { teammateRide?: boolean } = {},
 ): string | null {
   if (ownRide === "requested") {
-    return "No longer need a ride? Cancel this ask"
+    return REVERT_CANCEL_TEAM_ASK
   }
   if (isUnassigned(ownRide) || isPendingHouseholdConfirm(ownRide)) {
     return null
@@ -32,10 +35,10 @@ export function revertOwnRideLabel(
     return null
   }
   if (options.teammateRide) {
-    return `${ownRide.driver} can't drive anymore? Find a new ride`
+    return revertTeammateDriverLabel(ownRide.driver)
   }
   if (ownRide.driver === "You") {
-    return "Can't drive anymore? Reassign the ride"
+    return REVERT_REASSIGN_YOU
   }
-  return `${ownRide.driver} can't drive anymore? Reassign the ride`
+  return revertOtherDriverLabel(ownRide.driver)
 }

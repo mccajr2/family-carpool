@@ -1,5 +1,12 @@
 import type { FamilyMember } from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
+import {
+  ASK_THE_TEAM_FOR_RIDE,
+  CONFIRM_ILL_DRIVE,
+  HERO_ON_INVERSE,
+  NOBODY_IN_HOUSEHOLD_FREE,
+  askMemberToDriveLabel,
+} from "@/components/coverageCopy"
 import { Button } from "@/components/ui/button"
 
 export type DriverPickerProps = {
@@ -30,11 +37,11 @@ export function confirmDriverLabel(
   currentAdultId: string,
 ): string {
   if (selectedAdultId === currentAdultId) {
-    return "Confirm I'll drive"
+    return CONFIRM_ILL_DRIVE
   }
   const member = members.find((row) => row.adultId === selectedAdultId)
   const name = member ? memberLabel(member) : "them"
-  return `Ask ${name} to drive`
+  return askMemberToDriveLabel(name)
 }
 
 type DriverMemberChipProps = {
@@ -61,12 +68,12 @@ function DriverMemberChip({
         onClick={onClick}
         data-testid="driver-picker-chip"
         data-selected={selected ? "true" : "false"}
-        className="rounded-full border-0 px-3.5 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-full border-0 px-3.5 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fc-list-row-focus-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         style={
           selected
             ? {
                 background: "var(--fc-hero-on)",
-                color: "var(--fc-text-primary)",
+                color: HERO_ON_INVERSE,
               }
             : {
                 background: "rgba(255,255,255,0.1)",
@@ -99,6 +106,152 @@ function DriverMemberChip({
   )
 }
 
+type DriverPickerHouseholdSectionProps = {
+  members: FamilyMember[]
+  currentAdultId: string
+  selectedAdultId: string
+  loading: boolean
+  confirmLabel: string
+  hero: boolean
+  kidIds: string[]
+  onSelectedAdultChange: (adultId: string) => void
+  onAssignCoverage: (adultId: string, kidIds: string[]) => void
+}
+
+function DriverPickerHouseholdSection({
+  members,
+  currentAdultId,
+  selectedAdultId,
+  loading,
+  confirmLabel,
+  hero,
+  kidIds,
+  onSelectedAdultChange,
+  onAssignCoverage,
+}: DriverPickerHouseholdSectionProps) {
+  const chips = (
+    <div
+      className={`flex flex-wrap ${hero ? "gap-[var(--fc-space-sm)]" : "gap-[var(--fc-space-xs)]"} min-w-0 max-w-full`}
+      role="group"
+      aria-label="Household driver"
+    >
+      {members.map((member) => (
+        <DriverMemberChip
+          key={member.adultId}
+          label={householdDriverChipLabel(member, currentAdultId)}
+          selected={member.adultId === selectedAdultId}
+          disabled={loading}
+          hero={hero}
+          onClick={() => onSelectedAdultChange(member.adultId)}
+        />
+      ))}
+    </div>
+  )
+
+  if (hero) {
+    return (
+      <div
+        data-testid="driver-picker-household-section"
+        className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)]"
+      >
+        {chips}
+        <button
+          type="button"
+          data-testid="driver-picker-confirm"
+          className="w-fit rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: "var(--fc-hero-on)",
+              color: HERO_ON_INVERSE,
+            }}
+          onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
+          disabled={loading || !selectedAdultId || kidIds.length === 0}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-testid="driver-picker-household-section"
+      className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)]"
+    >
+      {chips}
+      <Button
+        type="button"
+        size="sm"
+        data-testid="driver-picker-confirm"
+        className="w-fit text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+        onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
+        disabled={loading || !selectedAdultId || kidIds.length === 0}
+      >
+        {confirmLabel}
+      </Button>
+    </div>
+  )
+}
+
+type DriverPickerTeamSectionProps = {
+  hero: boolean
+  loading: boolean
+  onAskTeam: () => void
+}
+
+function DriverPickerTeamSection({ hero, loading, onAskTeam }: DriverPickerTeamSectionProps) {
+  if (hero) {
+    return (
+      <div
+        data-testid="driver-picker-team-section"
+        className="mt-[var(--fc-space-lg)] flex flex-col gap-[var(--fc-space-sm)] border-t pt-[var(--fc-space-md)]"
+        style={{ borderColor: "rgba(255,255,255,0.14)" }}
+      >
+        <p
+          className="text-xs"
+          style={{ color: "var(--fc-hero-on-secondary)" }}
+        >
+          {NOBODY_IN_HOUSEHOLD_FREE}
+        </p>
+        <button
+          type="button"
+          data-testid="driver-picker-team-ask"
+          className="w-fit rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          style={{
+            background: "var(--fc-hero-decline-bg)",
+            color: "var(--fc-hero-on)",
+          }}
+          onClick={onAskTeam}
+          disabled={loading}
+        >
+          {ASK_THE_TEAM_FOR_RIDE}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-testid="driver-picker-team-section"
+      className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-sm)] border-t border-[var(--fc-border)] pt-[var(--fc-space-md)]"
+    >
+      <p className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)]">
+        {NOBODY_IN_HOUSEHOLD_FREE}
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-testid="driver-picker-team-ask"
+        className="w-fit text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+        onClick={onAskTeam}
+        disabled={loading}
+      >
+        {ASK_THE_TEAM_FOR_RIDE}
+      </Button>
+    </div>
+  )
+}
+
 /**
  * Household driver selection: member chips, confirm assign, and team ask fallback.
  * Kid-subset checkboxes stay outside this component (see AgendaFocusCard).
@@ -117,126 +270,21 @@ export function DriverPicker({
 }: DriverPickerProps) {
   const confirmLabel = confirmDriverLabel(selectedAdultId, members, currentAdultId)
 
-  if (hero) {
-    return (
-      <div data-testid="driver-picker" className="w-full">
-        <div className="mb-3 flex flex-col gap-3">
-          <div
-            className="flex flex-wrap gap-2"
-            role="group"
-            aria-label="Household driver"
-          >
-            {members.map((member) => (
-              <DriverMemberChip
-                key={member.adultId}
-                label={householdDriverChipLabel(member, currentAdultId)}
-                selected={member.adultId === selectedAdultId}
-                disabled={loading}
-                hero
-                onClick={() => onSelectedAdultChange(member.adultId)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            data-testid="driver-picker-confirm"
-            className="w-fit rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              background: "var(--fc-hero-on)",
-              color: "var(--fc-text-primary)",
-            }}
-            onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
-            disabled={loading || !selectedAdultId || kidIds.length === 0}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-        {showTeamSection ? (
-          <div
-            data-testid="driver-picker-team-section"
-            className="mt-5 border-t pt-4"
-            style={{ borderColor: "rgba(255,255,255,0.14)" }}
-          >
-            <p
-              className="mb-2 text-xs"
-              style={{ color: "var(--fc-hero-on-secondary)" }}
-            >
-              Nobody in the household free?
-            </p>
-            <button
-              type="button"
-              data-testid="driver-picker-team-ask"
-              className="rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                background: "var(--fc-hero-decline-bg)",
-                color: "var(--fc-hero-on)",
-              }}
-              onClick={onAskTeam}
-              disabled={loading}
-            >
-              Ask the team for a ride
-            </button>
-          </div>
-        ) : null}
-      </div>
-    )
-  }
-
-  const onSecondaryVar = "var(--fc-text-secondary)"
-  const dividerVar = "var(--fc-border)"
   return (
-    <div
-      data-testid="driver-picker"
-      className="flex w-full flex-col gap-[var(--fc-space-md)]"
-    >
-      <div
-        className="flex flex-wrap gap-[var(--fc-space-xs)]"
-        role="group"
-        aria-label="Household driver"
-      >
-        {members.map((member) => (
-          <DriverMemberChip
-            key={member.adultId}
-            label={householdDriverChipLabel(member, currentAdultId)}
-            selected={member.adultId === selectedAdultId}
-            disabled={loading}
-            hero={false}
-            onClick={() => onSelectedAdultChange(member.adultId)}
-          />
-        ))}
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        className="w-fit text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-        onClick={() => onAssignCoverage(selectedAdultId, kidIds)}
-        disabled={loading || !selectedAdultId || kidIds.length === 0}
-      >
-        {confirmLabel}
-      </Button>
+    <div data-testid="driver-picker" className="w-full min-w-0 max-w-full">
+      <DriverPickerHouseholdSection
+        members={members}
+        currentAdultId={currentAdultId}
+        selectedAdultId={selectedAdultId}
+        loading={loading}
+        confirmLabel={confirmLabel}
+        hero={hero}
+        kidIds={kidIds}
+        onSelectedAdultChange={onSelectedAdultChange}
+        onAssignCoverage={onAssignCoverage}
+      />
       {showTeamSection ? (
-        <div
-          data-testid="driver-picker-team-section"
-          className="flex flex-col gap-[var(--fc-space-sm)] border-t pt-[var(--fc-space-md)]"
-          style={{ borderColor: dividerVar }}
-        >
-          <p
-            className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
-            style={{ color: onSecondaryVar }}
-          >
-            Nobody in the household free?
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-fit text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-            onClick={onAskTeam}
-            disabled={loading}
-          >
-            Ask the team for a ride
-          </Button>
-        </div>
+        <DriverPickerTeamSection hero={hero} loading={loading} onAskTeam={onAskTeam} />
       ) : null}
     </div>
   )

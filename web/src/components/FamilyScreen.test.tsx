@@ -3151,7 +3151,9 @@ detourMinutes: null,
     await waitFor(() => {
       expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(1)
     })
-    expect(within(carousel).getByText("Riley needs a ride")).toBeInTheDocument()
+    expect(within(carousel).getByTestId("hero-attention-slide-title")).toHaveTextContent(
+      "Riley needs a ride",
+    )
     expect(within(carousel).queryByTestId("hero-attention-controls")).not.toBeInTheDocument()
     expect(within(agenda).getByTestId("agenda-item-MANUAL-e1")).toBeInTheDocument()
     expect(within(agenda).getByTestId("agenda-item-MANUAL-e2")).toBeInTheDocument()
@@ -3264,8 +3266,12 @@ detourMinutes: null,
     await waitFor(() => {
       expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(1)
     })
-    expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
-    expect(within(carousel).queryByText("Riley needs a ride")).not.toBeInTheDocument()
+    expect(within(carousel).getByTestId("hero-attention-slide-title")).toHaveTextContent(
+      "Sam needs a ride",
+    )
+    expect(within(carousel).queryByTestId("hero-attention-slide-title")).not.toHaveTextContent(
+      "Riley needs a ride",
+    )
   })
 
   it("shows All caught up when the last carousel item is resolved", async () => {

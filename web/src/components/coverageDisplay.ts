@@ -5,6 +5,15 @@ import type {
   FamilyMember,
   Kid,
 } from "@/api/types"
+import {
+  ALL_SET,
+  ATTENDANCE_NOT_GOING_CHIP,
+  AWAITING_CONFIRM,
+  CONFIRM_COVERAGE,
+  COVERAGE_CONFIRMED,
+  NEEDS_COVERAGE,
+  OVERLAPS_CHIP,
+} from "@/components/coverageCopy"
 
 /** Mirrors mobile/iosApp CoverageDisplay.swift + sharedUI CoverageDisplay.kt. */
 
@@ -131,7 +140,7 @@ export function agendaItemStatusTags(
 ): AgendaItemStatusTag[] {
   const { outOfPlay = false, includeAllSet = false, ownRequest } = options
   if (outOfPlay) {
-    return [{ label: "Not going", tone: "muted" }]
+    return [{ label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" }]
   }
 
   const tags: AgendaItemStatusTag[] = []
@@ -140,18 +149,18 @@ export function agendaItemStatusTags(
   const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
 
   if (item.conflicts.length > 0) {
-    tags.push({ label: "Overlaps", tone: "amber" })
+    tags.push({ label: OVERLAPS_CHIP, tone: "amber" })
   }
   if (gapKids.length > 0) {
-    tags.push({ label: "Needs coverage", tone: "amber" })
+    tags.push({ label: NEEDS_COVERAGE, tone: "amber" })
   } else if (pendingForSelf) {
-    tags.push({ label: "Confirm coverage", tone: "amber" })
+    tags.push({ label: CONFIRM_COVERAGE, tone: "amber" })
   } else if (active.some((c) => c.status === "PENDING")) {
-    tags.push({ label: "Awaiting confirm", tone: "amber" })
+    tags.push({ label: AWAITING_CONFIRM, tone: "amber" })
   } else if (active.some((c) => c.status === "CONFIRMED")) {
-    tags.push({ label: "Confirmed", tone: "mint" })
+    tags.push({ label: COVERAGE_CONFIRMED, tone: "mint" })
   } else if (includeAllSet) {
-    tags.push({ label: "All set", tone: "mint" })
+    tags.push({ label: ALL_SET, tone: "mint" })
   }
   return tags
 }
@@ -167,7 +176,7 @@ export function insertOwnRideStatusChip(
   if (rideChip == null) {
     return tags
   }
-  const overlapsIndex = tags.findIndex((tag) => tag.label === "Overlaps")
+  const overlapsIndex = tags.findIndex((tag) => tag.label === OVERLAPS_CHIP)
   if (overlapsIndex >= 0) {
     return [
       ...tags.slice(0, overlapsIndex + 1),

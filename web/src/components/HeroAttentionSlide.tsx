@@ -9,6 +9,16 @@ import type { QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import {
+  CONFIRM_COVERAGE,
+  DECLINE_COVERAGE,
+  HERO_MOST_URGENT,
+  HERO_ON_INVERSE,
+  HERO_UP_NEXT,
+  heroQueueCountLabel,
+  kidAlreadyGoingSuffix,
+  kidNeedsRideTitle,
+} from "@/components/coverageCopy"
 import { PickupLine } from "@/components/PickupLine"
 import {
   heroEventContextLine,
@@ -103,10 +113,10 @@ export function HeroAttentionSlide({
     <div
       data-testid="hero-attention-slide"
       data-slide-kind={item.kind}
-      className="relative h-full overflow-hidden rounded-2xl p-[var(--fc-space-hero-slide-pad)] text-[var(--fc-hero-on)]"
+      className="relative h-full min-w-0 overflow-hidden rounded-2xl p-[var(--fc-space-hero-slide-pad)] text-[var(--fc-hero-on)]"
       style={{ background: "var(--fc-hero-glow)" }}
     >
-      <div className="flex items-start justify-between gap-[var(--fc-space-lg)]">
+      <div className="flex min-w-0 items-start justify-between gap-[var(--fc-space-lg)]">
         <div className="min-w-0 flex-1">
           <div className="mb-[var(--fc-space-sm)] flex flex-wrap items-center gap-[var(--fc-space-sm)] text-xs font-semibold uppercase tracking-widest">
             {index === 0 ? (
@@ -115,16 +125,16 @@ export function HeroAttentionSlide({
                   className="rounded-full px-2 py-0.5"
                   style={{ background: "var(--fc-hero-most-urgent-badge)" }}
                 >
-                  Most urgent
+                  {HERO_MOST_URGENT}
                 </span>
                 {queueLength > 1 ? (
                   <span style={{ color: "var(--fc-hero-on-secondary)" }}>
-                    · {queueLength} things need you
+                    {heroQueueCountLabel(queueLength)}
                   </span>
                 ) : null}
               </>
             ) : (
-              <span style={{ color: "var(--fc-hero-on-secondary)" }}>Up next</span>
+              <span style={{ color: "var(--fc-hero-on-secondary)" }}>{HERO_UP_NEXT}</span>
             )}
           </div>
 
@@ -134,7 +144,7 @@ export function HeroAttentionSlide({
                 className="fc-display mb-[var(--fc-space-sm)] text-[length:var(--fc-font-focus-title-size)] leading-[var(--fc-font-focus-title-line)] font-[number:var(--fc-font-focus-title-weight)]"
                 data-testid="hero-attention-slide-title"
               >
-                {kidFirstName} needs a ride
+                {kidNeedsRideTitle(kidFirstName)}
               </h2>
               <p
                 className="text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)] font-[number:var(--fc-font-focus-when-weight)]"
@@ -151,16 +161,16 @@ export function HeroAttentionSlide({
                 </p>
               ) : null}
               {pendingForSelf && onConfirmCoverage && onDeclineCoverage ? (
-                <div className="mt-[var(--fc-space-xl)] flex flex-wrap gap-[var(--fc-space-md)]">
+                <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
                   <button
                     type="button"
                     data-testid="hero-attention-confirm-coverage"
-                    className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--fc-text-primary)]"
-                    style={{ background: "var(--fc-hero-on)" }}
+                    className="rounded-lg px-4 py-2 text-sm font-semibold"
+                    style={{ background: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                     disabled={loading}
                     onClick={() => onConfirmCoverage(pendingForSelf.id)}
                   >
-                    Confirm coverage
+                    {CONFIRM_COVERAGE}
                   </button>
                   <button
                     type="button"
@@ -170,11 +180,11 @@ export function HeroAttentionSlide({
                     disabled={loading}
                     onClick={() => onDeclineCoverage(pendingForSelf.id)}
                   >
-                    Decline coverage
+                    {DECLINE_COVERAGE}
                   </button>
                 </div>
               ) : (
-                <div className="mt-[var(--fc-space-xl)] [&_button]:text-sm">
+                <div className="mt-[var(--fc-space-xl)] min-w-0 max-w-full [&_button]:text-sm">
                   <DriverPicker
                     members={circle.members}
                     currentAdultId={currentAdultId}
@@ -208,7 +218,7 @@ export function HeroAttentionSlide({
                 className="mt-1 text-sm"
                 style={{ color: "var(--fc-hero-on-secondary)" }}
               >
-                {[venue, `${kidFirstName} is already going`].filter(Boolean).join(" · ")}
+                {[venue, kidAlreadyGoingSuffix(kidFirstName)].filter(Boolean).join(" · ")}
               </p>
               <PickupLine
                 data-testid="hero-attention-pickup-summary"
@@ -217,7 +227,7 @@ export function HeroAttentionSlide({
                 variant="hero"
               />
               {requestAccept && onAcceptRide && onPassRide ? (
-                <div className="mt-[var(--fc-space-xl)] flex flex-wrap gap-[var(--fc-space-md)]">
+                <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
                   {requestAccept.vehicles.length > 1 ? (
                     <select
                       aria-label="Vehicle"
@@ -239,8 +249,8 @@ export function HeroAttentionSlide({
                   ) : null}
                   <button
                     type="button"
-                    className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-text-primary)]"
-                    style={{ background: "var(--fc-hero-on)" }}
+                    className="rounded-xl px-5 py-3 font-semibold"
+                    style={{ background: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                     disabled={loading || !acceptVehicle}
                     onClick={() => onAcceptRide(requestAccept.ride.id, acceptVehicle)}
                   >

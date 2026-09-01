@@ -303,6 +303,113 @@ describe("HeroAttentionCarousel", () => {
     expect(dots[1]).toHaveAttribute("data-active", "true")
     expect(scrollTo).toHaveBeenCalled()
   })
+
+  it("exposes visible focus rings on scroller, dots, and arrows", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    const focusRing = /focus-visible:ring-2/
+    expect(screen.getByTestId("hero-attention-scroller").className).toMatch(focusRing)
+    expect(screen.getByRole("button", { name: "Previous item" }).className).toMatch(focusRing)
+    expect(screen.getByRole("button", { name: "Next item" }).className).toMatch(focusRing)
+    for (const dot of screen.getAllByTestId("hero-attention-dot")) {
+      expect(dot.className).toMatch(focusRing)
+    }
+  })
+
+  it("labels each slide shell from the slide title", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    const shells = screen.getAllByTestId("hero-attention-slide-shell")
+    expect(shells[0]).toHaveAttribute("aria-label", "Declan needs a ride")
+    expect(shells[1]).toHaveAttribute("aria-label", "the Nguyens need a ride for Ben")
+  })
+
+  it("keeps carousel scroller and controls reflow-friendly at 390px", () => {
+    render(
+      <div style={{ width: "390px" }}>
+        <HeroAttentionCarousel
+          queue={ownRideQueue}
+          slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+        />
+      </div>,
+    )
+
+    expect(screen.getByTestId("hero-attention-scroller").className).toMatch(/overflow-x-auto/)
+    expect(screen.getByTestId("hero-attention-controls").className).toMatch(/flex-wrap/)
+    expect(screen.getByTestId("hero-attention-controls").className).toMatch(/max-w-full/)
+    expect(screen.getByRole("tablist", { name: "Carousel slides" }).className).toMatch(
+      /flex-wrap/,
+    )
+    for (const shell of screen.getAllByTestId("hero-attention-slide-shell")) {
+      expect(shell.className).toMatch(/max-w-full/)
+    }
+  })
+
+  it("announces the empty state when the queue clears", () => {
+    const { rerender } = render(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    rerender(
+      <HeroAttentionCarousel
+        queue={[]}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    expect(screen.getByTestId("hero-attention-live-region")).toHaveTextContent(
+      "All caught up. Nothing needs you right now",
+    )
+  })
+
+  it("announces a new queue item without re-announcing on slide index changes", async () => {
+    const user = userEvent.setup()
+    const scrollTo = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollTo,
+    })
+
+    const { rerender } = render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index, { queueLength: 1 })}
+      />,
+    )
+
+    rerender(
+      <HeroAttentionCarousel
+        queue={ownRideQueue}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index)}
+      />,
+    )
+
+    expect(screen.getByTestId("hero-attention-live-region")).toHaveTextContent(
+      "2 things need you",
+    )
+
+    const scroller = screen.getByTestId("hero-attention-scroller")
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 420 })
+    scroller.focus()
+    await user.keyboard("{ArrowRight}")
+
+    expect(screen.getByTestId("hero-attention-live-region")).toHaveTextContent(
+      "2 things need you",
+    )
+  })
 })
 
 describe("HeroAttentionSlide", () => {
@@ -356,6 +463,25 @@ describe("HeroAttentionSlide", () => {
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
   })
 
+  it("uses theme-independent ink on filled hero CTAs", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[1]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, { queueLength: 1 })
+        }
+      />,
+    )
+
+    const accept = within(screen.getByTestId("hero-attention-slide")).getByRole("button", {
+      name: "Accept",
+    })
+    expect(accept).toHaveStyle({
+      background: "var(--fc-hero-on)",
+      color: "var(--fc-hero-on-inverse)",
+    })
+  })
+
   it("shows up next chrome on non-zero slides", () => {
     render(
       <HeroAttentionCarousel
@@ -383,5 +509,35 @@ describe("HeroAttentionSlide", () => {
     )
     expect(within(firstSlide).getByText("Most urgent")).toBeInTheDocument()
     expect(within(firstSlide).getByText("· 2 things need you")).toBeInTheDocument()
+  })
+
+  it("wraps hero CTAs inside a 390px slide without horizontal overflow classes", () => {
+    render(
+      <div style={{ width: "390px" }}>
+        <HeroAttentionCarousel
+          queue={[ownRideQueue[0]!]}
+          slidePropsForItem={(item, index) => baseSlideProps(item, index, { queueLength: 1 })}
+        />
+      </div>,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(slide.className).toMatch(/min-w-0/)
+    const driverPicker = within(slide).getByTestId("driver-picker")
+    expect(driverPicker.className).toMatch(/max-w-full/)
+    expect(within(slide).getByRole("group", { name: "Household driver" }).className).toMatch(
+      /flex-wrap/,
+    )
+  })
+
+  it("hides the decorative days ring from assistive tech", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) => baseSlideProps(item, index, { queueLength: 1 })}
+      />,
+    )
+
+    expect(screen.getByTestId("hero-attention-days-ring")).toHaveAttribute("aria-hidden", "true")
   })
 })

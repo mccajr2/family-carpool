@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarItem } from "@/api/types"
 import {
+  heroAttentionSlideAriaLabel,
   heroEventContextLine,
   heroKidFirstName,
   heroPickupSummary,
   heroRequestTitle,
 } from "@/components/heroAttentionCopy"
+import { CONFIRM_COVERAGE } from "@/components/coverageCopy"
 import type { CarpoolRequest } from "@/components/coverageQueue"
 
 function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
@@ -78,5 +80,46 @@ describe("heroAttentionCopy", () => {
         status: "pending",
       }),
     ).toBe("Nguyen home, Cambridge, MA")
+  })
+
+  it("builds slide aria labels for own-ride, pending confirm, and inbound ask", () => {
+    const ownRide = {
+      kind: "ownRide" as const,
+      game: {
+        id: "g1",
+        kidId: "k1",
+        title: "Game",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        order: 0,
+        attendance: "going" as const,
+        ownRide: "unassigned" as const,
+        requests: [],
+      },
+    }
+    expect(
+      heroAttentionSlideAriaLabel(ownRide, { kidFirstName: "Declan", pendingConfirm: false }),
+    ).toBe("Declan needs a ride")
+    expect(
+      heroAttentionSlideAriaLabel(ownRide, { kidFirstName: "Declan", pendingConfirm: true }),
+    ).toBe(CONFIRM_COVERAGE)
+
+    const request = {
+      kind: "request" as const,
+      game: ownRide.game,
+      request: {
+        id: "r1",
+        requestingCircleName: "the Nguyens",
+        kidFirstNames: ["Ben"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: "Cambridge, MA",
+        detourMinutes: null,
+        status: "pending" as const,
+      },
+    }
+    expect(
+      heroAttentionSlideAriaLabel(request, { kidFirstName: "Declan", pendingConfirm: false }),
+    ).toBe("the Nguyens need a ride for Ben")
   })
 })

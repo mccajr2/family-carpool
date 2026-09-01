@@ -1,6 +1,13 @@
 import type { CalendarItem, CarpoolRide } from "@/api/types"
+import {
+  AGENDA_LIST_SECTION_LABEL,
+  type AgendaListSectionLabel,
+} from "@/components/coverageCopy"
 import { agendaItemNeedsAttention } from "@/components/coverageDisplay"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
+
+export { AGENDA_LIST_SECTION_LABEL } from "@/components/coverageCopy"
+export type { AgendaListSectionLabel } from "@/components/coverageCopy"
 
 export type AgendaDayGroup = {
   /** "Today" | "Tomorrow" | "This week" | "Later" */
@@ -9,18 +16,6 @@ export type AgendaDayGroup = {
   dateLabel?: string
   items: CalendarItem[]
 }
-
-/** All-caps Agenda list section chrome (Feeds-aligned labels). */
-export const AGENDA_LIST_SECTION_LABEL = {
-  needsAttention: "NEEDS YOUR ATTENTION",
-  restOfToday: "REST OF TODAY",
-  tomorrow: "TOMORROW",
-  thisWeek: "THIS WEEK",
-  later: "LATER",
-} as const
-
-export type AgendaListSectionLabel =
-  (typeof AGENDA_LIST_SECTION_LABEL)[keyof typeof AGENDA_LIST_SECTION_LABEL]
 
 export type AgendaListSection = {
   label: AgendaListSectionLabel

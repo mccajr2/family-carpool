@@ -20,6 +20,7 @@ import {
   rideKidsSeatsPickup,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
+import { ASKED_THE_TEAM, RIDING_WITH_TEAMMATE, ridingWithCircleLabel } from "@/components/coverageCopy"
 
 describe("carpoolDisplay", () => {
   it("shows Your family when the circle name is blank", () => {
@@ -59,13 +60,13 @@ describe("carpoolDisplay", () => {
     expect(agendaOwnRideStatusChip(null)).toBeNull()
     expect(
       agendaOwnRideStatusChip(ride({ status: "PENDING", acceptingCircleName: null })),
-    ).toEqual({ label: "Requested", tone: "amber" })
+    ).toEqual({ label: ASKED_THE_TEAM, tone: "amber" })
     expect(
       agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
-    ).toEqual({ label: "Riding with House B", tone: "mint" })
+    ).toEqual({ label: ridingWithCircleLabel("House B"), tone: "mint" })
     expect(
       agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "  " })),
-    ).toEqual({ label: "Riding with a teammate", tone: "mint" })
+    ).toEqual({ label: RIDING_WITH_TEAMMATE, tone: "mint" })
     expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
     expect(
       ownRideStatusLine(

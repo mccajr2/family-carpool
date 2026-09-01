@@ -15,6 +15,13 @@ import {
   REVERT_INBOUND_RECONSIDER,
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
+import {
+  INBOUND_ACCEPTED,
+  INBOUND_DECLINED_NEEDED_RIDE,
+  INBOUND_HERO_HANDOFF,
+  INBOUND_PASSED,
+  RIDE_NEEDED,
+} from "@/components/coverageCopy"
 import { PickupLine } from "@/components/PickupLine"
 import { Button } from "@/components/ui/button"
 
@@ -49,19 +56,19 @@ export function inboundRequestStatusChip(
   options: { autoDeclined?: boolean } = {},
 ): { label: string; tone: AgendaStatusChipTone } {
   if (isAcceptedByCircle(request, circleId)) {
-    return { label: "Accepted", tone: "mint" }
+    return { label: INBOUND_ACCEPTED, tone: "mint" }
   }
   if (options.autoDeclined) {
-    return { label: "Declined — you needed a ride too", tone: "muted" }
+    return { label: INBOUND_DECLINED_NEEDED_RIDE, tone: "muted" }
   }
   if (request.passedByMe) {
-    return { label: "Passed", tone: "muted" }
+    return { label: INBOUND_PASSED, tone: "muted" }
   }
   if (request.status === "PENDING") {
-    return { label: "Needs a ride", tone: "amber" }
+    return { label: RIDE_NEEDED, tone: "amber" }
   }
   if (request.status === "ACCEPTED") {
-    return { label: "Accepted", tone: "mint" }
+    return { label: INBOUND_ACCEPTED, tone: "mint" }
   }
   return { label: request.status, tone: "muted" }
 }
@@ -188,7 +195,7 @@ export function AgendaInboundRequestRow({
           data-testid={`agenda-inbound-request-${request.id}-hero-handoff`}
           className="mt-[var(--fc-space-sm)] text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] text-[var(--fc-text-secondary)]"
         >
-          Handle in Needs your attention above
+          {INBOUND_HERO_HANDOFF}
         </p>
       ) : null}
 

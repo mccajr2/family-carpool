@@ -3,9 +3,9 @@
 :root {
   --fc-accent: #3547E0;
   --fc-accent-on: #FFFFFF;
-  --fc-danger: #A9590C;
+  --fc-danger: #A24F0A;
   --fc-danger-on: #FFFFFF;
-  --fc-success: #187D58;
+  --fc-success: #167452;
   --fc-success-on: #FFFFFF;
   --fc-surface: #F6F5F2;
   --fc-surface-raised: #FFFFFF;
@@ -14,6 +14,7 @@
   --fc-text-secondary: #686F79;
   --fc-hero-surface: #16181A;
   --fc-hero-on: #FFFFFF;
+  --fc-hero-on-inverse: #16181A;
   --fc-hero-on-secondary: #9AA0A8;
   --fc-hero-danger: #F2994A;
   --fc-hero-success: #3DCF8E;
@@ -30,7 +31,7 @@
   --fc-rail-on: #FFFFFF;
   --fc-rail-on-secondary: #9AA0A8;
   --fc-rail-active: #242832;
-  --fc-rail-accent: #5E6DFF;
+  --fc-rail-accent: #8894FF;
   --fc-rail-danger: #F2994A;
   --fc-detour-on-way: #2F7A4D;
   --fc-detour-moderate: #B5793A;
@@ -217,7 +218,7 @@
 }
 
 .dark, [data-theme="dark"] {
-  --fc-accent: #5E6DFF;
+  --fc-accent: #8894FF;
   --fc-accent-on: #0A0C1A;
   --fc-danger: #F2994A;
   --fc-danger-on: #1A1206;
@@ -230,10 +231,11 @@
   --fc-text-secondary: #9AA0A8;
   --fc-hero-surface: #242832;
   --fc-hero-on: #FFFFFF;
+  --fc-hero-on-inverse: #16181A;
   --fc-hero-on-secondary: #9AA0A8;
   --fc-hero-danger: #F2994A;
   --fc-hero-success: #3DCF8E;
-  --fc-hero-accent: #5E6DFF;
+  --fc-hero-accent: #8894FF;
   --fc-hero-glow: radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%);
   --fc-hero-ring: #E3A15B;
   --fc-hero-most-urgent-badge: rgba(227,161,91,0.18);
@@ -246,7 +248,7 @@
   --fc-rail-on: #FFFFFF;
   --fc-rail-on-secondary: #9AA0A8;
   --fc-rail-active: #242832;
-  --fc-rail-accent: #5E6DFF;
+  --fc-rail-accent: #8894FF;
   --fc-rail-danger: #F2994A;
   --fc-detour-on-way: #2F7A4D;
   --fc-detour-moderate: #B5793A;
@@ -255,7 +257,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --fc-accent: #5E6DFF;
+    --fc-accent: #8894FF;
     --fc-accent-on: #0A0C1A;
     --fc-danger: #F2994A;
     --fc-danger-on: #1A1206;
@@ -268,10 +270,11 @@
     --fc-text-secondary: #9AA0A8;
     --fc-hero-surface: #242832;
     --fc-hero-on: #FFFFFF;
+    --fc-hero-on-inverse: #16181A;
     --fc-hero-on-secondary: #9AA0A8;
     --fc-hero-danger: #F2994A;
     --fc-hero-success: #3DCF8E;
-    --fc-hero-accent: #5E6DFF;
+    --fc-hero-accent: #8894FF;
     --fc-hero-glow: radial-gradient(120% 140% at 85% 0%, #2A2E63 0%, #11131C 55%);
     --fc-hero-ring: #E3A15B;
     --fc-hero-most-urgent-badge: rgba(227,161,91,0.18);
@@ -284,7 +287,7 @@
     --fc-rail-on: #FFFFFF;
     --fc-rail-on-secondary: #9AA0A8;
     --fc-rail-active: #242832;
-    --fc-rail-accent: #5E6DFF;
+    --fc-rail-accent: #8894FF;
     --fc-rail-danger: #F2994A;
     --fc-detour-on-way: #2F7A4D;
     --fc-detour-moderate: #B5793A;

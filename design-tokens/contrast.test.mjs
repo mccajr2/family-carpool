@@ -34,6 +34,40 @@ function contrastRatio(fg, bg) {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
+function parseHex(hex) {
+  const cleaned = hex.replace("#", "")
+  const n = Number.parseInt(cleaned, 16)
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff }
+}
+
+function toHex({ r, g, b }) {
+  return (
+    "#" +
+    [r, g, b].map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, "0")).join("")
+  )
+}
+
+/** fg at alpha over opaque underlay (Agenda chip tints, hero ghost fills). */
+function compositeHex(fgRgb, alpha, underHex) {
+  const under = parseHex(underHex)
+  return toHex({
+    r: Math.round(fgRgb.r * alpha + under.r * (1 - alpha)),
+    g: Math.round(fgRgb.g * alpha + under.g * (1 - alpha)),
+    b: Math.round(fgRgb.b * alpha + under.b * (1 - alpha)),
+  })
+}
+
+function rgbaOverHex(rgba, underHex) {
+  const m = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
+  if (!m) throw new Error(`expected rgba(), got ${rgba}`)
+  return compositeHex({ r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) }, Number(m[4]), underHex)
+}
+
+const HERO_GLOW_LIGHT = "#2A2E63"
+const HERO_GLOW_DARK = "#11131C"
+const AGENDA_CHIP_TINT = 0.14
+const HERO_DRIVER_CHIP_OVERLAY = "rgba(255,255,255,0.1)"
+
 /** Pairings used on More: body/caption on surface; danger on surface; accent chip icon on tinted chip approx accent-on-surface. */
 function morePairings(scheme) {
   const c = tokens.color[scheme]
@@ -62,20 +96,84 @@ function heroPairings(scheme) {
   ]
 }
 
-/** Hero attention carousel — white-on-gradient; worst case ≈ darkest gradient stop (#11131C). */
+/** Hero attention carousel — white-on-gradient; test both gradient stops. */
 function heroCarouselPairings(scheme) {
   const c = tokens.color[scheme]
-  const heroGlowDark = "#11131C"
   const light = tokens.color.light
-  return [
-    { name: "heroOn on heroGlow (dark stop)", fg: c.heroOn, bg: heroGlowDark, min: 4.5 },
-    { name: "heroOnSecondary on heroGlow (dark stop)", fg: c.heroOnSecondary, bg: heroGlowDark, min: 4.5 },
-    { name: "heroSuccess on heroGlow (dark stop)", fg: c.heroSuccess, bg: heroGlowDark, min: 4.5 },
-    { name: "heroRing on heroGlow (dark stop, icon)", fg: c.heroRing, bg: heroGlowDark, min: 3 },
+  const pairings = [
+    { name: "heroSuccess on heroGlow (dark stop)", fg: c.heroSuccess, bg: HERO_GLOW_DARK, min: 4.5 },
+    { name: "heroRing on heroGlow (dark stop, icon)", fg: c.heroRing, bg: HERO_GLOW_DARK, min: 3 },
+    {
+      name: "heroOnInverse on heroOn (filled hero CTA)",
+      fg: c.heroOnInverse,
+      bg: c.heroOn,
+      min: 4.5,
+    },
     {
       name: "textPrimary on heroCarouselControlBg (chevron)",
       fg: light.textPrimary,
       bg: c.heroCarouselControlBg,
+      min: 4.5,
+    },
+  ]
+
+  for (const [stopLabel, stopHex] of [
+    ["light stop", HERO_GLOW_LIGHT],
+    ["dark stop", HERO_GLOW_DARK],
+  ]) {
+    pairings.push(
+      { name: `heroOn on heroGlow (${stopLabel})`, fg: c.heroOn, bg: stopHex, min: 4.5 },
+      {
+        name: `heroOnSecondary on heroGlow (${stopLabel})`,
+        fg: c.heroOnSecondary,
+        bg: stopHex,
+        min: 4.5,
+      },
+      {
+        name: `heroOn on heroDeclineBg composite (${stopLabel})`,
+        fg: c.heroOn,
+        bg: rgbaOverHex(c.heroDeclineBg, stopHex),
+        min: 4.5,
+      },
+      {
+        name: `heroOn on driver chip overlay (${stopLabel})`,
+        fg: c.heroOn,
+        bg: rgbaOverHex(HERO_DRIVER_CHIP_OVERLAY, stopHex),
+        min: 4.5,
+      },
+    )
+  }
+
+  return pairings
+}
+
+/** Collapsed AgendaStatusChip default variant — 14% tone tint on surfaceRaised. */
+function agendaChipPairings(scheme) {
+  const c = tokens.color[scheme]
+  const chipBg = (fgHex) => compositeHex(parseHex(fgHex), AGENDA_CHIP_TINT, c.surfaceRaised)
+  return [
+    {
+      name: "danger on agenda amber chip (surfaceRaised)",
+      fg: c.danger,
+      bg: chipBg(c.danger),
+      min: 4.5,
+    },
+    {
+      name: "success on agenda mint chip (surfaceRaised)",
+      fg: c.success,
+      bg: chipBg(c.success),
+      min: 4.5,
+    },
+    {
+      name: "accent on agenda route chip (surfaceRaised)",
+      fg: c.accent,
+      bg: chipBg(c.accent),
+      min: 4.5,
+    },
+    {
+      name: "textSecondary on surface (agenda muted chip)",
+      fg: c.textSecondary,
+      bg: c.surface,
       min: 4.5,
     },
   ]
@@ -173,6 +271,28 @@ for (const scheme of ["light", "dark"]) {
 
   test(`Hero attention carousel WCAG AA pairings (${scheme})`, () => {
     for (const p of heroCarouselPairings(scheme)) {
+      const ratio = contrastRatio(p.fg, p.bg)
+      assert.ok(
+        ratio >= p.min,
+        `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+      )
+    }
+    const ctaBleed = contrastRatio(tokens.color[scheme].textPrimary, tokens.color[scheme].heroOn)
+    if (scheme === "light") {
+      assert.ok(
+        ctaBleed >= 4.5,
+        `light textPrimary on heroOn must pass AA (${ctaBleed.toFixed(2)}:1)`,
+      )
+    } else {
+      assert.ok(
+        ctaBleed < 4.5,
+        `dark textPrimary on heroOn must fail AA (${ctaBleed.toFixed(2)}:1) — use heroOnInverse for filled hero CTAs`,
+      )
+    }
+  })
+
+  test(`Agenda status chip WCAG AA pairings (${scheme})`, () => {
+    for (const p of agendaChipPairings(scheme)) {
       const ratio = contrastRatio(p.fg, p.bg)
       assert.ok(
         ratio >= p.min,

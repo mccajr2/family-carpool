@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
-import { AgendaStatusChip } from "@/components/agendaStatusChip"
+import { AgendaStatusChip, agendaStatusChipToneClass } from "@/components/agendaStatusChip"
 
 describe("AgendaStatusChip", () => {
   it("renders tag chips with feedChip tokens, uppercase, and no leading dot", () => {
@@ -42,5 +42,13 @@ describe("AgendaStatusChip", () => {
     expect(chip.className).not.toMatch(/uppercase/)
     expect(chip.className).toMatch(/--fc-font-focus-status-pill-size/)
     expect(chip.querySelector("[data-testid='agenda-status-pill-dot']")).not.toBeNull()
+  })
+
+  it("maps default chip tones to semantic token fills (contrast gated in design-tokens/contrast.test.mjs)", () => {
+    expect(agendaStatusChipToneClass("amber")).toMatch(/--fc-danger/)
+    expect(agendaStatusChipToneClass("mint")).toMatch(/--fc-success/)
+    expect(agendaStatusChipToneClass("route")).toMatch(/--fc-accent/)
+    expect(agendaStatusChipToneClass("muted")).toMatch(/--fc-text-secondary/)
+    expect(agendaStatusChipToneClass("muted")).toMatch(/--fc-surface/)
   })
 })

@@ -77,9 +77,9 @@ const rideEvent: CarpoolRideEvent = {
 }
 
 describe("inboundRequestStatusChip", () => {
-  it("labels pending asks as Needs a ride", () => {
+  it("labels pending asks as Ride needed", () => {
     expect(inboundRequestStatusChip(pendingAsk, "c1")).toEqual({
-      label: "Needs a ride",
+      label: "Ride needed",
       tone: "amber",
     })
   })
