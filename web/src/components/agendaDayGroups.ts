@@ -1,5 +1,8 @@
 import type { CalendarItem, CarpoolRide } from "@/api/types"
-import { AGENDA_LIST_SECTION_LABEL } from "@/components/coverageCopy"
+import {
+  AGENDA_LIST_SECTION_LABEL,
+  type AgendaListSectionLabel,
+} from "@/components/coverageCopy"
 import { agendaItemNeedsAttention } from "@/components/coverageDisplay"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 

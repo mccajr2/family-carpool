@@ -1763,6 +1763,7 @@ detourMinutes: null,
         <AgendaRow
           item={item({
             id: "narrow-chips",
+            title: "Practice",
             uncoveredKidIds: ["k1"],
             conflicts: [
               {
