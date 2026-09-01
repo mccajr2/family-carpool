@@ -20,6 +20,8 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.FeedsApi;
+import com.yourorg.quickapp.leaveby.DetourItemInput;
+import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -58,6 +60,7 @@ public class CarpoolRideService {
     private final FeedsApi feedsApi;
     private final FeedCalendarApi feedCalendarApi;
     private final RsvpApi rsvpApi;
+    private final LeaveByApi leaveByApi;
     private final CarpoolSpaceRepository spaces;
     private final CarpoolMembershipRepository memberships;
     private final CarpoolRideRequestRepository rides;
@@ -71,6 +74,7 @@ public class CarpoolRideService {
             FeedsApi feedsApi,
             FeedCalendarApi feedCalendarApi,
             RsvpApi rsvpApi,
+            LeaveByApi leaveByApi,
             CarpoolSpaceRepository spaces,
             CarpoolMembershipRepository memberships,
             CarpoolRideRequestRepository rides,
@@ -82,6 +86,7 @@ public class CarpoolRideService {
         this.feedsApi = feedsApi;
         this.feedCalendarApi = feedCalendarApi;
         this.rsvpApi = rsvpApi;
+        this.leaveByApi = leaveByApi;
         this.spaces = spaces;
         this.memberships = memberships;
         this.rides = rides;
@@ -126,6 +131,24 @@ public class CarpoolRideService {
                         .collect(Collectors.toSet());
         Map<UUID, List<CarpoolRidePassEntity>> passesByRide = passesByRideId(listedRideIds);
         Map<UUID, String> adultDisplayNames = adultDisplayNames(passesByRide.values());
+        Map<String, FeedCalendarEventDto> eventsByKey = new HashMap<>();
+        for (FeedCalendarEventDto event : events) {
+            eventsByKey.put(RideEventKey.of(event), event);
+        }
+        List<DetourItemInput> detourItems = new ArrayList<>();
+        List<UUID> detourRideIds = new ArrayList<>();
+        for (List<CarpoolRideRequestEntity> group : ridesByKey.values()) {
+            for (CarpoolRideRequestEntity ride : group) {
+                if (ride.requestingCircleId().equals(circleId)) {
+                    continue;
+                }
+                FeedCalendarEventDto event = eventsByKey.get(ride.eventKey());
+                String eventLocation = event == null ? null : event.location();
+                detourItems.add(new DetourItemInput(ride.pickupAddress(), eventLocation));
+                detourRideIds.add(ride.id());
+            }
+        }
+        Map<UUID, Integer> detourMinutesByRideId = detourMinutesByRideId(adult.id(), detourRideIds, detourItems);
         List<CarpoolRideEventResponse> result = new ArrayList<>();
         for (FeedCalendarEventDto event : events) {
             String eventKey = RideEventKey.of(event);
@@ -139,13 +162,18 @@ public class CarpoolRideService {
                         !ride.requestingCircleId().equals(circleId)
                                 && ridePasses.stream()
                                         .anyMatch(pass -> pass.adultId().equals(adult.id()));
+                Integer detourMinutes =
+                        ride.requestingCircleId().equals(circleId)
+                                ? null
+                                : detourMinutesByRideId.get(ride.id());
                 CarpoolRideResponse dto =
                         toRideResponse(
                                 ride,
                                 circleNames,
                                 vehicleLabels,
                                 passedByMe,
-                                passedByAdultNames(ridePasses, adultDisplayNames));
+                                passedByAdultNames(ridePasses, adultDisplayNames),
+                                detourMinutes);
                 if (ride.requestingCircleId().equals(circleId)) {
                     own = dto;
                 } else {
@@ -220,7 +248,8 @@ public class CarpoolRideService {
                 circleNames(List.of(circleId)),
                 Map.of(),
                 false,
-                List.of());
+                List.of(),
+                null);
     }
 
     @Transactional
@@ -273,7 +302,7 @@ public class CarpoolRideService {
         ensureRequestingKidsYes(ride, adult.id());
         Map<UUID, String> names = circleNames(List.of(ride.requestingCircleId(), circleId));
         return toRideResponse(
-                ride, names, Map.of(vehicle.id(), vehicle.label()), false, List.of());
+                ride, names, Map.of(vehicle.id(), vehicle.label()), false, List.of(), null);
     }
 
     @Transactional
@@ -301,7 +330,8 @@ public class CarpoolRideService {
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
                 Map.of(),
                 true,
-                passedByAdultNames(ridePasses, adultDisplayNames));
+                passedByAdultNames(ridePasses, adultDisplayNames),
+                null);
     }
 
     @Transactional
@@ -322,7 +352,7 @@ public class CarpoolRideService {
         rides.save(ride);
         passes.deleteByRideId(ride.id());
         return toRideResponse(
-                ride, circleNames(List.of(circleId)), Map.of(), false, List.of());
+                ride, circleNames(List.of(circleId)), Map.of(), false, List.of(), null);
     }
 
     @Transactional
@@ -345,7 +375,8 @@ public class CarpoolRideService {
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
                 Map.of(),
                 false,
-                List.of());
+                List.of(),
+                null);
     }
 
     /**
@@ -516,7 +547,8 @@ public class CarpoolRideService {
             Map<UUID, String> circleNames,
             Map<UUID, String> vehicleLabels,
             boolean passedByMe,
-            List<String> passedByAdultNames) {
+            List<String> passedByAdultNames,
+            Integer detourMinutes) {
         List<UUID> kidIds = ride.kids().stream().map(RideKidSnapshot::kidId).toList();
         List<String> firstNames = ride.kids().stream().map(RideKidSnapshot::firstName).toList();
         String vehicleLabel =
@@ -540,7 +572,22 @@ public class CarpoolRideService {
                 ride.acceptingCircleId(),
                 ride.acceptingCircleId() == null ? null : circleNames.get(ride.acceptingCircleId()),
                 ride.vehicleId(),
-                vehicleLabel);
+                vehicleLabel,
+                PickupTownParser.pickupTownFromAddress(ride.pickupAddress()),
+                detourMinutes);
+    }
+
+    private Map<UUID, Integer> detourMinutesByRideId(
+            UUID adultId, List<UUID> rideIds, List<DetourItemInput> items) {
+        if (rideIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Integer> minutes = leaveByApi.detourMinutesMany(adultId, items);
+        Map<UUID, Integer> byRideId = new HashMap<>();
+        for (int i = 0; i < rideIds.size(); i++) {
+            byRideId.put(rideIds.get(i), minutes.get(i));
+        }
+        return byRideId;
     }
 
     private Map<UUID, List<CarpoolRidePassEntity>> passesByRideId(Collection<UUID> rideIds) {

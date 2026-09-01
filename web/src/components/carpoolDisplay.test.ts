@@ -288,6 +288,8 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main St",
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING",
     passedByMe: false,
     passedByAdultNames: [],

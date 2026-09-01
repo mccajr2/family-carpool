@@ -1,9 +1,10 @@
 # Spec: carpool-pickup-detour
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-28  
 Updated: 2026-08-31 (`/spec`)  
+Completed: 2026-09-01  
 Added: 2026-08-28 · initial  
 Branch: `carpool-pickup-detour`
 
@@ -132,41 +133,41 @@ mapping from `CarpoolRide` for hero queue items.
 
 ## Acceptance criteria
 
-- [ ] `CarpoolRide` OpenAPI schema includes nullable `pickupTown` and
+- [x] `CarpoolRide` OpenAPI schema includes nullable `pickupTown` and
       `detourMinutes`; web `api/types.ts` + client updated in the same change
-- [ ] `listCarpoolRides` returns `pickupTown` on other circles' rides when
+- [x] `listCarpoolRides` returns `pickupTown` on other circles' rides when
       address parses; `detourMinutes` is an integer ≥ 0 for the calling adult
       when origin, pickup, event location, and OSRM all resolve
-- [ ] `detourMinutes` is `null` on `ownRequest` rows and when routing fails;
+- [x] `detourMinutes` is `null` on `ownRequest` rows and when routing fails;
       list still returns 200 (soft-fail, no fake minutes)
-- [ ] Detour uses origin → pickup + pickup → event minus origin → event (not
+- [x] Detour uses origin → pickup + pickup → event minus origin → event (not
       straight-line / haversine)
-- [ ] Integration test: stub geocode + OSRM fixtures prove detour math and
+- [x] Integration test: stub geocode + OSRM fixtures prove detour math and
       `pickupTown` parsing on `listCarpoolRides`
-- [ ] `PickupLine` on hero `request` slides shows town + tone-colored minutes
+- [x] `PickupLine` on hero `request` slides shows town + tone-colored minutes
       before Accept/Pass when both fields present; town-only when minutes null
-- [ ] `PickupLine` on expanded `AgendaInboundRequestRow` matches hero copy/tone
+- [x] `PickupLine` on expanded `AgendaInboundRequestRow` matches hero copy/tone
       (not shown during hero handoff band)
-- [ ] `PickupLine` on Carpool tab incoming ask rows before Accept/Pass
-- [ ] Tone thresholds and labels match mock (≤10 / 11–20 / ≥21)
-- [ ] New detour tone colors locked in `design-tokens/tokens.json` from mock hex
+- [x] `PickupLine` on Carpool tab incoming ask rows before Accept/Pass
+- [x] Tone thresholds and labels match mock (≤10 / 11–20 / ≥21)
+- [x] New detour tone colors locked in `design-tokens/tokens.json` from mock hex
       (WCAG AA check on hero + list surfaces)
-- [ ] Component tests cover `PickupLine` tone boundaries and null/minutes-only
+- [x] Component tests cover `PickupLine` tone boundaries and null/minutes-only
       cases; existing hero/inbound tests updated
 
 ## Tasks
 
-- [ ] Backend: `pickupTown` parser (pure function + unit tests)
-- [ ] Backend: `LeaveByApi` detour helper (batch-friendly; reuses geocode/OSRM/cache)
-- [ ] Backend: wire into `CarpoolRideService.list` for `otherRequests`; extend
+- [x] Backend: `pickupTown` parser (pure function + unit tests)
+- [x] Backend: `LeaveByApi` detour helper (batch-friendly; reuses geocode/OSRM/cache)
+- [x] Backend: wire into `CarpoolRideService.list` for `otherRequests`; extend
       `CarpoolRideResponse`; add `:leaveby` module dependency
-- [ ] Contract: OpenAPI `pickupTown`, `detourMinutes` on `CarpoolRide`; regen
+- [x] Contract: OpenAPI `pickupTown`, `detourMinutes` on `CarpoolRide`; regen
       contract test expectations
-- [ ] Web: `PickupLine` component + `pickupTone` helper; token roles
-- [ ] Web: hero slide, inbound row, Carpool tab integration; map fields in
+- [x] Web: `PickupLine` component + `pickupTone` helper; token roles
+- [x] Web: hero slide, inbound row, Carpool tab integration; map fields in
       `coverageQueue`
-- [ ] Web: update `web/src/api/` types and any ride fixtures
-- [ ] Tests: `LeaveByApi` detour unit tests; `listCarpoolRides` integration test;
+- [x] Web: update `web/src/api/` types and any ride fixtures
+- [x] Tests: `LeaveByApi` detour unit tests; `listCarpoolRides` integration test;
       `PickupLine` component tests; adjust `HeroAttentionCarousel` /
       `AgendaInboundRequestRow` tests
 

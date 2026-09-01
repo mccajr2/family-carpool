@@ -16,6 +16,8 @@ function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">):
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "pending",
     ...partial,
   }
@@ -88,6 +90,8 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING",
     passedByMe: false,
     passedByAdultNames: [],

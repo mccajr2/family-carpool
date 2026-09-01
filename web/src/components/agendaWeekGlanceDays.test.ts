@@ -80,6 +80,8 @@ function acceptedOwnRide(kidIds: string[]): CarpoolRide {
     seats: kidIds.length,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "ACCEPTED",
     passedByMe: false,
     passedByAdultNames: [],

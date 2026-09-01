@@ -25,6 +25,8 @@ function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">):
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "pending",
     ...partial,
   }
@@ -90,6 +92,8 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING",
     passedByMe: false,
     passedByAdultNames: [],
@@ -613,6 +617,27 @@ describe("mapCalendarItemToCoverageGames", () => {
       id: "ask-1",
       status: "pending",
       requestingCircleName: "House B",
+    })
+  })
+
+  it("maps pickupTown and detourMinutes from otherRequests", () => {
+    const rows = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1"] }),
+      rideEvent({
+        otherRequests: [
+          ownRide({
+            id: "ask-1",
+            pickupTown: "Cambridge, MA",
+            detourMinutes: 7,
+          }),
+        ],
+      }),
+      mapOptions,
+    )
+
+    expect(rows[0]?.requests[0]).toMatchObject({
+      pickupTown: "Cambridge, MA",
+      detourMinutes: 7,
     })
   })
 

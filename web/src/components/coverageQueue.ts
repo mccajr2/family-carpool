@@ -40,6 +40,8 @@ export type CarpoolRequest = {
   seats: number
   pickupPlaceName: string
   pickupAddress: string
+  pickupTown: string | null
+  detourMinutes: number | null
   status: CarpoolRequestStatus
   autoDeclined?: boolean
   passedByMe?: boolean
@@ -297,6 +299,8 @@ function mapCarpoolRequest(ride: CarpoolRide): CarpoolRequest {
     seats: ride.seats,
     pickupPlaceName: ride.pickupPlaceName,
     pickupAddress: ride.pickupAddress,
+    pickupTown: ride.pickupTown,
+    detourMinutes: ride.detourMinutes,
     status: mapCarpoolRideStatus(ride.status),
     passedByMe: ride.passedByMe,
   }

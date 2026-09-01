@@ -15,6 +15,7 @@ import {
   REVERT_INBOUND_RECONSIDER,
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
+import { PickupLine } from "@/components/PickupLine"
 import { Button } from "@/components/ui/button"
 
 const revertLinkClassName =
@@ -173,6 +174,14 @@ export function AgendaInboundRequestRow({
         </div>
         <AgendaStatusChip label={statusChip.label} tone={statusChip.tone} />
       </div>
+
+      {!showHeroHandoff ? (
+        <PickupLine
+          pickupTown={request.pickupTown}
+          detourMinutes={request.detourMinutes}
+          className="mt-[var(--fc-space-sm)]"
+        />
+      ) : null}
 
       {showHeroHandoff ? (
         <p

@@ -22,4 +22,6 @@ public record CarpoolRideResponse(
         UUID acceptingCircleId,
         String acceptingCircleName,
         UUID vehicleId,
-        String vehicleLabel) {}
+        String vehicleLabel,
+        String pickupTown,
+        Integer detourMinutes) {}

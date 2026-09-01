@@ -12,8 +12,10 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.leaveby.DetourItemInput;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -107,6 +109,25 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
+    public List<Integer> detourMinutesMany(UUID adultId, List<DetourItemInput> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        Optional<CirclePlaceDto> origin = resolveDefaultOrigin(adultId);
+        if (origin.isEmpty()) {
+            return nullFilledList(items.size());
+        }
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Map<String, Optional<Double>> durations = new HashMap<>();
+        List<Integer> out = new ArrayList<>(items.size());
+        for (DetourItemInput item : items) {
+            out.add(detourMinutesOne(origin.get(), item, geocoded, durations));
+        }
+        return Collections.unmodifiableList(out);
+    }
+
+    @Override
+    @Transactional
     public void setLeaveFrom(UUID adultId, LeaveByItemSource source, UUID itemId, UUID placeId) {
         CirclePlaceDto place = placeApi.requireLocatedPlaceForMember(adultId, placeId);
         UUID circleId = membershipApi.requireMemberCircleId(adultId);
@@ -192,6 +213,81 @@ class LeaveByApiImpl implements LeaveByApi {
         return LeaveByEnrichmentDto.ok(place.id(), place.name(), leaveByAt);
     }
 
+    private Integer detourMinutesOne(
+            CirclePlaceDto origin,
+            DetourItemInput item,
+            Map<String, Optional<GeoPointDto>> geocoded,
+            Map<String, Optional<Double>> durations) {
+        String pickupAddress = item.pickupAddress();
+        String eventLocation = item.eventLocation();
+        if (pickupAddress == null
+                || pickupAddress.isBlank()
+                || eventLocation == null
+                || eventLocation.isBlank()) {
+            return null;
+        }
+        Optional<GeoPointDto> pickup =
+                geocoded.computeIfAbsent(
+                        normalizeLocation(pickupAddress),
+                        ignored -> geocodeApi.resolveLocation(pickupAddress));
+        Optional<GeoPointDto> event =
+                geocoded.computeIfAbsent(
+                        normalizeLocation(eventLocation),
+                        ignored -> geocodeApi.resolveLocation(eventLocation));
+        if (pickup.isEmpty() || event.isEmpty()) {
+            return null;
+        }
+        Optional<Double> direct = routeDuration(origin, event.get(), durations);
+        Optional<Double> originToPickup = routeDuration(origin, pickup.get(), durations);
+        Optional<Double> pickupToEvent = routeDuration(pickup.get(), event.get(), durations);
+        return DetourMath.detourMinutes(direct, originToPickup, pickupToEvent);
+    }
+
+    private Optional<Double> routeDuration(
+            CirclePlaceDto origin, GeoPointDto destination, Map<String, Optional<Double>> durations) {
+        return routeDuration(
+                origin.latitude(),
+                origin.longitude(),
+                destination.latitude(),
+                destination.longitude(),
+                durations);
+    }
+
+    private Optional<Double> routeDuration(
+            GeoPointDto origin, GeoPointDto destination, Map<String, Optional<Double>> durations) {
+        return routeDuration(
+                origin.latitude(),
+                origin.longitude(),
+                destination.latitude(),
+                destination.longitude(),
+                durations);
+    }
+
+    private Optional<Double> routeDuration(
+            double fromLat,
+            double fromLng,
+            double toLat,
+            double toLng,
+            Map<String, Optional<Double>> durations) {
+        String routeKey = LeaveByRouteKeys.routeKey(fromLat, fromLng, toLat, toLng);
+        return durations.computeIfAbsent(
+                routeKey, ignored -> lookupRoutedDuration(routeKey, fromLat, fromLng, toLat, toLng));
+    }
+
+    private Optional<Double> lookupRoutedDuration(
+            String routeKey, double fromLat, double fromLng, double toLat, double toLng) {
+        Optional<RouteCacheEntity> cached = routeCacheRepository.findById(routeKey);
+        if (cached.isPresent()) {
+            return Optional.of(cached.get().durationSeconds());
+        }
+        Optional<Double> live = osrmPort.drivingDurationSeconds(fromLat, fromLng, toLat, toLng);
+        live.ifPresent(
+                seconds ->
+                        routeCacheRepository.save(
+                                new RouteCacheEntity(routeKey, seconds, Instant.now())));
+        return live;
+    }
+
     private Optional<Double> lookupDuration(
             String routeKey, CirclePlaceDto origin, GeoPointDto dest, boolean allowHttp) {
         Optional<RouteCacheEntity> cached = routeCacheRepository.findById(routeKey);
@@ -231,6 +327,10 @@ class LeaveByApiImpl implements LeaveByApi {
                 return override;
             }
         }
+        return resolveDefaultOrigin(adultId);
+    }
+
+    private Optional<CirclePlaceDto> resolveDefaultOrigin(UUID adultId) {
         Optional<CirclePlaceDto> membershipDefault = placeApi.findDefaultLeaveFromForMember(adultId);
         if (membershipDefault.isPresent()) {
             return membershipDefault;
@@ -240,6 +340,14 @@ class LeaveByApiImpl implements LeaveByApi {
             return Optional.empty();
         }
         return Optional.of(located.getFirst());
+    }
+
+    private static List<Integer> nullFilledList(int size) {
+        List<Integer> out = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            out.add(null);
+        }
+        return Collections.unmodifiableList(out);
     }
 
     private void requireItemInCircle(UUID circleId, LeaveByItemSource source, UUID itemId) {
