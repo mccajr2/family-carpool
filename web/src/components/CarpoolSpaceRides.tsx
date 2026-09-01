@@ -12,6 +12,7 @@ import {
   ownRideStatusLine,
 } from "@/components/carpoolDisplay"
 import { formatIsoForDisplay } from "@/components/eventTimes"
+import { PickupLine } from "@/components/PickupLine"
 import { Button } from "@/components/ui/button"
 
 type CarpoolSpaceRidesProps = {
@@ -237,6 +238,12 @@ function OtherRideRequest({
     <div className="flex flex-col gap-1">
       <p className="text-sm">{incomingRideAskSummary(request)}</p>
       <p className="text-xs text-muted-foreground">{status}</p>
+      {canAccept || canPass ? (
+        <PickupLine
+          pickupTown={request.pickupTown}
+          detourMinutes={request.detourMinutes}
+        />
+      ) : null}
       {canAccept && eligible.length === 1 ? (
         <Button
           type="button"

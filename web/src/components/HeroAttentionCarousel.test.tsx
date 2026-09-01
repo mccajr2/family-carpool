@@ -98,6 +98,8 @@ const rideEvent: CarpoolRideEvent = {
       seats: 1,
       pickupPlaceName: "Nguyen home",
       pickupAddress: "Cambridge, MA",
+      pickupTown: "Cambridge, MA",
+      detourMinutes: 4,
       status: "PENDING",
       passedByMe: false,
       passedByAdultNames: [],
@@ -152,6 +154,8 @@ const ownRideQueue: QueueItem[] = [
       seats: 1,
       pickupPlaceName: "Nguyen home",
       pickupAddress: "Cambridge, MA",
+      pickupTown: "Cambridge, MA",
+      detourMinutes: 4,
       status: "pending",
     },
   },
@@ -343,7 +347,7 @@ describe("HeroAttentionSlide", () => {
     expect(within(slide).getByText("the Nguyens need a ride for Ben")).toBeInTheDocument()
     expect(within(slide).getByText(/Declan is already going/)).toBeInTheDocument()
     expect(within(slide).getByTestId("hero-attention-pickup-summary")).toHaveTextContent(
-      "Nguyen home, Cambridge, MA",
+      "Pickup in Cambridge, MA · ~4 min out of your way (On your way)",
     )
 
     await user.click(within(slide).getByRole("button", { name: "Accept" }))

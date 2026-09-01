@@ -27,12 +27,15 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.FeedsApi;
+import com.yourorg.quickapp.leaveby.DetourItemInput;
+import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
 import com.yourorg.quickapp.rsvp.RsvpStatus;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,6 +70,9 @@ class CarpoolRideServiceTest {
 
     @Mock
     private RsvpApi rsvpApi;
+
+    @Mock
+    private LeaveByApi leaveByApi;
 
     @Mock
     private CarpoolSpaceRepository spaces;
@@ -114,10 +120,18 @@ class CarpoolRideServiceTest {
                         feedsApi,
                         feedCalendarApi,
                         rsvpApi,
+                        leaveByApi,
                         spaces,
                         memberships,
                         rides,
                         passes);
+        org.mockito.Mockito.lenient()
+                .when(leaveByApi.detourMinutesMany(any(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            List<?> items = invocation.getArgument(1);
+                            return Collections.nCopies(items.size(), null);
+                        });
     }
 
     @Test
@@ -476,6 +490,72 @@ class CarpoolRideServiceTest {
                 .containsExactly("Alex");
         assertThat(listed.getFirst().otherRequests().getFirst().status())
                 .isEqualTo(CarpoolRideStatus.PENDING);
+        verify(leaveByApi)
+                .detourMinutesMany(
+                        adultId,
+                        List.of(new DetourItemInput("1 Main St", "Field 3")));
+    }
+
+    @Test
+    void listEnrichesOtherRequestsWithPickupTownAndDetourMinutes() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        FeedCalendarEventDto event = practiceEvent(List.of(kidA));
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of(event));
+        CarpoolRideRequestEntity other =
+                ride(otherCircleId, otherAdultId, List.of(kidA), "12 Oak St, Cambridge, MA 02139");
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of(other));
+        when(passes.findByRideIdIn(any())).thenReturn(List.of());
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(otherCircleId, "House B")));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        stubRsvps(List.of(yes(kidA)));
+        when(leaveByApi.detourMinutesMany(
+                        adultId,
+                        List.of(
+                                new DetourItemInput(
+                                        "12 Oak St, Cambridge, MA 02139", "Field 3"))))
+                .thenReturn(List.of(7));
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed.getFirst().otherRequests()).hasSize(1);
+        assertThat(listed.getFirst().otherRequests().getFirst().pickupTown()).isEqualTo("Cambridge, MA");
+        assertThat(listed.getFirst().otherRequests().getFirst().detourMinutes()).isEqualTo(7);
+    }
+
+    @Test
+    void listLeavesDetourMinutesNullOnOwnRequest() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        FeedCalendarEventDto event = practiceEvent(List.of(kidA));
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of(event));
+        CarpoolRideRequestEntity own =
+                ride(circleId, adultId, List.of(kidA), "12 Oak St, Cambridge, MA");
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of(own));
+        when(passes.findByRideIdIn(any())).thenReturn(List.of());
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        stubRsvps(List.of(yes(kidA)));
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed.getFirst().ownRequest().pickupTown()).isEqualTo("Cambridge, MA");
+        assertThat(listed.getFirst().ownRequest().detourMinutes()).isNull();
+        verify(leaveByApi, never()).detourMinutesMany(any(), any());
     }
 
     @Test
@@ -790,14 +870,19 @@ class CarpoolRideServiceTest {
     }
 
     private CarpoolRideRequestEntity pendingOtherRide(List<UUID> kidIds) {
-        return ride(otherCircleId, otherAdultId, kidIds);
+        return ride(otherCircleId, otherAdultId, kidIds, "1 Main St");
     }
 
     private CarpoolRideRequestEntity pendingOwnRide(List<UUID> kidIds) {
-        return ride(circleId, adultId, kidIds);
+        return ride(circleId, adultId, kidIds, "1 Main St");
     }
 
     private CarpoolRideRequestEntity ride(UUID requestingCircle, UUID requester, List<UUID> kidIds) {
+        return ride(requestingCircle, requester, kidIds, "1 Main St");
+    }
+
+    private CarpoolRideRequestEntity ride(
+            UUID requestingCircle, UUID requester, List<UUID> kidIds, String pickupAddress) {
         List<RideKidSnapshot> kids =
                 kidIds.stream().map(id -> new RideKidSnapshot(id, "Kid")).toList();
         return new CarpoolRideRequestEntity(
@@ -807,7 +892,7 @@ class CarpoolRideServiceTest {
                 requestingCircle,
                 requester,
                 "Home",
-                "1 Main St",
+                pickupAddress,
                 kids,
                 Instant.now());
     }

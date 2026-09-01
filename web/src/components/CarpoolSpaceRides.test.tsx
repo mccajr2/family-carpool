@@ -38,6 +38,8 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING",
     passedByMe: false,
     passedByAdultNames: [],
@@ -92,6 +94,33 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
+  })
+
+  it("shows PickupLine before Accept/Pass when detour data is present", () => {
+    render(
+      <CarpoolSpaceRides
+        events={[
+          event({
+            otherRequests: [
+              ride({
+                pickupTown: "Cambridge, MA",
+                detourMinutes: 4,
+              }),
+            ],
+          }),
+        ]}
+        circleId="c1"
+        adultId="a1"
+        kids={kids}
+        garage={garage}
+        busy={false}
+        {...noop}
+      />,
+    )
+
+    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
+      "Pickup in Cambridge, MA · ~4 min out of your way (On your way)",
+    )
   })
 
   it("still offers Accept after the caller has passed, without Pass or un-pass", () => {

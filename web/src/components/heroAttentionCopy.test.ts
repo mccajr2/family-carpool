@@ -57,6 +57,8 @@ describe("heroAttentionCopy", () => {
       seats: 1,
       pickupPlaceName: "Nguyen home",
       pickupAddress: "Cambridge, MA",
+      pickupTown: "Cambridge, MA",
+      detourMinutes: null,
       status: "pending",
     }
     expect(heroRequestTitle(request)).toBe("the Nguyens need a ride for Ben")
@@ -71,6 +73,8 @@ describe("heroAttentionCopy", () => {
         seats: 1,
         pickupPlaceName: "Nguyen home",
         pickupAddress: "Cambridge, MA",
+        pickupTown: "Cambridge, MA",
+        detourMinutes: null,
         status: "pending",
       }),
     ).toBe("Nguyen home, Cambridge, MA")

@@ -38,6 +38,9 @@ enum UiTokens {
         let railActive: String
         let railAccent: String
         let railDanger: String
+        let detourOnWay: String
+        let detourModerate: String
+        let detourFar: String
     }
 
     enum Color {
@@ -72,7 +75,10 @@ enum UiTokens {
             railOnSecondary: "#9AA0A8",
             railActive: "#242832",
             railAccent: "#5E6DFF",
-            railDanger: "#F2994A"
+            railDanger: "#F2994A",
+            detourOnWay: "#2F7A4D",
+            detourModerate: "#B5793A",
+            detourFar: "#A6483F"
         )
         static let dark = ColorRoles(
             accent: "#5E6DFF",
@@ -105,7 +111,10 @@ enum UiTokens {
             railOnSecondary: "#9AA0A8",
             railActive: "#242832",
             railAccent: "#5E6DFF",
-            railDanger: "#F2994A"
+            railDanger: "#F2994A",
+            detourOnWay: "#2F7A4D",
+            detourModerate: "#B5793A",
+            detourFar: "#A6483F"
         )
     }
 

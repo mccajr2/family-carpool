@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.21.0
+  version: 0.22.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -3090,7 +3090,9 @@ paths:
         YES and NO_RESPONSE both qualify; for Request pre-fill), this
         circle's active ride request if any (PENDING or ACCEPTED), and other
         member circles' PENDING/ACCEPTED requests (circle name, kid first
-        names, seat count, pickup name+address, passedByAdultNames). Passed
+        names, seat count, pickup name+address, pickupTown, and on
+        otherRequests viewer-specific detourMinutes (null when routing
+        unavailable), passedByAdultNames). Passed
         asks remain in otherRequests with passedByMe true for the calling
         adult (still PENDING for everyone else). Pass is a soft decline:
         non-Focus surfaces may still offer Accept while the ride is PENDING;
@@ -4943,6 +4945,23 @@ components:
         pickupAddress:
           type: string
           description: Snapshot of requester's pickup address at create
+        pickupTown:
+          type: string
+          nullable: true
+          description: >
+            Display town parsed from pickupAddress at serve time (e.g.
+            Cambridge, MA). Falls back to the full trimmed address when no
+            City, ST segment is found. Null when pickupAddress is blank.
+        detourMinutes:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >
+            Viewer-specific extra driving minutes vs going straight to the
+            event. Set only on otherRequests rows in listCarpoolRides when
+            origin, pickup, event location, and routing all resolve; null on
+            ownRequest, on create/accept/pass/cancel/withdraw responses, and
+            when routing is unavailable (soft-fail).
         status:
           $ref: "#/components/schemas/CarpoolRideStatus"
         passedByMe:

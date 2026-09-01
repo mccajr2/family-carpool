@@ -34,7 +34,10 @@ object UiTokens {
         val railOnSecondary: String,
         val railActive: String,
         val railAccent: String,
-        val railDanger: String
+        val railDanger: String,
+        val detourOnWay: String,
+        val detourModerate: String,
+        val detourFar: String
     )
 
     object Color {
@@ -69,7 +72,10 @@ object UiTokens {
             railOnSecondary = "#9AA0A8",
             railActive = "#242832",
             railAccent = "#5E6DFF",
-            railDanger = "#F2994A"
+            railDanger = "#F2994A",
+            detourOnWay = "#2F7A4D",
+            detourModerate = "#B5793A",
+            detourFar = "#A6483F"
         )
         val dark = ColorRoles(
             accent = "#5E6DFF",
@@ -102,7 +108,10 @@ object UiTokens {
             railOnSecondary = "#9AA0A8",
             railActive = "#242832",
             railAccent = "#5E6DFF",
-            railDanger = "#F2994A"
+            railDanger = "#F2994A",
+            detourOnWay = "#2F7A4D",
+            detourModerate = "#B5793A",
+            detourFar = "#A6483F"
         )
     }
 

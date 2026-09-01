@@ -9,10 +9,10 @@ import type { QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import { PickupLine } from "@/components/PickupLine"
 import {
   heroEventContextLine,
   heroKidFirstName,
-  heroPickupSummary,
   heroRequestTitle,
   heroVenueLine,
 } from "@/components/heroAttentionCopy"
@@ -210,13 +210,12 @@ export function HeroAttentionSlide({
               >
                 {[venue, `${kidFirstName} is already going`].filter(Boolean).join(" · ")}
               </p>
-              <p
+              <PickupLine
                 data-testid="hero-attention-pickup-summary"
-                className="mt-1 text-xs"
-                style={{ color: "var(--fc-hero-on-secondary)" }}
-              >
-                {heroPickupSummary(item.request)}
-              </p>
+                pickupTown={item.request.pickupTown}
+                detourMinutes={item.request.detourMinutes}
+                variant="hero"
+              />
               {requestAccept && onAcceptRide && onPassRide ? (
                 <div className="mt-[var(--fc-space-xl)] flex flex-wrap gap-[var(--fc-space-md)]">
                   {requestAccept.vehicles.length > 1 ? (

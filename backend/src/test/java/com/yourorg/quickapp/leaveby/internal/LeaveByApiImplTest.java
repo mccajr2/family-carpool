@@ -23,6 +23,7 @@ import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveByStatus;
+import com.yourorg.quickapp.leaveby.DetourItemInput;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -588,6 +589,141 @@ class LeaveByApiImplTest {
                         .leaveByStatus())
                 .isEqualTo(LeaveByStatus.OK);
         verify(osrmPort, times(1)).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+    }
+
+    @Test
+    void detourMinutesManyNullWhenNoLocatedOrigin() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId,
+                        List.of(new DetourItemInput("12 Oak St, Medford, MA", "Rink")));
+
+        assertThat(results).containsExactly((Integer) null);
+        verify(geocodeApi, never()).resolveLocation(any());
+        verify(osrmPort, never()).drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void detourMinutesManyNullWhenAddressOrLocationBlank() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId,
+                        List.of(
+                                new DetourItemInput(" ", "Rink"),
+                                new DetourItemInput("12 Oak St", "  ")));
+
+        assertThat(results).containsExactly(null, null);
+        verify(geocodeApi, never()).resolveLocation(any());
+    }
+
+    @Test
+    void detourMinutesManyNullWhenGeocodeFails() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St")).thenReturn(Optional.empty());
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId, List.of(new DetourItemInput("12 Oak St", "Rink")));
+
+        assertThat(results).containsExactly((Integer) null);
+        verify(osrmPort, never()).drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void detourMinutesManyNullWhenOsrmUnavailable() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.empty());
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId, List.of(new DetourItemInput("12 Oak St", "Rink")));
+
+        assertThat(results).containsExactly((Integer) null);
+    }
+
+    @Test
+    void detourMinutesManyComputesTwoLegDeltaWithoutFallbackOrPeakMultiplier() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.15, -74.15))
+                .thenReturn(Optional.of(300.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId, List.of(new DetourItemInput("12 Oak St", "Rink")));
+
+        assertThat(results).containsExactly(10);
+        verify(routeCacheRepository, times(3)).save(any());
+    }
+
+    @Test
+    void detourMinutesManyUsesDefaultOriginNotPerItemOverride() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.15, -74.15))
+                .thenReturn(Optional.of(300.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId, List.of(new DetourItemInput("12 Oak St", "Rink")));
+
+        assertThat(results).containsExactly(10);
+        verify(osrmPort).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+        verify(placeApi, never()).findPlaceForMember(any(), any());
+        verify(leaveFromRepository, never())
+                .findByAdultIdAndItemSourceAndItemId(any(), any(), any());
+    }
+
+    @Test
+    void detourMinutesManyCollapsesDuplicateAddressesAndRoutes() {
+        when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.15, -74.15))
+                .thenReturn(Optional.of(300.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        List<Integer> results =
+                api.detourMinutesMany(
+                        adultId,
+                        List.of(
+                                new DetourItemInput("12 Oak St", "Rink"),
+                                new DetourItemInput(" 12 oak st ", " rink ")));
+
+        assertThat(results).containsExactly(10, 10);
+        verify(geocodeApi, times(1)).resolveLocation("12 Oak St");
+        verify(geocodeApi, times(1)).resolveLocation("Rink");
+        verify(osrmPort, times(1)).drivingDurationSeconds(40.1, -74.1, 40.2, -74.2);
+        verify(osrmPort, times(1)).drivingDurationSeconds(40.1, -74.1, 40.15, -74.15);
+        verify(osrmPort, times(1)).drivingDurationSeconds(40.15, -74.15, 40.2, -74.2);
     }
 
     private void failIfUpstreamHttp() {

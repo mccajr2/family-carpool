@@ -46,6 +46,14 @@ public interface LeaveByApi {
     List<LeaveByEnrichmentDto> enrichCheapMany(UUID adultId, List<LeaveByItemInput> items);
 
     /**
+     * Batch detour minutes for inbound carpool asks. Uses default leave-from
+     * origin (no per-event override). Soft-fails to {@code null} per row when
+     * origin, geocode, or OSRM is unavailable. Collapses duplicate addresses and
+     * routes within the batch.
+     */
+    List<Integer> detourMinutesMany(UUID adultId, List<DetourItemInput> items);
+
+    /**
      * Persist leave-from for this adult + calendar item.
      *
      * @throws com.yourorg.quickapp.family.FamilyAccessException 404 / 400 as

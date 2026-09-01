@@ -43,6 +43,8 @@ const pendingAsk: CarpoolRide = {
   seats: 1,
   pickupPlaceName: "Home",
   pickupAddress: "1 Main",
+  pickupTown: null,
+  detourMinutes: null,
   status: "PENDING",
   passedByMe: false,
   passedByAdultNames: [],
@@ -119,7 +121,11 @@ describe("AgendaInboundRequestRow", () => {
   it("shows hero handoff copy instead of Accept/Pass when queued above", () => {
     render(
       <AgendaInboundRequestRow
-        request={pendingAsk}
+        request={{
+          ...pendingAsk,
+          pickupTown: "Cambridge, MA",
+          detourMinutes: 12,
+        }}
         circleId="c1"
         currentAdultId="a1"
         garage={garage}
@@ -134,8 +140,31 @@ describe("AgendaInboundRequestRow", () => {
     expect(
       within(row).getByText("Handle in Needs your attention above"),
     ).toBeInTheDocument()
+    expect(within(row).queryByTestId("pickup-line")).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
+  })
+
+  it("shows PickupLine below summary when not in hero handoff", () => {
+    render(
+      <AgendaInboundRequestRow
+        request={{
+          ...pendingAsk,
+          pickupTown: "Cambridge, MA",
+          detourMinutes: 12,
+        }}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={rideEvent}
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
+      "Pickup in Cambridge, MA · ~12 min out of your way (Bit of a detour)",
+    )
   })
 
   it("replaces Withdraw with Can't take them anymore underlined link", async () => {
