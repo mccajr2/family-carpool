@@ -40,6 +40,9 @@ pass that separates presentation from enforceable invariants.
   Pass soft-decline (`passedByMe` — already server-backed); ADR-0002
   remove-coverage auto-withdraw (already server); Assign→cancel open ask
   (client orchestration of existing `cancelRide`).
+- [`ride-commitment-conflict`](../planned/ride-commitment-conflict.md) Phase 2
+  (create/accept fences for contradictory commitments) ships before this audit
+  and adds entries to the punch-list.
 - Done looks like: a short punch-list of rules that need API 409 / transactional
   side effects / persisted flags, ranked for beta — not a vague “tech debt”
   cleanup.
