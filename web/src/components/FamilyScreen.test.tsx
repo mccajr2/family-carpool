@@ -6161,6 +6161,158 @@ detourMinutes: null,
     confirmSpy.mockRestore()
   })
 
+  it("reloads carpool rides after marking a FEED kid not going", async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const acceptedInbound = {
+      id: "ask-apollo",
+      spaceId: "s1",
+      eventKey: "UID:rsvp-withdraw",
+      requestingCircleId: "c2",
+      requestingCircleName: "Sharks",
+      requestedByAdultId: "a2",
+      kidIds: ["k2"],
+      kidFirstNames: ["Apollo"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "ACCEPTED" as const,
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: "1",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "McCarthy",
+      vehicleId: "v1",
+      vehicleLabel: "Van",
+    }
+    const feedItem = calendarItem({
+      id: "feed-practice",
+      source: "FEED",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:rsvp-withdraw",
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+    const setCalendarRsvp = vi.fn().mockResolvedValue({
+      ...feedItem,
+      coverages: [],
+      rsvps: [{ kidId: "k1", status: "NO" }],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "UID:rsvp-withdraw",
+        title: "Practice",
+        startsAt: feedItem.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        otherRequests: [acceptedInbound],
+      },
+    ])
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "McCarthy",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Declan" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([feedItem]),
+          setCalendarRsvp,
+          getGarage: vi.fn().mockResolvedValue({
+            members: [{ adultId: "1", displayName: "Alex", drives: true }],
+            vehicles: [
+              {
+                id: "v1",
+                ownerAdultId: "1",
+                driverAdultIds: ["1"],
+                keptAtPlaceId: null,
+                label: "Van",
+                year: 2020,
+                make: "HONDA",
+                model: "Odyssey",
+                seats: 7,
+                suggestedSeats: null,
+              },
+            ],
+          }),
+        })}
+        carpoolClient={mockCarpoolClient({
+          getSummary: vi.fn().mockResolvedValue({
+            circleRole: "ORGANIZER",
+            feeds: [
+              {
+                feedId: "f1",
+                feedName: "Soccer",
+                status: "OWNER",
+                spaceId: "s1",
+                spaceName: "Soccer",
+              },
+            ],
+            spaces: [{ id: "s1", name: "Soccer", membership: "OWNER", inviteCode: "X", callerFeedId: "f1", members: [], pendingRequests: [] }],
+          }),
+          listRides,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await waitFor(() => expect(listRides).toHaveBeenCalledTimes(1))
+    const row = within(agenda).getByTestId("agenda-item-FEED-feed-practice")
+    await expandAgendaItem(user, row)
+    await user.click(within(row).getByRole("button", { name: "Mark Declan as not going" }))
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "This will remove coverage for Declan. Accepted carpool passengers (Apollo) will no longer have a ride with you.",
+    )
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "FEED", "feed-practice", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => expect(listRides).toHaveBeenCalledTimes(2))
+    confirmSpy.mockRestore()
+  })
+
   it("disables attendance toggle while RSVP write is in flight", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

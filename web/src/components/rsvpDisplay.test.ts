@@ -120,5 +120,8 @@ describe("rsvpDisplay", () => {
     expect(rsvpCoverageReleaseMessage("Emma")).toBe(
       "This will remove coverage for Emma.",
     )
+    expect(rsvpCoverageReleaseMessage("Declan", ["Apollo"])).toBe(
+      "This will remove coverage for Declan. Accepted carpool passengers (Apollo) will no longer have a ride with you.",
+    )
   })
 })
