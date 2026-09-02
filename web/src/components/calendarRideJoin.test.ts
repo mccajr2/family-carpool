@@ -6,6 +6,7 @@ import {
   matchCalendarItemToRideEvent,
   normalizeRideMatchText,
   rideEventLocationNormalized,
+  spaceIdForCarpoolRide,
   startsAtEqual,
 } from "@/components/calendarRideJoin"
 
@@ -67,6 +68,58 @@ describe("feedSpaceIdsFromSummary", () => {
       f1: "s1",
       f3: "s3",
     })
+  })
+})
+
+describe("spaceIdForCarpoolRide", () => {
+  it("prefers spaceId on the matched inbound ride over feed summary mapping", () => {
+    const event = rideEvent({
+      otherRequests: [
+        {
+          id: "ask-1",
+          spaceId: "team-space",
+          eventKey: "UID:game-1",
+          requestingCircleId: "c2",
+          requestingCircleName: "Sharks",
+          requestedByAdultId: "a2",
+          kidIds: ["k2"],
+          kidFirstNames: ["Apollo"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "ACCEPTED",
+          passedByMe: false,
+          passedByAdultNames: [],
+          acceptedByAdultId: "a1",
+          acceptingCircleId: "c1",
+          acceptingCircleName: "McCarthy",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+        },
+      ],
+    })
+
+    expect(
+      spaceIdForCarpoolRide(
+        item({ source: "FEED", feedId: "f2", title: "Practice", startsAt: "2026-08-21T16:00:00Z" }),
+        "ask-1",
+        event,
+        summary,
+      ),
+    ).toBe("team-space")
+  })
+
+  it("falls back to feed summary mapping when ride payload has no spaceId match", () => {
+    expect(
+      spaceIdForCarpoolRide(
+        item({ source: "FEED", feedId: "f1", title: "Practice", startsAt: "2026-08-21T16:00:00Z" }),
+        "missing",
+        rideEvent(),
+        summary,
+      ),
+    ).toBe("s1")
   })
 })
 

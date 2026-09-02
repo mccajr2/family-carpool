@@ -32,6 +32,14 @@ export function kidHasActiveCoverage(item: CalendarItem, kidId: string): boolean
   )
 }
 
-export function rsvpCoverageReleaseMessage(kidName: string): string {
-  return `This will remove coverage for ${kidName}.`
+export function rsvpCoverageReleaseMessage(
+  kidName: string,
+  acceptedPassengerNames: readonly string[] = [],
+): string {
+  const base = `This will remove coverage for ${kidName}.`
+  if (acceptedPassengerNames.length === 0) {
+    return base
+  }
+  const names = acceptedPassengerNames.join(", ")
+  return `${base} Accepted carpool passengers (${names}) will no longer have a ride with you.`
 }

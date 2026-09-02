@@ -14,6 +14,30 @@ export function feedSpaceIdsFromSummary(summary: CarpoolSummary): Map<string, st
   return map
 }
 
+/**
+ * Resolve carpool space for a ride action — prefer the ride payload's spaceId
+ * (always correct for inbound accepts) over feed→space summary mapping.
+ */
+export function spaceIdForCarpoolRide(
+  item: Pick<CalendarItem, "feedId">,
+  rideId: string,
+  rideEvent: CarpoolRideEvent | null | undefined,
+  summary: CarpoolSummary | null | undefined,
+): string | null {
+  const fromOther = rideEvent?.otherRequests.find((ride) => ride.id === rideId)?.spaceId
+  if (fromOther != null) {
+    return fromOther
+  }
+  const own = rideEvent?.ownRequest
+  if (own?.id === rideId) {
+    return own.spaceId
+  }
+  if (item.feedId == null || summary == null) {
+    return null
+  }
+  return feedSpaceIdsFromSummary(summary).get(item.feedId) ?? null
+}
+
 export function normalizeRideMatchText(value: string | null | undefined): string {
   return value == null ? "" : value.trim().toLowerCase()
 }

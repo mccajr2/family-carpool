@@ -78,10 +78,12 @@ import {
   type CoverageGameEvent,
   type QueueItem,
 } from "@/components/coverageQueue"
+import { isAcceptedByCircle } from "@/components/carpoolDisplay"
 import {
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
   ridesBySpaceRecordToMap,
+  spaceIdForCarpoolRide,
 } from "@/components/calendarRideJoin"
 import {
   advanceCalendarWindow,
@@ -1240,11 +1242,18 @@ export function FamilyScreen({
   }
 
   async function onCancelAgendaRide(item: CalendarItem, rideId: string) {
-    if (item.feedId == null || calendarCarpoolSummary == null) {
-      return
-    }
-    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const spaceId = spaceIdForCarpoolRide(
+      item,
+      rideId,
+      rideEvent,
+      calendarCarpoolSummary,
+    )
     if (spaceId == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find carpool space for this ride.",
+      })
       return
     }
     setStatus({ kind: "loading" })
@@ -1290,11 +1299,18 @@ export function FamilyScreen({
   }
 
   async function onAcceptAgendaRide(item: CalendarItem, rideId: string, vehicleId: string) {
-    if (item.feedId == null || calendarCarpoolSummary == null) {
-      return
-    }
-    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const spaceId = spaceIdForCarpoolRide(
+      item,
+      rideId,
+      rideEvent,
+      calendarCarpoolSummary,
+    )
     if (spaceId == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find carpool space for this ride.",
+      })
       return
     }
     setStatus({ kind: "loading" })
@@ -1328,11 +1344,18 @@ export function FamilyScreen({
   }
 
   async function onPassAgendaRide(item: CalendarItem, rideId: string) {
-    if (item.feedId == null || calendarCarpoolSummary == null) {
-      return
-    }
-    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const spaceId = spaceIdForCarpoolRide(
+      item,
+      rideId,
+      rideEvent,
+      calendarCarpoolSummary,
+    )
     if (spaceId == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find carpool space for this ride.",
+      })
       return
     }
     setStatus({ kind: "loading" })
@@ -1350,11 +1373,18 @@ export function FamilyScreen({
   }
 
   async function onWithdrawAgendaRide(item: CalendarItem, rideId: string) {
-    if (item.feedId == null || calendarCarpoolSummary == null) {
-      return
-    }
-    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const spaceId = spaceIdForCarpoolRide(
+      item,
+      rideId,
+      rideEvent,
+      calendarCarpoolSummary,
+    )
     if (spaceId == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find carpool space for this ride.",
+      })
       return
     }
     setStatus({ kind: "loading" })
@@ -1810,10 +1840,19 @@ export function FamilyScreen({
     if (rsvpStatusForKid(item, kidId) === statusValue) {
       return
     }
-    if (statusValue === "NO" && kidHasActiveCoverage(item, kidId)) {
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const acceptedInbound =
+      rideEvent?.otherRequests.filter(
+        (ride) => circle != null && isAcceptedByCircle(ride, circle.id),
+      ) ?? []
+    const inboundPassengerNames = acceptedInbound.flatMap((ride) => ride.kidFirstNames)
+    if (
+      statusValue === "NO" &&
+      (kidHasActiveCoverage(item, kidId) || inboundPassengerNames.length > 0)
+    ) {
       const kidName =
         circle?.kids.find((kid) => kid.id === kidId)?.displayName?.trim() || "this kid"
-      if (!window.confirm(rsvpCoverageReleaseMessage(kidName))) {
+      if (!window.confirm(rsvpCoverageReleaseMessage(kidName, inboundPassengerNames))) {
         return
       }
     }
@@ -1828,6 +1867,10 @@ export function FamilyScreen({
         { status: statusValue },
       )
       replaceCalendarItem(updated)
+      // FEED RSVP No may auto-withdraw accepted inbound rides server-side (ADR-0002).
+      if (statusValue === "NO" && item.source === "FEED") {
+        await reloadCalendarCarpoolRides(token)
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
