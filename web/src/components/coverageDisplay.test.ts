@@ -27,6 +27,8 @@ import {
   COVERAGE_CONFIRMED,
   NEEDS_COVERAGE,
   OVERLAPS_CHIP,
+  RIDE_CONFLICT_CHIP,
+  alsoDrivingKidLabel,
 } from "@/components/coverageCopy"
 import { calendarSourceLabel as eventTimesSourceLabel } from "@/components/eventTimes"
 
@@ -237,6 +239,14 @@ describe("coverageDisplay", () => {
     ])
   })
 
+  it("treats ride-commitment conflict as attention even when gaps are cleared", () => {
+    const item = calendarItem({ uncoveredKidIds: [] })
+    const accepted = ownRide({ kidIds: ["k1"] })
+    expect(agendaItemNeedsAttention(item, "a1", false, accepted)).toBe(false)
+    expect(agendaItemNeedsAttention(item, "a1", false, accepted, true)).toBe(true)
+    expect(agendaItemNeedsAttention(item, "a1", true, accepted, true)).toBe(false)
+  })
+
   it("composes Overlaps, Riding with, and remaining Needs coverage in order", () => {
     const mixed = calendarItem({
       uncoveredKidIds: ["k1", "k2"],
@@ -289,6 +299,35 @@ describe("coverageDisplay", () => {
     ])
     expect(insertOwnRideStatusChip([{ label: COVERAGE_CONFIRMED, tone: "mint" }], null)).toEqual([
       { label: COVERAGE_CONFIRMED, tone: "mint" },
+    ])
+  })
+
+  it("inserts the own-ride chip after Overlaps and ride-commitment conflict", () => {
+    const rideChip = { label: "Ride needed", tone: "amber" as const }
+    expect(
+      insertOwnRideStatusChip(
+        [
+          { label: OVERLAPS_CHIP, tone: "amber" },
+          { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
+          { label: NEEDS_COVERAGE, tone: "amber" },
+        ],
+        rideChip,
+      ),
+    ).toEqual([
+      { label: OVERLAPS_CHIP, tone: "amber" },
+      { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
+      rideChip,
+      { label: NEEDS_COVERAGE, tone: "amber" },
+    ])
+    expect(
+      insertOwnRideStatusChip(
+        [{ label: RIDE_CONFLICT_CHIP, tone: "amber" }, { label: NEEDS_COVERAGE, tone: "amber" }],
+        rideChip,
+      ),
+    ).toEqual([
+      { label: RIDE_CONFLICT_CHIP, tone: "amber" },
+      rideChip,
+      { label: NEEDS_COVERAGE, tone: "amber" },
     ])
   })
 })

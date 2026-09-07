@@ -14,6 +14,7 @@ import {
   NEEDS_COVERAGE,
   OVERLAPS_CHIP,
 } from "@/components/coverageCopy"
+import { isRideCommitmentConflictChipLabel } from "@/components/rideCommitmentConflict"
 
 /** Mirrors mobile/iosApp CoverageDisplay.swift + sharedUI CoverageDisplay.kt. */
 
@@ -166,7 +167,25 @@ export function agendaItemStatusTags(
 }
 
 /**
- * Insert the own-ride chip immediately after Overlaps (or first if none).
+ * Index for the own-ride chip: after Overlaps (if any) and after the
+ * ride-commitment conflict chip (if any).
+ */
+function ownRideChipInsertIndex(tags: AgendaItemStatusTag[]): number {
+  let index = 0
+  if (tags[index]?.label === OVERLAPS_CHIP) {
+    index += 1
+  }
+  if (
+    tags[index] != null &&
+    isRideCommitmentConflictChipLabel(tags[index]!.label)
+  ) {
+    index += 1
+  }
+  return index
+}
+
+/**
+ * Insert the own-ride chip after Overlaps → conflict (or first if neither).
  * Used by collapsed Agenda rows and Focus pills.
  */
 export function insertOwnRideStatusChip(
@@ -176,15 +195,8 @@ export function insertOwnRideStatusChip(
   if (rideChip == null) {
     return tags
   }
-  const overlapsIndex = tags.findIndex((tag) => tag.label === OVERLAPS_CHIP)
-  if (overlapsIndex >= 0) {
-    return [
-      ...tags.slice(0, overlapsIndex + 1),
-      rideChip,
-      ...tags.slice(overlapsIndex + 1),
-    ]
-  }
-  return [rideChip, ...tags]
+  const insertAt = ownRideChipInsertIndex(tags)
+  return [...tags.slice(0, insertAt), rideChip, ...tags.slice(insertAt)]
 }
 
 /** Red status dot on collapsed rows; Focus urgent surface uses focusItemNeedsDecision. */
@@ -193,6 +205,7 @@ export function agendaItemNeedsAttention(
   currentAdultId: string,
   outOfPlay = false,
   ownRequest?: CarpoolRide | null,
+  hasRideCommitmentConflict = false,
 ): boolean {
   if (outOfPlay) {
     return false
@@ -201,6 +214,7 @@ export function agendaItemNeedsAttention(
   return (
     gapKids.length > 0 ||
     item.conflicts.length > 0 ||
-    Boolean(pendingCoverageForAdult(item, currentAdultId))
+    Boolean(pendingCoverageForAdult(item, currentAdultId)) ||
+    hasRideCommitmentConflict
   )
 }

@@ -1,12 +1,13 @@
 # Spec: ride-commitment-conflict
 
-Status: draft  
+Status: archived  
+Completed: 2026-09-06  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-01  
-Updated: 2026-09-06 (`/spec`)  
+Updated: 2026-09-06 (`/pr`)  
 Added: 2026-09-01 · initial  
 Branch: `ride-commitment-conflict`  
-Depends on: [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md), [`ride-revert-undo`](../archive/ride-revert-undo.md)  
+Depends on: [`auto-decline-unofferable`](auto-decline-unofferable.md), [`ride-revert-undo`](ride-revert-undo.md)  
 Feeds: [`client-server-invariant-audit`](../planned/client-server-invariant-audit.md) (server fences — separate PR)
 
 ## Problem
@@ -25,7 +26,7 @@ the product noticing:
    ask (driving their kid). v1 allows this on the server; neither family sees
    it labeled as a two-car swap.
 
-[`auto-decline-unofferable`](../archive/auto-decline-unofferable.md) only
+[`auto-decline-unofferable`](auto-decline-unofferable.md) only
 auto-declines **pending** inbound asks when `ownRide === "requested"` (client
 view-model). It does not withdraw **ACCEPTED** inbound, does not run when the
 gap is plain **unassigned**, and does not detect mutual swaps.
@@ -131,7 +132,7 @@ Update collapsed-tag precedence note in
 
 - Decision: [ADR-0002](../../decisions/ADR-0002-automatic-non-blocking-cancellation.md)
 - Contract: [`docs/agenda-coverage-web-contract.md`](../../agenda-coverage-web-contract.md) — **Collapsed status tags** precedence
-- Archived: [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md), [`ride-revert-undo`](../archive/ride-revert-undo.md), [`carpool-ride-clarity`](../archive/carpool-ride-clarity.md), [`agenda-ride-rider-chips`](../archive/agenda-ride-rider-chips.md)
+- Archived: [`auto-decline-unofferable`](auto-decline-unofferable.md), [`ride-revert-undo`](ride-revert-undo.md), [`carpool-ride-clarity`](carpool-ride-clarity.md), [`agenda-ride-rider-chips`](agenda-ride-rider-chips.md)
 - Source: `web/src/components/carpoolDisplay.ts` — `acceptedByUsRequest`, `agendaOwnRideStatusChip`
 - Source: `web/src/components/coverageQueue.ts` — `mapOwnRideStatusForKid`, `remainingCoverageGapKidIds`, `isUnassigned`, `isConfirmedDriver`
 - Source: `web/src/components/rideStatusChip.ts` — `rideStatusChipsForItem`, `pickMostUrgentGameRow`
@@ -141,40 +142,40 @@ Update collapsed-tag precedence note in
 
 ## Acceptance criteria
 
-- [ ] Pure helper returns Type A when ACCEPTED inbound coexists with an
+- [x] Pure helper returns Type A when ACCEPTED inbound coexists with an
       in-play kid `unassigned` or `"requested"` on the same event
-- [ ] Pure helper returns Type B for mutual ACCEPTED swap (both directions,
+- [x] Pure helper returns Type B for mutual ACCEPTED swap (both directions,
       different kid sets)
-- [ ] Pure helper returns null when only one direction is set and gaps are
+- [x] Pure helper returns null when only one direction is set and gaps are
       cleared (e.g. kid **Riding with** teammate, no inbound accept)
-- [ ] Pure helper returns null when ACCEPTED inbound coexists with household
+- [x] Pure helper returns null when ACCEPTED inbound coexists with household
       CONFIRMED coverage for every own gap kid (valid two-kid plan)
-- [ ] Collapsed Agenda shows amber **Also driving {name}** (single inbound
+- [x] Collapsed Agenda shows amber **Also driving {name}** (single inbound
       kid) or **Ride conflict** (Type A multi / Type B) **after Overlaps and
       before** the own-ride chip, alongside the gap / riding-with chip — not
       instead of it
-- [ ] Collapsed attention dot fires when conflict is present
-- [ ] Focus card shows factual conflict line with both commitments named
-- [ ] Expanded row shows the same one-line conflict callout and still exposes
+- [x] Collapsed attention dot fires when conflict is present
+- [x] Focus card shows factual conflict line with both commitments named
+- [x] Expanded row shows the same one-line conflict callout and still exposes
       **Can't take them anymore** / cancel ask / find new ride without new
       dialogs
-- [ ] `docs/agenda-coverage-web-contract.md` collapsed-tag precedence lists
+- [x] `docs/agenda-coverage-web-contract.md` collapsed-tag precedence lists
       the conflict chip slot
-- [ ] Unit tests for helper + chip/attention/Focus copy; Type A and B
+- [x] Unit tests for helper + chip/attention/Focus copy; Type A and B
       fixtures in `AgendaRow.test.tsx` / `AgendaFocusCard.test.tsx`
 
 ## Tasks
 
-- [ ] Web: `rideCommitmentConflict` helper + unit tests (Type A, Type B, null
+- [x] Web: `rideCommitmentConflict` helper + unit tests (Type A, Type B, null
       cases, CONFIRMED-coverage non-conflict)
-- [ ] Web: wire conflict chip into `rideStatusChipsForItem` /
+- [x] Web: wire conflict chip into `rideStatusChipsForItem` /
       `insertOwnRideStatusChip` / `AgendaRow` (order: Overlaps → conflict →
       own-ride)
-- [ ] Web: `agendaItemNeedsAttention` true when conflict non-null
-- [ ] Web: Focus conflict line + expanded-row callout (shared copy helper)
-- [ ] Docs: update collapsed-tag precedence in
+- [x] Web: `agendaItemNeedsAttention` true when conflict non-null
+- [x] Web: Focus conflict line + expanded-row callout (shared copy helper)
+- [x] Docs: update collapsed-tag precedence in
       `docs/agenda-coverage-web-contract.md`
-- [ ] Tests: Type A/B fixtures in `AgendaRow.test.tsx` /
+- [x] Tests: Type A/B fixtures in `AgendaRow.test.tsx` /
       `AgendaFocusCard.test.tsx`; extend chip/attention unit tests
 
 ## Open questions

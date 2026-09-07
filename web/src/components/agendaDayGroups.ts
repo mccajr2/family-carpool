@@ -139,6 +139,8 @@ export type GroupAgendaListSectionsOptions = {
   /** True when the hero carousel has queue slides (carousel owns NEEDS YOUR ATTENTION). */
   queueHasItems: boolean
   ownRequestFor?: (item: CalendarItem) => CarpoolRide | null | undefined
+  /** Ride-commitment conflict (Type A/B) — same attention tier as gap / Overlaps. */
+  rideCommitmentConflictFor?: (item: CalendarItem) => boolean
 }
 
 /**
@@ -154,6 +156,8 @@ export function groupAgendaListSections(
 ): AgendaListGrouping {
   const now = options.now ?? new Date()
   const ownRequestFor = options.ownRequestFor ?? (() => null)
+  const rideCommitmentConflictFor =
+    options.rideCommitmentConflictFor ?? (() => false)
   const { tomorrowStart } = agendaDayBoundaries(now)
 
   const today: CalendarItem[] = []
@@ -184,6 +188,7 @@ export function groupAgendaListSections(
         options.currentAdultId,
         outOfPlay,
         ownRequestFor(item),
+        rideCommitmentConflictFor(item),
       )
     ) {
       if (options.queueHasItems) {

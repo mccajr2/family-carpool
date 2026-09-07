@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
-import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, CONFIRM_ILL_DRIVE, RIDE_NEEDED } from "@/components/coverageCopy"
+import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, CONFIRM_ILL_DRIVE, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel, ridingWithCircleLabel } from "@/components/coverageCopy"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -2052,5 +2052,188 @@ detourMinutes: null,
     const outRow = screen.getByTestId("agenda-row-MANUAL-skip")
     expect(within(outRow).getByText("Not going")).toBeInTheDocument()
     expect(within(outRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+  })
+
+  it("shows Type A ride-commitment callout above kid and inbound bands when expanded", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    const feedItem = item({
+      id: "feed-type-a",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:type-a",
+      uncoveredKidIds: ["k1"],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "other",
+          otherTitle: "Other",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+        },
+      ],
+    })
+    const rideEvent = {
+      eventKey: "UID:type-a",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [
+        {
+          id: "ask-accepted",
+          spaceId: "s1",
+          eventKey: "UID:type-a",
+          requestingCircleId: "c2",
+          requestingCircleName: "House B",
+          requestedByAdultId: "a2",
+          kidIds: ["k-them"],
+          kidFirstNames: ["Mia"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "ACCEPTED" as const,
+          passedByMe: false,
+          passedByAdultNames: [],
+          acceptedByAdultId: "a1",
+          acceptingCircleId: "c1",
+          acceptingCircleName: "Test",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+        },
+      ],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onWithdrawRide={onWithdrawRide}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-type-a")
+    const chipStrip = within(row).getByTestId("agenda-row-chip-strip")
+    const chipLabels = within(chipStrip)
+      .getAllByText(/Overlaps|Also driving Mia|Ride needed/)
+      .map((node) => node.textContent)
+    expect(chipLabels).toEqual(["Overlaps", alsoDrivingKidLabel("Mia"), RIDE_NEEDED])
+    expect(within(row).queryByTestId("agenda-ride-conflict-FEED-feed-type-a")).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-ride-conflict-FEED-feed-type-a")).toHaveTextContent(
+      "You're driving Mia but Sam still need a ride.",
+    )
+    expect(within(row).getByTestId("agenda-band-kids")).toBeInTheDocument()
+    const inbound = within(row).getByTestId("agenda-band-inbound-requests")
+    expect(
+      within(inbound).getByRole("button", { name: "Can't take them anymore" }),
+    ).toBeInTheDocument()
+  })
+
+  it("shows Type B mutual-swap callout when expanded", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-type-b",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:type-b",
+      uncoveredKidIds: [],
+    })
+    const rideEvent = {
+      eventKey: "UID:type-b",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: {
+        id: "own-accepted",
+        spaceId: "s1",
+        eventKey: "UID:type-b",
+        requestingCircleId: "c1",
+        requestingCircleName: "Test",
+        requestedByAdultId: "a1",
+        kidIds: ["k1"],
+        kidFirstNames: ["Sam"],
+        seats: 1,
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: null,
+        detourMinutes: null,
+        status: "ACCEPTED" as const,
+        passedByMe: false,
+        passedByAdultNames: [],
+        acceptedByAdultId: "a2",
+        acceptingCircleId: "c2",
+        acceptingCircleName: "House B",
+        vehicleId: "v2",
+        vehicleLabel: "SUV",
+      },
+      otherRequests: [
+        {
+          id: "ask-accepted",
+          spaceId: "s1",
+          eventKey: "UID:type-b",
+          requestingCircleId: "c2",
+          requestingCircleName: "House B",
+          requestedByAdultId: "a2",
+          kidIds: ["k-them"],
+          kidFirstNames: ["Mia"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "ACCEPTED" as const,
+          passedByMe: false,
+          passedByAdultNames: [],
+          acceptedByAdultId: "a1",
+          acceptingCircleId: "c1",
+          acceptingCircleName: "Test",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+        },
+      ],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onWithdrawRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-type-b")
+    const chipStrip = within(row).getByTestId("agenda-row-chip-strip")
+    expect(within(chipStrip).getByText(RIDE_CONFLICT_CHIP)).toBeInTheDocument()
+    expect(within(chipStrip).getByText(ridingWithCircleLabel("House B"))).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-ride-conflict-FEED-feed-type-b")).toHaveTextContent(
+      "You're driving Mia and Sam rides with them — pick one plan.",
+    )
+    expect(
+      within(row).getByRole("button", { name: "Can't take them anymore" }),
+    ).toBeInTheDocument()
   })
 })

@@ -246,14 +246,19 @@ Toolkit chrome may differ; **layout and strings** must not.
   gap kids only.
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
 - **Collapsed status tags** (Focus + collapsed `AgendaRow`) share
-  one precedence via `agendaItemStatusTags` + `insertOwnRideStatusChip`
-  (`coverageDisplay.ts` / `carpoolDisplay.ts`):
-  `Overlaps` → own-ride chip (if any) → `Needs coverage` (remaining gap) →
-  **Confirm coverage** (pending-for-self) → **Awaiting confirm** (pending for
-  someone else) → `Confirmed` → `All set` (Focus only, and only when there is
-  **no** own-ride chip). Own-ride chip: **Riding with {acceptingCircleName}**
-  (mint; blank name → **Riding with a teammate**) when `ACCEPTED`; **Requested**
-  (amber) when `PENDING`. Do not use “Accepted ·” / “Accepted:”.
+  one precedence via `rideStatusChipsForItem` + `insertOwnRideStatusChip`
+  (`rideStatusChip.ts` / `coverageDisplay.ts` / `rideCommitmentConflict.ts`):
+  `Overlaps` → ride-commitment conflict chip (if any) → own-ride chip (if any)
+  → `Needs coverage` (remaining gap) → **Confirm coverage** (pending-for-self)
+  → **Awaiting confirm** (pending for someone else) → `Confirmed` → `All set`
+  (Focus only, and only when there is **no** own-ride chip). Conflict chip
+  (amber; from `rideCommitmentConflict`): **Also driving {inbound kid
+  first-name}** when Type A with exactly one inbound kid name; else **Ride
+  conflict** (Type A multi-kid or Type B mutual swap). Shown **alongside** the
+  own-ride / gap chip — not instead of it. Own-ride chip: **Riding with
+  {acceptingCircleName}** (mint; blank name → **Riding with a teammate**) when
+  `ACCEPTED`; **Requested** (amber) when `PENDING`. Do not use “Accepted ·” /
+  “Accepted:”.
   **Presentation:** Feeds-aligned uppercase chips (`AgendaStatusChip`
   default/`tag`, `feedChip*` tokens) — **no** leading dot, **no** Title Case
   pills (`appearance="pill"` retired on Agenda surfaces). Canonical label

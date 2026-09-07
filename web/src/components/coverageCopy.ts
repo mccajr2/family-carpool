@@ -32,8 +32,13 @@ export const CONFIRM_ILL_DRIVE = "Confirm I'll drive" as const
 export const ASK_THE_TEAM_FOR_RIDE = "Ask the team for a ride" as const
 export const NOBODY_IN_HOUSEHOLD_FREE = "Nobody in the household free?" as const
 export const OVERLAPS_CHIP = "Overlaps" as const
+export const RIDE_CONFLICT_CHIP = "Ride conflict" as const
 export const RIDING_WITH_TEAMMATE = "Riding with a teammate" as const
 export const CARPOOL_ASK_SINGULAR = "1 carpool ask" as const
+
+export function alsoDrivingKidLabel(kidFirstName: string): string {
+  return `Also driving ${kidFirstName.trim()}`
+}
 
 export function ridingWithCircleLabel(circleName: string): string {
   return `Riding with ${circleDisplayName(circleName)}`
