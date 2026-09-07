@@ -1,8 +1,10 @@
 # Spec: ride-detail-schedule-utils
 
-Status: draft  
-Created: 2026-09-06  
+Status: archived  
+Completed: 2026-09-06  
 Parent: [docs/roadmap.md](../../roadmap.md)  
+Created: 2026-09-06  
+Updated: 2026-09-06 (`/pr`)  
 Added: 2026-09-06 · enhancement  
 Branch: `ride-detail-schedule-utils`  
 Feeds: [`ride-detail-shell`](../planned/ride-detail-shell.md) →
@@ -83,33 +85,33 @@ re-implement these formulas in components.
 
 ## Acceptance criteria
 
-- [ ] Pure module exports `toMinutes`, `toTime`, `fmtMinSec`, `eventStartTime`,
+- [x] Pure module exports `toMinutes`, `toTime`, `fmtMinSec`, `eventStartTime`,
   `computeSchedule`, `navigationUrl`, `embedUrl`, and `mergeTracks` (names may
   be camelCase TypeScript idioms; behavior matches the mockup).
-- [ ] `computeSchedule` on the mockup three-stop fixture (`bufferMinutes: 45`,
+- [x] `computeSchedule` on the mockup three-stop fixture (`bufferMinutes: 45`,
   `legMinutes: [12, 18]`, event start `"12:40 PM"`) yields `arriveBy` and
   `stopTimes` matching hand calculation from the mockup formulas.
-- [ ] `navigationUrl` builds a Directions URL with encoded origin, destination,
+- [x] `navigationUrl` builds a Directions URL with encoded origin, destination,
   and `|`-joined mid waypoints when ≥3 stops; two-stop routes omit the
   `waypoints` param.
-- [ ] `embedUrl` returns `null` without an API key and a keyed Embed Directions
+- [x] `embedUrl` returns `null` without an API key and a keyed Embed Directions
   URL when a key is provided.
-- [ ] `mergeTracks` round-robins only `connected: true` riders; empty when none
+- [x] `mergeTracks` round-robins only `connected: true` riders; empty when none
   connected; each merged item includes `from` = contributing rider name.
-- [ ] `eventStartTime` covers: start already has AM/PM; start borrows AM/PM from
+- [x] `eventStartTime` covers: start already has AM/PM; start borrows AM/PM from
   end (`"5:20 – 6:20 PM"` → `"5:20 PM"`).
-- [ ] No React components, screens, Agenda wiring, backend, or OpenAPI changes
+- [x] No React components, screens, Agenda wiring, backend, or OpenAPI changes
   in this PR.
-- [ ] Unit tests colocated with the module; suite passes.
+- [x] Unit tests colocated with the module; suite passes.
 
 ## Tasks
 
-- [ ] Web: add `web/src/components/rideScheduleUtils.ts` (or agreed name) with
+- [x] Web: add `web/src/components/rideScheduleUtils.ts` (or agreed name) with
   types + helpers ported from the mockup
-- [ ] Tests: `rideScheduleUtils.test.ts` covering clock wrap, schedule fixture,
+- [x] Tests: `rideScheduleUtils.test.ts` covering clock wrap, schedule fixture,
   maps URL encoding/waypoints/`embedUrl` null, merge round-robin + disconnected
   skip, `eventStartTime` / `fmtMinSec` cases above
-- [ ] Docs: none beyond this spec (mockup remains SoT until tabs land)
+- [x] Docs: none beyond this spec (mockup remains SoT until tabs land)
 
 ## Open questions
 

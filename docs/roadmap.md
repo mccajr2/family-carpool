@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-06 (`/spec ride-detail-schedule-utils`)
+Updated: 2026-09-06 (`/pr ride-detail-schedule-utils`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -100,25 +100,24 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | ride-detail-schedule-utils      | active  | 2026-09-06 · enhancement   | Extract schedule/merge/maps URL pure helpers from approved mockup — unit-tested foundation for Route/Playlist detail          |
-| 2    | ride-detail-shell               | planned | 2026-09-06 · enhancement   | Home `canRoute` entry + per-event Detail Route/Playlist tabs (fixture data OK); mockup SoT `carpool_combined_flow.jsx`        |
-| 3    | ride-route-tab                  | planned | 2026-09-06 · enhancement   | Confirmed-ride Route: OSRM legs, stops, leave-by hero, map/placeholder, Start navigation, notify ready-by                     |
-| 4    | ride-playlist-tab               | planned | 2026-09-06 · enhancement   | Confirmed-ride Playlist: Spotify OAuth, round-robin merge, Open in Spotify, remix, invite-to-connect                          |
-| 5    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route/Playlist loading, notify/invite errors, explicit OSRM-unreachable leave-by state                                        |
-| 6    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
-| 7    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Pre-beta: audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before Expo second client         |
-| 8    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
-| 9    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — also backs route/playlist notify call sites when ready        |
-| 10   | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 11   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 12   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes` (mockup 45/15 vs sketch 30/15/0)                        |
-| 13   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 14   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 15   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 16   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 17   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
-| 18   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 19   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | ride-detail-shell               | planned | 2026-09-06 · enhancement   | Home `canRoute` entry + per-event Detail Route/Playlist tabs (fixture data OK); mockup SoT `carpool_combined_flow.jsx`        |
+| 2    | ride-route-tab                  | planned | 2026-09-06 · enhancement   | Confirmed-ride Route: OSRM legs, stops, leave-by hero, map/placeholder, Start navigation, notify ready-by                     |
+| 3    | ride-playlist-tab               | planned | 2026-09-06 · enhancement   | Confirmed-ride Playlist: Spotify OAuth, round-robin merge, Open in Spotify, remix, invite-to-connect                          |
+| 4    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route/Playlist loading, notify/invite errors, explicit OSRM-unreachable leave-by state                                        |
+| 5    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
+| 6    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Pre-beta: audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before Expo second client         |
+| 7    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
+| 8    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — also backs route/playlist notify call sites when ready        |
+| 9    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 10   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 11   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes` (mockup 45/15 vs sketch 30/15/0)                        |
+| 12   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 13   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 14   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 15   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 16   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
+| 17   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 18   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -189,15 +188,15 @@ by the ride Route/Playlist carve-up.
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id                         | Branch                       | Spec                                                                   |
-| -------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| ride-detail-schedule-utils | `ride-detail-schedule-utils` | [active](specs/active/ride-detail-schedule-utils.md)                   |
+| Id | Branch | Spec |
+| -- | ------ | ---- |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| ride-detail-schedule-utils | 2026-09-06 | [archive](specs/archive/ride-detail-schedule-utils.md) |
 | ride-commitment-conflict   | 2026-09-06 | [archive](specs/archive/ride-commitment-conflict.md)   |
 | agenda-ride-rider-chips    | 2026-09-01 | [archive](specs/archive/agenda-ride-rider-chips.md)    |
 | coverage-copy-a11y-polish  | 2026-09-01 | [archive](specs/archive/coverage-copy-a11y-polish.md)  |
@@ -418,4 +417,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-09-06 | `/spec ride-commitment-conflict`: promote stub — Phase 1 web only (pure helper + amber chips/attention/Focus/expanded callout); no OpenAPI; server fences deferred to `client-server-invariant-audit`. Spec active on branch `ride-commitment-conflict`. Next up `/implement ride-commitment-conflict`. |
 | 2026-09-06 | `/pr ride-commitment-conflict`: detect Type A/B contradictory ride commitments on Agenda (chips, attention, Focus/expanded callout); no OpenAPI. Spec archived. Next up `ride-detail-schedule-utils`. |
 | 2026-09-06 | `/spec ride-detail-schedule-utils`: promote stub — pure web helpers (`computeSchedule`, maps URLs, `mergeTracks`) from mockup; no UI/OpenAPI. Spec active on branch `ride-detail-schedule-utils`. Next up `/implement ride-detail-schedule-utils`. |
+| 2026-09-06 | `/pr ride-detail-schedule-utils`: pure `rideScheduleUtils` (schedule, maps URLs, `mergeTracks`); no UI/OpenAPI. Spec archived. Next up `ride-detail-shell`. |
 
