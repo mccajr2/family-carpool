@@ -3,7 +3,7 @@
  * and Focus card. Pure view-model — no UI. See docs/specs/active/unified-ride-status-chip.md.
  */
 
-import type { CalendarItem, CarpoolRide, Kid } from "@/api/types"
+import type { CalendarItem, CarpoolRide } from "@/api/types"
 import {
   acceptedRiders,
   isConfirmedDriver,
@@ -25,7 +25,6 @@ import {
   ridingWithCircleLabel,
   waitingOnDriverLabel,
 } from "@/components/coverageCopy"
-import { ridersForItem } from "@/components/riderChips"
 
 export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
 
@@ -103,12 +102,10 @@ function teammateRideChip(
 function drivingLabel(
   driver: string,
   riderCount: number,
-  suppressAcceptedRiderCount = false,
 ): RideStatusChipDescriptor {
-  const effectiveCount = suppressAcceptedRiderCount ? 0 : riderCount
   return {
-    label: drivingChipLabel(driver, effectiveCount),
-    tone: effectiveCount > 0 ? "route" : "mint",
+    label: drivingChipLabel(driver, riderCount),
+    tone: riderCount > 0 ? "route" : "mint",
   }
 }
 
@@ -118,7 +115,6 @@ function drivingLabel(
 export function rideStatusChipForGameRow(
   game: CoverageGameEvent,
   ownRequest: CarpoolRide | null | undefined,
-  suppressAcceptedRiderCount = false,
 ): RideStatusChipDescriptor {
   if (isTeammateRide(game, ownRequest)) {
     return teammateRideChip(ownRequest!)
@@ -139,11 +135,7 @@ export function rideStatusChipForGameRow(
     return { label: waitingOnDriverLabel(ownRide.driver), tone: "amber" }
   }
   if (isConfirmedDriver(ownRide)) {
-    return drivingLabel(
-      ownRide.driver,
-      acceptedRiders(game).length,
-      suppressAcceptedRiderCount,
-    )
+    return drivingLabel(ownRide.driver, acceptedRiders(game).length)
   }
 
   return { label: RIDE_NEEDED, tone: "amber" }
@@ -157,7 +149,6 @@ export function rideStatusChipsForItem(
   item: CalendarItem,
   games: readonly CoverageGameEvent[],
   ownRequest: CarpoolRide | null | undefined,
-  kids?: readonly Kid[],
 ): RideStatusChipDescriptor[] {
   const allNotGoing = games.length > 0 && games.every((game) => !isInPlay(game))
   if (allNotGoing) {
@@ -170,14 +161,9 @@ export function rideStatusChipsForItem(
     chips.push({ label: OVERLAPS_CHIP, tone: "amber" })
   }
 
-  const suppressAcceptedRiderCount =
-    kids != null && ridersForItem(games, ownRequest, kids).length > 0
-
   const urgent = pickMostUrgentGameRow(games)
   if (urgent != null) {
-    chips.push(
-      rideStatusChipForGameRow(urgent, ownRequest, suppressAcceptedRiderCount),
-    )
+    chips.push(rideStatusChipForGameRow(urgent, ownRequest))
   }
 
   return chips

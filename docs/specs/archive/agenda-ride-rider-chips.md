@@ -86,12 +86,11 @@ Colocate under `web/src/components/`:
   and initials type; add roles only if mock measurement diverges — do not snap
   to unrelated sizes (`docs/ui-system.md`).
 
-### 3. Chip copy adjustment
+### 3. Chip copy (dogfood)
 
-When `RiderChips` renders for an item, **drop the `· +{n}` suffix** from the
-ride-status chip (`rideStatusChip.ts` `drivingLabel`) — rider identities are
-visible in chips; keep `You're driving` / `{name} driving` / `Riding with …`
-unchanged.
+Keep the `· +{n}` suffix on the ride-status chip even when `RiderChips` are
+visible. Names alone are easy to miss; `You're driving · +{n}` (route tone)
+must still signal accepted carpool kids at a glance.
 
 ### 4. Surfaces
 
@@ -123,8 +122,8 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       names; ride-needed / asked-team / pending-confirm / not-going rows do not.
 - [x] Collapsed row with teammate ride (`Riding with …` chip) shows **RiderChips**
       for in-play circle kids on that accepted own request.
-- [x] Ride-status chip no longer appends `· +{n}` when rider chips are shown for
-      the same item; chip still reads `You're driving` or `{name} driving`.
+- [x] Ride-status chip still appends `· +{n}` when accepted carpool kids are on
+      the ride (with or without rider chips); names remain the who-detail.
 - [x] Multi-kid event: when two kids share the same confirmed driver, both circle
       kids appear in rider chips on the collapsed row.
 - [x] Expanded per-kid band uses the shared `RiderChips` component (token-driven
