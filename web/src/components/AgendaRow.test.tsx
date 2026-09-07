@@ -335,7 +335,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
   })
 
-  it("shows rider chips and drops the accepted-rider suffix when driving with passengers", () => {
+  it("shows rider chips and keeps the accepted-rider suffix when driving with passengers", () => {
     render(
       <AgendaRow
         item={item({
@@ -393,9 +393,9 @@ describe("AgendaRow", () => {
       />,
     )
     const row = screen.getByTestId("agenda-row-MANUAL-route-row")
-    const drivingChip = within(row).getByText("You're driving")
-    expect(drivingChip.className).toMatch(/--fc-success/)
-    expect(within(row).queryByText("You're driving · +1")).not.toBeInTheDocument()
+    const drivingChip = within(row).getByText("You're driving · +1")
+    expect(drivingChip.className).toMatch(/--fc-accent/)
+    expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
     const riderChips = within(row).getByTestId("agenda-row-rider-chips")
     expect(riderChips).toHaveAttribute("aria-label", "Riding: Sam, Mia")
     expect(within(riderChips).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent("Sam, Mia")

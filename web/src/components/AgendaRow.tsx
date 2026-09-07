@@ -223,12 +223,7 @@ export function AgendaRow({
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
   const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
-  const rideChips = rideStatusChipsForItem(
-    item,
-    coverageGames,
-    ownRequest,
-    circle.kids,
-  )
+  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
   const tags = askChip != null ? [...rideChips, askChip] : rideChips
   const teamLabel = agendaRowTeamLabel(item)
   const whenLabel = formatEventWhen(item.startsAt, item.endsAt)
