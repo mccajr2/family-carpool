@@ -359,4 +359,19 @@ for (const scheme of ["light", "dark"]) {
       )
     }
   })
+
+  test(`Ride-detail track-from WCAG AA pairings (${scheme})`, () => {
+    const c = tokens.color[scheme]
+    const p = {
+      name: "rideDetailTrackFromOn on rideDetailTrackFrom",
+      fg: c.rideDetailTrackFromOn,
+      bg: c.rideDetailTrackFrom,
+      min: 4.5,
+    }
+    const ratio = contrastRatio(p.fg, p.bg)
+    assert.ok(
+      ratio >= p.min,
+      `${scheme} ${p.name}: ${ratio.toFixed(2)}:1 < ${p.min}:1 (${p.fg} on ${p.bg})`,
+    )
+  })
 }

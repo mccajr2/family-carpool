@@ -60,6 +60,13 @@ import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
+import {
+  RideDetailScreen,
+  type RideDetailTab,
+} from "@/components/RideDetailScreen"
+import { RideRouteTab } from "@/components/RideRouteTab"
+import { RidePlaylistTab } from "@/components/RidePlaylistTab"
+import { carpoolRouteFixtureForCalendarItem } from "@/components/rideDetailFixtures"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
   activeCoverages,
@@ -94,6 +101,7 @@ import {
   defaultCalendarWindow,
   ensureCalendarWindowCovers,
   filterCalendarItemsInWindow,
+  formatEventWhen,
   formatLocalTodayLabel,
   mergeCalendarItems,
   nearTermLeaveByWindow,
@@ -276,6 +284,10 @@ export function FamilyScreen({
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
   const [editingEventLeaveFromPlaceId, setEditingEventLeaveFromPlaceId] = useState("")
   const [destination, setDestination] = useState<ShellDestination>("calendar")
+  /** Calendar overlay: open ride-detail for this item key. */
+  const [rideDetailItemKey, setRideDetailItemKey] = useState<string | null>(null)
+  const [rideDetailTab, setRideDetailTab] = useState<RideDetailTab>("route")
+  const [ridePlaylistShuffleSeed, setRidePlaylistShuffleSeed] = useState(0)
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
     null,
   )
@@ -2131,6 +2143,20 @@ export function FamilyScreen({
     agendaLoadedWindow.from,
     agendaLoadedWindow.to,
   )
+  const rideDetailItem =
+    rideDetailItemKey == null
+      ? null
+      : (calendarItems.find((item) => calendarItemKey(item) === rideDetailItemKey) ??
+        null)
+  const showRideDetail = destination === "calendar" && rideDetailItem != null
+  const rideDetailCarpoolRoute =
+    rideDetailItem != null
+      ? carpoolRouteFixtureForCalendarItem(rideDetailItem)
+      : null
+  // Item removed while detail was open — drop back to Agenda.
+  if (rideDetailItemKey != null && rideDetailItem == null) {
+    setRideDetailItemKey(null)
+  }
   const coverageMapOptions = {
     currentAdultId: adult?.id ?? "",
     members: circle.members,
@@ -2301,13 +2327,19 @@ export function FamilyScreen({
               label="Carpool"
               icon="icon.carpool"
               active={destination === "carpool"}
-              onClick={() => setDestination("carpool")}
+              onClick={() => {
+                setRideDetailItemKey(null)
+                setDestination("carpool")
+              }}
             />
             <ShellNavButton
               label="Family"
               icon="icon.family"
               active={destination === "family"}
-              onClick={() => setDestination("family")}
+              onClick={() => {
+                setRideDetailItemKey(null)
+                setDestination("family")
+              }}
             />
           </nav>
 
@@ -2320,20 +2352,29 @@ export function FamilyScreen({
               label="Places"
               icon="icon.places"
               active={destination === "places"}
-              onClick={() => setDestination("places")}
+              onClick={() => {
+                setRideDetailItemKey(null)
+                setDestination("places")
+              }}
             />
             <SettingsRow
               label="Garage"
               icon="icon.garage"
               active={destination === "garage"}
-              onClick={() => setDestination("garage")}
+              onClick={() => {
+                setRideDetailItemKey(null)
+                setDestination("garage")
+              }}
             />
             {isOrganizer ? (
               <SettingsRow
                 label="Feeds"
                 icon="icon.feeds"
                 active={destination === "feeds"}
-                onClick={() => setDestination("feeds")}
+                onClick={() => {
+                  setRideDetailItemKey(null)
+                  setDestination("feeds")
+                }}
               />
             ) : null}
           </section>
@@ -2359,6 +2400,36 @@ export function FamilyScreen({
       </aside>
 
       <main className="max-w-[820px] space-y-4 px-[var(--fc-space-main-x)] py-[var(--fc-space-main-y)] [&>header+*]:!mt-0">
+        {showRideDetail && rideDetailItem != null ? (
+          <RideDetailScreen
+            title={rideDetailItem.title}
+            whenLabel={formatEventWhen(rideDetailItem.startsAt, rideDetailItem.endsAt)}
+            tab={rideDetailTab}
+            onTabChange={setRideDetailTab}
+            shuffleSeed={ridePlaylistShuffleSeed}
+            carpoolRoute={rideDetailCarpoolRoute}
+            onBack={() => setRideDetailItemKey(null)}
+            routePanel={
+              rideDetailCarpoolRoute != null ? (
+                <RideRouteTab
+                  carpoolRoute={rideDetailCarpoolRoute}
+                  startsAt={rideDetailItem.startsAt}
+                  location={rideDetailItem.location}
+                />
+              ) : null
+            }
+            playlistPanel={
+              rideDetailCarpoolRoute != null ? (
+                <RidePlaylistTab
+                  carpoolRoute={rideDetailCarpoolRoute}
+                  shuffleSeed={ridePlaylistShuffleSeed}
+                  onRemix={() => setRidePlaylistShuffleSeed((seed) => seed + 1)}
+                />
+              ) : null
+            }
+          />
+        ) : (
+          <>
         <header
           className={
             destination === "calendar"
@@ -2747,7 +2818,11 @@ export function FamilyScreen({
 
           {destination === "calendar" ? (
             <>
-              <section aria-label="Agenda" className="flex flex-col gap-[var(--fc-space-xl)]">
+              <section
+                aria-label="Agenda"
+                className="flex flex-col gap-[var(--fc-space-xl)]"
+                data-ride-detail-item={rideDetailItemKey ?? undefined}
+              >
           {calendarRevalidating ? (
             <p
               data-testid="agenda-revalidating"
@@ -2894,7 +2969,15 @@ export function FamilyScreen({
                             onSetRsvp={(kidId, rsvpStatus) =>
                               void onSetCalendarRsvp(item, kidId, rsvpStatus)
                             }
-                            onOpenPlaces={() => setDestination("places")}
+                            onOpenPlaces={() => {
+                              setRideDetailItemKey(null)
+                              setDestination("places")
+                            }}
+                            onOpenRide={() => {
+                              setRideDetailTab("route")
+                              setRidePlaylistShuffleSeed(0)
+                              setRideDetailItemKey(itemKey)
+                            }}
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
                           />
@@ -3312,7 +3395,10 @@ export function FamilyScreen({
                                   .then(() => undefined),
                               )
                             }
-                            onOpen={() => setDestination("carpool")}
+                            onOpen={() => {
+                              setRideDetailItemKey(null)
+                              setDestination("carpool")
+                            }}
                           />
                         ) : null
                       }
@@ -3417,6 +3503,8 @@ export function FamilyScreen({
               {status.message}
             </p>
           ) : null}
+          </>
+        )}
       </main>
       {destination === "calendar" ? (
         <aside

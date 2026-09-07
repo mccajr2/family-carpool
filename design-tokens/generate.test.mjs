@@ -91,6 +91,11 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-space-hero-empty-pad: 32px;/)
   assert.match(css, /--fc-space-hero-carousel-dot-active-w: 18px;/)
   assert.match(css, /--fc-space-hero-carousel-dot-h: 7px;/)
+  assert.match(css, /--fc-font-ride-detail-title-size: 24px;/)
+  assert.match(css, /--fc-font-ride-detail-leave-by-size: 48px;/)
+  assert.match(css, /--fc-font-ride-detail-queued-min-size: 36px;/)
+  assert.match(css, /--fc-space-ride-detail-map-h: 280px;/)
+  assert.match(css, /--fc-ride-detail-track-from: #1F6E6E;/)
   assert.doesNotMatch(css, /--fc-space-railX:/)
   assert.doesNotMatch(css, /--fc-font-focusTitle-size/)
   const kotlin = readFileSync(
@@ -161,6 +166,8 @@ test("tokens.json declares light and dark color roles and icons", () => {
     "railActive",
     "railAccent",
     "railDanger",
+    "rideDetailTrackFrom",
+    "rideDetailTrackFromOn",
   ]) {
     assert.ok(tokens.color.light[role], `missing light.${role}`)
     assert.ok(tokens.color.dark[role], `missing dark.${role}`)
@@ -244,6 +251,11 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.equal(tokens.spacing.heroEmptyPad, 32)
   assert.equal(tokens.spacing.heroCarouselDotActiveW, 18)
   assert.equal(tokens.spacing.heroCarouselDotH, 7)
+  assert.equal(tokens.typography.scale.rideDetailTitle.size, 24)
+  assert.equal(tokens.typography.scale.rideDetailLeaveBy.size, 48)
+  assert.equal(tokens.typography.scale.rideDetailQueuedMin.size, 36)
+  assert.equal(tokens.spacing.rideDetailMapH, 280)
+  assert.equal(tokens.color.light.rideDetailTrackFrom, "#1F6E6E")
   assert.equal(tokens.spacing.listRowGap, 12)
   assert.equal(tokens.spacing.listRowPadX, 24)
   assert.equal(tokens.spacing.listRowPadY, 20)

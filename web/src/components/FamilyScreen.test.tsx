@@ -7888,4 +7888,200 @@ detourMinutes: null,
       ).not.toBeInTheDocument()
     })
   })
+
+  it("opens ride detail from Agenda, switches tabs, and returns on Back", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const confirmedGame = calendarItem({
+      id: "ride-detail-e1",
+      source: "MANUAL",
+      title: "vs Belmont",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const row = within(agenda).getByTestId("agenda-row-MANUAL-ride-detail-e1")
+    await user.click(within(row).getByTestId("agenda-row-open-ride"))
+
+    const detail = await screen.findByTestId("ride-detail-screen")
+    expect(detail).toHaveAttribute("data-shuffle-seed", "0")
+    expect(detail).toHaveAttribute("data-fixture-kind", "game")
+    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
+    expect(screen.getByTestId("ride-detail-tab-route")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(screen.queryByLabelText("Agenda")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
+
+    // Route tab smoke (fixture-driven)
+    expect(screen.getByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-start-nav")).toHaveAttribute(
+      "href",
+      expect.stringContaining("google.com/maps/dir"),
+    )
+    expect(screen.getByTestId("ride-route-map-placeholder")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-stops")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("ride-detail-tab-playlist"))
+    expect(screen.getByTestId("ride-detail-tab-playlist")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
+
+    // Playlist tab smoke (fixture-driven)
+    expect(screen.getByTestId("ride-playlist-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-remix")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId("ride-detail-back"))
+    expect(screen.queryByTestId("ride-detail-screen")).not.toBeInTheDocument()
+    expect(await screen.findByLabelText("Agenda")).toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText("Agenda")).getByTestId(
+        "agenda-row-MANUAL-ride-detail-e1",
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it("opens ride detail from the expanded Agenda CTA with a practice fixture", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const practice = calendarItem({
+      id: "ride-detail-practice",
+      source: "MANUAL",
+      title: "Tuesday Practice",
+      startsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov-p",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), practice]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const row = within(agenda).getByTestId("agenda-row-MANUAL-ride-detail-practice")
+    await expandAgendaItem(user, row)
+    await user.click(within(row).getByTestId("agenda-row-open-ride-cta"))
+
+    const detail = await screen.findByTestId("ride-detail-screen")
+    expect(detail).toHaveAttribute("data-fixture-kind", "practice")
+    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
+    expect(screen.getByTestId("ride-route-tab")).toHaveTextContent(
+      "15 min early for practices",
+    )
+    expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
+  })
 })

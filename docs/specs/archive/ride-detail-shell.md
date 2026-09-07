@@ -1,8 +1,10 @@
 # Spec: ride-detail-shell
 
-Status: draft  
-Created: 2026-09-06  
+Status: archived  
+Completed: 2026-09-07  
 Parent: [docs/roadmap.md](../../roadmap.md)  
+Created: 2026-09-06  
+Updated: 2026-09-07 (`/pr`)  
 Added: 2026-09-06 · enhancement  
 Branch: `ride-detail-shell`  
 Depends on: [`ride-detail-schedule-utils`](../archive/ride-detail-schedule-utils.md)  
@@ -126,46 +128,46 @@ link, Premium caveat, merge-order track list.
 
 ## Acceptance criteria
 
-- [ ] Shared `canRoute` (or equivalent) is true only for confirmed household
+- [x] Shared `canRoute` (or equivalent) is true only for confirmed household
   driver or teammate-driving rows that are not not-going; false for
   unassigned, pending household confirm, open team ask, and not-going.
-- [ ] Agenda collapsed row shows the route affordance only when `canRoute`;
+- [x] Agenda collapsed row shows the route affordance only when `canRoute`;
   expanded row shows **Route & playlist for this ride** only when `canRoute`.
-- [ ] Activating either entry opens a detail overlay for that event with
+- [x] Activating either entry opens a detail overlay for that event with
   Route selected by default; Back returns to Agenda without leaving Calendar.
-- [ ] Detail shows event header + Route | Playlist segmented control; switching
+- [x] Detail shows event header + Route | Playlist segmented control; switching
   tabs preserves the open event.
-- [ ] Route tab renders fixture-driven leave-by hero, stop list (times from
+- [x] Route tab renders fixture-driven leave-by hero, stop list (times from
   `computeSchedule`), Start navigation link from `navigationUrl`, and map
   placeholder when no Embed API key (or embed when a key is configured).
-- [ ] Playlist tab renders fixture riders, merged tracks via `mergeTracks`,
+- [x] Playlist tab renders fixture riders, merged tracks via `mergeTracks`,
   Open in Spotify (demo URL OK), and Remix merge order (local shuffle).
-- [ ] Notify / invite controls update local sending/sent UI only — no API /
+- [x] Notify / invite controls update local sending/sent UI only — no API /
   push / SMS calls.
-- [ ] No OpenAPI, backend, or Expo changes.
-- [ ] New/updated visual roles from the mock are locked in
+- [x] No OpenAPI, backend, or Expo changes.
+- [x] New/updated visual roles from the mock are locked in
   `design-tokens/tokens.json` and consumed via generated tokens (WCAG AA is
   the only mock-hex exception).
-- [ ] Component/unit tests cover the gate, entry visibility, open/back, and
+- [x] Component/unit tests cover the gate, entry visibility, open/back, and
   tab switch; suite passes.
 
 ## Tasks
 
-- [ ] Web: extract/share `canRoute` (pure helper + tests) from mockup rules
+- [x] Web: extract/share `canRoute` (pure helper + tests) from mockup rules
   mapped to live `CoverageGameEvent` + `CarpoolRideEvent`
-- [ ] Web: Agenda list entry affordances on `AgendaRow` (collapsed icon +
+- [x] Web: Agenda list entry affordances on `AgendaRow` (collapsed icon +
   expanded CTA); wire `onOpenRide` from `FamilyScreen`
-- [ ] Web: `RideDetailScreen` (or equivalent) — back, header, Route/Playlist
+- [x] Web: `RideDetailScreen` (or equivalent) — back, header, Route/Playlist
   segmented control; Calendar overlay state in `FamilyScreen`
-- [ ] Web: fixture module (mockup-shaped `carpoolRoute` + playlist riders)
+- [x] Web: fixture module (mockup-shaped `carpoolRoute` + playlist riders)
   attached when opening detail
-- [ ] Web: Route tab UI (hero, map/placeholder, stops, local notify) using
+- [x] Web: Route tab UI (hero, map/placeholder, stops, local notify) using
   `rideScheduleUtils`
-- [ ] Web: Playlist tab UI (riders, invite stub, merge hero, Open in Spotify,
+- [x] Web: Playlist tab UI (riders, invite stub, merge hero, Open in Spotify,
   remix, track list) using `mergeTracks` / `fmtMinSec`
-- [ ] Tokens: lock mock size/weight/spacing/color roles needed by detail /
+- [x] Tokens: lock mock size/weight/spacing/color roles needed by detail /
   route / playlist chrome; regenerate outputs
-- [ ] Tests: `canRoute` cases; Agenda entry show/hide; detail open/back/tab;
+- [x] Tests: `canRoute` cases; Agenda entry show/hide; detail open/back/tab;
   Route/Playlist smoke with fixtures (helpers already covered by
   `rideScheduleUtils.test.ts`)
 

@@ -36,6 +36,8 @@
   --fc-detour-on-way: #2F7A4D;
   --fc-detour-moderate: #B5793A;
   --fc-detour-far: #A6483F;
+  --fc-ride-detail-track-from: #1F6E6E;
+  --fc-ride-detail-track-from-on: #FFFFFF;
   --fc-space-xs: 4px;
   --fc-space-sm: 8px;
   --fc-space-md: 12px;
@@ -104,6 +106,28 @@
   --fc-space-hero-empty-pad: 32px;
   --fc-space-hero-carousel-dot-active-w: 18px;
   --fc-space-hero-carousel-dot-h: 7px;
+  --fc-space-ride-detail-back-mb: 20px;
+  --fc-space-ride-detail-header-mb: 16px;
+  --fc-space-ride-detail-tab-pad-x: 14px;
+  --fc-space-ride-detail-tab-pad-y: 6px;
+  --fc-space-ride-detail-tab-rail-pad: 4px;
+  --fc-space-ride-detail-cta-pad-x: 20px;
+  --fc-space-ride-detail-cta-pad-y: 12px;
+  --fc-space-ride-detail-agenda-cta-pad-x: 16px;
+  --fc-space-ride-detail-cta-mt: 20px;
+  --fc-space-ride-detail-notify-pad-x: 10px;
+  --fc-space-ride-detail-notify-pad-y: 4px;
+  --fc-space-ride-detail-stop-icon: 32px;
+  --fc-space-ride-detail-avatar: 32px;
+  --fc-space-ride-detail-track-avatar: 24px;
+  --fc-space-ride-detail-map-h: 280px;
+  --fc-space-ride-detail-block-mb: 24px;
+  --fc-space-ride-detail-rider-mb: 32px;
+  --fc-space-ride-detail-open-ride-pad: 6px;
+  --fc-space-ride-detail-badge-pad-x: 8px;
+  --fc-space-ride-detail-badge-pad-y: 2px;
+  --fc-space-ride-detail-caveat-pad: 20px;
+  --fc-space-ride-detail-map-placeholder-pad: 24px;
   --fc-radius-sm: 4px;
   --fc-radius-md: 8px;
   --fc-radius-lg: 12px;
@@ -213,6 +237,45 @@
   --fc-font-week-count-calm-size: 13px;
   --fc-font-week-count-calm-line: 18px;
   --fc-font-week-count-calm-weight: 500;
+  --fc-font-ride-detail-title-size: 24px;
+  --fc-font-ride-detail-title-line: 32px;
+  --fc-font-ride-detail-title-weight: 700;
+  --fc-font-ride-detail-leave-by-size: 48px;
+  --fc-font-ride-detail-leave-by-line: 48px;
+  --fc-font-ride-detail-leave-by-weight: 700;
+  --fc-font-ride-detail-queued-min-size: 36px;
+  --fc-font-ride-detail-queued-min-line: 36px;
+  --fc-font-ride-detail-queued-min-weight: 700;
+  --fc-font-ride-detail-back-size: 14px;
+  --fc-font-ride-detail-back-line: 20px;
+  --fc-font-ride-detail-back-weight: 600;
+  --fc-font-ride-detail-when-size: 12px;
+  --fc-font-ride-detail-when-line: 16px;
+  --fc-font-ride-detail-when-weight: 700;
+  --fc-font-ride-detail-tab-size: 12px;
+  --fc-font-ride-detail-tab-line: 16px;
+  --fc-font-ride-detail-tab-weight: 600;
+  --fc-font-ride-detail-section-size: 14px;
+  --fc-font-ride-detail-section-line: 20px;
+  --fc-font-ride-detail-section-weight: 600;
+  --fc-font-ride-detail-stop-name-size: 16px;
+  --fc-font-ride-detail-stop-name-line: 24px;
+  --fc-font-ride-detail-stop-name-weight: 600;
+  --fc-font-ride-detail-stop-meta-size: 14px;
+  --fc-font-ride-detail-stop-meta-line: 20px;
+  --fc-font-ride-detail-stop-meta-weight: 600;
+  --fc-font-ride-detail-hero-copy-size: 14px;
+  --fc-font-ride-detail-hero-copy-line: 20px;
+  --fc-font-ride-detail-hero-copy-weight: 400;
+  --fc-font-ride-detail-notify-size: 12px;
+  --fc-font-ride-detail-notify-line: 16px;
+  --fc-font-ride-detail-notify-weight: 600;
+  --fc-font-ride-detail-track-from-label-size: 10px;
+  --fc-font-ride-detail-track-from-label-line: 14px;
+  --fc-font-ride-detail-track-from-label-weight: 700;
+  --fc-font-ride-detail-cta-size: 16px;
+  --fc-font-ride-detail-cta-line: 24px;
+  --fc-font-ride-detail-cta-weight: 600;
   --fc-font-family: Plus Jakarta Sans, system-ui, sans-serif;
   --fc-font-family-display: Space Grotesk, system-ui, sans-serif;
 }
@@ -253,6 +316,8 @@
   --fc-detour-on-way: #2F7A4D;
   --fc-detour-moderate: #B5793A;
   --fc-detour-far: #A6483F;
+  --fc-ride-detail-track-from: #1F6E6E;
+  --fc-ride-detail-track-from-on: #FFFFFF;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -292,5 +357,7 @@
     --fc-detour-on-way: #2F7A4D;
     --fc-detour-moderate: #B5793A;
     --fc-detour-far: #A6483F;
+    --fc-ride-detail-track-from: #1F6E6E;
+    --fc-ride-detail-track-from-on: #FFFFFF;
   }
 }
