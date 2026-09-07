@@ -74,11 +74,13 @@ import {
   getQueue,
   filterQueueWithinHorizon,
   isConfirmedDriver,
+  mapCalendarItemToCoverageGames,
   mapCalendarItemsToCoverageGames,
   type CoverageGameEvent,
   type QueueItem,
 } from "@/components/coverageQueue"
 import { isAcceptedByCircle } from "@/components/carpoolDisplay"
+import { rideCommitmentConflict } from "@/components/rideCommitmentConflict"
 import {
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
@@ -2178,6 +2180,14 @@ export function FamilyScreen({
     queueHasItems: attentionQueue.length > 0,
     ownRequestFor: (item) =>
       calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null,
+    rideCommitmentConflictFor: (item) => {
+      const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
+      const games = mapCalendarItemToCoverageGames(item, rideEvent, {
+        currentAdultId: adult?.id ?? "",
+        members: circle.members,
+      })
+      return rideCommitmentConflict(rideEvent, item, games, circle.id) != null
+    },
   })
   const locatedPlaces = circle.places.filter(isPlaceLocated)
   const editingCalendarItem =

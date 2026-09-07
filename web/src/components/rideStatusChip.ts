@@ -3,7 +3,7 @@
  * and Focus card. Pure view-model — no UI. See docs/specs/active/unified-ride-status-chip.md.
  */
 
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   acceptedRiders,
   isConfirmedDriver,
@@ -25,6 +25,10 @@ import {
   ridingWithCircleLabel,
   waitingOnDriverLabel,
 } from "@/components/coverageCopy"
+import {
+  rideCommitmentConflict,
+  rideCommitmentConflictChipLabel,
+} from "@/components/rideCommitmentConflict"
 
 export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
 
@@ -142,13 +146,17 @@ export function rideStatusChipForGameRow(
 }
 
 /**
- * Overlaps (when applicable) + one ride-status chip for a calendar item.
- * All kids out-of-play → single muted **Not going**; no overlaps chip.
+ * Overlaps → ride-commitment conflict → one ride-status chip for a calendar
+ * item. All kids out-of-play → single muted **Not going**; no overlaps/conflict.
  */
 export function rideStatusChipsForItem(
   item: CalendarItem,
   games: readonly CoverageGameEvent[],
   ownRequest: CarpoolRide | null | undefined,
+  options?: {
+    rideEvent?: CarpoolRideEvent | null
+    circleId?: string
+  },
 ): RideStatusChipDescriptor[] {
   const allNotGoing = games.length > 0 && games.every((game) => !isInPlay(game))
   if (allNotGoing) {
@@ -159,6 +167,22 @@ export function rideStatusChipsForItem(
 
   if (item.conflicts.length > 0) {
     chips.push({ label: OVERLAPS_CHIP, tone: "amber" })
+  }
+
+  const circleId = options?.circleId
+  if (circleId) {
+    const conflict = rideCommitmentConflict(
+      options?.rideEvent,
+      item,
+      games,
+      circleId,
+    )
+    if (conflict != null) {
+      chips.push({
+        label: rideCommitmentConflictChipLabel(conflict),
+        tone: "amber",
+      })
+    }
   }
 
   const urgent = pickMostUrgentGameRow(games)

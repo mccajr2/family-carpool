@@ -28,6 +28,10 @@ import {
   carpoolAskChipForRideEvent,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
+import {
+  rideCommitmentConflict,
+  rideCommitmentConflictLine,
+} from "@/components/rideCommitmentConflict"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -136,10 +140,27 @@ export function AgendaFocusCard({
       currentAdultId,
       members: circle.members,
     })
-    const rideChips = rideStatusChipsForItem(item, games, ownRequest)
+    const rideChips = rideStatusChipsForItem(item, games, ownRequest, {
+      rideEvent,
+      circleId: circle.id,
+    })
     const askChip = carpoolAskChipForRideEvent(games)
     return askChip != null ? [...rideChips, askChip] : rideChips
-  }, [item, rideEvent, currentAdultId, circle.members, ownRequest])
+  }, [item, rideEvent, currentAdultId, circle.id, circle.members, ownRequest])
+  const rideCommitmentConflictLineText = useMemo(() => {
+    const games = mapCalendarItemToCoverageGames(item, rideEvent, {
+      currentAdultId,
+      members: circle.members,
+    })
+    const conflict = rideCommitmentConflict(
+      rideEvent,
+      item,
+      games,
+      circle.id,
+      circle.kids,
+    )
+    return conflict != null ? rideCommitmentConflictLine(conflict) : null
+  }, [item, rideEvent, currentAdultId, circle.id, circle.members, circle.kids])
   const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
@@ -255,6 +276,15 @@ export function AgendaFocusCard({
                 />
               ))}
             </div>
+          ) : null}
+          {rideCommitmentConflictLineText != null ? (
+            <p
+              data-testid="agenda-focus-ride-conflict"
+              className="mt-[var(--fc-space-sm)] text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+              style={{ color: errorColorVar }}
+            >
+              {rideCommitmentConflictLineText}
+            </p>
           ) : null}
         </div>
 

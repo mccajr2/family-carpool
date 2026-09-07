@@ -1283,3 +1283,112 @@ detourMinutes: null,
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
   })
 })
+
+describe("AgendaFocusCard ride commitment conflict", () => {
+  const inboundAccepted = {
+    id: "inbound-accepted",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidIds: ["k-them"],
+    kidFirstNames: ["Mia"],
+    seats: 1,
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
+    status: "ACCEPTED" as const,
+    passedByMe: false,
+    passedByAdultNames: [],
+    acceptedByAdultId: "a1",
+    acceptingCircleId: "c1",
+    acceptingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+  }
+
+  it("shows Type A conflict line under chips and keeps Withdraw", () => {
+    const onWithdrawRide = vi.fn()
+    renderCard(
+      item({
+        id: "type-a-conflict",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:practice",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [inboundAccepted],
+        },
+        onWithdrawRide,
+      },
+    )
+
+    const chips = screen.getByTestId("agenda-focus-chips")
+    expect(within(chips).getByText("Also driving Mia")).toBeInTheDocument()
+    expect(within(chips).getByText("Ride needed")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-ride-conflict")).toHaveTextContent(
+      "You're driving Mia but Sam still need a ride.",
+    )
+    expect(screen.getByRole("button", { name: "Withdraw" })).toBeInTheDocument()
+  })
+
+  it("shows Type B mutual-swap conflict line under chips", () => {
+    renderCard(
+      item({
+        id: "type-b-conflict",
+        title: "Practice",
+        uncoveredKidIds: [],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:practice",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: {
+            id: "own-accepted",
+            spaceId: "s1",
+            eventKey: "UID:practice",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            requestedByAdultId: "a1",
+            kidIds: ["k1"],
+            kidFirstNames: ["Sam"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            pickupTown: null,
+            detourMinutes: null,
+            status: "ACCEPTED",
+            passedByMe: false,
+            passedByAdultNames: [],
+            acceptedByAdultId: "a2",
+            acceptingCircleId: "c2",
+            acceptingCircleName: "House B",
+            vehicleId: "v2",
+            vehicleLabel: "SUV",
+          },
+          otherRequests: [inboundAccepted],
+        },
+        onWithdrawRide: vi.fn(),
+        onCancelRide: vi.fn(),
+      },
+    )
+
+    const chips = screen.getByTestId("agenda-focus-chips")
+    expect(within(chips).getByText("Ride conflict")).toBeInTheDocument()
+    expect(within(chips).getByText("Riding with House B")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-ride-conflict")).toHaveTextContent(
+      "You're driving Mia and Sam rides with them — pick one plan.",
+    )
+  })
+})

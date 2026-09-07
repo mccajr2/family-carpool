@@ -37,6 +37,10 @@ import {
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
+import {
+  rideCommitmentConflict,
+  rideCommitmentConflictLine,
+} from "@/components/rideCommitmentConflict"
 import { ridersForGameRow, ridersForItem } from "@/components/riderChips"
 import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
@@ -223,8 +227,22 @@ export function AgendaRow({
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
   const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
-  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest)
+  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest, {
+    rideEvent,
+    circleId: circle.id,
+  })
   const tags = askChip != null ? [...rideChips, askChip] : rideChips
+  const commitmentConflict = rideCommitmentConflict(
+    rideEvent,
+    item,
+    coverageGames,
+    circle.id,
+    circle.kids,
+  )
+  const commitmentConflictLine =
+    commitmentConflict != null
+      ? rideCommitmentConflictLine(commitmentConflict)
+      : null
   const teamLabel = agendaRowTeamLabel(item)
   const whenLabel = formatEventWhen(item.startsAt, item.endsAt)
   const locationLabel = item.location?.trim() || null
@@ -370,6 +388,15 @@ export function AgendaRow({
                 </li>
               ))}
             </ul>
+          ) : null}
+
+          {!outOfPlay && commitmentConflictLine != null ? (
+            <p
+              data-testid={`agenda-ride-conflict-${item.source}-${item.id}`}
+              className="text-xs font-medium text-[var(--fc-danger)]"
+            >
+              {commitmentConflictLine}
+            </p>
           ) : null}
 
           {/* Per-kid own-ride (mock GameCard): chip + DriverPicker | RevertRideLink + AttendanceToggle */}

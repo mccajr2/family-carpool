@@ -253,6 +253,30 @@ describe("groupAgendaListSections", () => {
     expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
   })
 
+  it("keeps ride-commitment conflict rows in NEEDS YOUR ATTENTION when gaps are cleared", () => {
+    const swap = item("swap", localIso(2026, 8, 15, 10), {
+      uncoveredKidIds: [],
+    })
+    const ownRequest = {
+      id: "r1",
+      status: "ACCEPTED",
+      kidIds: ["k1"],
+    } as CarpoolRide
+
+    const { sections } = groupAgendaListSections([swap], {
+      now,
+      currentAdultId: adultId,
+      queueHasItems: false,
+      ownRequestFor: () => ownRequest,
+      rideCommitmentConflictFor: () => true,
+    })
+
+    expect(sections.map((s) => s.label)).toEqual([
+      AGENDA_LIST_SECTION_LABEL.needsAttention,
+    ])
+    expect(sections[0]?.items.map((row) => row.id)).toEqual(["swap"])
+  })
+
   it("omits empty day sections", () => {
     const later = item("later", localIso(2026, 8, 25, 10))
     const { sections } = groupAgendaListSections([later], {

@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-06 (`/roadmap` carpool route & playlist flow)
+Updated: 2026-09-06 (`/pr ride-commitment-conflict`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -88,7 +88,7 @@ slice on web + RN together. KMP is **frozen**; retire via `kmp-mobile-retire`.
 | Visual language          | Destination mocks are the visual source of truth for **size, weight, spacing, and color** — tokens absorb those values (new/updated roles in the same PR); do not snap to a nearby existing role. **WCAG AA** (4.5:1 text, 3.0:1 icons) is the only allowed mock-hex exception. See `[docs/ui-system.md](ui-system.md)`. **One visual priority per screen**; everything else calmer. Destructive actions (Remove/Delete) get **less** weight than neutral (Edit/Sync). A design pass restyles only — **same handlers**. Web typography: Space Grotesk (display) + Plus Jakarta Sans (body) — `[typography-web](specs/archive/typography-web.md)`. Expo typography/fonts are deferred until RN surfaces exist (KMP `typography-font-family` cancelled). `hero*` **color** roles are Focus-card urgent spotlight only. **Status chips (product-wide):** governing language is **Feeds** — **uppercase**, **no leading bullet/dot**, same size/weight/padding as feed carpool chips (`feedChip*` tokens / `CarpoolFeedActions`). Agenda Focus + collapsed rows must match; Title Case + leading-dot **pills** from `[agenda-list-chips](specs/archive/agenda-list-chips.md)` / Focus polish are **superseded** — Done: `[agenda-chip-section-headers](specs/archive/agenda-chip-section-headers.md)`. **Filters and states prefer chips** over body-copy labels on restyled surfaces. |
 | Web shell rail           | Signed-in web chrome is an **always-dark docked left rail** (independent of page theme): Calendar / Carpool / Family with icons; Settings Places / Garage / Feeds; **ACCOUNT** footer (avatar, email, role, sign out) **always visible** — pinned; nav list may scroll, Sign out must not. Expo will use bottom tabs (IA parity, not KMP). Rail wordmark is placeholder chrome (accent mark) — do not lock copy; real name is `[app-identity-rename](specs/planned/app-identity-rename.md)`. Done: `[web-shell-nav-rail](specs/archive/web-shell-nav-rail.md)`. **Page frame:** flush-left `md:w-60` rail, uncarded main (`max-w-[820px]`), Calendar-only Context aside — `[web-shell-page-frame](specs/archive/web-shell-page-frame.md)`. **Week at a glance:** seven-day coverage/status strip in that aside — `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. **Page header:** Calendar mock Today/date, `page`/`subtitle` type, main 36×44 / rail 28×20 padding — `[web-shell-page-header](specs/archive/web-shell-page-header.md)`. |
 | Agenda week strip        | **Five-day coverage/status** rail in Calendar Context (today + next four local days; event counts, not kids; no driver copy). Not the month/week grid (`family-calendar-grid`). Done: `[agenda-week-glance](specs/archive/agenda-week-glance.md)`. KMP mobile port cancelled; Expo port carved later if needed. Confirmed-ride Route/Playlist detail (ordered stops, maps deep link, leave-by with pickups): `[ride-detail-shell](specs/planned/ride-detail-shell.md)` → `[ride-route-tab](specs/planned/ride-route-tab.md)` (supersedes cancelled `carpool-multi-stop`). Mockup SoT: `[docs/ui-system/carpool-combined-flow.jsx](ui-system/carpool-combined-flow.jsx)`. |
-| Focus card selection     | **Hero & coverage redesign (2026-08-28):** "Needs your attention" is a **swipeable carousel** over shared `getQueue` ([ADR-0001](decisions/ADR-0001-coverage-priority-rule.md)) — own-child unassigned rides **always** precede pending carpool requests (soonest-first within each tier); every slide independently actionable; empty queue → all caught up. Ranks: Done [`coverage-priority-engine`](specs/archive/coverage-priority-engine.md) → [`unified-ride-status-chip`](specs/archive/unified-ride-status-chip.md) → [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md) → [`weekly-list-focus-sync`](specs/archive/weekly-list-focus-sync.md). Ride-side reverts are one-click, no dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)); Assign→cancel open team ask + ask-team auto-decline Done: [`auto-decline-unofferable`](specs/archive/auto-decline-unofferable.md). **Agenda list section labels** (Done): **NEEDS YOUR ATTENTION** / **REST OF TODAY** / etc. — `[agenda-chip-section-headers](specs/archive/agenda-chip-section-headers.md)`. Prior single-hero rules: Done `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`, `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`. Rider initials chips (Done): `[agenda-ride-rider-chips](specs/archive/agenda-ride-rider-chips.md)`. Solid Agenda↔ride id: Done `[calendar-item-event-key](specs/archive/calendar-item-event-key.md)`. |
+| Focus card selection     | **Hero & coverage redesign (2026-08-28):** "Needs your attention" is a **swipeable carousel** over shared `getQueue` ([ADR-0001](decisions/ADR-0001-coverage-priority-rule.md)) — own-child unassigned rides **always** precede pending carpool requests (soonest-first within each tier); every slide independently actionable; empty queue → all caught up. Ranks: Done [`coverage-priority-engine`](specs/archive/coverage-priority-engine.md) → [`unified-ride-status-chip`](specs/archive/unified-ride-status-chip.md) → [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md) → [`weekly-list-focus-sync`](specs/archive/weekly-list-focus-sync.md). Ride-side reverts are one-click, no dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)); Assign→cancel open team ask + ask-team auto-decline Done: [`auto-decline-unofferable`](specs/archive/auto-decline-unofferable.md). **Agenda list section labels** (Done): **NEEDS YOUR ATTENTION** / **REST OF TODAY** / etc. — `[agenda-chip-section-headers](specs/archive/agenda-chip-section-headers.md)`. Prior single-hero rules: Done `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`, `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`. Rider initials chips (Done): `[agenda-ride-rider-chips](specs/archive/agenda-ride-rider-chips.md)`. Contradictory ride commitments (Done): `[ride-commitment-conflict](specs/archive/ride-commitment-conflict.md)` — amber conflict chip + Focus/expanded callout; server fences remain on `client-server-invariant-audit`. Solid Agenda↔ride id: Done `[calendar-item-event-key](specs/archive/calendar-item-event-key.md)`. |
 
 
 
@@ -100,26 +100,25 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | ride-commitment-conflict        | planned | 2026-09-01 · initial       | Surface contradictory ride commitments (need ride + accepted inbound, mutual swap); Phase 1 web chips/Focus; Phase 2 → audit   |
-| 2    | ride-detail-schedule-utils      | planned | 2026-09-06 · enhancement   | Extract schedule/merge/maps URL pure helpers from approved mockup — unit-tested foundation for Route/Playlist detail          |
-| 3    | ride-detail-shell               | planned | 2026-09-06 · enhancement   | Home `canRoute` entry + per-event Detail Route/Playlist tabs (fixture data OK); mockup SoT `carpool_combined_flow.jsx`        |
-| 4    | ride-route-tab                  | planned | 2026-09-06 · enhancement   | Confirmed-ride Route: OSRM legs, stops, leave-by hero, map/placeholder, Start navigation, notify ready-by                     |
-| 5    | ride-playlist-tab               | planned | 2026-09-06 · enhancement   | Confirmed-ride Playlist: Spotify OAuth, round-robin merge, Open in Spotify, remix, invite-to-connect                          |
-| 6    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route/Playlist loading, notify/invite errors, explicit OSRM-unreachable leave-by state                                        |
-| 7    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
-| 8    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Pre-beta: audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before Expo second client         |
-| 9    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
-| 10   | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — also backs route/playlist notify call sites when ready        |
-| 11   | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
-| 12   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
-| 13   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes` (mockup 45/15 vs sketch 30/15/0)                        |
-| 14   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
-| 15   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
-| 16   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
-| 17   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
-| 18   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
-| 19   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 20   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | ride-detail-schedule-utils      | planned | 2026-09-06 · enhancement   | Extract schedule/merge/maps URL pure helpers from approved mockup — unit-tested foundation for Route/Playlist detail          |
+| 2    | ride-detail-shell               | planned | 2026-09-06 · enhancement   | Home `canRoute` entry + per-event Detail Route/Playlist tabs (fixture data OK); mockup SoT `carpool_combined_flow.jsx`        |
+| 3    | ride-route-tab                  | planned | 2026-09-06 · enhancement   | Confirmed-ride Route: OSRM legs, stops, leave-by hero, map/placeholder, Start navigation, notify ready-by                     |
+| 4    | ride-playlist-tab               | planned | 2026-09-06 · enhancement   | Confirmed-ride Playlist: Spotify OAuth, round-robin merge, Open in Spotify, remix, invite-to-connect                          |
+| 5    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route/Playlist loading, notify/invite errors, explicit OSRM-unreachable leave-by state                                        |
+| 6    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — pre-beta gate (dev keeps log delivery); needed before real-device Expo auth                 |
+| 7    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Pre-beta: audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before Expo second client         |
+| 8    | rn-expo-scaffold                | planned | 2026-08-25 · enhancement   | Expo app: OTP auth + shell + push-token registration hook against existing OpenAPI — infra for carpool push beta              |
+| 9    | push-notifications              | planned | 2026-08-07 · initial       | Expo push for carpool ride **request / accept / deny (pass)** — also backs route/playlist notify call sites when ready        |
+| 10   | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone (family tracking only) — web first                |
+| 11   | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event (e.g. every Tuesday); RSVP No drops that kid for that week only         |
+| 12   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes` (mockup 45/15 vs sketch 30/15/0)                        |
+| 13   | coverage-leave-from             | planned | 2026-08-12 · enhancement   | Leave-from (and leave-by) per coverage when adults take separate cars/kids                                                    |
+| 14   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (not hard overlap; after leave-from / lead-time)                       |
+| 15   | calendar-conditional-get        | planned | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar background revalidate (after cheap list + client cache)            |
+| 16   | event-venue-display-label       | planned | 2026-08-17 · enhancement   | Short venue label (rink, park, field) from geocoded event destination; Focus + Agenda fallback to full `location`             |
+| 17   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer                                                   |
+| 18   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 19   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -187,13 +186,18 @@ by the ride Route/Playlist carve-up.
 
 ## Active specs
 
-None — rank **1** in **Upcoming** is next for `/spec`.
+In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
+
+
+| Id | Branch | Spec |
+| -- | ------ | ---- |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| ride-commitment-conflict   | 2026-09-06 | [archive](specs/archive/ride-commitment-conflict.md)   |
 | agenda-ride-rider-chips    | 2026-09-01 | [archive](specs/archive/agenda-ride-rider-chips.md)    |
 | coverage-copy-a11y-polish  | 2026-09-01 | [archive](specs/archive/coverage-copy-a11y-polish.md)  |
 | carpool-pickup-detour      | 2026-09-01 | [archive](specs/archive/carpool-pickup-detour.md)      |
@@ -410,4 +414,6 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-09-01 | `/pr coverage-copy-a11y-polish`: shared `coverageCopy`, DriverPicker separation, hero carousel a11y, light+dark contrast gate (`heroOnInverse`, agenda chip pairings). Spec archived. Next up `agenda-ride-rider-chips`. |
 | 2026-09-01 | `/pr agenda-ride-rider-chips`: Agenda RiderChips (initials + first names) on collapsed/expanded rows; drop `· +N` suffix when riders visible. Spec archived. Next up `ride-commitment-conflict`. |
 | 2026-09-06 | `/roadmap` carpool route & playlist (mockup-approved): add ranks 2–6 `ride-detail-schedule-utils` → `ride-detail-shell` → `ride-route-tab` → `ride-playlist-tab` → `ride-detail-polish`; cancel `carpool-multi-stop` / `driver-leave-by-pickups` / `maps-deep-links` / `ride-playlist-merge`; narrow `playlist-open-in-streaming` to Apple Music; mockup SoT `docs/ui-system/carpool-combined-flow.jsx`. Pre-beta mail/Expo/push shift to ranks 7–10. Next up unchanged: `ride-commitment-conflict`. |
+| 2026-09-06 | `/spec ride-commitment-conflict`: promote stub — Phase 1 web only (pure helper + amber chips/attention/Focus/expanded callout); no OpenAPI; server fences deferred to `client-server-invariant-audit`. Spec active on branch `ride-commitment-conflict`. Next up `/implement ride-commitment-conflict`. |
+| 2026-09-06 | `/pr ride-commitment-conflict`: detect Type A/B contradictory ride commitments on Agenda (chips, attention, Focus/expanded callout); no OpenAPI. Spec archived. Next up `ride-detail-schedule-utils`. |
 

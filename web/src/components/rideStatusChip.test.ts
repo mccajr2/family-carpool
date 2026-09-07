@@ -7,8 +7,10 @@ import {
   CARPOOL_ASK_SINGULAR,
   CONFIRM_YOU_WILL_DRIVE,
   OVERLAPS_CHIP,
+  RIDE_CONFLICT_CHIP,
   RIDE_NEEDED,
   YOURE_DRIVING,
+  alsoDrivingKidLabel,
   carpoolAskCountLabel,
   drivingChipLabel,
   ridingWithCircleLabel,
@@ -21,6 +23,7 @@ import {
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
 import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
+import type { CarpoolRideEvent } from "@/api/types"
 
 function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
   return {
@@ -340,6 +343,124 @@ describe("rideStatusChipsForItem", () => {
 
     expect(rideStatusChipsForItem(item, games, null)).toEqual([
       { label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" },
+    ])
+  })
+
+  it("inserts Also driving {name} after Overlaps and before Ride needed", () => {
+    const inbound = ownRide({
+      id: "inbound",
+      requestingCircleId: "c2",
+      requestingCircleName: "House B",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Ours",
+      kidIds: ["k-them"],
+      kidFirstNames: ["Sam"],
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [inbound],
+    }
+    const item = calendarItem({
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      conflicts: [kidConflict()],
+    })
+    const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "unassigned" })]
+
+    expect(
+      rideStatusChipsForItem(item, games, null, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: OVERLAPS_CHIP, tone: "amber" },
+      { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
+    ])
+  })
+
+  it("inserts Ride conflict for Type B mutual swap before Riding with", () => {
+    const inbound = ownRide({
+      id: "inbound",
+      requestingCircleId: "c2",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      kidIds: ["k-them"],
+      kidFirstNames: ["Sam"],
+    })
+    const accepted = ownRide({
+      id: "own",
+      status: "ACCEPTED",
+      acceptingCircleId: "c2",
+      acceptingCircleName: "House B",
+      kidIds: ["k1"],
+      kidFirstNames: ["Maya"],
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: accepted,
+      otherRequests: [inbound],
+    }
+    const item = calendarItem({ kidIds: ["k1"] })
+    const games = [
+      game({
+        id: "g",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "House B", confirmed: true },
+      }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, accepted, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: RIDE_CONFLICT_CHIP, tone: "amber" },
+      { label: ridingWithCircleLabel("House B"), tone: "mint" },
+    ])
+  })
+
+  it("uses Ride conflict for Type A with multiple inbound kids, still beside Ride needed", () => {
+    const inbound = ownRide({
+      id: "inbound",
+      requestingCircleId: "c2",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      kidIds: ["k-a", "k-b"],
+      kidFirstNames: ["Sam", "Lee"],
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      otherRequests: [inbound],
+    }
+    const item = calendarItem({ kidIds: ["k1"], uncoveredKidIds: ["k1"] })
+    const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "unassigned" })]
+
+    expect(
+      rideStatusChipsForItem(item, games, null, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: RIDE_CONFLICT_CHIP, tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
     ])
   })
 })
