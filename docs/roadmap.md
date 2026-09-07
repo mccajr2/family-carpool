@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-06 (`/pr ride-commitment-conflict`)
+Updated: 2026-09-06 (`/spec ride-detail-schedule-utils`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -100,7 +100,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | ride-detail-schedule-utils      | planned | 2026-09-06 · enhancement   | Extract schedule/merge/maps URL pure helpers from approved mockup — unit-tested foundation for Route/Playlist detail          |
+| 1    | ride-detail-schedule-utils      | active  | 2026-09-06 · enhancement   | Extract schedule/merge/maps URL pure helpers from approved mockup — unit-tested foundation for Route/Playlist detail          |
 | 2    | ride-detail-shell               | planned | 2026-09-06 · enhancement   | Home `canRoute` entry + per-event Detail Route/Playlist tabs (fixture data OK); mockup SoT `carpool_combined_flow.jsx`        |
 | 3    | ride-route-tab                  | planned | 2026-09-06 · enhancement   | Confirmed-ride Route: OSRM legs, stops, leave-by hero, map/placeholder, Start navigation, notify ready-by                     |
 | 4    | ride-playlist-tab               | planned | 2026-09-06 · enhancement   | Confirmed-ride Playlist: Spotify OAuth, round-robin merge, Open in Spotify, remix, invite-to-connect                          |
@@ -189,8 +189,9 @@ by the ride Route/Playlist carve-up.
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id | Branch | Spec |
-| -- | ------ | ---- |
+| Id                         | Branch                       | Spec                                                                   |
+| -------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| ride-detail-schedule-utils | `ride-detail-schedule-utils` | [active](specs/active/ride-detail-schedule-utils.md)                   |
 
 ## Done
 
@@ -416,4 +417,5 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 | 2026-09-06 | `/roadmap` carpool route & playlist (mockup-approved): add ranks 2–6 `ride-detail-schedule-utils` → `ride-detail-shell` → `ride-route-tab` → `ride-playlist-tab` → `ride-detail-polish`; cancel `carpool-multi-stop` / `driver-leave-by-pickups` / `maps-deep-links` / `ride-playlist-merge`; narrow `playlist-open-in-streaming` to Apple Music; mockup SoT `docs/ui-system/carpool-combined-flow.jsx`. Pre-beta mail/Expo/push shift to ranks 7–10. Next up unchanged: `ride-commitment-conflict`. |
 | 2026-09-06 | `/spec ride-commitment-conflict`: promote stub — Phase 1 web only (pure helper + amber chips/attention/Focus/expanded callout); no OpenAPI; server fences deferred to `client-server-invariant-audit`. Spec active on branch `ride-commitment-conflict`. Next up `/implement ride-commitment-conflict`. |
 | 2026-09-06 | `/pr ride-commitment-conflict`: detect Type A/B contradictory ride commitments on Agenda (chips, attention, Focus/expanded callout); no OpenAPI. Spec archived. Next up `ride-detail-schedule-utils`. |
+| 2026-09-06 | `/spec ride-detail-schedule-utils`: promote stub — pure web helpers (`computeSchedule`, maps URLs, `mergeTracks`) from mockup; no UI/OpenAPI. Spec active on branch `ride-detail-schedule-utils`. Next up `/implement ride-detail-schedule-utils`. |
 

@@ -28,7 +28,7 @@ per-event detail screen with Route / Playlist tabs.
 - **Mockup SoT:** [`docs/ui-system/carpool-combined-flow.jsx`](../../ui-system/carpool-combined-flow.jsx)
   — `canRoute`, `GameCard` route icon + expanded “Route & playlist for this
   ride”, `DetailScreen`, `RouteTab` / `PlaylistTab` chrome (fixture data OK).
-- Depends on [`ride-detail-schedule-utils`](ride-detail-schedule-utils.md).
+- Depends on [`ride-detail-schedule-utils`](../active/ride-detail-schedule-utils.md).
 - Gate: show entry only when ride is confirmed — never a dead-end link.
 - Visual language: existing palette, dark hero cards, pill segmented control,
   shell rail — no new visual system.
