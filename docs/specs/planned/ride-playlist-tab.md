@@ -37,5 +37,5 @@ control.
   define source playlist (liked-songs vs designated) at `/spec`.
 - Invite-to-connect notify: same channel pattern as route notify; may soft-fail
   until [`push-notifications`](push-notifications.md).
-- Depends on [`ride-detail-shell`](ride-detail-shell.md) (+ utils for
+- Depends on [`ride-detail-shell`](ride-detail-shell.md) (+ [`ride-detail-schedule-utils`](../active/ride-detail-schedule-utils.md) for
   `mergeTracks`).
