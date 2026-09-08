@@ -40,7 +40,7 @@ discrepancy — a real dogfood gap.
   under [`client-server-invariant-audit`](../planned/client-server-invariant-audit.md);
   not required to close this PR
 - Multi-stop / confirmed-ride Route detail
-  ([`ride-route-tab`](../planned/ride-route-tab.md) and siblings)
+  ([`ride-route-tab`](../archive/ride-route-tab.md) and siblings)
 - Per-adult split plans (you drive inbound kid, spouse drives own kid) —
   [`coverage-leave-from`](../planned/coverage-leave-from.md) territory; this
   slice uses **circle-level** ride + gap signals only

@@ -17,6 +17,7 @@ import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
+import com.yourorg.quickapp.calendar.CalendarRouteResponse;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
@@ -29,6 +30,10 @@ import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedEventKey;
+import com.yourorg.quickapp.leaveby.CalendarRouteDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteStatus;
+import com.yourorg.quickapp.leaveby.CalendarRouteStopDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteStopKind;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
@@ -137,6 +142,9 @@ class CalendarServiceTest {
                 .thenReturn(List.of());
         lenient()
                 .when(manualEventCalendarApi.listOverlapping(any(), any(), any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(carpoolApi.listAcceptedPickupsForFeedEvent(any(), any()))
                 .thenReturn(List.of());
     }
 
@@ -436,6 +444,15 @@ class CalendarServiceTest {
                         kidId,
                         RsvpStatus.YES,
                         adult.id());
+        verify(leaveByApi)
+                .upsertCalendarRoute(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(itemId),
+                        eq("Practice"),
+                        eq(List.of()),
+                        eq("Rink"),
+                        eq("Rink"));
     }
 
     @Test
@@ -646,6 +663,8 @@ class CalendarServiceTest {
         order.verify(coverageApi).remove(adult.id(), assignmentId);
         assertThat(response.coverages()).isEmpty();
         assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.FEED, itemId);
     }
 
     @Test
@@ -717,6 +736,49 @@ class CalendarServiceTest {
 
         verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
         verify(coverageApi).remove(adult.id(), assignmentId);
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.MANUAL, itemId);
+    }
+
+    @Test
+    void confirmCoverageUpsertsDriverRoute() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto confirmed =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.confirm(adult.id(), assignmentId)).thenReturn(confirmed);
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "vs Thunder", startsAt, null, "Rink", List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(confirmed));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+
+        calendarService.confirmCoverage(adult, assignmentId);
+
+        verify(leaveByApi)
+                .upsertCalendarRoute(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(itemId),
+                        eq("vs Thunder"),
+                        eq(List.of()),
+                        eq("Rink"),
+                        eq("Rink"));
     }
 
     @Test
@@ -736,6 +798,95 @@ class CalendarServiceTest {
                         Instant.now());
         assertThat(CalendarService.uncoveredKidIds(List.of(kidA, kidB), List.of(declined), List.of()))
                 .containsExactly(kidA, kidB);
+    }
+
+    @Test
+    void getRouteForConfirmedCoverageReturnsLeaveByItinerary() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "vs Thunder", startsAt, null, "Rink", List.of(kidId))));
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        UUID.randomUUID(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(coverage));
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.MANUAL, List.of(itemId)))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.YES)));
+        when(leaveByApi.getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(itemId),
+                        eq("vs Thunder"),
+                        eq(List.of()),
+                        eq("Rink"),
+                        eq("Rink")))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                45,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Rink",
+                                                "Rink",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null)),
+                                List.of(14)));
+
+        CalendarRouteResponse route =
+                calendarService.getRoute(adult, CalendarItemSource.MANUAL, itemId);
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.bufferMinutes()).isEqualTo(45);
+        assertThat(route.legMinutes()).containsExactly(14);
+        assertThat(route.stops()).hasSize(2);
+    }
+
+    @Test
+    void getRouteForbiddenWhenCallerCannotRoute() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId,
+                                        "Dentist",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        "Clinic",
+                                        List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(
+                        () -> calendarService.getRoute(adult, CalendarItemSource.MANUAL, itemId))
+                .isInstanceOf(CalendarException.class)
+                .extracting(ex -> ((CalendarException) ex).status())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        verify(leaveByApi, never())
+                .getOrRefreshCalendarRoute(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

@@ -12,6 +12,7 @@ import type {
   CalendarItem,
   CalendarItemSource,
   CalendarLeaveBy,
+  CalendarRoute,
   CreateVehicleRequest,
   Garage,
   Place,
@@ -573,6 +574,26 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "List calendar leave-by failed"))
     }
     return (await response.json()) as CalendarLeaveBy[]
+  }
+
+  async getCalendarRoute(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+  ): Promise<CalendarRoute> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/route`,
+      ),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Get calendar route failed"))
+    }
+    return (await response.json()) as CalendarRoute
   }
 
   async setCalendarLeaveFrom(

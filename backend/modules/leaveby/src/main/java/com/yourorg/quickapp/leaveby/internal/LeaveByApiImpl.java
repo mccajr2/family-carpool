@@ -8,6 +8,12 @@ import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyPlaceApi;
 import com.yourorg.quickapp.family.GeoPointDto;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
+import com.yourorg.quickapp.leaveby.CalendarRouteDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyContact;
+import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
+import com.yourorg.quickapp.leaveby.CalendarRouteStatus;
+import com.yourorg.quickapp.leaveby.CalendarRouteStopDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteStopKind;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
@@ -40,6 +46,7 @@ class LeaveByApiImpl implements LeaveByApi {
     private final FeedCalendarApi feedCalendarApi;
     private final CalendarLeaveFromRepository leaveFromRepository;
     private final RouteCacheRepository routeCacheRepository;
+    private final ItineraryRepository itineraryRepository;
     private final OsrmPort osrmPort;
     private final LeaveByProperties properties;
 
@@ -51,6 +58,7 @@ class LeaveByApiImpl implements LeaveByApi {
             FeedCalendarApi feedCalendarApi,
             CalendarLeaveFromRepository leaveFromRepository,
             RouteCacheRepository routeCacheRepository,
+            ItineraryRepository itineraryRepository,
             OsrmPort osrmPort,
             LeaveByProperties properties) {
         this.membershipApi = membershipApi;
@@ -60,6 +68,7 @@ class LeaveByApiImpl implements LeaveByApi {
         this.feedCalendarApi = feedCalendarApi;
         this.leaveFromRepository = leaveFromRepository;
         this.routeCacheRepository = routeCacheRepository;
+        this.itineraryRepository = itineraryRepository;
         this.osrmPort = osrmPort;
         this.properties = properties;
     }
@@ -124,6 +133,77 @@ class LeaveByApiImpl implements LeaveByApi {
             out.add(detourMinutesOne(origin.get(), item, geocoded, durations));
         }
         return Collections.unmodifiableList(out);
+    }
+
+    @Override
+    @Transactional
+    public CalendarRouteDto upsertCalendarRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress) {
+        return buildAndPersistCalendarRoute(
+                drivingAdultId,
+                source,
+                itemId,
+                eventTitle,
+                pickups == null ? List.of() : pickups,
+                destinationName,
+                destinationAddress);
+    }
+
+    @Override
+    @Transactional
+    public CalendarRouteDto getOrRefreshCalendarRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress) {
+        List<CalendarRoutePickupInput> safePickups = pickups == null ? List.of() : pickups;
+        Optional<String> fingerprint = currentFingerprint(drivingAdultId, safePickups, destinationAddress);
+        if (fingerprint.isPresent()) {
+            Optional<ItineraryEntity> cached =
+                    itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                            drivingAdultId, source, itemId);
+            if (cached.isPresent()
+                    && fingerprint.get().equals(cached.get().stopFingerprint())) {
+                return toDto(cached.get());
+            }
+        }
+        return buildAndPersistCalendarRoute(
+                drivingAdultId,
+                source,
+                itemId,
+                eventTitle,
+                safePickups,
+                destinationName,
+                destinationAddress);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateCalendarRoute(
+            UUID drivingAdultId, LeaveByItemSource source, UUID itemId) {
+        itineraryRepository.deleteByDrivingAdultIdAndItemSourceAndItemId(
+                drivingAdultId, source, itemId);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateCalendarRoutesForItem(LeaveByItemSource source, UUID itemId) {
+        itineraryRepository.deleteByItemSourceAndItemId(source, itemId);
+    }
+
+    @Override
+    @Transactional
+    public void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId) {
+        itineraryRepository.deleteByDrivingAdultId(drivingAdultId);
     }
 
     @Override
@@ -348,6 +428,248 @@ class LeaveByApiImpl implements LeaveByApi {
             out.add(null);
         }
         return Collections.unmodifiableList(out);
+    }
+
+    private CalendarRouteDto buildAndPersistCalendarRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress) {
+        int bufferMinutes = RouteBufferMinutes.forTitle(eventTitle);
+        Optional<CirclePlaceDto> homeOpt = resolveDefaultOrigin(drivingAdultId);
+        if (homeOpt.isEmpty()) {
+            return persistRoute(
+                    drivingAdultId,
+                    source,
+                    itemId,
+                    "",
+                    CalendarRouteDto.unavailable(REASON_NO_ORIGIN, bufferMinutes, List.of()));
+        }
+        CirclePlaceDto home = homeOpt.get();
+        if (destinationAddress == null || destinationAddress.isBlank()) {
+            CalendarRouteStopDto homeStop =
+                    new CalendarRouteStopDto(
+                            home.name(),
+                            home.address() == null ? "" : home.address(),
+                            CalendarRouteStopKind.HOME,
+                            null);
+            String fingerprint =
+                    ItineraryFingerprint.compute(
+                            home.id(),
+                            home.latitude(),
+                            home.longitude(),
+                            home.address(),
+                            pickupAddresses(pickups),
+                            destinationAddress);
+            return persistRoute(
+                    drivingAdultId,
+                    source,
+                    itemId,
+                    fingerprint,
+                    CalendarRouteDto.unavailable(
+                            REASON_NO_DESTINATION, bufferMinutes, List.of(homeStop)));
+        }
+
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Map<String, Optional<Double>> durations = new HashMap<>();
+
+        List<CalendarRouteStopDto> stops = new ArrayList<>();
+        List<GeoPointDto> points = new ArrayList<>();
+        stops.add(
+                new CalendarRouteStopDto(
+                        home.name(),
+                        home.address() == null ? "" : home.address(),
+                        CalendarRouteStopKind.HOME,
+                        null));
+        points.add(new GeoPointDto(home.latitude(), home.longitude()));
+
+        for (CalendarRoutePickupInput pickup : pickups) {
+            if (pickup == null || pickup.address() == null || pickup.address().isBlank()) {
+                continue;
+            }
+            Optional<GeoPointDto> point =
+                    geocoded.computeIfAbsent(
+                            normalizeLocation(pickup.address()),
+                            ignored -> geocodeApi.resolveLocation(pickup.address()));
+            if (point.isEmpty()) {
+                String fingerprint =
+                        ItineraryFingerprint.compute(
+                                home.id(),
+                                home.latitude(),
+                                home.longitude(),
+                                home.address(),
+                                pickupAddresses(pickups),
+                                destinationAddress);
+                return persistRoute(
+                        drivingAdultId,
+                        source,
+                        itemId,
+                        fingerprint,
+                        CalendarRouteDto.unavailable(
+                                REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(stops)));
+            }
+            String name =
+                    pickup.name() == null || pickup.name().isBlank()
+                            ? pickup.address()
+                            : pickup.name();
+            CalendarRouteNotifyContact contact = pickup.contact();
+            stops.add(
+                    new CalendarRouteStopDto(
+                            name, pickup.address(), CalendarRouteStopKind.PICKUP, contact));
+            points.add(point.get());
+        }
+
+        Optional<GeoPointDto> destination =
+                geocoded.computeIfAbsent(
+                        normalizeLocation(destinationAddress),
+                        ignored -> geocodeApi.resolveLocation(destinationAddress));
+        if (destination.isEmpty()) {
+            String fingerprint =
+                    ItineraryFingerprint.compute(
+                            home.id(),
+                            home.latitude(),
+                            home.longitude(),
+                            home.address(),
+                            pickupAddresses(pickups),
+                            destinationAddress);
+            return persistRoute(
+                    drivingAdultId,
+                    source,
+                    itemId,
+                    fingerprint,
+                    CalendarRouteDto.unavailable(
+                            REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(stops)));
+        }
+        String destName =
+                destinationName == null || destinationName.isBlank()
+                        ? destinationAddress
+                        : destinationName;
+        stops.add(
+                new CalendarRouteStopDto(
+                        destName,
+                        destinationAddress,
+                        CalendarRouteStopKind.DESTINATION,
+                        null));
+        points.add(destination.get());
+
+        List<Integer> legMinutes = new ArrayList<>(points.size() - 1);
+        for (int i = 0; i < points.size() - 1; i++) {
+            GeoPointDto from = points.get(i);
+            GeoPointDto to = points.get(i + 1);
+            Optional<Double> routed =
+                    routeDuration(
+                            from.latitude(),
+                            from.longitude(),
+                            to.latitude(),
+                            to.longitude(),
+                            durations);
+            // Same policy as single-origin leave-by: OSRM soft-fail uses config
+            // fallback and stays OK; fallback is not written to leaveby_route_cache.
+            double seconds = routed.orElse((double) properties.fallbackDurationSeconds());
+            legMinutes.add(minutesFromSeconds(seconds));
+        }
+
+        String fingerprint =
+                ItineraryFingerprint.compute(
+                        home.id(),
+                        home.latitude(),
+                        home.longitude(),
+                        home.address(),
+                        pickupAddresses(pickups),
+                        destinationAddress);
+        return persistRoute(
+                drivingAdultId,
+                source,
+                itemId,
+                fingerprint,
+                CalendarRouteDto.ok(bufferMinutes, stops, legMinutes));
+    }
+
+    private Optional<String> currentFingerprint(
+            UUID drivingAdultId,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationAddress) {
+        Optional<CirclePlaceDto> homeOpt = resolveDefaultOrigin(drivingAdultId);
+        if (homeOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        CirclePlaceDto home = homeOpt.get();
+        return Optional.of(
+                ItineraryFingerprint.compute(
+                        home.id(),
+                        home.latitude(),
+                        home.longitude(),
+                        home.address(),
+                        pickupAddresses(pickups),
+                        destinationAddress));
+    }
+
+    private CalendarRouteDto persistRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String fingerprint,
+            CalendarRouteDto route) {
+        Instant now = Instant.now();
+        String stopsJson = ItineraryJson.writeStops(route.stops());
+        String legMinutesJson = ItineraryJson.writeLegMinutes(route.legMinutes());
+        Optional<ItineraryEntity> existing =
+                itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        drivingAdultId, source, itemId);
+        if (existing.isPresent()) {
+            existing
+                    .get()
+                    .replace(
+                            route.status(),
+                            route.reason(),
+                            route.bufferMinutes(),
+                            fingerprint,
+                            stopsJson,
+                            legMinutesJson,
+                            now);
+        } else {
+            itineraryRepository.save(
+                    new ItineraryEntity(
+                            UUID.randomUUID(),
+                            drivingAdultId,
+                            source,
+                            itemId,
+                            route.status(),
+                            route.reason(),
+                            route.bufferMinutes(),
+                            fingerprint,
+                            stopsJson,
+                            legMinutesJson,
+                            now,
+                            now));
+        }
+        return route;
+    }
+
+    private static CalendarRouteDto toDto(ItineraryEntity entity) {
+        List<CalendarRouteStopDto> stops = ItineraryJson.readStops(entity.stopsJson());
+        List<Integer> legMinutes = ItineraryJson.readLegMinutes(entity.legMinutesJson());
+        if (entity.status() == CalendarRouteStatus.OK) {
+            return CalendarRouteDto.ok(entity.bufferMinutes(), stops, legMinutes);
+        }
+        return CalendarRouteDto.unavailable(entity.reason(), entity.bufferMinutes(), stops);
+    }
+
+    private static List<String> pickupAddresses(List<CalendarRoutePickupInput> pickups) {
+        List<String> addresses = new ArrayList<>();
+        for (CalendarRoutePickupInput pickup : pickups) {
+            if (pickup != null && pickup.address() != null && !pickup.address().isBlank()) {
+                addresses.add(pickup.address());
+            }
+        }
+        return addresses;
+    }
+
+    static int minutesFromSeconds(double seconds) {
+        return Math.max(0, (int) Math.round(seconds / 60.0));
     }
 
     private void requireItemInCircle(UUID circleId, LeaveByItemSource source, UUID itemId) {

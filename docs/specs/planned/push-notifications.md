@@ -32,3 +32,8 @@ timely device alerts so teammates can respond without living in the web tab.
   registration).
 - Pre-beta gate alongside real OTP mail (`auth-email-delivery`).
 - Does **not** require `in-app-notifications` first for carpool beta.
+- Route-tab ready-by UI already calls
+  [`web/src/components/rideNotify.ts`](../../../web/src/components/rideNotify.ts)
+  (`deliverRideReadyByNotify`) — channel-agnostic, currently no-op / soft-success
+  with no network. Wire real FCM/APNs (and optional SMS) there; keep the request
+  shape (`channel`, `to`, `stopName`, `readyByLabel`).

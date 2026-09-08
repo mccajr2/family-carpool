@@ -178,11 +178,18 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.22.0");
+        assertThat(yaml).contains("version: 0.23.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
+        assertThat(yaml).contains("confirmed-ride multi-stop route");
+        assertThat(yaml).contains("operationId: getCalendarRoute");
+        assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/route");
+        assertThat(yaml).contains("CalendarRoute:");
+        assertThat(yaml).contains("CalendarRouteStatus:");
+        assertThat(yaml).contains("legMinutes:");
+        assertThat(yaml).contains("bufferMinutes:");
         assertThat(yaml).contains("coverage responsibility");
         assertThat(yaml).contains("per-kid event RSVP");
         assertThat(yaml).contains("default leave-from");
@@ -245,7 +252,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.22.0");
+        assertThat(yaml).contains("version: 0.23.0");
     }
 
     @Test
@@ -295,7 +302,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Create does not change RSVP");
         assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that");
         assertThat(yaml).contains("Allowed even when the caller previously passed");
-        assertThat(yaml).contains("version: 0.22.0");
+        assertThat(yaml).contains("version: 0.23.0");
     }
 
     @Test

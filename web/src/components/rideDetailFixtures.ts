@@ -32,7 +32,7 @@ export type FixturePlaylistRider = PlaylistRider & {
 }
 
 export type FixtureCarpoolRoute = Omit<CarpoolRouteSchedule, "stops"> & {
-  /** Which mockup seed was chosen — game = 45 min / 3 stops; practice = 15 / 2. */
+  /** Which mockup seed was chosen — game = 45 min / 3 stops; practice = 20 / 2. */
   kind: "game" | "practice"
   stops: FixtureRideStop[]
   playlistRiders: FixturePlaylistRider[]
@@ -80,10 +80,10 @@ export const GAME_CARPOOL_ROUTE_FIXTURE: FixtureCarpoolRoute = {
   ],
 }
 
-/** Two-stop practice fixture (15 min buffer) — mockup practice id 5. */
+/** Two-stop practice fixture (20 min buffer) — mockup practice id 5, locked lead time. */
 export const PRACTICE_CARPOOL_ROUTE_FIXTURE: FixtureCarpoolRoute = {
   kind: "practice",
-  bufferMinutes: 15,
+  bufferMinutes: 20,
   stops: [
     { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
     {

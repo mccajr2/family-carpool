@@ -12,10 +12,18 @@ import {
 } from "lucide-react"
 
 import type {
-  FixtureCarpoolRoute,
   FixtureRideStop,
   RideNotifyContact,
 } from "@/components/rideDetailFixtures"
+import {
+  type RideNotifyRequest,
+  type RideNotifyResult,
+  deliverRideReadyByNotify,
+} from "@/components/rideNotify"
+import {
+  type RideRouteScheduleView,
+  routeLeadCopy,
+} from "@/components/rideScheduleFromCalendarRoute"
 import {
   computeSchedule,
   embedUrl,
@@ -32,7 +40,8 @@ export type RideNotifyState = {
 }
 
 export type RideRouteTabProps = {
-  carpoolRoute: FixtureCarpoolRoute
+  /** Live OK schedule (or fixture schedule shape for tests). */
+  carpoolRoute: RideRouteScheduleView
   /** Calendar item start ISO — converted to local `h:mm AM/PM` for schedule math. */
   startsAt: string
   /** Event venue label; falls back to destination stop name. */
@@ -41,6 +50,11 @@ export type RideRouteTabProps = {
   mapsEmbedApiKey?: string | null
   /** Notify delay ms — default matches mockup; override in tests. */
   notifyDelayMs?: number
+  /**
+   * Channel-agnostic delivery hook. Defaults to {@link deliverRideReadyByNotify}
+   * (no-op / soft-success, no network). Inject in tests; replace for push.
+   */
+  deliverNotify?: (request: RideNotifyRequest) => Promise<RideNotifyResult>
 }
 
 /** Local wall-clock `h:mm AM/PM` from an ISO instant (matches `toMinutes` / `toTime`). */
@@ -136,7 +150,7 @@ function NotifyAction({
   stop: FixtureRideStop & { contact: RideNotifyContact }
   time: number
   state: RideNotifyState | undefined
-  onNotify: (stop: FixtureRideStop) => void
+  onNotify: (stop: FixtureRideStop, readyByLabel: string) => void
 }) {
   const channel = stop.contact.channel
   const ChannelIcon = channel === "push" ? Bell : MessageCircle
@@ -154,7 +168,7 @@ function NotifyAction({
         </span>
         <button
           type="button"
-          onClick={() => onNotify(stop)}
+          onClick={() => onNotify(stop, toTime(time))}
           className="text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)] underline underline-offset-2"
         >
           Resend
@@ -179,7 +193,7 @@ function NotifyAction({
     <div data-testid={`ride-route-notify-${stop.name}`} data-notify-status="idle">
       <button
         type="button"
-        onClick={() => onNotify(stop)}
+        onClick={() => onNotify(stop, toTime(time))}
         className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--fc-radius-lg)] bg-[var(--fc-hero-carousel-control-bg)] px-[var(--fc-space-ride-detail-notify-pad-x)] py-[var(--fc-space-ride-detail-notify-pad-y)] text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] font-[number:var(--fc-font-ride-detail-notify-weight)] text-[var(--fc-text-primary)]"
       >
         <ChannelIcon aria-hidden size={12} /> Notify {toTime(time)} ready-by time
@@ -205,7 +219,7 @@ function StopRow({
   isFirst: boolean
   isLast: boolean
   notifyState: RideNotifyState | undefined
-  onNotify: (stop: FixtureRideStop) => void
+  onNotify: (stop: FixtureRideStop, readyByLabel: string) => void
 }) {
   const label = isFirst ? "Leave by" : isLast ? "Arrive by" : "Be ready by"
   const Icon =
@@ -258,8 +272,8 @@ function StopRow({
 }
 
 /**
- * Route tab: leave-by hero, map/placeholder, stop list, local notify stub.
- * Schedule / maps URLs from rideScheduleUtils; no network for notify.
+ * Route tab: leave-by hero, map/placeholder, stop list, local notify UI.
+ * Delivery goes through {@link deliverRideReadyByNotify} (no network until push).
  */
 export function RideRouteTab({
   carpoolRoute,
@@ -267,10 +281,11 @@ export function RideRouteTab({
   location = null,
   mapsEmbedApiKey = googleMapsEmbedApiKey,
   notifyDelayMs = 700,
+  deliverNotify = deliverRideReadyByNotify,
 }: RideRouteTabProps) {
   const [notifyStates, setNotifyStates] = useState<Record<string, RideNotifyState>>({})
   const eventStart = eventStartClockFromIso(startsAt)
-  const isPractice = carpoolRoute.kind === "practice"
+  const lead = routeLeadCopy(carpoolRoute.bufferMinutes)
   const { arriveBy, stopTimes } = useMemo(
     () => computeSchedule(carpoolRoute, eventStart),
     [carpoolRoute, eventStart],
@@ -282,17 +297,36 @@ export function RideRouteTab({
     "destination"
   const navHref = navigationUrl(carpoolRoute.stops)
 
-  function handleNotify(stop: FixtureRideStop) {
+  function handleNotify(stop: FixtureRideStop, readyByLabel: string) {
+    const contact = stop.contact
+    if (contact == null) {
+      return
+    }
     setNotifyStates((current) => ({
       ...current,
       [stop.name]: { status: "sending" },
     }))
-    window.setTimeout(() => {
-      setNotifyStates((current) => ({
-        ...current,
-        [stop.name]: { status: "sent", sentAt: formatSentAt() },
-      }))
-    }, notifyDelayMs)
+    void deliverNotify({
+      channel: contact.channel,
+      to: contact.to,
+      stopName: stop.name,
+      readyByLabel,
+    }).then((result) => {
+      window.setTimeout(() => {
+        setNotifyStates((current) => {
+          if (!result.ok) {
+            // Soft-fail: drop sending state. Failure chrome → ride-detail-polish.
+            const next = { ...current }
+            delete next[stop.name]
+            return next
+          }
+          return {
+            ...current,
+            [stop.name]: { status: "sent", sentAt: formatSentAt() },
+          }
+        })
+      }, notifyDelayMs)
+    })
   }
 
   return (
@@ -310,7 +344,7 @@ export function RideRouteTab({
               color: "var(--fc-hero-ring)",
             }}
           >
-            {isPractice ? "15 min early for practices" : "45 min early for games"}
+            {lead.badge}
           </span>
         </div>
         <div
@@ -324,8 +358,7 @@ export function RideRouteTab({
           className="text-[length:var(--fc-font-ride-detail-hero-copy-size)] leading-[var(--fc-font-ride-detail-hero-copy-line)] font-[number:var(--fc-font-ride-detail-hero-copy-weight)] text-[var(--fc-hero-on-secondary)]"
         >
           Leave home to arrive at {destinationName} by {toTime(arriveBy)} —{" "}
-          {carpoolRoute.bufferMinutes} min before{" "}
-          {isPractice ? "practice starts" : "puck drop"} at {eventStart}
+          {carpoolRoute.bufferMinutes} min before {lead.eventNoun} at {eventStart}
         </div>
         <a
           href={navHref}

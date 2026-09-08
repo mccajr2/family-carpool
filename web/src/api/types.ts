@@ -86,6 +86,34 @@ export type CalendarLeaveBy = {
   leaveByReason?: string | null
 }
 
+/** Multi-stop itinerary from GET …/calendar/{source}/{itemId}/route. */
+export type CalendarRouteStatus = "OK" | "UNAVAILABLE"
+
+export type CalendarRouteStopKind = "home" | "pickup" | "destination"
+
+export type CalendarRouteNotifyChannel = "push" | "sms"
+
+export type CalendarRouteNotifyContact = {
+  channel: CalendarRouteNotifyChannel
+  to: string
+}
+
+export type CalendarRouteStop = {
+  name: string
+  address: string
+  kind: CalendarRouteStopKind
+  contact?: CalendarRouteNotifyContact | null
+}
+
+export type CalendarRoute = {
+  status: CalendarRouteStatus
+  reason?: string | null
+  bufferMinutes: number
+  stops: CalendarRouteStop[]
+  /** Length = stops − 1 when status is OK; empty when UNAVAILABLE. */
+  legMinutes: number[]
+}
+
 export type CoverageStatus = "PENDING" | "CONFIRMED" | "DECLINED"
 
 export type RsvpStatus = "YES" | "NO" | "NO_RESPONSE"

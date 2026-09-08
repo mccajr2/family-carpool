@@ -8,7 +8,7 @@ Updated: 2026-09-07 (`/pr`)
 Added: 2026-09-06 · enhancement  
 Branch: `ride-detail-shell`  
 Depends on: [`ride-detail-schedule-utils`](../archive/ride-detail-schedule-utils.md)  
-Feeds: [`ride-route-tab`](../planned/ride-route-tab.md) /
+Feeds: [`ride-route-tab`](../archive/ride-route-tab.md) /
 [`ride-playlist-tab`](../planned/ride-playlist-tab.md) /
 [`ride-detail-polish`](../planned/ride-detail-polish.md)
 
@@ -22,7 +22,7 @@ approved mockup flow cannot be dogfooded even with fixture data.
 ## Non-goals
 
 - Real multi-stop legs from OSRM / geocoding, or persisting route on a `Ride`
-  ([`ride-route-tab`](../planned/ride-route-tab.md))
+  ([`ride-route-tab`](../archive/ride-route-tab.md))
 - Spotify OAuth, live playlists, or token storage
   ([`ride-playlist-tab`](../planned/ride-playlist-tab.md))
 - Honest loading / OSRM-unreachable / notify-failure polish
@@ -35,7 +35,7 @@ approved mockup flow cannot be dogfooded even with fixture data.
 - Choosing product `bufferMinutes` defaults (fixture uses mockup 45 game /
   15 practice; reconcile later via
   [`event-arrival-lead-time`](../planned/event-arrival-lead-time.md) /
-  [`ride-route-tab`](../planned/ride-route-tab.md))
+  [`ride-route-tab`](../archive/ride-route-tab.md))
 - In-app turn-by-turn; paid live traffic; Apple Music
 
 ## Approach
@@ -123,7 +123,7 @@ link, Premium caveat, merge-order track list.
   [`web/src/components/FamilyScreen.tsx`](../../web/src/components/FamilyScreen.tsx)
   (Calendar destination overlay; keep rail)
 - Downstream (Problem/Notes only):
-  [`ride-route-tab`](../planned/ride-route-tab.md),
+  [`ride-route-tab`](../archive/ride-route-tab.md),
   [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
 
 ## Acceptance criteria

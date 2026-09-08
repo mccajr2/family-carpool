@@ -34,7 +34,7 @@ describe("carpoolRouteFixtureForCalendarItem", () => {
     const route = carpoolRouteFixtureForCalendarItem({ title: "Tuesday Practice" })
     expect(route.kind).toBe("practice")
     expect(route).toBe(PRACTICE_CARPOOL_ROUTE_FIXTURE)
-    expect(route.bufferMinutes).toBe(15)
+    expect(route.bufferMinutes).toBe(20)
     expect(route.stops).toHaveLength(2)
     expect(route.legMinutes).toEqual([14])
     expect(route.playlistRiders).toHaveLength(1)

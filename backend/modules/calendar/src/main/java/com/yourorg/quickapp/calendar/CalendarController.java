@@ -51,6 +51,15 @@ public class CalendarController {
         return calendarService.listLeaveBy(adult, from, to);
     }
 
+    @GetMapping("/{source}/{itemId}/route")
+    public CalendarRouteResponse getRoute(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.getRoute(adult, source, itemId);
+    }
+
     @PutMapping("/{source}/{itemId}/leave-from")
     public CalendarItemResponse setLeaveFrom(
             @PathVariable("source") CalendarItemSource source,

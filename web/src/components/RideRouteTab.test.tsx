@@ -86,17 +86,41 @@ describe("RideRouteTab", () => {
     expect(screen.getByTitle("Carpool route").getAttribute("src")).toContain(
       "key=test-embed-key",
     )
-    expect(screen.getByText("15 min early for practices")).toBeInTheDocument()
+    expect(screen.getByText("20 min early for practices")).toBeInTheDocument()
+  })
+
+  it("renders live schedule props without fixture kind", () => {
+    render(
+      <RideRouteTab
+        carpoolRoute={{
+          bufferMinutes: 0,
+          stops: [
+            { name: "Home", address: "1 Main", kind: "home" },
+            { name: "Clinic", address: "2 Oak", kind: "destination" },
+          ],
+          legMinutes: [10],
+        }}
+        startsAt="2030-08-15T16:40:00.000"
+        mapsEmbedApiKey={null}
+      />,
+    )
+    expect(screen.getByText("Arrive on time")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-hero-copy")).toHaveTextContent("the event starts")
   })
 
   it("updates notify UI locally without network calls", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    const deliverNotify = vi.fn().mockResolvedValue({ ok: true })
+
     render(
       <RideRouteTab
         carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
         startsAt="2030-08-15T16:40:00.000"
         mapsEmbedApiKey={null}
         notifyDelayMs={700}
+        deliverNotify={deliverNotify}
       />,
     )
 
@@ -107,6 +131,14 @@ describe("RideRouteTab", () => {
     expect(
       screen.getByTestId("ride-route-notify-Kwame (the Oseis)"),
     ).toHaveAttribute("data-notify-status", "sending")
+    expect(deliverNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "push",
+        to: "the Oseis",
+        stopName: "Kwame (the Oseis)",
+      }),
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
 
     await act(async () => {
       vi.advanceTimersByTime(700)
@@ -115,5 +147,42 @@ describe("RideRouteTab", () => {
     const sent = screen.getByTestId("ride-route-notify-Kwame (the Oseis)")
     expect(sent).toHaveAttribute("data-notify-status", "sent")
     expect(sent).toHaveTextContent(/Sent via push notification/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it("soft-fails notify by returning to idle without failure chrome", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const deliverNotify = vi
+      .fn()
+      .mockResolvedValue({ ok: false, reason: "CHANNEL_UNAVAILABLE" })
+
+    render(
+      <RideRouteTab
+        carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
+        startsAt="2030-08-15T16:40:00.000"
+        mapsEmbedApiKey={null}
+        notifyDelayMs={700}
+        deliverNotify={deliverNotify}
+      />,
+    )
+
+    await user.click(
+      within(screen.getByTestId("ride-route-notify-Kwame (the Oseis)")).getByRole(
+        "button",
+        { name: /Notify/i },
+      ),
+    )
+    expect(
+      screen.getByTestId("ride-route-notify-Kwame (the Oseis)"),
+    ).toHaveAttribute("data-notify-status", "sending")
+
+    await act(async () => {
+      vi.advanceTimersByTime(700)
+    })
+
+    expect(
+      screen.getByTestId("ride-route-notify-Kwame (the Oseis)"),
+    ).toHaveAttribute("data-notify-status", "idle")
   })
 })

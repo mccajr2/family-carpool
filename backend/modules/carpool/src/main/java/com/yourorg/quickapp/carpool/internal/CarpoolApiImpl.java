@@ -1,6 +1,8 @@
 package com.yourorg.quickapp.carpool.internal;
 
+import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -16,5 +18,11 @@ class CarpoolApiImpl implements CarpoolApi {
     @Override
     public void withdrawAcceptedInboundForFeedEvent(UUID actorAdultId, UUID feedEventId) {
         rideService.withdrawAcceptedInboundForFeedEvent(actorAdultId, feedEventId);
+    }
+
+    @Override
+    public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        return rideService.listAcceptedPickupsForFeedEvent(circleId, feedEventId);
     }
 }

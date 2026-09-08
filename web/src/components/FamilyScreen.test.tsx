@@ -43,6 +43,26 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
     getGarage: vi.fn().mockResolvedValue({ members: [], vehicles: [] }),
+    getCalendarRoute: vi.fn().mockResolvedValue({
+      status: "OK",
+      reason: null,
+      bufferMinutes: 45,
+      stops: [
+        { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+        {
+          name: "Kwame (the Oseis)",
+          address: "Somerville, MA",
+          kind: "pickup",
+          contact: { channel: "push", to: "the Oseis" },
+        },
+        {
+          name: "Allied Veterans Rink",
+          address: "65 Elm St, Everett, MA",
+          kind: "destination",
+        },
+      ],
+      legMinutes: [12, 18],
+    }),
     ...partial,
   } as FamilyClient
 }
@@ -7971,8 +7991,8 @@ detourMinutes: null,
     expect(screen.queryByLabelText("Agenda")).not.toBeInTheDocument()
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
 
-    // Route tab smoke (fixture-driven)
-    expect(screen.getByTestId("ride-route-tab")).toBeInTheDocument()
+    // Route tab smoke (live API schedule)
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-start-nav")).toHaveAttribute(
       "href",
@@ -7980,6 +8000,7 @@ detourMinutes: null,
     )
     expect(screen.getByTestId("ride-route-map-placeholder")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-stops")).toBeInTheDocument()
+    expect(screen.getByText("45 min early for games")).toBeInTheDocument()
 
     await user.click(screen.getByTestId("ride-detail-tab-playlist"))
     expect(screen.getByTestId("ride-detail-tab-playlist")).toHaveAttribute(
@@ -8065,6 +8086,20 @@ detourMinutes: null,
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), practice]),
+          getCalendarRoute: vi.fn().mockResolvedValue({
+            status: "OK",
+            reason: null,
+            bufferMinutes: 20,
+            stops: [
+              { name: "Live Home", address: "100 Live St", kind: "home" },
+              {
+                name: "Live Rink",
+                address: "200 Live Ave",
+                kind: "destination",
+              },
+            ],
+            legMinutes: [14],
+          }),
         })}
         carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
@@ -8079,9 +8114,107 @@ detourMinutes: null,
     const detail = await screen.findByTestId("ride-detail-screen")
     expect(detail).toHaveAttribute("data-fixture-kind", "practice")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
-    expect(screen.getByTestId("ride-route-tab")).toHaveTextContent(
-      "15 min early for practices",
-    )
+    const routeTab = await screen.findByTestId("ride-route-tab")
+    expect(routeTab).toHaveTextContent("20 min early for practices")
+    expect(routeTab).toHaveTextContent("Live Home")
+    expect(routeTab).toHaveTextContent("Live Rink")
+    expect(routeTab).toHaveTextContent("100 Live St")
+    expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-start-nav")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-unavailable")).not.toBeInTheDocument()
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
+  })
+
+  it("shows minimal UNAVAILABLE route state without fixture leave-by", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const confirmedGame = calendarItem({
+      id: "ride-detail-unavailable",
+      source: "MANUAL",
+      title: "vs Belmont",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov-u",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    const getCalendarRoute = vi.fn().mockResolvedValue({
+      status: "UNAVAILABLE",
+      reason: "GEOCODE_FAILED",
+      bufferMinutes: 45,
+      stops: [],
+      legMinutes: [],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+          getCalendarRoute,
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const row = within(agenda).getByTestId("agenda-row-MANUAL-ride-detail-unavailable")
+    await user.click(within(row).getByTestId("agenda-row-open-ride"))
+
+    expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
+    expect(await screen.findByTestId("ride-route-unavailable")).toHaveTextContent(
+      /Couldn't locate a stop/i,
+    )
+    expect(screen.getByTestId("ride-route-unavailable")).toHaveTextContent(
+      /never live traffic/i,
+    )
+    expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-leave-by")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-start-nav")).not.toBeInTheDocument()
+    expect(getCalendarRoute).toHaveBeenCalled()
   })
 })

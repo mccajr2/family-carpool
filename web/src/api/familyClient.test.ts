@@ -484,6 +484,77 @@ describe("FamilyClient", () => {
     )
   })
 
+  it("gets the multi-stop calendar route for a confirmed ride", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const route = {
+      status: "OK" as const,
+      reason: null,
+      bufferMinutes: 45,
+      stops: [
+        { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+        {
+          name: "Kwame (the Oseis)",
+          address: "Somerville, MA",
+          kind: "pickup",
+          contact: { channel: "push", to: "the Oseis" },
+        },
+        {
+          name: "Allied Veterans Rink",
+          address: "65 Elm St, Everett, MA",
+          kind: "destination",
+        },
+      ],
+      legMinutes: [12, 18],
+    }
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(route))
+      .mockResolvedValueOnce(
+        json({
+          status: "UNAVAILABLE",
+          reason: "OSRM_UNAVAILABLE",
+          bufferMinutes: 20,
+          stops: [],
+          legMinutes: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Not allowed to route" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(client.getCalendarRoute("tok", "FEED", "e1")).resolves.toMatchObject({
+      status: "OK",
+      bufferMinutes: 45,
+      legMinutes: [12, 18],
+    })
+    await expect(client.getCalendarRoute("tok", "FEED", "e1")).resolves.toMatchObject({
+      status: "UNAVAILABLE",
+      reason: "OSRM_UNAVAILABLE",
+      legMinutes: [],
+    })
+    await expect(client.getCalendarRoute("tok", "MANUAL", "e2")).rejects.toThrow(
+      /Not allowed to route/,
+    )
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({
+      headers: { Authorization: "Bearer tok" },
+    })
+    expect((fetchFn.mock.calls[0]?.[1] as RequestInit).method).toBeUndefined()
+  })
+
   it("sets leave-from for a calendar item", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.22.0
+  version: 0.23.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -12,6 +12,8 @@ info:
     per-adult leave-from, per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic; calendar list does not call
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
+    a confirmed-ride multi-stop route read (GET …/calendar/{source}/{itemId}/route
+    — home → pickups → destination; cached OSRM pairwise legs; estimate only),
     per-kid event RSVP (Yes / No / No response), coverage responsibility
     assignments (assign / reassign / remove; assignee confirm or decline;
     assign/confirm set RSVP Yes and reject No kids; removing CONFIRMED coverage
@@ -66,17 +68,19 @@ tags:
       flag), activity feeds, manual events, unified calendar read (with
       per-adult leave-from, cheap leave-by status including PENDING, per-kid
       RSVPs, coverage assignments, uncovered kid ids, and server-computed
-      conflicts), async leave-by fill-in, per-adult default leave-from,
-      invite code, and memberships (one circle per adult in v1).
-      Organizer-only writes for invite regen, roles, remove, kids, circle
-      rename, and activity feed create/update/delete/sync. Any member may
+      conflicts), async leave-by fill-in, confirmed-ride multi-stop route
+      read (cached OSRM estimate), per-adult default leave-from, invite
+      code, and memberships (one circle per adult in v1). Organizer-only
+      writes for invite regen, roles, remove, kids, circle rename, and
+      activity feed create/update/delete/sync. Any member may
       create/update/delete places and vehicles they own, patch their own
       drives flag, retry place geocoding, list the circle calendar, fill
-      leave-by estimates, set their leave-from place per calendar item, set
-      their default leave-from for the circle, set per-kid RSVPs on calendar
-      items, and assign / reassign / remove coverage on calendar items
-      (assignee confirm or decline). Garage writes are owner-only (not
-      Organizer-gated); listed drivers who are not the owner cannot edit.
+      leave-by estimates, read a routable item's multi-stop itinerary, set
+      their leave-from place per calendar item, set their default leave-from
+      for the circle, set per-kid RSVPs on calendar items, and assign /
+      reassign / remove coverage on calendar items (assignee confirm or
+      decline). Garage writes are owner-only (not Organizer-gated); listed
+      drivers who are not the owner cannot edit.
   - name: carpool
     description: >
       Team carpool spaces — one space per normalized feed URL, membership by
@@ -1963,6 +1967,98 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/{source}/{itemId}/route:
+    get:
+      operationId: getCalendarRoute
+      tags: [family]
+      summary: Read the multi-stop driving itinerary for a confirmed ride
+      description: >
+        Circle member who may route this calendar item — confirmed household
+        driver (CONFIRMED coverage for a kid on the item) or adult whose
+        circle has an ACCEPTED teammate ride for a kid on the item, and the
+        kid is not RSVP NO. Returns a cached multi-stop itinerary: driving
+        adult's default leave-from (home) → ACCEPTED teammate pickup stop(s)
+        this driver is fulfilling → event destination. Durations come from
+        leaveby pairwise OSRM / leaveby_route_cache (estimate only — never
+        live traffic). status is OK when ordered stops and legMinutes are
+        available; UNAVAILABLE when geocode/OSRM soft-fail or the itinerary
+        cannot be built (optional reason). bufferMinutes is title-heuristic
+        only in this revision (game 45 / practice 20 / other 0). Does not
+        mutate the underlying event. Unknown item or no circle → 404; caller
+        not allowed to route → 403.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          description: Whether the item is a manual event or a feed-imported row
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          description: Manual event id or feed event id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Multi-stop itinerary (OK or UNAVAILABLE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarRoute"
+              examples:
+                ok:
+                  summary: Three-stop game with pickup
+                  value:
+                    status: OK
+                    reason: null
+                    bufferMinutes: 45
+                    stops:
+                      - name: Home
+                        address: "390 Huron Ave, Cambridge, MA"
+                        kind: home
+                      - name: Kwame (the Oseis)
+                        address: "Somerville, MA"
+                        kind: pickup
+                        contact:
+                          channel: push
+                          to: the Oseis
+                      - name: Allied Veterans Rink
+                        address: "65 Elm St, Everett, MA"
+                        kind: destination
+                    legMinutes: [12, 18]
+                unavailable:
+                  summary: Soft-fail routing
+                  value:
+                    status: UNAVAILABLE
+                    reason: OSRM_UNAVAILABLE
+                    bufferMinutes: 20
+                    stops: []
+                    legMinutes: []
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: >
+            Caller may not route this item (not a confirmed household driver
+            or ACCEPTED teammate rider for an in-play kid on the item)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle, or unknown item id
           content:
             application/json:
               schema:
@@ -4353,6 +4449,118 @@ components:
             NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK. This
             operation does not return PENDING.
           example: NO_ORIGIN
+
+    CalendarRouteStatus:
+      type: string
+      description: >
+        Whether a multi-stop driving itinerary is available for a confirmed
+        ride. OK means ordered stops and legMinutes are set (cached or freshly
+        computed OSRM pairwise durations — always an estimate, never live
+        traffic). UNAVAILABLE means the itinerary could not be built (missing
+        origin/destination, geocode failure, or OSRM soft-fail); legMinutes is
+        empty and clients must not present fixture leave-by as live.
+      enum:
+        - OK
+        - UNAVAILABLE
+
+    CalendarRouteStopKind:
+      type: string
+      description: Role of a stop in the multi-stop itinerary
+      enum:
+        - home
+        - pickup
+        - destination
+
+    CalendarRouteNotifyChannel:
+      type: string
+      description: >
+        Stub notify channel for pickup contacts on the Route tab. Delivery is
+        out of scope for this revision (local UI only).
+      enum:
+        - push
+        - sms
+
+    CalendarRouteNotifyContact:
+      type: object
+      required:
+        - channel
+        - to
+      properties:
+        channel:
+          $ref: "#/components/schemas/CalendarRouteNotifyChannel"
+        to:
+          type: string
+          description: Display label for who would be notified (e.g. family name)
+          example: the Oseis
+
+    CalendarRouteStop:
+      type: object
+      required:
+        - name
+        - address
+        - kind
+      properties:
+        name:
+          type: string
+          description: Short stop label (place name, pickup household, venue)
+          example: Home
+        address:
+          type: string
+          description: Free-text address used for maps / geocode fingerprint
+          example: "390 Huron Ave, Cambridge, MA"
+        kind:
+          $ref: "#/components/schemas/CalendarRouteStopKind"
+        contact:
+          allOf:
+            - $ref: "#/components/schemas/CalendarRouteNotifyContact"
+          nullable: true
+          description: >
+            Optional notify stub for pickup stops. Null or omitted when the
+            stop has no contact (home / destination).
+
+    CalendarRoute:
+      type: object
+      required:
+        - status
+        - bufferMinutes
+        - stops
+        - legMinutes
+      properties:
+        status:
+          $ref: "#/components/schemas/CalendarRouteStatus"
+        reason:
+          type: string
+          nullable: true
+          description: >
+            Machine-readable reason when status is UNAVAILABLE (e.g.
+            NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED, OSRM_UNAVAILABLE,
+            NOT_ROUTABLE). Null when OK.
+          example: OSRM_UNAVAILABLE
+        bufferMinutes:
+          type: integer
+          minimum: 0
+          description: >
+            Arrival lead-time buffer in minutes from the calendar title
+            heuristic: game 45, practice (\bpractice\b) 20, otherwise 0.
+            Not editable in this revision.
+          example: 45
+        stops:
+          type: array
+          description: >
+            Ordered stops home → pickup(s) → destination. Empty when status is
+            UNAVAILABLE and no stop list could be assembled.
+          items:
+            $ref: "#/components/schemas/CalendarRouteStop"
+        legMinutes:
+          type: array
+          description: >
+            Estimated driving minutes between consecutive stops (length =
+            stops − 1 when status is OK). Empty when UNAVAILABLE. Always an
+            estimate — never live traffic.
+          items:
+            type: integer
+            minimum: 0
+          example: [12, 18]
 
     SetCalendarLeaveFromRequest:
       type: object
