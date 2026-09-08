@@ -26,6 +26,7 @@ public class SpotifyOAuthService {
     private final SpotifyOAuthPort oauthPort;
     private final SpotifyConnectionRepository connectionRepository;
     private final SpotifyOAuthStateRepository stateRepository;
+    private final SpotifyKidDesignationRepository designationRepository;
     private final TokenEncryptor tokenEncryptor;
     private final Clock clock;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -35,12 +36,14 @@ public class SpotifyOAuthService {
             SpotifyOAuthPort oauthPort,
             SpotifyConnectionRepository connectionRepository,
             SpotifyOAuthStateRepository stateRepository,
+            SpotifyKidDesignationRepository designationRepository,
             TokenEncryptor tokenEncryptor,
             Clock clock) {
         this.properties = properties;
         this.oauthPort = oauthPort;
         this.connectionRepository = connectionRepository;
         this.stateRepository = stateRepository;
+        this.designationRepository = designationRepository;
         this.tokenEncryptor = tokenEncryptor;
         this.clock = clock;
     }
@@ -116,8 +119,8 @@ public class SpotifyOAuthService {
 
     @Transactional
     public void revoke(UUID adultId) {
+        designationRepository.deleteByAdultId(adultId);
         connectionRepository.deleteById(adultId);
-        // Designated playlists are cleared when that table lands (next task).
     }
 
     public boolean isConnected(UUID adultId) {

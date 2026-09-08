@@ -99,6 +99,123 @@ class HttpSpotifyOAuthPort implements SpotifyOAuthPort {
         }
     }
 
+    @Override
+    public java.util.List<SpotifyPlaylistInfo> listPlaylists(String accessToken) {
+        String json =
+                authorizedGet(
+                        accessToken,
+                        trimTrailingSlash(properties.apiBaseUrl()) + "/me/playlists?limit=50");
+        return parsePlaylistPage(json);
+    }
+
+    @Override
+    public SpotifyPlaylistInfo getPlaylist(String accessToken, String playlistId) {
+        if (playlistId == null || playlistId.isBlank()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "playlistId is required");
+        }
+        String json =
+                authorizedGet(
+                        accessToken,
+                        trimTrailingSlash(properties.apiBaseUrl()) + "/playlists/" + playlistId);
+        try {
+            JsonNode root = MAPPER.readTree(json);
+            SpotifyPlaylistInfo info = parsePlaylistNode(root);
+            if (info == null) {
+                throw new PlaylistException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "Spotify playlist response missing id");
+            }
+            return info;
+        } catch (PlaylistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify playlist response was not valid JSON");
+        }
+    }
+
+    private String authorizedGet(String accessToken, String uri) {
+        try {
+            String json =
+                    restClient
+                            .get()
+                            .uri(uri)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .retrieve()
+                            .body(String.class);
+            if (json == null || json.isBlank()) {
+                throw new PlaylistException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "Spotify API returned empty body");
+            }
+            return json;
+        } catch (PlaylistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY, "Spotify API request failed");
+        }
+    }
+
+    static java.util.List<SpotifyPlaylistInfo> parsePlaylistPage(String json) {
+        if (json == null || json.isBlank()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify playlists response was empty");
+        }
+        try {
+            JsonNode root = MAPPER.readTree(json);
+            JsonNode items = root.get("items");
+            java.util.ArrayList<SpotifyPlaylistInfo> out = new java.util.ArrayList<>();
+            if (items == null || !items.isArray()) {
+                return out;
+            }
+            for (JsonNode item : items) {
+                SpotifyPlaylistInfo info = parsePlaylistNode(item);
+                if (info != null) {
+                    out.add(info);
+                }
+            }
+            return out;
+        } catch (PlaylistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify playlists response was not valid JSON");
+        }
+    }
+
+    static SpotifyPlaylistInfo parsePlaylistNode(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String id = text(node, "id");
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        String name = text(node, "name");
+        if (name == null || name.isBlank()) {
+            name = "Untitled playlist";
+        }
+        String url = null;
+        JsonNode external = node.get("external_urls");
+        if (external != null && !external.isNull()) {
+            url = text(external, "spotify");
+        }
+        if (url == null || url.isBlank()) {
+            url = "https://open.spotify.com/playlist/" + id;
+        }
+        int trackCount = 0;
+        JsonNode tracks = node.get("tracks");
+        if (tracks != null && !tracks.isNull()) {
+            trackCount = tracks.path("total").asInt(0);
+        }
+        return new SpotifyPlaylistInfo(id, name, url, trackCount);
+    }
+
     private SpotifyTokenResponse postToken(String formBody) {
         String credentials =
                 properties.clientId() + ":" + Objects.requireNonNullElse(properties.clientSecret(), "");

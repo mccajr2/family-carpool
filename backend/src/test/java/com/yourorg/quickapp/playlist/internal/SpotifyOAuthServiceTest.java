@@ -38,6 +38,9 @@ class SpotifyOAuthServiceTest {
     @Mock
     private SpotifyOAuthStateRepository stateRepository;
 
+    @Mock
+    private SpotifyKidDesignationRepository designationRepository;
+
     private TokenEncryptor tokenEncryptor;
     private SpotifyOAuthService service;
 
@@ -61,6 +64,7 @@ class SpotifyOAuthServiceTest {
                         oauthPort,
                         connectionRepository,
                         stateRepository,
+                        designationRepository,
                         tokenEncryptor,
                         Clock.fixed(NOW, ZoneOffset.UTC));
     }
@@ -101,6 +105,7 @@ class SpotifyOAuthServiceTest {
                         oauthPort,
                         connectionRepository,
                         stateRepository,
+                        designationRepository,
                         new TokenEncryptor(blankClient),
                         Clock.fixed(NOW, ZoneOffset.UTC));
 
@@ -149,8 +154,9 @@ class SpotifyOAuthServiceTest {
     }
 
     @Test
-    void revokeDeletesConnection() {
+    void revokeDeletesDesignationsAndConnection() {
         service.revoke(ADULT_ID);
+        verify(designationRepository).deleteByAdultId(ADULT_ID);
         verify(connectionRepository).deleteById(ADULT_ID);
     }
 
