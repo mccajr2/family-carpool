@@ -52,4 +52,17 @@ class HttpSpotifyOAuthPortTest {
         assertThat(playlists.getFirst().trackCount()).isEqualTo(4);
         assertThat(playlists.getFirst().url()).isEqualTo("https://open.spotify.com/playlist/p1");
     }
+
+    @Test
+    void parseTrackPageReadsItems() {
+        List<SpotifyTrackInfo> tracks =
+                HttpSpotifyOAuthPort.parseTrackPage(
+                        """
+                        {"items":[{"track":{"name":"Sunset Drive","artists":[{"name":"Coastline"}],"duration_ms":198000,"uri":"spotify:track:a1"}}]}
+                        """);
+        assertThat(tracks).hasSize(1);
+        assertThat(tracks.getFirst().title()).isEqualTo("Sunset Drive");
+        assertThat(tracks.getFirst().artist()).isEqualTo("Coastline");
+        assertThat(tracks.getFirst().durationSec()).isEqualTo(198);
+    }
 }

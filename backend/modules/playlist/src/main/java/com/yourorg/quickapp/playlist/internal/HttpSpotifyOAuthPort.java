@@ -136,6 +136,67 @@ class HttpSpotifyOAuthPort implements SpotifyOAuthPort {
         }
     }
 
+    @Override
+    public java.util.List<SpotifyTrackInfo> listPlaylistTracks(
+            String accessToken, String playlistId) {
+        if (playlistId == null || playlistId.isBlank()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "playlistId is required");
+        }
+        String uri =
+                trimTrailingSlash(properties.apiBaseUrl())
+                        + "/playlists/"
+                        + playlistId
+                        + "/tracks?limit=100&fields=items(track(name,artists(name),duration_ms,uri))";
+        String json = authorizedGet(accessToken, uri);
+        return parseTrackPage(json);
+    }
+
+    static java.util.List<SpotifyTrackInfo> parseTrackPage(String json) {
+        if (json == null || json.isBlank()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify tracks response was empty");
+        }
+        try {
+            JsonNode root = MAPPER.readTree(json);
+            JsonNode items = root.get("items");
+            java.util.ArrayList<SpotifyTrackInfo> out = new java.util.ArrayList<>();
+            if (items == null || !items.isArray()) {
+                return out;
+            }
+            for (JsonNode item : items) {
+                JsonNode track = item.get("track");
+                if (track == null || track.isNull()) {
+                    continue;
+                }
+                String title = text(track, "name");
+                if (title == null || title.isBlank()) {
+                    continue;
+                }
+                String artist = "";
+                JsonNode artists = track.get("artists");
+                if (artists != null && artists.isArray() && !artists.isEmpty()) {
+                    String name = text(artists.get(0), "name");
+                    if (name != null) {
+                        artist = name;
+                    }
+                }
+                int durationMs = track.path("duration_ms").asInt(0);
+                int durationSec = Math.max(0, durationMs / 1000);
+                String uri = text(track, "uri");
+                out.add(new SpotifyTrackInfo(title, artist, durationSec, uri == null ? "" : uri));
+            }
+            return out;
+        } catch (PlaylistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify tracks response was not valid JSON");
+        }
+    }
+
     private String authorizedGet(String accessToken, String uri) {
         try {
             String json =

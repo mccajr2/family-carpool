@@ -69,4 +69,20 @@ class StubSpotifyOAuthPort implements SpotifyOAuthPort {
         throw new PlaylistException(
                 org.springframework.http.HttpStatus.NOT_FOUND, "Stub playlist not found");
     }
+
+    @Override
+    public List<SpotifyTrackInfo> listPlaylistTracks(String accessToken, String playlistId) {
+        if (PLAYLIST_A.id().equals(playlistId)) {
+            return List.of(
+                    new SpotifyTrackInfo("Sunset Drive", "Coastline", 198, "spotify:track:a1"),
+                    new SpotifyTrackInfo("Neon Static", "Halfway House", 221, "spotify:track:a2"),
+                    new SpotifyTrackInfo("Overtime", "Pace Car", 176, "spotify:track:a3"));
+        }
+        if (PLAYLIST_B.id().equals(playlistId)) {
+            return List.of(
+                    new SpotifyTrackInfo("Warmup Lap", "Pace Car", 190, "spotify:track:b1"),
+                    new SpotifyTrackInfo("Blue Line", "Coastline", 205, "spotify:track:b2"));
+        }
+        return List.of();
+    }
 }

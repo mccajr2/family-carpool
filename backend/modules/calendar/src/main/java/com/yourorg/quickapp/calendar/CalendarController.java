@@ -60,6 +60,15 @@ public class CalendarController {
         return calendarService.getRoute(adult, source, itemId);
     }
 
+    @GetMapping("/{source}/{itemId}/playlist")
+    public CalendarPlaylistResponse getPlaylist(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.getPlaylist(adult, source, itemId);
+    }
+
     @PutMapping("/{source}/{itemId}/leave-from")
     public CalendarItemResponse setLeaveFrom(
             @PathVariable("source") CalendarItemSource source,

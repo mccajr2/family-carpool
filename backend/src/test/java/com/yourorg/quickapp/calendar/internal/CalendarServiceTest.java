@@ -83,6 +83,9 @@ class CalendarServiceTest {
     @Mock
     private CarpoolApi carpoolApi;
 
+    @Mock
+    private com.yourorg.quickapp.playlist.RidePlaylistApi ridePlaylistApi;
+
     @InjectMocks
     private CalendarService calendarService;
 

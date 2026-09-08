@@ -8,6 +8,7 @@ import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
+import com.yourorg.quickapp.calendar.CalendarPlaylistResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteNotifyContactResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteStopResponse;
@@ -22,6 +23,7 @@ import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyCircleName;
+import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
@@ -34,6 +36,8 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.playlist.RidePlaylistApi;
+import com.yourorg.quickapp.playlist.RidePlaylistAttendingKid;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -65,6 +69,7 @@ public class CalendarService {
     private final RsvpApi rsvpApi;
     private final AdultSessionApi adultSessionApi;
     private final CarpoolApi carpoolApi;
+    private final RidePlaylistApi ridePlaylistApi;
 
     public CalendarService(
             FamilyMembershipApi familyMembershipApi,
@@ -74,7 +79,8 @@ public class CalendarService {
             CoverageApi coverageApi,
             RsvpApi rsvpApi,
             AdultSessionApi adultSessionApi,
-            CarpoolApi carpoolApi) {
+            CarpoolApi carpoolApi,
+            RidePlaylistApi ridePlaylistApi) {
         this.familyMembershipApi = familyMembershipApi;
         this.feedCalendarApi = feedCalendarApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
@@ -83,6 +89,7 @@ public class CalendarService {
         this.rsvpApi = rsvpApi;
         this.adultSessionApi = adultSessionApi;
         this.carpoolApi = carpoolApi;
+        this.ridePlaylistApi = ridePlaylistApi;
     }
 
     public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
@@ -233,6 +240,33 @@ public class CalendarService {
                         destinationName(item),
                         item.location());
         return toRouteResponse(route);
+    }
+
+    @Transactional
+    public CalendarPlaylistResponse getPlaylist(
+            AdultResponse adult, CalendarItemSource source, UUID itemId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        ItemSnapshot item = requireItemSnapshot(circleId, source, itemId);
+        List<CoverageAssignmentDto> coverages =
+                coverageApi.listForItem(circleId, toCoverageSource(source), itemId);
+        List<RsvpDto> rsvps =
+                rsvpApi.listForItems(circleId, toRsvpSource(source), List.of(itemId));
+        List<CarpoolAcceptedPickupDto> acceptedPickups =
+                source == CalendarItemSource.FEED
+                        ? carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId)
+                        : List.of();
+
+        UUID drivingAdultId =
+                resolveDrivingAdultId(adult.id(), circleId, item.kidIds(), coverages, rsvps, acceptedPickups)
+                        .orElseThrow(
+                                () ->
+                                        new CalendarException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Not allowed to route this calendar item"));
+
+        List<RidePlaylistAttendingKid> attending =
+                resolveAttendingKids(source, itemId, drivingAdultId, acceptedPickups);
+        return new CalendarPlaylistResponse(ridePlaylistApi.enrichRiders(adult.id(), attending));
     }
 
     public CalendarItemResponse setLeaveFrom(
@@ -986,6 +1020,103 @@ public class CalendarService {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Kids in the car for Playlist tiles: driving adult's CONFIRMED in-play
+     * household kids plus ACCEPTED pickup kids for that driver (same idea as
+     * route pickups / rider chips). Stable order: household kids then pickups.
+     */
+    private List<RidePlaylistAttendingKid> resolveAttendingKids(
+            CalendarItemSource source,
+            UUID itemId,
+            UUID drivingAdultId,
+            List<CarpoolAcceptedPickupDto> acceptedPickups) {
+        List<CarpoolAcceptedPickupDto> driverPickups =
+                acceptedPickups.stream()
+                        .filter(p -> drivingAdultId.equals(p.acceptedByAdultId()))
+                        .toList();
+
+        UUID driverCircleId =
+                driverPickups.stream()
+                        .map(CarpoolAcceptedPickupDto::acceptingCircleId)
+                        .findFirst()
+                        .orElseGet(
+                                () ->
+                                        familyMembershipApi.requireMemberCircleId(
+                                                drivingAdultId));
+
+        LinkedHashMap<UUID, RidePlaylistAttendingKid> byKid = new LinkedHashMap<>();
+
+        ItemSnapshot driverItem = requireItemSnapshot(driverCircleId, source, itemId);
+        List<CoverageAssignmentDto> driverCoverages =
+                coverageApi.listForItem(driverCircleId, toCoverageSource(source), itemId);
+        List<RsvpDto> driverRsvps =
+                rsvpApi.listForItems(driverCircleId, toRsvpSource(source), List.of(itemId));
+        Set<UUID> inPlayDriver =
+                driverItem.kidIds().stream()
+                        .filter(
+                                id ->
+                                        statusByKid(driverRsvps)
+                                                        .getOrDefault(id, RsvpStatus.NO_RESPONSE)
+                                                != RsvpStatus.NO)
+                        .collect(Collectors.toSet());
+
+        String driverCircleLabel =
+                familyMembershipApi
+                        .findCircle(driverCircleId)
+                        .map(FamilyCircleName::name)
+                        .filter(n -> n != null && !n.isBlank())
+                        .orElse("Family");
+
+        for (CoverageAssignmentDto coverage : driverCoverages) {
+            if (coverage.status() != CoverageStatus.CONFIRMED) {
+                continue;
+            }
+            if (!drivingAdultId.equals(coverage.coveringAdultId())) {
+                continue;
+            }
+            List<UUID> covered =
+                    coverage.kidIds().stream().filter(inPlayDriver::contains).toList();
+            Map<UUID, String> names =
+                    familyMembershipApi.findKids(driverCircleId, covered).stream()
+                            .collect(Collectors.toMap(FamilyKidName::id, FamilyKidName::displayName));
+            for (UUID kidId : covered) {
+                String display = names.getOrDefault(kidId, "Kid");
+                byKid.putIfAbsent(
+                        kidId, new RidePlaylistAttendingKid(kidId, display, driverCircleLabel));
+            }
+        }
+
+        Set<UUID> pickupCircleIds =
+                driverPickups.stream()
+                        .map(CarpoolAcceptedPickupDto::requestingCircleId)
+                        .collect(Collectors.toCollection(HashSet::new));
+        Map<UUID, String> pickupCircleNames = new HashMap<>();
+        for (FamilyCircleName row : familyMembershipApi.findCircles(pickupCircleIds)) {
+            pickupCircleNames.put(
+                    row.id(),
+                    row.name() == null || row.name().isBlank() ? "Family" : row.name());
+        }
+
+        for (CarpoolAcceptedPickupDto pickup : driverPickups) {
+            String inviteLabel =
+                    pickupCircleNames.getOrDefault(pickup.requestingCircleId(), "Family");
+            Map<UUID, String> names =
+                    familyMembershipApi
+                            .findKids(pickup.requestingCircleId(), pickup.kidIds())
+                            .stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            FamilyKidName::id, FamilyKidName::displayName));
+            for (UUID kidId : pickup.kidIds()) {
+                String display = names.getOrDefault(kidId, "Kid");
+                byKid.putIfAbsent(
+                        kidId, new RidePlaylistAttendingKid(kidId, display, inviteLabel));
+            }
+        }
+
+        return List.copyOf(byKid.values());
     }
 
     private List<CalendarRoutePickupInput> pickupsForDriver(

@@ -22,4 +22,7 @@ interface SpotifyOAuthPort {
     List<SpotifyPlaylistInfo> listPlaylists(String accessToken);
 
     SpotifyPlaylistInfo getPlaylist(String accessToken, String playlistId);
+
+    /** Tracks for a playlist (first page; enough for merge UI dogfood). */
+    List<SpotifyTrackInfo> listPlaylistTracks(String accessToken, String playlistId);
 }
