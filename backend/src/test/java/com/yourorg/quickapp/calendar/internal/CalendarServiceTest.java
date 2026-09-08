@@ -663,6 +663,8 @@ class CalendarServiceTest {
         order.verify(coverageApi).remove(adult.id(), assignmentId);
         assertThat(response.coverages()).isEmpty();
         assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.FEED, itemId);
     }
 
     @Test
@@ -734,6 +736,49 @@ class CalendarServiceTest {
 
         verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
         verify(coverageApi).remove(adult.id(), assignmentId);
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.MANUAL, itemId);
+    }
+
+    @Test
+    void confirmCoverageUpsertsDriverRoute() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID assignmentId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto confirmed =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.confirm(adult.id(), assignmentId)).thenReturn(confirmed);
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "vs Thunder", startsAt, null, "Rink", List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(confirmed));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+
+        calendarService.confirmCoverage(adult, assignmentId);
+
+        verify(leaveByApi)
+                .upsertCalendarRoute(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(itemId),
+                        eq("vs Thunder"),
+                        eq(List.of()),
+                        eq("Rink"),
+                        eq("Rink"));
     }
 
     @Test

@@ -1,9 +1,10 @@
 # Spec: ride-route-tab
 
-Status: draft  
+Status: archived  
+Completed: 2026-09-07  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-06  
-Updated: 2026-09-07 (`/spec`)  
+Updated: 2026-09-07 (`/pr`)  
 Added: 2026-09-06 · enhancement  
 Branch: `ride-route-tab`  
 Depends on: [`ride-detail-shell`](../archive/ride-detail-shell.md) (chrome +
@@ -164,29 +165,29 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] OpenAPI defines a calendar/ride **route read** returning `status`,
+- [x] OpenAPI defines a calendar/ride **route read** returning `status`,
       `bufferMinutes`, ordered `stops`, and `legMinutes` (when `OK`); web API
       client updated in the same change; no KMP client updates.
-- [ ] On teammate **accept** and household coverage **confirm** / self-assign
+- [x] On teammate **accept** and household coverage **confirm** / self-assign
       **CONFIRMED**, the server builds and persists the multi-stop itinerary
       (home → pickups → destination) using leaveby geocode + pairwise OSRM +
       existing route-duration cache.
-- [ ] GET returns the cached route when the stop fingerprint still matches; a
+- [x] GET returns the cached route when the stop fingerprint still matches; a
       fingerprint-changing write (withdraw/cancel accepted ride, end confirmed
       coverage, leave-from/place/destination change) invalidates or recomputes
       before the next successful read.
-- [ ] `bufferMinutes` is **45** (game) / **20** (practice) / **0** (other) per
+- [x] `bufferMinutes` is **45** (game) / **20** (practice) / **0** (other) per
       the locked heuristic; not editable in this PR.
-- [ ] When `canRoute` and the API returns `OK`, Route tab leave-by hero, stop
+- [x] When `canRoute` and the API returns `OK`, Route tab leave-by hero, stop
       times (`computeSchedule`), Start navigation, and map embed/placeholder use
       **live** stops/`legMinutes` — not game/practice fixtures.
-- [ ] When routing is `UNAVAILABLE`, the Route tab shows a minimal honest
+- [x] When routing is `UNAVAILABLE`, the Route tab shows a minimal honest
       unavailable state (no silent fixture leave-by presented as live).
-- [ ] Notify ready-by keeps local sending/sent UI only (channel-agnostic call
+- [x] Notify ready-by keeps local sending/sent UI only (channel-agnostic call
       site; no push/SMS/network delivery).
-- [ ] Playlist tab may remain fixture-driven; no Spotify/OAuth work.
-- [ ] UI copy continues to say **estimate** (never live traffic / ETA).
-- [ ] Backend unit + integration tests for build/cache/invalidate and GET
+- [x] Playlist tab may remain fixture-driven; no Spotify/OAuth work.
+- [x] UI copy continues to say **estimate** (never live traffic / ETA).
+- [x] Backend unit + integration tests for build/cache/invalidate and GET
       auth/gate; web component tests prove live props drive Route tab (and
       unavailable path).
 
@@ -204,7 +205,7 @@ Allowlist for `/implement`:
       for playlist or offline demos
 - [x] Web: minimal `UNAVAILABLE` Route state (polish owns richer chrome later)
 - [x] Notify: leave call-site as no-op / local-only (document hook for push)
-- [ ] Tests: leaveby/carpool/coverage unit + API integration; `RideRouteTab` /
+- [x] Tests: leaveby/carpool/coverage unit + API integration; `RideRouteTab` /
       `FamilyScreen` (or detail host) tests for OK + UNAVAILABLE; no live OSRM
       in CI (stub provider)
 

@@ -28,7 +28,7 @@ wrong number. Route and playlist tabs need explicit loading and error states.
 - **Mockup SoT:** pending/empty/error copy and interaction patterns in
   [`docs/ui-system/carpool-combined-flow.jsx`](../../ui-system/carpool-combined-flow.jsx)
   — keep unless `/spec` names a change.
-- Depends on [`ride-route-tab`](../active/ride-route-tab.md) and
+- Depends on [`ride-route-tab`](../archive/ride-route-tab.md) and
   [`ride-playlist-tab`](ride-playlist-tab.md) shipping first.
 - Explicit “couldn’t compute drive time” when OSRM fails (do not fall back to a
   fake leave-by without labeling it).

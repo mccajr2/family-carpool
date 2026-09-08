@@ -27,8 +27,12 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.FeedsApi;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyChannel;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyContact;
+import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
+import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -408,6 +412,21 @@ class CarpoolRideServiceTest {
                         kidB,
                         RsvpStatus.YES,
                         adultId);
+        verify(leaveByApi)
+                .upsertCalendarRoute(
+                        eq(adultId),
+                        eq(LeaveByItemSource.FEED),
+                        eq(eventId),
+                        eq("Practice"),
+                        eq(
+                                List.of(
+                                        new CalendarRoutePickupInput(
+                                                "Home",
+                                                "1 Main St",
+                                                new CalendarRouteNotifyContact(
+                                                        CalendarRouteNotifyChannel.PUSH, "Home")))),
+                        eq("Field 3"),
+                        eq("Field 3"));
     }
 
     @Test
@@ -721,6 +740,7 @@ class CarpoolRideServiceTest {
                         List.of(
                                 new FamilyCircleName(otherCircleId, "House B"),
                                 new FamilyCircleName(circleId, "House A")));
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
 
         var withdrawn = service.withdraw(adult, spaceId, accepted.id());
         assertThat(withdrawn.status()).isEqualTo(CarpoolRideStatus.PENDING);
@@ -729,6 +749,8 @@ class CarpoolRideServiceTest {
         assertThat(withdrawn.passedByAdultNames()).isEmpty();
         verify(passes, never()).deleteByRideId(accepted.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adultId, LeaveByItemSource.FEED, eventId);
     }
 
     @Test

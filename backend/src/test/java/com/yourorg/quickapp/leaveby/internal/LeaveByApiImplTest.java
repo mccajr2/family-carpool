@@ -955,6 +955,18 @@ class LeaveByApiImplTest {
                         adultId, LeaveByItemSource.FEED, itemId);
     }
 
+    @Test
+    void invalidateCalendarRoutesForItemDeletesAllDrivers() {
+        api.invalidateCalendarRoutesForItem(LeaveByItemSource.MANUAL, itemId);
+        verify(itineraryRepository).deleteByItemSourceAndItemId(LeaveByItemSource.MANUAL, itemId);
+    }
+
+    @Test
+    void invalidateCalendarRoutesForDrivingAdultDeletesAllItems() {
+        api.invalidateCalendarRoutesForDrivingAdult(adultId);
+        verify(itineraryRepository).deleteByDrivingAdultId(adultId);
+    }
+
     private void failIfUpstreamHttp() {
         lenient()
                 .when(geocodeApi.resolveLocation(any()))

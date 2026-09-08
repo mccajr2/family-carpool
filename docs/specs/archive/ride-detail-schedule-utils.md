@@ -8,7 +8,7 @@ Updated: 2026-09-06 (`/pr`)
 Added: 2026-09-06 · enhancement  
 Branch: `ride-detail-schedule-utils`  
 Feeds: [`ride-detail-shell`](ride-detail-shell.md) →
-[`ride-route-tab`](../active/ride-route-tab.md) /
+[`ride-route-tab`](../archive/ride-route-tab.md) /
 [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
 
 ## Problem
@@ -25,14 +25,14 @@ unit-tested without UI risk — same foundation pattern as
 - Detail screen UI, Agenda/`canRoute` entry points, or Route/Playlist chrome
   ([`ride-detail-shell`](ride-detail-shell.md) and later)
 - OSRM / geocoding / live `legMinutes` computation
-  ([`ride-route-tab`](../active/ride-route-tab.md))
+  ([`ride-route-tab`](../archive/ride-route-tab.md))
 - Spotify OAuth, API calls, or token storage
   ([`ride-playlist-tab`](../planned/ride-playlist-tab.md))
 - Persist `Ride` or playlist records; OpenAPI / backend changes
 - Choosing `bufferMinutes` product defaults (mockup 45 game / 15 practice vs
   Agenda sketch) — deferred to
   [`event-arrival-lead-time`](../planned/event-arrival-lead-time.md) /
-  [`ride-route-tab`](../active/ride-route-tab.md); this slice only consumes a
+  [`ride-route-tab`](../archive/ride-route-tab.md); this slice only consumes a
   numeric `bufferMinutes`
 - Apple Music / multi-service catalogs; in-app turn-by-turn
 - Wiring helpers into live Calendar/Agenda surfaces
@@ -80,7 +80,7 @@ re-implement these formulas in components.
   `web/src/components/coverageQueue.ts`
 - Downstream stubs (read Problem/Notes only if needed for type naming):
   [`ride-detail-shell`](ride-detail-shell.md),
-  [`ride-route-tab`](../active/ride-route-tab.md),
+  [`ride-route-tab`](../archive/ride-route-tab.md),
   [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
 
 ## Acceptance criteria

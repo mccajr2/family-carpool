@@ -8091,10 +8091,10 @@ detourMinutes: null,
             reason: null,
             bufferMinutes: 20,
             stops: [
-              { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+              { name: "Live Home", address: "100 Live St", kind: "home" },
               {
-                name: "Allied Veterans Rink",
-                address: "65 Elm St, Everett, MA",
+                name: "Live Rink",
+                address: "200 Live Ave",
                 kind: "destination",
               },
             ],
@@ -8114,9 +8114,14 @@ detourMinutes: null,
     const detail = await screen.findByTestId("ride-detail-screen")
     expect(detail).toHaveAttribute("data-fixture-kind", "practice")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
-    expect(await screen.findByTestId("ride-route-tab")).toHaveTextContent(
-      "20 min early for practices",
-    )
+    const routeTab = await screen.findByTestId("ride-route-tab")
+    expect(routeTab).toHaveTextContent("20 min early for practices")
+    expect(routeTab).toHaveTextContent("Live Home")
+    expect(routeTab).toHaveTextContent("Live Rink")
+    expect(routeTab).toHaveTextContent("100 Live St")
+    expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-start-nav")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-unavailable")).not.toBeInTheDocument()
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
   })
 
