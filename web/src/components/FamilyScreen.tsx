@@ -11,6 +11,7 @@ import { applyLeaveByFillIn, mergeCalendarWindowRefresh } from "@/api/calendarLe
 import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
+import { PlaylistClient } from "@/api/playlistClient"
 import {
   isPlaceLocated,
   type ActivityFeed,
@@ -73,6 +74,10 @@ import {
   driveMinutesFromRouteLegs,
   playlistRidersFromCalendarPlaylist,
 } from "@/components/playlistRidersFromCalendarPlaylist"
+import {
+  consumeSpotifyConnectedQuery,
+  takeSpotifyOAuthReturn,
+} from "@/components/spotifyOAuthReturn"
 import { rideScheduleFromCalendarRoute } from "@/components/rideScheduleFromCalendarRoute"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
@@ -137,6 +142,7 @@ type FamilyScreenProps = {
   authClient?: AuthClient
   familyClient?: FamilyClient
   carpoolClient?: CarpoolClient
+  playlistClient?: PlaylistClient
   calendarCacheStore?: CalendarCacheStore
   bootstrapCacheStore?: FamilyBootstrapStore
   /** Test hook — local "today" for agenda grouping and carousel horizon. */
@@ -203,6 +209,7 @@ export function FamilyScreen({
   authClient,
   familyClient: familyClientProp,
   carpoolClient: carpoolClientProp,
+  playlistClient: playlistClientProp,
   calendarCacheStore: calendarCacheStoreProp,
   bootstrapCacheStore: bootstrapCacheStoreProp,
   now: nowProp,
@@ -216,6 +223,9 @@ export function FamilyScreen({
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
   const [carpoolClient] = useState(() => carpoolClientProp ?? new CarpoolClient())
+  const [playlistClient] = useState(
+    () => playlistClientProp ?? new PlaylistClient(),
+  )
   const [calendarCache] = useState(
     () => calendarCacheStoreProp ?? new CalendarCacheStore(),
   )
@@ -305,6 +315,11 @@ export function FamilyScreen({
   const [rideDetailPlaylistError, setRideDetailPlaylistError] = useState<string | null>(
     null,
   )
+  /** Kid to open designate picker for after Spotify OAuth return. */
+  const [pendingDesignateKidId, setPendingDesignateKidId] = useState<string | null>(
+    null,
+  )
+  const [playlistReloadToken, setPlaylistReloadToken] = useState(0)
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
     null,
   )
@@ -359,6 +374,21 @@ export function FamilyScreen({
     }
   }, [destination, circle?.role])
 
+  // Resume ride-detail Playlist after Spotify OAuth success redirect.
+  useEffect(() => {
+    if (!consumeSpotifyConnectedQuery()) {
+      return
+    }
+    const stored = takeSpotifyOAuthReturn()
+    if (stored == null) {
+      return
+    }
+    setDestination("calendar")
+    setRideDetailItemKey(stored.rideDetailItemKey)
+    setRideDetailTab("playlist")
+    setPendingDesignateKidId(stored.designateKidId)
+  }, [])
+
   useEffect(() => {
     if (rideDetailItemKey == null) {
       setRideDetailRoute(null)
@@ -367,6 +397,7 @@ export function FamilyScreen({
       setRideDetailPlaylist(null)
       setRideDetailPlaylistLoading(false)
       setRideDetailPlaylistError(null)
+      setPendingDesignateKidId(null)
       return
     }
     const item = calendarItems.find((row) => calendarItemKey(row) === rideDetailItemKey)
@@ -380,8 +411,6 @@ export function FamilyScreen({
     let cancelled = false
     setRideDetailRouteLoading(true)
     setRideDetailRouteError(null)
-    setRideDetailPlaylistLoading(true)
-    setRideDetailPlaylistError(null)
     void familyClient
       .getCalendarRoute(token, item.source, item.id)
       .then((route) => {
@@ -401,6 +430,26 @@ export function FamilyScreen({
           error instanceof Error ? error.message : "Could not load route estimate",
         )
       })
+    return () => {
+      cancelled = true
+    }
+  }, [rideDetailItemKey, calendarItems, familyClient, session])
+
+  useEffect(() => {
+    if (rideDetailItemKey == null) {
+      return
+    }
+    const item = calendarItems.find((row) => calendarItemKey(row) === rideDetailItemKey)
+    if (item == null) {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    let cancelled = false
+    setRideDetailPlaylistLoading(true)
+    setRideDetailPlaylistError(null)
     void familyClient
       .getCalendarPlaylist(token, item.source, item.id)
       .then((playlist) => {
@@ -423,7 +472,7 @@ export function FamilyScreen({
     return () => {
       cancelled = true
     }
-  }, [rideDetailItemKey, calendarItems, familyClient, session])
+  }, [rideDetailItemKey, calendarItems, familyClient, session, playlistReloadToken])
 
   const feedIdsKey = feeds.map((feed) => feed.id).join(",")
   useEffect(() => {
@@ -2236,7 +2285,9 @@ export function FamilyScreen({
     rideDetailRoute != null ? rideScheduleFromCalendarRoute(rideDetailRoute) : null
   const rideDetailPlaylistRiders =
     rideDetailPlaylist != null
-      ? playlistRidersFromCalendarPlaylist(rideDetailPlaylist)
+      ? playlistRidersFromCalendarPlaylist(rideDetailPlaylist, {
+          circleKidIds: circle.kids.map((kid) => kid.id),
+        })
       : null
   const rideDetailDriveMinutes =
     rideDetailRoute?.status === "OK"
@@ -2534,6 +2585,14 @@ export function FamilyScreen({
                   driveMinutes={rideDetailDriveMinutes}
                   shuffleSeed={ridePlaylistShuffleSeed}
                   onRemix={() => setRidePlaylistShuffleSeed((seed) => seed + 1)}
+                  playlistClient={playlistClient}
+                  accessToken={session.getAccessToken()}
+                  rideDetailItemKey={rideDetailItemKey}
+                  pendingDesignateKidId={pendingDesignateKidId}
+                  onConsumePendingDesignate={() => setPendingDesignateKidId(null)}
+                  onPlaylistChanged={() =>
+                    setPlaylistReloadToken((token) => token + 1)
+                  }
                 />
               ) : (
                 <div

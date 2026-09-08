@@ -5,13 +5,29 @@
 import type { CalendarPlaylist } from "@/api/types"
 import type { FixturePlaylistRider } from "@/components/rideDetailFixtures"
 
+export type PlaylistRidersMapOptions = {
+  /** Circle kid ids for the viewing adult — enables connect/designate on those tiles. */
+  circleKidIds?: ReadonlySet<string> | readonly string[]
+}
+
 export function playlistRidersFromCalendarPlaylist(
   playlist: CalendarPlaylist,
+  options: PlaylistRidersMapOptions = {},
 ): FixturePlaylistRider[] {
+  const circleKids =
+    options.circleKidIds == null
+      ? null
+      : options.circleKidIds instanceof Set
+        ? options.circleKidIds
+        : new Set(options.circleKidIds)
+
   return playlist.riders.map((rider) => ({
+    kidId: rider.kidId,
     name: rider.kidDisplayName,
     connected: rider.connected,
     playlistName: rider.playlistName ?? undefined,
+    designatingAdultId: rider.designatingAdultId ?? null,
+    viewerCanManage: circleKids?.has(rider.kidId) ?? false,
     tracks: rider.tracks.map((track) => ({
       title: track.title,
       artist: track.artist,

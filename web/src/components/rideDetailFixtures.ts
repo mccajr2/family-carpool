@@ -29,6 +29,11 @@ export type FixtureRideStop = RideStop & {
 export type FixturePlaylistRider = PlaylistRider & {
   playlistName?: string
   contact?: RideNotifyContact
+  /** Present on live calendar playlist riders. */
+  kidId?: string
+  designatingAdultId?: string | null
+  /** True when this kid is in the viewer's circle (connect/designate allowed). */
+  viewerCanManage?: boolean
 }
 
 export type FixtureCarpoolRoute = Omit<CarpoolRouteSchedule, "stops"> & {

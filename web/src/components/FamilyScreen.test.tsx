@@ -21,6 +21,22 @@ import * as coverageQueue from "@/components/coverageQueue"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
+vi.mock("@/api/playlistClient", () => {
+  class MockPlaylistClient {
+    getSpotifyStatus = vi.fn().mockResolvedValue({ connected: false })
+    getSpotifyAuthorize = vi.fn().mockResolvedValue({
+      authorizeUrl: "https://accounts.spotify.com/authorize?state=test",
+      state: "test",
+    })
+    listSpotifyPlaylists = vi.fn().mockResolvedValue([])
+    listKidPlaylistDesignations = vi.fn().mockResolvedValue([])
+    setKidPlaylistDesignation = vi.fn()
+    clearKidPlaylistDesignation = vi.fn()
+    revokeSpotify = vi.fn()
+  }
+  return { PlaylistClient: MockPlaylistClient }
+})
+
 /** Fixed "today" for 2030-dated calendar fixtures in this file. */
 const AGENDA_TEST_NOW = new Date("2030-08-14T12:00:00.000Z")
 
@@ -8035,12 +8051,17 @@ detourMinutes: null,
     )
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
 
-    // Playlist tab smoke (live API riders)
+    // Playlist tab smoke (live API riders + connect affordance for circle kid)
     expect(await screen.findByTestId("ride-playlist-tab")).toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
       "data-connected",
       "true",
     )
+    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
+      "data-viewer-can-manage",
+      "true",
+    )
+    expect(await screen.findByTestId("ride-playlist-connect-Sam")).toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-coverage")).toHaveTextContent(
       /Drive is ~30 min — add more songs to fill it/,
     )
