@@ -23,11 +23,13 @@ class GeocodeService {
 
     /**
      * Resolve coordinates for an address. Soft-fails: empty on miss or provider error.
-     * Successful provider results are cached by normalized address.
+     * Successful provider results are cached by normalized geocode query (venue
+     * prefix stripped when a house number follows).
      */
     @Transactional
     Optional<GeoCoordinates> resolve(String address) {
-        String key = normalizeAddress(address);
+        String query = GeocodeAddressQuery.forGeocode(address);
+        String key = normalizeAddress(query);
         if (key.isEmpty() || key.length() > 255) {
             return Optional.empty();
         }
@@ -36,7 +38,7 @@ class GeocodeService {
             GeocodeCacheEntity row = cached.get();
             return Optional.of(new GeoCoordinates(row.latitude(), row.longitude()));
         }
-        Optional<GeoCoordinates> hit = geocoder.geocode(address.trim());
+        Optional<GeoCoordinates> hit = geocoder.geocode(query);
         hit.ifPresent(
                 coords ->
                         cacheRepository.save(
@@ -51,7 +53,7 @@ class GeocodeService {
      */
     @Transactional(readOnly = true)
     Optional<GeoCoordinates> findCached(String address) {
-        String key = normalizeAddress(address);
+        String key = normalizeAddress(GeocodeAddressQuery.forGeocode(address));
         if (key.isEmpty() || key.length() > 255) {
             return Optional.empty();
         }
