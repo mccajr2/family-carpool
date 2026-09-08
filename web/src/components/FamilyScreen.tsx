@@ -2593,6 +2593,18 @@ export function FamilyScreen({
                   onPlaylistChanged={() =>
                     setPlaylistReloadToken((token) => token + 1)
                   }
+                  onOpenInSpotify={async (body) => {
+                    const token = session.getAccessToken()
+                    if (!token || rideDetailItem == null) {
+                      throw new Error("Not signed in")
+                    }
+                    return familyClient.openCalendarPlaylist(
+                      token,
+                      rideDetailItem.source,
+                      rideDetailItem.id,
+                      body,
+                    )
+                  }}
                 />
               ) : (
                 <div

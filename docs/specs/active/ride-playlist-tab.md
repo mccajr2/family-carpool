@@ -174,7 +174,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
 - [x] Web: wire `RidePlaylistTab` / `FamilyScreen` to live playlist read
   (drop fixture riders when live payload available)
 - [x] Web: connect + designate-playlist UX for the viewer’s kid tiles
-- [ ] Web: Open / Remix behavior per Approach; invite call site parallel to
+- [x] Web: Open / Remix behavior per Approach; invite call site parallel to
   `rideNotify` (soft-succeed)
 - [ ] Tests: backend unit + integration for token/designate/read/open; web
   component tests for rider tiles, Open URL rules, Remix gating, invite local UI

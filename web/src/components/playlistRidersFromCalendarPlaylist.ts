@@ -32,6 +32,7 @@ export function playlistRidersFromCalendarPlaylist(
       title: track.title,
       artist: track.artist,
       sec: track.durationSec,
+      ...(track.uri ? { uri: track.uri } : {}),
     })),
     contact: rider.inviteContact
       ? { channel: rider.inviteContact.channel, to: rider.inviteContact.to }

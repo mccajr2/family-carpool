@@ -11,11 +11,19 @@ import {
 } from "lucide-react"
 
 import type { PlaylistClient } from "@/api/playlistClient"
-import type { SpotifyPlaylistOption } from "@/api/types"
+import type {
+  OpenCalendarPlaylistRequest,
+  SpotifyPlaylistOption,
+} from "@/api/types"
 import type {
   FixturePlaylistRider,
   RideNotifyContact,
 } from "@/components/rideDetailFixtures"
+import {
+  deliverPlaylistConnectInvite,
+  type PlaylistInviteRequest,
+} from "@/components/ridePlaylistInvite"
+import type { RideNotifyResult } from "@/components/rideNotify"
 import type { RideNotifyState } from "@/components/RideRouteTab"
 import {
   fmtMinSec,
@@ -24,7 +32,7 @@ import {
 } from "@/components/rideScheduleUtils"
 import { saveSpotifyOAuthReturn } from "@/components/spotifyOAuthReturn"
 
-/** Demo Spotify URL from the mockup — not a live playlist (Open handoff is next task). */
+/** Demo Spotify URL — used only when no live open handler is wired (fixture smoke). */
 export const SPOTIFY_DEMO_PLAYLIST_URL =
   "https://open.spotify.com/playlist/carpool-demo"
 
@@ -39,6 +47,15 @@ export type RidePlaylistTabProps = {
   onRemix: () => void
   /** Invite delay ms — default matches mockup; override in tests. */
   inviteDelayMs?: number
+  /** Soft-succeed invite delivery — inject to assert; default hits no network. */
+  deliverInvite?: (request: PlaylistInviteRequest) => Promise<RideNotifyResult>
+  /**
+   * Live Open-in-Spotify handoff. 1 connected → omit trackUris; 2+ → remixed
+   * URIs when available. Returns the Spotify web URL to open.
+   */
+  onOpenInSpotify?: (
+    body?: OpenCalendarPlaylistRequest | null,
+  ) => Promise<{ url: string }>
   /** Live connect/designate — omit in fixture-only smoke tests. */
   playlistClient?: PlaylistClient
   accessToken?: string | null
@@ -55,8 +72,10 @@ export type RidePlaylistTabProps = {
    */
   pendingDesignateKidId?: string | null
   onConsumePendingDesignate?: () => void
-  /** Override window.location.assign in tests. */
+  /** Override window.location.assign in tests (OAuth redirect). */
   assignLocation?: (url: string) => void
+  /** Override window.open for Open-in-Spotify handoff in tests. */
+  openExternalUrl?: (url: string) => void
 }
 
 function formatSentAt(now: Date = new Date()): string {
@@ -86,6 +105,13 @@ export function remixMergedTracks(
     ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
   }
   return arr
+}
+
+/** Spotify track URIs in current (possibly remixed) merge order. */
+export function remixedTrackUris(tracks: MergedTrack[]): string[] {
+  return tracks
+    .map((track) => track.uri)
+    .filter((uri): uri is string => typeof uri === "string" && uri.length > 0)
 }
 
 function InviteAction({
@@ -524,8 +550,8 @@ function TrackRow({ track }: { track: MergedTrack }) {
 }
 
 /**
- * Playlist tab: riders, invite stub, merged hero, Spotify demo link, remix, tracks.
- * Merge math from rideScheduleUtils; invite is local UI only.
+ * Playlist tab: riders, invite stub, merged hero, Open/Remix, tracks.
+ * Merge math from rideScheduleUtils; invite soft-succeeds via ridePlaylistInvite.
  * Connect / designate for viewer-managed kid tiles when playlistClient is provided.
  */
 export function RidePlaylistTab({
@@ -534,6 +560,8 @@ export function RidePlaylistTab({
   shuffleSeed,
   onRemix,
   inviteDelayMs = 700,
+  deliverInvite = deliverPlaylistConnectInvite,
+  onOpenInSpotify,
   playlistClient,
   accessToken = null,
   rideDetailItemKey = null,
@@ -542,6 +570,9 @@ export function RidePlaylistTab({
   onConsumePendingDesignate,
   assignLocation = (url) => {
     window.location.assign(url)
+  },
+  openExternalUrl = (url) => {
+    window.open(url, "_blank", "noopener,noreferrer")
   },
 }: RidePlaylistTabProps) {
   const [inviteStates, setInviteStates] = useState<Record<string, RideNotifyState>>({})
@@ -559,6 +590,8 @@ export function RidePlaylistTab({
   const [designateError, setDesignateError] = useState<string | null>(null)
   const [designateSaving, setDesignateSaving] = useState(false)
   const [selectedPlaylistId, setSelectedPlaylistId] = useState("")
+  const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState<string | null>(null)
 
   const manageEnabled = playlistClient != null && accessToken != null
 
@@ -666,16 +699,63 @@ export function RidePlaylistTab({
   const queuedMinutesLabel = fmtMinSec(totalSec).split(":")[0]
 
   function handleInvite(rider: FixturePlaylistRider) {
+    const contact = rider.contact
+    if (contact == null) {
+      return
+    }
     setInviteStates((current) => ({
       ...current,
       [rider.name]: { status: "sending" },
     }))
-    window.setTimeout(() => {
-      setInviteStates((current) => ({
-        ...current,
-        [rider.name]: { status: "sent", sentAt: formatSentAt() },
-      }))
-    }, inviteDelayMs)
+    void deliverInvite({
+      channel: contact.channel,
+      to: contact.to,
+      kidName: rider.name,
+    }).then((result) => {
+      window.setTimeout(() => {
+        setInviteStates((current) => {
+          if (!result.ok) {
+            // Soft-fail: drop sending state. Failure chrome → ride-detail-polish.
+            const next = { ...current }
+            delete next[rider.name]
+            return next
+          }
+          return {
+            ...current,
+            [rider.name]: { status: "sent", sentAt: formatSentAt() },
+          }
+        })
+      }, inviteDelayMs)
+    })
+  }
+
+  async function handleOpenInSpotify() {
+    if (connectedCount === 0 || opening) {
+      return
+    }
+    setOpenError(null)
+    if (onOpenInSpotify == null) {
+      openExternalUrl(SPOTIFY_DEMO_PLAYLIST_URL)
+      return
+    }
+    setOpening(true)
+    try {
+      const body =
+        connectedCount >= 2
+          ? (() => {
+              const trackUris = remixedTrackUris(merged)
+              return trackUris.length > 0 ? { trackUris } : null
+            })()
+          : null
+      const { url } = await onOpenInSpotify(body)
+      openExternalUrl(url)
+      setOpening(false)
+    } catch (error: unknown) {
+      setOpening(false)
+      setOpenError(
+        error instanceof Error ? error.message : "Could not open playlist in Spotify",
+      )
+    }
   }
 
   async function handleConnect(rider: FixturePlaylistRider) {
@@ -843,26 +923,46 @@ export function RidePlaylistTab({
           </div>
         ) : null}
         <div className="mt-[var(--fc-space-ride-detail-cta-mt)] flex flex-wrap gap-3">
-          <a
-            href={SPOTIFY_DEMO_PLAYLIST_URL}
-            target="_blank"
-            rel="noreferrer"
-            data-testid="ride-playlist-spotify"
-            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)]"
-            style={{ background: "var(--fc-hero-on)", color: "var(--fc-hero-on-inverse)" }}
-          >
-            <Play aria-hidden size={16} /> Open in Spotify
-          </a>
           <button
             type="button"
-            data-testid="ride-playlist-remix"
-            onClick={onRemix}
-            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] text-[var(--fc-hero-on)]"
-            style={{ background: "var(--fc-hero-decline-bg)" }}
+            data-testid="ride-playlist-spotify"
+            data-open-enabled={connectedCount > 0 ? "true" : "false"}
+            disabled={connectedCount === 0 || opening}
+            onClick={() => void handleOpenInSpotify()}
+            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "var(--fc-hero-on)", color: "var(--fc-hero-on-inverse)" }}
           >
-            <Shuffle aria-hidden size={16} /> Remix merge order
+            {opening ? (
+              <>
+                <Loader2 aria-hidden size={16} className="animate-spin" /> Opening…
+              </>
+            ) : (
+              <>
+                <Play aria-hidden size={16} /> Open in Spotify
+              </>
+            )}
           </button>
+          {connectedCount >= 2 ? (
+            <button
+              type="button"
+              data-testid="ride-playlist-remix"
+              onClick={onRemix}
+              className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] text-[var(--fc-hero-on)]"
+              style={{ background: "var(--fc-hero-decline-bg)" }}
+            >
+              <Shuffle aria-hidden size={16} /> Remix merge order
+            </button>
+          ) : null}
         </div>
+        {openError != null ? (
+          <div
+            data-testid="ride-playlist-open-error"
+            role="alert"
+            className="mt-2 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-hero-ring)]"
+          >
+            {openError}
+          </div>
+        ) : null}
       </div>
 
       <div

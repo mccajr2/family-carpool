@@ -106,6 +106,9 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
         },
       ],
     }),
+    openCalendarPlaylist: vi.fn().mockResolvedValue({
+      url: "https://open.spotify.com/playlist/sam-gameday",
+    }),
     ...partial,
   } as FamilyClient
 }
@@ -8066,7 +8069,7 @@ detourMinutes: null,
       /Drive is ~30 min — add more songs to fill it/,
     )
     expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-remix")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-playlist-remix")).not.toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
     expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
 

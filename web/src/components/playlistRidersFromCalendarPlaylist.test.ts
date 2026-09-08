@@ -49,8 +49,8 @@ describe("playlistRidersFromCalendarPlaylist", () => {
         designatingAdultId: null,
         viewerCanManage: false,
         tracks: [
-          { title: "Sunset Drive", artist: "Coastline", sec: 198 },
-          { title: "Overtime", artist: "Pace Car", sec: 202 },
+          { title: "Sunset Drive", artist: "Coastline", sec: 198, uri: "spotify:track:a1" },
+          { title: "Overtime", artist: "Pace Car", sec: 202, uri: "spotify:track:a2" },
         ],
         contact: undefined,
       },
