@@ -1,6 +1,6 @@
 # Spec stub: carpool-leg-to-from
 
-Status: parking  
+Status: planned  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
 Added: 2026-08-14 · enhancement
@@ -19,13 +19,13 @@ ask for to, from, or both; accepters see which legs they are covering.
 
 ## Non-goals (sketch)
 
-- Changing v1 request/accept while it is still the next carpool product slice
 - Pickup vs drop-off at a house (`carpool-meet-at`)
 - Early/late time windows (`carpool-early-late-window`)
-- Multi-stop leave-by (`driver-leave-by-pickups`)
+- Stop-order optimize (`carpool-route-optimize`)
+- Expo / push
 
 ## Notes
 
-- Depends on `carpool-request-accept`.
+- Depends on shipped `carpool-request-accept`.
 - Kid subset stays on request/accept (default all attending; deselect override).
-- Promote only after simple both-legs request/accept is dogfoodable.
+- Promoted for carpool Beta (2026-09-08) — web first.

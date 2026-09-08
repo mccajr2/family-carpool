@@ -1,10 +1,11 @@
 # Spec stub: push-notifications
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-07  
 Added: 2026-08-07 · initial  
-Promoted: 2026-08-25 · pre-beta (carpool)
+Promoted: 2026-08-25 · pre-beta (carpool)  
+Parked: 2026-09-08 · carpool Beta (web first; revive with Expo)
 
 Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec push-notifications`
 to flesh out Approach, Acceptance Criteria, and Tasks before any code.

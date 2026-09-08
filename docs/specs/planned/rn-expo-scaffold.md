@@ -1,9 +1,10 @@
 # Spec stub: rn-expo-scaffold
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-25  
-Added: 2026-08-25 · enhancement
+Added: 2026-08-25 · enhancement  
+Parked: 2026-09-08 · carpool Beta (web first)
 
 Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec rn-expo-scaffold`
 to flesh out Approach, Acceptance Criteria, and Tasks before any code.
