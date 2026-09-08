@@ -162,7 +162,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
 
 ## Tasks
 
-- [ ] Backend: Spotify OAuth (authorize URL + callback), encrypted token
+- [x] Backend: Spotify OAuth (authorize URL + callback), encrypted token
   storage, refresh, revoke; config for client id/secret/redirect
 - [ ] Backend: per-adult-per-kid designated playlist persistence + list/set API
 - [ ] Backend: confirmed-ride playlist read — attending kids, connection,

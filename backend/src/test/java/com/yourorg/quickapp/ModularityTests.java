@@ -21,6 +21,7 @@ class ModularityTests {
         assertThat(modules.getModuleByName("coverage")).isPresent();
         assertThat(modules.getModuleByName("rsvp")).isPresent();
         assertThat(modules.getModuleByName("carpool")).isPresent();
+        assertThat(modules.getModuleByName("playlist")).isPresent();
         assertThat(modules.getModuleByName("greeting")).isEmpty();
     }
 }
