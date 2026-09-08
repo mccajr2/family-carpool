@@ -13,13 +13,14 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-Confirmed rides can still be mid-compute (geocoding / OSRM in flight), notify or
-invite can fail, and OSRM can be unreachable — leave-by must not silently show a
-wrong number. Route and playlist tabs need explicit loading and error states.
+Confirmed rides can still be mid-compute (geocoding / OSRM in flight), notify
+can fail, and OSRM can be unreachable — leave-by must not silently show a wrong
+number. The Route-only detail surface needs explicit loading and error states.
 
 ## Non-goals (sketch)
 
 - New happy-path features beyond honest empty/error/loading chrome
+- Playlist / Spotify / Apple Music work (parked — see Carpool music)
 - Replacing OSRM with paid live traffic (`paid-live-traffic`)
 - Building push infrastructure (`push-notifications`)
 
@@ -27,8 +28,9 @@ wrong number. Route and playlist tabs need explicit loading and error states.
 
 - **Mockup SoT:** pending/empty/error copy and interaction patterns in
   [`docs/ui-system/carpool-combined-flow.jsx`](../../ui-system/carpool-combined-flow.jsx)
-  — keep unless `/spec` names a change.
+  — keep unless `/spec` names a change (Playlist chrome may already be hidden by
+  [`ride-detail-route-only`](ride-detail-route-only.md)).
 - Depends on [`ride-route-tab`](../archive/ride-route-tab.md) and
-  [`ride-playlist-tab`](../archive/ride-playlist-tab.md) shipping first.
+  [`ride-detail-route-only`](ride-detail-route-only.md) (Playlist chrome hidden).
 - Explicit “couldn’t compute drive time” when OSRM fails (do not fall back to a
   fake leave-by without labeling it).

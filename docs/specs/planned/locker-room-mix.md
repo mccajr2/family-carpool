@@ -20,14 +20,15 @@ pin lucky songs.
 
 ## Non-goals (sketch)
 
-- Inventing a second playlist engine (reuse `ride-playlist-merge`)
-- Song lookup / streaming export (`playlist-open-in-streaming`)
+- Inventing a second playlist engine (reuse provider-neutral merge /
+  `mergeTracks`)
+- Becoming the first music milestone (ride Apple Music path first)
 - Coach-administered club software
-- In-app playback
 
 ## Notes
 
-- Depends on `ride-playlist-merge` + a real team space
-  (`team-carpool-space-invite`).
+- Promote only after the Apple Music / provider path dogfoods
+  (`apple-music-web-playback` or later).
+- Depends on a real team space (`team-carpool-space-invite`).
 - Surface is the carpool space, not a single ride. Keep it optional and
   secondary to rides.

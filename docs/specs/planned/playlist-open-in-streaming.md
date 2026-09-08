@@ -1,29 +1,15 @@
 # Spec stub: playlist-open-in-streaming
 
-Status: parking  
+Status: cancelled  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
-Added: 2026-08-14 · enhancement
+Cancelled: 2026-09-08
 
-Thin stub from `/roadmap`. **Not implementable yet.** Spotify open/export for
-the confirmed-ride flow moved to [`ride-playlist-tab`](../archive/ride-playlist-tab.md).
-This id remains for **Apple Music / multi-service** catalog lookup only.
+Superseded by the parked Apple Music / provider-agnostic path:
+`music-provider-model` → `apple-music-connect` → `apple-music-playlist-ingest`
+→ `apple-music-web-playback` → `apple-music-native-playback` →
+`music-playback-host`. Do not promote this id.
 
-If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
-(`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
-
-## Problem
-
-Families on Apple Music (or mixed services) still need free song lookup and
-open/export outside the Spotify-only ride playlist tab.
-
-## Non-goals (sketch)
-
-- Spotify OAuth / merge / Open in Spotify (`ride-playlist-tab`)
-- In-app audio playback or paid music APIs
-- Replacing carpool request/accept
-
-## Notes
-
-- Promote only after `ride-playlist-tab` dogfood if multi-service demand appears.
-- Constraint remains: free catalog/API only.
+Spotify open/export for the confirmed-ride flow remains in archived
+[`ride-playlist-tab`](../archive/ride-playlist-tab.md) (UI parked via
+`ride-detail-route-only`).
