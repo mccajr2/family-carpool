@@ -87,7 +87,8 @@ public class CalendarController {
             @Valid @RequestBody SetCalendarLeaveFromRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return calendarService.setLeaveFrom(adult, source, itemId, request.leaveFromPlaceId());
+        return calendarService.setLeaveFrom(
+                adult, source, itemId, request.leaveFromPlaceId(), request.leaveFromAddress());
     }
 
     @PostMapping("/{source}/{itemId}/coverages")
@@ -119,6 +120,16 @@ public class CalendarController {
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         return calendarService.reassignCoverage(adult, assignmentId, request);
+    }
+
+    @PutMapping("/coverages/{assignmentId}/leave-from")
+    public CalendarItemResponse setCoverageLeaveFrom(
+            @PathVariable("assignmentId") UUID assignmentId,
+            @Valid @RequestBody SetCalendarLeaveFromRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.setCoverageLeaveFrom(
+                adult, assignmentId, request.leaveFromPlaceId(), request.leaveFromAddress());
     }
 
     @DeleteMapping("/coverages/{assignmentId}")

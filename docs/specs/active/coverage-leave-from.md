@@ -203,7 +203,7 @@ Allowlist for `/implement`:
       origins; enrich per-coverage leave-by (cheap + full); signed-in mirror
       rule; **Route / ride leave-by origin** uses same resolution (coverage →
       override → default → first located).
-- [ ] Backend (`calendar` / family geocode): Wire PUT(s); keep cheap-list HTTP
+- [x] Backend (`calendar` / family geocode): Wire PUT(s); keep cheap-list HTTP
       ban; soft-fail one-time geocode via existing cache path.
 - [ ] Contract: OpenAPI for coverage leave-from fields + write body; extend
       `SetCalendarLeaveFromRequest`; examples; version bump.

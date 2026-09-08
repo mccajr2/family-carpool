@@ -3,6 +3,7 @@ package com.yourorg.quickapp.calendar.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -118,6 +119,21 @@ class CalendarServiceTest {
                 .thenAnswer(
                         invocation -> {
                             List<LeaveByItemInput> inputs = invocation.getArgument(1);
+                            if (inputs == null) {
+                                return List.of();
+                            }
+                            return inputs.stream()
+                                    .map(
+                                            ignored ->
+                                                    LeaveByEnrichmentDto.unavailable(
+                                                            null, null, "NO_ORIGIN"))
+                                    .toList();
+                        });
+        lenient()
+                .when(leaveByApi.enrichForLeaveFromMany(any(), anyBoolean()))
+                .thenAnswer(
+                        invocation -> {
+                            List<?> inputs = invocation.getArgument(0);
                             if (inputs == null) {
                                 return List.of();
                             }
@@ -339,15 +355,90 @@ class CalendarServiceTest {
                                 placeId, "Mom's house", Instant.parse("2026-08-15T16:30:00Z")));
 
         CalendarItemResponse response =
-                calendarService.setLeaveFrom(adult, CalendarItemSource.MANUAL, itemId, placeId);
+                calendarService.setLeaveFrom(adult, CalendarItemSource.MANUAL, itemId, placeId, null);
 
         verify(leaveByApi)
                 .setLeaveFrom(adult.id(), LeaveByItemSource.MANUAL, itemId, placeId, null);
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.MANUAL, itemId);
         assertThat(response.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
         assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
         assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));
         assertThat(response.uncoveredKidIds()).containsExactly(kidId);
         assertThat(response.eventKey()).isNull();
+    }
+
+    @Test
+    void setCoverageLeaveFromDelegatesAndInvalidatesRouteWhenConfirmed() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        CoverageAssignmentDto existing =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        null,
+                        null,
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        CoverageAssignmentDto updated =
+                new CoverageAssignmentDto(
+                        assignmentId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        null,
+                        "Jack's house",
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        Instant.parse("2026-08-01T00:00:00Z"));
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(existing);
+        when(coverageApi.setLeaveFrom(adult.id(), assignmentId, null, "Jack's house"))
+                .thenReturn(updated);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "Practice", startsAt, null, "Rink", List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(updated));
+        when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
+        when(leaveByApi.enrichForLeaveFromMany(any(), eq(true)))
+                .thenReturn(
+                        List.of(
+                                LeaveByEnrichmentDto.ok(
+                                        null,
+                                        null,
+                                        "Jack's house",
+                                        Instant.parse("2026-08-15T16:20:00Z"))));
+        when(leaveByApi.enrich(
+                        adult.id(), LeaveByItemSource.MANUAL, itemId, startsAt, "Rink"))
+                .thenReturn(
+                        LeaveByEnrichmentDto.ok(
+                                null,
+                                null,
+                                "Jack's house",
+                                Instant.parse("2026-08-15T16:20:00Z")));
+
+        CalendarItemResponse response =
+                calendarService.setCoverageLeaveFrom(adult, assignmentId, null, "Jack's house");
+
+        verify(coverageApi).setLeaveFrom(adult.id(), assignmentId, null, "Jack's house");
+        verify(leaveByApi)
+                .invalidateCalendarRoute(adult.id(), LeaveByItemSource.MANUAL, itemId);
+        assertThat(response.leaveFromAddress()).isEqualTo("Jack's house");
+        assertThat(response.coverages()).hasSize(1);
+        assertThat(response.coverages().getFirst().leaveFromAddress()).isEqualTo("Jack's house");
+        assertThat(response.coverages().getFirst().leaveByStatus()).isEqualTo(LeaveByStatus.OK);
     }
 
     @Test
@@ -375,9 +466,10 @@ class CalendarServiceTest {
         assertThat(rows.getFirst().source()).isEqualTo(CalendarItemSource.MANUAL);
         assertThat(rows.getFirst().leaveByStatus()).isEqualTo(LeaveByStatus.OK);
         assertThat(rows.getFirst().leaveByAt()).isEqualTo(leaveByAt);
+        assertThat(rows.getFirst().coverages()).isEmpty();
         verify(leaveByApi).enrichMany(eq(adult.id()), any());
         verify(leaveByApi, never()).enrichCheapMany(any(), any());
-        verifyNoInteractions(coverageApi);
+        verify(coverageApi).listForItems(eq(circleId), eq(CoverageItemSource.MANUAL), any());
     }
 
     @Test

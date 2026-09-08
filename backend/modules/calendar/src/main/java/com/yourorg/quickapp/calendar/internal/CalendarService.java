@@ -5,6 +5,7 @@ import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.calendar.AssignCalendarCoverageRequest;
 import com.yourorg.quickapp.calendar.CalendarConflictResponse;
 import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
+import com.yourorg.quickapp.calendar.CalendarCoverageLeaveByResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
@@ -37,6 +38,7 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.leaveby.LeaveFromEnrichmentInput;
 import com.yourorg.quickapp.playlist.RidePlaylistApi;
 import com.yourorg.quickapp.playlist.RidePlaylistAttendingKid;
 import com.yourorg.quickapp.rsvp.RsvpApi;
@@ -45,6 +47,7 @@ import com.yourorg.quickapp.rsvp.RsvpItemSource;
 import com.yourorg.quickapp.rsvp.RsvpStatus;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -136,6 +139,12 @@ public class CalendarService {
 
         Map<UUID, String> adultNames = displayNamesFor(feedCoverages, manualCoverages);
 
+        Map<ItemLeaveMetaKey, ItemLeaveMeta> itemMeta =
+                itemLeaveMeta(feedEvents, manualEvents);
+        Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys =
+                enrichCoverageLeaveBys(
+                        flattenCoverages(feedCoverages, manualCoverages), itemMeta, false);
+
         List<LeaveByEnrichmentDto> leaveBys =
                 leaveByApi.enrichCheapMany(
                         adult.id(), leaveByInputs(feedEvents, manualEvents));
@@ -153,7 +162,8 @@ public class CalendarService {
                                     new CalendarConflictDetector.ItemKey(
                                             CalendarItemSource.FEED, feedEvent.id()),
                                     List.of()),
-                            leaveBys.get(index++)));
+                            leaveBys.get(index++),
+                            coverageLeaveBys));
         }
         for (ManualCalendarEventDto manual : manualEvents) {
             items.add(
@@ -166,7 +176,8 @@ public class CalendarService {
                                     new CalendarConflictDetector.ItemKey(
                                             CalendarItemSource.MANUAL, manual.id()),
                                     List.of()),
-                            leaveBys.get(index++)));
+                            leaveBys.get(index++),
+                            coverageLeaveBys));
         }
 
         items.sort(
@@ -189,16 +200,46 @@ public class CalendarService {
         List<LeaveByItemInput> inputs = leaveByInputs(feedEvents, manualEvents);
         List<LeaveByEnrichmentDto> leaveBys = leaveByApi.enrichMany(adult.id(), inputs);
 
+        Map<UUID, List<CoverageAssignmentDto>> feedCoverages =
+                groupCoverages(
+                        coverageApi.listForItems(
+                                circleId,
+                                CoverageItemSource.FEED,
+                                feedEvents.stream().map(FeedCalendarEventDto::id).toList()));
+        Map<UUID, List<CoverageAssignmentDto>> manualCoverages =
+                groupCoverages(
+                        coverageApi.listForItems(
+                                circleId,
+                                CoverageItemSource.MANUAL,
+                                manualEvents.stream().map(ManualCalendarEventDto::id).toList()));
+        Map<ItemLeaveMetaKey, ItemLeaveMeta> itemMeta =
+                itemLeaveMeta(feedEvents, manualEvents);
+        Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys =
+                enrichCoverageLeaveBys(
+                        flattenCoverages(feedCoverages, manualCoverages), itemMeta, true);
+
         Map<UUID, Instant> startsAtById = new HashMap<>();
         List<CalendarLeaveByResponse> rows = new ArrayList<>(inputs.size());
         int index = 0;
         for (FeedCalendarEventDto feedEvent : feedEvents) {
             startsAtById.put(feedEvent.id(), feedEvent.startsAt());
-            rows.add(toLeaveByResponse(feedEvent.id(), CalendarItemSource.FEED, leaveBys.get(index++)));
+            rows.add(
+                    toLeaveByResponse(
+                            feedEvent.id(),
+                            CalendarItemSource.FEED,
+                            leaveBys.get(index++),
+                            feedCoverages.getOrDefault(feedEvent.id(), List.of()),
+                            coverageLeaveBys));
         }
         for (ManualCalendarEventDto manual : manualEvents) {
             startsAtById.put(manual.id(), manual.startsAt());
-            rows.add(toLeaveByResponse(manual.id(), CalendarItemSource.MANUAL, leaveBys.get(index++)));
+            rows.add(
+                    toLeaveByResponse(
+                            manual.id(),
+                            CalendarItemSource.MANUAL,
+                            leaveBys.get(index++),
+                            manualCoverages.getOrDefault(manual.id(), List.of()),
+                            coverageLeaveBys));
         }
         rows.sort(
                 Comparator.comparing((CalendarLeaveByResponse row) -> startsAtById.get(row.id()))
@@ -303,10 +344,39 @@ public class CalendarService {
     }
 
     public CalendarItemResponse setLeaveFrom(
-            AdultResponse adult, CalendarItemSource source, UUID itemId, UUID placeId) {
+            AdultResponse adult,
+            CalendarItemSource source,
+            UUID itemId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
-        leaveByApi.setLeaveFrom(adult.id(), toLeaveBySource(source), itemId, placeId, null);
+        leaveByApi.setLeaveFrom(
+                adult.id(),
+                toLeaveBySource(source),
+                itemId,
+                leaveFromPlaceId,
+                leaveFromAddress);
+        leaveByApi.invalidateCalendarRoute(adult.id(), toLeaveBySource(source), itemId);
         return requireItem(adult.id(), circleId, source, itemId);
+    }
+
+    public CalendarItemResponse setCoverageLeaveFrom(
+            AdultResponse adult,
+            UUID assignmentId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress) {
+        CoverageAssignmentDto existing = coverageApi.requireAssignment(adult.id(), assignmentId);
+        CoverageAssignmentDto updated =
+                coverageApi.setLeaveFrom(
+                        adult.id(), assignmentId, leaveFromPlaceId, leaveFromAddress);
+        CalendarItemSource source = toCalendarSource(updated.itemSource());
+        if (updated.status() == CoverageStatus.CONFIRMED
+                || existing.status() == CoverageStatus.CONFIRMED) {
+            leaveByApi.invalidateCalendarRoute(
+                    updated.coveringAdultId(), toLeaveBySource(source), updated.itemId());
+        }
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        return requireItem(adult.id(), circleId, source, updated.itemId());
     }
 
     public CalendarItemResponse assignCoverage(
@@ -492,6 +562,13 @@ public class CalendarService {
                             manual.id(),
                             manual.startsAt(),
                             manual.location());
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys =
+                    enrichCoverageLeaveBys(
+                            coverages,
+                            Map.of(
+                                    new ItemLeaveMetaKey(CoverageItemSource.MANUAL, manual.id()),
+                                    new ItemLeaveMeta(manual.startsAt(), manual.location())),
+                            true);
             return fromManual(
                     manual,
                     coverages,
@@ -501,7 +578,8 @@ public class CalendarService {
                             new CalendarConflictDetector.ItemKey(
                                     CalendarItemSource.MANUAL, manual.id()),
                             List.of()),
-                    leaveBy);
+                    leaveBy,
+                    coverageLeaveBys);
         }
         List<CoverageAssignmentDto> coverages =
                 coverageApi.listForItem(circleId, CoverageItemSource.FEED, feed.id());
@@ -514,6 +592,13 @@ public class CalendarService {
                         feed.id(),
                         feed.startsAt(),
                         feed.location());
+        Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys =
+                enrichCoverageLeaveBys(
+                        coverages,
+                        Map.of(
+                                new ItemLeaveMetaKey(CoverageItemSource.FEED, feed.id()),
+                                new ItemLeaveMeta(feed.startsAt(), feed.location())),
+                        true);
         return fromFeed(
                 feed,
                 coverages,
@@ -522,7 +607,8 @@ public class CalendarService {
                 conflictsByItem.getOrDefault(
                         new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, feed.id()),
                         List.of()),
-                leaveBy);
+                leaveBy,
+                coverageLeaveBys);
     }
 
     private Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem>
@@ -698,7 +784,8 @@ public class CalendarService {
             List<RsvpDto> rsvps,
             Map<UUID, String> adultNames,
             List<CalendarConflictResponse> conflicts,
-            LeaveByEnrichmentDto leaveBy) {
+            LeaveByEnrichmentDto leaveBy,
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
         return toResponse(
                 event.id(),
                 CalendarItemSource.FEED,
@@ -714,7 +801,8 @@ public class CalendarService {
                 coverages,
                 rsvps,
                 adultNames,
-                conflicts);
+                conflicts,
+                coverageLeaveBys);
     }
 
     private CalendarItemResponse fromManual(
@@ -723,7 +811,8 @@ public class CalendarService {
             List<RsvpDto> rsvps,
             Map<UUID, String> adultNames,
             List<CalendarConflictResponse> conflicts,
-            LeaveByEnrichmentDto leaveBy) {
+            LeaveByEnrichmentDto leaveBy,
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
         return toResponse(
                 event.id(),
                 CalendarItemSource.MANUAL,
@@ -739,7 +828,8 @@ public class CalendarService {
                 coverages,
                 rsvps,
                 adultNames,
-                conflicts);
+                conflicts,
+                coverageLeaveBys);
     }
 
     private static List<LeaveByItemInput> leaveByInputs(
@@ -766,15 +856,41 @@ public class CalendarService {
     }
 
     private static CalendarLeaveByResponse toLeaveByResponse(
-            UUID id, CalendarItemSource source, LeaveByEnrichmentDto leaveBy) {
+            UUID id,
+            CalendarItemSource source,
+            LeaveByEnrichmentDto leaveBy,
+            List<CoverageAssignmentDto> coverages,
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
+        List<CalendarCoverageLeaveByResponse> coverageRows = new ArrayList<>();
+        for (CoverageAssignmentDto coverage : coverages) {
+            if (coverage.status() != CoverageStatus.PENDING
+                    && coverage.status() != CoverageStatus.CONFIRMED) {
+                continue;
+            }
+            LeaveByEnrichmentDto coverageLeaveBy =
+                    coverageLeaveBys.getOrDefault(
+                            coverage.id(),
+                            LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
+            coverageRows.add(
+                    new CalendarCoverageLeaveByResponse(
+                            coverage.id(),
+                            coverageLeaveBy.leaveFromPlaceId(),
+                            coverageLeaveBy.leaveFromPlaceName(),
+                            coverageLeaveBy.leaveFromAddress(),
+                            coverageLeaveBy.leaveByAt(),
+                            coverageLeaveBy.leaveByStatus(),
+                            coverageLeaveBy.leaveByReason()));
+        }
         return new CalendarLeaveByResponse(
                 id,
                 source,
                 leaveBy.leaveFromPlaceId(),
                 leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveFromAddress(),
                 leaveBy.leaveByAt(),
                 leaveBy.leaveByStatus(),
-                leaveBy.leaveByReason());
+                leaveBy.leaveByReason(),
+                List.copyOf(coverageRows));
     }
 
     private static CalendarItemResponse toResponse(
@@ -792,18 +908,11 @@ public class CalendarService {
             List<CoverageAssignmentDto> coverages,
             List<RsvpDto> rsvps,
             Map<UUID, String> adultNames,
-            List<CalendarConflictResponse> conflicts) {
+            List<CalendarConflictResponse> conflicts,
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
         List<CalendarCoverageAssignmentResponse> coverageResponses =
                 coverages.stream()
-                        .map(
-                                c ->
-                                        new CalendarCoverageAssignmentResponse(
-                                                c.id(),
-                                                c.coveringAdultId(),
-                                                adultNames.get(c.coveringAdultId()),
-                                                c.assignedByAdultId(),
-                                                c.kidIds(),
-                                                c.status()))
+                        .map(c -> toCoverageResponse(c, adultNames, coverageLeaveBys))
                         .toList();
         List<CalendarRsvpResponse> rsvpResponses = materializeRsvps(kidIds, rsvps);
         return new CalendarItemResponse(
@@ -819,6 +928,7 @@ public class CalendarService {
                 eventKey,
                 leaveBy.leaveFromPlaceId(),
                 leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveFromAddress(),
                 leaveBy.leaveByAt(),
                 leaveBy.leaveByStatus(),
                 leaveBy.leaveByReason(),
@@ -827,6 +937,114 @@ public class CalendarService {
                 conflicts == null ? List.of() : List.copyOf(conflicts),
                 rsvpResponses);
     }
+
+    private static CalendarCoverageAssignmentResponse toCoverageResponse(
+            CoverageAssignmentDto coverage,
+            Map<UUID, String> adultNames,
+            Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
+        LeaveByEnrichmentDto leaveBy = coverageLeaveBys.get(coverage.id());
+        if (leaveBy == null) {
+            return new CalendarCoverageAssignmentResponse(
+                    coverage.id(),
+                    coverage.coveringAdultId(),
+                    adultNames.get(coverage.coveringAdultId()),
+                    coverage.assignedByAdultId(),
+                    coverage.kidIds(),
+                    coverage.status(),
+                    coverage.leaveFromPlaceId(),
+                    null,
+                    coverage.leaveFromAddress(),
+                    null,
+                    null,
+                    null);
+        }
+        return new CalendarCoverageAssignmentResponse(
+                coverage.id(),
+                coverage.coveringAdultId(),
+                adultNames.get(coverage.coveringAdultId()),
+                coverage.assignedByAdultId(),
+                coverage.kidIds(),
+                coverage.status(),
+                leaveBy.leaveFromPlaceId(),
+                leaveBy.leaveFromPlaceName(),
+                leaveBy.leaveFromAddress() != null
+                        ? leaveBy.leaveFromAddress()
+                        : coverage.leaveFromAddress(),
+                leaveBy.leaveByAt(),
+                leaveBy.leaveByStatus(),
+                leaveBy.leaveByReason());
+    }
+
+    private Map<UUID, LeaveByEnrichmentDto> enrichCoverageLeaveBys(
+            Collection<CoverageAssignmentDto> coverages,
+            Map<ItemLeaveMetaKey, ItemLeaveMeta> itemMeta,
+            boolean allowHttp) {
+        List<CoverageAssignmentDto> active = new ArrayList<>();
+        List<LeaveFromEnrichmentInput> inputs = new ArrayList<>();
+        for (CoverageAssignmentDto coverage : coverages) {
+            if (coverage.status() != CoverageStatus.PENDING
+                    && coverage.status() != CoverageStatus.CONFIRMED) {
+                continue;
+            }
+            ItemLeaveMeta meta =
+                    itemMeta.get(
+                            new ItemLeaveMetaKey(coverage.itemSource(), coverage.itemId()));
+            if (meta == null) {
+                continue;
+            }
+            active.add(coverage);
+            inputs.add(
+                    new LeaveFromEnrichmentInput(
+                            coverage.coveringAdultId(),
+                            coverage.leaveFromPlaceId(),
+                            coverage.leaveFromAddress(),
+                            meta.startsAt(),
+                            meta.location()));
+        }
+        if (inputs.isEmpty()) {
+            return Map.of();
+        }
+        List<LeaveByEnrichmentDto> enriched =
+                leaveByApi.enrichForLeaveFromMany(inputs, allowHttp);
+        Map<UUID, LeaveByEnrichmentDto> byAssignment = new HashMap<>();
+        for (int i = 0; i < active.size(); i++) {
+            byAssignment.put(active.get(i).id(), enriched.get(i));
+        }
+        return byAssignment;
+    }
+
+    private static List<CoverageAssignmentDto> flattenCoverages(
+            Map<UUID, List<CoverageAssignmentDto>> feedCoverages,
+            Map<UUID, List<CoverageAssignmentDto>> manualCoverages) {
+        List<CoverageAssignmentDto> all = new ArrayList<>();
+        for (List<CoverageAssignmentDto> rows : feedCoverages.values()) {
+            all.addAll(rows);
+        }
+        for (List<CoverageAssignmentDto> rows : manualCoverages.values()) {
+            all.addAll(rows);
+        }
+        return all;
+    }
+
+    private static Map<ItemLeaveMetaKey, ItemLeaveMeta> itemLeaveMeta(
+            List<FeedCalendarEventDto> feedEvents, List<ManualCalendarEventDto> manualEvents) {
+        Map<ItemLeaveMetaKey, ItemLeaveMeta> meta = new HashMap<>();
+        for (FeedCalendarEventDto feed : feedEvents) {
+            meta.put(
+                    new ItemLeaveMetaKey(CoverageItemSource.FEED, feed.id()),
+                    new ItemLeaveMeta(feed.startsAt(), feed.location()));
+        }
+        for (ManualCalendarEventDto manual : manualEvents) {
+            meta.put(
+                    new ItemLeaveMetaKey(CoverageItemSource.MANUAL, manual.id()),
+                    new ItemLeaveMeta(manual.startsAt(), manual.location()));
+        }
+        return meta;
+    }
+
+    private record ItemLeaveMetaKey(CoverageItemSource source, UUID itemId) {}
+
+    private record ItemLeaveMeta(Instant startsAt, String location) {}
 
     static List<UUID> uncoveredKidIds(
             List<UUID> kidIds, List<CoverageAssignmentDto> coverages, List<RsvpDto> rsvps) {
