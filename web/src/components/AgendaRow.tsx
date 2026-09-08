@@ -1,7 +1,13 @@
 import { useState } from "react"
 import { ChevronDown, ChevronRight, ChevronUp, Clock, Navigation } from "lucide-react"
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage, RsvpStatus } from "@/api/types"
-import { isPlaceLocated } from "@/api/types"
+import type {
+  CalendarItem,
+  CarpoolRideEvent,
+  FamilyCircle,
+  Garage,
+  RsvpStatus,
+  SetCalendarLeaveFromRequest,
+} from "@/api/types"
 import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { AttendanceToggle, rsvpWriteForAttendanceAction } from "@/components/AttendanceToggle"
@@ -9,6 +15,10 @@ import { Button } from "@/components/ui/button"
 import { resolveSemanticIcon } from "@/components/uiIcons"
 import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import {
+  coverageLeaveByLine,
+} from "@/components/leaveFromDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
 import {
@@ -26,8 +36,12 @@ import {
 import { DriverPicker } from "@/components/DriverPicker"
 import { RevertRideLink } from "@/components/RevertRideLink"
 import {
+  activeCoverageForAdult,
   activeCoverages,
   calendarSourceLabel,
+  coverageAdultLabel,
+  coverageKidNames,
+  coverageStatusLabel,
   eventKidNames,
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
@@ -117,7 +131,11 @@ type AgendaRowProps = {
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
   onRemoveCoverage: (assignmentId: string) => void
-  onSetLeaveFrom: (placeId: string) => void
+  onSetLeaveFrom: (body: SetCalendarLeaveFromRequest) => void
+  onSetCoverageLeaveFrom: (
+    assignmentId: string,
+    body: SetCalendarLeaveFromRequest,
+  ) => void
   onSetRsvp: (kidId: string, status: RsvpStatus) => void
   onOpenPlaces: () => void
   /** Opens ride-detail overlay when `canRoute` for at least one in-play kid. */
@@ -166,6 +184,7 @@ export function AgendaRow({
   onDeclineCoverage,
   onRemoveCoverage,
   onSetLeaveFrom,
+  onSetCoverageLeaveFrom,
   onSetRsvp,
   onOpenPlaces,
   onOpenRide,
@@ -178,7 +197,7 @@ export function AgendaRow({
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const locatedPlaces = circle.places.filter(isPlaceLocated)
+  const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const ownRequest = rideEvent?.ownRequest ?? null
   const { games: coverageGames } = applyAutoDeclinedViewModel(
@@ -569,53 +588,99 @@ export function AgendaRow({
             </button>
           ) : null}
 
-          {/* Travel / origin — below DriverPicker per weekly-list-focus-sync */}
+          {/* Travel / origin — coverage leave-from when covering; else item fallback */}
           {!outOfPlay ? (
             <div
               data-testid="agenda-band-travel"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
-              <span
-                className="text-xs text-[var(--fc-text-secondary)]"
-                data-testid={`leave-by-${item.source}-${item.id}`}
-              >
-                {agendaLeaveByLine(item)}
-              </span>
-              <div className="flex items-center justify-between gap-[var(--fc-space-md)]">
-                <span className="text-xs text-[var(--fc-text-secondary)]">Leave from</span>
-                {locatedPlaces.length <= 1 ? (
-                  <span
-                    className="text-sm font-medium text-[var(--fc-text-primary)]"
-                    data-testid={`leave-from-label-${item.source}-${item.id}`}
-                  >
-                    {item.leaveFromPlaceName ??
-                      locatedPlaces[0]?.name ??
-                      (circle.places.length === 0
-                        ? "No places yet"
-                        : "No located places yet")}
-                  </span>
-                ) : (
-                  <select
-                    aria-label={`Leave from for ${item.title}`}
-                    className="h-9 rounded-md border border-[var(--fc-border)] bg-transparent px-2 text-sm"
-                    value={item.leaveFromPlaceId ?? ""}
-                    onChange={(e) => e.target.value && onSetLeaveFrom(e.target.value)}
-                    disabled={loading}
-                  >
-                    {!item.leaveFromPlaceId ? <option value="">Choose a located place</option> : null}
-                    {circle.places.map((place) => (
-                      <option key={place.id} value={place.id} disabled={!isPlaceLocated(place)}>
-                        {isPlaceLocated(place) ? place.name : `${place.name} (not located)`}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {item.leaveByStatus === "UNAVAILABLE" && item.leaveByReason === "NO_ORIGIN" ? (
-                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                  Open Places
-                </Button>
+              {active.length > 0 ? (
+                active.map((coverage) => {
+                  const leaveBy = coverageLeaveByLine(coverage)
+                  return (
+                    <div
+                      key={coverage.id}
+                      data-testid={`agenda-coverage-leave-${coverage.id}`}
+                      className="flex flex-col gap-[var(--fc-space-sm)]"
+                    >
+                      <span className="text-xs text-[var(--fc-text-secondary)]">
+                        {coverageAdultLabel(coverage, circle.members)}
+                        {" · "}
+                        {coverageKidNames(coverage, circle.kids) || "Kids"}
+                        {" · "}
+                        {coverageStatusLabel(coverage.status)}
+                      </span>
+                      {leaveBy != null ? (
+                        <span
+                          className="text-xs text-[var(--fc-text-secondary)]"
+                          data-testid={`coverage-leave-by-${coverage.id}`}
+                        >
+                          {leaveBy}
+                        </span>
+                      ) : null}
+                      <LeaveFromControls
+                        variant="field-row"
+                        value={{
+                          leaveFromPlaceId: coverage.leaveFromPlaceId,
+                          leaveFromPlaceName: coverage.leaveFromPlaceName,
+                          leaveFromAddress: coverage.leaveFromAddress,
+                        }}
+                        circle={circle}
+                        loading={loading}
+                        ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
+                        onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
+                        testIdPrefix={`coverage-leave-from-${coverage.id}`}
+                      />
+                    </div>
+                  )
+                })
               ) : null}
+
+              {selfCoverage == null ? (
+                <>
+                  <span
+                    className="text-xs text-[var(--fc-text-secondary)]"
+                    data-testid={`leave-by-${item.source}-${item.id}`}
+                  >
+                    {agendaLeaveByLine(item)}
+                  </span>
+                  <LeaveFromControls
+                    variant="field-row"
+                    value={{
+                      leaveFromPlaceId: item.leaveFromPlaceId,
+                      leaveFromPlaceName: item.leaveFromPlaceName,
+                      leaveFromAddress: item.leaveFromAddress,
+                    }}
+                    circle={circle}
+                    loading={loading}
+                    ariaLabel={`Leave from for ${item.title}`}
+                    onChange={onSetLeaveFrom}
+                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
+                  />
+                  {item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                      Open Places
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {/* Signed-in adult covering: item leave-by mirrors coverage; no duplicate chooser */}
+                  <span
+                    className="text-xs text-[var(--fc-text-secondary)]"
+                    data-testid={`leave-by-${item.source}-${item.id}`}
+                  >
+                    {agendaLeaveByLine(item)}
+                  </span>
+                  {item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                      Open Places
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
 

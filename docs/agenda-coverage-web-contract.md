@@ -162,7 +162,7 @@ Do not stack a tiny label above an unlabeled link/button.
 
 Applies to:
 
-- **Leave from** (Agenda item)
+- **Leave from** (Agenda item fallback and per-coverage band)
 - **Covering adult** (Assign coverage)
 - **My default leave-from** (Places)
 
@@ -170,14 +170,17 @@ Rules:
 
 - Interactive: platform-native chooser (web `<select>`, iOS `Menu`, Android
   dropdown) showing the **current value** on the trailing side, with a clear
-  affordance (chevron / control chrome).
+  affordance (chevron / control chrome). Leave-from also exposes Default /
+  named place / one-time modes (see Leave-from below).
 - Sole / read-only (≤1 option): same row layout; trailing side is plain text
-  (no chooser, no chevron). Applies to **Leave from** and **Covering adult**.
+  (no chooser, no chevron). Applies to **Covering adult**; Leave from still
+  offers Default / one-time when only one located place exists.
 - **My default leave-from** is always a chooser: **None** is always an option
   (plus located places). Trailing side stays interactive even when there are
   zero located places (value may read `None` / `No located places yet`).
 - Does **not** apply to multi-select **Uncovered kids** (checkbox list) or to
   action buttons (Assign / Confirm / Open Places / etc.).
+- Focus / hero leave-from uses a **subtle** disclosure, not this field-row.
 
 Toolkit chrome may differ; **layout and strings** must not.
 
@@ -217,26 +220,47 @@ Toolkit chrome may differ; **layout and strings** must not.
 - Leave-by unavailable copy stays as leave-by labels (estimate / reason
   strings); no duplicate edit affordance.
 
-## Leave-from (per item)
+## Leave-from (per item and per coverage)
 
-- ≤1 **located** place → show a **label** (current leave-from name, or the sole
-  located place name, or empty-state copy). No chooser.
-- 2+ located places → select/menu to set per-item override (located only).
-- Unlocated places appear disabled in the chooser when a chooser is shown.
+Origin modes (locked with `coverage-leave-from`):
+
+| Mode | UI | Stored |
+| ---- | -- | ------ |
+| **Default** | Show resolved place name (membership default → first located by name) | null place + null address |
+| **Named place** | Located circle place only | `leaveFromPlaceId` |
+| **One-time** | Free-text address (estimate only; never creates a Place) | `leaveFromAddress` |
+
+- **Expanded Agenda — active coverage bands:** each `PENDING`/`CONFIRMED`
+  coverage shows adult · kids · status, that row’s leave-by estimate, and a
+  **Leave from** field-row (Default / named place / one-time). Any circle
+  member may edit. Other adults’ origins stay visible.
+- **Expanded Agenda — item-level Leave from:** only when the signed-in adult
+  is **not** covering that item (no duplicate when they are). Same three
+  modes; leave-by line + **Open Places** on `NO_ORIGIN` as before.
+- **Focus / hero (slim):** when the signed-in adult is covering, show calm
+  copy `Leave from {origin} · estimate {time}` plus a low-weight **Change
+  leave-from** disclosure (not a full field-row band). Assign / Confirm still
+  land coverage at Default.
+- **Route:** starting stop + leave-by come from `GET …/route`, which uses the
+  same origin resolution (coverage → item override → default → first located).
+  Changing leave-from refreshes Route via calendar item replace.
+- Unlocated named places stay disabled in place choosers.
+- One-time copy: leave-by is an **estimate**, never live traffic.
 
 ## Default leave-from (Places)
 
 - **My default leave-from** control on Places: always a field-row chooser with
   **None** + located places (see field-row rules above).
-- Used by leave-by origin order (override → default → first located by name);
-  not shown as a second chooser on every Agenda row when unnecessary.
+- Used by leave-by origin order (coverage → override → default → first located
+  by name); not shown as a second chooser on every Agenda row when unnecessary.
 
 ## Coverage
 
 ### Display
 
 - Active rows (`PENDING` / `CONFIRMED`):  
-  `{adult} · {kids} · {Pending|Confirmed}` (+ **Remove coverage**).
+  `{adult} · {kids} · {Pending|Confirmed}` (+ leave-from / leave-by on
+  expanded Agenda travel band; DriverPicker / Revert for own-ride chrome).
 - Declined rows are not shown as active coverage.
 - Uncovered kids (API `uncoveredKidIds`): **Needs coverage** /
   **Needs coverage: {names}** (in-play only — not-going kids are never
@@ -412,5 +436,4 @@ Compose as dialog (web) vs sheet (iOS) vs destination swap (Android);
 
 - Vehicle / seats / nonplayers / trip planning.
 - Redesigning Calendar onto full UI-token adoption (`ui-system-destination-adoption`).
-- Per-coverage leave-from (`coverage-leave-from`).
 - Travel / leave-by “cutting it close” soft warn (`conflict-travel-margin`).

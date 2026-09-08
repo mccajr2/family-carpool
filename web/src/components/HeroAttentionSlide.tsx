@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react"
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage } from "@/api/types"
+import type {
+  CalendarItem,
+  CarpoolRideEvent,
+  FamilyCircle,
+  Garage,
+  SetCalendarLeaveFromRequest,
+} from "@/api/types"
 import {
   callerDrives,
   eligibleVehiclesForAccept,
@@ -8,7 +14,10 @@ import { heroDaysUntilEvent } from "@/components/agendaFocusRing"
 import type { QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
-import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import {
+  activeCoverageForAdult,
+  pendingCoverageForAdult,
+} from "@/components/coverageDisplay"
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
@@ -19,6 +28,8 @@ import {
   kidAlreadyGoingSuffix,
   kidNeedsRideTitle,
 } from "@/components/coverageCopy"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import { focusLeaveFromEstimateLine } from "@/components/leaveFromDisplay"
 import { PickupLine } from "@/components/PickupLine"
 import {
   heroEventContextLine,
@@ -45,6 +56,7 @@ export type HeroAttentionSlideProps = {
   onDeclineCoverage?: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
+  onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
   now?: Date
 }
 
@@ -73,6 +85,7 @@ export function HeroAttentionSlide({
   onDeclineCoverage,
   onAcceptRide,
   onPassRide,
+  onSetLeaveFrom,
   now = new Date(),
 }: HeroAttentionSlideProps) {
   const [acceptVehicleId, setAcceptVehicleId] = useState("")
@@ -81,6 +94,7 @@ export function HeroAttentionSlide({
   const venue = heroVenueLine(calendarItem)
   const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
+  const selfCoverage = activeCoverageForAdult(calendarItem, currentAdultId)
 
   const requestAccept = useMemo(() => {
     if (item.kind !== "request") {
@@ -159,6 +173,38 @@ export function HeroAttentionSlide({
                 >
                   {venue}
                 </p>
+              ) : null}
+              {selfCoverage != null && onSetLeaveFrom != null ? (
+                <div
+                  className="mt-[var(--fc-space-sm)]"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                  data-testid="hero-attention-leave-from"
+                >
+                  <LeaveFromControls
+                    variant="subtle"
+                    value={{
+                      leaveFromPlaceId: calendarItem.leaveFromPlaceId,
+                      leaveFromPlaceName: calendarItem.leaveFromPlaceName,
+                      leaveFromAddress: calendarItem.leaveFromAddress,
+                    }}
+                    circle={circle}
+                    loading={loading}
+                    ariaLabel={`Leave from for ${calendarItem.title}`}
+                    summaryLine={focusLeaveFromEstimateLine(
+                      {
+                        leaveFromPlaceId: calendarItem.leaveFromPlaceId,
+                        leaveFromPlaceName: calendarItem.leaveFromPlaceName,
+                        leaveFromAddress: calendarItem.leaveFromAddress,
+                        leaveByAt: calendarItem.leaveByAt,
+                        leaveByStatus: calendarItem.leaveByStatus,
+                        leaveByReason: calendarItem.leaveByReason,
+                      },
+                      circle,
+                    )}
+                    onChange={onSetLeaveFrom}
+                    testIdPrefix={`hero-leave-from-${calendarItem.source}-${calendarItem.id}`}
+                  />
+                </div>
               ) : null}
               {pendingForSelf && onConfirmCoverage && onDeclineCoverage ? (
                 <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">

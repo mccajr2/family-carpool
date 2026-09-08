@@ -26,6 +26,7 @@ import {
   type Kid,
   type Place,
   type RsvpStatus,
+  type SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { CarpoolFeedActions, CarpoolFeedStatusChip } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
@@ -1881,16 +1882,37 @@ export function FamilyScreen({
     }
   }
 
-  async function onSetCalendarLeaveFrom(item: CalendarItem, placeId: string) {
-    if (item.leaveFromPlaceId === placeId) {
-      return
-    }
+  async function onSetCalendarLeaveFrom(
+    item: CalendarItem,
+    body: SetCalendarLeaveFromRequest,
+  ) {
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      const updated = await familyClient.setCalendarLeaveFrom(token, item.source, item.id, {
-        leaveFromPlaceId: placeId,
+      const updated = await familyClient.setCalendarLeaveFrom(
+        token,
+        item.source,
+        item.id,
+        body,
+      )
+      replaceCalendarItem(updated)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
       })
+    }
+  }
+
+  async function onSetCoverageLeaveFrom(
+    assignmentId: string,
+    body: SetCalendarLeaveFromRequest,
+  ) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const updated = await familyClient.setCoverageLeaveFrom(token, assignmentId, body)
       replaceCalendarItem(updated)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -2319,6 +2341,16 @@ export function FamilyScreen({
       onAcceptRide: (rideId, vehicleId) =>
         void onAcceptAgendaRide(calendarItemForSlide, rideId, vehicleId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
+      onSetLeaveFrom: (body) => {
+        const coverage = activeCoverages(calendarItemForSlide).find(
+          (row) => row.coveringAdultId === (adult?.id ?? ""),
+        )
+        if (coverage != null) {
+          void onSetCoverageLeaveFrom(coverage.id, body)
+          return
+        }
+        void onSetCalendarLeaveFrom(calendarItemForSlide, body)
+      },
     }
   }
 
@@ -3020,8 +3052,9 @@ export function FamilyScreen({
                             onRemoveCoverage={(assignmentId) =>
                               void onRemoveCoverage(assignmentId)
                             }
-                            onSetLeaveFrom={(placeId) =>
-                              void onSetCalendarLeaveFrom(item, placeId)
+                            onSetLeaveFrom={(body) => void onSetCalendarLeaveFrom(item, body)}
+                            onSetCoverageLeaveFrom={(assignmentId, body) =>
+                              void onSetCoverageLeaveFrom(assignmentId, body)
                             }
                             onSetRsvp={(kidId, rsvpStatus) =>
                               void onSetCalendarRsvp(item, kidId, rsvpStatus)

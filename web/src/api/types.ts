@@ -81,6 +81,19 @@ export type CalendarLeaveBy = {
   source: CalendarItemSource
   leaveFromPlaceId?: string | null
   leaveFromPlaceName?: string | null
+  leaveFromAddress?: string | null
+  leaveByAt?: string | null
+  leaveByStatus: Exclude<LeaveByStatus, "PENDING">
+  leaveByReason?: string | null
+  coverages: CalendarCoverageLeaveBy[]
+}
+
+/** Coverage leave-from / leave-by patch on a fill-in row. */
+export type CalendarCoverageLeaveBy = {
+  id: string
+  leaveFromPlaceId?: string | null
+  leaveFromPlaceName?: string | null
+  leaveFromAddress?: string | null
   leaveByAt?: string | null
   leaveByStatus: Exclude<LeaveByStatus, "PENDING">
   leaveByReason?: string | null
@@ -203,6 +216,12 @@ export type CalendarCoverageAssignment = {
   assignedByAdultId: string
   kidIds: string[]
   status: CoverageStatus
+  leaveFromPlaceId: string | null
+  leaveFromPlaceName: string | null
+  leaveFromAddress: string | null
+  leaveByAt: string | null
+  leaveByStatus: LeaveByStatus | null
+  leaveByReason: string | null
 }
 
 export type CalendarConflictType = "KID_TIME_OVERLAP" | "ADULT_COVERAGE_OVERLAP"
@@ -236,6 +255,7 @@ export type CalendarItem = {
   eventKey: string | null
   leaveFromPlaceId: string | null
   leaveFromPlaceName: string | null
+  leaveFromAddress: string | null
   leaveByAt: string | null
   leaveByStatus: LeaveByStatus
   leaveByReason: string | null
@@ -246,7 +266,8 @@ export type CalendarItem = {
 }
 
 export type SetCalendarLeaveFromRequest = {
-  leaveFromPlaceId: string
+  leaveFromPlaceId?: string | null
+  leaveFromAddress?: string | null
 }
 
 export type SetDefaultLeaveFromRequest = {

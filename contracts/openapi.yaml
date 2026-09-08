@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.24.0
+  version: 0.25.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -9,11 +9,14 @@ info:
     subscriptions with soft-fail sync and server-side background polling),
     manual events (any member may CRUD one-off schedule items with 1+ kids),
     a unified circle calendar read (feed + manual items in a time window) with
-    per-adult leave-from, per-adult default leave-from, estimated leave-by
+    per-adult leave-from (named place, one-time address, or default),
+    per-coverage leave-from on active assignments (any member may set),
+    per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic; calendar list does not call
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
     a confirmed-ride multi-stop route read (GET …/calendar/{source}/{itemId}/route
-    — home → pickups → destination; cached OSRM pairwise legs; estimate only),
+    — resolved leave-from → pickups → destination; cached OSRM pairwise legs;
+    estimate only),
     a confirmed-ride Playlist read and Open-in-Spotify handoff
     (GET/POST …/calendar/{source}/{itemId}/playlist[ /open ] — attending kids,
     designations, tracks; 1 connected → source URL; 2+ → transient merge on
@@ -32,8 +35,9 @@ info:
     short invite code; Caregivers join via that code. Any member may manage
     named places (label + free-text address; optional lat/lng from geocoding
     with soft-fail and retry locate), garage vehicles they own, their own
-    drives flag, manual events, read the calendar agenda, set their own
-    leave-from place per calendar item, set their default leave-from for the
+    drives flag, manual events, read the calendar agenda, set leave-from
+    (named place, one-time address, or clear to default) per calendar item or
+    active coverage assignment, set their default leave-from for the
     circle, set per-kid RSVPs on calendar items, and manage coverage
     assignments on calendar items. Feed last-synced / error / event count may
     update from Sync now or from the server poller — clients re-GET the feeds
@@ -1786,12 +1790,18 @@ paths:
         startsAt ascending, then source, then id. Feed items include feedId /
         feedName and kidIds from the feed; manual items omit feed fields.
         Each item is enriched for the **current adult** with leave-from
-        (database only). This list does **not** call Nominatim or OSRM.
+        (coverage leave-from when that adult is actively covering, else item
+        override, else membership default / first located — database and
+        geocode_cache only). Active coverage rows include their own
+        leave-from / leave-by (cache-only on this list). This list does **not** call Nominatim or OSRM.
         leaveByStatus is UNAVAILABLE when origin or destination text is missing
-        (NO_ORIGIN / NO_DESTINATION), OK when destination geocode and driving
+        (NO_ORIGIN / NO_DESTINATION), or when a one-time origin geocode is
+        known to have failed (GEOCODE_FAILED on fill-in / mutation only),
+        OK when destination geocode and driving
         duration are already in server caches (computed in-process; still an
         estimate — never live traffic), and PENDING when a live geocode or
-        OSRM lookup is still required. Clients must GET
+        OSRM lookup is still required (including uncached one-time origins).
+        Clients must GET
         /api/family/circle/calendar/leave-by to fill PENDING rows. Each item
         also includes coverage assignments for the circle (all members'
         assignments on that item), per-kid rsvps (YES / NO / NO_RESPONSE;
@@ -1844,6 +1854,7 @@ paths:
                   feedName: null
                   leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
                   leaveFromPlaceName: Mom's house
+                  leaveFromAddress: null
                   leaveByAt: null
                   leaveByStatus: PENDING
                   leaveByReason: null
@@ -1855,6 +1866,12 @@ paths:
                       kidIds:
                         - 01900000-0000-7000-8000-000000000021
                       status: CONFIRMED
+                      leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+                      leaveFromPlaceName: Mom's house
+                      leaveFromAddress: null
+                      leaveByAt: null
+                      leaveByStatus: PENDING
+                      leaveByReason: null
                   uncoveredKidIds: []
                   conflicts: []
                   rsvps:
@@ -1872,6 +1889,7 @@ paths:
                   feedName: U12
                   leaveFromPlaceId: null
                   leaveFromPlaceName: null
+                  leaveFromAddress: null
                   leaveByAt: null
                   leaveByStatus: UNAVAILABLE
                   leaveByReason: NO_ORIGIN
@@ -1917,15 +1935,19 @@ paths:
       description: >
         Any circle member. Returns leave-by enrichment for feed-imported and
         manual events whose startsAt falls in the half-open interval [from, to).
-        Uses cached destination geocodes and driving durations when present;
-        otherwise may call Nominatim and OSRM. Duplicate locations and origin+
-        dest pairs in the window share one upstream lookup. Successful geocodes
-        and OSRM durations are persisted; misses, OSRM failures, and the
-        fallback duration are not. leaveByStatus is OK or UNAVAILABLE (never
-        PENDING). Leave-by is always an estimate — never live traffic. Empty
-        array when none match. from must be strictly before to (400 otherwise).
-        Adults without a circle receive 404. Does not mutate feed snapshots or
-        manual events.
+        Item leave-from follows coverage → item override → default → first
+        located. Each row also includes leave-from / leave-by for active
+        coverage assignments on that item. Uses cached destination and one-time
+        origin geocodes and driving durations when present; otherwise may call
+        Nominatim and OSRM. Duplicate locations and origin+dest pairs in the
+        window share one upstream lookup. Successful geocodes and OSRM
+        durations are persisted; misses, OSRM failures, and the fallback
+        duration are not. Soft-fail one-time origin geocode → UNAVAILABLE with
+        GEOCODE_FAILED (does not fail the whole response). leaveByStatus is OK
+        or UNAVAILABLE (never PENDING). Leave-by is always an estimate — never
+        live traffic. Empty array when none match. from must be strictly before
+        to (400 otherwise). Adults without a circle receive 404. Does not
+        mutate feed snapshots or manual events.
       security:
         - bearerAuth: []
       parameters:
@@ -1959,16 +1981,27 @@ paths:
                   source: MANUAL
                   leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
                   leaveFromPlaceName: Mom's house
+                  leaveFromAddress: null
                   leaveByAt: "2026-08-15T15:25:00Z"
                   leaveByStatus: OK
                   leaveByReason: null
+                  coverages:
+                    - id: 01900000-0000-7000-8000-000000000071
+                      leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+                      leaveFromPlaceName: Mom's house
+                      leaveFromAddress: null
+                      leaveByAt: "2026-08-15T15:25:00Z"
+                      leaveByStatus: OK
+                      leaveByReason: null
                 - id: 01900000-0000-7000-8000-000000000061
                   source: FEED
                   leaveFromPlaceId: null
                   leaveFromPlaceName: null
+                  leaveFromAddress: null
                   leaveByAt: null
                   leaveByStatus: UNAVAILABLE
                   leaveByReason: NO_ORIGIN
+                  coverages: []
         "400":
           description: Missing from/to, or from is not strictly before to
           content:
@@ -1998,7 +2031,8 @@ paths:
         driver (CONFIRMED coverage for a kid on the item) or adult whose
         circle has an ACCEPTED teammate ride for a kid on the item, and the
         kid is not RSVP NO. Returns a cached multi-stop itinerary: driving
-        adult's default leave-from (home) → ACCEPTED teammate pickup stop(s)
+        adult's resolved leave-from (active coverage leave-from → item override
+        → membership default → first located) → ACCEPTED teammate pickup stop(s)
         this driver is fulfilling → event destination. Durations come from
         leaveby pairwise OSRM / leaveby_route_cache (estimate only — never
         live traffic). status is OK when ordered stops and legMinutes are
@@ -2205,18 +2239,21 @@ paths:
     put:
       operationId: setCalendarLeaveFrom
       tags: [family]
-      summary: Set the current adult's leave-from place for a calendar item
+      summary: Set the current adult's leave-from for a calendar item
       description: >
-        Any circle member. Stores a per-adult leave-from place override for the
-        given calendar item (MANUAL or FEED). The place must belong to the
-        adult's circle and must be located (non-null latitude/longitude); an
-        unlocated place returns 400. Unknown item id for the given source,
-        unknown place, or place in another circle returns 404. Adults without
-        a circle receive 404. Returns the calendar item fully enriched with
-        leave-by for the current adult (OK or UNAVAILABLE; may call Nominatim
-        or OSRM for this one row). Distinct from listCircleCalendar, which does
-        not perform live routing. Does not
-        mutate the underlying manual event or feed snapshot.
+        Any circle member. Sets the signed-in adult's **item-level** leave-from
+        override for the given calendar item (MANUAL or FEED). Body modes
+        (mutually exclusive): `leaveFromPlaceId` (located circle place),
+        `leaveFromAddress` (one-time free-text; never creates a named place),
+        or both null/omitted to clear back to Default. When the adult has an
+        active coverage on the item, Agenda enrichment still mirrors that
+        coverage's leave-from (use setCoverageLeaveFrom to change it). Named
+        place must belong to the adult's circle and be located; unlocated →
+        400. Blank address or place+address together → 400. Unknown item /
+        place / no circle → 404. Returns the calendar item fully enriched
+        (OK / UNAVAILABLE / PENDING fields as applicable; may call Nominatim
+        or OSRM for this one row). Soft-fail one-time geocode → UNAVAILABLE
+        GEOCODE_FAILED on the item without failing the whole response.
       security:
         - bearerAuth: []
       parameters:
@@ -2239,8 +2276,20 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SetCalendarLeaveFromRequest"
-            example:
-              leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+            examples:
+              namedPlace:
+                summary: Named located place
+                value:
+                  leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+              oneTime:
+                summary: One-time address (not saved as a place)
+                value:
+                  leaveFromAddress: "12 Oak St, Somerville, MA"
+              clearToDefault:
+                summary: Clear override (Default)
+                value:
+                  leaveFromPlaceId: null
+                  leaveFromAddress: null
       responses:
         "200":
           description: Leave-from saved; item returned with leave-by for this adult
@@ -2250,8 +2299,8 @@ paths:
                 $ref: "#/components/schemas/CalendarItem"
         "400":
           description: >
-            Missing leaveFromPlaceId, or place exists but is not located
-            (null latitude/longitude)
+            Place and address both set, blank leaveFromAddress, or place exists
+            but is not located (null latitude/longitude)
           content:
             application/json:
               schema:
@@ -2509,6 +2558,85 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: No circle or unknown assignment id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/coverages/{assignmentId}/leave-from:
+    put:
+      operationId: setCoverageLeaveFrom
+      tags: [family]
+      summary: Set leave-from on an active coverage assignment
+      description: >
+        Any circle member. Sets leave-from on a PENDING or CONFIRMED coverage
+        assignment. Body modes (mutually exclusive): `leaveFromPlaceId`
+        (located circle place), `leaveFromAddress` (one-time free-text; never
+        creates a named place), or both null/omitted to clear to Default for
+        the covering adult. New assignments start at Default. DECLINED
+        assignments return 409. Named place must be located in the caller's
+        circle (400/404 as for item leave-from). Returns the enriched calendar
+        item (coverage leave-from / leave-by updated; may call Nominatim or
+        OSRM for this one row). Soft-fail one-time geocode → UNAVAILABLE
+        GEOCODE_FAILED on that coverage without failing the whole response.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCalendarLeaveFromRequest"
+            examples:
+              namedPlace:
+                summary: Named located place
+                value:
+                  leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
+              oneTime:
+                summary: One-time address
+                value:
+                  leaveFromAddress: "Jack's house"
+              clearToDefault:
+                summary: Clear to Default
+                value:
+                  leaveFromPlaceId: null
+                  leaveFromAddress: null
+      responses:
+        "200":
+          description: Coverage leave-from saved; calendar item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: >
+            Place and address both set, blank leaveFromAddress, or place exists
+            but is not located
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle, unknown assignment, or unknown place
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Assignment is not active (PENDING or CONFIRMED)
           content:
             application/json:
               schema:
@@ -4813,6 +4941,7 @@ components:
         - id
         - source
         - leaveByStatus
+        - coverages
       properties:
         id:
           type: string
@@ -4825,13 +4954,23 @@ components:
           format: uuid
           nullable: true
           description: >
-            Current adult's leave-from place for this item (explicit override or
-            default located place). Null when no located place is available.
+            Current adult's resolved leave-from place for this item (coverage
+            leave-from when covering, else item override or default located
+            place). Null for one-time origin or when no located place is
+            available.
         leaveFromPlaceName:
           type: string
           nullable: true
           description: Display name of leaveFromPlaceId when set
           example: Mom's house
+        leaveFromAddress:
+          type: string
+          nullable: true
+          description: >
+            One-time leave-from address when that mode is active for the
+            signed-in adult's resolved origin. Null for named-place / default
+            origins. Never persisted as a named place.
+          example: "Jack's house"
         leaveByAt:
           type: string
           format: date-time
@@ -4850,6 +4989,52 @@ components:
             NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED). Null when OK. This
             operation does not return PENDING.
           example: NO_ORIGIN
+        coverages:
+          type: array
+          description: >
+            Leave-from / leave-by patches for active (PENDING / CONFIRMED)
+            coverage assignments on this item. Clients merge by assignment id.
+          items:
+            $ref: "#/components/schemas/CalendarCoverageLeaveBy"
+
+    CalendarCoverageLeaveBy:
+      type: object
+      required:
+        - id
+        - leaveByStatus
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Coverage assignment id
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Resolved named-place leave-from for this coverage (override or
+            covering adult's default / first located). Null for one-time.
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+          description: Display name when leaveFromPlaceId is set
+        leaveFromAddress:
+          type: string
+          nullable: true
+          description: One-time leave-from address when that mode is set
+        leaveByAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Estimated leave-by for this coverage's origin
+        leaveByStatus:
+          $ref: "#/components/schemas/LeaveByStatus"
+        leaveByReason:
+          type: string
+          nullable: true
+          description: >
+            UNAVAILABLE reason (NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED).
+            Null when OK.
 
     CalendarRouteStatus:
       type: string
@@ -5164,16 +5349,28 @@ components:
 
     SetCalendarLeaveFromRequest:
       type: object
-      required:
-        - leaveFromPlaceId
+      description: >
+        Leave-from write body for item override or coverage assignment.
+        Modes are mutually exclusive: named place, one-time address, or clear
+        to Default (both null / omitted).
       properties:
         leaveFromPlaceId:
           type: string
           format: uuid
+          nullable: true
           description: >
-            Circle place to use as this adult's leave-from for the calendar item.
-            Must be located (non-null latitude and longitude).
+            Located circle place override. Mutually exclusive with
+            leaveFromAddress. Null with null address clears to Default.
           example: 01900000-0000-7000-8000-000000000031
+        leaveFromAddress:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: >
+            One-time free-text origin for this item/coverage only. Trimmed;
+            must be non-empty when set. Never creates or updates a named place.
+            Mutually exclusive with leaveFromPlaceId.
+          example: "Jack's house"
 
     SetDefaultLeaveFromRequest:
       type: object
@@ -5264,6 +5461,46 @@ components:
             format: uuid
         status:
           $ref: "#/components/schemas/CoverageStatus"
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Resolved named-place leave-from for this assignment (override or
+            covering adult's default / first located when Default). Null for
+            one-time origin. Circle-visible.
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+          description: Display name when leaveFromPlaceId is set
+          example: Home
+        leaveFromAddress:
+          type: string
+          nullable: true
+          description: >
+            One-time leave-from address when set on this assignment. Null for
+            named-place / Default modes. Never persisted as a named place.
+        leaveByAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Estimated leave-by for this coverage's origin. Null when
+            leaveByStatus is UNAVAILABLE or PENDING (cheap list) or when the
+            row is not active.
+        leaveByStatus:
+          allOf:
+            - $ref: "#/components/schemas/LeaveByStatus"
+          nullable: true
+          description: >
+            Leave-by status for this coverage on active rows. Null on DECLINED
+            rows (not enriched).
+        leaveByReason:
+          type: string
+          nullable: true
+          description: >
+            UNAVAILABLE reason (NO_ORIGIN, NO_DESTINATION, GEOCODE_FAILED).
+            Null when OK, PENDING, or not enriched.
 
     AssignCalendarCoverageRequest:
       type: object
@@ -5356,13 +5593,22 @@ components:
           format: uuid
           nullable: true
           description: >
-            Current adult's leave-from place for this item (explicit override or
-            default located place). Null when no located place is available.
+            Current adult's resolved leave-from place for this item (active
+            coverage leave-from when covering, else item override or default
+            located place). Null for one-time origin or when no located place
+            is available.
         leaveFromPlaceName:
           type: string
           nullable: true
           description: Display name of leaveFromPlaceId when set
           example: Mom's house
+        leaveFromAddress:
+          type: string
+          nullable: true
+          description: >
+            One-time leave-from address when that mode is the signed-in adult's
+            resolved origin. Null for named-place / default. Never a named place.
+          example: "Jack's house"
         leaveByAt:
           type: string
           format: date-time

@@ -86,6 +86,14 @@ export function pendingCoverageForAdult(
   )
 }
 
+/** Active (PENDING/CONFIRMED) coverage row for this adult, if any. */
+export function activeCoverageForAdult(
+  item: CalendarItem,
+  adultId: string,
+): CalendarCoverageAssignment | undefined {
+  return activeCoverages(item).find((c) => c.coveringAdultId === adultId)
+}
+
 export type AgendaItemStatusTag = {
   label: string
   tone: "mint" | "amber" | "muted"

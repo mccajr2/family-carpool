@@ -205,9 +205,9 @@ Allowlist for `/implement`:
       override → default → first located).
 - [x] Backend (`calendar` / family geocode): Wire PUT(s); keep cheap-list HTTP
       ban; soft-fail one-time geocode via existing cache path.
-- [ ] Contract: OpenAPI for coverage leave-from fields + write body; extend
+- [x] Contract: OpenAPI for coverage leave-from fields + write body; extend
       `SetCalendarLeaveFromRequest`; examples; version bump.
-- [ ] Web: `familyClient` + types; **AgendaFocusCard** slim leave-from display +
+- [x] Web: `familyClient` + types; **AgendaFocusCard** slim leave-from display +
       subtle override; expanded `AgendaRow` full coverage leave-from / leave-by;
       item-level fallback when not covering; **Route** UI/origin consumes
       resolved leave-from; update `agenda-coverage-web-contract.md`.

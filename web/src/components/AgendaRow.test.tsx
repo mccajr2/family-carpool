@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import type { ComponentProps } from "react"
 import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
@@ -21,6 +22,7 @@ function item(
     eventKey: null,
     leaveFromPlaceId: "p1",
     leaveFromPlaceName: "Mom's house",
+    leaveFromAddress: null,
     leaveByAt: "2030-08-15T16:30:00.000Z",
     leaveByStatus: "OK",
     leaveByReason: null,
@@ -54,13 +56,17 @@ const noopHandlers = {
   onDeclineCoverage: vi.fn(),
   onRemoveCoverage: vi.fn(),
   onSetLeaveFrom: vi.fn(),
+  onSetCoverageLeaveFrom: vi.fn(),
   onSetRsvp: vi.fn(),
   onOpenPlaces: vi.fn(),
   onEdit: vi.fn(),
   onRemoveEvent: vi.fn(),
 }
 
-function renderRow(calendarItem: CalendarItem) {
+function renderRow(
+  calendarItem: CalendarItem,
+  overrides: Partial<ComponentProps<typeof AgendaRow>> = {},
+) {
   return render(
     <AgendaRow
       item={calendarItem}
@@ -74,6 +80,7 @@ function renderRow(calendarItem: CalendarItem) {
         soleKid: calendarItem.uncoveredKidIds.length <= 1,
       }}
       {...noopHandlers}
+      {...overrides}
     />,
   )
 }
@@ -171,6 +178,55 @@ describe("AgendaRow", () => {
     expect(
       within(row).queryByRole("button", { name: /can't drive anymore/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows coverage leave-from and hides item chooser when the signed-in adult is covering", async () => {
+    const user = userEvent.setup()
+    const onSetCoverageLeaveFrom = vi.fn()
+    renderRow(
+      item({
+        id: "cov-leave",
+        title: "Practice",
+        uncoveredKidIds: [],
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: "Mom's house",
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: "Mom's house",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T16:20:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onSetCoverageLeaveFrom },
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-cov-leave")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-coverage-leave-cov1")).toBeInTheDocument()
+    expect(within(row).getByTestId("coverage-leave-by-cov1").textContent).toMatch(
+      /^Leave by ~/,
+    )
+    expect(within(row).queryByTestId("leave-from-MANUAL-cov-leave-field-row")).not.toBeInTheDocument()
+    await user.click(within(row).getByTestId("coverage-leave-from-cov1-mode-one-time"))
+    await user.type(
+      within(row).getByTestId("coverage-leave-from-cov1-one-time-input"),
+      "Playground",
+    )
+    await user.click(within(row).getByTestId("coverage-leave-from-cov1-one-time-apply"))
+    expect(onSetCoverageLeaveFrom).toHaveBeenCalledWith("cov1", {
+      leaveFromPlaceId: null,
+      leaveFromAddress: "Playground",
+    })
   })
 
   it("shows Mark as not going under the kid band and writes NO via onSetRsvp", async () => {
@@ -284,6 +340,12 @@ describe("AgendaRow", () => {
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -319,6 +381,12 @@ describe("AgendaRow", () => {
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -349,6 +417,12 @@ describe("AgendaRow", () => {
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -414,6 +488,12 @@ describe("AgendaRow", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -447,6 +527,12 @@ describe("AgendaRow", () => {
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
             {
               id: "cov2",
@@ -455,6 +541,12 @@ describe("AgendaRow", () => {
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -1374,6 +1466,12 @@ detourMinutes: null,
           assignedByAdultId: "a2",
           kidIds: ["k1"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -1632,6 +1730,12 @@ detourMinutes: null,
           assignedByAdultId: "a1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -1700,6 +1804,12 @@ detourMinutes: null,
               assignedByAdultId: "a2",
               kidIds: ["k1"],
               status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -1741,6 +1851,12 @@ detourMinutes: null,
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -1889,6 +2005,12 @@ detourMinutes: null,
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -1925,6 +2047,12 @@ detourMinutes: null,
               assignedByAdultId: "a1",
               kidIds: ["k1", "k2"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -2021,6 +2149,12 @@ detourMinutes: null,
               assignedByAdultId: "a2",
               kidIds: ["k1"],
               status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}
@@ -2251,6 +2385,12 @@ detourMinutes: null,
           assignedByAdultId: "a1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -2329,6 +2469,12 @@ detourMinutes: null,
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
           rsvps: [{ kidId: "k1", status: "NO" }],
@@ -2361,6 +2507,12 @@ detourMinutes: null,
               assignedByAdultId: "a1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         })}

@@ -36,6 +36,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     eventKey: "UID:game1",
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,

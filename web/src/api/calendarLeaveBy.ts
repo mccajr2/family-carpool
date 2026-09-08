@@ -19,6 +19,7 @@ export function mergeCheapCalendarItem(
   if (
     cached &&
     cached.leaveFromPlaceId === incoming.leaveFromPlaceId &&
+    cached.leaveFromAddress === incoming.leaveFromAddress &&
     (cached.leaveByStatus === "OK" || cached.leaveByStatus === "UNAVAILABLE")
   ) {
     return {
@@ -79,6 +80,45 @@ export function applyLeaveByFillIn(
         fill.leaveFromPlaceName !== undefined
           ? fill.leaveFromPlaceName
           : item.leaveFromPlaceName,
+      leaveFromAddress:
+        fill.leaveFromAddress !== undefined
+          ? fill.leaveFromAddress
+          : item.leaveFromAddress,
+      leaveByAt: fill.leaveByAt ?? null,
+      leaveByStatus: fill.leaveByStatus,
+      leaveByReason: fill.leaveByReason ?? null,
+      coverages: mergeCoverageLeaveBy(item.coverages, fill.coverages ?? []),
+    }
+  })
+}
+
+function mergeCoverageLeaveBy(
+  coverages: CalendarItem["coverages"],
+  patches: NonNullable<CalendarLeaveBy["coverages"]>,
+): CalendarItem["coverages"] {
+  if (patches.length === 0) {
+    return coverages
+  }
+  const byId = new Map(patches.map((row) => [row.id, row]))
+  return coverages.map((coverage) => {
+    const fill = byId.get(coverage.id)
+    if (!fill) {
+      return coverage
+    }
+    return {
+      ...coverage,
+      leaveFromPlaceId:
+        fill.leaveFromPlaceId !== undefined
+          ? fill.leaveFromPlaceId
+          : coverage.leaveFromPlaceId,
+      leaveFromPlaceName:
+        fill.leaveFromPlaceName !== undefined
+          ? fill.leaveFromPlaceName
+          : coverage.leaveFromPlaceName,
+      leaveFromAddress:
+        fill.leaveFromAddress !== undefined
+          ? fill.leaveFromAddress
+          : coverage.leaveFromAddress,
       leaveByAt: fill.leaveByAt ?? null,
       leaveByStatus: fill.leaveByStatus,
       leaveByReason: fill.leaveByReason ?? null,

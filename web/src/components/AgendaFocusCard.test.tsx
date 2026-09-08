@@ -21,6 +21,7 @@ function item(
     eventKey: null,
     leaveFromPlaceId: "p1",
     leaveFromPlaceName: "Mom's house",
+    leaveFromAddress: null,
     leaveByAt: "2030-08-15T16:30:00.000Z",
     leaveByStatus: "OK",
     leaveByReason: null,
@@ -147,7 +148,7 @@ describe("AgendaFocusCard header chrome", () => {
     expect(screen.queryByText("Sam overlaps Other")).not.toBeInTheDocument()
   })
 
-  it("shows kids, destination, and leave-from on one meta line without form labels", () => {
+  it("shows kids and destination on one meta line without leave-from form labels", () => {
     renderCard(
       item({
         id: "meta",
@@ -155,7 +156,7 @@ describe("AgendaFocusCard header chrome", () => {
         uncoveredKidIds: ["k1"],
       }),
     )
-    expect(screen.getByText("Sam · Rink · Leaving from Mom's house")).toBeInTheDocument()
+    expect(screen.getByText("Sam · Rink")).toBeInTheDocument()
     expect(screen.queryByText("Leave from")).not.toBeInTheDocument()
     expect(screen.queryByText("Manual")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("RSVP for Sam on Practice")).not.toBeInTheDocument()
@@ -171,12 +172,62 @@ describe("AgendaFocusCard header chrome", () => {
         uncoveredKidIds: ["k1"],
       }),
     )
-    expect(
-      screen.getByText("Sam · 450 Huron Ave, Cambridge, MA 02138 · Leaving from Mom's house"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Sam · 450 Huron Ave, Cambridge, MA 02138")).toBeInTheDocument()
     const meta = screen.getByText(/450 Huron Ave, Cambridge/)
     expect(meta.className).not.toMatch(/truncate/)
     expect(meta.className).not.toMatch(/whitespace-nowrap/)
+  })
+
+  it("when covering, shows calm leave-from estimate and a subtle Change control", async () => {
+    const user = userEvent.setup()
+    const onSetLeaveFrom = vi.fn()
+    renderCard(
+      item({
+        id: "covering",
+        title: "Practice",
+        uncoveredKidIds: [],
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: "Mom's house",
+        leaveFromAddress: null,
+        leaveByAt: "2030-08-15T16:20:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: "Mom's house",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T16:20:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onSetLeaveFrom },
+    )
+    expect(screen.getByTestId("agenda-focus-leave-from")).toBeInTheDocument()
+    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-summary").textContent).toMatch(
+      /^Leave from Mom's house · estimate /,
+    )
+    expect(screen.queryByText(/^Leave from$/)).not.toBeInTheDocument()
+    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-change"))
+    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-editor")).toBeInTheDocument()
+    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-mode-one-time"))
+    await user.type(
+      screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-apply"))
+    expect(onSetLeaveFrom).toHaveBeenCalledWith({
+      leaveFromPlaceId: null,
+      leaveFromAddress: "Jack's house",
+    })
   })
 })
 
@@ -207,6 +258,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -241,6 +298,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -270,6 +333,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -441,6 +510,12 @@ describe("AgendaFocusCard change and remove coverage", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -477,6 +552,12 @@ describe("AgendaFocusCard change and remove coverage", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -641,6 +722,12 @@ detourMinutes: null,
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -671,6 +758,12 @@ detourMinutes: null,
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -1271,6 +1364,12 @@ detourMinutes: null,
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),

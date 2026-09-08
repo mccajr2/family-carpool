@@ -671,6 +671,31 @@ export class FamilyClient {
     return (await response.json()) as CalendarItem
   }
 
+  async setCoverageLeaveFrom(
+    accessToken: string,
+    assignmentId: string,
+    body: SetCalendarLeaveFromRequest,
+  ): Promise<CalendarItem> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/coverages/${assignmentId}/leave-from`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set coverage leave-from failed"))
+    }
+    return (await response.json()) as CalendarItem
+  }
+
   async assignCalendarCoverage(
     accessToken: string,
     source: CalendarItemSource,
