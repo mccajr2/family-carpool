@@ -359,8 +359,8 @@ export function AgendaRow({
               role="button"
               tabIndex={0}
               data-testid="agenda-row-open-ride"
-              title="View route & playlist"
-              aria-label="View route & playlist"
+              title="View route"
+              aria-label="View route"
               className="inline-flex rounded-full p-[var(--fc-space-ride-detail-open-ride-pad)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
               onClick={(event) => {
                 event.stopPropagation()
@@ -563,7 +563,7 @@ export function AgendaRow({
             >
               <span className="flex items-center gap-[var(--fc-space-sm)]">
                 <Navigation aria-hidden size={15} />
-                Route & playlist for this ride
+                Route for this ride
               </span>
               <ChevronRight aria-hidden size={16} />
             </button>

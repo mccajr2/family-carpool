@@ -2269,7 +2269,7 @@ detourMinutes: null,
 
     const row = screen.getByTestId("agenda-row-MANUAL-routable")
     const collapsed = within(row).getByTestId("agenda-row-open-ride")
-    expect(collapsed).toHaveAttribute("aria-label", "View route & playlist")
+    expect(collapsed).toHaveAttribute("aria-label", "View route")
     await user.click(collapsed)
     expect(onOpenRide).toHaveBeenCalledTimes(1)
     // Collapsed control must not toggle expand.
@@ -2277,7 +2277,7 @@ detourMinutes: null,
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     const cta = within(row).getByTestId("agenda-row-open-ride-cta")
-    expect(cta).toHaveTextContent("Route & playlist for this ride")
+    expect(cta).toHaveTextContent("Route for this ride")
     await user.click(cta)
     expect(onOpenRide).toHaveBeenCalledTimes(2)
   })
