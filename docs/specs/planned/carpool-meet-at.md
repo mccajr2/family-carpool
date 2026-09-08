@@ -1,9 +1,10 @@
 # Spec stub: carpool-meet-at
 
-Status: parking  
+Status: planned  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
-Added: 2026-08-14 · enhancement
+Added: 2026-08-14 · enhancement  
+Promoted: 2026-09-08 · carpool Beta
 
 Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec carpool-meet-at`
 to flesh out Approach, Acceptance Criteria, and Tasks before any code.
@@ -20,17 +21,19 @@ driver can accept a plan they can actually run.
 
 ## Non-goals (sketch)
 
-- Changing v1 request/accept (pickup-at-requester implied)
-- To XOR from (`carpool-leg-to-from`)
+- To XOR from (`carpool-leg-to-from`) — ship legs first or decide shared OpenAPI at `/spec`
 - Early/late windows (`carpool-early-late-window`)
+- Stop-order optimize (`carpool-route-optimize`)
 - Live navigation or in-app maps
+- Expo / push
 
 ## Notes
 
-- Depends on `carpool-request-accept`. Pickup/drop-off **places** are circle
+- Depends on shipped `carpool-request-accept`. Pickup/drop-off **places** are circle
   named places — do not invent a second address model.
 - Showing teammate house addresses is PII: consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)` before this ships.
 - Drop-off at the driver’s house still needs an agreed time if it is not the
   usual leave-by — that time window is `carpool-early-late-window`, not this
   slice.
+- Promoted for carpool Beta (2026-09-08), ranked after one-way legs — web first.
