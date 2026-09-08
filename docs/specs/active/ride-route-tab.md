@@ -203,7 +203,7 @@ Allowlist for `/implement`:
       data; align fixture helpers/tests with 45/20/0 buffers where still used
       for playlist or offline demos
 - [x] Web: minimal `UNAVAILABLE` Route state (polish owns richer chrome later)
-- [ ] Notify: leave call-site as no-op / local-only (document hook for push)
+- [x] Notify: leave call-site as no-op / local-only (document hook for push)
 - [ ] Tests: leaveby/carpool/coverage unit + API integration; `RideRouteTab` /
       `FamilyScreen` (or detail host) tests for OK + UNAVAILABLE; no live OSRM
       in CI (stub provider)
