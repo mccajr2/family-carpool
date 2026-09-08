@@ -78,4 +78,24 @@ public interface CoverageApi {
      */
     void releaseKidFromActiveRows(
             UUID circleId, CoverageItemSource source, UUID itemId, UUID kidId);
+
+    /**
+     * Set leave-from on an active ({@code PENDING}/{@code CONFIRMED}) assignment.
+     * Any circle member may write. Modes:
+     *
+     * <ul>
+     *   <li>both null → Default (clear overrides)
+     *   <li>{@code leaveFromPlaceId} only → named located place
+     *   <li>{@code leaveFromAddress} only → one-time free-text address (trimmed)
+     * </ul>
+     *
+     * Place and address are mutually exclusive.
+     *
+     * @throws com.yourorg.quickapp.family.FamilyAccessException 400 / 404 / 409
+     */
+    CoverageAssignmentDto setLeaveFrom(
+            UUID actorAdultId,
+            UUID assignmentId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress);
 }

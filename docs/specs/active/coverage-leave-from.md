@@ -197,7 +197,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Backend (`coverage`): Persist optional place id XOR one-time address on
+- [x] Backend (`coverage`): Persist optional place id XOR one-time address on
       assignment; clear = default; public DTO fields; any-member set API.
 - [ ] Backend (`leaveby`): Item override one-time address; resolve coverage
       origins; enrich per-coverage leave-by (cheap + full); signed-in mirror

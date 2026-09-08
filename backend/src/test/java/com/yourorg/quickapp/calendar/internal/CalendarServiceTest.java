@@ -270,6 +270,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidCovered),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.parse("2026-08-01T00:00:00Z"),
                         Instant.parse("2026-08-01T00:00:00Z"));
         when(coverageApi.listForItems(eq(circleId), eq(CoverageItemSource.MANUAL), any()))
@@ -408,6 +410,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.assign(
@@ -603,6 +607,8 @@ class CalendarServiceTest {
                                         adult.id(),
                                         List.of(kidB),
                                         CoverageStatus.CONFIRMED,
+                                        null,
+                                        null,
                                         Instant.now(),
                                         Instant.now())));
         when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
@@ -641,6 +647,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
@@ -686,6 +694,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.PENDING,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
@@ -725,6 +735,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.requireAssignment(adult.id(), assignmentId)).thenReturn(coverage);
@@ -758,6 +770,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.confirm(adult.id(), assignmentId)).thenReturn(confirmed);
@@ -797,6 +811,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidA),
                         CoverageStatus.DECLINED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         assertThat(CalendarService.uncoveredKidIds(List.of(kidA, kidB), List.of(declined), List.of()))
@@ -823,6 +839,8 @@ class CalendarServiceTest {
                         adult.id(),
                         List.of(kidId),
                         CoverageStatus.CONFIRMED,
+                        null,
+                        null,
                         Instant.now(),
                         Instant.now());
         when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))

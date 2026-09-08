@@ -57,6 +57,14 @@ class CoverageAssignmentEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** Named-place leave-from override; null with address null = Default. */
+    @Column(name = "leave_from_place_id")
+    private UUID leaveFromPlaceId;
+
+    /** One-time leave-from address; mutually exclusive with place id. */
+    @Column(name = "leave_from_address", length = 255)
+    private String leaveFromAddress;
+
     protected CoverageAssignmentEntity() {}
 
     CoverageAssignmentEntity(
@@ -122,6 +130,14 @@ class CoverageAssignmentEntity {
         return updatedAt;
     }
 
+    UUID leaveFromPlaceId() {
+        return leaveFromPlaceId;
+    }
+
+    String leaveFromAddress() {
+        return leaveFromAddress;
+    }
+
     void reassign(
             UUID coveringAdultId,
             UUID assignedByAdultId,
@@ -142,6 +158,16 @@ class CoverageAssignmentEntity {
 
     void setKids(Set<UUID> kidIds, Instant updatedAt) {
         this.kidIds = new HashSet<>(kidIds);
+        this.updatedAt = updatedAt;
+    }
+
+    /**
+     * Persist leave-from override. Both null = Default. Caller enforces XOR and
+     * place/address validation.
+     */
+    void setLeaveFrom(UUID leaveFromPlaceId, String leaveFromAddress, Instant updatedAt) {
+        this.leaveFromPlaceId = leaveFromPlaceId;
+        this.leaveFromAddress = leaveFromAddress;
         this.updatedAt = updatedAt;
     }
 }
