@@ -1,8 +1,9 @@
 # Spec: coverage-leave-from
 
-Status: draft  
+Status: archived  
+Completed: 2026-09-08  
 Created: 2026-08-12  
-Updated: 2026-09-08 (`/spec` — slim Focus leave-from)  
+Updated: 2026-09-08 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `coverage-leave-from`  
 Added: 2026-08-12 · enhancement
@@ -162,36 +163,36 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] Adult can set leave-from on an **active coverage** (covering adult
+- [x] Adult can set leave-from on an **active coverage** (covering adult
       assigned) to **default**, a **located named place**, or a **one-time**
       free-text address; new coverage rows start at Default; any circle member
       may write; response returns updated `CalendarItem` with enriched coverages.
-- [ ] Default mode always **displays** the resolved place name when one exists
+- [x] Default mode always **displays** the resolved place name when one exists
       (membership default or first located).
-- [ ] One-time address is **not** persisted as a named place; geocode soft-fails
+- [x] One-time address is **not** persisted as a named place; geocode soft-fails
       without failing the whole calendar response; miss yields
       `UNAVAILABLE` with a documented reason (not a fake duration).
-- [ ] Two active coverages on the same item can have **different** origins and
+- [x] Two active coverages on the same item can have **different** origins and
       **different** leave-by estimates; both are visible on expanded Agenda.
-- [ ] **Focus card** stays slim: Assign-to-me / Confirm still defaults leave-from;
+- [x] **Focus card** stays slim: Assign-to-me / Confirm still defaults leave-from;
       when covering, shows calm leave-from + estimate copy; a **subtle** override
       reaches default / named place / one-time without expanding the day row and
       without a full field-row band on the hero.
-- [ ] **Expanded Agenda** exposes Leave from on coverage bands; item-level
+- [x] **Expanded Agenda** exposes Leave from on coverage bands; item-level
       chooser only when the signed-in adult is not covering (no duplicate).
-- [ ] Signed-in adult **with** an active coverage: item `leaveFrom*` / `leaveBy*`
+- [x] Signed-in adult **with** an active coverage: item `leaveFrom*` / `leaveBy*`
       reflect that coverage’s origin.
-- [ ] Signed-in adult **without** an active coverage: item-level leave-from
+- [x] Signed-in adult **without** an active coverage: item-level leave-from
       still supports default / named place / one-time.
-- [ ] Cheap `GET …/calendar` never calls Nominatim/OSRM for one-time or coverage
+- [x] Cheap `GET …/calendar` never calls Nominatim/OSRM for one-time or coverage
       origins; cache miss → `PENDING` until fill-in / mutation enrich.
-- [ ] `GET …/calendar/leave-by` fill-in refreshes item and **coverage** leave-by
+- [x] `GET …/calendar/leave-by` fill-in refreshes item and **coverage** leave-by
       fields for the window.
-- [ ] **Route page** starting stop + leave-by use the driving adult’s resolved
+- [x] **Route page** starting stop + leave-by use the driving adult’s resolved
       leave-from (coverage → item override → default → first located), not a
       hard-wired Home/default when an override exists; a leave-from change on
       Focus/Agenda is reflected on Route after refresh/enrich.
-- [ ] Unit + integration tests for coverage leave-from write/authz/resolution,
+- [x] Unit + integration tests for coverage leave-from write/authz/resolution,
       one-time geocode, and Route origin resolution; web tests for Focus +
       AgendaRow leave-from; `ModularityTests` pass.
 
@@ -211,7 +212,7 @@ Allowlist for `/implement`:
       subtle override; expanded `AgendaRow` full coverage leave-from / leave-by;
       item-level fallback when not covering; **Route** UI/origin consumes
       resolved leave-from; update `agenda-coverage-web-contract.md`.
-- [ ] Tests: backend unit + integration (incl. Route origin); web Focus (slim +
+- [x] Tests: backend unit + integration (incl. Route origin); web Focus (slim +
       override) + AgendaRow / FamilyScreen; ModularityTests.
 
 ## Open questions

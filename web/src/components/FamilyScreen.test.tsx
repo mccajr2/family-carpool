@@ -2884,6 +2884,436 @@ detourMinutes: null,
     expect(leaveFrom).toHaveValue("p2")
   })
 
+  it("writes coverage leave-from from expanded Agenda via setCoverageLeaveFrom", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        location: "Rink",
+        kidIds: ["k1"],
+        uncoveredKidIds: [],
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: "Jack's house",
+        leaveByAt: "2030-08-15T16:15:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: "Jack's house",
+            leaveByAt: "2030-08-15T16:15:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            earlierFocusDecoy(),
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          setCoverageLeaveFrom,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.click(within(item).getByTestId("coverage-leave-from-cov1-mode-one-time"))
+    await user.type(
+      within(item).getByTestId("coverage-leave-from-cov1-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(within(item).getByTestId("coverage-leave-from-cov1-one-time-apply"))
+
+    await waitFor(() => {
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: null,
+        leaveFromAddress: "Jack's house",
+      })
+    })
+  })
+
+  it("writes coverage leave-from from Focus hero Change leave-from control", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        kidIds: ["k1"],
+        uncoveredKidIds: ["k1"],
+        leaveFromAddress: "Jack's house",
+        leaveByStatus: "OK",
+        leaveByAt: "2030-08-15T16:15:00.000Z",
+        leaveByReason: null,
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "2",
+            kidIds: ["k2"],
+            status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: "Jack's house",
+            leaveByAt: "2030-08-15T16:15:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Field",
+              kidIds: ["k1", "k2"],
+              // Gap on Sam keeps this in the hero queue while Alex is PENDING for Riley.
+              uncoveredKidIds: ["k1"],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "2",
+                  kidIds: ["k2"],
+                  status: "PENDING",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          setCoverageLeaveFrom,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Practice")
+    expect(within(slide).getByTestId("hero-attention-leave-from")).toBeInTheDocument()
+    expect(
+      within(slide).getByTestId("hero-leave-from-MANUAL-e1-summary").textContent,
+    ).toMatch(/^Leave from Mom's house · estimate /)
+    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-change"))
+    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-mode-one-time"))
+    await user.type(
+      within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-apply"))
+
+    await waitFor(() => {
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: null,
+        leaveFromAddress: "Jack's house",
+      })
+    })
+  })
+
+  it("refetches Route after coverage leave-from changes the calendar item", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const updatedItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      location: "Rink",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      leaveFromPlaceId: "p2",
+      leaveFromPlaceName: "School",
+      leaveFromAddress: null,
+      leaveByAt: "2030-08-15T16:10:00.000Z",
+      leaveByStatus: "OK",
+      leaveByReason: null,
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: "p2",
+          leaveFromPlaceName: "School",
+          leaveFromAddress: null,
+          leaveByAt: "2030-08-15T16:10:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(updatedItem)
+    const getCalendarRoute = vi.fn().mockResolvedValue({
+      status: "OK",
+      reason: null,
+      bufferMinutes: 20,
+      stops: [
+        { name: "School", address: "2 School", kind: "home" },
+        { name: "Practice", address: "Rink", kind: "destination" },
+      ],
+      legMinutes: [10],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+                {
+                  id: "p2",
+                  name: "School",
+                  address: "2 School",
+                  latitude: 40.2,
+                  longitude: -74.2,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            earlierFocusDecoy(),
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          setCoverageLeaveFrom,
+          getCalendarRoute,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.click(within(item).getByTestId("coverage-leave-from-cov1-mode-place"))
+    await user.selectOptions(
+      within(item).getByTestId("coverage-leave-from-cov1-place-select"),
+      "p2",
+    )
+    await waitFor(() => {
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: "p2",
+        leaveFromAddress: null,
+      })
+    })
+
+    await user.click(within(item).getByTestId("agenda-row-open-ride"))
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "MANUAL", "e1")
+    expect(screen.getByTestId("ride-route-stop-School")).toBeInTheDocument()
+  })
+
   it("shows UNAVAILABLE leave-by reasons with Open Places recovery only", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

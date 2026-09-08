@@ -51,6 +51,12 @@ function coverage(
     assignedByAdultId: "a1",
     kidIds: ["k1"],
     status: "PENDING",
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveFromAddress: null,
+    leaveByAt: null,
+    leaveByStatus: null,
+    leaveByReason: null,
     ...partial,
   }
 }
@@ -168,12 +174,6 @@ describe("coverageDisplay", () => {
           id: "c1",
           coveringAdultId: "a1",
           status: "PENDING",
-        leaveFromPlaceId: null,
-        leaveFromPlaceName: null,
-        leaveFromAddress: null,
-        leaveByAt: null,
-        leaveByStatus: null,
-        leaveByReason: null,
         }),
       ],
     })
@@ -188,12 +188,6 @@ describe("coverageDisplay", () => {
           id: "c1",
           coveringAdultId: "a2",
           status: "PENDING",
-        leaveFromPlaceId: null,
-        leaveFromPlaceName: null,
-        leaveFromAddress: null,
-        leaveByAt: null,
-        leaveByStatus: null,
-        leaveByReason: null,
         }),
       ],
     })

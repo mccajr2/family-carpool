@@ -229,6 +229,132 @@ describe("AgendaRow", () => {
     })
   })
 
+  it("shows item-level leave-from when the signed-in adult is not covering", async () => {
+    const user = userEvent.setup()
+    const onSetLeaveFrom = vi.fn()
+    renderRow(
+      item({
+        id: "item-leave",
+        title: "Practice",
+        uncoveredKidIds: [],
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Mom's house",
+        leaveFromAddress: null,
+        coverages: [
+          {
+            id: "cov-other",
+            coveringAdultId: "a2",
+            coveringAdultDisplayName: "Jordan",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: "School",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T16:10:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onSetLeaveFrom },
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-item-leave")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("leave-from-MANUAL-item-leave-field-row")).toBeInTheDocument()
+    expect(within(row).getByTestId("coverage-leave-from-cov-other-label")).toHaveTextContent(
+      "School",
+    )
+    await user.click(within(row).getByTestId("leave-from-MANUAL-item-leave-mode-one-time"))
+    await user.type(
+      within(row).getByTestId("leave-from-MANUAL-item-leave-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(within(row).getByTestId("leave-from-MANUAL-item-leave-one-time-apply"))
+    expect(onSetLeaveFrom).toHaveBeenCalledWith({
+      leaveFromPlaceId: null,
+      leaveFromAddress: "Jack's house",
+    })
+  })
+
+  it("shows distinct leave-from on each active coverage band", async () => {
+    const user = userEvent.setup()
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Riley" },
+      ],
+      members: [
+        ...circle.members,
+        {
+          adultId: "a2",
+          email: "jordan@example.com",
+          displayName: "Jordan",
+          role: "CAREGIVER",
+        },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "two-cov",
+          title: "Game",
+          kidIds: ["k1", "k2"],
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov-a",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:20:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+            },
+            {
+              id: "cov-b",
+              coveringAdultId: "a2",
+              coveringAdultDisplayName: "Jordan",
+              assignedByAdultId: "a1",
+              kidIds: ["k2"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: "Playground lot",
+              leaveByAt: "2030-08-15T16:05:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+            },
+          ],
+        })}
+        circle={twoKids}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: false, soleKid: false }}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-two-cov")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("coverage-leave-from-cov-a-label")).toHaveTextContent(
+      "Mom's house",
+    )
+    expect(within(row).getByTestId("coverage-leave-from-cov-b-one-time-input")).toHaveValue(
+      "Playground lot",
+    )
+    expect(within(row).getByTestId("coverage-leave-by-cov-a").textContent).toMatch(/^Leave by ~/)
+    expect(within(row).getByTestId("coverage-leave-by-cov-b").textContent).toMatch(/^Leave by ~/)
+    expect(within(row).queryByTestId("leave-from-MANUAL-two-cov-field-row")).not.toBeInTheDocument()
+  })
+
   it("shows Mark as not going under the kid band and writes NO via onSetRsvp", async () => {
     const user = userEvent.setup()
     const onSetRsvp = vi.fn()

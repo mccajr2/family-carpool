@@ -65,6 +65,12 @@ function pendingFor(coveringAdultId: string) {
     assignedByAdultId: "other",
     kidIds: ["k1"],
     status: "PENDING" as const,
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveFromAddress: null,
+    leaveByAt: null,
+    leaveByStatus: null,
+    leaveByReason: null,
   }
 }
 
