@@ -192,7 +192,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Contract: add route read schema + path to `contracts/openapi.yaml`; keep
+- [x] Contract: add route read schema + path to `contracts/openapi.yaml`; keep
       web `api/` types/client in sync
 - [ ] Backend (`leaveby`): multi-stop ordered `legMinutes` helper reusing
       `OsrmPort` / geocode / `leaveby_route_cache`; persist itinerary + fingerprint
@@ -220,6 +220,7 @@ Resolved at `/spec`:
 
 Still open (implementer may choose within Approach):
 
-- Exact OpenAPI path and which Modulith module owns the HTTP resource
-  (calendar vs carpool), as long as leaveby owns duration math/cache and both
-  confirm paths trigger build/invalidate.
+- ~~Exact OpenAPI path and which Modulith module owns the HTTP resource
+  (calendar vs carpool)~~ — **chosen:** `GET /api/family/circle/calendar/{source}/{itemId}/route`
+  under family/calendar (HTTP resource); leaveby still owns duration math/cache.
+  Confirm paths still trigger build/invalidate in later tasks.
