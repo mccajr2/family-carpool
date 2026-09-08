@@ -26,7 +26,7 @@ Prefer matching `.nvmrc` when regenerating `package-lock.json`. CI runs
 ## Quick start
 
 ```bash
-cp .env.example .env   # optional
+cp .env.example .env   # optional — local secrets; gitignored + cursorignored
 npm ci                 # or npm install on first bootstrap of a new lockfile
 npm run dev
 ```
@@ -35,6 +35,9 @@ Scripts: `dev`, `build`, `lint`, `test`.
 
 In `npm run dev`, `/api` is proxied to `http://localhost:8080` (avoids CORS).
 Override with `VITE_API_BASE_URL` when you need a different origin.
+
+For a live Route map, set `VITE_GOOGLE_MAPS_EMBED_API_KEY` in `web/.env`
+(Maps Embed API; restrict the key by HTTP referrer). Empty → map placeholder.
 
 With the backend running (`./gradlew :backend:bootRun` from the repo root) and
 Postgres available, open the app and complete email OTP sign-in. With
