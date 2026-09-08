@@ -9,7 +9,7 @@ Added: 2026-09-06 · enhancement
 Branch: `ride-detail-shell`  
 Depends on: [`ride-detail-schedule-utils`](../archive/ride-detail-schedule-utils.md)  
 Feeds: [`ride-route-tab`](../archive/ride-route-tab.md) /
-[`ride-playlist-tab`](../planned/ride-playlist-tab.md) /
+[`ride-playlist-tab`](../active/ride-playlist-tab.md) /
 [`ride-detail-polish`](../planned/ride-detail-polish.md)
 
 ## Problem
@@ -24,7 +24,7 @@ approved mockup flow cannot be dogfooded even with fixture data.
 - Real multi-stop legs from OSRM / geocoding, or persisting route on a `Ride`
   ([`ride-route-tab`](../archive/ride-route-tab.md))
 - Spotify OAuth, live playlists, or token storage
-  ([`ride-playlist-tab`](../planned/ride-playlist-tab.md))
+  ([`ride-playlist-tab`](../active/ride-playlist-tab.md))
 - Honest loading / OSRM-unreachable / notify-failure polish
   ([`ride-detail-polish`](../planned/ride-detail-polish.md))
 - Real push/SMS delivery for notify or invite (UI may stub local sending
@@ -124,7 +124,7 @@ link, Premium caveat, merge-order track list.
   (Calendar destination overlay; keep rail)
 - Downstream (Problem/Notes only):
   [`ride-route-tab`](../archive/ride-route-tab.md),
-  [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
+  [`ride-playlist-tab`](../active/ride-playlist-tab.md)
 
 ## Acceptance criteria
 
