@@ -342,7 +342,7 @@ class CalendarServiceTest {
                 calendarService.setLeaveFrom(adult, CalendarItemSource.MANUAL, itemId, placeId);
 
         verify(leaveByApi)
-                .setLeaveFrom(adult.id(), LeaveByItemSource.MANUAL, itemId, placeId);
+                .setLeaveFrom(adult.id(), LeaveByItemSource.MANUAL, itemId, placeId, null);
         assertThat(response.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
         assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
         assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));

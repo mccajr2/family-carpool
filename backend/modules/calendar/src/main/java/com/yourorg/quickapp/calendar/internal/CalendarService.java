@@ -305,7 +305,7 @@ public class CalendarService {
     public CalendarItemResponse setLeaveFrom(
             AdultResponse adult, CalendarItemSource source, UUID itemId, UUID placeId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
-        leaveByApi.setLeaveFrom(adult.id(), toLeaveBySource(source), itemId, placeId);
+        leaveByApi.setLeaveFrom(adult.id(), toLeaveBySource(source), itemId, placeId, null);
         return requireItem(adult.id(), circleId, source, itemId);
     }
 

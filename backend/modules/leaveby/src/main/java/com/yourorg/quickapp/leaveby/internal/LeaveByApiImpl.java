@@ -1,5 +1,9 @@
 package com.yourorg.quickapp.leaveby.internal;
 
+import com.yourorg.quickapp.coverage.CoverageApi;
+import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
+import com.yourorg.quickapp.coverage.CoverageItemSource;
+import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.CirclePlaceDto;
 import com.yourorg.quickapp.family.FamilyAccessException;
@@ -18,6 +22,7 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.leaveby.LeaveFromEnrichmentInput;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -39,9 +45,14 @@ class LeaveByApiImpl implements LeaveByApi {
     static final String REASON_NO_DESTINATION = "NO_DESTINATION";
     static final String REASON_GEOCODE_FAILED = "GEOCODE_FAILED";
 
+    private static final Set<CoverageStatus> ACTIVE_COVERAGE =
+            Set.of(CoverageStatus.PENDING, CoverageStatus.CONFIRMED);
+    private static final int LEAVE_FROM_ADDRESS_MAX = 255;
+
     private final FamilyMembershipApi membershipApi;
     private final FamilyPlaceApi placeApi;
     private final FamilyGeocodeApi geocodeApi;
+    private final CoverageApi coverageApi;
     private final ManualEventCalendarApi manualEventCalendarApi;
     private final FeedCalendarApi feedCalendarApi;
     private final CalendarLeaveFromRepository leaveFromRepository;
@@ -54,6 +65,7 @@ class LeaveByApiImpl implements LeaveByApi {
             FamilyMembershipApi membershipApi,
             FamilyPlaceApi placeApi,
             FamilyGeocodeApi geocodeApi,
+            CoverageApi coverageApi,
             ManualEventCalendarApi manualEventCalendarApi,
             FeedCalendarApi feedCalendarApi,
             CalendarLeaveFromRepository leaveFromRepository,
@@ -64,6 +76,7 @@ class LeaveByApiImpl implements LeaveByApi {
         this.membershipApi = membershipApi;
         this.placeApi = placeApi;
         this.geocodeApi = geocodeApi;
+        this.coverageApi = coverageApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
         this.feedCalendarApi = feedCalendarApi;
         this.leaveFromRepository = leaveFromRepository;
@@ -118,6 +131,53 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
+    public LeaveByEnrichmentDto enrichForLeaveFrom(
+            UUID adultIdForDefault,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress,
+            Instant startsAt,
+            String location,
+            boolean allowHttp) {
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Map<String, Optional<Double>> durations = new HashMap<>();
+        return enrichWithOverride(
+                adultIdForDefault,
+                leaveFromPlaceId,
+                leaveFromAddress,
+                startsAt,
+                location,
+                allowHttp,
+                geocoded,
+                durations);
+    }
+
+    @Override
+    @Transactional
+    public List<LeaveByEnrichmentDto> enrichForLeaveFromMany(
+            List<LeaveFromEnrichmentInput> inputs, boolean allowHttp) {
+        if (inputs == null || inputs.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Map<String, Optional<Double>> durations = new HashMap<>();
+        List<LeaveByEnrichmentDto> out = new ArrayList<>(inputs.size());
+        for (LeaveFromEnrichmentInput input : inputs) {
+            out.add(
+                    enrichWithOverride(
+                            input.adultIdForDefault(),
+                            input.leaveFromPlaceId(),
+                            input.leaveFromAddress(),
+                            input.startsAt(),
+                            input.location(),
+                            allowHttp,
+                            geocoded,
+                            durations));
+        }
+        return List.copyOf(out);
+    }
+
+    @Override
+    @Transactional
     public List<Integer> detourMinutesMany(UUID adultId, List<DetourItemInput> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
@@ -166,7 +226,8 @@ class LeaveByApiImpl implements LeaveByApi {
             String destinationName,
             String destinationAddress) {
         List<CalendarRoutePickupInput> safePickups = pickups == null ? List.of() : pickups;
-        Optional<String> fingerprint = currentFingerprint(drivingAdultId, safePickups, destinationAddress);
+        Optional<String> fingerprint =
+                currentFingerprint(drivingAdultId, source, itemId, safePickups, destinationAddress);
         if (fingerprint.isPresent()) {
             Optional<ItineraryEntity> cached =
                     itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
@@ -208,20 +269,62 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
-    public void setLeaveFrom(UUID adultId, LeaveByItemSource source, UUID itemId, UUID placeId) {
-        CirclePlaceDto place = placeApi.requireLocatedPlaceForMember(adultId, placeId);
+    public void setLeaveFrom(
+            UUID adultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress) {
         UUID circleId = membershipApi.requireMemberCircleId(adultId);
         requireItemInCircle(circleId, source, itemId);
+
+        String trimmedAddress = leaveFromAddress == null ? null : leaveFromAddress.trim();
+        if (trimmedAddress != null && trimmedAddress.isEmpty()) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "leaveFromAddress must be non-empty when set");
+        }
+        if (leaveFromPlaceId != null && trimmedAddress != null) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromPlaceId and leaveFromAddress are mutually exclusive");
+        }
+        if (trimmedAddress != null && trimmedAddress.length() > LEAVE_FROM_ADDRESS_MAX) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromAddress must be at most " + LEAVE_FROM_ADDRESS_MAX + " characters");
+        }
 
         Instant now = Instant.now();
         Optional<CalendarLeaveFromEntity> existing =
                 leaveFromRepository.findByAdultIdAndItemSourceAndItemId(adultId, source, itemId);
+
+        if (leaveFromPlaceId == null && trimmedAddress == null) {
+            existing.ifPresent(leaveFromRepository::delete);
+            return;
+        }
+
+        UUID placeId = null;
+        String address = null;
+        if (leaveFromPlaceId != null) {
+            placeApi.requireLocatedPlaceForMember(adultId, leaveFromPlaceId);
+            placeId = leaveFromPlaceId;
+        } else {
+            address = trimmedAddress;
+        }
+
         if (existing.isPresent()) {
-            existing.get().setPlaceId(place.id(), now);
+            existing.get().setOverride(placeId, address, now);
         } else {
             leaveFromRepository.save(
                     new CalendarLeaveFromEntity(
-                            UUID.randomUUID(), adultId, source, itemId, place.id(), now, now));
+                            UUID.randomUUID(),
+                            adultId,
+                            source,
+                            itemId,
+                            placeId,
+                            address,
+                            now,
+                            now));
         }
     }
 
@@ -230,35 +333,62 @@ class LeaveByApiImpl implements LeaveByApi {
         if (items == null || items.isEmpty()) {
             return List.of();
         }
-        Map<String, Optional<GeoPointDto>> destinations = new HashMap<>();
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
         Map<String, Optional<Double>> durations = new HashMap<>();
         List<LeaveByEnrichmentDto> out = new ArrayList<>(items.size());
         for (LeaveByItemInput item : items) {
-            out.add(enrichOne(adultId, item, allowHttp, destinations, durations));
+            LeaveFromOverride override = leaveFromForAdult(adultId, item.source(), item.itemId());
+            out.add(
+                    enrichWithOverride(
+                            adultId,
+                            override.placeId(),
+                            override.address(),
+                            item.startsAt(),
+                            item.location(),
+                            allowHttp,
+                            geocoded,
+                            durations));
         }
         return List.copyOf(out);
     }
 
-    private LeaveByEnrichmentDto enrichOne(
-            UUID adultId,
-            LeaveByItemInput item,
+    private LeaveByEnrichmentDto enrichWithOverride(
+            UUID adultIdForDefault,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress,
+            Instant startsAt,
+            String location,
             boolean allowHttp,
-            Map<String, Optional<GeoPointDto>> destinations,
+            Map<String, Optional<GeoPointDto>> geocoded,
             Map<String, Optional<Double>> durations) {
-        Optional<CirclePlaceDto> origin =
-                resolveOrigin(adultId, item.source(), item.itemId());
-        if (origin.isEmpty()) {
+        Optional<ResolvedOrigin> originOpt =
+                resolveOriginFields(
+                        adultIdForDefault, leaveFromPlaceId, leaveFromAddress, allowHttp, geocoded);
+        if (originOpt.isEmpty()) {
             return LeaveByEnrichmentDto.unavailable(null, null, REASON_NO_ORIGIN);
         }
-        CirclePlaceDto place = origin.get();
-        String location = item.location();
+        ResolvedOrigin origin = originOpt.get();
+        if (!origin.located()) {
+            if (!allowHttp) {
+                return LeaveByEnrichmentDto.pending(
+                        origin.placeId(), origin.placeName(), origin.oneTimeAddress());
+            }
+            return LeaveByEnrichmentDto.unavailable(
+                    origin.placeId(),
+                    origin.placeName(),
+                    origin.oneTimeAddress(),
+                    REASON_GEOCODE_FAILED);
+        }
         if (location == null || location.isBlank()) {
             return LeaveByEnrichmentDto.unavailable(
-                    place.id(), place.name(), REASON_NO_DESTINATION);
+                    origin.placeId(),
+                    origin.placeName(),
+                    origin.oneTimeAddress(),
+                    REASON_NO_DESTINATION);
         }
         String locKey = normalizeLocation(location);
         Optional<GeoPointDto> destination =
-                destinations.computeIfAbsent(
+                geocoded.computeIfAbsent(
                         locKey,
                         ignored ->
                                 allowHttp
@@ -266,31 +396,115 @@ class LeaveByApiImpl implements LeaveByApi {
                                         : geocodeApi.findCachedLocation(location));
         if (destination.isEmpty()) {
             if (!allowHttp) {
-                return LeaveByEnrichmentDto.pending(place.id(), place.name());
+                return LeaveByEnrichmentDto.pending(
+                        origin.placeId(), origin.placeName(), origin.oneTimeAddress());
             }
             return LeaveByEnrichmentDto.unavailable(
-                    place.id(), place.name(), REASON_GEOCODE_FAILED);
+                    origin.placeId(),
+                    origin.placeName(),
+                    origin.oneTimeAddress(),
+                    REASON_GEOCODE_FAILED);
         }
         GeoPointDto dest = destination.get();
         String routeKey =
                 LeaveByRouteKeys.routeKey(
-                        place.latitude(), place.longitude(), dest.latitude(), dest.longitude());
+                        origin.latitude(), origin.longitude(), dest.latitude(), dest.longitude());
         Optional<Double> routed =
                 durations.computeIfAbsent(
-                        routeKey, ignored -> lookupDuration(routeKey, place, dest, allowHttp));
+                        routeKey,
+                        ignored ->
+                                lookupDuration(
+                                        routeKey,
+                                        origin.latitude(),
+                                        origin.longitude(),
+                                        dest.latitude(),
+                                        dest.longitude(),
+                                        allowHttp));
         if (!allowHttp && routed.isEmpty()) {
-            return LeaveByEnrichmentDto.pending(place.id(), place.name());
+            return LeaveByEnrichmentDto.pending(
+                    origin.placeId(), origin.placeName(), origin.oneTimeAddress());
         }
-        double travelSeconds =
-                routed.orElse((double) properties.fallbackDurationSeconds());
-        double multiplier = LeaveByMath.timeOfDayMultiplier(item.startsAt(), properties);
+        double travelSeconds = routed.orElse((double) properties.fallbackDurationSeconds());
+        double multiplier = LeaveByMath.timeOfDayMultiplier(startsAt, properties);
         Instant leaveByAt =
                 LeaveByMath.leaveByAt(
-                        item.startsAt(),
-                        travelSeconds,
-                        multiplier,
-                        properties.fixedBufferSeconds());
-        return LeaveByEnrichmentDto.ok(place.id(), place.name(), leaveByAt);
+                        startsAt, travelSeconds, multiplier, properties.fixedBufferSeconds());
+        return LeaveByEnrichmentDto.ok(
+                origin.placeId(), origin.placeName(), origin.oneTimeAddress(), leaveByAt);
+    }
+
+    private LeaveFromOverride leaveFromForAdult(
+            UUID adultId, LeaveByItemSource source, UUID itemId) {
+        Optional<CoverageAssignmentDto> coverage = activeCoverageForAdult(adultId, source, itemId);
+        if (coverage.isPresent()) {
+            CoverageAssignmentDto row = coverage.get();
+            return new LeaveFromOverride(row.leaveFromPlaceId(), row.leaveFromAddress());
+        }
+        Optional<CalendarLeaveFromEntity> override =
+                leaveFromRepository.findByAdultIdAndItemSourceAndItemId(adultId, source, itemId);
+        if (override.isPresent()) {
+            CalendarLeaveFromEntity row = override.get();
+            return new LeaveFromOverride(row.placeId(), row.leaveFromAddress());
+        }
+        return LeaveFromOverride.DEFAULT;
+    }
+
+    private Optional<CoverageAssignmentDto> activeCoverageForAdult(
+            UUID adultId, LeaveByItemSource source, UUID itemId) {
+        UUID circleId = membershipApi.requireMemberCircleId(adultId);
+        return coverageApi.listForItem(circleId, toCoverageSource(source), itemId).stream()
+                .filter(row -> ACTIVE_COVERAGE.contains(row.status()))
+                .filter(row -> adultId.equals(row.coveringAdultId()))
+                .findFirst();
+    }
+
+    private Optional<ResolvedOrigin> resolveOriginFields(
+            UUID adultId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress,
+            boolean allowHttp,
+            Map<String, Optional<GeoPointDto>> geocoded) {
+        if (leaveFromPlaceId != null) {
+            return placeApi
+                    .findPlaceForMember(adultId, leaveFromPlaceId)
+                    .filter(CirclePlaceDto::located)
+                    .map(ResolvedOrigin::fromPlace)
+                    .or(() -> resolveDefaultAsOrigin(adultId));
+        }
+        String trimmed = leaveFromAddress == null ? null : leaveFromAddress.trim();
+        if (trimmed != null && !trimmed.isEmpty()) {
+            Optional<GeoPointDto> point =
+                    geocoded.computeIfAbsent(
+                            normalizeLocation(trimmed),
+                            ignored ->
+                                    allowHttp
+                                            ? geocodeApi.resolveLocation(trimmed)
+                                            : geocodeApi.findCachedLocation(trimmed));
+            if (point.isPresent()) {
+                return Optional.of(ResolvedOrigin.oneTime(trimmed, point.get()));
+            }
+            return Optional.of(ResolvedOrigin.oneTimeUnresolved(trimmed));
+        }
+        return resolveDefaultAsOrigin(adultId);
+    }
+
+    private Optional<ResolvedOrigin> resolveDefaultAsOrigin(UUID adultId) {
+        return resolveDefaultOrigin(adultId).map(ResolvedOrigin::fromPlace);
+    }
+
+    private Optional<ResolvedOrigin> resolveItemOriginLocated(
+            UUID adultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            Map<String, Optional<GeoPointDto>> geocoded) {
+        LeaveFromOverride override = leaveFromForAdult(adultId, source, itemId);
+        Optional<ResolvedOrigin> origin =
+                resolveOriginFields(
+                        adultId, override.placeId(), override.address(), true, geocoded);
+        if (origin.isEmpty() || !origin.get().located()) {
+            return Optional.empty();
+        }
+        return origin;
     }
 
     private Integer detourMinutesOne(
@@ -369,7 +583,12 @@ class LeaveByApiImpl implements LeaveByApi {
     }
 
     private Optional<Double> lookupDuration(
-            String routeKey, CirclePlaceDto origin, GeoPointDto dest, boolean allowHttp) {
+            String routeKey,
+            double fromLat,
+            double fromLng,
+            double toLat,
+            double toLng,
+            boolean allowHttp) {
         Optional<RouteCacheEntity> cached = routeCacheRepository.findById(routeKey);
         if (cached.isPresent()) {
             return Optional.of(cached.get().durationSeconds());
@@ -377,12 +596,7 @@ class LeaveByApiImpl implements LeaveByApi {
         if (!allowHttp) {
             return Optional.empty();
         }
-        Optional<Double> live =
-                osrmPort.drivingDurationSeconds(
-                        origin.latitude(),
-                        origin.longitude(),
-                        dest.latitude(),
-                        dest.longitude());
+        Optional<Double> live = osrmPort.drivingDurationSeconds(fromLat, fromLng, toLat, toLng);
         live.ifPresent(
                 seconds ->
                         routeCacheRepository.save(
@@ -392,22 +606,6 @@ class LeaveByApiImpl implements LeaveByApi {
 
     static String normalizeLocation(String location) {
         return location == null ? "" : location.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private Optional<CirclePlaceDto> resolveOrigin(
-            UUID adultId, LeaveByItemSource source, UUID itemId) {
-        Optional<UUID> overridePlaceId =
-                leaveFromRepository
-                        .findByAdultIdAndItemSourceAndItemId(adultId, source, itemId)
-                        .map(CalendarLeaveFromEntity::placeId);
-        if (overridePlaceId.isPresent()) {
-            Optional<CirclePlaceDto> override =
-                    placeApi.findPlaceForMember(adultId, overridePlaceId.get()).filter(CirclePlaceDto::located);
-            if (override.isPresent()) {
-                return override;
-            }
-        }
-        return resolveDefaultOrigin(adultId);
     }
 
     private Optional<CirclePlaceDto> resolveDefaultOrigin(UUID adultId) {
@@ -439,7 +637,9 @@ class LeaveByApiImpl implements LeaveByApi {
             String destinationName,
             String destinationAddress) {
         int bufferMinutes = RouteBufferMinutes.forTitle(eventTitle);
-        Optional<CirclePlaceDto> homeOpt = resolveDefaultOrigin(drivingAdultId);
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Optional<ResolvedOrigin> homeOpt =
+                resolveItemOriginLocated(drivingAdultId, source, itemId, geocoded);
         if (homeOpt.isEmpty()) {
             return persistRoute(
                     drivingAdultId,
@@ -448,20 +648,32 @@ class LeaveByApiImpl implements LeaveByApi {
                     "",
                     CalendarRouteDto.unavailable(REASON_NO_ORIGIN, bufferMinutes, List.of()));
         }
-        CirclePlaceDto home = homeOpt.get();
+        ResolvedOrigin home = homeOpt.get();
+        String homeLabel =
+                home.placeName() != null
+                        ? home.placeName()
+                        : (home.oneTimeAddress() == null ? "" : home.oneTimeAddress());
+        String homeAddress =
+                home.oneTimeAddress() != null
+                        ? home.oneTimeAddress()
+                        : (home.placeName() == null ? "" : home.placeName());
+        // Prefer place address when we have a named place — reload for address text.
+        if (home.placeId() != null) {
+            Optional<CirclePlaceDto> place = placeApi.findPlaceForMember(drivingAdultId, home.placeId());
+            if (place.isPresent() && place.get().address() != null) {
+                homeAddress = place.get().address();
+            }
+        }
         if (destinationAddress == null || destinationAddress.isBlank()) {
             CalendarRouteStopDto homeStop =
                     new CalendarRouteStopDto(
-                            home.name(),
-                            home.address() == null ? "" : home.address(),
-                            CalendarRouteStopKind.HOME,
-                            null);
+                            homeLabel, homeAddress, CalendarRouteStopKind.HOME, null);
             String fingerprint =
                     ItineraryFingerprint.compute(
-                            home.id(),
+                            home.placeId(),
                             home.latitude(),
                             home.longitude(),
-                            home.address(),
+                            homeAddress,
                             pickupAddresses(pickups),
                             destinationAddress);
             return persistRoute(
@@ -473,17 +685,13 @@ class LeaveByApiImpl implements LeaveByApi {
                             REASON_NO_DESTINATION, bufferMinutes, List.of(homeStop)));
         }
 
-        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
         Map<String, Optional<Double>> durations = new HashMap<>();
 
         List<CalendarRouteStopDto> stops = new ArrayList<>();
         List<GeoPointDto> points = new ArrayList<>();
         stops.add(
                 new CalendarRouteStopDto(
-                        home.name(),
-                        home.address() == null ? "" : home.address(),
-                        CalendarRouteStopKind.HOME,
-                        null));
+                        homeLabel, homeAddress, CalendarRouteStopKind.HOME, null));
         points.add(new GeoPointDto(home.latitude(), home.longitude()));
 
         for (CalendarRoutePickupInput pickup : pickups) {
@@ -497,10 +705,10 @@ class LeaveByApiImpl implements LeaveByApi {
             if (point.isEmpty()) {
                 String fingerprint =
                         ItineraryFingerprint.compute(
-                                home.id(),
+                                home.placeId(),
                                 home.latitude(),
                                 home.longitude(),
-                                home.address(),
+                                homeAddress,
                                 pickupAddresses(pickups),
                                 destinationAddress);
                 return persistRoute(
@@ -529,10 +737,10 @@ class LeaveByApiImpl implements LeaveByApi {
         if (destination.isEmpty()) {
             String fingerprint =
                     ItineraryFingerprint.compute(
-                            home.id(),
+                            home.placeId(),
                             home.latitude(),
                             home.longitude(),
-                            home.address(),
+                            homeAddress,
                             pickupAddresses(pickups),
                             destinationAddress);
             return persistRoute(
@@ -566,18 +774,16 @@ class LeaveByApiImpl implements LeaveByApi {
                             to.latitude(),
                             to.longitude(),
                             durations);
-            // Same policy as single-origin leave-by: OSRM soft-fail uses config
-            // fallback and stays OK; fallback is not written to leaveby_route_cache.
             double seconds = routed.orElse((double) properties.fallbackDurationSeconds());
             legMinutes.add(minutesFromSeconds(seconds));
         }
 
         String fingerprint =
                 ItineraryFingerprint.compute(
-                        home.id(),
+                        home.placeId(),
                         home.latitude(),
                         home.longitude(),
-                        home.address(),
+                        homeAddress,
                         pickupAddresses(pickups),
                         destinationAddress);
         return persistRoute(
@@ -590,19 +796,33 @@ class LeaveByApiImpl implements LeaveByApi {
 
     private Optional<String> currentFingerprint(
             UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
             List<CalendarRoutePickupInput> pickups,
             String destinationAddress) {
-        Optional<CirclePlaceDto> homeOpt = resolveDefaultOrigin(drivingAdultId);
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Optional<ResolvedOrigin> homeOpt =
+                resolveItemOriginLocated(drivingAdultId, source, itemId, geocoded);
         if (homeOpt.isEmpty()) {
             return Optional.empty();
         }
-        CirclePlaceDto home = homeOpt.get();
+        ResolvedOrigin home = homeOpt.get();
+        String homeAddress =
+                home.oneTimeAddress() != null
+                        ? home.oneTimeAddress()
+                        : "";
+        if (home.placeId() != null) {
+            Optional<CirclePlaceDto> place = placeApi.findPlaceForMember(drivingAdultId, home.placeId());
+            if (place.isPresent() && place.get().address() != null) {
+                homeAddress = place.get().address();
+            }
+        }
         return Optional.of(
                 ItineraryFingerprint.compute(
-                        home.id(),
+                        home.placeId(),
                         home.latitude(),
                         home.longitude(),
-                        home.address(),
+                        homeAddress,
                         pickupAddresses(pickups),
                         destinationAddress));
     }
@@ -680,6 +900,42 @@ class LeaveByApiImpl implements LeaveByApi {
                 };
         if (!found) {
             throw new FamilyAccessException(HttpStatus.NOT_FOUND, "Calendar item not found");
+        }
+    }
+
+    private static CoverageItemSource toCoverageSource(LeaveByItemSource source) {
+        return switch (source) {
+            case MANUAL -> CoverageItemSource.MANUAL;
+            case FEED -> CoverageItemSource.FEED;
+        };
+    }
+
+    private record LeaveFromOverride(UUID placeId, String address) {
+        static final LeaveFromOverride DEFAULT = new LeaveFromOverride(null, null);
+    }
+
+    private record ResolvedOrigin(
+            UUID placeId,
+            String placeName,
+            String oneTimeAddress,
+            Double latitude,
+            Double longitude) {
+
+        static ResolvedOrigin fromPlace(CirclePlaceDto place) {
+            return new ResolvedOrigin(
+                    place.id(), place.name(), null, place.latitude(), place.longitude());
+        }
+
+        static ResolvedOrigin oneTime(String address, GeoPointDto point) {
+            return new ResolvedOrigin(null, null, address, point.latitude(), point.longitude());
+        }
+
+        static ResolvedOrigin oneTimeUnresolved(String address) {
+            return new ResolvedOrigin(null, null, address, null, null);
+        }
+
+        boolean located() {
+            return latitude != null && longitude != null;
         }
     }
 }

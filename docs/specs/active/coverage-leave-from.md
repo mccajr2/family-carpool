@@ -199,7 +199,7 @@ Allowlist for `/implement`:
 
 - [x] Backend (`coverage`): Persist optional place id XOR one-time address on
       assignment; clear = default; public DTO fields; any-member set API.
-- [ ] Backend (`leaveby`): Item override one-time address; resolve coverage
+- [x] Backend (`leaveby`): Item override one-time address; resolve coverage
       origins; enrich per-coverage leave-by (cheap + full); signed-in mirror
       rule; **Route / ride leave-by origin** uses same resolution (coverage →
       override → default → first located).

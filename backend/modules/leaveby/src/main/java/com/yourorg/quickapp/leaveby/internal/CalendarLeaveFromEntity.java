@@ -27,8 +27,13 @@ class CalendarLeaveFromEntity {
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
 
-    @Column(name = "place_id", nullable = false)
+    /** Named-place override; mutually exclusive with {@code leaveFromAddress}. */
+    @Column(name = "place_id")
     private UUID placeId;
+
+    /** One-time address override; mutually exclusive with {@code placeId}. */
+    @Column(name = "leave_from_address", length = 255)
+    private String leaveFromAddress;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -44,6 +49,7 @@ class CalendarLeaveFromEntity {
             LeaveByItemSource itemSource,
             UUID itemId,
             UUID placeId,
+            String leaveFromAddress,
             Instant createdAt,
             Instant updatedAt) {
         this.id = id;
@@ -51,6 +57,7 @@ class CalendarLeaveFromEntity {
         this.itemSource = itemSource;
         this.itemId = itemId;
         this.placeId = placeId;
+        this.leaveFromAddress = leaveFromAddress;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -75,6 +82,10 @@ class CalendarLeaveFromEntity {
         return placeId;
     }
 
+    String leaveFromAddress() {
+        return leaveFromAddress;
+    }
+
     Instant createdAt() {
         return createdAt;
     }
@@ -83,8 +94,9 @@ class CalendarLeaveFromEntity {
         return updatedAt;
     }
 
-    void setPlaceId(UUID placeId, Instant updatedAt) {
+    void setOverride(UUID placeId, String leaveFromAddress, Instant updatedAt) {
         this.placeId = placeId;
+        this.leaveFromAddress = leaveFromAddress;
         this.updatedAt = updatedAt;
     }
 }

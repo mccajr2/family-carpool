@@ -14,6 +14,9 @@ public interface LeaveByApi {
      * Soft-fail enrichment for one calendar row. Never throws for missing
      * coords / geocode / OSRM — returns UNAVAILABLE or OK with fallback. May
      * call Nominatim / OSRM on cache miss; persists successful durations.
+     *
+     * <p>Origin order for the signed-in adult: active coverage leave-from →
+     * item override → membership default → first located place.
      */
     LeaveByEnrichmentDto enrich(
             UUID adultId,
@@ -24,7 +27,7 @@ public interface LeaveByApi {
 
     /**
      * Cache-only enrichment: no Nominatim or OSRM HTTP. Returns PENDING when
-     * dest or duration is not already cached.
+     * dest, one-time origin, or duration is not already cached.
      */
     LeaveByEnrichmentDto enrichCheap(
             UUID adultId,
@@ -46,6 +49,26 @@ public interface LeaveByApi {
     List<LeaveByEnrichmentDto> enrichCheapMany(UUID adultId, List<LeaveByItemInput> items);
 
     /**
+     * Enrich leave-by for an explicit leave-from setting (e.g. a coverage row).
+     * Both place id and address null → adult's membership default → first
+     * located. {@code allowHttp false} is cache-only (cheap list).
+     */
+    LeaveByEnrichmentDto enrichForLeaveFrom(
+            UUID adultIdForDefault,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress,
+            Instant startsAt,
+            String location,
+            boolean allowHttp);
+
+    /**
+     * Batch {@link #enrichForLeaveFrom} sharing destination/route caches within
+     * the batch.
+     */
+    List<LeaveByEnrichmentDto> enrichForLeaveFromMany(
+            List<LeaveFromEnrichmentInput> inputs, boolean allowHttp);
+
+    /**
      * Batch detour minutes for inbound carpool asks. Uses default leave-from
      * origin (no per-event override). Soft-fails to {@code null} per row when
      * origin, geocode, or OSRM is unavailable. Collapses duplicate addresses and
@@ -54,12 +77,11 @@ public interface LeaveByApi {
     List<Integer> detourMinutesMany(UUID adultId, List<DetourItemInput> items);
 
     /**
-     * Build and persist a multi-stop itinerary (home → pickups → destination)
-     * for the driving adult. Uses default leave-from as home, pairwise OSRM via
-     * {@code leaveby_route_cache}, and the locked title buffer heuristic.
-     * Soft-fail geocode → UNAVAILABLE. OSRM miss uses config fallback duration
-     * (same as single-origin leave-by) and remains OK — fallback is not written
-     * to the pairwise duration cache.
+     * Build and persist a multi-stop itinerary (resolved leave-from → pickups →
+     * destination) for the driving adult. Origin uses the same resolution as
+     * Agenda (coverage → item override → default → first located). Soft-fail
+     * geocode → UNAVAILABLE. OSRM miss uses config fallback duration and remains
+     * OK — fallback is not written to the pairwise duration cache.
      */
     CalendarRouteDto upsertCalendarRoute(
             UUID drivingAdultId,
@@ -72,7 +94,7 @@ public interface LeaveByApi {
 
     /**
      * Return the cached itinerary when the stop fingerprint still matches the
-     * resolved home + pickups + destination; otherwise recompute and replace.
+     * resolved origin + pickups + destination; otherwise recompute and replace.
      */
     CalendarRouteDto getOrRefreshCalendarRoute(
             UUID drivingAdultId,
@@ -93,10 +115,17 @@ public interface LeaveByApi {
     void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId);
 
     /**
-     * Persist leave-from for this adult + calendar item.
+     * Persist item-level leave-from for this adult. Modes: named located place,
+     * one-time address, or both null to clear (Default). Place and address are
+     * mutually exclusive.
      *
      * @throws com.yourorg.quickapp.family.FamilyAccessException 404 / 400 as
      *     documented on OpenAPI setCalendarLeaveFrom
      */
-    void setLeaveFrom(UUID adultId, LeaveByItemSource source, UUID itemId, UUID placeId);
+    void setLeaveFrom(
+            UUID adultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress);
 }
