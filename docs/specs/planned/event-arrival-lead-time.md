@@ -17,11 +17,17 @@ earlier than practices; other one-offs are often “on time is fine.” Adults n
 ## Non-goals (sketch)
 
 - Replacing leave-by routing math (`event-leave-by-estimate`)
-- Multi-stop teammate pickups (`driver-leave-by-pickups`)
+- Multi-stop teammate pickups (absorbed by
+  [`ride-route-tab`](../active/ride-route-tab.md))
 
 ## Notes
 
 - Depends on `event-leave-by-estimate` shipping first (leave-by = arrival target − travel − buffer).
-- **Sketch defaults:** game **30 min** early, practice **15 min**, other/manual **0** — all editable per event (or per feed/type).
-- Needs a rule for classifying game vs practice (title heuristics, feed metadata, or explicit type) — decide at `/spec` time.
-- **Conflict with approved ride-detail mockup:** Route tab hardcodes buffer **45** (games) / **15** (practice). [`ride-route-tab`](ride-route-tab.md) may ship those constants; this slice should reconcile Agenda leave-by + Route `bufferMinutes` to one editable model (or lock mockup 45/15 in Locked decisions).
+- **Route interim lock** ([`ride-route-tab`](../active/ride-route-tab.md)): game
+  **45** / practice **20** / other **0** (not editable). This slice should make
+  lead times editable and reconcile **Agenda** single-origin leave-by + Route
+  `bufferMinutes` to one model (defaults may still change at `/spec` time —
+  do not silently diverge from the Route lock without an explicit decision).
+- Needs a rule for classifying game vs practice (title heuristics, feed metadata,
+  or explicit type) — decide at `/spec` time; Route already uses a title
+  `\bpractice\b` heuristic.
