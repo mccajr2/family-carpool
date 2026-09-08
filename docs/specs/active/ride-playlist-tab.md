@@ -171,7 +171,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
   playlist on viewer, return URL; refuse meaningfully when viewer lacks Spotify
 - [x] Contract: OpenAPI paths/schemas for the above; regenerate/align web
   clients in `web/src/api/`
-- [ ] Web: wire `RidePlaylistTab` / `FamilyScreen` to live playlist read
+- [x] Web: wire `RidePlaylistTab` / `FamilyScreen` to live playlist read
   (drop fixture riders when live payload available)
 - [ ] Web: connect + designate-playlist UX for the viewer’s kid tiles
 - [ ] Web: Open / Remix behavior per Approach; invite call site parallel to

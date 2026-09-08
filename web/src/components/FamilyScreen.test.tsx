@@ -63,6 +63,33 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
       ],
       legMinutes: [12, 18],
     }),
+    getCalendarPlaylist: vi.fn().mockResolvedValue({
+      riders: [
+        {
+          kidId: "k1",
+          kidDisplayName: "Sam",
+          connected: true,
+          playlistName: "Sam gameday",
+          trackCount: 2,
+          durationSec: 400,
+          tracks: [
+            {
+              title: "Sunset Drive",
+              artist: "Coastline",
+              durationSec: 198,
+              uri: "spotify:track:a1",
+            },
+            {
+              title: "Overtime",
+              artist: "Pace Car",
+              durationSec: 202,
+              uri: "spotify:track:a2",
+            },
+          ],
+          inviteContact: null,
+        },
+      ],
+    }),
     ...partial,
   } as FamilyClient
 }
@@ -7982,7 +8009,6 @@ detourMinutes: null,
 
     const detail = await screen.findByTestId("ride-detail-screen")
     expect(detail).toHaveAttribute("data-shuffle-seed", "0")
-    expect(detail).toHaveAttribute("data-fixture-kind", "game")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
     expect(screen.getByTestId("ride-detail-tab-route")).toHaveAttribute(
       "aria-selected",
@@ -8009,8 +8035,15 @@ detourMinutes: null,
     )
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
 
-    // Playlist tab smoke (fixture-driven)
-    expect(screen.getByTestId("ride-playlist-tab")).toBeInTheDocument()
+    // Playlist tab smoke (live API riders)
+    expect(await screen.findByTestId("ride-playlist-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
+      "data-connected",
+      "true",
+    )
+    expect(screen.getByTestId("ride-playlist-coverage")).toHaveTextContent(
+      /Drive is ~30 min — add more songs to fill it/,
+    )
     expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-remix")).toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
@@ -8111,8 +8144,7 @@ detourMinutes: null,
     await expandAgendaItem(user, row)
     await user.click(within(row).getByTestId("agenda-row-open-ride-cta"))
 
-    const detail = await screen.findByTestId("ride-detail-screen")
-    expect(detail).toHaveAttribute("data-fixture-kind", "practice")
+    await screen.findByTestId("ride-detail-screen")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
     const routeTab = await screen.findByTestId("ride-route-tab")
     expect(routeTab).toHaveTextContent("20 min early for practices")

@@ -11,7 +11,6 @@ import {
 } from "lucide-react"
 
 import type {
-  FixtureCarpoolRoute,
   FixturePlaylistRider,
   RideNotifyContact,
 } from "@/components/rideDetailFixtures"
@@ -22,12 +21,17 @@ import {
   type MergedTrack,
 } from "@/components/rideScheduleUtils"
 
-/** Demo Spotify URL from the mockup — not a live playlist. */
+/** Demo Spotify URL from the mockup — not a live playlist (Open handoff is next task). */
 export const SPOTIFY_DEMO_PLAYLIST_URL =
   "https://open.spotify.com/playlist/carpool-demo"
 
 export type RidePlaylistTabProps = {
-  carpoolRoute: FixtureCarpoolRoute
+  riders: FixturePlaylistRider[]
+  /**
+   * Sum of live Route legMinutes when status is OK. When null/undefined, omit
+   * the precise “~N min drive” number (qualitative copy only).
+   */
+  driveMinutes?: number | null
   shuffleSeed: number
   onRemix: () => void
   /** Invite delay ms — default matches mockup; override in tests. */
@@ -192,7 +196,8 @@ function RiderTile({
             {rider.name}
           </div>
           <div className="truncate text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)]">
-            {rider.playlistName} · {rider.tracks.length} songs · {fmtMinSec(totalSec)}
+            {rider.playlistName ?? "Playlist"} · {rider.tracks.length} songs ·{" "}
+            {fmtMinSec(totalSec)}
           </div>
         </div>
       </div>
@@ -238,25 +243,21 @@ function TrackRow({ track }: { track: MergedTrack }) {
  * Merge math from rideScheduleUtils; invite is local UI only.
  */
 export function RidePlaylistTab({
-  carpoolRoute,
+  riders,
+  driveMinutes = null,
   shuffleSeed,
   onRemix,
   inviteDelayMs = 700,
 }: RidePlaylistTabProps) {
   const [inviteStates, setInviteStates] = useState<Record<string, RideNotifyState>>({})
-  const riders = carpoolRoute.playlistRiders
-  const driveMinutes = useMemo(
-    () => carpoolRoute.legMinutes.reduce((a, b) => a + b, 0),
-    [carpoolRoute.legMinutes],
-  )
 
   const merged = useMemo(() => {
     return remixMergedTracks(mergeTracks(riders), shuffleSeed)
   }, [riders, shuffleSeed])
 
   const totalSec = merged.reduce((n, track) => n + track.sec, 0)
-  const driveSec = driveMinutes * 60
-  const coversDrive = totalSec >= driveSec
+  const driveSec = driveMinutes != null ? driveMinutes * 60 : null
+  const coversDrive = driveSec != null ? totalSec >= driveSec : false
   const connectedCount = riders.filter((rider) => rider.connected).length
   const allConnected = connectedCount === riders.length
   const disconnectedNames = riders
@@ -276,6 +277,15 @@ export function RidePlaylistTab({
       }))
     }, inviteDelayMs)
   }
+
+  const coverageCopy =
+    driveMinutes == null
+      ? connectedCount > 0
+        ? "Music queued for the drive"
+        : "Connect a playlist to cover the drive"
+      : coversDrive
+        ? `Covers the ~${driveMinutes} min drive with room to spare`
+        : `Drive is ~${driveMinutes} min — add more songs to fill it`
 
   return (
     <div data-testid="ride-playlist-tab" data-shuffle-seed={shuffleSeed}>
@@ -324,12 +334,13 @@ export function RidePlaylistTab({
           data-testid="ride-playlist-coverage"
           className="text-[length:var(--fc-font-ride-detail-hero-copy-size)] leading-[var(--fc-font-ride-detail-hero-copy-line)] font-[number:var(--fc-font-ride-detail-hero-copy-weight)]"
           style={{
-            color: coversDrive ? "var(--fc-hero-success)" : "var(--fc-hero-ring)",
+            color:
+              driveMinutes != null && coversDrive
+                ? "var(--fc-hero-success)"
+                : "var(--fc-hero-ring)",
           }}
         >
-          {coversDrive
-            ? `Covers the ~${driveMinutes} min drive with room to spare`
-            : `Drive is ~${driveMinutes} min — add more songs to fill it`}
+          {coverageCopy}
         </div>
         {!allConnected ? (
           <div className="mt-1 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-hero-on-secondary)]">

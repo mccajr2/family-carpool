@@ -38,7 +38,8 @@ describe("RidePlaylistTab", () => {
 
     const { rerender } = render(
       <RidePlaylistTab
-        carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
+        riders={GAME_CARPOOL_ROUTE_FIXTURE.playlistRiders}
+        driveMinutes={GAME_CARPOOL_ROUTE_FIXTURE.legMinutes.reduce((a, b) => a + b, 0)}
         shuffleSeed={0}
         onRemix={onRemix}
       />,
@@ -78,7 +79,8 @@ describe("RidePlaylistTab", () => {
     const remixed = remixMergedTracks(fair, 1)
     rerender(
       <RidePlaylistTab
-        carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
+        riders={GAME_CARPOOL_ROUTE_FIXTURE.playlistRiders}
+        driveMinutes={GAME_CARPOOL_ROUTE_FIXTURE.legMinutes.reduce((a, b) => a + b, 0)}
         shuffleSeed={1}
         onRemix={onRemix}
       />,
@@ -99,7 +101,8 @@ describe("RidePlaylistTab", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(
       <RidePlaylistTab
-        carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
+        riders={GAME_CARPOOL_ROUTE_FIXTURE.playlistRiders}
+        driveMinutes={GAME_CARPOOL_ROUTE_FIXTURE.legMinutes.reduce((a, b) => a + b, 0)}
         shuffleSeed={0}
         onRemix={vi.fn()}
         inviteDelayMs={700}
@@ -122,5 +125,19 @@ describe("RidePlaylistTab", () => {
     const sent = screen.getByTestId("ride-playlist-invite-Kwame")
     expect(sent).toHaveAttribute("data-invite-status", "sent")
     expect(sent).toHaveTextContent(/Invite sent via push notification/)
+  })
+
+  it("uses qualitative coverage copy when drive minutes are unknown", () => {
+    render(
+      <RidePlaylistTab
+        riders={GAME_CARPOOL_ROUTE_FIXTURE.playlistRiders}
+        driveMinutes={null}
+        shuffleSeed={0}
+        onRemix={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId("ride-playlist-coverage")).toHaveTextContent(
+      "Music queued for the drive",
+    )
   })
 })
