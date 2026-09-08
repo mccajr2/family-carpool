@@ -69,6 +69,17 @@ public class CalendarController {
         return calendarService.getPlaylist(adult, source, itemId);
     }
 
+    @PostMapping("/{source}/{itemId}/playlist/open")
+    public CalendarPlaylistOpenResponse openPlaylist(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            @RequestBody(required = false) OpenCalendarPlaylistRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        List<String> trackUris = request == null ? null : request.trackUris();
+        return calendarService.openPlaylist(adult, source, itemId, trackUris);
+    }
+
     @PutMapping("/{source}/{itemId}/leave-from")
     public CalendarItemResponse setLeaveFrom(
             @PathVariable("source") CalendarItemSource source,

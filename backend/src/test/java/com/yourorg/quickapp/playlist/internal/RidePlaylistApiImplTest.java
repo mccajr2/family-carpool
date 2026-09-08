@@ -1,6 +1,7 @@
 package com.yourorg.quickapp.playlist.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -31,6 +32,9 @@ class RidePlaylistApiImplTest {
     private SpotifyKidDesignationRepository designationRepository;
 
     @Mock
+    private SpotifyConnectionRepository connectionRepository;
+
+    @Mock
     private SpotifyOAuthService oauthService;
 
     @Mock
@@ -40,7 +44,9 @@ class RidePlaylistApiImplTest {
 
     @BeforeEach
     void setUp() {
-        api = new RidePlaylistApiImpl(designationRepository, oauthService, oauthPort);
+        api =
+                new RidePlaylistApiImpl(
+                        designationRepository, connectionRepository, oauthService, oauthPort);
     }
 
     @Test
@@ -123,5 +129,145 @@ class RidePlaylistApiImplTest {
         assertThat(riders.getFirst().tracks()).isEmpty();
         assertThat(riders.getFirst().durationSec()).isNull();
         verify(oauthPort, never()).listPlaylistTracks(any(), eq("stub-playlist-b"));
+    }
+
+    @Test
+    void openHandoffSingleConnectedReturnsSourceUrl() {
+        RidePlaylistRiderDto connected =
+                new RidePlaylistRiderDto(
+                        KID_A,
+                        "Sam",
+                        true,
+                        VIEWER,
+                        "stub-playlist-a",
+                        "Sam gameday",
+                        "https://open.spotify.com/playlist/stub-playlist-a",
+                        12,
+                        100,
+                        List.of(),
+                        null);
+        RidePlaylistRiderDto disconnected =
+                new RidePlaylistRiderDto(
+                        KID_B,
+                        "Jordan",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        null);
+
+        assertThat(api.openHandoff(VIEWER, List.of(connected, disconnected), null).url())
+                .isEqualTo("https://open.spotify.com/playlist/stub-playlist-a");
+        verify(oauthPort, never()).upsertMergePlaylist(any(), any(), any(), any());
+    }
+
+    @Test
+    void openHandoffTwoPlusRequiresViewerSpotify() {
+        RidePlaylistRiderDto a =
+                new RidePlaylistRiderDto(
+                        KID_A,
+                        "Sam",
+                        true,
+                        VIEWER,
+                        "stub-playlist-a",
+                        "A",
+                        "https://open.spotify.com/playlist/a",
+                        1,
+                        10,
+                        List.of(
+                                new com.yourorg.quickapp.playlist.RidePlaylistTrackDto(
+                                        "T1", "Art", 10, "spotify:track:a1")),
+                        null);
+        RidePlaylistRiderDto b =
+                new RidePlaylistRiderDto(
+                        KID_B,
+                        "Jordan",
+                        true,
+                        OTHER,
+                        "stub-playlist-b",
+                        "B",
+                        "https://open.spotify.com/playlist/b",
+                        1,
+                        10,
+                        List.of(
+                                new com.yourorg.quickapp.playlist.RidePlaylistTrackDto(
+                                        "T2", "Art", 10, "spotify:track:b1")),
+                        null);
+        when(oauthService.accessToken(VIEWER)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> api.openHandoff(VIEWER, List.of(a, b), null))
+                .isInstanceOf(PlaylistException.class)
+                .hasMessageContaining("Spotify is not connected");
+    }
+
+    @Test
+    void openHandoffTwoPlusCreatesMergeAndPersistsId() {
+        RidePlaylistRiderDto a =
+                new RidePlaylistRiderDto(
+                        KID_A,
+                        "Sam",
+                        true,
+                        VIEWER,
+                        "stub-playlist-a",
+                        "A",
+                        "https://open.spotify.com/playlist/a",
+                        1,
+                        10,
+                        List.of(
+                                new com.yourorg.quickapp.playlist.RidePlaylistTrackDto(
+                                        "T1", "Art", 10, "spotify:track:a1")),
+                        null);
+        RidePlaylistRiderDto b =
+                new RidePlaylistRiderDto(
+                        KID_B,
+                        "Jordan",
+                        true,
+                        OTHER,
+                        "stub-playlist-b",
+                        "B",
+                        "https://open.spotify.com/playlist/b",
+                        1,
+                        10,
+                        List.of(
+                                new com.yourorg.quickapp.playlist.RidePlaylistTrackDto(
+                                        "T2", "Art", 10, "spotify:track:b1")),
+                        null);
+        when(oauthService.accessToken(VIEWER)).thenReturn(Optional.of("tok"));
+        SpotifyConnectionEntity connection =
+                new SpotifyConnectionEntity(
+                        VIEWER,
+                        "spotify-user",
+                        "cipher-a",
+                        "cipher-r",
+                        Instant.parse("2026-09-07T20:00:00Z"),
+                        Instant.parse("2026-09-07T12:00:00Z"));
+        when(connectionRepository.findById(VIEWER)).thenReturn(Optional.of(connection));
+        when(oauthPort.upsertMergePlaylist(
+                        eq("tok"), eq("spotify-user"), eq(null), any()))
+                .thenReturn(
+                        new MergePlaylistResult(
+                                "merge-1", "https://open.spotify.com/playlist/merge-1"));
+
+        assertThat(api.openHandoff(VIEWER, List.of(a, b), List.of("spotify:track:remix")).url())
+                .isEqualTo("https://open.spotify.com/playlist/merge-1");
+        assertThat(connection.mergePlaylistId()).isEqualTo("merge-1");
+        verify(connectionRepository).save(connection);
+        verify(oauthPort)
+                .upsertMergePlaylist(
+                        "tok",
+                        "spotify-user",
+                        null,
+                        List.of("spotify:track:remix"));
+    }
+
+    @Test
+    void openHandoffZeroConnectedConflicts() {
+        assertThatThrownBy(() -> api.openHandoff(VIEWER, List.of(), null))
+                .isInstanceOf(PlaylistException.class)
+                .hasMessageContaining("No connected playlists");
     }
 }

@@ -25,4 +25,19 @@ interface SpotifyOAuthPort {
 
     /** Tracks for a playlist (first page; enough for merge UI dogfood). */
     List<SpotifyTrackInfo> listPlaylistTracks(String accessToken, String playlistId);
+
+    /**
+     * Ensure a private merge playlist exists and replace its items with {@code
+     * trackUris} (round-robin / remixed order). Returns the Spotify web URL.
+     * When {@code existingMergePlaylistId} is non-blank, reuses it; otherwise
+     * creates "Carpool merge" and the caller must persist the returned id.
+     */
+    MergePlaylistResult upsertMergePlaylist(
+            String accessToken,
+            String spotifyUserId,
+            String existingMergePlaylistId,
+            List<String> trackUris);
 }
+
+/** Result of creating or refreshing the adult's transient merge playlist. */
+record MergePlaylistResult(String playlistId, String url) {}

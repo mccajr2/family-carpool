@@ -167,7 +167,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
 - [x] Backend: per-adult-per-kid designated playlist persistence + list/set API
 - [x] Backend: confirmed-ride playlist read — attending kids, connection,
   designated playlist metadata + tracks for connected kids
-- [ ] Backend: open/handoff — 1 → source URL; 2+ → create/replace transient
+- [x] Backend: open/handoff — 1 → source URL; 2+ → create/replace transient
   playlist on viewer, return URL; refuse meaningfully when viewer lacks Spotify
 - [ ] Contract: OpenAPI paths/schemas for the above; regenerate/align web
   clients in `web/src/api/`

@@ -18,4 +18,20 @@ public interface RidePlaylistApi {
      */
     List<RidePlaylistRiderDto> enrichRiders(
             UUID viewerAdultId, List<RidePlaylistAttendingKid> attendingKids);
+
+    /**
+     * Open-in-Spotify handoff for the current merge:
+     * <ul>
+     *   <li>0 connected → conflict
+     *   <li>1 connected → that playlist's existing URL (no Spotify create)
+     *   <li>2+ → create/replace viewer's private "Carpool merge" playlist; requires
+     *       viewer Spotify connection
+     * </ul>
+     * When {@code remixedTrackUris} is non-empty on 2+, that order is written;
+     * otherwise fair round-robin of connected riders' tracks.
+     */
+    RidePlaylistOpenResponse openHandoff(
+            UUID viewerAdultId,
+            List<RidePlaylistRiderDto> riders,
+            List<String> remixedTrackUris);
 }

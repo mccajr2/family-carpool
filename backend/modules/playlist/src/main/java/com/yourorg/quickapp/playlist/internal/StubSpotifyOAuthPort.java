@@ -85,4 +85,26 @@ class StubSpotifyOAuthPort implements SpotifyOAuthPort {
         }
         return List.of();
     }
+
+    static final String MERGE_PLAYLIST_ID = "stub-merge-playlist";
+    static final String MERGE_PLAYLIST_URL =
+            "https://open.spotify.com/playlist/stub-merge-playlist";
+
+    @Override
+    public MergePlaylistResult upsertMergePlaylist(
+            String accessToken,
+            String spotifyUserId,
+            String existingMergePlaylistId,
+            List<String> trackUris) {
+        if (trackUris == null || trackUris.isEmpty()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "trackUris must not be empty for a merge playlist");
+        }
+        String id =
+                existingMergePlaylistId == null || existingMergePlaylistId.isBlank()
+                        ? MERGE_PLAYLIST_ID
+                        : existingMergePlaylistId;
+        return new MergePlaylistResult(id, "https://open.spotify.com/playlist/" + id);
+    }
 }

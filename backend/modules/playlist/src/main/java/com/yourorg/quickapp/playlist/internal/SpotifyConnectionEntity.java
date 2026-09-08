@@ -27,6 +27,10 @@ class SpotifyConnectionEntity {
     @Column(name = "access_token_expires_at", nullable = false)
     private Instant accessTokenExpiresAt;
 
+    /** Reused private "Carpool merge" playlist on the adult's Spotify account. */
+    @Column(name = "merge_playlist_id", length = 128)
+    private String mergePlaylistId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -71,12 +75,23 @@ class SpotifyConnectionEntity {
         return accessTokenExpiresAt;
     }
 
+    String mergePlaylistId() {
+        return mergePlaylistId;
+    }
+
+    void setMergePlaylistId(String mergePlaylistId) {
+        this.mergePlaylistId = mergePlaylistId;
+    }
+
     void replaceCredentials(
             String spotifyUserId,
             String accessTokenCiphertext,
             String refreshTokenCiphertext,
             Instant accessTokenExpiresAt,
             Instant updatedAt) {
+        if (!this.spotifyUserId.equals(spotifyUserId)) {
+            this.mergePlaylistId = null;
+        }
         this.spotifyUserId = spotifyUserId;
         this.accessTokenCiphertext = accessTokenCiphertext;
         this.refreshTokenCiphertext = refreshTokenCiphertext;

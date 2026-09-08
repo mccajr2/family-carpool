@@ -197,6 +197,104 @@ class HttpSpotifyOAuthPort implements SpotifyOAuthPort {
         }
     }
 
+    @Override
+    public MergePlaylistResult upsertMergePlaylist(
+            String accessToken,
+            String spotifyUserId,
+            String existingMergePlaylistId,
+            java.util.List<String> trackUris) {
+        if (trackUris == null || trackUris.isEmpty()) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "trackUris must not be empty for a merge playlist");
+        }
+        String playlistId = existingMergePlaylistId;
+        String url;
+        if (playlistId == null || playlistId.isBlank()) {
+            MergePlaylistResult created = createPrivatePlaylist(accessToken, spotifyUserId);
+            playlistId = created.playlistId();
+            url = created.url();
+        } else {
+            url = "https://open.spotify.com/playlist/" + playlistId;
+        }
+        replacePlaylistItems(accessToken, playlistId, trackUris);
+        return new MergePlaylistResult(playlistId, url);
+    }
+
+    private MergePlaylistResult createPrivatePlaylist(String accessToken, String spotifyUserId) {
+        String body =
+                """
+                {"name":"Carpool merge","description":"Transient carpool merge — items replaced on each Open","public":false}
+                """;
+        try {
+            String json =
+                    restClient
+                            .post()
+                            .uri(
+                                    trimTrailingSlash(properties.apiBaseUrl())
+                                            + "/users/"
+                                            + spotifyUserId
+                                            + "/playlists")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .body(body)
+                            .retrieve()
+                            .body(String.class);
+            JsonNode root = MAPPER.readTree(json);
+            String id = text(root, "id");
+            if (id == null || id.isBlank()) {
+                throw new PlaylistException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "Spotify create playlist missing id");
+            }
+            String url = null;
+            JsonNode external = root.get("external_urls");
+            if (external != null && !external.isNull()) {
+                url = text(external, "spotify");
+            }
+            if (url == null || url.isBlank()) {
+                url = "https://open.spotify.com/playlist/" + id;
+            }
+            return new MergePlaylistResult(id, url);
+        } catch (PlaylistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify create playlist failed");
+        }
+    }
+
+    private void replacePlaylistItems(
+            String accessToken, String playlistId, java.util.List<String> trackUris) {
+        // Spotify accepts at most 100 uris per replace call.
+        java.util.List<String> first =
+                trackUris.size() <= 100 ? trackUris : trackUris.subList(0, 100);
+        String urisJson =
+                first.stream()
+                        .map(u -> "\"" + u.replace("\"", "") + "\"")
+                        .collect(java.util.stream.Collectors.joining(","));
+        String body = "{\"uris\":[" + urisJson + "]}";
+        try {
+            restClient
+                    .put()
+                    .uri(
+                            trimTrailingSlash(properties.apiBaseUrl())
+                                    + "/playlists/"
+                                    + playlistId
+                                    + "/tracks")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            throw new PlaylistException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY,
+                    "Spotify replace playlist tracks failed");
+        }
+    }
+
     private String authorizedGet(String accessToken, String uri) {
         try {
             String json =

@@ -8,6 +8,7 @@ import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
+import com.yourorg.quickapp.calendar.CalendarPlaylistOpenResponse;
 import com.yourorg.quickapp.calendar.CalendarPlaylistResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteNotifyContactResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteResponse;
@@ -267,6 +268,38 @@ public class CalendarService {
         List<RidePlaylistAttendingKid> attending =
                 resolveAttendingKids(source, itemId, drivingAdultId, acceptedPickups);
         return new CalendarPlaylistResponse(ridePlaylistApi.enrichRiders(adult.id(), attending));
+    }
+
+    @Transactional
+    public CalendarPlaylistOpenResponse openPlaylist(
+            AdultResponse adult,
+            CalendarItemSource source,
+            UUID itemId,
+            List<String> remixedTrackUris) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        ItemSnapshot item = requireItemSnapshot(circleId, source, itemId);
+        List<CoverageAssignmentDto> coverages =
+                coverageApi.listForItem(circleId, toCoverageSource(source), itemId);
+        List<RsvpDto> rsvps =
+                rsvpApi.listForItems(circleId, toRsvpSource(source), List.of(itemId));
+        List<CarpoolAcceptedPickupDto> acceptedPickups =
+                source == CalendarItemSource.FEED
+                        ? carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId)
+                        : List.of();
+
+        UUID drivingAdultId =
+                resolveDrivingAdultId(adult.id(), circleId, item.kidIds(), coverages, rsvps, acceptedPickups)
+                        .orElseThrow(
+                                () ->
+                                        new CalendarException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Not allowed to route this calendar item"));
+
+        List<RidePlaylistAttendingKid> attending =
+                resolveAttendingKids(source, itemId, drivingAdultId, acceptedPickups);
+        var riders = ridePlaylistApi.enrichRiders(adult.id(), attending);
+        var opened = ridePlaylistApi.openHandoff(adult.id(), riders, remixedTrackUris);
+        return new CalendarPlaylistOpenResponse(opened.url());
     }
 
     public CalendarItemResponse setLeaveFrom(
