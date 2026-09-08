@@ -132,6 +132,20 @@ class CarpoolRideServiceTest {
                             List<?> items = invocation.getArgument(1);
                             return Collections.nCopies(items.size(), null);
                         });
+        org.mockito.Mockito.lenient()
+                .when(
+                        leaveByApi.upsertCalendarRoute(
+                                any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(
+                        com.yourorg.quickapp.leaveby.CalendarRouteDto.unavailable(
+                                "NO_ORIGIN", 0, List.of()));
+        org.mockito.Mockito.lenient()
+                .when(rides.findBySpaceIdInAndEventKeyAndAcceptedByAdultIdAndStatus(
+                        any(), any(), any(), any()))
+                .thenReturn(List.of());
+        org.mockito.Mockito.lenient()
+                .when(rides.findBySpaceIdInAndEventKeyAndStatus(any(), any(), any()))
+                .thenReturn(List.of());
     }
 
     @Test

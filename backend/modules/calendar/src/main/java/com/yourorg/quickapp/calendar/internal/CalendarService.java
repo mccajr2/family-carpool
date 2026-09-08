@@ -8,7 +8,11 @@ import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
+import com.yourorg.quickapp.calendar.CalendarRouteNotifyContactResponse;
+import com.yourorg.quickapp.calendar.CalendarRouteResponse;
+import com.yourorg.quickapp.calendar.CalendarRouteStopResponse;
 import com.yourorg.quickapp.calendar.CalendarRsvpResponse;
+import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
@@ -17,10 +21,15 @@ import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
+import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedEventKey;
+import com.yourorg.quickapp.leaveby.CalendarRouteDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyChannel;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyContact;
+import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
@@ -37,6 +46,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -189,6 +199,42 @@ public class CalendarService {
         return List.copyOf(rows);
     }
 
+    @Transactional
+    public CalendarRouteResponse getRoute(
+            AdultResponse adult, CalendarItemSource source, UUID itemId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        ItemSnapshot item = requireItemSnapshot(circleId, source, itemId);
+        List<CoverageAssignmentDto> coverages =
+                coverageApi.listForItem(circleId, toCoverageSource(source), itemId);
+        List<RsvpDto> rsvps =
+                rsvpApi.listForItems(circleId, toRsvpSource(source), List.of(itemId));
+        List<CarpoolAcceptedPickupDto> acceptedPickups =
+                source == CalendarItemSource.FEED
+                        ? carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId)
+                        : List.of();
+
+        UUID drivingAdultId =
+                resolveDrivingAdultId(adult.id(), circleId, item.kidIds(), coverages, rsvps, acceptedPickups)
+                        .orElseThrow(
+                                () ->
+                                        new CalendarException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Not allowed to route this calendar item"));
+
+        List<CalendarRoutePickupInput> pickups =
+                pickupsForDriver(drivingAdultId, acceptedPickups);
+        CalendarRouteDto route =
+                leaveByApi.getOrRefreshCalendarRoute(
+                        drivingAdultId,
+                        toLeaveBySource(source),
+                        itemId,
+                        item.title(),
+                        pickups,
+                        destinationName(item),
+                        item.location());
+        return toRouteResponse(route);
+    }
+
     public CalendarItemResponse setLeaveFrom(
             AdultResponse adult, CalendarItemSource source, UUID itemId, UUID placeId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
@@ -203,13 +249,17 @@ public class CalendarService {
             AssignCalendarCoverageRequest request) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         rejectNoRsvpKids(circleId, source, itemId, request.kidIds());
-        coverageApi.assign(
-                adult.id(),
-                toCoverageSource(source),
-                itemId,
-                request.coveringAdultId(),
-                request.kidIds());
+        CoverageAssignmentDto assigned =
+                coverageApi.assign(
+                        adult.id(),
+                        toCoverageSource(source),
+                        itemId,
+                        request.coveringAdultId(),
+                        request.kidIds());
         ensureYes(circleId, source, itemId, request.kidIds(), adult.id());
+        if (assigned.status() == CoverageStatus.CONFIRMED) {
+            upsertCoverageDriverRoute(circleId, source, itemId, assigned.coveringAdultId());
+        }
         return requireItem(adult.id(), circleId, source, itemId);
     }
 
@@ -219,6 +269,8 @@ public class CalendarService {
         CalendarItemSource source = toCalendarSource(existing.itemSource());
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         rejectNoRsvpKids(circleId, source, existing.itemId(), request.kidIds());
+        UUID previousDriverId =
+                existing.status() == CoverageStatus.CONFIRMED ? existing.coveringAdultId() : null;
         CoverageAssignmentDto updated =
                 coverageApi.reassign(
                         adult.id(),
@@ -226,6 +278,13 @@ public class CalendarService {
                         request.coveringAdultId(),
                         request.kidIds());
         ensureYes(circleId, source, updated.itemId(), request.kidIds(), adult.id());
+        if (previousDriverId != null && !previousDriverId.equals(updated.coveringAdultId())) {
+            leaveByApi.invalidateCalendarRoute(
+                    previousDriverId, toLeaveBySource(source), updated.itemId());
+        }
+        if (updated.status() == CoverageStatus.CONFIRMED) {
+            upsertCoverageDriverRoute(circleId, source, updated.itemId(), updated.coveringAdultId());
+        }
         return requireItem(adult.id(), circleId, source, updated.itemId());
     }
 
@@ -237,6 +296,12 @@ public class CalendarService {
             carpoolApi.withdrawAcceptedInboundForFeedEvent(adult.id(), existing.itemId());
         }
         coverageApi.remove(adult.id(), assignmentId);
+        if (existing.status() == CoverageStatus.CONFIRMED) {
+            leaveByApi.invalidateCalendarRoute(
+                    existing.coveringAdultId(),
+                    toLeaveBySource(toCalendarSource(existing.itemSource())),
+                    existing.itemId());
+        }
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         return requireItem(
                 adult.id(),
@@ -250,6 +315,7 @@ public class CalendarService {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         CalendarItemSource source = toCalendarSource(updated.itemSource());
         ensureYes(circleId, source, updated.itemId(), updated.kidIds(), adult.id());
+        upsertCoverageDriverRoute(circleId, source, updated.itemId(), updated.coveringAdultId());
         return requireItem(adult.id(), circleId, source, updated.itemId());
     }
 
@@ -862,4 +928,155 @@ public class CalendarService {
             case FEED -> CalendarItemSource.FEED;
         };
     }
+
+    private void upsertCoverageDriverRoute(
+            UUID circleId, CalendarItemSource source, UUID itemId, UUID drivingAdultId) {
+        ItemSnapshot item = requireItemSnapshot(circleId, source, itemId);
+        List<CarpoolAcceptedPickupDto> acceptedPickups =
+                source == CalendarItemSource.FEED
+                        ? carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId)
+                        : List.of();
+        leaveByApi.upsertCalendarRoute(
+                drivingAdultId,
+                toLeaveBySource(source),
+                itemId,
+                item.title(),
+                pickupsForDriver(drivingAdultId, acceptedPickups),
+                destinationName(item),
+                item.location());
+    }
+
+    private Optional<UUID> resolveDrivingAdultId(
+            UUID callerAdultId,
+            UUID callerCircleId,
+            List<UUID> itemKidIds,
+            List<CoverageAssignmentDto> coverages,
+            List<RsvpDto> rsvps,
+            List<CarpoolAcceptedPickupDto> acceptedPickups) {
+        Map<UUID, RsvpStatus> byKid = statusByKid(rsvps);
+        Set<UUID> inPlayKids =
+                itemKidIds.stream()
+                        .filter(id -> byKid.getOrDefault(id, RsvpStatus.NO_RESPONSE) != RsvpStatus.NO)
+                        .collect(Collectors.toSet());
+        if (inPlayKids.isEmpty()) {
+            return Optional.empty();
+        }
+
+        for (CarpoolAcceptedPickupDto pickup : acceptedPickups) {
+            boolean sharesKid = pickup.kidIds().stream().anyMatch(inPlayKids::contains);
+            if (!sharesKid) {
+                continue;
+            }
+            if (callerCircleId.equals(pickup.acceptingCircleId())
+                    || callerCircleId.equals(pickup.requestingCircleId())) {
+                return Optional.of(pickup.acceptedByAdultId());
+            }
+        }
+
+        for (CoverageAssignmentDto coverage : coverages) {
+            if (coverage.status() != CoverageStatus.CONFIRMED) {
+                continue;
+            }
+            if (!coverage.coveringAdultId().equals(callerAdultId)) {
+                continue;
+            }
+            boolean sharesKid = coverage.kidIds().stream().anyMatch(inPlayKids::contains);
+            if (sharesKid) {
+                return Optional.of(callerAdultId);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private List<CalendarRoutePickupInput> pickupsForDriver(
+            UUID drivingAdultId, List<CarpoolAcceptedPickupDto> acceptedPickups) {
+        List<CalendarRoutePickupInput> pickups = new ArrayList<>();
+        Set<UUID> circleIds =
+                acceptedPickups.stream()
+                        .filter(p -> drivingAdultId.equals(p.acceptedByAdultId()))
+                        .map(CarpoolAcceptedPickupDto::requestingCircleId)
+                        .collect(Collectors.toCollection(HashSet::new));
+        Map<UUID, String> names = new HashMap<>();
+        for (FamilyCircleName row : familyMembershipApi.findCircles(circleIds)) {
+            names.put(row.id(), row.name());
+        }
+        for (CarpoolAcceptedPickupDto pickup : acceptedPickups) {
+            if (!drivingAdultId.equals(pickup.acceptedByAdultId())) {
+                continue;
+            }
+            String to = names.get(pickup.requestingCircleId());
+            if (to == null || to.isBlank()) {
+                to = pickup.pickupPlaceName();
+            }
+            if (to == null || to.isBlank()) {
+                to = "Family";
+            }
+            pickups.add(
+                    new CalendarRoutePickupInput(
+                            pickup.pickupPlaceName(),
+                            pickup.pickupAddress(),
+                            new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to)));
+        }
+        return pickups;
+    }
+
+    private ItemSnapshot requireItemSnapshot(
+            UUID circleId, CalendarItemSource source, UUID itemId) {
+        return switch (source) {
+            case MANUAL -> {
+                ManualCalendarEventDto event =
+                        manualEventCalendarApi
+                                .findInCircle(circleId, itemId)
+                                .orElseThrow(
+                                        () ->
+                                                new CalendarException(
+                                                        HttpStatus.NOT_FOUND,
+                                                        "Calendar item not found"));
+                yield new ItemSnapshot(event.title(), event.location(), event.kidIds());
+            }
+            case FEED -> {
+                FeedCalendarEventDto event =
+                        feedCalendarApi
+                                .findEventInCircle(circleId, itemId)
+                                .orElseThrow(
+                                        () ->
+                                                new CalendarException(
+                                                        HttpStatus.NOT_FOUND,
+                                                        "Calendar item not found"));
+                yield new ItemSnapshot(event.title(), event.location(), event.kidIds());
+            }
+        };
+    }
+
+    private static String destinationName(ItemSnapshot item) {
+        if (item.location() != null && !item.location().isBlank()) {
+            return item.location();
+        }
+        return item.title();
+    }
+
+    private static CalendarRouteResponse toRouteResponse(CalendarRouteDto route) {
+        List<CalendarRouteStopResponse> stops =
+                route.stops().stream()
+                        .map(
+                                stop ->
+                                        new CalendarRouteStopResponse(
+                                                stop.name(),
+                                                stop.address(),
+                                                stop.kind(),
+                                                stop.contact() == null
+                                                        ? null
+                                                        : new CalendarRouteNotifyContactResponse(
+                                                                stop.contact().channel(),
+                                                                stop.contact().to())))
+                        .toList();
+        return new CalendarRouteResponse(
+                route.status(),
+                route.reason(),
+                route.bufferMinutes(),
+                stops,
+                route.legMinutes());
+    }
+
+    private record ItemSnapshot(String title, String location, List<UUID> kidIds) {}
 }

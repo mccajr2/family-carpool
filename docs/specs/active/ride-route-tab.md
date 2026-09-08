@@ -196,7 +196,7 @@ Allowlist for `/implement`:
       web `api/` types/client in sync
 - [x] Backend (`leaveby`): multi-stop ordered `legMinutes` helper reusing
       `OsrmPort` / geocode / `leaveby_route_cache`; persist itinerary + fingerprint
-- [ ] Backend (`carpool` / `coverage` / calendar orchestration): trigger
+- [x] Backend (`carpool` / `coverage` / calendar orchestration): trigger
       build/invalidate on accept, confirm/self-assign, withdraw/cancel, coverage
       remove, and fingerprint-related place/leave-from updates; expose GET
 - [ ] Web: fetch route when opening ride detail; wire `RideRouteTab` to live

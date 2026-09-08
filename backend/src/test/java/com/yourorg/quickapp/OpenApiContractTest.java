@@ -183,6 +183,13 @@ class OpenApiContractTest {
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
+        assertThat(yaml).contains("confirmed-ride multi-stop route");
+        assertThat(yaml).contains("operationId: getCalendarRoute");
+        assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/route");
+        assertThat(yaml).contains("CalendarRoute:");
+        assertThat(yaml).contains("CalendarRouteStatus:");
+        assertThat(yaml).contains("legMinutes:");
+        assertThat(yaml).contains("bufferMinutes:");
         assertThat(yaml).contains("coverage responsibility");
         assertThat(yaml).contains("per-kid event RSVP");
         assertThat(yaml).contains("default leave-from");

@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.leaveby;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Locale;
 
 /** Role of a stop in the multi-stop itinerary (OpenAPI wire values are lowercase). */
@@ -8,6 +9,7 @@ public enum CalendarRouteStopKind {
     PICKUP,
     DESTINATION;
 
+    @JsonValue
     public String wireValue() {
         return name().toLowerCase(Locale.ROOT);
     }

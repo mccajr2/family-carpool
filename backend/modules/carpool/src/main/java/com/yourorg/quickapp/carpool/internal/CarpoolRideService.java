@@ -20,8 +20,13 @@ import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.FeedsApi;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyChannel;
+import com.yourorg.quickapp.leaveby.CalendarRouteNotifyContact;
+import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
+import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -300,6 +305,7 @@ public class CarpoolRideService {
         rides.save(ride);
         passes.deleteByRideId(ride.id());
         ensureRequestingKidsYes(ride, adult.id());
+        upsertAcceptedDriverRoute(ride, spaceId);
         Map<UUID, String> names = circleNames(List.of(ride.requestingCircleId(), circleId));
         return toRideResponse(
                 ride, names, Map.of(vehicle.id(), vehicle.label()), false, List.of(), null);
@@ -348,9 +354,14 @@ public class CarpoolRideService {
                 && ride.status() != CarpoolRideStatus.ACCEPTED) {
             throw new CarpoolException(HttpStatus.CONFLICT, "Ride is not PENDING or ACCEPTED");
         }
+        UUID previousDriverId = ride.acceptedByAdultId();
+        boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
         ride.cancel();
         rides.save(ride);
         passes.deleteByRideId(ride.id());
+        if (wasAccepted && previousDriverId != null) {
+            refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
+        }
         return toRideResponse(
                 ride, circleNames(List.of(circleId)), Map.of(), false, List.of(), null);
     }
@@ -368,8 +379,12 @@ public class CarpoolRideService {
         if (ride.status() != CarpoolRideStatus.ACCEPTED) {
             throw new CarpoolException(HttpStatus.CONFLICT, "Ride is not ACCEPTED");
         }
+        UUID previousDriverId = ride.acceptedByAdultId();
         ride.withdraw();
         rides.save(ride);
+        if (previousDriverId != null) {
+            refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
+        }
         return toRideResponse(
                 ride,
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
@@ -404,9 +419,169 @@ public class CarpoolRideService {
                 rides.findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
                         spaceIds, eventKey, circleId, CarpoolRideStatus.ACCEPTED);
         for (CarpoolRideRequestEntity ride : accepted) {
+            UUID driverId = ride.acceptedByAdultId();
             ride.withdraw();
             rides.save(ride);
+            if (driverId != null) {
+                refreshDriverRouteAfterAcceptedChange(driverId, ride.spaceId(), eventKey);
+            }
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        Optional<FeedCalendarEventDto> event =
+                feedCalendarApi.findEventInCircle(circleId, feedEventId);
+        if (event.isEmpty()) {
+            return List.of();
+        }
+        String eventKey = RideEventKey.of(event.get());
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+        if (spaceIds.isEmpty()) {
+            return List.of();
+        }
+        List<CarpoolRideRequestEntity> accepted =
+                rides.findBySpaceIdInAndEventKeyAndStatus(
+                        spaceIds, eventKey, CarpoolRideStatus.ACCEPTED);
+        List<CarpoolAcceptedPickupDto> out = new ArrayList<>();
+        for (CarpoolRideRequestEntity ride : accepted) {
+            if (!circleId.equals(ride.requestingCircleId())
+                    && !circleId.equals(ride.acceptingCircleId())) {
+                continue;
+            }
+            if (ride.acceptedByAdultId() == null) {
+                continue;
+            }
+            out.add(
+                    new CarpoolAcceptedPickupDto(
+                            ride.acceptedByAdultId(),
+                            ride.acceptingCircleId(),
+                            ride.requestingCircleId(),
+                            ride.pickupPlaceName(),
+                            ride.pickupAddress(),
+                            ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
+        }
+        return List.copyOf(out);
+    }
+
+    private void upsertAcceptedDriverRoute(CarpoolRideRequestEntity ride, UUID spaceId) {
+        if (ride.acceptedByAdultId() == null) {
+            return;
+        }
+        CarpoolSpaceEntity space = spaces.findById(spaceId).orElse(null);
+        if (space == null) {
+            return;
+        }
+        Optional<FeedCalendarEventDto> event =
+                findSpaceEvent(ride.acceptingCircleId(), space, ride.eventKey());
+        if (event.isEmpty()) {
+            return;
+        }
+        List<CalendarRoutePickupInput> pickups =
+                pickupsForDriver(ride.acceptedByAdultId(), spaceId, ride.eventKey());
+        if (pickups.isEmpty()) {
+            pickups = List.of(toPickupInput(ride));
+        }
+        leaveByApi.upsertCalendarRoute(
+                ride.acceptedByAdultId(),
+                LeaveByItemSource.FEED,
+                event.get().id(),
+                event.get().title(),
+                pickups,
+                destinationName(event.get()),
+                event.get().location());
+    }
+
+    private void refreshDriverRouteAfterAcceptedChange(
+            UUID drivingAdultId, UUID spaceId, String eventKey) {
+        CarpoolSpaceEntity space = spaces.findById(spaceId).orElse(null);
+        if (space == null) {
+            return;
+        }
+        UUID driverCircleId;
+        try {
+            driverCircleId = familyMembershipApi.requireMemberCircleId(drivingAdultId);
+        } catch (RuntimeException ex) {
+            return;
+        }
+        Optional<FeedCalendarEventDto> event = findSpaceEvent(driverCircleId, space, eventKey);
+        if (event.isEmpty()) {
+            return;
+        }
+        List<CalendarRoutePickupInput> pickups =
+                pickupsForDriver(drivingAdultId, spaceId, eventKey);
+        if (pickups.isEmpty()) {
+            leaveByApi.invalidateCalendarRoute(
+                    drivingAdultId, LeaveByItemSource.FEED, event.get().id());
+            return;
+        }
+        leaveByApi.upsertCalendarRoute(
+                drivingAdultId,
+                LeaveByItemSource.FEED,
+                event.get().id(),
+                event.get().title(),
+                pickups,
+                destinationName(event.get()),
+                event.get().location());
+    }
+
+    private List<CalendarRoutePickupInput> pickupsForDriver(
+            UUID drivingAdultId, UUID spaceId, String eventKey) {
+        List<CarpoolRideRequestEntity> accepted =
+                rides.findBySpaceIdInAndEventKeyAndAcceptedByAdultIdAndStatus(
+                        List.of(spaceId), eventKey, drivingAdultId, CarpoolRideStatus.ACCEPTED);
+        if (accepted.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> names =
+                circleNames(
+                        accepted.stream()
+                                .map(CarpoolRideRequestEntity::requestingCircleId)
+                                .distinct()
+                                .toList());
+        List<CalendarRoutePickupInput> pickups = new ArrayList<>();
+        for (CarpoolRideRequestEntity ride : accepted) {
+            String to = names.get(ride.requestingCircleId());
+            if (to == null || to.isBlank()) {
+                to = ride.pickupPlaceName();
+            }
+            if (to == null || to.isBlank()) {
+                to = "Family";
+            }
+            pickups.add(
+                    new CalendarRoutePickupInput(
+                            ride.pickupPlaceName(),
+                            ride.pickupAddress(),
+                            new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to)));
+        }
+        return pickups;
+    }
+
+    private CalendarRoutePickupInput toPickupInput(CarpoolRideRequestEntity ride) {
+        String to =
+                familyMembershipApi
+                        .findCircle(ride.requestingCircleId())
+                        .map(FamilyCircleName::name)
+                        .filter(name -> name != null && !name.isBlank())
+                        .orElse(ride.pickupPlaceName());
+        if (to == null || to.isBlank()) {
+            to = "Family";
+        }
+        return new CalendarRoutePickupInput(
+                ride.pickupPlaceName(),
+                ride.pickupAddress(),
+                new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to));
+    }
+
+    private static String destinationName(FeedCalendarEventDto event) {
+        if (event.location() != null && !event.location().isBlank()) {
+            return event.location();
+        }
+        return event.title();
     }
 
     private List<UUID> defaultKidIds(UUID circleId, UUID spaceId, FeedCalendarEventDto event) {

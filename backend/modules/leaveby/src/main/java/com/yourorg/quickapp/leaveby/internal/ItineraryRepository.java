@@ -17,4 +17,6 @@ interface ItineraryRepository extends JpaRepository<ItineraryEntity, UUID> {
             UUID drivingAdultId, LeaveByItemSource itemSource, UUID itemId);
 
     void deleteByItemSourceAndItemId(LeaveByItemSource itemSource, UUID itemId);
+
+    void deleteByDrivingAdultId(UUID drivingAdultId);
 }

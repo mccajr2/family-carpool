@@ -5,6 +5,7 @@ import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.family.CreateFamilyCircleRequest;
 import com.yourorg.quickapp.family.CreateKidRequest;
 import com.yourorg.quickapp.family.CreatePlaceRequest;
+import com.yourorg.quickapp.family.DrivingOriginChangedEvent;
 import com.yourorg.quickapp.family.FamilyCircleResponse;
 import com.yourorg.quickapp.family.FamilyInviteResponse;
 import com.yourorg.quickapp.family.FamilyMemberResponse;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class FamilyService {
     private final FamilyPlaceRepository places;
     private final GeocodeService geocodeService;
     private final GarageService garageService;
+    private final ApplicationEventPublisher events;
 
     public FamilyService(
             AdultSessionApi adultSessionApi,
@@ -48,7 +51,8 @@ public class FamilyService {
             FamilyKidRepository kids,
             FamilyPlaceRepository places,
             GeocodeService geocodeService,
-            GarageService garageService) {
+            GarageService garageService,
+            ApplicationEventPublisher events) {
         this.adultSessionApi = adultSessionApi;
         this.circles = circles;
         this.memberships = memberships;
@@ -56,6 +60,7 @@ public class FamilyService {
         this.places = places;
         this.geocodeService = geocodeService;
         this.garageService = garageService;
+        this.events = events;
     }
 
     @Transactional
@@ -282,6 +287,7 @@ public class FamilyService {
             applyGeocode(place, address);
         }
         places.save(place);
+        publishDrivingOriginChangedForCircle(loaded.circle().id());
         return toPlaceResponse(place);
     }
 
@@ -293,6 +299,7 @@ public class FamilyService {
                         .orElseThrow(() -> new FamilyException(HttpStatus.NOT_FOUND, "Place not found"));
         applyGeocode(place, place.address());
         places.save(place);
+        publishDrivingOriginChangedForCircle(loaded.circle().id());
         return toPlaceResponse(place);
     }
 
@@ -313,6 +320,7 @@ public class FamilyService {
         if (placeId == null) {
             loaded.membership().setDefaultLeaveFromPlaceId(null);
             memberships.save(loaded.membership());
+            events.publishEvent(new DrivingOriginChangedEvent(adult.id()));
             return toResponse(loaded.circle(), loaded.membership());
         }
         FamilyPlaceEntity place =
@@ -324,7 +332,15 @@ public class FamilyService {
         }
         loaded.membership().setDefaultLeaveFromPlaceId(place.id());
         memberships.save(loaded.membership());
+        events.publishEvent(new DrivingOriginChangedEvent(adult.id()));
         return toResponse(loaded.circle(), loaded.membership());
+    }
+
+    private void publishDrivingOriginChangedForCircle(UUID circleId) {
+        for (FamilyMembershipEntity membership :
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId)) {
+            events.publishEvent(new DrivingOriginChangedEvent(membership.adultId()));
+        }
     }
 
     private FamilyCircleResponse loadCircle(UUID adultId) {

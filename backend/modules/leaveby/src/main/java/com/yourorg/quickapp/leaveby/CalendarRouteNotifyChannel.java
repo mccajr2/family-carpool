@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.leaveby;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Locale;
 
 /** Stub notify channel for pickup contacts (delivery out of scope). */
@@ -7,6 +8,7 @@ public enum CalendarRouteNotifyChannel {
     PUSH,
     SMS;
 
+    @JsonValue
     public String wireValue() {
         return name().toLowerCase(Locale.ROOT);
     }

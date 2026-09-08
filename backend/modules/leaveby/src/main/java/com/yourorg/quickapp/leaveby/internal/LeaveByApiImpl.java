@@ -202,6 +202,12 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
+    public void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId) {
+        itineraryRepository.deleteByDrivingAdultId(drivingAdultId);
+    }
+
+    @Override
+    @Transactional
     public void setLeaveFrom(UUID adultId, LeaveByItemSource source, UUID itemId, UUID placeId) {
         CirclePlaceDto place = placeApi.requireLocatedPlaceForMember(adultId, placeId);
         UUID circleId = membershipApi.requireMemberCircleId(adultId);

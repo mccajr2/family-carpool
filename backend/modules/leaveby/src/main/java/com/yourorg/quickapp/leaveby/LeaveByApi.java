@@ -89,6 +89,9 @@ public interface LeaveByApi {
     /** Drop all cached itineraries for a calendar item (any driving adult). */
     void invalidateCalendarRoutesForItem(LeaveByItemSource source, UUID itemId);
 
+    /** Drop every cached itinerary for a driving adult (origin fingerprint may change). */
+    void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId);
+
     /**
      * Persist leave-from for this adult + calendar item.
      *

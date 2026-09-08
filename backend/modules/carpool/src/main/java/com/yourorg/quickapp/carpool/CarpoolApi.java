@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.carpool;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -15,4 +16,12 @@ public interface CarpoolApi {
      * attendance.
      */
     void withdrawAcceptedInboundForFeedEvent(UUID actorAdultId, UUID feedEventId);
+
+    /**
+     * ACCEPTED rides on this feed event in spaces the circle belongs to (as
+     * requester or acceptor). Empty when the event is missing or the circle
+     * has no space membership.
+     */
+    List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
+            UUID circleId, UUID feedEventId);
 }
