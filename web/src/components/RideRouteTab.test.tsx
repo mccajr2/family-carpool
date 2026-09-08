@@ -86,7 +86,26 @@ describe("RideRouteTab", () => {
     expect(screen.getByTitle("Carpool route").getAttribute("src")).toContain(
       "key=test-embed-key",
     )
-    expect(screen.getByText("15 min early for practices")).toBeInTheDocument()
+    expect(screen.getByText("20 min early for practices")).toBeInTheDocument()
+  })
+
+  it("renders live schedule props without fixture kind", () => {
+    render(
+      <RideRouteTab
+        carpoolRoute={{
+          bufferMinutes: 0,
+          stops: [
+            { name: "Home", address: "1 Main", kind: "home" },
+            { name: "Clinic", address: "2 Oak", kind: "destination" },
+          ],
+          legMinutes: [10],
+        }}
+        startsAt="2030-08-15T16:40:00.000"
+        mapsEmbedApiKey={null}
+      />,
+    )
+    expect(screen.getByText("Arrive on time")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-hero-copy")).toHaveTextContent("the event starts")
   })
 
   it("updates notify UI locally without network calls", async () => {

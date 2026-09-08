@@ -16,6 +16,7 @@ import {
   type ActivityFeed,
   type Adult,
   type CalendarItem,
+  type CalendarRoute,
   type CarpoolFeedStatus,
   type CarpoolRideEvent,
   type CarpoolSummary,
@@ -67,6 +68,7 @@ import {
 import { RideRouteTab } from "@/components/RideRouteTab"
 import { RidePlaylistTab } from "@/components/RidePlaylistTab"
 import { carpoolRouteFixtureForCalendarItem } from "@/components/rideDetailFixtures"
+import { rideScheduleFromCalendarRoute } from "@/components/rideScheduleFromCalendarRoute"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
   activeCoverages,
@@ -288,6 +290,9 @@ export function FamilyScreen({
   const [rideDetailItemKey, setRideDetailItemKey] = useState<string | null>(null)
   const [rideDetailTab, setRideDetailTab] = useState<RideDetailTab>("route")
   const [ridePlaylistShuffleSeed, setRidePlaylistShuffleSeed] = useState(0)
+  const [rideDetailRoute, setRideDetailRoute] = useState<CalendarRoute | null>(null)
+  const [rideDetailRouteLoading, setRideDetailRouteLoading] = useState(false)
+  const [rideDetailRouteError, setRideDetailRouteError] = useState<string | null>(null)
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
     null,
   )
@@ -341,6 +346,48 @@ export function FamilyScreen({
       setDestination("calendar")
     }
   }, [destination, circle?.role])
+
+  useEffect(() => {
+    if (rideDetailItemKey == null) {
+      setRideDetailRoute(null)
+      setRideDetailRouteLoading(false)
+      setRideDetailRouteError(null)
+      return
+    }
+    const item = calendarItems.find((row) => calendarItemKey(row) === rideDetailItemKey)
+    if (item == null) {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    let cancelled = false
+    setRideDetailRouteLoading(true)
+    setRideDetailRouteError(null)
+    void familyClient
+      .getCalendarRoute(token, item.source, item.id)
+      .then((route) => {
+        if (cancelled) {
+          return
+        }
+        setRideDetailRoute(route)
+        setRideDetailRouteLoading(false)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setRideDetailRoute(null)
+        setRideDetailRouteLoading(false)
+        setRideDetailRouteError(
+          error instanceof Error ? error.message : "Could not load route estimate",
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [rideDetailItemKey, calendarItems, familyClient, session])
 
   const feedIdsKey = feeds.map((feed) => feed.id).join(",")
   useEffect(() => {
@@ -2149,10 +2196,12 @@ export function FamilyScreen({
       : (calendarItems.find((item) => calendarItemKey(item) === rideDetailItemKey) ??
         null)
   const showRideDetail = destination === "calendar" && rideDetailItem != null
-  const rideDetailCarpoolRoute =
+  const rideDetailPlaylistRoute =
     rideDetailItem != null
       ? carpoolRouteFixtureForCalendarItem(rideDetailItem)
       : null
+  const rideDetailLiveSchedule =
+    rideDetailRoute != null ? rideScheduleFromCalendarRoute(rideDetailRoute) : null
   // Item removed while detail was open — drop back to Agenda.
   if (rideDetailItemKey != null && rideDetailItem == null) {
     setRideDetailItemKey(null)
@@ -2407,21 +2456,39 @@ export function FamilyScreen({
             tab={rideDetailTab}
             onTabChange={setRideDetailTab}
             shuffleSeed={ridePlaylistShuffleSeed}
-            carpoolRoute={rideDetailCarpoolRoute}
+            carpoolRoute={rideDetailPlaylistRoute}
             onBack={() => setRideDetailItemKey(null)}
             routePanel={
-              rideDetailCarpoolRoute != null ? (
+              rideDetailRouteLoading ? (
+                <div
+                  data-testid="ride-route-loading"
+                  className="flex items-center gap-2 text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
+                >
+                  <Loader2 aria-hidden className="size-4 animate-spin" />
+                  Loading route estimate…
+                </div>
+              ) : rideDetailLiveSchedule != null ? (
                 <RideRouteTab
-                  carpoolRoute={rideDetailCarpoolRoute}
+                  carpoolRoute={rideDetailLiveSchedule}
                   startsAt={rideDetailItem.startsAt}
                   location={rideDetailItem.location}
                 />
-              ) : null
+              ) : (
+                <div
+                  data-testid="ride-route-unavailable"
+                  className="text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
+                >
+                  {rideDetailRouteError ??
+                    (rideDetailRoute?.reason
+                      ? `Route estimate unavailable (${rideDetailRoute.reason}).`
+                      : "Route estimate unavailable.")}
+                </div>
+              )
             }
             playlistPanel={
-              rideDetailCarpoolRoute != null ? (
+              rideDetailPlaylistRoute != null ? (
                 <RidePlaylistTab
-                  carpoolRoute={rideDetailCarpoolRoute}
+                  carpoolRoute={rideDetailPlaylistRoute}
                   shuffleSeed={ridePlaylistShuffleSeed}
                   onRemix={() => setRidePlaylistShuffleSeed((seed) => seed + 1)}
                 />

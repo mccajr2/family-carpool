@@ -199,7 +199,7 @@ Allowlist for `/implement`:
 - [x] Backend (`carpool` / `coverage` / calendar orchestration): trigger
       build/invalidate on accept, confirm/self-assign, withdraw/cancel, coverage
       remove, and fingerprint-related place/leave-from updates; expose GET
-- [ ] Web: fetch route when opening ride detail; wire `RideRouteTab` to live
+- [x] Web: fetch route when opening ride detail; wire `RideRouteTab` to live
       data; align fixture helpers/tests with 45/20/0 buffers where still used
       for playlist or offline demos
 - [ ] Web: minimal `UNAVAILABLE` Route state (polish owns richer chrome later)

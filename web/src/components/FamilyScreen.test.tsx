@@ -43,6 +43,26 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
     getGarage: vi.fn().mockResolvedValue({ members: [], vehicles: [] }),
+    getCalendarRoute: vi.fn().mockResolvedValue({
+      status: "OK",
+      reason: null,
+      bufferMinutes: 45,
+      stops: [
+        { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+        {
+          name: "Kwame (the Oseis)",
+          address: "Somerville, MA",
+          kind: "pickup",
+          contact: { channel: "push", to: "the Oseis" },
+        },
+        {
+          name: "Allied Veterans Rink",
+          address: "65 Elm St, Everett, MA",
+          kind: "destination",
+        },
+      ],
+      legMinutes: [12, 18],
+    }),
     ...partial,
   } as FamilyClient
 }
@@ -7971,8 +7991,8 @@ detourMinutes: null,
     expect(screen.queryByLabelText("Agenda")).not.toBeInTheDocument()
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
 
-    // Route tab smoke (fixture-driven)
-    expect(screen.getByTestId("ride-route-tab")).toBeInTheDocument()
+    // Route tab smoke (live API schedule)
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-start-nav")).toHaveAttribute(
       "href",
@@ -7980,6 +8000,7 @@ detourMinutes: null,
     )
     expect(screen.getByTestId("ride-route-map-placeholder")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-stops")).toBeInTheDocument()
+    expect(screen.getByText("45 min early for games")).toBeInTheDocument()
 
     await user.click(screen.getByTestId("ride-detail-tab-playlist"))
     expect(screen.getByTestId("ride-detail-tab-playlist")).toHaveAttribute(
@@ -8065,6 +8086,20 @@ detourMinutes: null,
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), practice]),
+          getCalendarRoute: vi.fn().mockResolvedValue({
+            status: "OK",
+            reason: null,
+            bufferMinutes: 20,
+            stops: [
+              { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+              {
+                name: "Allied Veterans Rink",
+                address: "65 Elm St, Everett, MA",
+                kind: "destination",
+              },
+            ],
+            legMinutes: [14],
+          }),
         })}
         carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
@@ -8079,8 +8114,8 @@ detourMinutes: null,
     const detail = await screen.findByTestId("ride-detail-screen")
     expect(detail).toHaveAttribute("data-fixture-kind", "practice")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
-    expect(screen.getByTestId("ride-route-tab")).toHaveTextContent(
-      "15 min early for practices",
+    expect(await screen.findByTestId("ride-route-tab")).toHaveTextContent(
+      "20 min early for practices",
     )
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
   })

@@ -12,10 +12,13 @@ import {
 } from "lucide-react"
 
 import type {
-  FixtureCarpoolRoute,
   FixtureRideStop,
   RideNotifyContact,
 } from "@/components/rideDetailFixtures"
+import {
+  type RideRouteScheduleView,
+  routeLeadCopy,
+} from "@/components/rideScheduleFromCalendarRoute"
 import {
   computeSchedule,
   embedUrl,
@@ -32,7 +35,8 @@ export type RideNotifyState = {
 }
 
 export type RideRouteTabProps = {
-  carpoolRoute: FixtureCarpoolRoute
+  /** Live OK schedule (or fixture schedule shape for tests). */
+  carpoolRoute: RideRouteScheduleView
   /** Calendar item start ISO — converted to local `h:mm AM/PM` for schedule math. */
   startsAt: string
   /** Event venue label; falls back to destination stop name. */
@@ -270,7 +274,7 @@ export function RideRouteTab({
 }: RideRouteTabProps) {
   const [notifyStates, setNotifyStates] = useState<Record<string, RideNotifyState>>({})
   const eventStart = eventStartClockFromIso(startsAt)
-  const isPractice = carpoolRoute.kind === "practice"
+  const lead = routeLeadCopy(carpoolRoute.bufferMinutes)
   const { arriveBy, stopTimes } = useMemo(
     () => computeSchedule(carpoolRoute, eventStart),
     [carpoolRoute, eventStart],
@@ -310,7 +314,7 @@ export function RideRouteTab({
               color: "var(--fc-hero-ring)",
             }}
           >
-            {isPractice ? "15 min early for practices" : "45 min early for games"}
+            {lead.badge}
           </span>
         </div>
         <div
@@ -324,8 +328,7 @@ export function RideRouteTab({
           className="text-[length:var(--fc-font-ride-detail-hero-copy-size)] leading-[var(--fc-font-ride-detail-hero-copy-line)] font-[number:var(--fc-font-ride-detail-hero-copy-weight)] text-[var(--fc-hero-on-secondary)]"
         >
           Leave home to arrive at {destinationName} by {toTime(arriveBy)} —{" "}
-          {carpoolRoute.bufferMinutes} min before{" "}
-          {isPractice ? "practice starts" : "puck drop"} at {eventStart}
+          {carpoolRoute.bufferMinutes} min before {lead.eventNoun} at {eventStart}
         </div>
         <a
           href={navHref}
