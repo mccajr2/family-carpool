@@ -31,8 +31,8 @@ detail surface and the shipped Spotify stack stays dormant for later reuse.
   ([`ride-detail-polish`](../planned/ride-detail-polish.md))
 - Changing OSRM / multi-stop Route behavior, leave-by math, or maps deep links
 - Changing Agenda `canRoute` entry rules
-  ([`ride-detail-shell`](../archive/ride-detail-shell.md) /
-  [`ride-route-tab`](../archive/ride-route-tab.md))
+  ([`ride-detail-shell`](ride-detail-shell.md) /
+  [`ride-route-tab`](ride-route-tab.md))
 - OpenAPI / backend / Expo / KMP changes
 - Restyling Route chrome or inventing new design tokens (hide only; product
   parking overrides the mock’s Playlist tab for dogfood)
