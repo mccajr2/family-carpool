@@ -202,7 +202,7 @@ Allowlist for `/implement`:
 - [x] Web: fetch route when opening ride detail; wire `RideRouteTab` to live
       data; align fixture helpers/tests with 45/20/0 buffers where still used
       for playlist or offline demos
-- [ ] Web: minimal `UNAVAILABLE` Route state (polish owns richer chrome later)
+- [x] Web: minimal `UNAVAILABLE` Route state (polish owns richer chrome later)
 - [ ] Notify: leave call-site as no-op / local-only (document hook for push)
 - [ ] Tests: leaveby/carpool/coverage unit + API integration; `RideRouteTab` /
       `FamilyScreen` (or detail host) tests for OK + UNAVAILABLE; no live OSRM

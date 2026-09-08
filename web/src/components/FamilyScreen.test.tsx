@@ -8119,4 +8119,97 @@ detourMinutes: null,
     )
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
   })
+
+  it("shows minimal UNAVAILABLE route state without fixture leave-by", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const confirmedGame = calendarItem({
+      id: "ride-detail-unavailable",
+      source: "MANUAL",
+      title: "vs Belmont",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov-u",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    const getCalendarRoute = vi.fn().mockResolvedValue({
+      status: "UNAVAILABLE",
+      reason: "GEOCODE_FAILED",
+      bufferMinutes: 45,
+      stops: [],
+      legMinutes: [],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+          getCalendarRoute,
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const row = within(agenda).getByTestId("agenda-row-MANUAL-ride-detail-unavailable")
+    await user.click(within(row).getByTestId("agenda-row-open-ride"))
+
+    expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
+    expect(await screen.findByTestId("ride-route-unavailable")).toHaveTextContent(
+      /Couldn't locate a stop/i,
+    )
+    expect(screen.getByTestId("ride-route-unavailable")).toHaveTextContent(
+      /never live traffic/i,
+    )
+    expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-leave-by")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-route-start-nav")).not.toBeInTheDocument()
+    expect(getCalendarRoute).toHaveBeenCalled()
+  })
 })

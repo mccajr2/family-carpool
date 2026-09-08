@@ -66,6 +66,7 @@ import {
   type RideDetailTab,
 } from "@/components/RideDetailScreen"
 import { RideRouteTab } from "@/components/RideRouteTab"
+import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
 import { RidePlaylistTab } from "@/components/RidePlaylistTab"
 import { carpoolRouteFixtureForCalendarItem } from "@/components/rideDetailFixtures"
 import { rideScheduleFromCalendarRoute } from "@/components/rideScheduleFromCalendarRoute"
@@ -2474,15 +2475,10 @@ export function FamilyScreen({
                   location={rideDetailItem.location}
                 />
               ) : (
-                <div
-                  data-testid="ride-route-unavailable"
-                  className="text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
-                >
-                  {rideDetailRouteError ??
-                    (rideDetailRoute?.reason
-                      ? `Route estimate unavailable (${rideDetailRoute.reason}).`
-                      : "Route estimate unavailable.")}
-                </div>
+                <RideRouteUnavailable
+                  reason={rideDetailRoute?.reason}
+                  errorMessage={rideDetailRouteError}
+                />
               )
             }
             playlistPanel={
