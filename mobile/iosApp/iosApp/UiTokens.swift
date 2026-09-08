@@ -42,6 +42,8 @@ enum UiTokens {
         let detourOnWay: String
         let detourModerate: String
         let detourFar: String
+        let rideDetailTrackFrom: String
+        let rideDetailTrackFromOn: String
     }
 
     enum Color {
@@ -80,7 +82,9 @@ enum UiTokens {
             railDanger: "#F2994A",
             detourOnWay: "#2F7A4D",
             detourModerate: "#B5793A",
-            detourFar: "#A6483F"
+            detourFar: "#A6483F",
+            rideDetailTrackFrom: "#1F6E6E",
+            rideDetailTrackFromOn: "#FFFFFF"
         )
         static let dark = ColorRoles(
             accent: "#8894FF",
@@ -117,7 +121,9 @@ enum UiTokens {
             railDanger: "#F2994A",
             detourOnWay: "#2F7A4D",
             detourModerate: "#B5793A",
-            detourFar: "#A6483F"
+            detourFar: "#A6483F",
+            rideDetailTrackFrom: "#1F6E6E",
+            rideDetailTrackFromOn: "#FFFFFF"
         )
     }
 
@@ -190,6 +196,28 @@ enum UiTokens {
         static let heroEmptyPad: CGFloat = 32
         static let heroCarouselDotActiveW: CGFloat = 18
         static let heroCarouselDotH: CGFloat = 7
+        static let rideDetailBackMb: CGFloat = 20
+        static let rideDetailHeaderMb: CGFloat = 16
+        static let rideDetailTabPadX: CGFloat = 14
+        static let rideDetailTabPadY: CGFloat = 6
+        static let rideDetailTabRailPad: CGFloat = 4
+        static let rideDetailCtaPadX: CGFloat = 20
+        static let rideDetailCtaPadY: CGFloat = 12
+        static let rideDetailAgendaCtaPadX: CGFloat = 16
+        static let rideDetailCtaMt: CGFloat = 20
+        static let rideDetailNotifyPadX: CGFloat = 10
+        static let rideDetailNotifyPadY: CGFloat = 4
+        static let rideDetailStopIcon: CGFloat = 32
+        static let rideDetailAvatar: CGFloat = 32
+        static let rideDetailTrackAvatar: CGFloat = 24
+        static let rideDetailMapH: CGFloat = 280
+        static let rideDetailBlockMb: CGFloat = 24
+        static let rideDetailRiderMb: CGFloat = 32
+        static let rideDetailOpenRidePad: CGFloat = 6
+        static let rideDetailBadgePadX: CGFloat = 8
+        static let rideDetailBadgePadY: CGFloat = 2
+        static let rideDetailCaveatPad: CGFloat = 20
+        static let rideDetailMapPlaceholderPad: CGFloat = 24
     }
 
     enum Radius {
@@ -241,6 +269,19 @@ enum UiTokens {
         static let weekDay = TypeScale(size: 12, lineHeight: 16, weight: "700")
         static let weekCount = TypeScale(size: 13, lineHeight: 18, weight: "600")
         static let weekCountCalm = TypeScale(size: 13, lineHeight: 18, weight: "500")
+        static let rideDetailTitle = TypeScale(size: 24, lineHeight: 32, weight: "700")
+        static let rideDetailLeaveBy = TypeScale(size: 48, lineHeight: 48, weight: "700")
+        static let rideDetailQueuedMin = TypeScale(size: 36, lineHeight: 36, weight: "700")
+        static let rideDetailBack = TypeScale(size: 14, lineHeight: 20, weight: "600")
+        static let rideDetailWhen = TypeScale(size: 12, lineHeight: 16, weight: "700")
+        static let rideDetailTab = TypeScale(size: 12, lineHeight: 16, weight: "600")
+        static let rideDetailSection = TypeScale(size: 14, lineHeight: 20, weight: "600")
+        static let rideDetailStopName = TypeScale(size: 16, lineHeight: 24, weight: "600")
+        static let rideDetailStopMeta = TypeScale(size: 14, lineHeight: 20, weight: "600")
+        static let rideDetailHeroCopy = TypeScale(size: 14, lineHeight: 20, weight: "400")
+        static let rideDetailNotify = TypeScale(size: 12, lineHeight: 16, weight: "600")
+        static let rideDetailTrackFromLabel = TypeScale(size: 10, lineHeight: 14, weight: "700")
+        static let rideDetailCta = TypeScale(size: 16, lineHeight: 24, weight: "600")
         static let fontFamily: String = "Plus Jakarta Sans"
     }
 

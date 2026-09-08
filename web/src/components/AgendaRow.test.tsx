@@ -2236,4 +2236,196 @@ detourMinutes: null,
       within(row).getByRole("button", { name: "Can't take them anymore" }),
     ).toBeInTheDocument()
   })
+
+  it("shows route affordances only when canRoute and onOpenRide is provided", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+    const confirmedItem = item({
+      id: "routable",
+      title: "Game",
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={confirmedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        onOpenRide={onOpenRide}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-routable")
+    const collapsed = within(row).getByTestId("agenda-row-open-ride")
+    expect(collapsed).toHaveAttribute("aria-label", "View route & playlist")
+    await user.click(collapsed)
+    expect(onOpenRide).toHaveBeenCalledTimes(1)
+    // Collapsed control must not toggle expand.
+    expect(within(row).queryByTestId("agenda-row-open-ride-cta")).not.toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const cta = within(row).getByTestId("agenda-row-open-ride-cta")
+    expect(cta).toHaveTextContent("Route & playlist for this ride")
+    await user.click(cta)
+    expect(onOpenRide).toHaveBeenCalledTimes(2)
+  })
+
+  it("hides route affordances for unassigned, not-going, and missing onOpenRide", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+
+    const { unmount } = render(
+      <AgendaRow
+        item={item({
+          id: "gap",
+          title: "Practice",
+          uncoveredKidIds: ["k1"],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:gap",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          otherRequests: [],
+        }}
+        onOpenRide={onOpenRide}
+        {...noopHandlers}
+      />,
+    )
+    const gapRow = screen.getByTestId("agenda-row-MANUAL-gap")
+    expect(within(gapRow).queryByTestId("agenda-row-open-ride")).not.toBeInTheDocument()
+    await user.click(within(gapRow).getByRole("button", { expanded: false }))
+    expect(within(gapRow).queryByTestId("agenda-row-open-ride-cta")).not.toBeInTheDocument()
+    unmount()
+
+    const { unmount: unmountSkip } = render(
+      <AgendaRow
+        item={item({
+          id: "skip",
+          title: "Game",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+          ],
+          rsvps: [{ kidId: "k1", status: "NO" }],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        onOpenRide={onOpenRide}
+        {...noopHandlers}
+      />,
+    )
+    expect(
+      within(screen.getByTestId("agenda-row-MANUAL-skip")).queryByTestId(
+        "agenda-row-open-ride",
+      ),
+    ).not.toBeInTheDocument()
+    unmountSkip()
+
+    render(
+      <AgendaRow
+        item={item({
+          id: "routable",
+          title: "Game",
+          coverages: [
+            {
+              id: "cov1",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+            },
+          ],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    expect(
+      within(screen.getByTestId("agenda-row-MANUAL-routable")).queryByTestId(
+        "agenda-row-open-ride",
+      ),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows route affordances when a teammate ACCEPTED own-request covers the kid", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+    render(
+      <AgendaRow
+        item={item({ id: "teammate", title: "Game" })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:game",
+          title: "Game",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: {
+            id: "own",
+            spaceId: "s1",
+            eventKey: "UID:game",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            requestedByAdultId: "a1",
+            kidIds: ["k1"],
+            kidFirstNames: ["Sam"],
+            seats: 1,
+            pickupPlaceName: "Home",
+            pickupAddress: "1 Main",
+            pickupTown: null,
+            detourMinutes: null,
+            status: "ACCEPTED",
+            passedByMe: false,
+            passedByAdultNames: [],
+            acceptedByAdultId: "a9",
+            acceptingCircleId: "c9",
+            acceptingCircleName: "The Patels",
+            vehicleId: "v1",
+            vehicleLabel: "Van",
+          },
+          otherRequests: [],
+        }}
+        onOpenRide={onOpenRide}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-teammate")
+    expect(within(row).getByTestId("agenda-row-open-ride")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-row-open-ride-cta")).toBeInTheDocument()
+  })
 })

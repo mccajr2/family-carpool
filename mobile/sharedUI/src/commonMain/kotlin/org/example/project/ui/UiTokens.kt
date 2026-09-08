@@ -38,7 +38,9 @@ object UiTokens {
         val railDanger: String,
         val detourOnWay: String,
         val detourModerate: String,
-        val detourFar: String
+        val detourFar: String,
+        val rideDetailTrackFrom: String,
+        val rideDetailTrackFromOn: String
     )
 
     object Color {
@@ -77,7 +79,9 @@ object UiTokens {
             railDanger = "#F2994A",
             detourOnWay = "#2F7A4D",
             detourModerate = "#B5793A",
-            detourFar = "#A6483F"
+            detourFar = "#A6483F",
+            rideDetailTrackFrom = "#1F6E6E",
+            rideDetailTrackFromOn = "#FFFFFF"
         )
         val dark = ColorRoles(
             accent = "#8894FF",
@@ -114,7 +118,9 @@ object UiTokens {
             railDanger = "#F2994A",
             detourOnWay = "#2F7A4D",
             detourModerate = "#B5793A",
-            detourFar = "#A6483F"
+            detourFar = "#A6483F",
+            rideDetailTrackFrom = "#1F6E6E",
+            rideDetailTrackFromOn = "#FFFFFF"
         )
     }
 
@@ -187,6 +193,28 @@ object UiTokens {
         const val heroEmptyPad: Int = 32
         const val heroCarouselDotActiveW: Int = 18
         const val heroCarouselDotH: Int = 7
+        const val rideDetailBackMb: Int = 20
+        const val rideDetailHeaderMb: Int = 16
+        const val rideDetailTabPadX: Int = 14
+        const val rideDetailTabPadY: Int = 6
+        const val rideDetailTabRailPad: Int = 4
+        const val rideDetailCtaPadX: Int = 20
+        const val rideDetailCtaPadY: Int = 12
+        const val rideDetailAgendaCtaPadX: Int = 16
+        const val rideDetailCtaMt: Int = 20
+        const val rideDetailNotifyPadX: Int = 10
+        const val rideDetailNotifyPadY: Int = 4
+        const val rideDetailStopIcon: Int = 32
+        const val rideDetailAvatar: Int = 32
+        const val rideDetailTrackAvatar: Int = 24
+        const val rideDetailMapH: Int = 280
+        const val rideDetailBlockMb: Int = 24
+        const val rideDetailRiderMb: Int = 32
+        const val rideDetailOpenRidePad: Int = 6
+        const val rideDetailBadgePadX: Int = 8
+        const val rideDetailBadgePadY: Int = 2
+        const val rideDetailCaveatPad: Int = 20
+        const val rideDetailMapPlaceholderPad: Int = 24
     }
 
     object Radius {
@@ -234,6 +262,19 @@ object UiTokens {
         val weekDay = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
         val weekCount = TypeScale(size = 13f, lineHeight = 18f, weight = "600")
         val weekCountCalm = TypeScale(size = 13f, lineHeight = 18f, weight = "500")
+        val rideDetailTitle = TypeScale(size = 24f, lineHeight = 32f, weight = "700")
+        val rideDetailLeaveBy = TypeScale(size = 48f, lineHeight = 48f, weight = "700")
+        val rideDetailQueuedMin = TypeScale(size = 36f, lineHeight = 36f, weight = "700")
+        val rideDetailBack = TypeScale(size = 14f, lineHeight = 20f, weight = "600")
+        val rideDetailWhen = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
+        val rideDetailTab = TypeScale(size = 12f, lineHeight = 16f, weight = "600")
+        val rideDetailSection = TypeScale(size = 14f, lineHeight = 20f, weight = "600")
+        val rideDetailStopName = TypeScale(size = 16f, lineHeight = 24f, weight = "600")
+        val rideDetailStopMeta = TypeScale(size = 14f, lineHeight = 20f, weight = "600")
+        val rideDetailHeroCopy = TypeScale(size = 14f, lineHeight = 20f, weight = "400")
+        val rideDetailNotify = TypeScale(size = 12f, lineHeight = 16f, weight = "600")
+        val rideDetailTrackFromLabel = TypeScale(size = 10f, lineHeight = 14f, weight = "700")
+        val rideDetailCta = TypeScale(size = 16f, lineHeight = 24f, weight = "600")
         const val fontFamily: String = "Plus Jakarta Sans"
     }
 

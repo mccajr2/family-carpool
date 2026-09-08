@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Clock } from "lucide-react"
+import { ChevronDown, ChevronRight, ChevronUp, Clock, Navigation } from "lucide-react"
 import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage, RsvpStatus } from "@/api/types"
 import { isPlaceLocated } from "@/api/types"
 import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
@@ -11,6 +11,11 @@ import { formatEventWhen } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
+import {
+  canRoute,
+  isHouseholdConfirmedDriver,
+  isTeammateOwnRide,
+} from "@/components/canRoute"
 import {
   applyAutoDeclinedViewModel,
   isConfirmedDriver,
@@ -57,24 +62,6 @@ function agendaRowTeamLabel(item: CalendarItem): string | null {
     return calendarSourceLabel(item.source, item.feedName)
   }
   return null
-}
-
-function isTeammateOwnRide(
-  game: CoverageGameEvent,
-  rideEvent: CarpoolRideEvent | null,
-): boolean {
-  const ownRequest = rideEvent?.ownRequest
-  return (
-    ownRequest?.status === "ACCEPTED" &&
-    ownRequest.kidIds.includes(game.kidId)
-  )
-}
-
-function isHouseholdConfirmedDriver(
-  game: CoverageGameEvent,
-  rideEvent: CarpoolRideEvent | null,
-): boolean {
-  return isConfirmedDriver(game.ownRide) && !isTeammateOwnRide(game, rideEvent)
 }
 
 /**
@@ -133,6 +120,8 @@ type AgendaRowProps = {
   onSetLeaveFrom: (placeId: string) => void
   onSetRsvp: (kidId: string, status: RsvpStatus) => void
   onOpenPlaces: () => void
+  /** Opens ride-detail overlay when `canRoute` for at least one in-play kid. */
+  onOpenRide?: () => void
   onEdit: () => void
   onRemoveEvent: () => void
 }
@@ -179,6 +168,7 @@ export function AgendaRow({
   onSetLeaveFrom,
   onSetRsvp,
   onOpenPlaces,
+  onOpenRide,
   onEdit,
   onRemoveEvent,
 }: AgendaRowProps) {
@@ -225,6 +215,9 @@ export function AgendaRow({
   const showRequestInCarpool = canAskTeam && !showAssign
   const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
+  // Entry only when gate passes and a handler exists — never a dead-end control.
+  const routable =
+    onOpenRide != null && coverageGames.some((game) => canRoute(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
   const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
   const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest, {
@@ -361,6 +354,29 @@ export function AgendaRow({
               tone={tag.tone}
             />
           ))}
+          {routable ? (
+            <span
+              role="button"
+              tabIndex={0}
+              data-testid="agenda-row-open-ride"
+              title="View route & playlist"
+              aria-label="View route & playlist"
+              className="inline-flex rounded-full p-[var(--fc-space-ride-detail-open-ride-pad)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpenRide?.()
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onOpenRide?.()
+                }
+              }}
+            >
+              <Navigation aria-hidden size={14} />
+            </span>
+          ) : null}
           <ChevronIcon
             aria-hidden
             data-testid="agenda-row-chevron"
@@ -536,6 +552,21 @@ export function AgendaRow({
                 )
               })}
             </div>
+          ) : null}
+
+          {routable ? (
+            <button
+              type="button"
+              data-testid="agenda-row-open-ride-cta"
+              onClick={() => onOpenRide?.()}
+              className="flex w-full items-center justify-between rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-agenda-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-back-size)] leading-[var(--fc-font-ride-detail-back-line)] font-[number:var(--fc-font-ride-detail-back-weight)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
+            >
+              <span className="flex items-center gap-[var(--fc-space-sm)]">
+                <Navigation aria-hidden size={15} />
+                Route & playlist for this ride
+              </span>
+              <ChevronRight aria-hidden size={16} />
+            </button>
           ) : null}
 
           {/* Travel / origin — below DriverPicker per weekly-list-focus-sync */}

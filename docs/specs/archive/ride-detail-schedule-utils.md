@@ -7,7 +7,7 @@ Created: 2026-09-06
 Updated: 2026-09-06 (`/pr`)  
 Added: 2026-09-06 · enhancement  
 Branch: `ride-detail-schedule-utils`  
-Feeds: [`ride-detail-shell`](../planned/ride-detail-shell.md) →
+Feeds: [`ride-detail-shell`](ride-detail-shell.md) →
 [`ride-route-tab`](../planned/ride-route-tab.md) /
 [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
 
@@ -23,7 +23,7 @@ unit-tested without UI risk — same foundation pattern as
 ## Non-goals
 
 - Detail screen UI, Agenda/`canRoute` entry points, or Route/Playlist chrome
-  ([`ride-detail-shell`](../planned/ride-detail-shell.md) and later)
+  ([`ride-detail-shell`](ride-detail-shell.md) and later)
 - OSRM / geocoding / live `legMinutes` computation
   ([`ride-route-tab`](../planned/ride-route-tab.md))
 - Spotify OAuth, API calls, or token storage
@@ -79,7 +79,7 @@ re-implement these formulas in components.
   [`coverage-priority-engine`](../archive/coverage-priority-engine.md) →
   `web/src/components/coverageQueue.ts`
 - Downstream stubs (read Problem/Notes only if needed for type naming):
-  [`ride-detail-shell`](../planned/ride-detail-shell.md),
+  [`ride-detail-shell`](ride-detail-shell.md),
   [`ride-route-tab`](../planned/ride-route-tab.md),
   [`ride-playlist-tab`](../planned/ride-playlist-tab.md)
 
