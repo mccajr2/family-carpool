@@ -53,6 +53,7 @@ class CalendarRouteIntegrationTest {
                         .andReturn();
         String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
 
+        String venue = "Route Rink " + java.util.UUID.randomUUID();
         mockMvc.perform(
                         post("/api/family/circle/places")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token))
@@ -75,7 +76,9 @@ class CalendarRouteIntegrationTest {
                                         .header(HttpHeaders.AUTHORIZATION, bearer(token))
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(
-                                                "{\"title\":\"vs Thunder\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\"Rink Field\",\"kidIds\":[\""
+                                                "{\"title\":\"vs Thunder\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
                                                         + kidId
                                                         + "\"]}"))
                         .andExpect(status().isCreated())
@@ -168,6 +171,7 @@ class CalendarRouteIntegrationTest {
                         .andReturn();
         String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
 
+        String venue = "Route Remove Rink " + java.util.UUID.randomUUID();
         mockMvc.perform(
                         post("/api/family/circle/places")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token))
@@ -190,7 +194,9 @@ class CalendarRouteIntegrationTest {
                                         .header(HttpHeaders.AUTHORIZATION, bearer(token))
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(
-                                                "{\"title\":\"vs Thunder\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\"Rink Field\",\"kidIds\":[\""
+                                                "{\"title\":\"vs Thunder\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
                                                         + kidId
                                                         + "\"]}"))
                         .andExpect(status().isCreated())

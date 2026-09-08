@@ -62,6 +62,7 @@ class LeaveByCalendarIntegrationTest {
                         .andReturn();
         String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
 
+        String venue = "LeaveBy Rink " + java.util.UUID.randomUUID();
         MvcResult placeResult =
                 mockMvc.perform(
                                 post("/api/family/circle/places")
@@ -80,7 +81,9 @@ class LeaveByCalendarIntegrationTest {
                                         .header(HttpHeaders.AUTHORIZATION, bearer(token))
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(
-                                                "{\"title\":\"Practice\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\"Rink Field\",\"kidIds\":[\""
+                                                "{\"title\":\"Practice\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
                                                         + kidId
                                                         + "\"]}"))
                         .andExpect(status().isCreated())

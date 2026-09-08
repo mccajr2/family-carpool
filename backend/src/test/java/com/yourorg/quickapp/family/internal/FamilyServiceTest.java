@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.family.CreateFamilyCircleRequest;
+import com.yourorg.quickapp.family.DrivingOriginChangedEvent;
 import com.yourorg.quickapp.family.FamilyRole;
 import com.yourorg.quickapp.family.JoinFamilyCircleRequest;
 import com.yourorg.quickapp.family.UpdateFamilyMemberRoleRequest;
@@ -23,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +50,9 @@ class FamilyServiceTest {
 
     @Mock
     private GarageService garageService;
+
+    @Mock
+    private ApplicationEventPublisher events;
 
     @InjectMocks
     private FamilyService familyService;
@@ -564,6 +569,7 @@ class FamilyServiceTest {
         assertThat(response.defaultLeaveFromPlaceName()).isEqualTo("Home");
         assertThat(membership.defaultLeaveFromPlaceId()).isEqualTo(placeId);
         verify(memberships).save(membership);
+        verify(events).publishEvent(new DrivingOriginChangedEvent(adultId));
     }
 
     @Test
@@ -624,5 +630,6 @@ class FamilyServiceTest {
 
         assertThat(response.defaultLeaveFromPlaceId()).isNull();
         assertThat(membership.defaultLeaveFromPlaceId()).isNull();
+        verify(events).publishEvent(new DrivingOriginChangedEvent(adultId));
     }
 }
