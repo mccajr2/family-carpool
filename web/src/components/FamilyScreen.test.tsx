@@ -20,22 +20,10 @@ import { LEAVE_BY_PENDING_LABEL } from "@/components/leaveByDisplay"
 import * as coverageQueue from "@/components/coverageQueue"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import { FamilyScreen } from "@/components/FamilyScreen"
-
-vi.mock("@/api/playlistClient", () => {
-  class MockPlaylistClient {
-    getSpotifyStatus = vi.fn().mockResolvedValue({ connected: false })
-    getSpotifyAuthorize = vi.fn().mockResolvedValue({
-      authorizeUrl: "https://accounts.spotify.com/authorize?state=test",
-      state: "test",
-    })
-    listSpotifyPlaylists = vi.fn().mockResolvedValue([])
-    listKidPlaylistDesignations = vi.fn().mockResolvedValue([])
-    setKidPlaylistDesignation = vi.fn()
-    clearKidPlaylistDesignation = vi.fn()
-    revokeSpotify = vi.fn()
-  }
-  return { PlaylistClient: MockPlaylistClient }
-})
+import {
+  SPOTIFY_OAUTH_RETURN_KEY,
+  saveSpotifyOAuthReturn,
+} from "@/components/spotifyOAuthReturn"
 
 /** Fixed "today" for 2030-dated calendar fixtures in this file. */
 const AGENDA_TEST_NOW = new Date("2030-08-14T12:00:00.000Z")
@@ -7955,7 +7943,7 @@ detourMinutes: null,
     })
   })
 
-  it("opens ride detail from Agenda, switches tabs, and returns on Back", async () => {
+  it("opens ride detail from Agenda with Route only and returns on Back", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -7963,9 +7951,10 @@ detourMinutes: null,
       email: "parent@example.com",
       displayName: "Alex",
     })
-    const openExternal = vi.spyOn(window, "open").mockImplementation(() => null)
-    const openCalendarPlaylist = vi.fn().mockResolvedValue({
-      url: "https://open.spotify.com/playlist/sam-gameday",
+    const getCalendarPlaylist = vi.fn().mockResolvedValue({
+      riders: [],
+      totalDurationSec: 0,
+      driveMinutes: 30,
     })
 
     const confirmedGame = calendarItem({
@@ -8020,7 +8009,7 @@ detourMinutes: null,
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
-          openCalendarPlaylist,
+          getCalendarPlaylist,
         })}
         carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
@@ -8031,17 +8020,15 @@ detourMinutes: null,
     const row = within(agenda).getByTestId("agenda-row-MANUAL-ride-detail-e1")
     await user.click(within(row).getByTestId("agenda-row-open-ride"))
 
-    const detail = await screen.findByTestId("ride-detail-screen")
-    expect(detail).toHaveAttribute("data-shuffle-seed", "0")
+    expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
-    expect(screen.getByTestId("ride-detail-tab-route")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    )
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-detail-tab-playlist")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-playlist-tab")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Agenda")).not.toBeInTheDocument()
     expect(screen.getByLabelText("App navigation")).toBeInTheDocument()
 
-    // Route tab smoke (live API schedule)
+    // Route body smoke (live API schedule)
     expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-start-nav")).toHaveAttribute(
@@ -8051,44 +8038,7 @@ detourMinutes: null,
     expect(screen.getByTestId("ride-route-map-placeholder")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-stops")).toBeInTheDocument()
     expect(screen.getByText("45 min early for games")).toBeInTheDocument()
-
-    await user.click(screen.getByTestId("ride-detail-tab-playlist"))
-    expect(screen.getByTestId("ride-detail-tab-playlist")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    )
-    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
-
-    // Playlist tab smoke (live API riders + connect affordance for circle kid)
-    expect(await screen.findByTestId("ride-playlist-tab")).toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
-      "data-connected",
-      "true",
-    )
-    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
-      "data-viewer-can-manage",
-      "true",
-    )
-    expect(await screen.findByTestId("ride-playlist-connect-Sam")).toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-coverage")).toHaveTextContent(
-      /Drive is ~30 min — add more songs to fill it/,
-    )
-    expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
-    expect(screen.queryByTestId("ride-playlist-remix")).not.toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-premium-caveat")).toBeInTheDocument()
-    expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
-
-    await user.click(screen.getByTestId("ride-playlist-spotify"))
-    await waitFor(() => {
-      expect(openCalendarPlaylist).toHaveBeenCalledWith("tok", "MANUAL", "ride-detail-e1", null)
-    })
-    expect(openExternal).toHaveBeenCalledWith(
-      "https://open.spotify.com/playlist/sam-gameday",
-      "_blank",
-      "noopener,noreferrer",
-    )
-    openExternal.mockRestore()
+    expect(getCalendarPlaylist).not.toHaveBeenCalled()
 
     await user.click(screen.getByTestId("ride-detail-back"))
     expect(screen.queryByTestId("ride-detail-screen")).not.toBeInTheDocument()
@@ -8098,6 +8048,105 @@ detourMinutes: null,
         "agenda-row-MANUAL-ride-detail-e1",
       ),
     ).toBeInTheDocument()
+  })
+
+  it("lands on Route detail after Spotify OAuth return without Playlist chrome", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const circle = circleFixture({
+      id: "c1",
+      name: "House",
+      role: "ORGANIZER",
+      members: [
+        {
+          adultId: "1",
+          email: "parent@example.com",
+          displayName: "Alex",
+          role: "ORGANIZER",
+        },
+      ],
+      kids: [{ id: "k1", displayName: "Sam" }],
+      places: [
+        {
+          id: "p1",
+          name: "Home",
+          address: "1 Main",
+          latitude: 40,
+          longitude: -74,
+        },
+      ],
+    })
+    const confirmedGame = calendarItem({
+      id: "ride-detail-e1",
+      source: "MANUAL",
+      title: "vs Belmont",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+        },
+      ],
+    })
+    const calWindow = defaultCalendarWindow(AGENDA_TEST_NOW)
+    const bootstrap = new FamilyBootstrapStore()
+    bootstrap.save({
+      adultId: "1",
+      email: "parent@example.com",
+      adultDisplayName: "Alex",
+      circle,
+      inviteCode: null,
+      feeds: [],
+    })
+    const cache = new CalendarCacheStore()
+    cache.save({
+      adultId: "1",
+      circleId: "c1",
+      from: calWindow.from,
+      to: calWindow.to,
+      items: [earlierFocusDecoy(), confirmedGame],
+      fetchedAt: Date.now(),
+    })
+    saveSpotifyOAuthReturn({
+      rideDetailItemKey: "MANUAL-ride-detail-e1",
+      designateKidId: "k1",
+    })
+    window.history.replaceState(null, "", "/?spotify=connected")
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        calendarCacheStore={cache}
+        bootstrapCacheStore={bootstrap}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(circle),
+          listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-detail-tab-playlist")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-playlist-tab")).not.toBeInTheDocument()
+    expect(sessionStorage.getItem(SPOTIFY_OAUTH_RETURN_KEY)).toBeNull()
+    window.history.replaceState(null, "", "/")
   })
 
   it("opens ride detail from the expanded Agenda CTA with a practice fixture", async () => {
@@ -8187,6 +8236,8 @@ detourMinutes: null,
 
     await screen.findByTestId("ride-detail-screen")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ride-detail-tab-playlist")).not.toBeInTheDocument()
     const routeTab = await screen.findByTestId("ride-route-tab")
     expect(routeTab).toHaveTextContent("20 min early for practices")
     expect(routeTab).toHaveTextContent("Live Home")
