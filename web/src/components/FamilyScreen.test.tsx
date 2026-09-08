@@ -7963,6 +7963,10 @@ detourMinutes: null,
       email: "parent@example.com",
       displayName: "Alex",
     })
+    const openExternal = vi.spyOn(window, "open").mockImplementation(() => null)
+    const openCalendarPlaylist = vi.fn().mockResolvedValue({
+      url: "https://open.spotify.com/playlist/sam-gameday",
+    })
 
     const confirmedGame = calendarItem({
       id: "ride-detail-e1",
@@ -8016,6 +8020,7 @@ detourMinutes: null,
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+          openCalendarPlaylist,
         })}
         carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
@@ -8071,7 +8076,19 @@ detourMinutes: null,
     expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
     expect(screen.queryByTestId("ride-playlist-remix")).not.toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-premium-caveat")).toBeInTheDocument()
     expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId("ride-playlist-spotify"))
+    await waitFor(() => {
+      expect(openCalendarPlaylist).toHaveBeenCalledWith("tok", "MANUAL", "ride-detail-e1", null)
+    })
+    expect(openExternal).toHaveBeenCalledWith(
+      "https://open.spotify.com/playlist/sam-gameday",
+      "_blank",
+      "noopener,noreferrer",
+    )
+    openExternal.mockRestore()
 
     await user.click(screen.getByTestId("ride-detail-back"))
     expect(screen.queryByTestId("ride-detail-screen")).not.toBeInTheDocument()

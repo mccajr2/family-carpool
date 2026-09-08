@@ -1,14 +1,15 @@
 # Spec: ride-playlist-tab
 
-Status: draft  
+Status: archived  
+Completed: 2026-09-07  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-06  
-Updated: 2026-09-07 (`/spec`)  
+Updated: 2026-09-07 (`/pr`)  
 Added: 2026-09-06 · enhancement  
 Branch: `ride-playlist-tab`  
-Depends on: [`ride-detail-shell`](../archive/ride-detail-shell.md) (Playlist
-chrome + fixtures), [`ride-detail-schedule-utils`](../archive/ride-detail-schedule-utils.md)
-(`mergeTracks` / `fmtMinSec`), [`ride-route-tab`](../archive/ride-route-tab.md)
+Depends on: [`ride-detail-shell`](ride-detail-shell.md) (Playlist
+chrome + fixtures), [`ride-detail-schedule-utils`](ride-detail-schedule-utils.md)
+(`mergeTracks` / `fmtMinSec`), [`ride-route-tab`](ride-route-tab.md)
 (live Route + drive minutes for coverage copy)  
 Feeds: [`ride-detail-polish`](../planned/ride-detail-polish.md),
 [`push-notifications`](../planned/push-notifications.md),
@@ -137,26 +138,26 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
 
 ## Acceptance criteria
 
-- [ ] Adult can complete Spotify OAuth, store refreshable tokens, and revoke;
+- [x] Adult can complete Spotify OAuth, store refreshable tokens, and revoke;
   revoked adult loses designations and appears disconnected on kid tiles they
   owned.
-- [ ] Adult can designate (and change) one Spotify playlist **per kid** in their
+- [x] Adult can designate (and change) one Spotify playlist **per kid** in their
   circle; designation is reused across rides until changed.
-- [ ] Playlist tab for a `canRoute` ride lists **one tile per attending kid** in
+- [x] Playlist tab for a `canRoute` ride lists **one tile per attending kid** in
   the car (not one per unique parent); unconnected tiles show invite affordance.
-- [ ] Connected tiles show playlist name, song count, and duration; merge hero /
+- [x] Connected tiles show playlist name, song count, and duration; merge hero /
   track list use `mergeTracks` over connected kids only.
-- [ ] **Open in Spotify:** 1 connected → existing playlist URL (no Spotify
+- [x] **Open in Spotify:** 1 connected → existing playlist URL (no Spotify
   create); 2+ → transient playlist on the viewing adult’s account from current
   merge order, then that URL; 0 connected → control disabled/inert.
-- [ ] **Remix** visible/active only when 2+ connected; changes in-app order;
+- [x] **Remix** visible/active only when 2+ connected; changes in-app order;
   subsequent Open uses the remixed order for the transient playlist.
-- [ ] Invite-to-connect updates local sending/sent UI via a soft-succeed
+- [x] Invite-to-connect updates local sending/sent UI via a soft-succeed
   call site (no real push/SMS); mirrors Route notify pattern.
-- [ ] Premium caveat remains; no Spotify Connect / remote play.
-- [ ] OpenAPI + web API clients updated in the same change; no KMP
+- [x] Premium caveat remains; no Spotify Connect / remote play.
+- [x] OpenAPI + web API clients updated in the same change; no KMP
   `sharedLogic` updates; no Expo.
-- [ ] Unit + integration tests for OAuth/token designate, playlist read rider
+- [x] Unit + integration tests for OAuth/token designate, playlist read rider
   set, and open handoff (1 vs 2+); web component tests for live Playlist wiring
   (incl. Remix visibility and Open URL behavior). Suites pass.
 
@@ -176,7 +177,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
 - [x] Web: connect + designate-playlist UX for the viewer’s kid tiles
 - [x] Web: Open / Remix behavior per Approach; invite call site parallel to
   `rideNotify` (soft-succeed)
-- [ ] Tests: backend unit + integration for token/designate/read/open; web
+- [x] Tests: backend unit + integration for token/designate/read/open; web
   component tests for rider tiles, Open URL rules, Remix gating, invite local UI
 
 ## Open questions

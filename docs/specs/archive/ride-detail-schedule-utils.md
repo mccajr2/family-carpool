@@ -9,7 +9,7 @@ Added: 2026-09-06 · enhancement
 Branch: `ride-detail-schedule-utils`  
 Feeds: [`ride-detail-shell`](ride-detail-shell.md) →
 [`ride-route-tab`](../archive/ride-route-tab.md) /
-[`ride-playlist-tab`](../active/ride-playlist-tab.md)
+[`ride-playlist-tab`](ride-playlist-tab.md)
 
 ## Problem
 
@@ -27,7 +27,7 @@ unit-tested without UI risk — same foundation pattern as
 - OSRM / geocoding / live `legMinutes` computation
   ([`ride-route-tab`](../archive/ride-route-tab.md))
 - Spotify OAuth, API calls, or token storage
-  ([`ride-playlist-tab`](../active/ride-playlist-tab.md))
+  ([`ride-playlist-tab`](ride-playlist-tab.md))
 - Persist `Ride` or playlist records; OpenAPI / backend changes
 - Choosing `bufferMinutes` product defaults (mockup 45 game / 15 practice vs
   Agenda sketch) — deferred to
@@ -81,7 +81,7 @@ re-implement these formulas in components.
 - Downstream stubs (read Problem/Notes only if needed for type naming):
   [`ride-detail-shell`](ride-detail-shell.md),
   [`ride-route-tab`](../archive/ride-route-tab.md),
-  [`ride-playlist-tab`](../active/ride-playlist-tab.md)
+  [`ride-playlist-tab`](ride-playlist-tab.md)
 
 ## Acceptance criteria
 

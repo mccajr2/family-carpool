@@ -6,7 +6,7 @@ Created: 2026-08-14
 Added: 2026-08-14 · enhancement
 
 Thin stub from `/roadmap`. **Not implementable yet.** Spotify open/export for
-the confirmed-ride flow moved to [`ride-playlist-tab`](../active/ride-playlist-tab.md).
+the confirmed-ride flow moved to [`ride-playlist-tab`](../archive/ride-playlist-tab.md).
 This id remains for **Apple Music / multi-service** catalog lookup only.
 
 If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
