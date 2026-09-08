@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.23.0
+  version: 0.24.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -14,7 +14,11 @@ info:
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
     a confirmed-ride multi-stop route read (GET …/calendar/{source}/{itemId}/route
     — home → pickups → destination; cached OSRM pairwise legs; estimate only),
-    per-kid event RSVP (Yes / No / No response), coverage responsibility
+    a confirmed-ride Playlist read and Open-in-Spotify handoff
+    (GET/POST …/calendar/{source}/{itemId}/playlist[ /open ] — attending kids,
+    designations, tracks; 1 connected → source URL; 2+ → transient merge on
+    the viewing adult), per-kid event RSVP (Yes / No / No response), coverage
+    responsibility
     assignments (assign / reassign / remove; assignee confirm or decline;
     assign/confirm set RSVP Yes and reject No kids; removing CONFIRMED coverage
     auto-withdraws ACCEPTED inbound carpool rides accepted by the caller's
@@ -33,7 +37,9 @@ info:
     circle, set per-kid RSVPs on calendar items, and manage coverage
     assignments on calendar items. Feed last-synced / error / event count may
     update from Sync now or from the server poller — clients re-GET the feeds
-    list to observe changes. Team carpool spaces (HTTP under `/api/carpool/*`)
+    list to observe changes. Adult Spotify connect (Authorization Code + refresh,
+    encrypted tokens server-side) and per-kid designated playlist list/set live
+    under `/api/playlist/*`. Team carpool spaces (HTTP under `/api/carpool/*`)
     are keyed one per normalized feed URL (same normalize as feeds: trim;
     `webcal://` → `https://`).     Importing a feed never joins a space and never
     returns other families' membership or ride requests. Space members list
@@ -53,8 +59,9 @@ info:
     ensureFeed if the URL is missing) or request to join (same-URL subscriber;
     owner-circle adults admit or decline in-app — no email/push). Membership is
     the family circle. Magic links, passwords, multi-circle membership, invite
-    deep links, email/push invite delivery, HTTP-only web cookies, and paid
-    live-traffic routing are out of scope for this revision.
+    deep links, email/push invite delivery, HTTP-only web cookies, Spotify
+    Connect / remote playback, and paid live-traffic routing are out of scope
+    for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -69,18 +76,27 @@ tags:
       per-adult leave-from, cheap leave-by status including PENDING, per-kid
       RSVPs, coverage assignments, uncovered kid ids, and server-computed
       conflicts), async leave-by fill-in, confirmed-ride multi-stop route
-      read (cached OSRM estimate), per-adult default leave-from, invite
+      read (cached OSRM estimate), confirmed-ride Playlist read and Open-in-
+      Spotify handoff, per-adult default leave-from, invite
       code, and memberships (one circle per adult in v1). Organizer-only
       writes for invite regen, roles, remove, kids, circle rename, and
       activity feed create/update/delete/sync. Any member may
       create/update/delete places and vehicles they own, patch their own
       drives flag, retry place geocoding, list the circle calendar, fill
-      leave-by estimates, read a routable item's multi-stop itinerary, set
+      leave-by estimates, read a routable item's multi-stop itinerary or
+      Playlist riders, open a Spotify handoff URL, set
       their leave-from place per calendar item, set their default leave-from
       for the circle, set per-kid RSVPs on calendar items, and assign /
       reassign / remove coverage on calendar items (assignee confirm or
       decline). Garage writes are owner-only (not Organizer-gated); listed
       drivers who are not the owner cannot edit.
+  - name: playlist
+    description: >
+      Adult Spotify OAuth (authorize URL, callback redirect, connection status,
+      revoke), Spotify playlist picker list, and per-adult-per-kid designated
+      playlist list/set/clear. Tokens are stored server-side (encrypted refresh);
+      revoke clears tokens and designations. Confirmed-ride Playlist read and
+      Open-in-Spotify handoff are under the family calendar paths.
   - name: carpool
     description: >
       Team carpool spaces — one space per normalized feed URL, membership by
@@ -2064,6 +2080,127 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/family/circle/calendar/{source}/{itemId}/playlist:
+    get:
+      operationId: getCalendarPlaylist
+      tags: [family]
+      summary: Read Playlist riders for a confirmed ride
+      description: >
+        Same routability gate as getCalendarRoute (403 when the caller may not
+        route). Returns one rider tile per attending kid in the car — driving
+        adult's CONFIRMED in-play household kids plus ACCEPTED pickup kids for
+        that driver. Connected when any adult has a designated Spotify playlist
+        for that kid (viewer designation preferred); includes playlist metadata
+        and tracks when fetchable. Unconnected riders include an invite contact
+        stub (channel + to) for soft-succeed local UI. Does not mutate state.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Playlist riders for the confirmed ride
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPlaylist"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller may not route this item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle, or unknown item id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/{source}/{itemId}/playlist/open:
+    post:
+      operationId: openCalendarPlaylist
+      tags: [family]
+      summary: Open-in-Spotify handoff URL for a confirmed ride
+      description: >
+        Same routability gate as getCalendarRoute. Counts connected kid
+        playlists on the ride: 0 → 409; exactly 1 → that playlist's existing
+        Spotify URL (no create; viewer need not be connected); 2+ → create or
+        replace the viewing adult's private "Carpool merge" playlist with the
+        current merge order and return its URL (409 when the viewer lacks
+        Spotify). Optional body trackUris supplies a remixed order for 2+;
+        when omitted the server applies fair round-robin merge of connected
+        riders' tracks. Transient merge playlist id is reused per adult.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenCalendarPlaylistRequest"
+      responses:
+        "200":
+          description: Spotify web URL to open
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPlaylistOpen"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller may not route this item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle, or unknown item id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            No connected playlists, viewer Spotify required for 2+ merge but
+            not connected, or no track URIs available to merge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/family/circle/calendar/{source}/{itemId}/leave-from:
     put:
       operationId: setCalendarLeaveFrom
@@ -2698,6 +2835,270 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Event not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/spotify/authorize:
+    get:
+      operationId: getSpotifyAuthorize
+      tags: [playlist]
+      summary: Begin Spotify OAuth for the current adult
+      description: >
+        Returns a Spotify authorize URL and CSRF state. The client redirects
+        the browser to authorizeUrl; Spotify then hits the server callback.
+        Requires Spotify client id configured (503 when missing).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Authorize URL + state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpotifyAuthorize"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Spotify client id is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/spotify/callback:
+    get:
+      operationId: spotifyOAuthCallback
+      tags: [playlist]
+      summary: Spotify OAuth authorization-code callback
+      description: >
+        Browser redirect from Spotify (no Bearer). Exchanges the code, stores
+        encrypted tokens for the adult bound to state, and redirects to the
+        configured success URL with spotify=connected. Invalid/expired state
+        → 400.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to the configured frontend success URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "400":
+          description: Missing code/state or unknown/expired OAuth state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/spotify/status:
+    get:
+      operationId: getSpotifyStatus
+      tags: [playlist]
+      summary: Spotify connection status for the current adult
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Connected flag and Spotify user id when connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpotifyConnectionStatus"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/spotify/revoke:
+    post:
+      operationId: revokeSpotify
+      tags: [playlist]
+      summary: Revoke Spotify tokens and clear designations
+      description: >
+        Deletes the adult's Spotify connection (encrypted tokens) and all
+        per-kid designations owned by that adult. Idempotent when already
+        disconnected.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Revoked (or already disconnected)
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/spotify/playlists:
+    get:
+      operationId: listSpotifyPlaylists
+      tags: [playlist]
+      summary: List Spotify playlists for the designation picker
+      description: >
+        Requires the adult to have a Spotify connection (409 when not
+        connected). Returns the first page of the adult's playlists (id, name,
+        url, trackCount) for picking a per-kid designation.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Playlist options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpotifyPlaylistOption"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Spotify is not connected for this adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/designations:
+    get:
+      operationId: listKidPlaylistDesignations
+      tags: [playlist]
+      summary: List the current adult's per-kid designated playlists
+      description: >
+        Returns designations for kids still in the adult's circle. Reused
+        across rides until changed.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Designations (may be empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KidPlaylistDesignation"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/playlist/designations/{kidId}:
+    put:
+      operationId: setKidPlaylistDesignation
+      tags: [playlist]
+      summary: Set or change the designated Spotify playlist for a circle kid
+      description: >
+        Kid must belong to the adult's circle. Adult must be Spotify-connected
+        (409 otherwise). Loads playlist metadata from Spotify and upserts the
+        (adultId, kidId) designation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: kidId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetKidPlaylistDesignationRequest"
+      responses:
+        "200":
+          description: Updated designation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KidPlaylistDesignation"
+        "400":
+          description: Kid not in circle, or blank playlist id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle, or playlist not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Spotify is not connected for this adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: clearKidPlaylistDesignation
+      tags: [playlist]
+      summary: Clear the designated playlist for a circle kid
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: kidId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Cleared (idempotent if already absent)
+        "400":
+          description: Kid not in circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
           content:
             application/json:
               schema:
@@ -4561,6 +4962,205 @@ components:
             type: integer
             minimum: 0
           example: [12, 18]
+
+    CalendarPlaylistTrack:
+      type: object
+      required:
+        - title
+        - artist
+        - durationSec
+      properties:
+        title:
+          type: string
+          example: Sunset Drive
+        artist:
+          type: string
+          example: Coastline
+        durationSec:
+          type: integer
+          minimum: 0
+          example: 198
+        uri:
+          type: string
+          description: Spotify track URI when available
+          example: spotify:track:a1
+
+    CalendarPlaylistInviteContact:
+      type: object
+      required:
+        - channel
+        - to
+      properties:
+        channel:
+          $ref: "#/components/schemas/CalendarRouteNotifyChannel"
+        to:
+          type: string
+          description: Display label for invite-to-connect (e.g. circle name)
+          example: the Oseis
+
+    CalendarPlaylistRider:
+      type: object
+      required:
+        - kidId
+        - kidDisplayName
+        - connected
+        - tracks
+      properties:
+        kidId:
+          type: string
+          format: uuid
+        kidDisplayName:
+          type: string
+          example: Sam
+        connected:
+          type: boolean
+          description: >
+            True when any adult has a designated Spotify playlist for this kid
+        designatingAdultId:
+          type: string
+          format: uuid
+          nullable: true
+        spotifyPlaylistId:
+          type: string
+          nullable: true
+        playlistName:
+          type: string
+          nullable: true
+          example: Sam gameday
+        playlistUrl:
+          type: string
+          format: uri
+          nullable: true
+        trackCount:
+          type: integer
+          nullable: true
+          minimum: 0
+        durationSec:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Sum of fetched track durations when available
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarPlaylistTrack"
+        inviteContact:
+          allOf:
+            - $ref: "#/components/schemas/CalendarPlaylistInviteContact"
+          nullable: true
+          description: Present when connected is false (soft-succeed invite UI)
+
+    CalendarPlaylist:
+      type: object
+      required:
+        - riders
+      properties:
+        riders:
+          type: array
+          description: One tile per attending kid in the car
+          items:
+            $ref: "#/components/schemas/CalendarPlaylistRider"
+
+    OpenCalendarPlaylistRequest:
+      type: object
+      properties:
+        trackUris:
+          type: array
+          description: >
+            Optional remixed Spotify track URI order for 2+ open handoff. When
+            omitted or empty, the server applies fair round-robin merge.
+          items:
+            type: string
+          example: [spotify:track:a1, spotify:track:b1]
+
+    CalendarPlaylistOpen:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Spotify web URL to open in the client
+          example: https://open.spotify.com/playlist/stub-playlist-a
+
+    SpotifyAuthorize:
+      type: object
+      required:
+        - authorizeUrl
+        - state
+      properties:
+        authorizeUrl:
+          type: string
+          format: uri
+        state:
+          type: string
+          description: CSRF state bound to the adult; returned to the callback
+
+    SpotifyConnectionStatus:
+      type: object
+      required:
+        - connected
+      properties:
+        connected:
+          type: boolean
+        spotifyUserId:
+          type: string
+          nullable: true
+
+    SpotifyPlaylistOption:
+      type: object
+      required:
+        - id
+        - name
+        - url
+        - trackCount
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        trackCount:
+          type: integer
+          minimum: 0
+
+    KidPlaylistDesignation:
+      type: object
+      required:
+        - kidId
+        - kidDisplayName
+        - spotifyPlaylistId
+        - playlistName
+        - playlistUrl
+      properties:
+        kidId:
+          type: string
+          format: uuid
+        kidDisplayName:
+          type: string
+        spotifyPlaylistId:
+          type: string
+        playlistName:
+          type: string
+        playlistUrl:
+          type: string
+          format: uri
+        trackCount:
+          type: integer
+          nullable: true
+          minimum: 0
+
+    SetKidPlaylistDesignationRequest:
+      type: object
+      required:
+        - spotifyPlaylistId
+      properties:
+        spotifyPlaylistId:
+          type: string
+          minLength: 1
 
     SetCalendarLeaveFromRequest:
       type: object

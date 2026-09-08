@@ -169,7 +169,7 @@ dashboard setup for dogfood; Extended Quota is out of scope for this PR.
   designated playlist metadata + tracks for connected kids
 - [x] Backend: open/handoff — 1 → source URL; 2+ → create/replace transient
   playlist on viewer, return URL; refuse meaningfully when viewer lacks Spotify
-- [ ] Contract: OpenAPI paths/schemas for the above; regenerate/align web
+- [x] Contract: OpenAPI paths/schemas for the above; regenerate/align web
   clients in `web/src/api/`
 - [ ] Web: wire `RidePlaylistTab` / `FamilyScreen` to live playlist read
   (drop fixture riders when live payload available)

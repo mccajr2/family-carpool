@@ -13,6 +13,9 @@ import type {
   CalendarItemSource,
   CalendarLeaveBy,
   CalendarRoute,
+  CalendarPlaylist,
+  CalendarPlaylistOpen,
+  OpenCalendarPlaylistRequest,
   CreateVehicleRequest,
   Garage,
   Place,
@@ -594,6 +597,52 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Get calendar route failed"))
     }
     return (await response.json()) as CalendarRoute
+  }
+
+  async getCalendarPlaylist(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+  ): Promise<CalendarPlaylist> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/playlist`,
+      ),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Get calendar playlist failed"))
+    }
+    return (await response.json()) as CalendarPlaylist
+  }
+
+  async openCalendarPlaylist(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    body?: OpenCalendarPlaylistRequest | null,
+  ): Promise<CalendarPlaylistOpen> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/playlist/open`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body ?? {}),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Open calendar playlist failed"))
+    }
+    return (await response.json()) as CalendarPlaylistOpen
   }
 
   async setCalendarLeaveFrom(

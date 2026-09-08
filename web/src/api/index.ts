@@ -9,6 +9,7 @@ export type { CalendarCacheSnapshot } from "@/api/calendarCacheStore"
 export { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 export type { FamilyBootstrapSnapshot } from "@/api/familyBootstrapStore"
 export { FamilyClient } from "@/api/familyClient"
+export { PlaylistClient } from "@/api/playlistClient"
 export { CarpoolClient } from "@/api/carpoolClient"
 export type {
   Adult,
@@ -19,6 +20,17 @@ export type {
   CalendarCoverageAssignment,
   CalendarItem,
   CalendarLeaveBy,
+  CalendarPlaylist,
+  CalendarPlaylistInviteContact,
+  CalendarPlaylistOpen,
+  CalendarPlaylistRider,
+  CalendarPlaylistTrack,
+  CalendarRoute,
+  CalendarRouteNotifyChannel,
+  CalendarRouteNotifyContact,
+  CalendarRouteStatus,
+  CalendarRouteStop,
+  CalendarRouteStopKind,
   CalendarRsvp,
   CoverageStatus,
   CreateFamilyCircleRequest,
@@ -26,10 +38,16 @@ export type {
   FamilyRole,
   Garage,
   Kid,
+  KidPlaylistDesignation,
+  OpenCalendarPlaylistRequest,
   RequestAuthCodeResponse,
   RsvpStatus,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
+  SetKidPlaylistDesignationRequest,
+  SpotifyAuthorize,
+  SpotifyConnectionStatus,
+  SpotifyPlaylistOption,
   AcceptCarpoolRideRequest,
   CarpoolFeedStatus,
   CarpoolInvite,
