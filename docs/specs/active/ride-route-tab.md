@@ -194,7 +194,7 @@ Allowlist for `/implement`:
 
 - [x] Contract: add route read schema + path to `contracts/openapi.yaml`; keep
       web `api/` types/client in sync
-- [ ] Backend (`leaveby`): multi-stop ordered `legMinutes` helper reusing
+- [x] Backend (`leaveby`): multi-stop ordered `legMinutes` helper reusing
       `OsrmPort` / geocode / `leaveby_route_cache`; persist itinerary + fingerprint
 - [ ] Backend (`carpool` / `coverage` / calendar orchestration): trigger
       build/invalidate on accept, confirm/self-assign, withdraw/cancel, coverage

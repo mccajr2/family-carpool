@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Public leave-by surface for calendar enrichment and per-adult leave-from
- * overrides.
+ * Public leave-by surface for calendar enrichment, per-adult leave-from
+ * overrides, and multi-stop confirmed-ride itineraries.
  */
 public interface LeaveByApi {
 
@@ -52,6 +52,42 @@ public interface LeaveByApi {
      * routes within the batch.
      */
     List<Integer> detourMinutesMany(UUID adultId, List<DetourItemInput> items);
+
+    /**
+     * Build and persist a multi-stop itinerary (home → pickups → destination)
+     * for the driving adult. Uses default leave-from as home, pairwise OSRM via
+     * {@code leaveby_route_cache}, and the locked title buffer heuristic.
+     * Soft-fail geocode → UNAVAILABLE. OSRM miss uses config fallback duration
+     * (same as single-origin leave-by) and remains OK — fallback is not written
+     * to the pairwise duration cache.
+     */
+    CalendarRouteDto upsertCalendarRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress);
+
+    /**
+     * Return the cached itinerary when the stop fingerprint still matches the
+     * resolved home + pickups + destination; otherwise recompute and replace.
+     */
+    CalendarRouteDto getOrRefreshCalendarRoute(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress);
+
+    /** Drop the cached itinerary for one driving adult + calendar item. */
+    void invalidateCalendarRoute(UUID drivingAdultId, LeaveByItemSource source, UUID itemId);
+
+    /** Drop all cached itineraries for a calendar item (any driving adult). */
+    void invalidateCalendarRoutesForItem(LeaveByItemSource source, UUID itemId);
 
     /**
      * Persist leave-from for this adult + calendar item.
