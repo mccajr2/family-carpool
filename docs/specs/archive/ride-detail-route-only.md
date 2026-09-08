@@ -1,12 +1,14 @@
 # Spec: ride-detail-route-only
 
-Status: draft  
+Status: archived  
+Completed: 2026-09-08  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-08  
+Updated: 2026-09-08 (`/pr`)  
 Added: 2026-09-08 · enhancement  
 Branch: `ride-detail-route-only`  
-Depends on: [`ride-playlist-tab`](../archive/ride-playlist-tab.md) (live
-Playlist on `main`), [`ride-route-tab`](../archive/ride-route-tab.md) (Route
+Depends on: [`ride-playlist-tab`](ride-playlist-tab.md) (live
+Playlist on `main`), [`ride-route-tab`](ride-route-tab.md) (Route
 behavior preserved)  
 Feeds: [`ride-detail-polish`](../planned/ride-detail-polish.md), parking
 `music-provider-model` → `apple-music-*` (Playlist UI returns later)
@@ -70,8 +72,8 @@ changes.
 Allowlist for `/implement`:
 
 - Prior slice (reuse Route entry + chrome; do not re-read Playlist AC as
-  shipping work): [`ride-route-tab`](../archive/ride-route-tab.md) Approach /
-  AC for live Route; [`ride-detail-shell`](../archive/ride-detail-shell.md)
+  shipping work): [`ride-route-tab`](ride-route-tab.md) Approach /
+  AC for live Route; [`ride-detail-shell`](ride-detail-shell.md)
   `canRoute` + detail overlay shape
 - Source:
   [`web/src/components/RideDetailScreen.tsx`](../../web/src/components/RideDetailScreen.tsx)
@@ -91,33 +93,33 @@ dormant) is already locked in Problem / Non-goals / Approach above.
 
 ## Acceptance criteria
 
-- [ ] Opening a `canRoute` confirmed ride from Agenda shows ride detail with
+- [x] Opening a `canRoute` confirmed ride from Agenda shows ride detail with
       **Route content only** — no Playlist tab, no `role="tablist"` segmented
       control for Route/Playlist, and no `ride-detail-tab-playlist` in the DOM
-- [ ] Route panel still shows live stops / leave-by / maps / notify behavior
-      from [`ride-route-tab`](../archive/ride-route-tab.md) (no regression to
+- [x] Route panel still shows live stops / leave-by / maps / notify behavior
+      from [`ride-route-tab`](ride-route-tab.md) (no regression to
       fixture-only Route)
-- [ ] Opening detail does **not** call calendar playlist GET (or equivalent
+- [x] Opening detail does **not** call calendar playlist GET (or equivalent
       playlist load) and does not mount `RidePlaylistTab`
-- [ ] A Spotify OAuth success query / stored OAuth return does **not** surface
+- [x] A Spotify OAuth success query / stored OAuth return does **not** surface
       Playlist UI; user is not stuck on a missing Playlist tab
-- [ ] Spotify / playlist **source modules remain in the repo** (backend
+- [x] Spotify / playlist **source modules remain in the repo** (backend
       playlist module, OpenAPI playlist paths, `playlistClient`,
       `RidePlaylistTab`) — this PR is hide/unwire, not delete
-- [ ] Web tests: `RideDetailScreen` asserts Route-only chrome; FamilyScreen
+- [x] Web tests: `RideDetailScreen` asserts Route-only chrome; FamilyScreen
       ride-detail smoke no longer requires Playlist tab click / live playlist
       panel; a test would fail if Playlist tab chrome were restored
 
 ## Tasks
 
-- [ ] Web: Route-only `RideDetailScreen` (remove Playlist tab chrome; simplify
+- [x] Web: Route-only `RideDetailScreen` (remove Playlist tab chrome; simplify
       props / always show `routePanel`)
-- [ ] Web: Unwire Playlist from `FamilyScreen` detail (no playlist fetch/mount;
+- [x] Web: Unwire Playlist from `FamilyScreen` detail (no playlist fetch/mount;
       drop playlist tab state; neutralize Spotify OAuth resume so it cannot open
       Playlist)
-- [ ] Tests: Update `RideDetailScreen.test.tsx` + FamilyScreen ride-detail /
+- [x] Tests: Update `RideDetailScreen.test.tsx` + FamilyScreen ride-detail /
       Playlist smoke to Route-only; keep Playlist module unit tests intact
-- [ ] Verify: `npm test` (relevant suites) under `web/` — report actual result
+- [x] Verify: `npm test` (relevant suites) under `web/` — report actual result
 
 ## Open questions
 
