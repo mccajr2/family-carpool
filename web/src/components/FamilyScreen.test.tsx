@@ -21,6 +21,22 @@ import * as coverageQueue from "@/components/coverageQueue"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import { FamilyScreen } from "@/components/FamilyScreen"
 
+vi.mock("@/api/playlistClient", () => {
+  class MockPlaylistClient {
+    getSpotifyStatus = vi.fn().mockResolvedValue({ connected: false })
+    getSpotifyAuthorize = vi.fn().mockResolvedValue({
+      authorizeUrl: "https://accounts.spotify.com/authorize?state=test",
+      state: "test",
+    })
+    listSpotifyPlaylists = vi.fn().mockResolvedValue([])
+    listKidPlaylistDesignations = vi.fn().mockResolvedValue([])
+    setKidPlaylistDesignation = vi.fn()
+    clearKidPlaylistDesignation = vi.fn()
+    revokeSpotify = vi.fn()
+  }
+  return { PlaylistClient: MockPlaylistClient }
+})
+
 /** Fixed "today" for 2030-dated calendar fixtures in this file. */
 const AGENDA_TEST_NOW = new Date("2030-08-14T12:00:00.000Z")
 
@@ -62,6 +78,36 @@ function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
         },
       ],
       legMinutes: [12, 18],
+    }),
+    getCalendarPlaylist: vi.fn().mockResolvedValue({
+      riders: [
+        {
+          kidId: "k1",
+          kidDisplayName: "Sam",
+          connected: true,
+          playlistName: "Sam gameday",
+          trackCount: 2,
+          durationSec: 400,
+          tracks: [
+            {
+              title: "Sunset Drive",
+              artist: "Coastline",
+              durationSec: 198,
+              uri: "spotify:track:a1",
+            },
+            {
+              title: "Overtime",
+              artist: "Pace Car",
+              durationSec: 202,
+              uri: "spotify:track:a2",
+            },
+          ],
+          inviteContact: null,
+        },
+      ],
+    }),
+    openCalendarPlaylist: vi.fn().mockResolvedValue({
+      url: "https://open.spotify.com/playlist/sam-gameday",
     }),
     ...partial,
   } as FamilyClient
@@ -7917,6 +7963,10 @@ detourMinutes: null,
       email: "parent@example.com",
       displayName: "Alex",
     })
+    const openExternal = vi.spyOn(window, "open").mockImplementation(() => null)
+    const openCalendarPlaylist = vi.fn().mockResolvedValue({
+      url: "https://open.spotify.com/playlist/sam-gameday",
+    })
 
     const confirmedGame = calendarItem({
       id: "ride-detail-e1",
@@ -7970,6 +8020,7 @@ detourMinutes: null,
             }),
           ),
           listCalendar: vi.fn().mockResolvedValue([earlierFocusDecoy(), confirmedGame]),
+          openCalendarPlaylist,
         })}
         carpoolClient={mockCarpoolClient()}
         onSignedOut={vi.fn()}
@@ -7982,7 +8033,6 @@ detourMinutes: null,
 
     const detail = await screen.findByTestId("ride-detail-screen")
     expect(detail).toHaveAttribute("data-shuffle-seed", "0")
-    expect(detail).toHaveAttribute("data-fixture-kind", "game")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
     expect(screen.getByTestId("ride-detail-tab-route")).toHaveAttribute(
       "aria-selected",
@@ -8009,12 +8059,36 @@ detourMinutes: null,
     )
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
 
-    // Playlist tab smoke (fixture-driven)
-    expect(screen.getByTestId("ride-playlist-tab")).toBeInTheDocument()
+    // Playlist tab smoke (live API riders + connect affordance for circle kid)
+    expect(await screen.findByTestId("ride-playlist-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
+      "data-connected",
+      "true",
+    )
+    expect(screen.getByTestId("ride-playlist-rider-Sam")).toHaveAttribute(
+      "data-viewer-can-manage",
+      "true",
+    )
+    expect(await screen.findByTestId("ride-playlist-connect-Sam")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-coverage")).toHaveTextContent(
+      /Drive is ~30 min — add more songs to fill it/,
+    )
     expect(screen.getByTestId("ride-playlist-spotify")).toBeInTheDocument()
-    expect(screen.getByTestId("ride-playlist-remix")).toBeInTheDocument()
+    expect(screen.queryByTestId("ride-playlist-remix")).not.toBeInTheDocument()
     expect(screen.getByTestId("ride-playlist-tracks")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-playlist-premium-caveat")).toBeInTheDocument()
     expect(screen.queryByTestId("ride-route-tab")).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId("ride-playlist-spotify"))
+    await waitFor(() => {
+      expect(openCalendarPlaylist).toHaveBeenCalledWith("tok", "MANUAL", "ride-detail-e1", null)
+    })
+    expect(openExternal).toHaveBeenCalledWith(
+      "https://open.spotify.com/playlist/sam-gameday",
+      "_blank",
+      "noopener,noreferrer",
+    )
+    openExternal.mockRestore()
 
     await user.click(screen.getByTestId("ride-detail-back"))
     expect(screen.queryByTestId("ride-detail-screen")).not.toBeInTheDocument()
@@ -8111,8 +8185,7 @@ detourMinutes: null,
     await expandAgendaItem(user, row)
     await user.click(within(row).getByTestId("agenda-row-open-ride-cta"))
 
-    const detail = await screen.findByTestId("ride-detail-screen")
-    expect(detail).toHaveAttribute("data-fixture-kind", "practice")
+    await screen.findByTestId("ride-detail-screen")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
     const routeTab = await screen.findByTestId("ride-route-tab")
     expect(routeTab).toHaveTextContent("20 min early for practices")

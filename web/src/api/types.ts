@@ -114,6 +114,75 @@ export type CalendarRoute = {
   legMinutes: number[]
 }
 
+/** Track row from GET …/calendar/{source}/{itemId}/playlist. */
+export type CalendarPlaylistTrack = {
+  title: string
+  artist: string
+  durationSec: number
+  uri?: string | null
+}
+
+export type CalendarPlaylistInviteContact = {
+  channel: CalendarRouteNotifyChannel
+  to: string
+}
+
+export type CalendarPlaylistRider = {
+  kidId: string
+  kidDisplayName: string
+  connected: boolean
+  designatingAdultId?: string | null
+  spotifyPlaylistId?: string | null
+  playlistName?: string | null
+  playlistUrl?: string | null
+  trackCount?: number | null
+  durationSec?: number | null
+  tracks: CalendarPlaylistTrack[]
+  inviteContact?: CalendarPlaylistInviteContact | null
+}
+
+export type CalendarPlaylist = {
+  riders: CalendarPlaylistRider[]
+}
+
+export type OpenCalendarPlaylistRequest = {
+  trackUris?: string[] | null
+}
+
+export type CalendarPlaylistOpen = {
+  url: string
+}
+
+export type SpotifyAuthorize = {
+  authorizeUrl: string
+  state: string
+}
+
+export type SpotifyConnectionStatus = {
+  connected: boolean
+  spotifyUserId?: string | null
+}
+
+export type SpotifyPlaylistOption = {
+  id: string
+  name: string
+  url: string
+  trackCount: number
+}
+
+export type KidPlaylistDesignation = {
+  kidId: string
+  kidDisplayName: string
+  spotifyPlaylistId: string
+  playlistName: string
+  playlistUrl: string
+  trackCount?: number | null
+}
+
+export type SetKidPlaylistDesignationRequest = {
+  spotifyPlaylistId: string
+}
+
 export type CoverageStatus = "PENDING" | "CONFIRMED" | "DECLINED"
 
 export type RsvpStatus = "YES" | "NO" | "NO_RESPONSE"

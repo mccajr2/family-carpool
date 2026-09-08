@@ -11,11 +11,13 @@ import { applyLeaveByFillIn, mergeCalendarWindowRefresh } from "@/api/calendarLe
 import { CarpoolClient } from "@/api/carpoolClient"
 import { FamilyBootstrapStore } from "@/api/familyBootstrapStore"
 import { FamilyClient } from "@/api/familyClient"
+import { PlaylistClient } from "@/api/playlistClient"
 import {
   isPlaceLocated,
   type ActivityFeed,
   type Adult,
   type CalendarItem,
+  type CalendarPlaylist,
   type CalendarRoute,
   type CarpoolFeedStatus,
   type CarpoolRideEvent,
@@ -68,7 +70,14 @@ import {
 import { RideRouteTab } from "@/components/RideRouteTab"
 import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
 import { RidePlaylistTab } from "@/components/RidePlaylistTab"
-import { carpoolRouteFixtureForCalendarItem } from "@/components/rideDetailFixtures"
+import {
+  driveMinutesFromRouteLegs,
+  playlistRidersFromCalendarPlaylist,
+} from "@/components/playlistRidersFromCalendarPlaylist"
+import {
+  consumeSpotifyConnectedQuery,
+  takeSpotifyOAuthReturn,
+} from "@/components/spotifyOAuthReturn"
 import { rideScheduleFromCalendarRoute } from "@/components/rideScheduleFromCalendarRoute"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
@@ -133,6 +142,7 @@ type FamilyScreenProps = {
   authClient?: AuthClient
   familyClient?: FamilyClient
   carpoolClient?: CarpoolClient
+  playlistClient?: PlaylistClient
   calendarCacheStore?: CalendarCacheStore
   bootstrapCacheStore?: FamilyBootstrapStore
   /** Test hook — local "today" for agenda grouping and carousel horizon. */
@@ -199,6 +209,7 @@ export function FamilyScreen({
   authClient,
   familyClient: familyClientProp,
   carpoolClient: carpoolClientProp,
+  playlistClient: playlistClientProp,
   calendarCacheStore: calendarCacheStoreProp,
   bootstrapCacheStore: bootstrapCacheStoreProp,
   now: nowProp,
@@ -212,6 +223,9 @@ export function FamilyScreen({
   // retrigger the load effect forever (frozen "Loading…" / create form).
   const [familyClient] = useState(() => familyClientProp ?? new FamilyClient())
   const [carpoolClient] = useState(() => carpoolClientProp ?? new CarpoolClient())
+  const [playlistClient] = useState(
+    () => playlistClientProp ?? new PlaylistClient(),
+  )
   const [calendarCache] = useState(
     () => calendarCacheStoreProp ?? new CalendarCacheStore(),
   )
@@ -294,6 +308,18 @@ export function FamilyScreen({
   const [rideDetailRoute, setRideDetailRoute] = useState<CalendarRoute | null>(null)
   const [rideDetailRouteLoading, setRideDetailRouteLoading] = useState(false)
   const [rideDetailRouteError, setRideDetailRouteError] = useState<string | null>(null)
+  const [rideDetailPlaylist, setRideDetailPlaylist] = useState<CalendarPlaylist | null>(
+    null,
+  )
+  const [rideDetailPlaylistLoading, setRideDetailPlaylistLoading] = useState(false)
+  const [rideDetailPlaylistError, setRideDetailPlaylistError] = useState<string | null>(
+    null,
+  )
+  /** Kid to open designate picker for after Spotify OAuth return. */
+  const [pendingDesignateKidId, setPendingDesignateKidId] = useState<string | null>(
+    null,
+  )
+  const [playlistReloadToken, setPlaylistReloadToken] = useState(0)
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
     null,
   )
@@ -348,11 +374,30 @@ export function FamilyScreen({
     }
   }, [destination, circle?.role])
 
+  // Resume ride-detail Playlist after Spotify OAuth success redirect.
+  useEffect(() => {
+    if (!consumeSpotifyConnectedQuery()) {
+      return
+    }
+    const stored = takeSpotifyOAuthReturn()
+    if (stored == null) {
+      return
+    }
+    setDestination("calendar")
+    setRideDetailItemKey(stored.rideDetailItemKey)
+    setRideDetailTab("playlist")
+    setPendingDesignateKidId(stored.designateKidId)
+  }, [])
+
   useEffect(() => {
     if (rideDetailItemKey == null) {
       setRideDetailRoute(null)
       setRideDetailRouteLoading(false)
       setRideDetailRouteError(null)
+      setRideDetailPlaylist(null)
+      setRideDetailPlaylistLoading(false)
+      setRideDetailPlaylistError(null)
+      setPendingDesignateKidId(null)
       return
     }
     const item = calendarItems.find((row) => calendarItemKey(row) === rideDetailItemKey)
@@ -389,6 +434,45 @@ export function FamilyScreen({
       cancelled = true
     }
   }, [rideDetailItemKey, calendarItems, familyClient, session])
+
+  useEffect(() => {
+    if (rideDetailItemKey == null) {
+      return
+    }
+    const item = calendarItems.find((row) => calendarItemKey(row) === rideDetailItemKey)
+    if (item == null) {
+      return
+    }
+    const token = session.getAccessToken()
+    if (!token) {
+      return
+    }
+    let cancelled = false
+    setRideDetailPlaylistLoading(true)
+    setRideDetailPlaylistError(null)
+    void familyClient
+      .getCalendarPlaylist(token, item.source, item.id)
+      .then((playlist) => {
+        if (cancelled) {
+          return
+        }
+        setRideDetailPlaylist(playlist)
+        setRideDetailPlaylistLoading(false)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setRideDetailPlaylist(null)
+        setRideDetailPlaylistLoading(false)
+        setRideDetailPlaylistError(
+          error instanceof Error ? error.message : "Could not load playlist",
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [rideDetailItemKey, calendarItems, familyClient, session, playlistReloadToken])
 
   const feedIdsKey = feeds.map((feed) => feed.id).join(",")
   useEffect(() => {
@@ -2197,12 +2281,18 @@ export function FamilyScreen({
       : (calendarItems.find((item) => calendarItemKey(item) === rideDetailItemKey) ??
         null)
   const showRideDetail = destination === "calendar" && rideDetailItem != null
-  const rideDetailPlaylistRoute =
-    rideDetailItem != null
-      ? carpoolRouteFixtureForCalendarItem(rideDetailItem)
-      : null
   const rideDetailLiveSchedule =
     rideDetailRoute != null ? rideScheduleFromCalendarRoute(rideDetailRoute) : null
+  const rideDetailPlaylistRiders =
+    rideDetailPlaylist != null
+      ? playlistRidersFromCalendarPlaylist(rideDetailPlaylist, {
+          circleKidIds: circle.kids.map((kid) => kid.id),
+        })
+      : null
+  const rideDetailDriveMinutes =
+    rideDetailRoute?.status === "OK"
+      ? driveMinutesFromRouteLegs(rideDetailRoute.legMinutes)
+      : null
   // Item removed while detail was open — drop back to Agenda.
   if (rideDetailItemKey != null && rideDetailItem == null) {
     setRideDetailItemKey(null)
@@ -2457,7 +2547,6 @@ export function FamilyScreen({
             tab={rideDetailTab}
             onTabChange={setRideDetailTab}
             shuffleSeed={ridePlaylistShuffleSeed}
-            carpoolRoute={rideDetailPlaylistRoute}
             onBack={() => setRideDetailItemKey(null)}
             routePanel={
               rideDetailRouteLoading ? (
@@ -2482,13 +2571,49 @@ export function FamilyScreen({
               )
             }
             playlistPanel={
-              rideDetailPlaylistRoute != null ? (
+              rideDetailPlaylistLoading ? (
+                <div
+                  data-testid="ride-playlist-loading"
+                  className="flex items-center gap-2 text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
+                >
+                  <Loader2 aria-hidden className="size-4 animate-spin" />
+                  Loading playlist…
+                </div>
+              ) : rideDetailPlaylistRiders != null ? (
                 <RidePlaylistTab
-                  carpoolRoute={rideDetailPlaylistRoute}
+                  riders={rideDetailPlaylistRiders}
+                  driveMinutes={rideDetailDriveMinutes}
                   shuffleSeed={ridePlaylistShuffleSeed}
                   onRemix={() => setRidePlaylistShuffleSeed((seed) => seed + 1)}
+                  playlistClient={playlistClient}
+                  accessToken={session.getAccessToken()}
+                  rideDetailItemKey={rideDetailItemKey}
+                  pendingDesignateKidId={pendingDesignateKidId}
+                  onConsumePendingDesignate={() => setPendingDesignateKidId(null)}
+                  onPlaylistChanged={() =>
+                    setPlaylistReloadToken((token) => token + 1)
+                  }
+                  onOpenInSpotify={async (body) => {
+                    const token = session.getAccessToken()
+                    if (!token || rideDetailItem == null) {
+                      throw new Error("Not signed in")
+                    }
+                    return familyClient.openCalendarPlaylist(
+                      token,
+                      rideDetailItem.source,
+                      rideDetailItem.id,
+                      body,
+                    )
+                  }}
                 />
-              ) : null
+              ) : (
+                <div
+                  data-testid="ride-playlist-unavailable"
+                  className="text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
+                >
+                  {rideDetailPlaylistError ?? "Could not load playlist"}
+                </div>
+              )
             }
           />
         ) : (

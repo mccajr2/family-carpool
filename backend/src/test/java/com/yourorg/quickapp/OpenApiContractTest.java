@@ -178,7 +178,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.23.0");
+        assertThat(yaml).contains("version: 0.24.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -190,12 +190,52 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CalendarRouteStatus:");
         assertThat(yaml).contains("legMinutes:");
         assertThat(yaml).contains("bufferMinutes:");
+        assertThat(yaml).contains("operationId: getCalendarPlaylist");
+        assertThat(yaml).contains("operationId: openCalendarPlaylist");
+        assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/playlist");
+        assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/playlist/open");
+        assertThat(yaml).contains("CalendarPlaylist:");
+        assertThat(yaml).contains("CalendarPlaylistRider:");
+        assertThat(yaml).contains("CalendarPlaylistOpen:");
+        assertThat(yaml).contains("OpenCalendarPlaylistRequest:");
         assertThat(yaml).contains("coverage responsibility");
         assertThat(yaml).contains("per-kid event RSVP");
         assertThat(yaml).contains("default leave-from");
         assertThat(yaml).contains("schedule conflicts");
         assertThat(yaml).contains("overlapping CONFIRMED");
         assertThat(yaml).contains("components:");
+    }
+
+    @Test
+    void playlistContractDocumentsSpotifyOAuthDesignationsAndHandoff() throws IOException {
+        String yaml = Files.readString(resolveOpenApi());
+
+        assertThat(yaml).contains("  - name: playlist");
+        assertThat(yaml).contains("/api/playlist/spotify/authorize");
+        assertThat(yaml).contains("/api/playlist/spotify/callback");
+        assertThat(yaml).contains("/api/playlist/spotify/status");
+        assertThat(yaml).contains("/api/playlist/spotify/revoke");
+        assertThat(yaml).contains("/api/playlist/spotify/playlists");
+        assertThat(yaml).contains("/api/playlist/designations");
+        assertThat(yaml).contains("/api/playlist/designations/{kidId}");
+
+        assertThat(yaml).contains("operationId: getSpotifyAuthorize");
+        assertThat(yaml).contains("operationId: spotifyOAuthCallback");
+        assertThat(yaml).contains("operationId: getSpotifyStatus");
+        assertThat(yaml).contains("operationId: revokeSpotify");
+        assertThat(yaml).contains("operationId: listSpotifyPlaylists");
+        assertThat(yaml).contains("operationId: listKidPlaylistDesignations");
+        assertThat(yaml).contains("operationId: setKidPlaylistDesignation");
+        assertThat(yaml).contains("operationId: clearKidPlaylistDesignation");
+
+        assertThat(yaml).contains("SpotifyAuthorize:");
+        assertThat(yaml).contains("SpotifyConnectionStatus:");
+        assertThat(yaml).contains("SpotifyPlaylistOption:");
+        assertThat(yaml).contains("KidPlaylistDesignation:");
+        assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
+        assertThat(yaml).contains("encrypted refresh");
+        assertThat(yaml).contains("Carpool merge");
+        assertThat(yaml).contains("version: 0.24.0");
     }
 
     @Test
@@ -252,7 +292,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.23.0");
+        assertThat(yaml).contains("version: 0.24.0");
     }
 
     @Test
@@ -302,7 +342,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Create does not change RSVP");
         assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that");
         assertThat(yaml).contains("Allowed even when the caller previously passed");
-        assertThat(yaml).contains("version: 0.23.0");
+        assertThat(yaml).contains("version: 0.24.0");
     }
 
     @Test

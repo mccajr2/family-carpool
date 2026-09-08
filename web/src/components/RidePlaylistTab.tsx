@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Bell,
   Check,
@@ -10,28 +10,72 @@ import {
   Shuffle,
 } from "lucide-react"
 
+import type { PlaylistClient } from "@/api/playlistClient"
 import type {
-  FixtureCarpoolRoute,
+  OpenCalendarPlaylistRequest,
+  SpotifyPlaylistOption,
+} from "@/api/types"
+import type {
   FixturePlaylistRider,
   RideNotifyContact,
 } from "@/components/rideDetailFixtures"
+import {
+  deliverPlaylistConnectInvite,
+  type PlaylistInviteRequest,
+} from "@/components/ridePlaylistInvite"
+import type { RideNotifyResult } from "@/components/rideNotify"
 import type { RideNotifyState } from "@/components/RideRouteTab"
 import {
   fmtMinSec,
   mergeTracks,
   type MergedTrack,
 } from "@/components/rideScheduleUtils"
+import { saveSpotifyOAuthReturn } from "@/components/spotifyOAuthReturn"
 
-/** Demo Spotify URL from the mockup — not a live playlist. */
+/** Demo Spotify URL — used only when no live open handler is wired (fixture smoke). */
 export const SPOTIFY_DEMO_PLAYLIST_URL =
   "https://open.spotify.com/playlist/carpool-demo"
 
 export type RidePlaylistTabProps = {
-  carpoolRoute: FixtureCarpoolRoute
+  riders: FixturePlaylistRider[]
+  /**
+   * Sum of live Route legMinutes when status is OK. When null/undefined, omit
+   * the precise “~N min drive” number (qualitative copy only).
+   */
+  driveMinutes?: number | null
   shuffleSeed: number
   onRemix: () => void
   /** Invite delay ms — default matches mockup; override in tests. */
   inviteDelayMs?: number
+  /** Soft-succeed invite delivery — inject to assert; default hits no network. */
+  deliverInvite?: (request: PlaylistInviteRequest) => Promise<RideNotifyResult>
+  /**
+   * Live Open-in-Spotify handoff. 1 connected → omit trackUris; 2+ → remixed
+   * URIs when available. Returns the Spotify web URL to open.
+   */
+  onOpenInSpotify?: (
+    body?: OpenCalendarPlaylistRequest | null,
+  ) => Promise<{ url: string }>
+  /** Live connect/designate — omit in fixture-only smoke tests. */
+  playlistClient?: PlaylistClient
+  accessToken?: string | null
+  /**
+   * Calendar item key for the open ride detail — stored across Spotify OAuth
+   * redirect so designate can resume.
+   */
+  rideDetailItemKey?: string | null
+  /** After a successful designation, parent should reload playlist riders. */
+  onPlaylistChanged?: () => void
+  /**
+   * Kid id to open the designate picker for on mount (OAuth return). Cleared
+   * via onConsumePendingDesignate.
+   */
+  pendingDesignateKidId?: string | null
+  onConsumePendingDesignate?: () => void
+  /** Override window.location.assign in tests (OAuth redirect). */
+  assignLocation?: (url: string) => void
+  /** Override window.open for Open-in-Spotify handoff in tests. */
+  openExternalUrl?: (url: string) => void
 }
 
 function formatSentAt(now: Date = new Date()): string {
@@ -61,6 +105,13 @@ export function remixMergedTracks(
     ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
   }
   return arr
+}
+
+/** Spotify track URIs in current (possibly remixed) merge order. */
+export function remixedTrackUris(tracks: MergedTrack[]): string[] {
+  return tracks
+    .map((track) => track.uri)
+    .filter((uri): uri is string => typeof uri === "string" && uri.length > 0)
 }
 
 function InviteAction({
@@ -122,20 +173,246 @@ function InviteAction({
   )
 }
 
+function DesignatePicker({
+  rider,
+  options,
+  loading,
+  error,
+  saving,
+  selectedId,
+  onSelectId,
+  onSave,
+  onCancel,
+}: {
+  rider: FixturePlaylistRider
+  options: SpotifyPlaylistOption[]
+  loading: boolean
+  error: string | null
+  saving: boolean
+  selectedId: string
+  onSelectId: (id: string) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      data-testid={`ride-playlist-designate-${rider.name}`}
+      className="mt-2 space-y-2"
+    >
+      {loading ? (
+        <div
+          data-testid={`ride-playlist-designate-loading-${rider.name}`}
+          className="inline-flex items-center gap-1.5 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)]"
+        >
+          <Loader2 aria-hidden size={12} className="animate-spin" /> Loading playlists…
+        </div>
+      ) : (
+        <>
+          <label className="block">
+            <span className="sr-only">Choose a Spotify playlist for {rider.name}</span>
+            <select
+              data-testid={`ride-playlist-designate-select-${rider.name}`}
+              value={selectedId}
+              disabled={saving || options.length === 0}
+              onChange={(event) => onSelectId(event.target.value)}
+              className="w-full rounded-[var(--fc-radius-lg)] border border-[var(--fc-border)] bg-[var(--fc-surface)] px-2 py-1.5 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-primary)]"
+            >
+              {options.length === 0 ? (
+                <option value="">No playlists found</option>
+              ) : (
+                options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} ({option.trackCount} songs)
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid={`ride-playlist-designate-save-${rider.name}`}
+              disabled={saving || !selectedId}
+              onClick={onSave}
+              className="inline-flex items-center gap-1.5 rounded-[var(--fc-radius-lg)] bg-[var(--fc-accent)] px-[var(--fc-space-ride-detail-notify-pad-x)] py-[var(--fc-space-ride-detail-notify-pad-y)] text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] font-[number:var(--fc-font-ride-detail-notify-weight)] text-[var(--fc-accent-on)] disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 aria-hidden size={12} className="animate-spin" /> Saving…
+                </>
+              ) : (
+                "Use this playlist"
+              )}
+            </button>
+            <button
+              type="button"
+              data-testid={`ride-playlist-designate-cancel-${rider.name}`}
+              disabled={saving}
+              onClick={onCancel}
+              className="text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)] underline underline-offset-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+      {error != null ? (
+        <div
+          data-testid={`ride-playlist-designate-error-${rider.name}`}
+          role="alert"
+          className="text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-danger)]"
+        >
+          {error}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ManagePlaylistAction({
+  rider,
+  spotifyConnected,
+  statusLoading,
+  connecting,
+  designating,
+  options,
+  optionsLoading,
+  designateError,
+  designateSaving,
+  selectedPlaylistId,
+  onConnect,
+  onOpenDesignate,
+  onCancelDesignate,
+  onSelectPlaylistId,
+  onSaveDesignate,
+}: {
+  rider: FixturePlaylistRider
+  spotifyConnected: boolean | null
+  statusLoading: boolean
+  connecting: boolean
+  designating: boolean
+  options: SpotifyPlaylistOption[]
+  optionsLoading: boolean
+  designateError: string | null
+  designateSaving: boolean
+  selectedPlaylistId: string
+  onConnect: () => void
+  onOpenDesignate: () => void
+  onCancelDesignate: () => void
+  onSelectPlaylistId: (id: string) => void
+  onSaveDesignate: () => void
+}) {
+  if (designating) {
+    return (
+      <DesignatePicker
+        rider={rider}
+        options={options}
+        loading={optionsLoading}
+        error={designateError}
+        saving={designateSaving}
+        selectedId={selectedPlaylistId}
+        onSelectId={onSelectPlaylistId}
+        onSave={onSaveDesignate}
+        onCancel={onCancelDesignate}
+      />
+    )
+  }
+
+  if (statusLoading || spotifyConnected == null) {
+    return (
+      <div
+        data-testid={`ride-playlist-manage-loading-${rider.name}`}
+        className="mt-2 inline-flex items-center gap-1.5 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)]"
+      >
+        <Loader2 aria-hidden size={12} className="animate-spin" /> Checking Spotify…
+      </div>
+    )
+  }
+
+  if (!spotifyConnected) {
+    return (
+      <button
+        type="button"
+        data-testid={`ride-playlist-connect-${rider.name}`}
+        disabled={connecting}
+        onClick={onConnect}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--fc-radius-lg)] bg-[var(--fc-hero-carousel-control-bg)] px-[var(--fc-space-ride-detail-notify-pad-x)] py-[var(--fc-space-ride-detail-notify-pad-y)] text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] font-[number:var(--fc-font-ride-detail-notify-weight)] text-[var(--fc-text-primary)] disabled:opacity-50"
+      >
+        {connecting ? (
+          <>
+            <Loader2 aria-hidden size={12} className="animate-spin" /> Connecting…
+          </>
+        ) : (
+          <>
+            <Music aria-hidden size={12} /> Connect Spotify
+          </>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid={
+        rider.connected
+          ? `ride-playlist-change-${rider.name}`
+          : `ride-playlist-choose-${rider.name}`
+      }
+      onClick={onOpenDesignate}
+      className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--fc-radius-lg)] bg-[var(--fc-hero-carousel-control-bg)] px-[var(--fc-space-ride-detail-notify-pad-x)] py-[var(--fc-space-ride-detail-notify-pad-y)] text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] font-[number:var(--fc-font-ride-detail-notify-weight)] text-[var(--fc-text-primary)]"
+    >
+      <Music aria-hidden size={12} />{" "}
+      {rider.connected ? "Change playlist" : "Choose a playlist"}
+    </button>
+  )
+}
+
 function RiderTile({
   rider,
   inviteState,
   onInvite,
+  canManage,
+  spotifyConnected,
+  statusLoading,
+  connecting,
+  designating,
+  options,
+  optionsLoading,
+  designateError,
+  designateSaving,
+  selectedPlaylistId,
+  onConnect,
+  onOpenDesignate,
+  onCancelDesignate,
+  onSelectPlaylistId,
+  onSaveDesignate,
 }: {
   rider: FixturePlaylistRider
   inviteState: RideNotifyState | undefined
   onInvite: (rider: FixturePlaylistRider) => void
+  canManage: boolean
+  spotifyConnected: boolean | null
+  statusLoading: boolean
+  connecting: boolean
+  designating: boolean
+  options: SpotifyPlaylistOption[]
+  optionsLoading: boolean
+  designateError: string | null
+  designateSaving: boolean
+  selectedPlaylistId: string
+  onConnect: () => void
+  onOpenDesignate: () => void
+  onCancelDesignate: () => void
+  onSelectPlaylistId: (id: string) => void
+  onSaveDesignate: () => void
 }) {
   if (!rider.connected) {
     return (
       <div
         data-testid={`ride-playlist-rider-${rider.name}`}
         data-connected="false"
+        data-viewer-can-manage={canManage ? "true" : "false"}
         className="rounded-[var(--fc-radius-xl)] border border-dashed border-[var(--fc-border)] bg-[var(--fc-surface-raised)] p-4"
       >
         <div className="flex items-center gap-2">
@@ -158,7 +435,25 @@ function RiderTile({
             </div>
           </div>
         </div>
-        {rider.contact != null ? (
+        {canManage ? (
+          <ManagePlaylistAction
+            rider={rider}
+            spotifyConnected={spotifyConnected}
+            statusLoading={statusLoading}
+            connecting={connecting}
+            designating={designating}
+            options={options}
+            optionsLoading={optionsLoading}
+            designateError={designateError}
+            designateSaving={designateSaving}
+            selectedPlaylistId={selectedPlaylistId}
+            onConnect={onConnect}
+            onOpenDesignate={onOpenDesignate}
+            onCancelDesignate={onCancelDesignate}
+            onSelectPlaylistId={onSelectPlaylistId}
+            onSaveDesignate={onSaveDesignate}
+          />
+        ) : rider.contact != null ? (
           <InviteAction
             rider={{ ...rider, contact: rider.contact }}
             state={inviteState}
@@ -174,6 +469,7 @@ function RiderTile({
     <div
       data-testid={`ride-playlist-rider-${rider.name}`}
       data-connected="true"
+      data-viewer-can-manage={canManage ? "true" : "false"}
       className="rounded-[var(--fc-radius-xl)] border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] p-4"
     >
       <div className="flex items-center gap-2">
@@ -192,10 +488,30 @@ function RiderTile({
             {rider.name}
           </div>
           <div className="truncate text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-text-secondary)]">
-            {rider.playlistName} · {rider.tracks.length} songs · {fmtMinSec(totalSec)}
+            {rider.playlistName ?? "Playlist"} · {rider.tracks.length} songs ·{" "}
+            {fmtMinSec(totalSec)}
           </div>
         </div>
       </div>
+      {canManage ? (
+        <ManagePlaylistAction
+          rider={rider}
+          spotifyConnected={spotifyConnected}
+          statusLoading={statusLoading}
+          connecting={connecting}
+          designating={designating}
+          options={options}
+          optionsLoading={optionsLoading}
+          designateError={designateError}
+          designateSaving={designateSaving}
+          selectedPlaylistId={selectedPlaylistId}
+          onConnect={onConnect}
+          onOpenDesignate={onOpenDesignate}
+          onCancelDesignate={onCancelDesignate}
+          onSelectPlaylistId={onSelectPlaylistId}
+          onSaveDesignate={onSaveDesignate}
+        />
+      ) : null}
     </div>
   )
 }
@@ -234,29 +550,147 @@ function TrackRow({ track }: { track: MergedTrack }) {
 }
 
 /**
- * Playlist tab: riders, invite stub, merged hero, Spotify demo link, remix, tracks.
- * Merge math from rideScheduleUtils; invite is local UI only.
+ * Playlist tab: riders, invite stub, merged hero, Open/Remix, tracks.
+ * Merge math from rideScheduleUtils; invite soft-succeeds via ridePlaylistInvite.
+ * Connect / designate for viewer-managed kid tiles when playlistClient is provided.
  */
 export function RidePlaylistTab({
-  carpoolRoute,
+  riders,
+  driveMinutes = null,
   shuffleSeed,
   onRemix,
   inviteDelayMs = 700,
+  deliverInvite = deliverPlaylistConnectInvite,
+  onOpenInSpotify,
+  playlistClient,
+  accessToken = null,
+  rideDetailItemKey = null,
+  onPlaylistChanged,
+  pendingDesignateKidId = null,
+  onConsumePendingDesignate,
+  assignLocation = (url) => {
+    window.location.assign(url)
+  },
+  openExternalUrl = (url) => {
+    window.open(url, "_blank", "noopener,noreferrer")
+  },
 }: RidePlaylistTabProps) {
   const [inviteStates, setInviteStates] = useState<Record<string, RideNotifyState>>({})
-  const riders = carpoolRoute.playlistRiders
-  const driveMinutes = useMemo(
-    () => carpoolRoute.legMinutes.reduce((a, b) => a + b, 0),
-    [carpoolRoute.legMinutes],
+  const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(
+    playlistClient == null || accessToken == null ? false : null,
   )
+  const [statusLoading, setStatusLoading] = useState(
+    playlistClient != null && accessToken != null,
+  )
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [connectingKidId, setConnectingKidId] = useState<string | null>(null)
+  const [designatingKidId, setDesignatingKidId] = useState<string | null>(null)
+  const [playlistOptions, setPlaylistOptions] = useState<SpotifyPlaylistOption[]>([])
+  const [optionsLoading, setOptionsLoading] = useState(false)
+  const [designateError, setDesignateError] = useState<string | null>(null)
+  const [designateSaving, setDesignateSaving] = useState(false)
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState("")
+  const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState<string | null>(null)
+
+  const manageEnabled = playlistClient != null && accessToken != null
+
+  useEffect(() => {
+    if (!manageEnabled || playlistClient == null || accessToken == null) {
+      setSpotifyConnected(false)
+      setStatusLoading(false)
+      return
+    }
+    let cancelled = false
+    setStatusLoading(true)
+    setStatusError(null)
+    void playlistClient
+      .getSpotifyStatus(accessToken)
+      .then((status) => {
+        if (cancelled) {
+          return
+        }
+        setSpotifyConnected(status.connected)
+        setStatusLoading(false)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setSpotifyConnected(false)
+        setStatusLoading(false)
+        setStatusError(
+          error instanceof Error ? error.message : "Could not check Spotify connection",
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [manageEnabled, playlistClient, accessToken])
+
+  useEffect(() => {
+    if (
+      pendingDesignateKidId == null ||
+      !manageEnabled ||
+      spotifyConnected !== true
+    ) {
+      return
+    }
+    setDesignatingKidId(pendingDesignateKidId)
+    onConsumePendingDesignate?.()
+  }, [
+    pendingDesignateKidId,
+    manageEnabled,
+    spotifyConnected,
+    onConsumePendingDesignate,
+  ])
+
+  useEffect(() => {
+    if (
+      designatingKidId == null ||
+      !manageEnabled ||
+      playlistClient == null ||
+      accessToken == null ||
+      spotifyConnected !== true
+    ) {
+      return
+    }
+    let cancelled = false
+    setOptionsLoading(true)
+    setDesignateError(null)
+    void playlistClient
+      .listSpotifyPlaylists(accessToken)
+      .then((options) => {
+        if (cancelled) {
+          return
+        }
+        setPlaylistOptions(options)
+        setSelectedPlaylistId(options[0]?.id ?? "")
+        setOptionsLoading(false)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setPlaylistOptions([])
+        setSelectedPlaylistId("")
+        setOptionsLoading(false)
+        setDesignateError(
+          error instanceof Error ? error.message : "Could not load Spotify playlists",
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [designatingKidId, manageEnabled, playlistClient, accessToken, spotifyConnected])
 
   const merged = useMemo(() => {
     return remixMergedTracks(mergeTracks(riders), shuffleSeed)
   }, [riders, shuffleSeed])
 
   const totalSec = merged.reduce((n, track) => n + track.sec, 0)
-  const driveSec = driveMinutes * 60
-  const coversDrive = totalSec >= driveSec
+  const driveSec = driveMinutes != null ? driveMinutes * 60 : null
+  const coversDrive = driveSec != null ? totalSec >= driveSec : false
   const connectedCount = riders.filter((rider) => rider.connected).length
   const allConnected = connectedCount === riders.length
   const disconnectedNames = riders
@@ -265,32 +699,182 @@ export function RidePlaylistTab({
   const queuedMinutesLabel = fmtMinSec(totalSec).split(":")[0]
 
   function handleInvite(rider: FixturePlaylistRider) {
+    const contact = rider.contact
+    if (contact == null) {
+      return
+    }
     setInviteStates((current) => ({
       ...current,
       [rider.name]: { status: "sending" },
     }))
-    window.setTimeout(() => {
-      setInviteStates((current) => ({
-        ...current,
-        [rider.name]: { status: "sent", sentAt: formatSentAt() },
-      }))
-    }, inviteDelayMs)
+    void deliverInvite({
+      channel: contact.channel,
+      to: contact.to,
+      kidName: rider.name,
+    }).then((result) => {
+      window.setTimeout(() => {
+        setInviteStates((current) => {
+          if (!result.ok) {
+            // Soft-fail: drop sending state. Failure chrome → ride-detail-polish.
+            const next = { ...current }
+            delete next[rider.name]
+            return next
+          }
+          return {
+            ...current,
+            [rider.name]: { status: "sent", sentAt: formatSentAt() },
+          }
+        })
+      }, inviteDelayMs)
+    })
   }
+
+  async function handleOpenInSpotify() {
+    if (connectedCount === 0 || opening) {
+      return
+    }
+    setOpenError(null)
+    if (onOpenInSpotify == null) {
+      openExternalUrl(SPOTIFY_DEMO_PLAYLIST_URL)
+      return
+    }
+    setOpening(true)
+    try {
+      const body =
+        connectedCount >= 2
+          ? (() => {
+              const trackUris = remixedTrackUris(merged)
+              return trackUris.length > 0 ? { trackUris } : null
+            })()
+          : null
+      const { url } = await onOpenInSpotify(body)
+      openExternalUrl(url)
+      setOpening(false)
+    } catch (error: unknown) {
+      setOpening(false)
+      setOpenError(
+        error instanceof Error ? error.message : "Could not open playlist in Spotify",
+      )
+    }
+  }
+
+  async function handleConnect(rider: FixturePlaylistRider) {
+    if (playlistClient == null || accessToken == null || rider.kidId == null) {
+      return
+    }
+    setConnectingKidId(rider.kidId)
+    setStatusError(null)
+    try {
+      const { authorizeUrl } = await playlistClient.getSpotifyAuthorize(accessToken)
+      if (rideDetailItemKey != null) {
+        saveSpotifyOAuthReturn({
+          rideDetailItemKey,
+          designateKidId: rider.kidId,
+        })
+      }
+      assignLocation(authorizeUrl)
+    } catch (error: unknown) {
+      setConnectingKidId(null)
+      setStatusError(
+        error instanceof Error ? error.message : "Could not start Spotify connect",
+      )
+    }
+  }
+
+  async function handleSaveDesignate(rider: FixturePlaylistRider) {
+    if (
+      playlistClient == null ||
+      accessToken == null ||
+      rider.kidId == null ||
+      !selectedPlaylistId
+    ) {
+      return
+    }
+    setDesignateSaving(true)
+    setDesignateError(null)
+    try {
+      await playlistClient.setKidPlaylistDesignation(accessToken, rider.kidId, {
+        spotifyPlaylistId: selectedPlaylistId,
+      })
+      setDesignatingKidId(null)
+      setDesignateSaving(false)
+      onPlaylistChanged?.()
+    } catch (error: unknown) {
+      setDesignateSaving(false)
+      setDesignateError(
+        error instanceof Error ? error.message : "Could not save playlist designation",
+      )
+    }
+  }
+
+  const coverageCopy =
+    driveMinutes == null
+      ? connectedCount > 0
+        ? "Music queued for the drive"
+        : "Connect a playlist to cover the drive"
+      : coversDrive
+        ? `Covers the ~${driveMinutes} min drive with room to spare`
+        : `Drive is ~${driveMinutes} min — add more songs to fill it`
 
   return (
     <div data-testid="ride-playlist-tab" data-shuffle-seed={shuffleSeed}>
+      {statusError != null ? (
+        <div
+          data-testid="ride-playlist-spotify-status-error"
+          role="alert"
+          className="mb-3 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-danger)]"
+        >
+          {statusError}
+        </div>
+      ) : null}
       <div className="mb-3 uppercase tracking-wide text-[length:var(--fc-font-ride-detail-section-size)] leading-[var(--fc-font-ride-detail-section-line)] font-[number:var(--fc-font-ride-detail-section-weight)] text-[var(--fc-text-secondary)]">
         Who&apos;s in the car
       </div>
       <div className="mb-[var(--fc-space-ride-detail-rider-mb)] grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {riders.map((rider) => (
-          <RiderTile
-            key={rider.name}
-            rider={rider}
-            inviteState={inviteStates[rider.name]}
-            onInvite={handleInvite}
-          />
-        ))}
+        {riders.map((rider) => {
+          const canManage =
+            manageEnabled && rider.viewerCanManage === true && rider.kidId != null
+          const kidId = rider.kidId ?? null
+          return (
+            <RiderTile
+              key={kidId ?? rider.name}
+              rider={rider}
+              inviteState={inviteStates[rider.name]}
+              onInvite={handleInvite}
+              canManage={canManage}
+              spotifyConnected={spotifyConnected}
+              statusLoading={statusLoading}
+              connecting={connectingKidId != null && connectingKidId === kidId}
+              designating={designatingKidId != null && designatingKidId === kidId}
+              options={playlistOptions}
+              optionsLoading={optionsLoading}
+              designateError={
+                designatingKidId != null && designatingKidId === kidId
+                  ? designateError
+                  : null
+              }
+              designateSaving={
+                designatingKidId != null &&
+                designatingKidId === kidId &&
+                designateSaving
+              }
+              selectedPlaylistId={selectedPlaylistId}
+              onConnect={() => void handleConnect(rider)}
+              onOpenDesignate={() => {
+                if (kidId != null) {
+                  setDesignatingKidId(kidId)
+                  setDesignateError(null)
+                }
+              }}
+              onCancelDesignate={() => {
+                setDesignatingKidId(null)
+                setDesignateError(null)
+              }}
+              onSelectPlaylistId={setSelectedPlaylistId}
+              onSaveDesignate={() => void handleSaveDesignate(rider)}
+            />
+          )
+        })}
       </div>
 
       <div
@@ -324,12 +908,13 @@ export function RidePlaylistTab({
           data-testid="ride-playlist-coverage"
           className="text-[length:var(--fc-font-ride-detail-hero-copy-size)] leading-[var(--fc-font-ride-detail-hero-copy-line)] font-[number:var(--fc-font-ride-detail-hero-copy-weight)]"
           style={{
-            color: coversDrive ? "var(--fc-hero-success)" : "var(--fc-hero-ring)",
+            color:
+              driveMinutes != null && coversDrive
+                ? "var(--fc-hero-success)"
+                : "var(--fc-hero-ring)",
           }}
         >
-          {coversDrive
-            ? `Covers the ~${driveMinutes} min drive with room to spare`
-            : `Drive is ~${driveMinutes} min — add more songs to fill it`}
+          {coverageCopy}
         </div>
         {!allConnected ? (
           <div className="mt-1 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-hero-on-secondary)]">
@@ -338,26 +923,46 @@ export function RidePlaylistTab({
           </div>
         ) : null}
         <div className="mt-[var(--fc-space-ride-detail-cta-mt)] flex flex-wrap gap-3">
-          <a
-            href={SPOTIFY_DEMO_PLAYLIST_URL}
-            target="_blank"
-            rel="noreferrer"
-            data-testid="ride-playlist-spotify"
-            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)]"
-            style={{ background: "var(--fc-hero-on)", color: "var(--fc-hero-on-inverse)" }}
-          >
-            <Play aria-hidden size={16} /> Open in Spotify
-          </a>
           <button
             type="button"
-            data-testid="ride-playlist-remix"
-            onClick={onRemix}
-            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] text-[var(--fc-hero-on)]"
-            style={{ background: "var(--fc-hero-decline-bg)" }}
+            data-testid="ride-playlist-spotify"
+            data-open-enabled={connectedCount > 0 ? "true" : "false"}
+            disabled={connectedCount === 0 || opening}
+            onClick={() => void handleOpenInSpotify()}
+            className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "var(--fc-hero-on)", color: "var(--fc-hero-on-inverse)" }}
           >
-            <Shuffle aria-hidden size={16} /> Remix merge order
+            {opening ? (
+              <>
+                <Loader2 aria-hidden size={16} className="animate-spin" /> Opening…
+              </>
+            ) : (
+              <>
+                <Play aria-hidden size={16} /> Open in Spotify
+              </>
+            )}
           </button>
+          {connectedCount >= 2 ? (
+            <button
+              type="button"
+              data-testid="ride-playlist-remix"
+              onClick={onRemix}
+              className="inline-flex items-center gap-2 rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-cta-size)] leading-[var(--fc-font-ride-detail-cta-line)] font-[number:var(--fc-font-ride-detail-cta-weight)] text-[var(--fc-hero-on)]"
+              style={{ background: "var(--fc-hero-decline-bg)" }}
+            >
+              <Shuffle aria-hidden size={16} /> Remix merge order
+            </button>
+          ) : null}
         </div>
+        {openError != null ? (
+          <div
+            data-testid="ride-playlist-open-error"
+            role="alert"
+            className="mt-2 text-[length:var(--fc-font-ride-detail-notify-size)] leading-[var(--fc-font-ride-detail-notify-line)] text-[var(--fc-hero-ring)]"
+          >
+            {openError}
+          </div>
+        ) : null}
       </div>
 
       <div

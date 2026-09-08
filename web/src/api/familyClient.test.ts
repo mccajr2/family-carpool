@@ -555,6 +555,73 @@ describe("FamilyClient", () => {
     expect((fetchFn.mock.calls[0]?.[1] as RequestInit).method).toBeUndefined()
   })
 
+  it("gets and opens the calendar playlist for a confirmed ride", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const playlist = {
+      riders: [
+        {
+          kidId: "k1",
+          kidDisplayName: "Sam",
+          connected: true,
+          playlistName: "Sam gameday",
+          playlistUrl: "https://open.spotify.com/playlist/a",
+          trackCount: 3,
+          durationSec: 595,
+          tracks: [
+            { title: "Sunset Drive", artist: "Coastline", durationSec: 198, uri: "spotify:track:a1" },
+          ],
+          inviteContact: null,
+        },
+      ],
+    }
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(playlist))
+      .mockResolvedValueOnce(json({ url: "https://open.spotify.com/playlist/a" }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "No connected playlists to open in Spotify" }), {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(client.getCalendarPlaylist("tok", "MANUAL", "e1")).resolves.toMatchObject({
+      riders: [{ kidDisplayName: "Sam", connected: true }],
+    })
+    await expect(
+      client.openCalendarPlaylist("tok", "MANUAL", "e1", {
+        trackUris: ["spotify:track:a1"],
+      }),
+    ).resolves.toEqual({ url: "https://open.spotify.com/playlist/a" })
+    await expect(client.openCalendarPlaylist("tok", "FEED", "e2")).rejects.toThrow(
+      /No connected playlists/,
+    )
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/playlist",
+    )
+    expect(fetchFn.mock.calls[1]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/playlist/open",
+    )
+    expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      headers: {
+        Authorization: "Bearer tok",
+        "Content-Type": "application/json",
+      },
+    })
+    expect(JSON.parse(String((fetchFn.mock.calls[1]?.[1] as RequestInit).body))).toEqual({
+      trackUris: ["spotify:track:a1"],
+    })
+  })
+
   it("sets leave-from for a calendar item", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

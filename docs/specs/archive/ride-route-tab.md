@@ -10,7 +10,7 @@ Branch: `ride-route-tab`
 Depends on: [`ride-detail-shell`](../archive/ride-detail-shell.md) (chrome +
 fixture Route UI), [`ride-detail-schedule-utils`](../archive/ride-detail-schedule-utils.md)
 (client schedule / maps math)  
-Feeds: [`ride-playlist-tab`](../planned/ride-playlist-tab.md),
+Feeds: [`ride-playlist-tab`](ride-playlist-tab.md),
 [`ride-detail-polish`](../planned/ride-detail-polish.md),
 [`event-arrival-lead-time`](../planned/event-arrival-lead-time.md),
 [`push-notifications`](../planned/push-notifications.md)
@@ -27,7 +27,7 @@ single-origin; accepted pickups are invisible in the driver’s schedule.
 - In-app turn-by-turn (Google Maps universal deep link via existing
   `navigationUrl` only)
 - Google Directions API as primary routing (OSRM first; free-tier / PoC)
-- Spotify / playlist live data ([`ride-playlist-tab`](../planned/ride-playlist-tab.md))
+- Spotify / playlist live data ([`ride-playlist-tab`](ride-playlist-tab.md))
 - Rich loading / OSRM-unreachable / notify-failure chrome
   ([`ride-detail-polish`](../planned/ride-detail-polish.md)) — this PR needs
   only a **minimal honest** unavailable state (no silent fixture leave-by when

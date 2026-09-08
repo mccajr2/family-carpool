@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":coverage"))
     implementation(project(":rsvp"))
     implementation(project(":carpool"))
+    implementation(project(":playlist"))
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.validation)

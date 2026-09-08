@@ -44,6 +44,15 @@ public final class PostgresTestcontainers {
         registry.add("app.leaveby.osrm.provider", () -> "stub");
         // Never hit live NHTSA vPIC from CI / local SpringBootTests.
         registry.add("app.vpic.provider", () -> "stub");
+        // Never hit live Spotify from CI / local SpringBootTests.
+        registry.add("app.spotify.oauth-provider", () -> "stub");
+        registry.add("app.spotify.client-id", () -> "test-spotify-client-id");
+        registry.add("app.spotify.client-secret", () -> "test-spotify-client-secret");
+        registry.add(
+                "app.spotify.token-encryption-key", () -> "test-only!!!-32-byte-aes-key!!!!");
+        registry.add(
+                "app.spotify.success-redirect-uri",
+                () -> "http://localhost:5173/");
     }
 
     public static boolean dockerAvailable() {

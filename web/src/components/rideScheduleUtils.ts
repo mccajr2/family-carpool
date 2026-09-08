@@ -20,6 +20,8 @@ export type PlaylistTrack = {
   title: string
   artist: string
   sec: number
+  /** Spotify track URI when known (live playlist read) — used for remixed Open. */
+  uri?: string
 }
 
 export type PlaylistRider = {
