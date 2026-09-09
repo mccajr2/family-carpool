@@ -190,7 +190,7 @@ export function eligibleVehiclesForAccept(options: {
 export function isAcceptedByCircle(
   request: CarpoolRequest,
   circleId: string,
-  rides: readonly CarpoolRide[],
+  rides: readonly CarpoolRide[] = [],
 ): boolean {
   return rides.some(
     (ride) =>

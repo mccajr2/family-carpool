@@ -22,7 +22,15 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
-import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
+import {
+  cancelableRidesForRequest,
+  kidDisplayName,
+  ownRequestForKid,
+  ownRideDetailLine,
+  ownRideLegDetailLines,
+  ownRideStatusLine,
+  rideLegActionLabel,
+} from "@/components/carpoolDisplay"
 import {
   canRoute,
   isHouseholdConfirmedDriver,
@@ -85,13 +93,17 @@ function agendaRowTeamLabel(item: CalendarItem): string | null {
 }
 
 /**
- * Unassigned gaps get DriverPicker. Open team ask ("requested") also gets
- * DriverPicker — Assign cancels the ask (auto-decline-unofferable). Not-going
- * kids hide driver/coverage chrome via showKidChrome but keep AttendanceToggle
+ * Unassigned gaps get DriverPicker. Open team ask ("requested") and PARTIAL
+ * also get DriverPicker — Assign can cover remaining need. Not-going kids hide
+ * driver/coverage chrome via showKidChrome but keep AttendanceToggle
  * (ADR-0003). Pending confirm-for-self keeps Confirm/Decline.
  */
 function showDriverPickerForKid(game: CoverageGameEvent): boolean {
-  return isUnassigned(game.ownRide) || game.ownRide === "requested"
+  return (
+    isUnassigned(game.ownRide) ||
+    game.ownRide === "requested" ||
+    game.ownRide === "partial"
+  )
 }
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
@@ -192,13 +204,15 @@ export function AgendaRow({
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-  // Gap clearing uses per-kid FULLY_COVERED ownRequests; Cancel/Withdraw per-Ride
-  // and chip copy land in later tasks.
+  // Gap clearing uses per-kid FULLY_COVERED ownRequests; Cancel/Withdraw target
+  // specific Ride fulfillments (one leg each).
   const ownRequests = rideEvent?.ownRequests ?? null
-  const ownRequest =
-    ownRequests?.find((request) => request.status === "UNCOVERED" || request.status === "PARTIAL") ??
-    ownRequests?.[0] ??
-    null
+  const ownRequestsWithDetail = (ownRequests ?? []).filter(
+    (request) =>
+      request.status === "UNCOVERED" ||
+      request.status === "PARTIAL" ||
+      cancelableRidesForRequest(rideEvent, request.id).length > 0,
+  )
   const { games: coverageGames } = applyAutoDeclinedViewModel(
     mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -307,14 +321,14 @@ export function AgendaRow({
       onCantMakeIt(game)
       return
     }
-    if (game.ownRide === "requested" && ownRequest != null) {
-      onCancelRide?.(ownRequest.id)
-      return
-    }
     if (isConfirmedDriver(game.ownRide)) {
-      if (isTeammateOwnRide(game, rideEvent) && ownRequest != null) {
-        onCancelRide?.(ownRequest.id)
-        return
+      if (isTeammateOwnRide(game, rideEvent)) {
+        const need = ownRequestForKid(rideEvent, game.kidId)
+        const covering = need != null ? cancelableRidesForRequest(rideEvent, need.id) : []
+        if (covering[0] != null) {
+          onCancelRide?.(covering[0].id)
+          return
+        }
       }
       const coverage = active.find(
         (row) => row.status === "CONFIRMED" && row.kidIds.includes(game.kidId),
@@ -595,27 +609,51 @@ export function AgendaRow({
                 </div>
               ) : null}
 
-              {ownRequest != null ? (
-                <div className="flex flex-col gap-[var(--fc-space-sm)]">
-                  <p
-                    data-testid="agenda-row-own-ride"
-                    className="text-xs text-[var(--fc-text-secondary)]"
+              {ownRequestsWithDetail.map((request) => {
+                const cancelable = cancelableRidesForRequest(rideEvent, request.id)
+                const legLines = ownRideLegDetailLines(request, rideEvent?.rides ?? [])
+                return (
+                  <div
+                    key={request.id}
+                    className="flex flex-col gap-[var(--fc-space-sm)]"
+                    data-testid={`agenda-row-own-need-${request.id}`}
                   >
-                    {ownRideDetailLine(ownRequest)}
-                  </p>
-                  {(ownRequest.status === "UNCOVERED" || ownRequest.status === "PARTIAL") &&
-                  onCancelRide != null ? (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      className={`${overrideLinkClass} text-left`}
-                      onClick={() => onCancelRide(ownRequest.id)}
+                    <p
+                      data-testid="agenda-row-own-ride"
+                      className="text-xs text-[var(--fc-text-secondary)]"
                     >
-                      No longer need a ride? Cancel this ask
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
+                      {ownRideDetailLine(
+                        request,
+                        ownRideStatusLine(request, rideEvent?.rides ?? []),
+                      )}
+                    </p>
+                    {legLines.map((line) => (
+                      <p
+                        key={line}
+                        data-testid="agenda-row-own-ride-leg"
+                        className="text-xs text-[var(--fc-text-secondary)]"
+                      >
+                        {line}
+                      </p>
+                    ))}
+                    {onCancelRide != null
+                      ? cancelable.map((ride) => (
+                          <button
+                            key={ride.id}
+                            type="button"
+                            disabled={loading}
+                            className={`${overrideLinkClass} text-left`}
+                            onClick={() => onCancelRide(ride.id)}
+                          >
+                            {cancelable.length > 1
+                              ? `${rideLegActionLabel("Cancel", ride.leg, cancelable.length)} ride`
+                              : "No longer need a ride? Cancel this ask"}
+                          </button>
+                        ))
+                      : null}
+                  </div>
+                )
+              })}
 
               {coverageGames.map((game) => {
                 const kid = circle.kids.find((row) => row.id === game.kidId)
@@ -903,7 +941,7 @@ export function AgendaRow({
                   {rideEvent.otherRequests.map((request) => (
                 <AgendaInboundRequestRow
                   key={request.id}
-                  request={request as never}
+                  request={request}
                   circleId={circle.id}
                   currentAdultId={currentAdultId}
                   garage={garage}

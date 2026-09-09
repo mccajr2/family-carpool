@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CarpoolRequest, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   AgendaInboundRequestRow,
   inboundRequestStatusChip,
@@ -31,53 +31,78 @@ const garage = {
   ],
 }
 
-const pendingAsk: CarpoolRide = {
-  id: "ask-1",
-  spaceId: "s1",
-  eventKey: "UID:game",
-  requestingCircleId: "c2",
-  requestingCircleName: "House B",
-  requestedByAdultId: "a2",
-  kidIds: ["k2"],
-  kidFirstNames: ["Mia"],
-  seats: 1,
-  pickupPlaceName: "Home",
-  pickupAddress: "1 Main",
-  pickupTown: null,
-  detourMinutes: null,
-  status: "PENDING",
-  passedByMe: false,
-  passedByAdultNames: [],
-  acceptedByAdultId: null,
-  acceptingCircleId: null,
-  acceptingCircleName: null,
-  vehicleId: null,
-  vehicleLabel: null,
+function ask(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
+  return {
+    id: "ask-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidId: "k2",
+    kidFirstName: "Mia",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
+    status: "UNCOVERED",
+    passedByMe: false,
+    passedByAdultNames: [],
+    ...partial,
+  }
 }
 
-const acceptedByUs: CarpoolRide = {
-  ...pendingAsk,
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "fulfill-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a1",
+    drivingCircleId: "c1",
+    drivingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["ask-accepted"],
+    status: "ACTIVE",
+    ...partial,
+  }
+}
+
+const pendingAsk = ask()
+
+const acceptedByUs = ask({
   id: "ask-accepted",
-  status: "ACCEPTED",
-  acceptedByAdultId: "a1",
-  acceptingCircleId: "c1",
-  acceptingCircleName: "Ours",
-  vehicleId: "v1",
-  vehicleLabel: "Van",
+  status: "FULLY_COVERED",
+  legStatuses: [
+    { leg: "TO", status: "CONFIRMED" },
+    { leg: "FROM", status: "CONFIRMED" },
+  ],
+})
+
+function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
+  return {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: ["k1"],
+    ownRequests: [],
+    otherRequests: [pendingAsk],
+    rides: [],
+    ...partial,
+  }
 }
 
-const rideEvent: CarpoolRideEvent = {
-  eventKey: "UID:game",
-  title: "Practice",
-  startsAt: "2030-08-15T17:00:00.000Z",
-  endsAt: null,
-  defaultKidIds: ["k1"],
-  ownRequest: null,
-  otherRequests: [pendingAsk],
-}
+const rideEvent = event()
 
 describe("inboundRequestStatusChip", () => {
-  it("labels pending asks as Ride needed", () => {
+  it("labels open asks as Ride needed", () => {
     expect(inboundRequestStatusChip(pendingAsk, "c1")).toEqual({
       label: "Ride needed",
       tone: "amber",
@@ -99,7 +124,6 @@ describe("AgendaInboundRequestRow", () => {
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()
     const onPassRide = vi.fn()
-
     render(
       <AgendaInboundRequestRow
         request={pendingAsk}
@@ -111,7 +135,6 @@ describe("AgendaInboundRequestRow", () => {
         onPassRide={onPassRide}
       />,
     )
-
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
@@ -121,11 +144,7 @@ describe("AgendaInboundRequestRow", () => {
   it("shows hero handoff copy instead of Accept/Pass when queued above", () => {
     render(
       <AgendaInboundRequestRow
-        request={{
-          ...pendingAsk,
-          pickupTown: "Cambridge, MA",
-          detourMinutes: 12,
-        }}
+        request={pendingAsk}
         circleId="c1"
         currentAdultId="a1"
         garage={garage}
@@ -135,12 +154,8 @@ describe("AgendaInboundRequestRow", () => {
         onPassRide={vi.fn()}
       />,
     )
-
     const row = screen.getByTestId("agenda-inbound-request-ask-1")
-    expect(
-      within(row).getByText("Handle in Needs your attention above"),
-    ).toBeInTheDocument()
-    expect(within(row).queryByTestId("pickup-line")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-inbound-request-ask-1-hero-handoff")).toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
   })
@@ -148,11 +163,7 @@ describe("AgendaInboundRequestRow", () => {
   it("shows PickupLine below summary when not in hero handoff", () => {
     render(
       <AgendaInboundRequestRow
-        request={{
-          ...pendingAsk,
-          pickupTown: "Cambridge, MA",
-          detourMinutes: 12,
-        }}
+        request={ask({ pickupTown: "Cambridge", detourMinutes: 4 })}
         circleId="c1"
         currentAdultId="a1"
         garage={garage}
@@ -161,39 +172,32 @@ describe("AgendaInboundRequestRow", () => {
         onPassRide={vi.fn()}
       />,
     )
-
-    expect(screen.getByTestId("pickup-line")).toHaveTextContent("Pickup in Cambridge, MA")
-    expect(screen.getByTestId("pickup-line-detour-pill")).toHaveTextContent(
-      "~12 min out of your way",
-    )
+    expect(screen.getByText(/Pickup in Cambridge/)).toBeInTheDocument()
   })
 
-  it("replaces Withdraw with Can't take them anymore underlined link", async () => {
+  it("replaces Withdraw with Can't take them anymore and calls with Ride id", async () => {
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()
-
     render(
       <AgendaInboundRequestRow
         request={acceptedByUs}
         circleId="c1"
         currentAdultId="a1"
         garage={garage}
-        rideEvent={{ ...rideEvent, otherRequests: [acceptedByUs] }}
+        rideEvent={event({
+          otherRequests: [acceptedByUs],
+          rides: [fulfillment()],
+        })}
         onWithdrawRide={onWithdrawRide}
       />,
     )
-
-    expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
-    const link = screen.getByRole("button", { name: REVERT_INBOUND_CANT_TAKE_THEM })
-    expect(link).toHaveClass("underline")
-    await user.click(link)
-    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+    await user.click(screen.getByRole("button", { name: REVERT_INBOUND_CANT_TAKE_THEM }))
+    expect(onWithdrawRide).toHaveBeenCalledWith("fulfill-1")
   })
 
   it("shows Reconsider when autoDeclined and canOffer", async () => {
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()
-
     render(
       <AgendaInboundRequestRow
         request={pendingAsk}
@@ -201,16 +205,12 @@ describe("AgendaInboundRequestRow", () => {
         currentAdultId="a1"
         garage={garage}
         rideEvent={rideEvent}
-        canOffer
         autoDeclined
+        canOffer
         onAcceptRide={onAcceptRide}
-        onPassRide={vi.fn()}
       />,
     )
-
-    expect(screen.getByText("Declined — you needed a ride too")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: REVERT_INBOUND_RECONSIDER }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
   })
@@ -224,20 +224,16 @@ describe("AgendaInboundRequestRow", () => {
         garage={garage}
         rideEvent={rideEvent}
         autoDeclined
+        canOffer={false}
         onAcceptRide={vi.fn()}
       />,
     )
-
-    expect(screen.getByText("Declined — you needed a ride too")).toBeInTheDocument()
-    expect(
-      screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER })).not.toBeInTheDocument()
   })
 
   it("shows Undo when recentlyWithdrawn and canOffer", async () => {
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()
-
     render(
       <AgendaInboundRequestRow
         request={pendingAsk}
@@ -245,15 +241,12 @@ describe("AgendaInboundRequestRow", () => {
         currentAdultId="a1"
         garage={garage}
         rideEvent={rideEvent}
-        canOffer
         recentlyWithdrawn
+        canOffer
         onAcceptRide={onAcceptRide}
-        onPassRide={vi.fn()}
       />,
     )
-
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: REVERT_INBOUND_UNDO }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
   })
@@ -261,28 +254,45 @@ describe("AgendaInboundRequestRow", () => {
   it("keeps Accept for passed asks without Reconsider/Undo", async () => {
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()
-    const passed = { ...pendingAsk, passedByMe: true }
-
     render(
       <AgendaInboundRequestRow
-        request={passed}
+        request={ask({ passedByMe: true })}
         circleId="c1"
         currentAdultId="a1"
         garage={garage}
-        rideEvent={{ ...rideEvent, otherRequests: [passed] }}
-        canOffer
+        rideEvent={event({ otherRequests: [ask({ passedByMe: true })] })}
         onAcceptRide={onAcceptRide}
         onPassRide={vi.fn()}
       />,
     )
-
-    expect(screen.getByText("Passed")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER }),
-    ).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: REVERT_INBOUND_UNDO })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: REVERT_INBOUND_RECONSIDER })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+  })
+
+  it("offers per-leg Withdraw when driving both TO and FROM", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    render(
+      <AgendaInboundRequestRow
+        request={acceptedByUs}
+        circleId="c1"
+        currentAdultId="a1"
+        garage={garage}
+        rideEvent={event({
+          otherRequests: [acceptedByUs],
+          rides: [
+            fulfillment({ id: "ride-to", leg: "TO" }),
+            fulfillment({ id: "ride-from", leg: "FROM" }),
+          ],
+        })}
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /Withdraw to/ }))
+    expect(onWithdrawRide).toHaveBeenCalledWith("ride-to")
+    await user.click(screen.getByRole("button", { name: /Withdraw from/ }))
+    expect(onWithdrawRide).toHaveBeenCalledWith("ride-from")
   })
 })

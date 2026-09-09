@@ -1487,6 +1487,10 @@ export function FamilyScreen({
       setRecentlyWithdrawnRideIds((current) => {
         const next = new Set(current)
         next.add(rideId)
+        const fulfillment = rideEvent?.rides.find((ride) => ride.id === rideId)
+        for (const requestId of fulfillment?.passengerRequestIds ?? []) {
+          next.add(requestId)
+        }
         return next
       })
       await reloadCalendarCarpoolRides(token)

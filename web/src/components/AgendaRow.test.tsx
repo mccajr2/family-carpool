@@ -34,6 +34,70 @@ function item(
   }
 }
 
+function rowRequest(partial: Partial<import("@/api/types").CarpoolRequest> = {}): import("@/api/types").CarpoolRequest {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    requestingCircleId: "c1",
+    requestingCircleName: "Test",
+    requestedByAdultId: "a1",
+    kidId: "k1",
+    kidFirstName: "Sam",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
+    status: "UNCOVERED",
+    passedByMe: false,
+    passedByAdultNames: [],
+    ...partial,
+  }
+}
+
+function rowFulfillment(partial: Partial<import("@/api/types").CarpoolRide> = {}): import("@/api/types").CarpoolRide {
+  return {
+    id: "fulfill-1",
+    spaceId: "s1",
+    eventKey: "UID:practice",
+    leg: "TO",
+    driverAdultId: "a1",
+    drivingCircleId: "c1",
+    drivingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["ride-1"],
+    status: "ACTIVE",
+    ...partial,
+  }
+}
+
+function rowRideEvent(partial: Partial<import("@/api/types").CarpoolRideEvent> = {}): import("@/api/types").CarpoolRideEvent {
+  return {
+    eventKey: "UID:practice",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequests: [],
+    otherRequests: [],
+    rides: [],
+    ...partial,
+  }
+}
+
+const confirmedLegs = [
+  { leg: "TO" as const, status: "CONFIRMED" as const },
+  { leg: "FROM" as const, status: "CONFIRMED" as const },
+]
+
+
+
 const circle: FamilyCircle = {
   id: "c1",
   name: "Test",
@@ -638,39 +702,31 @@ describe("AgendaRow", () => {
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:game",
-          title: "Practice",
-          startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
-          defaultKidIds: [],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "accepted-1",
-              spaceId: "s1",
               eventKey: "UID:game",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-              pickupTown: null,
-              detourMinutes: null,
-              status: "ACCEPTED" as const,
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: "a1",
-              acceptingCircleId: "c1",
-              acceptingCircleName: null,
-              vehicleId: "v1",
-              vehicleLabel: "Van",
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+              status: "FULLY_COVERED",
+              legStatuses: confirmedLegs,
+            }),
           ],
-        }}
+          rides: [
+            rowFulfillment({
+              id: "fulfill-passenger",
+              eventKey: "UID:game",
+              drivingCircleId: "c1",
+              drivingCircleName: "Ours",
+              passengerRequestIds: ["accepted-1"],
+            }),
+          ],
+        })}
         {...noopHandlers}
       />,
     )
@@ -831,16 +887,18 @@ describe("AgendaRow", () => {
         { id: "k2", displayName: "Riley" },
       ],
     }
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:practice",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
       defaultKidIds: ["k1", "k2"],
-      ownRequests: [],
-      otherRequests: [],
-      rides: [],
-    }
+    })
+
+    const samUncovered = rowRequest({
+      id: "ride-1",
+      eventKey: "UID:practice",
+      kidId: "k1",
+      kidFirstName: "Sam",
+    })
 
     const { rerender } = render(
       <AgendaRow
@@ -868,33 +926,12 @@ describe("AgendaRow", () => {
     await user.click(within(band).getByRole("button", { name: "Request" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"], "BOTH")
 
-    const requestedEvent = {
+    const requestedEvent = rowRideEvent({
       ...rideEvent,
       defaultKidIds: [],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:practice",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "PENDING" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: null,
-        acceptingCircleId: null,
-        acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
-      },
-    }
+      ownRequests: [samUncovered],
+      rides: [],
+    })
     rerender(
       <AgendaRow
         item={feedItem}
@@ -912,12 +949,11 @@ detourMinutes: null,
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam · 1 seat · Home, 1 Main",
     )
-    await user.click(
-      within(row).getByRole("button", {
+    expect(
+      within(row).queryByRole("button", {
         name: "No longer need a ride? Cancel this ask",
       }),
-    )
-    expect(onCancelRide).toHaveBeenCalledWith("ride-1")
+    ).not.toBeInTheDocument()
 
     rerender(
       <AgendaRow
@@ -928,10 +964,12 @@ detourMinutes: null,
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
         rideEvent={{
           ...requestedEvent,
-          ownRequest: {
-            ...requestedEvent.ownRequest!,
-            passedByAdultNames: ["Sam"],
-          },
+          ownRequests: [
+            rowRequest({
+              ...samUncovered,
+              passedByAdultNames: ["Sam"],
+            }),
+          ],
         }}
         onCreateRide={onCreateRide}
         onCancelRide={onCancelRide}
@@ -947,6 +985,25 @@ detourMinutes: null,
       /^Requested/,
     )
 
+    const coveredEvent = rowRideEvent({
+      ...requestedEvent,
+      ownRequests: [
+        rowRequest({
+          ...samUncovered,
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
+      ],
+      rides: [
+        rowFulfillment({
+          id: "fulfill-1",
+          eventKey: "UID:practice",
+          drivingCircleId: "c2",
+          drivingCircleName: "House B",
+          passengerRequestIds: ["ride-1"],
+        }),
+      ],
+    })
     rerender(
       <AgendaRow
         item={feedItem}
@@ -954,14 +1011,7 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        rideEvent={{
-          ...requestedEvent,
-          ownRequest: {
-            ...requestedEvent.ownRequest!,
-            status: "ACCEPTED",
-            acceptingCircleName: "House B",
-          },
-        }}
+        rideEvent={coveredEvent}
         onCreateRide={onCreateRide}
         onCancelRide={onCancelRide}
         {...noopHandlers}
@@ -972,6 +1022,12 @@ detourMinutes: null,
       "Riding with House B · Sam · 1 seat · Home, 1 Main",
     )
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
+    await user.click(
+      within(row).getByRole("button", {
+        name: "No longer need a ride? Cancel this ask",
+      }),
+    )
+    expect(onCancelRide).toHaveBeenCalledWith("fulfill-1")
   })
 
   it("clears Needs coverage / Assign when ACCEPTED ride covers all uncovered kids", async () => {
@@ -984,37 +1040,29 @@ detourMinutes: null,
       feedName: "Soccer",
       uncoveredKidIds: ["k1"],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:accepted",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:accepted",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "ACCEPTED" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: "a2",
-        acceptingCircleId: "c2",
-        acceptingCircleName: "Sharks Family",
-        vehicleId: "v1",
-        vehicleLabel: "Van",
-      },
-      otherRequests: [],
-    }
+      ownRequests: [
+        rowRequest({
+          id: "ride-1",
+          eventKey: "UID:accepted",
+          kidId: "k1",
+          kidFirstName: "Sam",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
+      ],
+      rides: [
+        rowFulfillment({
+          id: "fulfill-1",
+          eventKey: "UID:accepted",
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks Family",
+          passengerRequestIds: ["ride-1"],
+        }),
+      ],
+    })
 
     render(
       <AgendaRow
@@ -1069,37 +1117,29 @@ detourMinutes: null,
         { kidId: "k2", status: "YES" },
       ],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:mixed",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:mixed",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "ACCEPTED" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: "a2",
-        acceptingCircleId: "c2",
-        acceptingCircleName: "House B",
-        vehicleId: "v1",
-        vehicleLabel: "Van",
-      },
-      otherRequests: [],
-    }
+      ownRequests: [
+        rowRequest({
+          id: "ride-1",
+          eventKey: "UID:mixed",
+          kidId: "k1",
+          kidFirstName: "Sam",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
+      ],
+      rides: [
+        rowFulfillment({
+          id: "fulfill-1",
+          eventKey: "UID:mixed",
+          drivingCircleId: "c2",
+          drivingCircleName: "House B",
+          passengerRequestIds: ["ride-1"],
+        }),
+      ],
+    })
 
     render(
       <AgendaRow
@@ -1133,7 +1173,7 @@ detourMinutes: null,
     ).toBeInTheDocument()
   })
 
-  it("shows Assign and Cancel ask while own ride is PENDING", async () => {
+  it("shows Assign without Cancel ask while own ride is UNCOVERED", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-pending",
@@ -1143,37 +1183,19 @@ detourMinutes: null,
       feedName: "Soccer",
       uncoveredKidIds: ["k1"],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:pending",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:pending",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "PENDING" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: null,
-        acceptingCircleId: null,
-        acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
-      },
-      otherRequests: [],
-    }
+      ownRequests: [
+        rowRequest({
+          id: "ride-1",
+          eventKey: "UID:pending",
+          kidId: "k1",
+          kidFirstName: "Sam",
+        }),
+      ],
+      rides: [],
+    })
 
     render(
       <AgendaRow
@@ -1194,15 +1216,77 @@ detourMinutes: null,
     expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    // Assign cancels the open ask (auto-decline-unofferable); Cancel ask still available.
+    // Assign cancels the open ask (auto-decline-unofferable); no Ride yet to Cancel.
     expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(row).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage: Sam")).not.toBeInTheDocument()
     expect(
+      within(row).queryByRole("button", {
+        name: "No longer need a ride? Cancel this ask",
+      }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows Cancel ask for PARTIAL own ride with a fulfillment Ride", async () => {
+    const user = userEvent.setup()
+    const onCancelRide = vi.fn()
+    const feedItem = item({
+      id: "feed-partial",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      uncoveredKidIds: ["k1"],
+    })
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rowRideEvent({
+          eventKey: "UID:partial",
+          startsAt: feedItem.startsAt,
+          ownRequests: [
+            rowRequest({
+              id: "ride-1",
+              eventKey: "UID:partial",
+              kidId: "k1",
+              kidFirstName: "Sam",
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+          rides: [
+            rowFulfillment({
+              id: "fulfill-1",
+              eventKey: "UID:partial",
+              leg: "TO",
+              drivingCircleId: "c2",
+              drivingCircleName: "House B",
+              passengerRequestIds: ["ride-1"],
+            }),
+          ],
+        })}
+        onCreateRide={vi.fn()}
+        onCancelRide={onCancelRide}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-partial")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getAllByTestId("agenda-row-own-ride-leg").length).toBeGreaterThan(0)
+    await user.click(
       within(row).getByRole("button", {
         name: "No longer need a ride? Cancel this ask",
       }),
-    ).toBeInTheDocument()
+    )
+    expect(onCancelRide).toHaveBeenCalledWith("fulfill-1")
   })
 
   it("shows DriverPicker on the kid band when there is a coverage gap", async () => {
@@ -1219,16 +1303,11 @@ detourMinutes: null,
       uncoveredKidIds: ["k1"],
       rsvps: [{ kidId: "k1", status: "YES" }],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:gap",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequests: [],
-      otherRequests: [],
-      rides: [],
-    }
+    })
 
     render(
       <AgendaRow
@@ -1274,16 +1353,11 @@ detourMinutes: null,
       kidIds: ["k1"],
       rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:practice-nr",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequests: [],
-      otherRequests: [],
-      rides: [],
-    }
+    })
 
     render(
       <AgendaRow
@@ -1321,39 +1395,31 @@ detourMinutes: null,
       feedName: "Soccer",
       eventKey: "UID:practice-w",
     })
-    const rideEvent = {
+    const acceptedAsk = rowRequest({
+      id: "ask-accepted",
       eventKey: "UID:practice-w",
-      title: "Practice",
+      requestingCircleId: "c2",
+      requestingCircleName: "House B",
+      requestedByAdultId: "a2",
+      kidId: "k2",
+      kidFirstName: "Mia",
+      status: "FULLY_COVERED",
+      legStatuses: confirmedLegs,
+    })
+    const rideEvent = rowRideEvent({
+      eventKey: "UID:practice-w",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: null,
-      otherRequests: [
-        {
-          id: "ask-accepted",
-          spaceId: "s1",
+      otherRequests: [acceptedAsk],
+      rides: [
+        rowFulfillment({
+          id: "fulfill-1",
           eventKey: "UID:practice-w",
-          requestingCircleId: "c2",
-          requestingCircleName: "House B",
-          requestedByAdultId: "a2",
-          kidIds: ["k2"],
-          kidFirstNames: ["Mia"],
-          seats: 1,
-          pickupPlaceName: "Home",
-          pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-          status: "ACCEPTED" as const,
-          passedByMe: false,
-          passedByAdultNames: [],
-          acceptedByAdultId: "a1",
-          acceptingCircleId: "c1",
-          acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
-        },
+          drivingCircleId: "c1",
+          drivingCircleName: "Test",
+          passengerRequestIds: ["ask-accepted"],
+        }),
       ],
-    }
+    })
 
     render(
       <AgendaRow
@@ -1380,7 +1446,7 @@ detourMinutes: null,
     await user.click(
       within(inbound).getByRole("button", { name: "Can't take them anymore" }),
     )
-    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+    expect(onWithdrawRide).toHaveBeenCalledWith("fulfill-1")
   })
 
   it("shows Accept and Pass for pending inbound asks outside the hero queue", async () => {
@@ -1421,39 +1487,22 @@ detourMinutes: null,
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
         garage={garage}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:practice-accept",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "pending-other",
-              spaceId: "s1",
               eventKey: "UID:practice-accept",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={onAcceptRide}
         onPassRide={onPassRide}
         onCreateRide={vi.fn()}
@@ -1491,61 +1540,31 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:practice-auto",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: {
-            id: "own-ask",
-            spaceId: "s1",
-            eventKey: "UID:practice-auto",
-            requestingCircleId: "c1",
-            requestingCircleName: "Test",
-            requestedByAdultId: "a1",
-            kidIds: ["k1"],
-            kidFirstNames: ["Sam"],
-            seats: 1,
-            pickupPlaceName: "Home",
-            pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-            status: "PENDING",
-            passedByMe: false,
-            passedByAdultNames: [],
-            acceptedByAdultId: null,
-            acceptingCircleId: null,
-            acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
-          },
+          ownRequests: [
+            rowRequest({
+              id: "own-ask",
+              eventKey: "UID:practice-auto",
+              kidId: "k1",
+              kidFirstName: "Sam",
+            }),
+          ],
+          rides: [],
           otherRequests: [
-            {
+            rowRequest({
               id: "inbound-ask",
-              spaceId: "s1",
               eventKey: "UID:practice-auto",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
         onCancelRide={vi.fn()}
@@ -1599,39 +1618,22 @@ detourMinutes: null,
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
         garage={garage}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:no-auto-u",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "still-pending",
-              spaceId: "s1",
               eventKey: "UID:no-auto-u",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
         onCreateRide={vi.fn()}
@@ -1700,39 +1702,22 @@ detourMinutes: null,
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
         garage={garage}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:no-auto-c",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "still-pending",
-              spaceId: "s1",
               eventKey: "UID:no-auto-c",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
         {...noopHandlers}
@@ -1767,39 +1752,22 @@ detourMinutes: null,
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
         autoDeclinedRideIds={new Set(["sticky-ask"])}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:practice-sticky",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "sticky-ask",
-              spaceId: "s1",
               eventKey: "UID:practice-sticky",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
         onCreateRide={vi.fn()}
@@ -1838,39 +1806,22 @@ detourMinutes: null,
           vehicles: [],
         }}
         heroQueuedRequestIds={new Set(["pending-other"])}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:practice-queued",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [
-            {
+            rowRequest({
               id: "pending-other",
-              spaceId: "s1",
               eventKey: "UID:practice-queued",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              seats: 1,
-              pickupPlaceName: "Home",
-              pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-              status: "PENDING",
-              passedByMe: false,
-              passedByAdultNames: [],
-              acceptedByAdultId: null,
-              acceptingCircleId: null,
-              acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
-            },
+              kidId: "k2",
+              kidFirstName: "Mia",
+            }),
           ],
-        }}
+        })}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
         onCreateRide={vi.fn()}
@@ -1905,16 +1856,11 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:practice-na",
-          title: "Practice",
           startsAt: feedItem.startsAt,
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequests: [],
-          otherRequests: [],
-          rides: [],
-        }}
+        })}
         onCreateRide={vi.fn()}
         onCancelRide={vi.fn()}
         onWithdrawRide={vi.fn()}
@@ -2141,37 +2087,29 @@ detourMinutes: null,
       feedName: "Soccer",
       uncoveredKidIds: ["k1"],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:accepted",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:accepted",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-        pickupTown: null,
-        detourMinutes: null,
-        status: "ACCEPTED" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: "a2",
-        acceptingCircleId: "c2",
-        acceptingCircleName: "Sharks",
-        vehicleId: null,
-        vehicleLabel: null,
-      },
-      otherRequests: [],
-    }
+      ownRequests: [
+        rowRequest({
+          id: "ride-1",
+          eventKey: "UID:accepted",
+          kidId: "k1",
+          kidFirstName: "Sam",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
+      ],
+      rides: [
+        rowFulfillment({
+          id: "fulfill-1",
+          eventKey: "UID:accepted",
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks",
+          passengerRequestIds: ["ride-1"],
+        }),
+      ],
+    })
 
     const { rerender } = render(
       <AgendaRow
@@ -2302,37 +2240,20 @@ detourMinutes: null,
       kidIds: ["k1"],
       uncoveredKidIds: ["k1"],
     })
-    const askedEvent = {
+    const askedEvent = rowRideEvent({
       eventKey: "UID:asked",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequest: {
-        id: "ride-1",
-        spaceId: "s1",
-        eventKey: "UID:asked",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-        pickupTown: null,
-        detourMinutes: null,
-        status: "PENDING" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: null,
-        acceptingCircleId: null,
-        acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
-      },
-      otherRequests: [],
-    }
+      ownRequests: [
+        rowRequest({
+          id: "ride-1",
+          eventKey: "UID:asked",
+          kidId: "k1",
+          kidFirstName: "Sam",
+        }),
+      ],
+      rides: [],
+    })
 
     const { rerender } = render(
       <AgendaRow
@@ -2426,39 +2347,33 @@ detourMinutes: null,
         },
       ],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:type-a",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequest: null,
       otherRequests: [
-        {
+        rowRequest({
           id: "ask-accepted",
-          spaceId: "s1",
           eventKey: "UID:type-a",
           requestingCircleId: "c2",
           requestingCircleName: "House B",
           requestedByAdultId: "a2",
-          kidIds: ["k-them"],
-          kidFirstNames: ["Mia"],
-          seats: 1,
-          pickupPlaceName: "Home",
-          pickupAddress: "1 Main",
-          pickupTown: null,
-          detourMinutes: null,
-          status: "ACCEPTED" as const,
-          passedByMe: false,
-          passedByAdultNames: [],
-          acceptedByAdultId: "a1",
-          acceptingCircleId: "c1",
-          acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
-        },
+          kidId: "k-them",
+          kidFirstName: "Mia",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
       ],
-    }
+      rides: [
+        rowFulfillment({
+          id: "fulfill-inbound",
+          eventKey: "UID:type-a",
+          drivingCircleId: "c1",
+          drivingCircleName: "Test",
+          passengerRequestIds: ["ask-accepted"],
+        }),
+      ],
+    })
 
     render(
       <AgendaRow
@@ -2502,61 +2417,49 @@ detourMinutes: null,
       eventKey: "UID:type-b",
       uncoveredKidIds: [],
     })
-    const rideEvent = {
+    const rideEvent = rowRideEvent({
       eventKey: "UID:type-b",
-      title: "Practice",
       startsAt: feedItem.startsAt,
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: {
-        id: "own-accepted",
-        spaceId: "s1",
-        eventKey: "UID:type-b",
-        requestingCircleId: "c1",
-        requestingCircleName: "Test",
-        requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
-        pickupPlaceName: "Home",
-        pickupAddress: "1 Main",
-        pickupTown: null,
-        detourMinutes: null,
-        status: "ACCEPTED" as const,
-        passedByMe: false,
-        passedByAdultNames: [],
-        acceptedByAdultId: "a2",
-        acceptingCircleId: "c2",
-        acceptingCircleName: "House B",
-        vehicleId: "v2",
-        vehicleLabel: "SUV",
-      },
+      ownRequests: [
+        rowRequest({
+          id: "own-accepted",
+          eventKey: "UID:type-b",
+          kidId: "k1",
+          kidFirstName: "Sam",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
+      ],
       otherRequests: [
-        {
+        rowRequest({
           id: "ask-accepted",
-          spaceId: "s1",
           eventKey: "UID:type-b",
           requestingCircleId: "c2",
           requestingCircleName: "House B",
           requestedByAdultId: "a2",
-          kidIds: ["k-them"],
-          kidFirstNames: ["Mia"],
-          seats: 1,
-          pickupPlaceName: "Home",
-          pickupAddress: "1 Main",
-          pickupTown: null,
-          detourMinutes: null,
-          status: "ACCEPTED" as const,
-          passedByMe: false,
-          passedByAdultNames: [],
-          acceptedByAdultId: "a1",
-          acceptingCircleId: "c1",
-          acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
-        },
+          kidId: "k-them",
+          kidFirstName: "Mia",
+          status: "FULLY_COVERED",
+          legStatuses: confirmedLegs,
+        }),
       ],
-    }
+      rides: [
+        rowFulfillment({
+          id: "fulfill-own",
+          eventKey: "UID:type-b",
+          drivingCircleId: "c2",
+          drivingCircleName: "House B",
+          passengerRequestIds: ["own-accepted"],
+        }),
+        rowFulfillment({
+          id: "fulfill-inbound",
+          eventKey: "UID:type-b",
+          drivingCircleId: "c1",
+          drivingCircleName: "Test",
+          passengerRequestIds: ["ask-accepted"],
+        }),
+      ],
+    })
 
     render(
       <AgendaRow
@@ -2651,16 +2554,10 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:gap",
-          title: "Practice",
-          startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequests: [],
-          otherRequests: [],
-          rides: [],
-        }}
+        })}
         onOpenRide={onOpenRide}
         {...noopHandlers}
       />,
@@ -2755,37 +2652,31 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        rideEvent={{
+        rideEvent={rowRideEvent({
           eventKey: "UID:game",
           title: "Game",
-          startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: {
-            id: "own",
-            spaceId: "s1",
-            eventKey: "UID:game",
-            requestingCircleId: "c1",
-            requestingCircleName: "Ours",
-            requestedByAdultId: "a1",
-            kidIds: ["k1"],
-            kidFirstNames: ["Sam"],
-            seats: 1,
-            pickupPlaceName: "Home",
-            pickupAddress: "1 Main",
-            pickupTown: null,
-            detourMinutes: null,
-            status: "ACCEPTED",
-            passedByMe: false,
-            passedByAdultNames: [],
-            acceptedByAdultId: "a9",
-            acceptingCircleId: "c9",
-            acceptingCircleName: "The Patels",
-            vehicleId: "v1",
-            vehicleLabel: "Van",
-          },
-          otherRequests: [],
-        }}
+          ownRequests: [
+            rowRequest({
+              id: "own",
+              eventKey: "UID:game",
+              requestingCircleName: "Ours",
+              kidId: "k1",
+              kidFirstName: "Sam",
+              status: "FULLY_COVERED",
+              legStatuses: confirmedLegs,
+            }),
+          ],
+          rides: [
+            rowFulfillment({
+              id: "fulfill-teammate",
+              eventKey: "UID:game",
+              drivingCircleId: "c9",
+              drivingCircleName: "The Patels",
+              passengerRequestIds: ["own"],
+            }),
+          ],
+        })}
         onOpenRide={onOpenRide}
         {...noopHandlers}
       />,

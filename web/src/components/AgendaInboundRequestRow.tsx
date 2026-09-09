@@ -10,6 +10,8 @@ import {
   incomingRideAskSummary,
   isAcceptedByCircle,
   isRequestOpen,
+  rideLegActionLabel,
+  withdrawableRidesForRequest,
 } from "@/components/carpoolDisplay"
 import {
   REVERT_INBOUND_CANT_TAKE_THEM,
@@ -145,8 +147,9 @@ export function AgendaInboundRequestRow({
     openNeed &&
     eligible.length > 0 &&
     onAcceptRide != null
+  const withdrawablePreview = withdrawableRidesForRequest(rideEvent, request.id, circleId)
   const canCantTakeThem =
-    !showHeroHandoff && acceptedByUs && onWithdrawRide != null
+    !showHeroHandoff && acceptedByUs && onWithdrawRide != null && withdrawablePreview.length > 0
 
   const statusChip = inboundRequestStatusChip(request, circleId, {
     autoDeclined,
@@ -171,13 +174,7 @@ export function AgendaInboundRequestRow({
     onAcceptRide?.(request.id, vehicleId)
   }
 
-  const withdrawRideId =
-    rideEvent.rides.find(
-      (ride) =>
-        ride.status === "ACTIVE" &&
-        ride.drivingCircleId === circleId &&
-        ride.passengerRequestIds.includes(request.id),
-    )?.id ?? request.id
+  const withdrawable = withdrawablePreview
 
   return (
     <div
@@ -286,15 +283,20 @@ export function AgendaInboundRequestRow({
             </Button>
           ) : null}
           {canCantTakeThem ? (
-            <button
-              type="button"
-              data-testid="agenda-row-accepted-by-us-withdraw"
-              disabled={loading}
-              onClick={() => onWithdrawRide?.(withdrawRideId)}
-              className={revertLinkClassName}
-            >
-              {REVERT_INBOUND_CANT_TAKE_THEM}
-            </button>
+            withdrawable.map((ride) => (
+              <button
+                key={ride.id}
+                type="button"
+                data-testid="agenda-row-accepted-by-us-withdraw"
+                disabled={loading}
+                onClick={() => onWithdrawRide?.(ride.id)}
+                className={revertLinkClassName}
+              >
+                {withdrawable.length > 1
+                  ? `${rideLegActionLabel("Withdraw", ride.leg, withdrawable.length)} — ${REVERT_INBOUND_CANT_TAKE_THEM}`
+                  : REVERT_INBOUND_CANT_TAKE_THEM}
+              </button>
+            ))
           ) : null}
           {showSingleVehicleReconsider ? (
             <button

@@ -344,7 +344,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Web: `rideStatusChip` partial + covered/ask labels; Focus + AgendaRow
 - [x] Web: Hero (`HeroAttentionSlide` / carousel / Focus) Request + Accept all
       OPEN legs + per-Ride Cancel/Withdraw; queue keeps `PARTIAL`
-- [ ] Web: `AgendaRow` + `AgendaInboundRequestRow` parity with Hero Accept/
+- [x] Web: `AgendaRow` + `AgendaInboundRequestRow` parity with Hero Accept/
       Cancel/Withdraw; per-leg ride-line density
 - [ ] Web: `agendaWeekGlanceDays` remaining-gap uses `FULLY_COVERED` only
 - [ ] Web: `canRoute` TO-confirmed gate; ride-detail entry unchanged otherwise
