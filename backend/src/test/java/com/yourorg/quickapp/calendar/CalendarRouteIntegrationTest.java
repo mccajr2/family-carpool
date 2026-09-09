@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -235,6 +236,114 @@ class CalendarRouteIntegrationTest {
                         get("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void coverageLeaveFromNamedPlaceBecomesRouteOrigin() throws Exception {
+        String token = signIn("calendar-route-leave-from@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Mom's house\",\"address\":\"1 Main Street\"}"))
+                .andExpect(status().isCreated());
+        MvcResult schoolResult =
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\"School\",\"address\":\"2 School Rd\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String schoolId = JsonPath.read(schoolResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult circle =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String adultId = JsonPath.read(circle.getResponse().getContentAsString(), "$.members[0].adultId");
+
+        String venue = "Route LeaveFrom Rink " + java.util.UUID.randomUUID();
+        MvcResult eventResult =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"vs Thunder\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String eventId = JsonPath.read(eventResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult coverageResult =
+                mockMvc.perform(
+                                post("/api/family/circle/calendar/MANUAL/" + eventId + "/coverages")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"coveringAdultId\":\""
+                                                        + adultId
+                                                        + "\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.coverages[0].status").value("CONFIRMED"))
+                        .andReturn();
+        String assignmentId =
+                JsonPath.read(coverageResult.getResponse().getContentAsString(), "$.coverages[0].id");
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.stops[0].name").value("Mom's house"));
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/coverages/"
+                                        + assignmentId
+                                        + "/leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":\"" + schoolId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.coverages[0].leaveFromPlaceId").value(schoolId))
+                .andExpect(jsonPath("$.coverages[0].leaveFromPlaceName").value("School"));
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.stops[0].kind").value("home"))
+                .andExpect(jsonPath("$.stops[0].name").value("School"))
+                .andExpect(jsonPath("$.stops[0].address").value("2 School Rd"));
     }
 
     private String signIn(String email) throws Exception {

@@ -130,6 +130,7 @@ function calendarItem(
     eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "UNAVAILABLE",
     leaveByReason: "NO_ORIGIN",
@@ -2164,7 +2165,7 @@ detourMinutes: null,
 
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(focus).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(focus).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     const teamAsk = within(focus).getByRole("button", { name: "Ask the team for a ride" })
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
 
@@ -2686,6 +2687,7 @@ detourMinutes: null,
       kidIds: ["k1"],
       leaveFromPlaceId: "p1",
       leaveFromPlaceName: "Mom's house",
+      leaveFromAddress: null,
       leaveByAt: "2030-08-15T16:30:00.000Z",
       leaveByStatus: "OK",
       leaveByReason: null,
@@ -2785,6 +2787,7 @@ detourMinutes: null,
         kidIds: ["k1"],
         leaveFromPlaceId: "p2",
         leaveFromPlaceName: "Dad's house",
+        leaveFromAddress: null,
         leaveByAt: "2030-08-15T16:20:00.000Z",
         leaveByStatus: "OK",
         leaveByReason: null,
@@ -2832,6 +2835,8 @@ detourMinutes: null,
                 longitude: null,
               },
             ],
+            defaultLeaveFromPlaceId: "p1",
+            defaultLeaveFromPlaceName: "Mom's house",
           }),
           listCalendar: vi.fn().mockResolvedValue([
             earlierFocusDecoy(),
@@ -2844,6 +2849,7 @@ detourMinutes: null,
               kidIds: ["k1"],
               leaveFromPlaceId: "p1",
               leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
               leaveByAt: "2030-08-15T16:30:00.000Z",
               leaveByStatus: "OK",
               leaveByReason: null,
@@ -2862,9 +2868,8 @@ detourMinutes: null,
     await expandAgendaItem(user, item)
     const leaveBy = within(item).getByText(/^Leave by ~/)
     expect(leaveBy.textContent).toMatch(/^Leave by ~/)
-    expect(leaveBy.textContent).toMatch(/ · estimate$/)
+    expect(leaveBy.textContent).toMatch(/ · estimate, not live traffic$/)
     expect(leaveBy.textContent?.toLowerCase()).not.toMatch(/\beta\b/)
-    expect(leaveBy.textContent?.toLowerCase()).not.toContain("live traffic")
 
     const leaveFrom = within(item).getByLabelText("Leave from for Practice")
     expect(leaveFrom).toHaveValue("p1")
@@ -2874,9 +2879,450 @@ detourMinutes: null,
     await waitFor(() => {
       expect(setCalendarLeaveFrom).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
         leaveFromPlaceId: "p2",
+        leaveFromAddress: null,
       })
     })
     expect(leaveFrom).toHaveValue("p2")
+  })
+
+  it("writes coverage leave-from from expanded Agenda via setCoverageLeaveFrom", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(
+      calendarItem({
+        id: "e1",
+        source: "MANUAL",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        location: "Rink",
+        kidIds: ["k1"],
+        uncoveredKidIds: [],
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: "Jack's house",
+        leaveByAt: "2030-08-15T16:15:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: "Jack's house",
+            leaveByAt: "2030-08-15T16:15:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            earlierFocusDecoy(),
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          setCoverageLeaveFrom,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.selectOptions(
+      within(item).getByTestId("coverage-leave-from-cov1-place-select"),
+      "__one_time__",
+    )
+    await user.type(
+      within(item).getByTestId("coverage-leave-from-cov1-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(within(item).getByTestId("coverage-leave-from-cov1-one-time-input"))
+    await user.tab()
+
+    await waitFor(() => {
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: null,
+        leaveFromAddress: "Jack's house",
+      })
+    })
+  })
+
+  it("commits hero leave-from draft when Confirm coverage is pressed", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const confirmedItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1"],
+      leaveFromAddress: "Jack's house",
+      leaveByStatus: "OK",
+      leaveByAt: "2030-08-15T16:15:00.000Z",
+      leaveByReason: null,
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "2",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: "Jack's house",
+          leaveByAt: "2030-08-15T16:15:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    const confirmCalendarCoverage = vi.fn().mockResolvedValue(confirmedItem)
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(confirmedItem)
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Sam" },
+                { id: "k2", displayName: "Riley" },
+              ],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Field",
+              kidIds: ["k1", "k2"],
+              // Gap on Sam keeps this in the hero queue while Alex is PENDING for Riley.
+              uncoveredKidIds: ["k1"],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "2",
+                  kidIds: ["k2"],
+                  status: "PENDING",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          confirmCalendarCoverage,
+          setCoverageLeaveFrom,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Practice")
+    expect(within(slide).getByTestId("hero-attention-leave-from")).toBeInTheDocument()
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker-chip")).not.toBeInTheDocument()
+    await user.selectOptions(
+      within(slide).getByTestId("hero-leave-from-MANUAL-e1-place-select"),
+      "__one_time__",
+    )
+    await user.type(
+      within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"))
+    await user.tab()
+    expect(setCoverageLeaveFrom).not.toHaveBeenCalled()
+    await user.click(within(slide).getByTestId("hero-attention-confirm-coverage"))
+
+    await waitFor(() => {
+      expect(confirmCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: null,
+        leaveFromAddress: "Jack's house",
+      })
+    })
+  })
+
+  it("refetches Route after coverage leave-from changes the calendar item", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const updatedItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      location: "Rink",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      leaveFromPlaceId: "p2",
+      leaveFromPlaceName: "School",
+      leaveFromAddress: null,
+      leaveByAt: "2030-08-15T16:10:00.000Z",
+      leaveByStatus: "OK",
+      leaveByReason: null,
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: "p2",
+          leaveFromPlaceName: "School",
+          leaveFromAddress: null,
+          leaveByAt: "2030-08-15T16:10:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(updatedItem)
+    const getCalendarRoute = vi.fn().mockResolvedValue({
+      status: "OK",
+      reason: null,
+      bufferMinutes: 20,
+      stops: [
+        { name: "School", address: "2 School", kind: "home" },
+        { name: "Practice", address: "Rink", kind: "destination" },
+      ],
+      legMinutes: [10],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Mom's house",
+                  address: "1 Main",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+                {
+                  id: "p2",
+                  name: "School",
+                  address: "2 School",
+                  latitude: 40.2,
+                  longitude: -74.2,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Mom's house",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            earlierFocusDecoy(),
+            calendarItem({
+              id: "e1",
+              source: "MANUAL",
+              title: "Practice",
+              startsAt: "2030-08-15T17:00:00.000Z",
+              location: "Rink",
+              kidIds: ["k1"],
+              uncoveredKidIds: [],
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+              coverages: [
+                {
+                  id: "cov1",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: "Mom's house",
+                  leaveFromAddress: null,
+                  leaveByAt: "2030-08-15T16:30:00.000Z",
+                  leaveByStatus: "OK",
+                  leaveByReason: null,
+                },
+              ],
+            }),
+          ]),
+          setCoverageLeaveFrom,
+          getCalendarRoute,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
+    await expandAgendaItem(user, item)
+    await user.selectOptions(
+      within(item).getByTestId("coverage-leave-from-cov1-place-select"),
+      "p2",
+    )
+    await waitFor(() => {
+      expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
+        leaveFromPlaceId: "p2",
+        leaveFromAddress: null,
+      })
+    })
+
+    await user.click(within(item).getByTestId("agenda-row-open-ride"))
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "MANUAL", "e1")
+    expect(screen.getByTestId("ride-route-stop-School")).toBeInTheDocument()
   })
 
   it("shows UNAVAILABLE leave-by reasons with Open Places recovery only", async () => {
@@ -2959,10 +3405,10 @@ detourMinutes: null,
       user,
       within(agenda).getByTestId("agenda-item-FEED-e-feed"),
     )
-    expect(within(agenda).getByTestId("leave-by-MANUAL-e-dest")).toHaveTextContent(
+    expect(within(agenda).getByTestId("leave-from-MANUAL-e-dest-helper")).toHaveTextContent(
       "Add a location to estimate leave-by",
     )
-    expect(within(agenda).getByTestId("leave-by-FEED-e-feed")).toHaveTextContent(
+    expect(within(agenda).getByTestId("leave-from-FEED-e-feed-helper")).toHaveTextContent(
       "Couldn't locate the destination",
     )
 
@@ -3145,6 +3591,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3194,7 +3646,7 @@ detourMinutes: null,
     expect(within(carousel).getByText("· 2 things need you")).toBeInTheDocument()
 
     const firstSlide = heroSlideIn(agenda, "Sam needs a ride")
-    await user.click(within(firstSlide).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(firstSlide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3259,6 +3711,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k2"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3309,7 +3767,7 @@ detourMinutes: null,
     const secondSlide = heroSlideIn(agenda, "Riley needs a ride")
     expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
     await user.click(within(secondSlide).getByRole("button", { name: "Jordan" }))
-    await user.click(within(secondSlide).getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(within(secondSlide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e2", {
@@ -3357,6 +3815,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3394,7 +3858,7 @@ detourMinutes: null,
     expect(within(heroCarouselIn(agenda)).getByTestId("hero-attention-slide")).toBeInTheDocument()
 
     await user.click(
-      within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }),
+      within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm"),
     )
 
     await waitFor(() => {
@@ -3498,7 +3962,7 @@ detourMinutes: null,
     )
     expect(within(card).getByTestId("agenda-row-title")).toBeInTheDocument()
     expect(within(card).getByTestId("agenda-row-when")).toBeInTheDocument()
-    expect(within(card).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
     expect(within(card).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
   })
@@ -3691,6 +4155,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k2"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3740,7 +4210,7 @@ detourMinutes: null,
     expect(
       within(agenda).queryByLabelText("Cover Riley for Practice"),
     ).not.toBeInTheDocument()
-    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3801,6 +4271,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3835,7 +4311,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalled()
@@ -3885,6 +4361,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -3929,7 +4411,7 @@ detourMinutes: null,
 
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
-    await user.click(within(slide).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3967,6 +4449,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1", "k2"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4012,8 +4500,8 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     await user.click(within(slide).getByRole("button", { name: "Jordan" }))
-    expect(within(slide).getByRole("button", { name: "Ask Jordan to drive" })).toBeEnabled()
-    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeEnabled()
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4051,6 +4539,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4091,7 +4585,7 @@ detourMinutes: null,
     expect(
       within(agenda).queryByLabelText("Cover Sam for Practice"),
     ).not.toBeInTheDocument()
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4147,6 +4641,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k2"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4188,18 +4688,21 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    const rileyRow = within(item).getByTestId("agenda-kid-row-k2")
-    expect(within(rileyRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    await user.click(within(rileyRow).getByRole("button", { name: "Mark as going again" }))
+    expect(within(item).queryByTestId("agenda-kid-row-k2")).not.toBeInTheDocument()
+    await user.click(within(item).getByRole("button", { name: "Mark as going again" }))
     await waitFor(() => {
       expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k2", {
         status: "YES",
       })
     })
     await waitFor(() => {
+      expect(within(item).getByTestId("agenda-kid-row-k2")).toBeInTheDocument()
+    })
+    const rileyRow = within(item).getByTestId("agenda-kid-row-k2")
+    await waitFor(() => {
       expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
     })
-    await user.click(within(rileyRow).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(rileyRow).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4239,6 +4742,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4275,7 +4784,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalled()
@@ -4367,7 +4876,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4406,6 +4915,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4415,6 +4930,12 @@ detourMinutes: null,
         {
           ...baseItem.coverages[0],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4500,6 +5021,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4549,7 +5076,7 @@ detourMinutes: null,
       expect(removeCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
     })
     expect(within(heroSlideIn(agenda)).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     // List row stays expanded after revert — gap shows DriverPicker, no revert link.
     expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
     expect(
@@ -4581,6 +5108,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4594,6 +5127,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4729,6 +5268,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "PENDING",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -4850,6 +5395,12 @@ detourMinutes: null,
                   assignedByAdultId: "1",
                   kidIds: ["k1"],
                   status: "CONFIRMED",
+                leaveFromPlaceId: null,
+                leaveFromPlaceName: null,
+                leaveFromAddress: null,
+                leaveByAt: null,
+                leaveByStatus: null,
+                leaveByReason: null,
                 },
               ],
             }),
@@ -4865,33 +5416,28 @@ detourMinutes: null,
     const primary = within(item).getByTestId("agenda-band-primary")
     const kids = within(item).getByTestId("agenda-band-kids")
     const travel = within(item).getByTestId("agenda-band-travel")
-    const people = within(item).getByTestId("agenda-band-people")
 
     expect(primary.compareDocumentPosition(kids) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(kids.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(travel.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     expect(within(primary).getByText("Practice")).toBeInTheDocument()
     expect(within(primary).getByText(/Field/)).toBeInTheDocument()
-    expect(within(kids).getByText("You're driving")).toBeInTheDocument()
+    expect(within(kids).getByTestId("agenda-override-links")).toBeInTheDocument()
     expect(
       within(kids).getByRole("button", {
         name: "Can't drive anymore? Reassign the ride",
       }),
     ).toBeInTheDocument()
     expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
-    expect(within(travel).getByTestId("leave-by-MANUAL-e1")).toBeInTheDocument()
-    expect(within(travel).getByTestId("leave-from-label-MANUAL-e1")).toHaveTextContent(
-      "Mom's house",
-    )
-    expect(within(people).getByText("Manual")).toBeInTheDocument()
+    expect(within(travel).getByTestId("coverage-leave-from-cov1-place-select")).toHaveValue("p1")
+    expect(within(travel).queryByTestId("leave-from-MANUAL-e1-field-row")).not.toBeInTheDocument()
     expect(
       within(kids).getByRole("button", { name: "Mark Sam as not going" }),
     ).toBeInTheDocument()
 
     expect(within(item).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
     const manualActions = within(item).getByTestId("agenda-band-manual-actions")
-    expect(people.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(travel.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
     expect(within(manualActions).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
   })
@@ -4944,7 +5490,7 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeInTheDocument()
   })
 
   it("sets default leave-from from the Places screen", async () => {
@@ -5247,6 +5793,12 @@ detourMinutes: null,
             assignedByAdultId: "2",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
         uncoveredKidIds: [],
@@ -5302,6 +5854,12 @@ detourMinutes: null,
                   assignedByAdultId: "2",
                   kidIds: ["k1"],
                   status: "PENDING",
+                leaveFromPlaceId: null,
+                leaveFromPlaceName: null,
+                leaveFromAddress: null,
+                leaveByAt: null,
+                leaveByStatus: null,
+                leaveByReason: null,
                 },
               ],
               uncoveredKidIds: [],
@@ -5493,6 +6051,7 @@ detourMinutes: null,
         source: "MANUAL",
         leaveFromPlaceId: "p1",
         leaveFromPlaceName: "Mom's house",
+        leaveFromAddress: null,
         leaveByAt: "2030-08-15T16:30:00.000Z",
         leaveByStatus: "OK",
         leaveByReason: null,
@@ -5627,6 +6186,7 @@ detourMinutes: null,
           kidIds: ["k1"],
           leaveFromPlaceId: "p1",
           leaveFromPlaceName: "Home",
+          leaveFromAddress: null,
           leaveByAt: "2030-08-15T16:30:00.000Z",
           leaveByStatus: "OK",
           leaveByReason: null,
@@ -5684,6 +6244,7 @@ detourMinutes: null,
         source: "MANUAL",
         leaveFromPlaceId: "p1",
         leaveFromPlaceName: "Home",
+        leaveFromAddress: null,
         leaveByAt: "2030-08-15T16:10:00.000Z",
         leaveByStatus: "OK",
         leaveByReason: null,
@@ -5743,6 +6304,7 @@ detourMinutes: null,
           kidIds: ["k1"],
           leaveFromPlaceId: "p1",
           leaveFromPlaceName: "Home",
+          leaveFromAddress: null,
           leaveByAt: "2030-08-15T16:30:00.000Z",
           leaveByStatus: "OK",
           leaveByReason: null,
@@ -6153,6 +6715,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -6267,6 +6835,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -6473,6 +7047,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -6579,7 +7159,7 @@ detourMinutes: null,
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     expect(within(slide).getByText("Sam needs a ride")).toBeInTheDocument()
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeInTheDocument()
   })
 
   describe("weekly list focus sync", () => {
@@ -6763,6 +7343,12 @@ detourMinutes: null,
             assignedByAdultId: "1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       })
@@ -7173,6 +7759,12 @@ detourMinutes: null,
                     assignedByAdultId: "1",
                     kidIds: ["k1"],
                     status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
                   },
                 ],
               }),
@@ -7346,6 +7938,12 @@ detourMinutes: null,
                     assignedByAdultId: "1",
                     kidIds: ["k1"],
                     status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
                   },
                 ],
               }),
@@ -7694,6 +8292,12 @@ detourMinutes: null,
               assignedByAdultId: "1",
               kidIds: ["k1"],
               status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
             },
           ],
         }),
@@ -7766,7 +8370,7 @@ detourMinutes: null,
           name: "No longer need a ride? Cancel this ask",
         }),
       ).toBeInTheDocument()
-      await user.click(within(item).getByRole("button", { name: "Confirm I'll drive" }))
+      await user.click(within(item).getByTestId("driver-picker-confirm"))
       await waitFor(() => {
         expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "FEED", "e-assign-cancel", {
           coveringAdultId: "1",
@@ -7974,6 +8578,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -8035,7 +8645,10 @@ detourMinutes: null,
       "href",
       expect.stringContaining("google.com/maps/dir"),
     )
-    expect(screen.getByTestId("ride-route-map-placeholder")).toBeInTheDocument()
+    expect(
+      screen.queryByTestId("ride-route-map-placeholder") ??
+        screen.getByTestId("ride-route-map-embed"),
+    ).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-stops")).toBeInTheDocument()
     expect(screen.getByText("45 min early for games")).toBeInTheDocument()
     expect(getCalendarPlaylist).not.toHaveBeenCalled()
@@ -8097,6 +8710,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -8174,6 +8793,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })
@@ -8275,6 +8900,12 @@ detourMinutes: null,
           assignedByAdultId: "1",
           kidIds: ["k1"],
           status: "CONFIRMED",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+        leaveFromAddress: null,
+        leaveByAt: null,
+        leaveByStatus: null,
+        leaveByReason: null,
         },
       ],
     })

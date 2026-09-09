@@ -36,6 +36,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     eventKey: "UID:game1",
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,
@@ -425,8 +426,10 @@ describe("HeroAttentionSlide", () => {
     expect(within(slide).getByText("Most urgent")).toBeInTheDocument()
     expect(within(slide).queryByText(/things need you/)).not.toBeInTheDocument()
     expect(within(slide).getByText("Declan needs a ride")).toBeInTheDocument()
-    expect(within(slide).getByText(/Sharks · 2016\/2017 \(BILL\) vs Mass Admirals ·/)).toBeInTheDocument()
-    expect(within(slide).getByText("Allied Veterans Rink, Everett")).toBeInTheDocument()
+    expect(within(slide).getByTestId("hero-attention-when")).toBeInTheDocument()
+    expect(within(slide).getByTestId("hero-attention-where")).toHaveTextContent(
+      "Allied Veterans Rink, Everett",
+    )
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(slide).getByTestId("hero-attention-days-ring")).toHaveTextContent("DAY")
   })
@@ -454,8 +457,11 @@ describe("HeroAttentionSlide", () => {
     expect(within(slide).getByText("the Nguyens need a ride for Ben")).toBeInTheDocument()
     expect(within(slide).getByText(/Declan is already going/)).toBeInTheDocument()
     expect(within(slide).getByTestId("hero-attention-pickup-summary")).toHaveTextContent(
-      "Pickup in Cambridge, MA · ~4 min out of your way (On your way)",
+      "Pickup in Cambridge, MA",
     )
+    expect(
+      within(slide).getByTestId("hero-attention-pickup-summary-detour-pill"),
+    ).toHaveTextContent("~4 min out of your way")
 
     await user.click(within(slide).getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ride-1", "v1")
@@ -477,7 +483,7 @@ describe("HeroAttentionSlide", () => {
       name: "Accept",
     })
     expect(accept).toHaveStyle({
-      background: "var(--fc-hero-on)",
+      backgroundColor: "var(--fc-hero-on)",
       color: "var(--fc-hero-on-inverse)",
     })
   })

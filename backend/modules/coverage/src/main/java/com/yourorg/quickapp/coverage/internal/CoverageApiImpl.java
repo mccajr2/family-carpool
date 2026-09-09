@@ -8,6 +8,7 @@ import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
+import com.yourorg.quickapp.family.FamilyPlaceApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import java.time.Instant;
 import java.util.Collection;
@@ -25,18 +26,22 @@ class CoverageApiImpl implements CoverageApi {
 
     private static final Set<CoverageStatus> ACTIVE =
             Set.of(CoverageStatus.PENDING, CoverageStatus.CONFIRMED);
+    private static final int LEAVE_FROM_ADDRESS_MAX = 255;
 
     private final FamilyMembershipApi membershipApi;
+    private final FamilyPlaceApi placeApi;
     private final ManualEventCalendarApi manualEventCalendarApi;
     private final FeedCalendarApi feedCalendarApi;
     private final CoverageAssignmentRepository assignments;
 
     CoverageApiImpl(
             FamilyMembershipApi membershipApi,
+            FamilyPlaceApi placeApi,
             ManualEventCalendarApi manualEventCalendarApi,
             FeedCalendarApi feedCalendarApi,
             CoverageAssignmentRepository assignments) {
         this.membershipApi = membershipApi;
+        this.placeApi = placeApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
         this.feedCalendarApi = feedCalendarApi;
         this.assignments = assignments;
@@ -209,6 +214,50 @@ class CoverageApiImpl implements CoverageApi {
         }
     }
 
+    @Override
+    @Transactional
+    public CoverageAssignmentDto setLeaveFrom(
+            UUID actorAdultId,
+            UUID assignmentId,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress) {
+        UUID circleId = membershipApi.requireMemberCircleId(actorAdultId);
+        CoverageAssignmentEntity row = requireAssignmentInCircle(assignmentId, circleId);
+        if (!ACTIVE.contains(row.status())) {
+            throw new FamilyAccessException(
+                    HttpStatus.CONFLICT, "Leave-from can only be set on active coverage");
+        }
+
+        String trimmedAddress =
+                leaveFromAddress == null ? null : leaveFromAddress.trim();
+        if (trimmedAddress != null && trimmedAddress.isEmpty()) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "leaveFromAddress must be non-empty when set");
+        }
+        if (leaveFromPlaceId != null && trimmedAddress != null) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromPlaceId and leaveFromAddress are mutually exclusive");
+        }
+        if (trimmedAddress != null && trimmedAddress.length() > LEAVE_FROM_ADDRESS_MAX) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromAddress must be at most " + LEAVE_FROM_ADDRESS_MAX + " characters");
+        }
+
+        UUID placeId = null;
+        String address = null;
+        if (leaveFromPlaceId != null) {
+            placeApi.requireLocatedPlaceForMember(actorAdultId, leaveFromPlaceId);
+            placeId = leaveFromPlaceId;
+        } else if (trimmedAddress != null) {
+            address = trimmedAddress;
+        }
+
+        row.setLeaveFrom(placeId, address, Instant.now());
+        return toDto(assignments.save(row));
+    }
+
     private CoverageAssignmentDto respond(
             UUID actorAdultId, UUID assignmentId, CoverageStatus next) {
         UUID circleId = membershipApi.requireMemberCircleId(actorAdultId);
@@ -379,6 +428,8 @@ class CoverageApiImpl implements CoverageApi {
                 entity.assignedByAdultId(),
                 entity.kidIds().stream().sorted().toList(),
                 entity.status(),
+                entity.leaveFromPlaceId(),
+                entity.leaveFromAddress(),
                 entity.createdAt(),
                 entity.updatedAt());
     }

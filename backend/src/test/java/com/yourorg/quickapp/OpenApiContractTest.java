@@ -89,6 +89,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("operationId: listCircleCalendar");
         assertThat(yaml).contains("operationId: listCalendarLeaveBy");
         assertThat(yaml).contains("operationId: setCalendarLeaveFrom");
+        assertThat(yaml).contains("operationId: setCoverageLeaveFrom");
         assertThat(yaml).contains("operationId: setDefaultLeaveFrom");
         assertThat(yaml).contains("operationId: assignCalendarCoverage");
         assertThat(yaml).contains("operationId: reassignCalendarCoverage");
@@ -105,6 +106,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains(
                 "/api/family/circle/calendar/{source}/{itemId}/rsvps/{kidId}");
         assertThat(yaml).contains("/api/family/circle/calendar/coverages/{assignmentId}");
+        assertThat(yaml).contains(
+                "/api/family/circle/calendar/coverages/{assignmentId}/leave-from");
         assertThat(yaml).contains(
                 "/api/family/circle/calendar/coverages/{assignmentId}/confirm");
         assertThat(yaml).contains(
@@ -139,9 +142,12 @@ class OpenApiContractTest {
         assertThat(yaml).contains("ADULT_COVERAGE_OVERLAP");
         assertThat(yaml).contains("LeaveByStatus:");
         assertThat(yaml).contains("CalendarLeaveBy:");
+        assertThat(yaml).contains("CalendarCoverageLeaveBy:");
         assertThat(yaml).contains("listCalendarLeaveBy never");
         assertThat(yaml).contains("This list does **not** call Nominatim");
         assertThat(yaml).contains("SetCalendarLeaveFromRequest:");
+        assertThat(yaml).contains("leaveFromAddress:");
+        assertThat(yaml).contains("one-time");
         assertThat(yaml).contains("SetDefaultLeaveFromRequest:");
         assertThat(yaml).contains("CoverageStatus:");
         assertThat(yaml).contains("RsvpStatus:");
@@ -178,12 +184,13 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.24.0");
+        assertThat(yaml).contains("version: 0.25.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
         assertThat(yaml).contains("confirmed-ride multi-stop route");
+        assertThat(yaml).contains("resolved leave-from");
         assertThat(yaml).contains("operationId: getCalendarRoute");
         assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/route");
         assertThat(yaml).contains("CalendarRoute:");
@@ -235,7 +242,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.24.0");
+        assertThat(yaml).contains("version: 0.25.0");
     }
 
     @Test
@@ -292,7 +299,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.24.0");
+        assertThat(yaml).contains("version: 0.25.0");
     }
 
     @Test
@@ -342,7 +349,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Create does not change RSVP");
         assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that");
         assertThat(yaml).contains("Allowed even when the caller previously passed");
-        assertThat(yaml).contains("version: 0.24.0");
+        assertThat(yaml).contains("version: 0.25.0");
     }
 
     @Test

@@ -21,6 +21,7 @@ function item(
     eventKey: null,
     leaveFromPlaceId: "p1",
     leaveFromPlaceName: "Mom's house",
+    leaveFromAddress: null,
     leaveByAt: "2030-08-15T16:30:00.000Z",
     leaveByStatus: "OK",
     leaveByReason: null,
@@ -147,7 +148,7 @@ describe("AgendaFocusCard header chrome", () => {
     expect(screen.queryByText("Sam overlaps Other")).not.toBeInTheDocument()
   })
 
-  it("shows kids, destination, and leave-from on one meta line without form labels", () => {
+  it("shows kids and destination on one meta line without leave-from form labels", () => {
     renderCard(
       item({
         id: "meta",
@@ -155,7 +156,7 @@ describe("AgendaFocusCard header chrome", () => {
         uncoveredKidIds: ["k1"],
       }),
     )
-    expect(screen.getByText("Sam · Rink · Leaving from Mom's house")).toBeInTheDocument()
+    expect(screen.getByText("Sam · Rink")).toBeInTheDocument()
     expect(screen.queryByText("Leave from")).not.toBeInTheDocument()
     expect(screen.queryByText("Manual")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("RSVP for Sam on Practice")).not.toBeInTheDocument()
@@ -171,12 +172,62 @@ describe("AgendaFocusCard header chrome", () => {
         uncoveredKidIds: ["k1"],
       }),
     )
-    expect(
-      screen.getByText("Sam · 450 Huron Ave, Cambridge, MA 02138 · Leaving from Mom's house"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Sam · 450 Huron Ave, Cambridge, MA 02138")).toBeInTheDocument()
     const meta = screen.getByText(/450 Huron Ave, Cambridge/)
     expect(meta.className).not.toMatch(/truncate/)
     expect(meta.className).not.toMatch(/whitespace-nowrap/)
+  })
+
+  it("when covering, shows leave-from combobox with estimate and one-time option", async () => {
+    const user = userEvent.setup()
+    const onSetLeaveFrom = vi.fn()
+    renderCard(
+      item({
+        id: "covering",
+        title: "Practice",
+        uncoveredKidIds: [],
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: "Mom's house",
+        leaveFromAddress: null,
+        leaveByAt: "2030-08-15T16:20:00.000Z",
+        leaveByStatus: "OK",
+        leaveByReason: null,
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: "Mom's house",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T16:20:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onSetLeaveFrom },
+    )
+    expect(screen.getByTestId("agenda-focus-leave-from")).toBeInTheDocument()
+    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-helper").textContent).toMatch(
+      /^Leave from Mom's house · estimate /,
+    )
+    const select = screen.getByTestId("focus-leave-from-MANUAL-covering-place-select")
+    expect(select).toHaveValue("p1")
+    await user.selectOptions(select, "__one_time__")
+    await user.type(
+      screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"),
+      "Jack's house",
+    )
+    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"))
+    await user.tab()
+    expect(onSetLeaveFrom).toHaveBeenCalledWith({
+      leaveFromPlaceId: null,
+      leaveFromAddress: "Jack's house",
+    })
   })
 })
 
@@ -207,6 +258,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -241,6 +298,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -270,6 +333,12 @@ describe("AgendaFocusCard hero surface", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -312,7 +381,7 @@ describe("AgendaFocusCard assign", () => {
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "You" })).toHaveAttribute("aria-pressed", "true")
-    await user.click(screen.getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(screen.getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
@@ -441,6 +510,12 @@ describe("AgendaFocusCard change and remove coverage", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -477,6 +552,12 @@ describe("AgendaFocusCard change and remove coverage", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -641,6 +722,12 @@ detourMinutes: null,
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -671,6 +758,12 @@ detourMinutes: null,
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),
@@ -783,7 +876,7 @@ detourMinutes: null,
     expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
     expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
       backgroundColor: "var(--fc-hero-surface)",
     })
@@ -891,7 +984,7 @@ detourMinutes: null,
       },
     )
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
 })
@@ -1066,7 +1159,7 @@ describe("AgendaFocusCard Request CTA", () => {
     )
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Ask the team for a ride" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Ask the team for a ride" }))
@@ -1195,7 +1288,7 @@ detourMinutes: null,
       },
     )
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Ride needed")).toBeInTheDocument()
     expect(within(chips).queryByText("Riding with Sharks Family")).not.toBeInTheDocument()
@@ -1271,6 +1364,12 @@ detourMinutes: null,
             assignedByAdultId: "a2",
             kidIds: ["k1"],
             status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
           },
         ],
       }),

@@ -60,22 +60,6 @@ export function formatIsoForDisplay(iso: string): string {
   return `${day} at ${time}`
 }
 
-export function formatEventWhen(startsAt: string, endsAt: string | null | undefined): string {
-  const start = formatIsoForDisplay(startsAt)
-  if (endsAt) {
-    return `${start} → ${formatIsoForDisplay(endsAt)}`
-  }
-  return start
-}
-
-function formatFocusClock(iso: string): string | null {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-}
-
 function sameLocalDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -84,37 +68,75 @@ function sameLocalDay(a: Date, b: Date): boolean {
   )
 }
 
-function formatFocusDayPrefix(date: Date, now: Date): string {
-  if (sameLocalDay(date, now)) {
-    return ""
-  }
-  return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, `
+function formatMonthDay(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-/** Compact Focus when: `5:30 PM – 6:30 PM` today; date prefix when not today. */
-export function formatFocusEventWhen(
+type ClockParts = { hourMinute: string; period: string; withPeriod: string }
+
+function formatClockParts(date: Date): ClockParts | null {
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  const withPeriod = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  })
+  const match = withPeriod.match(/^(.+?)\s*([AP]M)$/i)
+  if (match == null) {
+    return { hourMinute: withPeriod, period: "", withPeriod }
+  }
+  return {
+    hourMinute: match[1]!.trim(),
+    period: match[2]!.toUpperCase(),
+    withPeriod: `${match[1]!.trim()} ${match[2]!.toUpperCase()}`,
+  }
+}
+
+/**
+ * Card datetime: `{Month} {day}, {start} – {end}` e.g. "Sep 9, 5:30 – 6:20 PM".
+ * Same calendar day drops the end date; multi-day shows both dates. When start
+ * and end share AM/PM on the same day, the meridian appears only on the end.
+ */
+export function formatCompactEventWhen(
   startsAt: string,
   endsAt: string | null | undefined,
-  now: Date = new Date(),
 ): string {
   const start = new Date(startsAt)
-  const startClock = formatFocusClock(startsAt)
+  const startClock = formatClockParts(start)
   if (!startClock) {
     return startsAt
   }
-  const startLabel = `${formatFocusDayPrefix(start, now)}${startClock}`
+  const day = formatMonthDay(start)
   if (!endsAt) {
-    return startLabel
+    return `${day}, ${startClock.withPeriod}`
   }
   const end = new Date(endsAt)
-  const endClock = formatFocusClock(endsAt)
+  const endClock = formatClockParts(end)
   if (!endClock) {
-    return startLabel
+    return `${day}, ${startClock.withPeriod}`
   }
-  const endLabel = sameLocalDay(start, end)
-    ? endClock
-    : `${formatFocusDayPrefix(end, now)}${endClock}`
-  return `${startLabel} – ${endLabel}`
+  if (!sameLocalDay(start, end)) {
+    return `${day}, ${startClock.withPeriod} – ${formatMonthDay(end)}, ${endClock.withPeriod}`
+  }
+  if (startClock.period && startClock.period === endClock.period) {
+    return `${day}, ${startClock.hourMinute} – ${endClock.withPeriod}`
+  }
+  return `${day}, ${startClock.withPeriod} – ${endClock.withPeriod}`
+}
+
+/** Agenda / ride cards — compact when (see {@link formatCompactEventWhen}). */
+export function formatEventWhen(startsAt: string, endsAt: string | null | undefined): string {
+  return formatCompactEventWhen(startsAt, endsAt)
+}
+
+/** @deprecated Prefer {@link formatCompactEventWhen}; kept for Focus call sites. */
+export function formatFocusEventWhen(
+  startsAt: string,
+  endsAt: string | null | undefined,
+  _now: Date = new Date(),
+): string {
+  return formatCompactEventWhen(startsAt, endsAt)
 }
 
 /** Calendar page subtitle: local today, e.g. "Wednesday, August 13" (no year). */

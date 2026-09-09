@@ -18,6 +18,7 @@ public record CalendarItemResponse(
         String eventKey,
         UUID leaveFromPlaceId,
         String leaveFromPlaceName,
+        String leaveFromAddress,
         Instant leaveByAt,
         LeaveByStatus leaveByStatus,
         String leaveByReason,

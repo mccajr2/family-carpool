@@ -13,5 +13,9 @@ public record CoverageAssignmentDto(
         UUID assignedByAdultId,
         List<UUID> kidIds,
         CoverageStatus status,
+        /** Named-place override; mutually exclusive with {@code leaveFromAddress}. */
+        UUID leaveFromPlaceId,
+        /** One-time address override; mutually exclusive with {@code leaveFromPlaceId}. */
+        String leaveFromAddress,
         Instant createdAt,
         Instant updatedAt) {}

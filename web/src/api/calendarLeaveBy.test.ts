@@ -22,6 +22,7 @@ function item(
     eventKey: null,
     leaveFromPlaceId: "p1",
     leaveFromPlaceName: "Home",
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,
@@ -171,15 +172,18 @@ describe("applyLeaveByFillIn", () => {
         source: "MANUAL",
         leaveFromPlaceId: "p1",
         leaveFromPlaceName: "Home",
+        leaveFromAddress: null,
         leaveByAt: "2026-08-15T16:20:00.000Z",
         leaveByStatus: "OK",
         leaveByReason: null,
+        coverages: [],
       },
       {
         id: "missing",
         source: "MANUAL",
         leaveByStatus: "OK",
         leaveByAt: "2026-08-15T16:00:00.000Z",
+        coverages: [],
       },
     ]
     const next = applyLeaveByFillIn(items, rows)

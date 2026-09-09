@@ -53,6 +53,11 @@ export function waitingOnDriverLabel(driver: string): string {
   return `Waiting on ${driver}`
 }
 
+/** Cancel a pending household assign to another adult. */
+export function cancelRequestToDriverLabel(driver: string): string {
+  return `Cancel request to ${driver}`
+}
+
 export function carpoolAskCountLabel(count: number): string {
   return count === 1 ? CARPOOL_ASK_SINGULAR : `${count} carpool asks`
 }
@@ -60,6 +65,26 @@ export function carpoolAskCountLabel(count: number): string {
 export function askMemberToDriveLabel(name: string): string {
   return `Ask ${name} to drive`
 }
+
+/** Dynamic Confirm CTA: "Confirm — you'll drive from Home". */
+export function confirmDriveFromLabel(options: {
+  selectedAdultId: string
+  members: { adultId: string; displayName: string | null }[]
+  currentAdultId: string
+  leaveFromLabel: string
+}): string {
+  const origin = options.leaveFromLabel.trim() || "the address you enter"
+  if (options.selectedAdultId === options.currentAdultId) {
+    return `Confirm — you'll drive from ${origin}`
+  }
+  const member = options.members.find((row) => row.adultId === options.selectedAdultId)
+  const name = member?.displayName?.trim() || "them"
+  const first = name.split(/\s+/)[0] ?? name
+  return `Confirm — ${first} will drive from ${origin}`
+}
+
+/** One-time leave-from still empty in the draft field. */
+export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 
 export function kidNeedsRideTitle(kidFirstName: string): string {
   return `${kidFirstName} needs a ride`
@@ -150,6 +175,7 @@ export const REVERT_INBOUND_CANT_TAKE_THEM = "Can't take them anymore" as const
 export const REVERT_INBOUND_RECONSIDER = "Reconsider" as const
 export const REVERT_INBOUND_UNDO = "Undo" as const
 export const REVERT_CANCEL_TEAM_ASK = "No longer need a ride? Cancel this ask" as const
+export const REASSIGN_THE_RIDE = "Reassign the ride" as const
 export const REVERT_REASSIGN_YOU = "Can't drive anymore? Reassign the ride" as const
 
 export function revertOtherDriverLabel(driver: string): string {

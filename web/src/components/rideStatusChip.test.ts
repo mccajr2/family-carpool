@@ -82,6 +82,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,

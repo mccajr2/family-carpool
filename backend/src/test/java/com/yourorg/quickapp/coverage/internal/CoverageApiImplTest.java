@@ -16,6 +16,7 @@ import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
+import com.yourorg.quickapp.family.FamilyPlaceApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import java.time.Instant;
 import java.util.List;
@@ -35,6 +36,9 @@ class CoverageApiImplTest {
 
     @Mock
     private FamilyMembershipApi membershipApi;
+
+    @Mock
+    private FamilyPlaceApi placeApi;
 
     @Mock
     private ManualEventCalendarApi manualEventCalendarApi;
@@ -58,7 +62,11 @@ class CoverageApiImplTest {
     void setUp() {
         api =
                 new CoverageApiImpl(
-                        membershipApi, manualEventCalendarApi, feedCalendarApi, assignments);
+                        membershipApi,
+                        placeApi,
+                        manualEventCalendarApi,
+                        feedCalendarApi,
+                        assignments);
         lenient()
                 .when(assignments.findByCircleIdAndCoveringAdultIdAndStatus(any(), any(), any()))
                 .thenReturn(List.of());
@@ -91,6 +99,8 @@ class CoverageApiImplTest {
         assertThat(result.status()).isEqualTo(CoverageStatus.CONFIRMED);
         assertThat(result.coveringAdultId()).isEqualTo(actorId);
         assertThat(result.kidIds()).containsExactlyInAnyOrder(kidA, kidB);
+        assertThat(result.leaveFromPlaceId()).isNull();
+        assertThat(result.leaveFromAddress()).isNull();
         verify(membershipApi).requireAdultInCircle(circleId, actorId);
         verify(membershipApi).requireKidsInCircle(eq(circleId), any());
     }
@@ -591,6 +601,195 @@ class CoverageApiImplTest {
                         eq(Set.of(CoverageStatus.PENDING, CoverageStatus.CONFIRMED)));
         verify(assignments, never()).save(any());
         verify(assignments, never()).delete(any());
+    }
+
+    @Test
+    void setLeaveFromNamedPlaceByAnyMember() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID placeId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        otherAdultId,
+                        otherAdultId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CoverageAssignmentDto result = api.setLeaveFrom(actorId, assignmentId, placeId, null);
+
+        assertThat(result.leaveFromPlaceId()).isEqualTo(placeId);
+        assertThat(result.leaveFromAddress()).isNull();
+        verify(placeApi).requireLocatedPlaceForMember(actorId, placeId);
+        ArgumentCaptor<CoverageAssignmentEntity> saved =
+                ArgumentCaptor.forClass(CoverageAssignmentEntity.class);
+        verify(assignments).save(saved.capture());
+        assertThat(saved.getValue().leaveFromPlaceId()).isEqualTo(placeId);
+        assertThat(saved.getValue().leaveFromAddress()).isNull();
+    }
+
+    @Test
+    void setLeaveFromOneTimeAddressTrims() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.PENDING,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CoverageAssignmentDto result =
+                api.setLeaveFrom(actorId, assignmentId, null, "  Jack's house  ");
+
+        assertThat(result.leaveFromPlaceId()).isNull();
+        assertThat(result.leaveFromAddress()).isEqualTo("Jack's house");
+        verify(placeApi, never()).requireLocatedPlaceForMember(any(), any());
+    }
+
+    @Test
+    void setLeaveFromClearToDefault() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        row.setLeaveFrom(UUID.randomUUID(), null, Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+        when(assignments.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CoverageAssignmentDto result = api.setLeaveFrom(actorId, assignmentId, null, null);
+
+        assertThat(result.leaveFromPlaceId()).isNull();
+        assertThat(result.leaveFromAddress()).isNull();
+    }
+
+    @Test
+    void setLeaveFromRejectsPlaceAndAddressTogether() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(
+                        () ->
+                                api.setLeaveFrom(
+                                        actorId, assignmentId, UUID.randomUUID(), "playground"))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(assignments, never()).save(any());
+        verify(placeApi, never()).requireLocatedPlaceForMember(any(), any());
+    }
+
+    @Test
+    void setLeaveFromRejectsBlankAddress() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(() -> api.setLeaveFrom(actorId, assignmentId, null, "   "))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void setLeaveFromRejectsDeclinedAssignment() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        circleId,
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.DECLINED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(() -> api.setLeaveFrom(actorId, assignmentId, null, "playground"))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.CONFLICT);
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void setLeaveFromNotFoundOutsideCircle() {
+        UUID assignmentId = UUID.randomUUID();
+        CoverageAssignmentEntity row =
+                new CoverageAssignmentEntity(
+                        assignmentId,
+                        UUID.randomUUID(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        actorId,
+                        actorId,
+                        CoverageStatus.CONFIRMED,
+                        Set.of(kidA),
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(actorId)).thenReturn(circleId);
+        when(assignments.findById(assignmentId)).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(() -> api.setLeaveFrom(actorId, assignmentId, null, "playground"))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        verify(assignments, never()).save(any());
     }
 
     private void stubManualItem(List<UUID> kidIds) {

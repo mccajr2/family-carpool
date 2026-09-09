@@ -118,9 +118,12 @@ describe("CarpoolSpaceRides pass", () => {
       />,
     )
 
-    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
-      "Pickup in Cambridge, MA · ~4 min out of your way (On your way)",
-    )
+    const pickup = screen.getByTestId("pickup-line")
+    expect(pickup).toHaveTextContent("Pickup in Cambridge, MA")
+    expect(pickup).toHaveTextContent("~4 min out of your way")
+    expect(screen.getByTestId("pickup-line-detour-pill")).toHaveStyle({
+      color: "var(--fc-detour-on-way)",
+    })
   })
 
   it("still offers Accept after the caller has passed, without Pass or un-pass", () => {

@@ -26,6 +26,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     eventKey: "UID:game",
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,
@@ -48,7 +49,7 @@ describe("heroAttentionCopy", () => {
     const item = calendarItem({ source: "FEED", feedName: "Sharks · 2016/2017 (BILL)" })
     const line = heroEventContextLine(item, new Date("2030-08-15T12:00:00.000Z"))
     expect(line).toContain("Sharks · 2016/2017 (BILL) vs Rhode Island Junior Blues ·")
-    expect(line).toMatch(/\d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M/)
+    expect(line).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} – \d{1,2}:\d{2} [AP]M/)
   })
 
   it("builds request title with circle and kid names", () => {

@@ -43,6 +43,12 @@ describe("DriverPicker helpers", () => {
   it("builds confirm labels for self vs other adult", () => {
     expect(confirmDriverLabel("a1", members, "a1")).toBe("Confirm I'll drive")
     expect(confirmDriverLabel("a2", members, "a1")).toBe("Ask Jordan to drive")
+    expect(confirmDriverLabel("a1", members, "a1", "Home")).toBe(
+      "Confirm — you'll drive from Home",
+    )
+    expect(confirmDriverLabel("a2", members, "a1", "Work")).toBe(
+      "Confirm — Jordan will drive from Work",
+    )
   })
 })
 
@@ -104,6 +110,7 @@ describe("DriverPicker", () => {
     expect(householdSection).toContainElement(
       screen.getByTestId("driver-picker-confirm"),
     )
+    expect(screen.getByTestId("driver-picker-driver-label")).toHaveTextContent("Driver")
     expect(teamSection).not.toContainElement(screen.getByRole("button", { name: "You" }))
     expect(teamSection.className).toMatch(/border-t/)
     expect(teamSection.className).toMatch(/mt-\[var\(--fc-space-md\)\]/)
@@ -168,23 +175,21 @@ describe("DriverPicker hero styling", () => {
     const jordanChip = screen.getByRole("button", { name: "Jordan" })
     expect(youChip).toHaveAttribute("data-selected", "true")
     expect(youChip).toHaveStyle({
-      background: "var(--fc-hero-on)",
+      backgroundColor: "var(--fc-hero-on)",
       color: "var(--fc-hero-on-inverse)",
     })
     expect(youChip.className).toMatch(/focus-visible:ring-2/)
     expect(jordanChip).toHaveAttribute("data-selected", "false")
-    expect(jordanChip).toHaveStyle({
-      background: "rgba(255, 255, 255, 0.1)",
-      color: "var(--fc-hero-on)",
-    })
+    expect(jordanChip).toHaveStyle({ color: "var(--fc-hero-on)" })
+    expect(jordanChip.getAttribute("style") ?? "").toMatch(/transparent/)
 
     expect(screen.getByTestId("driver-picker-confirm")).toHaveStyle({
-      background: "var(--fc-hero-on)",
+      backgroundColor: "var(--fc-hero-on)",
       color: "var(--fc-hero-on-inverse)",
     })
   })
 
-  it("separates the team ask with a divider and ghost button on hero", () => {
+  it("separates the team ask with a divider and outline button on hero", () => {
     render(<DriverPicker {...defaultProps} hero />)
 
     const householdSection = screen.getByTestId("driver-picker-household-section")
@@ -195,9 +200,11 @@ describe("DriverPicker hero styling", () => {
     expect(teamSection.className).toMatch(/mt-\[var\(--fc-space-lg\)\]/)
     expect(teamSection).toHaveStyle({ borderColor: "rgba(255, 255, 255, 0.14)" })
     expect(screen.getByTestId("driver-picker-team-ask")).toHaveStyle({
-      background: "var(--fc-hero-decline-bg)",
       color: "var(--fc-hero-on)",
     })
+    expect(screen.getByTestId("driver-picker-team-ask").getAttribute("style") ?? "").toMatch(
+      /transparent/,
+    )
   })
 
   it("disables hero actions while loading", () => {

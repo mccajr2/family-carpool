@@ -342,6 +342,115 @@ class LeaveByCalendarIntegrationTest {
         assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoAfterMiss + 1);
     }
 
+    @Test
+    void coverageAndOneTimeLeaveFromWireThroughCalendar() throws Exception {
+        String token = signIn("leaveby-coverage@example.com");
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Home\",\"address\":\"1 Main Street\"}"))
+                .andExpect(status().isCreated());
+
+        String venue = "Coverage Rink " + java.util.UUID.randomUUID();
+        MvcResult eventResult =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Practice\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String eventId = JsonPath.read(eventResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult circleResult =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String adultId =
+                JsonPath.read(circleResult.getResponse().getContentAsString(), "$.members[0].adultId");
+
+        MvcResult assignResult =
+                mockMvc.perform(
+                                post("/api/family/circle/calendar/MANUAL/" + eventId + "/coverages")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"coveringAdultId\":\""
+                                                        + adultId
+                                                        + "\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.coverages[0].status").value("CONFIRMED"))
+                        .andExpect(jsonPath("$.coverages[0].leaveFromPlaceId").isNotEmpty())
+                        .andExpect(jsonPath("$.coverages[0].leaveFromPlaceName").value("Home"))
+                        .andReturn();
+        String assignmentId =
+                JsonPath.read(assignResult.getResponse().getContentAsString(), "$.coverages[0].id");
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/coverages/"
+                                        + assignmentId
+                                        + "/leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromAddress\":\"Jack's house\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveFromAddress").value("Jack's house"))
+                .andExpect(jsonPath("$.coverages[0].leaveFromAddress").value("Jack's house"))
+                .andExpect(jsonPath("$.leaveByStatus").value("OK"));
+
+        int geoAfterMutation = stubGeocoder.httpCallCount();
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].coverages[0].leaveFromAddress").value("Jack's house"));
+        // One-time origin already geocoded on mutation; cheap list must not call Nominatim again.
+        assertThat(stubGeocoder.httpCallCount()).isEqualTo(geoAfterMutation);
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromAddress\":\"playground lot\"}"))
+                .andExpect(status().isOk());
+        // Item override is ignored while covering — coverage origin still wins
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].leaveFromAddress").value("Jack's house"))
+                .andExpect(jsonPath("$[0].coverages[0].leaveFromAddress").value("Jack's house"));
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

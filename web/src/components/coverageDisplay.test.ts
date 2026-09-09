@@ -51,6 +51,12 @@ function coverage(
     assignedByAdultId: "a1",
     kidIds: ["k1"],
     status: "PENDING",
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveFromAddress: null,
+    leaveByAt: null,
+    leaveByStatus: null,
+    leaveByReason: null,
     ...partial,
   }
 }
@@ -69,6 +75,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "PENDING",
     leaveByReason: null,

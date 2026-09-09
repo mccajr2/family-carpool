@@ -61,6 +61,29 @@ for this slice: `surfaceRaised`, `border`, `radius.md`, `danger`/`success`/
 `accent` (themed, not `hero*` — flat rows follow the page theme normally;
 only the Focus card uses the theme-independent `hero*` surface).
 
+## Ride cards cleanup (2026-09)
+
+Reference: active spec `docs/specs/active/ride-cards-cleanup.md` (Hero + Agenda
+GameCard polish on the leave-from branch). Conventions that apply to **all**
+Calendar ride cards, not only the two named surfaces:
+
+1. **One instance per fact** — who’s driving, leave-by, going/not-going each
+   render once per card (header chip wins over body restatement).
+2. **Pending → one dynamic primary confirm; confirmed → quiet overrides** —
+   editable driver / leave-from + `Confirm — {driver} from {origin}`; settled
+   rides use text links (reassign, mark not going, can’t take them anymore).
+   Pending inbound carpool asks are the same bucket: **Accept / Pass stay
+   primary CTAs** (nothing decided yet) — do not demote them to override links.
+3. **Leave-from** — saved places + “One-time address…” with inline text input
+   under the select (no duplicate “Leave from {place}” label above the control).
+4. **Datetime / location** — compact `{Month} {day}, {start} – {end}`; location
+   is map-pin + `locationLine` (13px) secondary text.
+5. **Detour pills** — v6 mock bands via shared `pickupTone`: 0–10 success
+   (“On your way”), 11–20 warning (“Bit of a detour”), 21+ danger
+   (“Far out of the way”).
+6. **Collapsed cards** — key actions reachable in the header as icon-only
+   (e.g. Route) **in addition to** the labeled control when expanded.
+
 ## Explicitly still out of scope
 
 - Carpool multi-stop screen, Family/Places/Garage/Feeds redesign — separate

@@ -254,6 +254,7 @@ enum UiTokens {
         static let listRowTeam = TypeScale(size: 12, lineHeight: 16, weight: "700")
         static let listRowTitle = TypeScale(size: 18, lineHeight: 22, weight: "700")
         static let listRowMeta = TypeScale(size: 14, lineHeight: 20, weight: "400")
+        static let locationLine = TypeScale(size: 13, lineHeight: 18, weight: "400")
         static let page = TypeScale(size: 34, lineHeight: 40, weight: "700")
         static let subtitle = TypeScale(size: 14, lineHeight: 20, weight: "500")
         static let feedName = TypeScale(size: 16.5, lineHeight: 22, weight: "700")

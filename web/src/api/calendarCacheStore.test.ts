@@ -43,6 +43,7 @@ function item(partial: Partial<CalendarItem> & Pick<CalendarItem, "id" | "title"
     eventKey: null,
     leaveFromPlaceId: null,
     leaveFromPlaceName: null,
+    leaveFromAddress: null,
     leaveByAt: null,
     leaveByStatus: "UNAVAILABLE",
     leaveByReason: "NO_ORIGIN",

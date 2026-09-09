@@ -14,9 +14,12 @@ import {
   RIDE_NEEDED,
   WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
   WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
+  confirmDriveFromLabel,
+  cancelRequestToDriverLabel,
   markAsGoingAgainLabel,
   markAsNotGoingLabel,
   needsCoverageWithKids,
+  waitingOnDriverLabel,
   weekGlanceCountCopy,
 } from "@/components/coverageCopy"
 
@@ -29,6 +32,34 @@ describe("coverageCopy", () => {
     expect(CONFIRM_YOU_WILL_DRIVE).toBe("Confirm you'll drive")
     expect(ATTENDANCE_NOT_GOING_CHIP).toBe("Not going")
     expect(HERO_ON_INVERSE).toBe("var(--fc-hero-on-inverse)")
+  })
+
+  it("builds dynamic Confirm — drive from labels", () => {
+    const members = [
+      { adultId: "a1", displayName: "Alex" },
+      { adultId: "a2", displayName: "Katy Smith" },
+    ]
+    expect(
+      confirmDriveFromLabel({
+        selectedAdultId: "a1",
+        members,
+        currentAdultId: "a1",
+        leaveFromLabel: "Home",
+      }),
+    ).toBe("Confirm — you'll drive from Home")
+    expect(
+      confirmDriveFromLabel({
+        selectedAdultId: "a2",
+        members,
+        currentAdultId: "a1",
+        leaveFromLabel: "",
+      }),
+    ).toBe("Confirm — Katy will drive from the address you enter")
+  })
+
+  it("names cancel-request and waiting-on copy for pending household drivers", () => {
+    expect(cancelRequestToDriverLabel("Katy")).toBe("Cancel request to Katy")
+    expect(waitingOnDriverLabel("Katy")).toBe("Waiting on Katy")
   })
 
   it("unifies ride gap and team-ask chip labels", () => {

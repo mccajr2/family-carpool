@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react"
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage } from "@/api/types"
+import type {
+  CalendarItem,
+  CarpoolRideEvent,
+  FamilyCircle,
+  Garage,
+  SetCalendarLeaveFromRequest,
+} from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import { focusLeaveFromEstimateLine } from "@/components/leaveFromDisplay"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
@@ -15,6 +23,7 @@ import {
 } from "@/components/carpoolDisplay"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
+  activeCoverageForAdult,
   activeCoverages,
   coverageAdultLabel,
   eventKidNames,
@@ -57,6 +66,8 @@ type AgendaFocusCardProps = {
   onWithdrawRide?: (rideId: string) => void
   onOpenPlaces: () => void
   onEdit: () => void
+  /** Item or coverage leave-from write (Focus subtle override). */
+  onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
 }
 
 /** Matches design-tokens spacing.focusRing (88) and focusRingStroke (6). */
@@ -81,8 +92,7 @@ function focusMetaLine(item: CalendarItem, circle: FamilyCircle): string | null 
   if (kids) segments.push(kids)
   const destination = item.location?.trim()
   if (destination) segments.push(destination)
-  const origin = item.leaveFromPlaceName?.trim()
-  if (origin) segments.push(`Leaving from ${origin}`)
+  // Leave-from / leave-by move to the subtle override band when covering.
   return segments.length > 0 ? segments.join(" · ") : null
 }
 
@@ -90,10 +100,11 @@ function focusMetaLine(item: CalendarItem, circle: FamilyCircle): string | null 
  * Exactly one item at a time renders this way — selection logic lives in
  * agendaFocusSelection.ts. See docs/agenda-focus-card-addendum.md.
  *
- * Spotlight summary + one next action. Leave-from, RSVP, coverage kid-subset,
- * and Remove event stay on expanded AgendaRow (or Edit dialog for manual
- * Remove). Change/remove coverage stay on Focus — the promoted item is not
- * in the day list. Same assign/confirm/reassign/remove handlers as a row.
+ * Spotlight summary + one next action. When covering: calm leave-from /
+ * estimate + subtle override (not a full Agenda field-row). RSVP, coverage
+ * kid-subset, and Remove event stay on expanded AgendaRow (or Edit for
+ * manual Remove). Change/remove coverage stay on Focus — the promoted item
+ * is not in the day list.
  */
 export function AgendaFocusCard({
   item,
@@ -117,6 +128,7 @@ export function AgendaFocusCard({
   onWithdrawRide,
   onOpenPlaces,
   onEdit,
+  onSetLeaveFrom,
 }: AgendaFocusCardProps) {
   const [acceptVehicleId, setAcceptVehicleId] = useState("")
   const isManual = item.source === "MANUAL"
@@ -135,6 +147,7 @@ export function AgendaFocusCard({
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
+  const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const statusChips = useMemo(() => {
     const games = mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -261,6 +274,43 @@ export function AgendaFocusCard({
             >
               {metaLine}
             </span>
+          ) : null}
+          {onSetLeaveFrom != null &&
+          (selfCoverage != null || pendingForSelf != null || showAssign) ? (
+            <div
+              className="mt-[var(--fc-space-sm)]"
+              style={{ color: onSecondaryVar }}
+              data-testid="agenda-focus-leave-from"
+            >
+              <LeaveFromControls
+                variant="subtle"
+                value={{
+                  leaveFromPlaceId: item.leaveFromPlaceId,
+                  leaveFromPlaceName: item.leaveFromPlaceName,
+                  leaveFromAddress: item.leaveFromAddress,
+                }}
+                circle={circle}
+                loading={loading}
+                ariaLabel={`Leave from for ${item.title}`}
+                helperLine={
+                  selfCoverage != null
+                    ? focusLeaveFromEstimateLine(
+                        {
+                          leaveFromPlaceId: item.leaveFromPlaceId,
+                          leaveFromPlaceName: item.leaveFromPlaceName,
+                          leaveFromAddress: item.leaveFromAddress,
+                          leaveByAt: item.leaveByAt,
+                          leaveByStatus: item.leaveByStatus,
+                          leaveByReason: item.leaveByReason,
+                        },
+                        circle,
+                      )
+                    : null
+                }
+                onChange={onSetLeaveFrom}
+                testIdPrefix={`focus-leave-from-${item.source}-${item.id}`}
+              />
+            </div>
           ) : null}
           {statusChips.length > 0 ? (
             <div

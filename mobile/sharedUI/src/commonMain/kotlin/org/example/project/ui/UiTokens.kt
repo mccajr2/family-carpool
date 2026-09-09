@@ -247,6 +247,7 @@ object UiTokens {
         val listRowTeam = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
         val listRowTitle = TypeScale(size = 18f, lineHeight = 22f, weight = "700")
         val listRowMeta = TypeScale(size = 14f, lineHeight = 20f, weight = "400")
+        val locationLine = TypeScale(size = 13f, lineHeight = 18f, weight = "400")
         val page = TypeScale(size = 34f, lineHeight = 40f, weight = "700")
         val subtitle = TypeScale(size = 14f, lineHeight = 20f, weight = "500")
         val feedName = TypeScale(size = 16.5f, lineHeight = 22f, weight = "700")

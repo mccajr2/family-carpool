@@ -10,6 +10,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yourorg.quickapp.coverage.CoverageApi;
+import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
+import com.yourorg.quickapp.coverage.CoverageItemSource;
+import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.CirclePlaceDto;
@@ -55,6 +59,9 @@ class LeaveByApiImplTest {
     private FamilyGeocodeApi geocodeApi;
 
     @Mock
+    private CoverageApi coverageApi;
+
+    @Mock
     private ManualEventCalendarApi manualEventCalendarApi;
 
     @Mock
@@ -91,6 +98,7 @@ class LeaveByApiImplTest {
                         membershipApi,
                         placeApi,
                         geocodeApi,
+                        coverageApi,
                         manualEventCalendarApi,
                         feedCalendarApi,
                         leaveFromRepository,
@@ -99,8 +107,16 @@ class LeaveByApiImplTest {
                         osrmPort,
                         properties);
         lenient()
+                .when(membershipApi.requireMemberCircleId(any()))
+                .thenReturn(circleId);
+        lenient().when(coverageApi.listForItem(any(), any(), any())).thenReturn(List.of());
+        lenient()
+                .when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(any(), any(), any()))
+                .thenReturn(Optional.empty());
+        lenient()
                 .when(placeApi.findDefaultLeaveFromForMember(any()))
                 .thenReturn(Optional.empty());
+        lenient().when(placeApi.findPlaceForMember(adultId, placeId)).thenReturn(Optional.of(locatedPlace));
         lenient().when(routeCacheRepository.findById(any())).thenReturn(Optional.empty());
         lenient()
                 .when(routeCacheRepository.save(any()))
@@ -269,6 +285,7 @@ class LeaveByApiImplTest {
                                         LeaveByItemSource.MANUAL,
                                         itemId,
                                         workId,
+                                        null,
                                         Instant.parse("2026-08-01T00:00:00Z"),
                                         Instant.parse("2026-08-01T00:00:00Z"))));
         when(placeApi.findPlaceForMember(adultId, workId)).thenReturn(Optional.of(work));
@@ -307,23 +324,23 @@ class LeaveByApiImplTest {
                         adultId, LeaveByItemSource.MANUAL, itemId))
                 .thenReturn(Optional.empty());
 
-        api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, placeId);
+        api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, placeId, null);
 
         verify(leaveFromRepository).save(any(CalendarLeaveFromEntity.class));
     }
 
     @Test
     void setLeaveFromUnknownItemIsNotFound() {
-        when(placeApi.requireLocatedPlaceForMember(adultId, placeId)).thenReturn(locatedPlace);
         when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
         when(manualEventCalendarApi.findInCircle(circleId, itemId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(
-                        () -> api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, placeId))
+                        () -> api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, placeId, null))
                 .isInstanceOf(FamilyAccessException.class)
                 .extracting(ex -> ((FamilyAccessException) ex).status())
                 .isEqualTo(HttpStatus.NOT_FOUND);
         verify(leaveFromRepository, never()).save(any());
+        verify(placeApi, never()).requireLocatedPlaceForMember(any(), any());
     }
 
     @Test
@@ -965,6 +982,244 @@ class LeaveByApiImplTest {
     void invalidateCalendarRoutesForDrivingAdultDeletesAllItems() {
         api.invalidateCalendarRoutesForDrivingAdult(adultId);
         verify(itineraryRepository).deleteByDrivingAdultId(adultId);
+    }
+
+    @Test
+    void enrichMirrorsActiveCoverageLeaveFromOverItemOverride() {
+        UUID coveragePlaceId = UUID.randomUUID();
+        CirclePlaceDto coveragePlace =
+                new CirclePlaceDto(coveragePlaceId, circleId, "School", "2 School", 43.0, -73.0);
+        UUID itemOverridePlaceId = UUID.randomUUID();
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.MANUAL,
+                                        itemId,
+                                        adultId,
+                                        adultId,
+                                        List.of(UUID.randomUUID()),
+                                        CoverageStatus.CONFIRMED,
+                                        coveragePlaceId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(placeApi.findPlaceForMember(adultId, coveragePlaceId))
+                .thenReturn(Optional.of(coveragePlace));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(43.0, -73.0, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+
+        LeaveByEnrichmentDto result =
+                api.enrich(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T14:00:00Z"),
+                        "Rink");
+
+        assertThat(result.leaveFromPlaceId()).isEqualTo(coveragePlaceId);
+        assertThat(result.leaveFromPlaceName()).isEqualTo("School");
+        verify(leaveFromRepository, never())
+                .findByAdultIdAndItemSourceAndItemId(any(), any(), any());
+        verify(placeApi, never()).findPlaceForMember(adultId, itemOverridePlaceId);
+    }
+
+    @Test
+    void enrichOneTimeItemOverrideGeocodesOrigin() {
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new CalendarLeaveFromEntity(
+                                        UUID.randomUUID(),
+                                        adultId,
+                                        LeaveByItemSource.MANUAL,
+                                        itemId,
+                                        null,
+                                        "Jack's house",
+                                        Instant.now(),
+                                        Instant.now())));
+        when(geocodeApi.resolveLocation("Jack's house"))
+                .thenReturn(Optional.of(new GeoPointDto(40.5, -74.5)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.5, -74.5, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        LeaveByEnrichmentDto result =
+                api.enrich(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T14:00:00Z"),
+                        "Rink");
+
+        assertThat(result.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(result.leaveFromPlaceId()).isNull();
+        assertThat(result.leaveFromAddress()).isEqualTo("Jack's house");
+        assertThat(result.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T13:40:00Z"));
+    }
+
+    @Test
+    void enrichCheapOneTimePendingWhenOriginNotCached() {
+        failIfUpstreamHttp();
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new CalendarLeaveFromEntity(
+                                        UUID.randomUUID(),
+                                        adultId,
+                                        LeaveByItemSource.MANUAL,
+                                        itemId,
+                                        null,
+                                        "playground",
+                                        Instant.now(),
+                                        Instant.now())));
+        when(geocodeApi.findCachedLocation("playground")).thenReturn(Optional.empty());
+
+        LeaveByEnrichmentDto result =
+                api.enrichCheap(
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        "Rink");
+
+        assertThat(result.leaveByStatus()).isEqualTo(LeaveByStatus.PENDING);
+        assertThat(result.leaveFromAddress()).isEqualTo("playground");
+        verify(geocodeApi, never()).resolveLocation(any());
+    }
+
+    @Test
+    void enrichForLeaveFromUsesCoverageOneTimeWithoutLookingUpItemOverride() {
+        when(geocodeApi.resolveLocation("Community Center lot"))
+                .thenReturn(Optional.of(new GeoPointDto(41.1, -71.1)));
+        when(geocodeApi.resolveLocation("Rink"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(41.1, -71.1, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+
+        LeaveByEnrichmentDto result =
+                api.enrichForLeaveFrom(
+                        adultId,
+                        null,
+                        "Community Center lot",
+                        Instant.parse("2026-08-15T14:00:00Z"),
+                        "Rink",
+                        true);
+
+        assertThat(result.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
+        assertThat(result.leaveFromAddress()).isEqualTo("Community Center lot");
+        verify(leaveFromRepository, never())
+                .findByAdultIdAndItemSourceAndItemId(any(), any(), any());
+        verify(coverageApi, never()).listForItem(any(), any(), any());
+    }
+
+    @Test
+    void setLeaveFromOneTimePersistsAddress() {
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId,
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        "Rink",
+                                        List.of())));
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.empty());
+
+        api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, null, "  Jack's house  ");
+
+        org.mockito.ArgumentCaptor<CalendarLeaveFromEntity> saved =
+                org.mockito.ArgumentCaptor.forClass(CalendarLeaveFromEntity.class);
+        verify(leaveFromRepository).save(saved.capture());
+        assertThat(saved.getValue().placeId()).isNull();
+        assertThat(saved.getValue().leaveFromAddress()).isEqualTo("Jack's house");
+        verify(placeApi, never()).requireLocatedPlaceForMember(any(), any());
+    }
+
+    @Test
+    void setLeaveFromClearDeletesRow() {
+        CalendarLeaveFromEntity existing =
+                new CalendarLeaveFromEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        placeId,
+                        null,
+                        Instant.now(),
+                        Instant.now());
+        when(membershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId,
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        "Rink",
+                                        List.of())));
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.MANUAL, itemId))
+                .thenReturn(Optional.of(existing));
+
+        api.setLeaveFrom(adultId, LeaveByItemSource.MANUAL, itemId, null, null);
+
+        verify(leaveFromRepository).delete(existing);
+        verify(leaveFromRepository, never()).save(any());
+    }
+
+    @Test
+    void upsertCalendarRouteUsesCoverageLeaveFromNotDefaultHome() {
+        UUID coveragePlaceId = UUID.randomUUID();
+        CirclePlaceDto school =
+                new CirclePlaceDto(coveragePlaceId, circleId, "School", "2 School Rd", 43.0, -73.0);
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.FEED,
+                                        itemId,
+                                        adultId,
+                                        adultId,
+                                        List.of(UUID.randomUUID()),
+                                        CoverageStatus.CONFIRMED,
+                                        coveragePlaceId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(placeApi.findPlaceForMember(adultId, coveragePlaceId)).thenReturn(Optional.of(school));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(43.0, -73.0, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(),
+                        "Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().getFirst().name()).isEqualTo("School");
+        assertThat(route.stops().getFirst().address()).isEqualTo("2 School Rd");
+        verify(placeApi, never()).findDefaultLeaveFromForMember(any());
+        verify(placeApi, never()).listLocatedPlacesForMember(any());
     }
 
     private void failIfUpstreamHttp() {
