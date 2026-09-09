@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-09 (`/spec carpool-leg-to-from` — ride-state surfaces)
+Updated: 2026-09-09 (`/pr carpool-leg-to-from`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -76,7 +76,7 @@ ship every product slice on web + RN together. KMP is **frozen**; retire via
 | Circle writes            | **Organizer-only:** kids, invite/roles, circle rename, **activity feeds** (+ Sync). **Any member:** **named places**, **manual events**. **Garage:** any member, **owner-only** vehicle writes (including who may drive); circle-visible read — `[garage-vehicles](specs/archive/garage-vehicles.md)`                                                                                                                                                                                                                                                                        |
 | Driving                  | Orthogonal to role: **0+ vehicles** or “don’t drive”; non-drivers stay full Caregivers and can **request** rides. A vehicle has an **owner** plus explicit **drivers** (same house does not imply sharing) — `[garage-vehicles](specs/archive/garage-vehicles.md)`                                                                                                                                                                                                                                                                                                              |
 | Same team, multiple kids | Attach **which kids** belong on a feed/team; calendar shows both                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Carpool request          | **v1** Done: [`carpool-request-accept`](specs/archive/carpool-request-accept.md) — household request, **both legs**, pickup at requester’s house. **Beta active:** [`carpool-leg-to-from`](specs/active/carpool-leg-to-from.md) remodeled need (`CarpoolRequest` per kid, `legsNeeded` set) vs fulfillment (`Ride` per driver×leg); then [`carpool-multi-family-ride`](specs/planned/carpool-multi-family-ride.md), [`carpool-leg-split-plans`](specs/planned/carpool-leg-split-plans.md), meet-at (`carpool-meet-at`), stop-order optimize (`carpool-route-optimize`), recurring (`carpool-recurring-rotation`), neighborhood (`neighborhood-carpool`). Still parking: early/late windows (`carpool-early-late-window`) |
+| Carpool request          | **v1** Done: [`carpool-request-accept`](specs/archive/carpool-request-accept.md) — household request, **both legs**, pickup at requester’s house. **Beta** Done: [`carpool-leg-to-from`](specs/archive/carpool-leg-to-from.md) — need (`CarpoolRequest` per kid, `legsNeeded` set) vs fulfillment (`Ride` per driver×leg); partial status on five Calendar ride-state surfaces. Next: [`carpool-multi-family-ride`](specs/planned/carpool-multi-family-ride.md), [`carpool-leg-split-plans`](specs/planned/carpool-leg-split-plans.md), meet-at (`carpool-meet-at`), stop-order optimize (`carpool-route-optimize`), recurring (`carpool-recurring-rotation`), neighborhood (`neighborhood-carpool`). Still parking: early/late windows (`carpool-early-late-window`) |
 | Feed vs carpool          | **Feed = calendar only** (import does not join rides). **One space per normalized feed URL**; **Organizer** of the first family enables and that circle **owns**. Join = **code** (admits + adds feed if missing) or **request** (same-URL subscriber; owner admit/decline, in-app). Members reshare code; owner regenerates. No coach admin. Done: `[team-carpool-space-invite](specs/archive/team-carpool-space-invite.md)`                                                                                           |
 | Auth                     | **Email one-time code first** (no magic link in v1); **Bearer** sessions on web (+ Expo when revived); **optional password** later; web cookie hardening and production mail are follow-ups. KMP Bearer clients are frozen with the KMP apps.                                                                                                                                                                                                                                                                                                                                    |
 | Client ship order        | **Web is the product reference**; new verticals land on web first. **Carpool Beta on web first** — Expo scaffold + push are **parked** until the carpool product cluster dogfoods (not a gate that reorders product ahead of leave-from / one-way / recurring). When revived: [`rn-expo-scaffold`](specs/planned/rn-expo-scaffold.md) then [`push-notifications`](specs/planned/push-notifications.md). **Do not** lockstep every feature on web + RN. KMP Android/iOS are **frozen** — cancelled KMP `*-mobile` ports; no new Compose/SwiftUI or `sharedLogic` OpenAPI work. Remove KMP via [`kmp-mobile-retire`](specs/planned/kmp-mobile-retire.md). Contract same-change rule: **web** (+ Expo when it exists), not KMP — see `AGENTS.md`. |
@@ -104,22 +104,21 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-leg-to-from             | active  | 2026-08-14 · enhancement   | Per-kid need + per-leg Ride; To/From/Round trip; partial status on all five Calendar ride-state surfaces |
-| 2    | carpool-multi-family-ride       | planned | 2026-09-09 · re-rank split | One Ride carrying passengers from **multiple circles** (add teammate kid onto driver’s leg)                                   |
-| 3    | carpool-leg-split-plans         | planned | 2026-09-09 · re-rank split | Progressive disclosure: different driver/plans per direction (“Same driver both ways?”)                                       |
-| 4    | carpool-meet-at                 | planned | 2026-08-14 · enhancement   | Pickup at requester’s house vs drop-off at a teammate’s house (who drives to whom)                                            |
-| 5    | carpool-route-optimize          | planned | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
-| 6    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
-| 7    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
-| 8    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
-| 9    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
-| 10   | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
-| 11   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
-| 12   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
-| 13   | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
-| 14   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
-| 15   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 16   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | carpool-multi-family-ride       | planned | 2026-09-09 · re-rank split | One Ride carrying passengers from **multiple circles** (add teammate kid onto driver’s leg)                                   |
+| 2    | carpool-leg-split-plans         | planned | 2026-09-09 · re-rank split | Progressive disclosure: different driver/plans per direction (“Same driver both ways?”)                                       |
+| 3    | carpool-meet-at                 | planned | 2026-08-14 · enhancement   | Pickup at requester’s house vs drop-off at a teammate’s house (who drives to whom)                                            |
+| 4    | carpool-route-optimize          | planned | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
+| 5    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
+| 6    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
+| 7    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
+| 8    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
+| 9    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
+| 10   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
+| 11   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
+| 12   | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
+| 13   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
+| 14   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 15   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -200,13 +199,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| carpool-leg-to-from | `carpool-leg-to-from` | [active](specs/active/carpool-leg-to-from.md) |
+| — | — | *(none)* |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-leg-to-from        | 2026-09-09 | [archive](specs/archive/carpool-leg-to-from.md)        |
 | coverage-priority-same-event | 2026-09-09 | [archive](specs/archive/coverage-priority-same-event.md) |
 | ride-cards-cleanup         | 2026-09-09 | [archive](specs/archive/ride-cards-cleanup.md)         |
 | coverage-leave-from        | 2026-09-08 | [archive](specs/archive/coverage-leave-from.md)        |
@@ -284,6 +284,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | `/pr carpool-leg-to-from`: need vs Ride remodel (per-kid `legsNeeded`, per-leg Ride); To/From/Round trip + partial status on five Calendar surfaces. Spec archived. Next up `carpool-multi-family-ride`. |
 | 2026-09-09 | `/spec carpool-leg-to-from` amend: lock five Calendar ride-state surfaces (Hero, Agenda card, chips, week glance, Route/`canRoute`); Accept = all OPEN legs; Accept-subset + FROM Route → `carpool-leg-split-plans` / later. Locked decision **Calendar ride-state surfaces**. |
 | 2026-09-09 | `/spec carpool-leg-to-from`: active — need vs Ride remodel (per-kid `legsNeeded`, per-leg Ride); split out `carpool-multi-family-ride` + `carpool-leg-split-plans` (ranks 2–3). Branch `carpool-leg-to-from`. |
 | 2026-09-09 | `/pr coverage-priority-same-event`: event-grouped `getQueue` (own gaps then asks per event); ADR-0001 amended. Spec archived. Next up `carpool-leg-to-from`. |

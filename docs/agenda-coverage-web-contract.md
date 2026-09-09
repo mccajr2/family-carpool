@@ -26,7 +26,7 @@ consumers in the same PR** — do not leave one on the old model:
 4. **Week at a glance** — `AgendaWeekGlance` / `agendaWeekGlanceDays`
 5. **Route view** — `canRoute` → ride-detail / `RideRouteTab`
 
-Locked for [`carpool-leg-to-from`](specs/active/carpool-leg-to-from.md)
+Locked for [`carpool-leg-to-from`](specs/archive/carpool-leg-to-from.md)
 (need ≠ fulfillment):
 
 | Rule | Contract |

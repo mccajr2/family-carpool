@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, Kid } from "@/api/types"
+import type { CarpoolRequest, CarpoolRide, CarpoolRideEvent, Kid } from "@/api/types"
 import {
   riderChipsAriaLabel,
   riderInitial,
   ridersForGameRow,
   ridersForItem,
 } from "@/components/riderChips"
-import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
+import type { CarpoolRequest as QueueCarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
 
 const kids: Kid[] = [
   { id: "k1", displayName: "Declan McCarthy" },
@@ -15,7 +15,12 @@ const kids: Kid[] = [
   { id: "k3", displayName: "Maya" },
 ]
 
-function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
+const confirmedLegs = [
+  { leg: "TO" as const, status: "CONFIRMED" as const },
+  { leg: "FROM" as const, status: "CONFIRMED" as const },
+]
+
+function request(partial: Partial<QueueCarpoolRequest> & Pick<QueueCarpoolRequest, "id">): QueueCarpoolRequest {
   return {
     requestingCircleName: "House B",
     kidFirstNames: ["Mia"],
@@ -43,7 +48,7 @@ function game(
   }
 }
 
-function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function ownNeed(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -51,21 +56,48 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
+    kidId: "k1",
+    kidFirstName: "Maya",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: confirmedLegs,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "FULLY_COVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "fulfill-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a9",
+    drivingCircleId: "c2",
+    drivingCircleName: "Sharks",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["r1"],
+    status: "ACTIVE",
+    ...partial,
+  }
+}
+
+function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
+  return {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequests: [],
+    otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -94,7 +126,7 @@ describe("ridersForItem", () => {
       }),
     ]
 
-    expect(ridersForItem(games, null, kids)).toEqual([
+    expect(ridersForItem(games, kids)).toEqual([
       { firstName: "Declan", initial: "D" },
       { firstName: "Sam", initial: "S" },
       { firstName: "Leo", initial: "L" },
@@ -123,13 +155,29 @@ describe("ridersForItem", () => {
         ownRide: { driver: "Sharks", confirmed: true },
       }),
     ]
-    const accepted = ownRide({
-      status: "ACCEPTED",
-      acceptingCircleName: "Sharks",
-      kidIds: ["k1", "k2"],
+    const ownRequests = [
+      ownNeed({ id: "r1", kidId: "k1" }),
+      ownNeed({ id: "r2", kidId: "k2" }),
+    ]
+    const event = rideEvent({
+      ownRequests,
+      rides: [
+        fulfillment({
+          id: "f1",
+          passengerRequestIds: ["r1"],
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks",
+        }),
+        fulfillment({
+          id: "f2",
+          passengerRequestIds: ["r2"],
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks",
+        }),
+      ],
     })
 
-    expect(ridersForItem(games, accepted, kids)).toEqual([
+    expect(ridersForItem(games, kids, event)).toEqual([
       { firstName: "Declan", initial: "D" },
       { firstName: "Ben", initial: "B" },
     ])
@@ -137,22 +185,20 @@ describe("ridersForItem", () => {
 
   it("returns empty for ride-needed, asked-team, pending-confirm, and not-going rows", () => {
     expect(
-      ridersForItem([game({ id: "gap", order: 1, ownRide: "unassigned" })], null, kids),
+      ridersForItem([game({ id: "gap", order: 1, ownRide: "unassigned" })], kids),
     ).toEqual([])
     expect(
-      ridersForItem([game({ id: "asked", order: 1, ownRide: "requested" })], null, kids),
+      ridersForItem([game({ id: "asked", order: 1, ownRide: "requested" })], kids),
     ).toEqual([])
     expect(
       ridersForItem(
         [game({ id: "pending", order: 1, ownRide: { driver: "You", confirmed: false } })],
-        null,
         kids,
       ),
     ).toEqual([])
     expect(
       ridersForItem(
         [game({ id: "out", order: 1, attendance: "not_going" })],
-        null,
         kids,
       ),
     ).toEqual([])
@@ -179,7 +225,7 @@ describe("ridersForItem", () => {
       }),
     ]
 
-    expect(ridersForItem(games, null, kids)).toEqual([
+    expect(ridersForItem(games, kids)).toEqual([
       { firstName: "Declan", initial: "D" },
       { firstName: "Sam", initial: "S" },
     ])
@@ -201,7 +247,7 @@ describe("ridersForItem", () => {
       }),
     ]
 
-    expect(ridersForItem(games, null, kids)).toEqual([
+    expect(ridersForItem(games, kids)).toEqual([
       { firstName: "Declan", initial: "D" },
       { firstName: "Ben", initial: "B" },
     ])
@@ -223,7 +269,7 @@ describe("ridersForItem", () => {
       }),
     ]
 
-    expect(ridersForItem(games, null, kids)).toEqual([])
+    expect(ridersForItem(games, kids)).toEqual([])
   })
 })
 
@@ -236,7 +282,7 @@ describe("ridersForGameRow", () => {
       ownRide: { driver: "You", confirmed: true },
     })
 
-    expect(ridersForGameRow(row, [row], null, kids)).toEqual([
+    expect(ridersForGameRow(row, [row], kids)).toEqual([
       { firstName: "Ben", initial: "B" },
     ])
   })
@@ -248,13 +294,19 @@ describe("ridersForGameRow", () => {
       order: 1,
       ownRide: { driver: "Sharks", confirmed: true },
     })
-    const accepted = ownRide({
-      status: "ACCEPTED",
-      acceptingCircleName: "Sharks",
-      kidIds: ["k1"],
+    const ownRequests = [ownNeed({ id: "r1", kidId: "k1" })]
+    const event = rideEvent({
+      ownRequests,
+      rides: [
+        fulfillment({
+          passengerRequestIds: ["r1"],
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks",
+        }),
+      ],
     })
 
-    expect(ridersForGameRow(row, [row], accepted, kids)).toEqual([
+    expect(ridersForGameRow(row, [row], kids, event)).toEqual([
       { firstName: "Declan", initial: "D" },
     ])
   })
@@ -263,8 +315,8 @@ describe("ridersForGameRow", () => {
     const gap = game({ id: "gap", order: 1, ownRide: "unassigned" })
     const out = game({ id: "out", order: 1, attendance: "not_going" })
 
-    expect(ridersForGameRow(gap, [gap], null, kids)).toEqual([])
-    expect(ridersForGameRow(out, [out], null, kids)).toEqual([])
+    expect(ridersForGameRow(gap, [gap], kids)).toEqual([])
+    expect(ridersForGameRow(out, [out], kids)).toEqual([])
   })
 })
 

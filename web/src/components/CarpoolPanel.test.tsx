@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest"
 import type { CarpoolClient } from "@/api/carpoolClient"
 import type { FamilyClient } from "@/api/familyClient"
 import type {
-  CarpoolRide,
   CarpoolRideEvent,
   CarpoolSummary,
   Garage,

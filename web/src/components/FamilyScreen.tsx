@@ -88,12 +88,18 @@ import {
   getQueue,
   filterQueueWithinHorizon,
   isConfirmedDriver,
+  isPendingHouseholdConfirm,
   mapCalendarItemToCoverageGames,
   mapCalendarItemsToCoverageGames,
   type CoverageGameEvent,
   type QueueItem,
 } from "@/components/coverageQueue"
-import { isAcceptedByCircle } from "@/components/carpoolDisplay"
+import {
+  cancelableRidesForRequest,
+  isAcceptedByCircle,
+  ownRequestForKid,
+} from "@/components/carpoolDisplay"
+import { isTeammateOwnRide } from "@/components/canRoute"
 import { rideCommitmentConflict } from "@/components/rideCommitmentConflict"
 import {
   feedSpaceIdsFromSummary,
@@ -1368,29 +1374,36 @@ export function FamilyScreen({
 
   async function onCantMakeItAgenda(item: CalendarItem, game: CoverageGameEvent) {
     const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
-    const ownRequest = null
+    const ownRequest = ownRequestForKid(rideEvent, game.kidId)
 
-    if (game.ownRide === "requested" && ownRequest != null) {
-      await onCancelAgendaRide(item, ownRequest.id)
+    if (isConfirmedDriver(game.ownRide)) {
+      if (isTeammateOwnRide(game, rideEvent)) {
+        const covering =
+          ownRequest != null ? cancelableRidesForRequest(rideEvent, ownRequest.id) : []
+        if (covering[0] != null) {
+          await onCancelAgendaRide(item, covering[0].id)
+          return
+        }
+      }
+      const coverage = activeCoverages(item).find(
+        (row) => row.status === "CONFIRMED" && row.kidIds.includes(game.kidId),
+      )
+      if (coverage != null) {
+        await onRemoveCoverage(coverage.id)
+      }
       return
     }
 
-    if (!isConfirmedDriver(game.ownRide)) {
-      return
-    }
-
-    const teammateRide =
-      ownRequest?.status === "ACCEPTED" && ownRequest.kidIds.includes(game.kidId)
-    if (teammateRide && ownRequest != null) {
-      await onCancelAgendaRide(item, ownRequest.id)
-      return
-    }
-
-    const coverage = activeCoverages(item).find(
-      (row) => row.status === "CONFIRMED" && row.kidIds.includes(game.kidId),
-    )
-    if (coverage != null) {
-      await onRemoveCoverage(coverage.id)
+    if (isPendingHouseholdConfirm(game.ownRide) && game.ownRide.driver !== "You") {
+      const coverage = activeCoverages(item).find(
+        (row) =>
+          row.status === "PENDING" &&
+          row.kidIds.includes(game.kidId) &&
+          row.coveringAdultId !== adult?.id,
+      )
+      if (coverage != null) {
+        await onRemoveCoverage(coverage.id)
+      }
     }
   }
 

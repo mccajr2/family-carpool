@@ -83,7 +83,7 @@ function gapKidName(
       return fromCircle
     }
   }
-  const ownRequest = rideEvent?.ownRequests.find((request) => request.kidId === kidId)
+  const ownRequest = (rideEvent?.ownRequests ?? []).find((request) => request.kidId === kidId)
   if (ownRequest?.kidFirstName.trim()) {
     return ownRequest.kidFirstName.trim()
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CalendarItem, CarpoolRequest, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   rideCommitmentConflict,
   rideCommitmentConflictChipLabel,
@@ -12,7 +12,12 @@ import {
 } from "@/components/coverageCopy"
 import type { CoverageGameEvent } from "@/components/coverageQueue"
 
-function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+const confirmedLegs = [
+  { leg: "TO" as const, status: "CONFIRMED" as const },
+  { leg: "FROM" as const, status: "CONFIRMED" as const },
+]
+
+function need(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -20,21 +25,34 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c2",
     requestingCircleName: "House B",
     requestedByAdultId: "a2",
-    kidIds: ["k-them"],
-    kidFirstNames: ["Sam"],
-    seats: 1,
+    kidId: "k-them",
+    kidFirstName: "Sam",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: confirmedLegs,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main St",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "FULLY_COVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "fulfill-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a1",
+    drivingCircleId: "c1",
+    drivingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["inbound-accepted"],
+    status: "ACTIVE",
     ...partial,
   }
 }
@@ -46,8 +64,9 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2026-08-21T16:00:00Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -96,16 +115,28 @@ function game(
 
 const circleId = "c1"
 
-function acceptedInbound(partial: Partial<CarpoolRide> = {}): CarpoolRide {
-  return ride({
+function acceptedInbound(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
+  return need({
     id: "inbound-accepted",
-    status: "ACCEPTED",
-    acceptingCircleId: circleId,
-    acceptingCircleName: "Ours",
-    acceptedByAdultId: "a1",
-    kidIds: ["k-them"],
-    kidFirstNames: ["Sam"],
+    requestingCircleId: "c2",
+    kidId: "k-them",
+    kidFirstName: "Sam",
+    status: "FULLY_COVERED",
+    legStatuses: confirmedLegs,
     ...partial,
+  })
+}
+
+function inboundEvent(inbound: CarpoolRequest): CarpoolRideEvent {
+  return event({
+    otherRequests: [inbound],
+    rides: [
+      fulfillment({
+        id: "inbound-ride",
+        drivingCircleId: circleId,
+        passengerRequestIds: [inbound.id],
+      }),
+    ],
   })
 }
 
@@ -113,7 +144,7 @@ describe("rideCommitmentConflict", () => {
   it("returns Type A when ACCEPTED inbound coexists with an in-play unassigned kid", () => {
     const inbound = acceptedInbound()
     const conflict = rideCommitmentConflict(
-      event({ otherRequests: [inbound] }),
+      inboundEvent(inbound),
       item({ kidIds: ["k1"], uncoveredKidIds: ["k1"] }),
       [game({ kidId: "k1", ownRide: "unassigned" })],
       circleId,
@@ -127,17 +158,31 @@ describe("rideCommitmentConflict", () => {
 
   it("returns Type A when ACCEPTED inbound coexists with an in-play requested kid", () => {
     const inbound = acceptedInbound()
-    const ownPending = ride({
+    const ownPending = need({
       id: "own-pending",
       requestingCircleId: circleId,
       requestingCircleName: "Ours",
       requestedByAdultId: "a1",
-      status: "PENDING",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "UNCOVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
+      legStatuses: [
+        { leg: "TO", status: "OPEN" },
+        { leg: "FROM", status: "OPEN" },
+      ],
     })
     const conflict = rideCommitmentConflict(
-      event({ ownRequest: ownPending, otherRequests: [inbound] }),
+      event({
+        ownRequests: [ownPending],
+        otherRequests: [inbound],
+        rides: [
+          fulfillment({
+            id: "inbound-ride",
+            drivingCircleId: circleId,
+            passengerRequestIds: [inbound.id],
+          }),
+        ],
+      }),
       item({ kidIds: ["k1"], uncoveredKidIds: ["k1"] }),
       [game({ kidId: "k1", ownRide: "requested" })],
       circleId,
@@ -151,23 +196,37 @@ describe("rideCommitmentConflict", () => {
 
   it("returns Type B for mutual ACCEPTED swap with different kid sets", () => {
     const inbound = acceptedInbound({
-      kidIds: ["k-them"],
-      kidFirstNames: ["Sam"],
+      kidId: "k-them",
+      kidFirstName: "Sam",
     })
-    const ownAccepted = ride({
+    const ownAccepted = need({
       id: "own-accepted",
       requestingCircleId: circleId,
       requestingCircleName: "Ours",
       requestedByAdultId: "a1",
-      status: "ACCEPTED",
-      acceptingCircleId: "c2",
-      acceptingCircleName: "House B",
-      acceptedByAdultId: "a2",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
+      legStatuses: confirmedLegs,
     })
     const conflict = rideCommitmentConflict(
-      event({ ownRequest: ownAccepted, otherRequests: [inbound] }),
+      event({
+        ownRequests: [ownAccepted],
+        otherRequests: [inbound],
+        rides: [
+          fulfillment({
+            id: "inbound-ride",
+            drivingCircleId: circleId,
+            passengerRequestIds: [inbound.id],
+          }),
+          fulfillment({
+            id: "own-ride",
+            drivingCircleId: "c2",
+            drivingCircleName: "House B",
+            passengerRequestIds: [ownAccepted.id],
+          }),
+        ],
+      }),
       item({ kidIds: ["k1"] }),
       [
         game({
@@ -185,18 +244,27 @@ describe("rideCommitmentConflict", () => {
   })
 
   it("returns null when only riding-with is set and there is no accepted inbound", () => {
-    const ownAccepted = ride({
+    const ownAccepted = need({
       id: "own-accepted",
       requestingCircleId: circleId,
-      status: "ACCEPTED",
-      acceptingCircleId: "c2",
-      acceptingCircleName: "House B",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
+      legStatuses: confirmedLegs,
     })
     expect(
       rideCommitmentConflict(
-        event({ ownRequest: ownAccepted, otherRequests: [] }),
+        event({
+          ownRequests: [ownAccepted],
+          rides: [
+            fulfillment({
+              id: "own-ride",
+              drivingCircleId: "c2",
+              drivingCircleName: "House B",
+              passengerRequestIds: [ownAccepted.id],
+            }),
+          ],
+        }),
         item({ kidIds: ["k1"] }),
         [
           game({
@@ -213,7 +281,7 @@ describe("rideCommitmentConflict", () => {
     const inbound = acceptedInbound()
     expect(
       rideCommitmentConflict(
-        event({ otherRequests: [inbound] }),
+        inboundEvent(inbound),
         item({ kidIds: ["k1", "k2"] }),
         [
           game({
@@ -234,7 +302,7 @@ describe("rideCommitmentConflict", () => {
     const inbound = acceptedInbound()
     expect(
       rideCommitmentConflict(
-        event({ otherRequests: [inbound] }),
+        inboundEvent(inbound),
         item({ kidIds: ["k1", "k2"] }),
         [
           game({ kidId: "k1", attendance: "not_going", ownRide: "unassigned" }),
@@ -251,21 +319,36 @@ describe("rideCommitmentConflict", () => {
   it("does not treat matching kid sets as Type B", () => {
     const sharedKid = "k1"
     const inbound = acceptedInbound({
-      kidIds: [sharedKid],
-      kidFirstNames: ["Maya"],
+      kidId: sharedKid,
+      kidFirstName: "Maya",
     })
-    const ownAccepted = ride({
+    const ownAccepted = need({
       id: "own-accepted",
       requestingCircleId: circleId,
-      status: "ACCEPTED",
-      acceptingCircleId: "c2",
-      acceptingCircleName: "House B",
-      kidIds: [sharedKid],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: sharedKid,
+      kidFirstName: "Maya",
+      legStatuses: confirmedLegs,
     })
     expect(
       rideCommitmentConflict(
-        event({ ownRequest: ownAccepted, otherRequests: [inbound] }),
+        event({
+          ownRequests: [ownAccepted],
+          otherRequests: [inbound],
+          rides: [
+            fulfillment({
+              id: "inbound-ride",
+              drivingCircleId: circleId,
+              passengerRequestIds: [inbound.id],
+            }),
+            fulfillment({
+              id: "own-ride",
+              drivingCircleId: "c2",
+              drivingCircleName: "House B",
+              passengerRequestIds: [ownAccepted.id],
+            }),
+          ],
+        }),
         item({ kidIds: [sharedKid] }),
         [
           game({
@@ -279,18 +362,33 @@ describe("rideCommitmentConflict", () => {
   })
 
   it("prefers Type B over Type A when mutual swap and a remaining gap coexist", () => {
-    const inbound = acceptedInbound({ kidIds: ["k-them"], kidFirstNames: ["Sam"] })
-    const ownAccepted = ride({
+    const inbound = acceptedInbound({ kidId: "k-them", kidFirstName: "Sam" })
+    const ownAccepted = need({
       id: "own-accepted",
       requestingCircleId: circleId,
-      status: "ACCEPTED",
-      acceptingCircleId: "c2",
-      acceptingCircleName: "House B",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
+      legStatuses: confirmedLegs,
     })
     const conflict = rideCommitmentConflict(
-      event({ ownRequest: ownAccepted, otherRequests: [inbound] }),
+      event({
+        ownRequests: [ownAccepted],
+        otherRequests: [inbound],
+        rides: [
+          fulfillment({
+            id: "inbound-ride",
+            drivingCircleId: circleId,
+            passengerRequestIds: [inbound.id],
+          }),
+          fulfillment({
+            id: "own-ride",
+            drivingCircleId: "c2",
+            drivingCircleName: "House B",
+            passengerRequestIds: [ownAccepted.id],
+          }),
+        ],
+      }),
       item({ kidIds: ["k1", "k2"], uncoveredKidIds: ["k2"] }),
       [
         game({
@@ -308,8 +406,8 @@ describe("rideCommitmentConflict", () => {
 describe("rideCommitmentConflictChipLabel", () => {
   it("uses Also driving {name} for Type A with one inbound kid", () => {
     const inbound = acceptedInbound({
-      kidIds: ["k-them"],
-      kidFirstNames: ["Sam"],
+      kidId: "k-them",
+      kidFirstName: "Sam",
     })
     expect(
       rideCommitmentConflictChipLabel({
@@ -320,25 +418,26 @@ describe("rideCommitmentConflictChipLabel", () => {
     ).toBe(alsoDrivingKidLabel("Sam"))
   })
 
-  it("uses Ride conflict for Type A multi inbound and Type B", () => {
-    const multiInbound = acceptedInbound({
-      kidIds: ["k-a", "k-b"],
-      kidFirstNames: ["Sam", "Lee"],
+  it("uses Ride conflict for Type A without inbound name and Type B", () => {
+    const unnamedInbound = acceptedInbound({
+      kidId: "k-a",
+      kidFirstName: "  ",
     })
     expect(
       rideCommitmentConflictChipLabel({
         kind: "needRideAndDriving",
-        inbound: multiInbound,
+        inbound: unnamedInbound,
         gapKidNames: ["Maya"],
       }),
     ).toBe(RIDE_CONFLICT_CHIP)
 
     const inbound = acceptedInbound()
-    const ownRequest = ride({
+    const ownRequest = need({
       id: "own",
-      status: "ACCEPTED",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
+      legStatuses: confirmedLegs,
     })
     expect(
       rideCommitmentConflictChipLabel({
@@ -356,8 +455,8 @@ describe("rideCommitmentConflictLine", () => {
       rideCommitmentConflictLine({
         kind: "needRideAndDriving",
         inbound: acceptedInbound({
-          kidIds: ["k-them"],
-          kidFirstNames: ["Sam"],
+          kidId: "k-them",
+          kidFirstName: "Sam",
         }),
         gapKidNames: ["Maya"],
       }),
@@ -369,14 +468,15 @@ describe("rideCommitmentConflictLine", () => {
       rideCommitmentConflictLine({
         kind: "mutualSwap",
         inbound: acceptedInbound({
-          kidIds: ["k-them"],
-          kidFirstNames: ["Sam"],
+          kidId: "k-them",
+          kidFirstName: "Sam",
         }),
-        ownRequest: ride({
+        ownRequest: need({
           id: "own",
-          status: "ACCEPTED",
-          kidIds: ["k1"],
-          kidFirstNames: ["Maya"],
+          status: "FULLY_COVERED",
+          kidId: "k1",
+          kidFirstName: "Maya",
+          legStatuses: confirmedLegs,
         }),
       }),
     ).toBe(

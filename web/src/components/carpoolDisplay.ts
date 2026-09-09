@@ -58,7 +58,7 @@ export function ownRequestForKid(
   rideEvent: CarpoolRideEvent | null | undefined,
   kidId: string,
 ): CarpoolRequest | null {
-  return rideEvent?.ownRequests.find((request) => request.kidId === kidId) ?? null
+  return (rideEvent?.ownRequests ?? []).find((request) => request.kidId === kidId) ?? null
 }
 
 export function activeRides(rideEvent: CarpoolRideEvent | null | undefined): CarpoolRide[] {

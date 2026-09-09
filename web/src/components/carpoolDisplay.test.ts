@@ -126,6 +126,28 @@ describe("carpoolDisplay", () => {
         }),
       ),
     ).toBe("Round trip — from confirmed, to still needed")
+    expect(
+      partialRideStatusLabel(
+        request({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+        }),
+      ),
+    ).toBe("Round trip — to confirmed, from still needed")
+    expect(
+      openLegsNeeded(
+        request({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+        }),
+      ),
+    ).toEqual(["FROM"])
     expect(openLegsNeeded(request({ status: "UNCOVERED" }))).toEqual(["TO", "FROM"])
   })
 

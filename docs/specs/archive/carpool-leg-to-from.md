@@ -1,9 +1,9 @@
 # Spec: carpool-leg-to-from
 
-Status: draft  
+Status: archived  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
-Updated: 2026-09-09 (`/spec` — five Calendar ride-state surfaces)  
+Updated: 2026-09-09 (`/pr` — archived)  
 Added: 2026-08-14 · enhancement  
 Branch: `carpool-leg-to-from`
 
@@ -284,46 +284,46 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents **CarpoolRequest** (need) and **Ride** (fulfillment)
+- [x] OpenAPI documents **CarpoolRequest** (need) and **Ride** (fulfillment)
       separately; `legsNeeded` is a set of `TO`/`FROM` (no persisted `BOTH`);
       `Ride.leg` is `TO`|`FROM`; bump `info.version`; web clients updated in the
       same change.
-- [ ] Create request: one row per kid; default `legsNeeded={TO,FROM}`; accept
+- [x] Create request: one row per kid; default `legsNeeded={TO,FROM}`; accept
       `TO`/`FROM`/`BOTH` input convenience and expand on write; duplicate
       `(space, eventKey, kid, circle)` → **409**; PATCH `legsNeeded` to change
       needs.
-- [ ] Create/accept ride: one `Ride` per `(driver, leg, event)`; passengers are
+- [x] Create/accept ride: one `Ride` per `(driver, leg, event)`; passengers are
       request ids from **one** circle; second active passenger assignment for
       the same request leg → **409**; round-trip coverage = two rides.
-- [ ] Derived leg status `OPEN`|`CONFIRMED` and request roll-up
+- [x] Derived leg status `OPEN`|`CONFIRMED` and request roll-up
       `UNCOVERED`|`PARTIAL`|`FULLY_COVERED` appear on list/detail responses;
       cancelling one leg’s ride leaves the other leg unchanged.
-- [ ] Existing Pass / Cancel / Withdraw / seat-capacity / own-circle vs
+- [x] Existing Pass / Cancel / Withdraw / seat-capacity / own-circle vs
       teammate rules still enforce correctly under the new resources (mapped
       in Approach). Accept covers all still-OPEN legs; Cancel/Withdraw are
       per-`Ride`.
-- [ ] DB migration converts v1 household both-legs rows into per-kid requests
+- [x] DB migration converts v1 household both-legs rows into per-kid requests
       (+ two rides when previously accepted) without losing dogfood rides.
-- [ ] Web Request UI: per-kid To / From / Round trip (default Round trip) on
+- [x] Web Request UI: per-kid To / From / Round trip (default Round trip) on
       Agenda / Focus / Carpool; no split-plans disclosure UI; no Accept leg
       picker.
-- [ ] **Hero:** partial status on slide; own OPEN/`PARTIAL` stays queued;
+- [x] **Hero:** partial status on slide; own OPEN/`PARTIAL` stays queued;
       Accept/Pass/Cancel/Withdraw per Approach.
-- [ ] **Agenda card:** collapsed + expanded (`AgendaRow` /
+- [x] **Agenda card:** collapsed + expanded (`AgendaRow` /
       `AgendaInboundRequestRow`) Request + reverse actions; per-leg ride lines
       when TO/FROM differ.
-- [ ] **Status chips:** `rideStatusChip` emits partial round-trip chip copy;
+- [x] **Status chips:** `rideStatusChip` emits partial round-trip chip copy;
       gap clears only on `FULLY_COVERED`.
-- [ ] **Week at a glance:** `PARTIAL` still counts as needs coverage; only
+- [x] **Week at a glance:** `PARTIAL` still counts as needs coverage; only
       `FULLY_COVERED` clears remaining gap kids.
-- [ ] **Route:** `canRoute` true iff confirmed **TO** for that kid; `PARTIAL`
+- [x] **Route:** `canRoute` true iff confirmed **TO** for that kid; `PARTIAL`
       with TO confirmed allows Route; FROM-only does not; no FROM Route tab.
-- [ ] `meetPoint*` fields exist as null placeholders; no meet-at behavior.
-- [ ] Unit + integration tests cover uniqueness, per-leg confirm, partial
+- [x] `meetPoint*` fields exist as null placeholders; no meet-at behavior.
+- [x] Unit + integration tests cover uniqueness, per-leg confirm, partial
       roll-up, migration of a sample v1 row, and web helpers for chips / week
       glance / `canRoute` / queue that would fail if partial/leg logic were
       reverted.
-- [ ] Docs: architecture Team carpool space + agenda-coverage-web-contract
+- [x] Docs: architecture Team carpool space + agenda-coverage-web-contract
       remaining-gap / week-glance language updated for `FULLY_COVERED` /
       `PARTIAL`.
 
@@ -353,7 +353,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Docs: `docs/architecture.md` → Team carpool space (detail)
 - [x] Docs: `docs/agenda-coverage-web-contract.md` gap / week-glance /
       Ride-state surface set wording
-- [ ] Tests: unit tests for `rideStatusChip`, `agendaWeekGlanceDays`,
+- [x] Tests: unit tests for `rideStatusChip`, `agendaWeekGlanceDays`,
       `canRoute`, queue/display helpers that would fail if partial/leg logic
       were reverted
 

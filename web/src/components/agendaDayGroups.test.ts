@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CarpoolRequest } from "@/api/types"
 import {
   AGENDA_LIST_SECTION_LABEL,
   groupAgendaByDay,
@@ -238,17 +238,36 @@ describe("groupAgendaListSections", () => {
     const gap = item("gap", localIso(2026, 8, 15, 10), {
       uncoveredKidIds: ["k1"],
     })
-    const ownRequest = {
-      id: "r1",
-      status: "ACCEPTED",
-      kidIds: ["k1"],
-    } as CarpoolRide
+    const ownRequests: CarpoolRequest[] = [
+      {
+        id: "r1",
+        spaceId: "s1",
+        eventKey: "UID:game",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "a1",
+        kidId: "k1",
+        kidFirstName: "Sam",
+        legsNeeded: ["TO", "FROM"],
+        legStatuses: [
+          { leg: "TO", status: "CONFIRMED" },
+          { leg: "FROM", status: "CONFIRMED" },
+        ],
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: null,
+        detourMinutes: null,
+        status: "FULLY_COVERED",
+        passedByMe: false,
+        passedByAdultNames: [],
+      },
+    ]
 
     const { sections } = groupAgendaListSections([gap], {
       now,
       currentAdultId: adultId,
       queueHasItems: false,
-      ownRequestFor: () => ownRequest,
+      ownRequestFor: () => ownRequests,
     })
 
     expect(sections.map((s) => s.label)).toEqual([AGENDA_LIST_SECTION_LABEL.restOfToday])
@@ -258,17 +277,36 @@ describe("groupAgendaListSections", () => {
     const swap = item("swap", localIso(2026, 8, 15, 10), {
       uncoveredKidIds: [],
     })
-    const ownRequest = {
-      id: "r1",
-      status: "ACCEPTED",
-      kidIds: ["k1"],
-    } as CarpoolRide
+    const ownRequests: CarpoolRequest[] = [
+      {
+        id: "r1",
+        spaceId: "s1",
+        eventKey: "UID:game",
+        requestingCircleId: "c1",
+        requestingCircleName: "House",
+        requestedByAdultId: "a1",
+        kidId: "k1",
+        kidFirstName: "Sam",
+        legsNeeded: ["TO", "FROM"],
+        legStatuses: [
+          { leg: "TO", status: "CONFIRMED" },
+          { leg: "FROM", status: "CONFIRMED" },
+        ],
+        pickupPlaceName: "Home",
+        pickupAddress: "1 Main",
+        pickupTown: null,
+        detourMinutes: null,
+        status: "FULLY_COVERED",
+        passedByMe: false,
+        passedByAdultNames: [],
+      },
+    ]
 
     const { sections } = groupAgendaListSections([swap], {
       now,
       currentAdultId: adultId,
       queueHasItems: false,
-      ownRequestFor: () => ownRequest,
+      ownRequestFor: () => ownRequests,
       rideCommitmentConflictFor: () => true,
     })
 

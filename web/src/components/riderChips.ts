@@ -3,7 +3,8 @@
  * See docs/specs/active/agenda-ride-rider-chips.md.
  */
 
-import type { CarpoolRide, Kid } from "@/api/types"
+import type { CarpoolRideEvent, Kid } from "@/api/types"
+import { isTeammateOwnRide } from "@/components/canRoute"
 import { heroKidFirstName } from "@/components/heroAttentionCopy"
 import {
   acceptedRiders,
@@ -42,11 +43,46 @@ function isOwnRideGap(game: CoverageGameEvent): boolean {
 
 function isTeammateRide(
   game: CoverageGameEvent,
-  ownRequest: CarpoolRide | null | undefined,
+  rideEvent: CarpoolRideEvent | null | undefined,
 ): boolean {
+  if (rideEvent != null) {
+    return isTeammateOwnRide(game, rideEvent)
+  }
   return (
-    ownRequest?.status === "ACCEPTED" &&
-    ownRequest.kidIds.includes(game.kidId)
+    isConfirmedDriver(game.ownRide) &&
+    typeof game.ownRide === "object" &&
+    game.ownRide.driver !== "You"
+  )
+}
+
+function teammateCoveredKidIds(
+  games: readonly CoverageGameEvent[],
+  urgent: CoverageGameEvent,
+  rideEvent: CarpoolRideEvent | null | undefined,
+): Set<string> {
+  if (rideEvent != null) {
+    return new Set(
+      games
+        .filter((game) => isTeammateOwnRide(game, rideEvent))
+        .map((game) => game.kidId),
+    )
+  }
+  const driverLabel =
+    typeof urgent.ownRide === "object" && "driver" in urgent.ownRide
+      ? urgent.ownRide.driver
+      : null
+  if (driverLabel == null || driverLabel === "You") {
+    return new Set()
+  }
+  return new Set(
+    games
+      .filter(
+        (game) =>
+          isConfirmedDriver(game.ownRide) &&
+          typeof game.ownRide === "object" &&
+          game.ownRide.driver === driverLabel,
+      )
+      .map((game) => game.kidId),
   )
 }
 
@@ -136,8 +172,8 @@ export function riderChipsAriaLabel(riders: readonly RiderDescriptor[]): string 
  */
 export function ridersForItem(
   games: readonly CoverageGameEvent[],
-  ownRequest: CarpoolRide | null | undefined,
   kids: readonly Kid[],
+  rideEvent: CarpoolRideEvent | null | undefined = null,
 ): RiderDescriptor[] {
   const inPlay = games.filter(isInPlay)
   if (inPlay.length === 0) {
@@ -149,8 +185,9 @@ export function ridersForItem(
     return []
   }
 
-  if (isTeammateRide(urgent, ownRequest)) {
-    const covered = inPlay.filter((game) => ownRequest!.kidIds.includes(game.kidId))
+  if (isTeammateRide(urgent, rideEvent)) {
+    const coveredIds = teammateCoveredKidIds(inPlay, urgent, rideEvent)
+    const covered = inPlay.filter((game) => coveredIds.has(game.kidId))
     return circleKidRiders(covered, kids)
   }
 
@@ -173,14 +210,14 @@ export function ridersForItem(
 export function ridersForGameRow(
   game: CoverageGameEvent,
   _games: readonly CoverageGameEvent[],
-  ownRequest: CarpoolRide | null | undefined,
   kids: readonly Kid[],
+  rideEvent: CarpoolRideEvent | null | undefined = null,
 ): RiderDescriptor[] {
   if (!isInPlay(game)) {
     return []
   }
 
-  if (isTeammateRide(game, ownRequest)) {
+  if (isTeammateRide(game, rideEvent)) {
     const firstName = heroKidFirstName(game.kidId, kids)
     return [{ firstName, initial: riderInitial(firstName) }]
   }

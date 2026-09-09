@@ -253,7 +253,7 @@ export function AgendaRow({
   const routable =
     onOpenRide != null && coverageGames.some((game) => canRoute(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
-  const itemRiders = ridersForItem(coverageGames, null, circle.kids)
+  const itemRiders = ridersForItem(coverageGames, circle.kids, rideEvent)
   const rideChips = rideStatusChipsForItem(item, coverageGames, {
     rideEvent,
     circleId: circle.id,
