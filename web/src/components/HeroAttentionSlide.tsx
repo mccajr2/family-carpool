@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import type {
   CalendarItem,
+  CarpoolLeg,
   CarpoolRideEvent,
   FamilyCircle,
   Garage,
@@ -33,6 +34,11 @@ import {
 } from "@/components/leaveFromDisplay"
 import { PickupLine } from "@/components/PickupLine"
 import {
+  DEFAULT_RIDE_NEEDED_LEGS,
+  type RideNeededLegsChoice,
+} from "@/components/rideNeededLegs"
+import { RideNeededLegsControl } from "@/components/RideNeededLegsControl"
+import {
   heroKidFirstName,
   heroRequestTitle,
   heroVenueLine,
@@ -51,7 +57,7 @@ export type HeroAttentionSlideProps = {
   assignDraft: { adultId: string; kidIds: string[] }
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
-  onAskTeam: () => void
+  onAskTeam: (legs?: CarpoolLeg) => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
@@ -93,6 +99,8 @@ export function HeroAttentionSlide({
 }: HeroAttentionSlideProps) {
   const [acceptVehicleId, setAcceptVehicleId] = useState("")
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
+  const [rideNeededLegs, setRideNeededLegs] =
+    useState<RideNeededLegsChoice>(DEFAULT_RIDE_NEEDED_LEGS)
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
   const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
@@ -251,6 +259,17 @@ export function HeroAttentionSlide({
                   className="mt-[var(--fc-space-xl)] min-w-0 max-w-full border-t pt-[var(--fc-space-md)] [&_button]:text-sm"
                   style={{ borderColor: "rgba(255,255,255,0.14)" }}
                 >
+                  {rideEvent != null ? (
+                    <div className="mb-[var(--fc-space-md)]">
+                      <RideNeededLegsControl
+                        id={`hero-legs-${calendarItem.source}-${calendarItem.id}`}
+                        value={rideNeededLegs}
+                        onChange={setRideNeededLegs}
+                        disabled={loading}
+                        hero
+                      />
+                    </div>
+                  ) : null}
                   <DriverPicker
                     members={circle.members}
                     currentAdultId={currentAdultId}
@@ -263,7 +282,7 @@ export function HeroAttentionSlide({
                     leaveFromSlot={leaveFromSlot}
                     leaveFromLabel={originForConfirm}
                     onAssignCoverage={onAssignCoverage}
-                    onAskTeam={onAskTeam}
+                    onAskTeam={() => onAskTeam(rideNeededLegs)}
                   />
                 </div>
               )}

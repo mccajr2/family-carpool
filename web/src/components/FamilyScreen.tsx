@@ -18,6 +18,7 @@ import {
   type CalendarItem,
   type CalendarRoute,
   type CarpoolFeedStatus,
+  type CarpoolLeg,
   type CarpoolRideEvent,
   type CarpoolSummary,
   type FamilyCircle,
@@ -1294,6 +1295,7 @@ export function FamilyScreen({
     item: CalendarItem,
     eventKey: string,
     kidIds?: string[],
+    legs: CarpoolLeg = "BOTH",
   ) {
     if (item.feedId == null || calendarCarpoolSummary == null) {
       return
@@ -1302,14 +1304,26 @@ export function FamilyScreen({
     if (spaceId == null) {
       return
     }
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
+    const resolvedKidIds =
+      kidIds ??
+      rideEvent?.defaultKidIds.filter(
+        (kidId) => !rideEvent.ownRequests.some((request) => request.kidId === kidId),
+      ) ??
+      []
+    if (resolvedKidIds.length === 0) {
+      return
+    }
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      await carpoolClient.createRide(
-        token,
-        spaceId,
-        kidIds != null ? { eventKey, kidIds } : { eventKey },
-      )
+      for (const kidId of resolvedKidIds) {
+        await carpoolClient.createCarpoolRequest(token, spaceId, {
+          eventKey,
+          kidId,
+          legs,
+        })
+      }
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1351,7 +1365,7 @@ export function FamilyScreen({
 
   async function onCantMakeItAgenda(item: CalendarItem, game: CoverageGameEvent) {
     const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
-    const ownRequest = rideEvent?.ownRequest ?? null
+    const ownRequest = null
 
     if (game.ownRide === "requested" && ownRequest != null) {
       await onCancelAgendaRide(item, ownRequest.id)
@@ -1723,9 +1737,9 @@ export function FamilyScreen({
   function coverageAssignState(
     item: CalendarItem,
     itemKey: string,
-    ownRequest?: CarpoolRideEvent["ownRequest"],
+    _ownRequest?: null,
   ): { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean } {
-    const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+    const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, null)
     const soleAdult = circle!.members.length === 1
     const soleKid = gapKids.length === 1
     const stored = assignCoverageDrafts[itemKey]
@@ -1863,8 +1877,7 @@ export function FamilyScreen({
         delete next[itemKey]
         return next
       })
-      const ownRequest =
-        calendarRideByItemKey.get(itemKey)?.ownRequest ?? null
+      const ownRequest = null
       const cancelRideId = pendingOwnAskIdToCancelOnAssign(ownRequest, kidIds)
       if (
         cancelRideId != null &&
@@ -2349,8 +2362,7 @@ export function FamilyScreen({
     now,
     currentAdultId: adult?.id ?? "",
     queueHasItems: attentionQueue.length > 0,
-    ownRequestFor: (item) =>
-      calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null,
+    ownRequestFor: (_item) => null,
     rideCommitmentConflictFor: (item) => {
       const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
       const games = mapCalendarItemToCoverageGames(item, rideEvent, {
@@ -2379,7 +2391,7 @@ export function FamilyScreen({
     const baseAssign = coverageAssignState(
       calendarItemForSlide,
       itemKey,
-      rideEvent?.ownRequest,
+      null,
     )
     return {
       item: queueItem,
@@ -2398,10 +2410,10 @@ export function FamilyScreen({
       onConfirmCoverage: (assignmentId) =>
         void onConfirmCoverage(calendarItemForSlide, assignmentId),
       onDeclineCoverage: (assignmentId) => void onDeclineCoverage(assignmentId),
-      onAskTeam: () => {
+      onAskTeam: (legs = "BOTH") => {
         const eventKey = rideEvent?.eventKey
         if (eventKey) {
-          void onCreateAgendaRide(calendarItemForSlide, eventKey, [queueItem.game.kidId])
+          void onCreateAgendaRide(calendarItemForSlide, eventKey, [queueItem.game.kidId], legs)
         }
       },
       onAcceptRide: (rideId, vehicleId) =>
@@ -3107,7 +3119,7 @@ export function FamilyScreen({
                             assignDraft={coverageAssignState(
                               item,
                               itemKey,
-                              calendarRideByItemKey.get(itemKey)?.ownRequest,
+                              null,
                             )}
                             coverageActionError={coverageActionErrors[itemKey]}
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
@@ -3115,8 +3127,8 @@ export function FamilyScreen({
                             heroQueuedRequestIds={heroQueuedRequestIds}
                             recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
                             autoDeclinedRideIds={autoDeclinedRideIds}
-                            onCreateRide={(eventKey, kidIds) =>
-                              void onCreateAgendaRide(item, eventKey, kidIds)
+                            onCreateRide={(eventKey, kidIds, legs) =>
+                              void onCreateAgendaRide(item, eventKey, kidIds, legs)
                             }
                             onCancelRide={(rideId) => void onCancelAgendaRide(item, rideId)}
                             onWithdrawRide={(rideId) => void onWithdrawAgendaRide(item, rideId)}
@@ -3691,9 +3703,7 @@ export function FamilyScreen({
             items={agendaWindowItems}
             currentAdultId={adult?.id ?? ""}
             now={now}
-            ownRequestForItem={(item) =>
-              calendarRideByItemKey.get(calendarItemKey(item))?.ownRequest ?? null
-            }
+            ownRequestForItem={() => null}
           />
         </aside>
       ) : null}

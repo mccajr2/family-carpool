@@ -2071,32 +2071,32 @@ describe("FamilyScreen", () => {
         startsAt: "2030-08-15T17:00:00.000Z",
         endsAt: null,
         defaultKidIds: ["k1"],
-        ownRequest: null,
+        ownRequests: [],
         otherRequests: [],
+        rides: [],
       },
     ])
-    const createRide = vi.fn().mockResolvedValue({
-      id: "ride-1",
+    const createCarpoolRequest = vi.fn().mockResolvedValue({
+      id: "req-1",
       spaceId: "s1",
       eventKey: "UID:practice-1",
       requestingCircleId: "c1",
       requestingCircleName: "House",
       requestedByAdultId: "1",
-      kidIds: ["k1"],
-      kidFirstNames: ["Sam"],
-      seats: 1,
+      kidId: "k1",
+      kidFirstName: "Sam",
+      legsNeeded: ["TO", "FROM"],
+      legStatuses: [
+        { leg: "TO", status: "OPEN" },
+        { leg: "FROM", status: "OPEN" },
+      ],
       pickupPlaceName: "Home",
       pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-      status: "PENDING",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "UNCOVERED",
       passedByMe: false,
       passedByAdultNames: [],
-      acceptedByAdultId: null,
-      acceptingCircleId: null,
-      acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     })
     const getSummary = vi.fn().mockResolvedValue({
       circleRole: "ORGANIZER",
@@ -2148,7 +2148,7 @@ detourMinutes: null,
           listFeeds: vi.fn().mockResolvedValue([]),
           listCalendar: vi.fn().mockResolvedValue([feedItem]),
         })}
-        carpoolClient={mockCarpoolClient({ getSummary, listRides, createRide })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, createCarpoolRequest })}
         onSignedOut={vi.fn()}
       />,
     )
@@ -2166,14 +2166,16 @@ detourMinutes: null,
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    expect(within(focus).getByTestId("ride-needed-legs")).toBeInTheDocument()
     const teamAsk = within(focus).getByRole("button", { name: "Ask the team for a ride" })
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
 
     await user.click(teamAsk)
     await waitFor(() => {
-      expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+      expect(createCarpoolRequest).toHaveBeenCalledWith("tok", "s1", {
         eventKey: "UID:practice-1",
-        kidIds: ["k1"],
+        kidId: "k1",
+        legs: "BOTH",
       })
     })
   })
@@ -8139,30 +8141,28 @@ detourMinutes: null,
         vehicleId: null,
         vehicleLabel: null,
       }
-      const ownPending = {
+      const createCarpoolRequest = vi.fn().mockResolvedValue({
         id: "own-ask",
         spaceId: "s1",
         eventKey: "UID:ask-decline",
         requestingCircleId: "c1",
         requestingCircleName: "House",
         requestedByAdultId: "1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
+        kidId: "k1",
+        kidFirstName: "Sam",
+        legsNeeded: ["TO", "FROM"],
+        legStatuses: [
+          { leg: "TO", status: "OPEN" },
+          { leg: "FROM", status: "OPEN" },
+        ],
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "PENDING" as const,
+        pickupTown: null,
+        detourMinutes: null,
+        status: "UNCOVERED" as const,
         passedByMe: false,
         passedByAdultNames: [],
-        acceptedByAdultId: null,
-        acceptingCircleId: null,
-        acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
-      }
-      const createRide = vi.fn().mockResolvedValue(ownPending)
+      })
       const listRides = vi
         .fn()
         .mockResolvedValueOnce([
@@ -8172,8 +8172,9 @@ detourMinutes: null,
             startsAt: "2030-08-15T17:00:00.000Z",
             endsAt: null,
             defaultKidIds: ["k1"],
-            ownRequest: null,
+            ownRequests: [],
             otherRequests: [inboundPending],
+            rides: [],
           },
         ])
         .mockResolvedValue([
@@ -8183,8 +8184,32 @@ detourMinutes: null,
             startsAt: "2030-08-15T17:00:00.000Z",
             endsAt: null,
             defaultKidIds: ["k1"],
-            ownRequest: ownPending,
+            ownRequests: [
+              {
+                id: "own-ask",
+                spaceId: "s1",
+                eventKey: "UID:ask-decline",
+                requestingCircleId: "c1",
+                requestingCircleName: "House",
+                requestedByAdultId: "1",
+                kidId: "k1",
+                kidFirstName: "Sam",
+                legsNeeded: ["TO", "FROM"],
+                legStatuses: [
+                  { leg: "TO", status: "OPEN" },
+                  { leg: "FROM", status: "OPEN" },
+                ],
+                pickupPlaceName: "Home",
+                pickupAddress: "1 Main",
+                pickupTown: null,
+                detourMinutes: null,
+                status: "UNCOVERED" as const,
+                passedByMe: false,
+                passedByAdultNames: [],
+              },
+            ],
             otherRequests: [inboundPending],
+            rides: [],
           },
         ])
 
@@ -8215,7 +8240,7 @@ detourMinutes: null,
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
             listRides,
-            createRide,
+            createCarpoolRequest,
           })}
           onSignedOut={vi.fn()}
         />,
@@ -8228,9 +8253,10 @@ detourMinutes: null,
       expect(within(slide).queryByText(/warning/i)).not.toBeInTheDocument()
       await user.click(within(slide).getByRole("button", { name: "Ask the team for a ride" }))
       await waitFor(() => {
-        expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+        expect(createCarpoolRequest).toHaveBeenCalledWith("tok", "s1", {
           eventKey: "UID:ask-decline",
-          kidIds: ["k1"],
+          kidId: "k1",
+          legs: "BOTH",
         })
       })
 

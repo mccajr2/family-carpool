@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import type {
   CalendarItem,
+  CarpoolLeg,
   CarpoolRideEvent,
   FamilyCircle,
   Garage,
@@ -34,6 +35,12 @@ import {
 import { DriverPicker } from "@/components/DriverPicker"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 import {
+  DEFAULT_RIDE_NEEDED_LEGS,
+  defaultKidsNeedingCarpoolRequest,
+  type RideNeededLegsChoice,
+} from "@/components/rideNeededLegs"
+import { RideNeededLegsControl } from "@/components/RideNeededLegsControl"
+import {
   carpoolAskChipForRideEvent,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
@@ -61,7 +68,7 @@ type AgendaFocusCardProps = {
   onRemoveCoverage: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
-  onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onCreateRide?: (eventKey: string, kidIds?: string[], legs?: CarpoolLeg) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
   onOpenPlaces: () => void
@@ -131,12 +138,14 @@ export function AgendaFocusCard({
   onSetLeaveFrom,
 }: AgendaFocusCardProps) {
   const [acceptVehicleId, setAcceptVehicleId] = useState("")
+  const [rideNeededLegs, setRideNeededLegs] =
+    useState<RideNeededLegsChoice>(DEFAULT_RIDE_NEEDED_LEGS)
   const isManual = item.source === "MANUAL"
   const eligibleRide = eligiblePendingRideAccept(rideEvent, {
     adultId: currentAdultId,
     garage,
   })
-  const ownRequest = rideEvent?.ownRequest ?? null
+  const ownRequest = null
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const needsDecision = focusItemNeedsDecision(
     item,
@@ -192,11 +201,10 @@ export function AgendaFocusCard({
     : []
   const acceptVehicle =
     acceptVehicles.length === 1 ? acceptVehicles[0]!.id : acceptVehicleId
+  const kidsNeedingAsk =
+    rideEvent != null ? defaultKidsNeedingCarpoolRequest(rideEvent) : []
   const canAskTeam =
-    rideEvent != null &&
-    rideEvent.ownRequest == null &&
-    rideEvent.defaultKidIds.length > 0 &&
-    onCreateRide != null
+    rideEvent != null && kidsNeedingAsk.length > 0 && onCreateRide != null
   const showAssign =
     !showRideAcceptPass &&
     gapKidIds.length > 0 &&
@@ -205,9 +213,7 @@ export function AgendaFocusCard({
   const showRequest =
     !pendingForSelf && !showRideAcceptPass && canAskTeam && !showAssign
   const showCancelOwnRide =
-    ownRequest != null &&
-    (ownRequest.status === "PENDING" || ownRequest.status === "ACCEPTED") &&
-    onCancelRide != null
+    ownRequest != null && onCancelRide != null
   const showWithdrawAcceptedByUs = acceptedByUs != null && onWithdrawRide != null
   const showChangeSelect =
     Boolean(activeCoverage) && circle.members.length > 1 && !showAssign
@@ -508,17 +514,26 @@ export function AgendaFocusCard({
           </>
         ) : null}
         {showRequest && rideEvent != null ? (
-          <Button
-            type="button"
-            size="sm"
-            className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-            style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
-            variant={!needsDecision ? "default" : undefined}
-            onClick={() => onCreateRide?.(rideEvent.eventKey)}
-            disabled={loading}
-          >
-            Request
-          </Button>
+          <div className="flex w-full flex-col gap-[var(--fc-space-md)]">
+            <RideNeededLegsControl
+              id={`focus-request-legs-${item.source}-${item.id}`}
+              value={rideNeededLegs}
+              onChange={setRideNeededLegs}
+              disabled={loading}
+              hero={needsDecision}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              variant={!needsDecision ? "default" : undefined}
+              onClick={() => onCreateRide?.(rideEvent.eventKey, undefined, rideNeededLegs)}
+              disabled={loading}
+            >
+              Request
+            </Button>
+          </div>
         ) : null}
         {showAssign ? (
           <div className="flex w-full flex-col gap-[var(--fc-space-md)]">
@@ -563,6 +578,15 @@ export function AgendaFocusCard({
                 })}
               </fieldset>
             ) : null}
+            {canAskTeam ? (
+              <RideNeededLegsControl
+                id={`focus-assign-legs-${item.source}-${item.id}`}
+                value={rideNeededLegs}
+                onChange={setRideNeededLegs}
+                disabled={loading}
+                hero={needsDecision}
+              />
+            ) : null}
             <DriverPicker
               members={circle.members}
               currentAdultId={currentAdultId}
@@ -571,7 +595,9 @@ export function AgendaFocusCard({
               kidIds={assignDraft.kidIds}
               loading={loading}
               onAssignCoverage={onAssignCoverage}
-              onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
+              onAskTeam={() =>
+                onCreateRide?.(rideEvent!.eventKey, undefined, rideNeededLegs)
+              }
               showTeamSection={canAskTeam}
               hero={needsDecision}
             />

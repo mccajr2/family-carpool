@@ -837,8 +837,9 @@ describe("AgendaRow", () => {
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1", "k2"],
-      ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
+      rides: [],
     }
 
     const { rerender } = render(
@@ -865,7 +866,7 @@ describe("AgendaRow", () => {
     expect(within(band).getByRole("checkbox", { name: "Request ride for Riley" })).toBeChecked()
     await user.click(within(band).getByRole("checkbox", { name: "Request ride for Riley" }))
     await user.click(within(band).getByRole("button", { name: "Request" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"])
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"], "BOTH")
 
     const requestedEvent = {
       ...rideEvent,
@@ -1224,8 +1225,9 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
+      rides: [],
     }
 
     render(
@@ -1255,7 +1257,7 @@ detourMinutes: null,
     ).toBeTruthy()
     expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     await user.click(within(kid).getByRole("button", { name: "Ask the team for a ride" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
+    expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined, "BOTH")
     await user.click(confirm)
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
@@ -1278,8 +1280,9 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
+      rides: [],
     }
 
     render(
@@ -1304,7 +1307,7 @@ detourMinutes: null,
     const band = within(row).getByTestId("agenda-band-carpool")
     expect(within(band).getByRole("button", { name: "Request" })).toBeEnabled()
     await user.click(within(band).getByRole("button", { name: "Request" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined, "BOTH")
   })
 
   it("shows accepted-by-us ride density and Can't take them anymore when expanded", async () => {
@@ -1908,8 +1911,9 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
+          ownRequests: [],
           otherRequests: [],
+          rides: [],
         }}
         onCreateRide={vi.fn()}
         onCancelRide={vi.fn()}
@@ -2653,8 +2657,9 @@ detourMinutes: null,
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
+          ownRequests: [],
           otherRequests: [],
+          rides: [],
         }}
         onOpenRide={onOpenRide}
         {...noopHandlers}

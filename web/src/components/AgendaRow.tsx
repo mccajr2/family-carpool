@@ -2,6 +2,7 @@ import { useState } from "react"
 import { ChevronDown, ChevronRight, ChevronUp, Navigation } from "lucide-react"
 import type {
   CalendarItem,
+  CarpoolLeg,
   CarpoolRideEvent,
   FamilyCircle,
   Garage,
@@ -27,6 +28,12 @@ import {
   isHouseholdConfirmedDriver,
   isTeammateOwnRide,
 } from "@/components/canRoute"
+import {
+  DEFAULT_RIDE_NEEDED_LEGS,
+  defaultKidsNeedingCarpoolRequest,
+  type RideNeededLegsChoice,
+} from "@/components/rideNeededLegs"
+import { RideNeededLegsControl } from "@/components/RideNeededLegsControl"
 import {
   applyAutoDeclinedViewModel,
   isConfirmedDriver,
@@ -103,7 +110,7 @@ type AgendaRowProps = {
   recentlyWithdrawnRideIds?: ReadonlySet<string>
   /** Session-local auto-decline ids — inbound chip + Reconsider until Accept. */
   autoDeclinedRideIds?: ReadonlySet<string>
-  onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onCreateRide?: (eventKey: string, kidIds?: string[], legs?: CarpoolLeg) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
@@ -177,13 +184,16 @@ export function AgendaRow({
 }: AgendaRowProps) {
   const [open, setOpen] = useState(false)
   const [selectedRideKidIds, setSelectedRideKidIds] = useState<string[] | null>(null)
+  const [rideNeededLegs, setRideNeededLegs] =
+    useState<RideNeededLegsChoice>(DEFAULT_RIDE_NEEDED_LEGS)
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-  const ownRequest = rideEvent?.ownRequest ?? null
+  // Mapper task will join ownRequests; gap clearing stays coverage-only until then.
+  const ownRequest = null
   const { games: coverageGames } = applyAutoDeclinedViewModel(
     mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -205,11 +215,10 @@ export function AgendaRow({
     )
   })
   const uncoveredKidNames = eventKidNames(unassignedGapKidIds, circle.kids)
+  const kidsNeedingAsk =
+    rideEvent != null ? defaultKidsNeedingCarpoolRequest(rideEvent) : []
   const canAskTeam =
-    rideEvent != null &&
-    rideEvent.ownRequest == null &&
-    rideEvent.defaultKidIds.length > 0 &&
-    onCreateRide != null
+    rideEvent != null && kidsNeedingAsk.length > 0 && onCreateRide != null
   const showAssign =
     !outOfPlay &&
     !pendingForSelf &&
@@ -242,7 +251,7 @@ export function AgendaRow({
   const teamLabel = agendaRowTeamLabel(item)
   const whenLabel = formatCompactEventWhen(item.startsAt, item.endsAt)
   const locationLabel = item.location?.trim() || null
-  const defaultRideKids = rideEvent?.defaultKidIds ?? []
+  const defaultRideKids = kidsNeedingAsk
   const rideKidSelection = selectedRideKidIds ?? defaultRideKids
   // Own Request in the carpool band when not yet asked; inbound asks use AgendaInboundRequestRow.
   const showCarpoolBand =
@@ -643,7 +652,15 @@ export function AgendaRow({
                         ) : null}
 
                         {showPicker ? (
-                          <div className="mb-2">
+                          <div className="mb-2 flex flex-col gap-[var(--fc-space-sm)]">
+                            {canAskTeam ? (
+                              <RideNeededLegsControl
+                                id={`agenda-legs-${item.source}-${item.id}-${game.kidId}`}
+                                value={rideNeededLegs}
+                                onChange={setRideNeededLegs}
+                                disabled={loading}
+                              />
+                            ) : null}
                             <DriverPicker
                               members={circle.members}
                               currentAdultId={currentAdultId}
@@ -667,6 +684,7 @@ export function AgendaRow({
                                   onCreateRide(
                                     rideEvent.eventKey,
                                     onlyGap ? undefined : [game.kidId],
+                                    rideNeededLegs,
                                   )
                                 }
                               }}
@@ -835,6 +853,12 @@ export function AgendaRow({
                         )
                       })
                     : null}
+                  <RideNeededLegsControl
+                    id={`agenda-request-legs-${item.source}-${item.id}`}
+                    value={rideNeededLegs}
+                    onChange={setRideNeededLegs}
+                    disabled={loading}
+                  />
                   {onCreateRide != null ? (
                     <Button
                       type="button"
@@ -847,6 +871,7 @@ export function AgendaRow({
                         onCreateRide(
                           rideEvent.eventKey,
                           allDefault ? undefined : rideKidSelection,
+                          rideNeededLegs,
                         )
                       }}
                     >
@@ -866,10 +891,10 @@ export function AgendaRow({
               <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
                 Carpool
               </span>
-              {rideEvent.otherRequests.map((request) => (
+                  {rideEvent.otherRequests.map((request) => (
                 <AgendaInboundRequestRow
                   key={request.id}
-                  request={request}
+                  request={request as never}
                   circleId={circle.id}
                   currentAdultId={currentAdultId}
                   garage={garage}

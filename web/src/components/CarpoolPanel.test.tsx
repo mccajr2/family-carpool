@@ -77,7 +77,7 @@ const memberSpace: CarpoolSummary = {
   ],
 }
 
-function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function request(partial: Partial<import("@/api/types").CarpoolRequest> = {}): import("@/api/types").CarpoolRequest {
   return {
     id: "ride-1",
     spaceId: "s1",
@@ -85,21 +85,20 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c2",
     requestingCircleName: "House B",
     requestedByAdultId: "a2",
-    kidIds: ["k9"],
-    kidFirstNames: ["Sam"],
-    seats: 1,
+    kidId: "k9",
+    kidFirstName: "Sam",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main St",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -111,8 +110,9 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2026-08-21T16:00:00Z",
     endsAt: null,
     defaultKidIds: ["k1", "k2"],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -327,27 +327,50 @@ describe("CarpoolPanel", () => {
 
   it("requests a ride with all attending kids and a deselected subset", async () => {
     const user = userEvent.setup()
-    const createRide = vi.fn().mockResolvedValue(ride({ requestingCircleId: "c1", status: "PENDING" }))
+    const createCarpoolRequest = vi.fn().mockResolvedValue({
+      id: "req-1",
+      status: "UNCOVERED",
+      kidId: "k1",
+      legsNeeded: ["TO", "FROM"],
+    })
     const listRides = vi.fn().mockResolvedValue([event()])
     renderPanel({
       getSummary: vi.fn().mockResolvedValue(memberSpace),
       listRides,
-      createRide,
+      createCarpoolRequest,
     })
 
     expect(await screen.findByRole("checkbox", { name: "Mia" })).toBeChecked()
     expect(screen.getByRole("checkbox", { name: "Leo" })).toBeChecked()
+    expect(screen.getByTestId("ride-needed-legs")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Round trip" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
     await user.click(screen.getByRole("button", { name: "Request" }))
-    expect(createRide).toHaveBeenCalledWith("tok", "s1", { eventKey: "UID:practice" })
+    expect(createCarpoolRequest).toHaveBeenCalledWith("tok", "s1", {
+      eventKey: "UID:practice",
+      kidId: "k1",
+      legs: "BOTH",
+    })
+    expect(createCarpoolRequest).toHaveBeenCalledWith("tok", "s1", {
+      eventKey: "UID:practice",
+      kidId: "k2",
+      legs: "BOTH",
+    })
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Request" })).toBeEnabled()
     })
 
+    createCarpoolRequest.mockClear()
     await user.click(screen.getByRole("checkbox", { name: "Leo" }))
+    await user.click(screen.getByRole("button", { name: "To practice" }))
     await user.click(screen.getByRole("button", { name: "Request" }))
-    expect(createRide).toHaveBeenLastCalledWith("tok", "s1", {
+    expect(createCarpoolRequest).toHaveBeenCalledTimes(1)
+    expect(createCarpoolRequest).toHaveBeenCalledWith("tok", "s1", {
       eventKey: "UID:practice",
-      kidIds: ["k1"],
+      kidId: "k1",
+      legs: "TO",
     })
   })
 
@@ -355,15 +378,14 @@ describe("CarpoolPanel", () => {
     const user = userEvent.setup()
     const pendingOther = event({
       defaultKidIds: [],
-      otherRequests: [ride({ id: "ride-1", status: "PENDING", seats: 1 })],
+      otherRequests: [request({ id: "ride-1", status: "UNCOVERED" })],
     })
     const acceptedOther = event({
       defaultKidIds: [],
       otherRequests: [
-        ride({
+        request({
           id: "ride-1",
-          status: "ACCEPTED",
-          seats: 1,
+          status: "FULLY_COVERED",
           acceptingCircleId: "c1",
           acceptingCircleName: "House A",
           vehicleId: "v1",
@@ -373,12 +395,15 @@ describe("CarpoolPanel", () => {
     })
     const ownPending = event({
       defaultKidIds: [],
-      ownRequest: ride({
-        id: "ride-2",
-        requestingCircleId: "c1",
-        status: "PENDING",
-        kidFirstNames: ["Mia"],
-      }),
+      ownRequests: [
+        request({
+          id: "ride-2",
+          requestingCircleId: "c1",
+          status: "UNCOVERED",
+          kidId: "k1",
+          kidFirstName: "Mia",
+        }),
+      ],
     })
     let phase: "accept" | "withdraw" | "own" = "accept"
     const listRides = vi.fn().mockImplementation(async () => {
@@ -407,13 +432,9 @@ describe("CarpoolPanel", () => {
 
     await user.click(await screen.findByRole("button", { name: "Accept" }))
     expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ride-1", { vehicleId: "v1" })
-    expect(await screen.findByRole("button", { name: "Withdraw" })).toBeInTheDocument()
-
-    await user.click(screen.getByRole("button", { name: "Withdraw" }))
+    await user.click(await screen.findByRole("button", { name: "Withdraw" }))
     expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ride-1")
-    expect(await screen.findByRole("button", { name: "Cancel" })).toBeInTheDocument()
-
-    await user.click(screen.getByRole("button", { name: "Cancel" }))
+    await user.click(await screen.findByRole("button", { name: "Cancel" }))
     expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-2")
   })
 
@@ -423,7 +444,7 @@ describe("CarpoolPanel", () => {
     const listRides = vi.fn().mockImplementation(async () => [
       event({
         defaultKidIds: [],
-        otherRequests: [ride({ id: "ride-1", status: "PENDING", passedByMe: passed })],
+        otherRequests: [request({ id: "ride-1", status: "UNCOVERED", passedByMe: passed })],
       }),
     ])
     const passRide = vi.fn().mockImplementation(async () => {

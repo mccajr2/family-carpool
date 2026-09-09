@@ -211,15 +211,17 @@ export function CarpoolPanel({
                 kids={kids}
                 garage={garage}
                 busy={busy}
-                onCreateRide={(eventKey, kidIds) =>
-                  void run(() =>
-                    carpoolClient
-                      .createRide(accessToken, space.id, {
+                onCreateRide={(eventKey, kidIds, legs) =>
+                  void run(async () => {
+                    const ids = kidIds ?? []
+                    for (const kidId of ids) {
+                      await carpoolClient.createCarpoolRequest(accessToken, space.id, {
                         eventKey,
-                        ...(kidIds != null ? { kidIds } : {}),
+                        kidId,
+                        legs: legs ?? "BOTH",
                       })
-                      .then(() => undefined),
-                  )
+                    }
+                  })
                 }
                 onAcceptRide={(rideId, vehicleId) =>
                   void run(() =>

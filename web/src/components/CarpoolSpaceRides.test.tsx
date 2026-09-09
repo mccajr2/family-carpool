@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage, Kid } from "@/api/types"
+import type { CarpoolRideEvent, Garage, Kid } from "@/api/types"
 import { CarpoolSpaceRides } from "@/components/CarpoolSpaceRides"
 
 const kids: Kid[] = [{ id: "k1", displayName: "Mia" }]
@@ -25,29 +25,28 @@ const garage: Garage = {
   ],
 }
 
-function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function request(partial: Partial<import("@/api/types").CarpoolRequest> = {}): import("@/api/types").CarpoolRequest {
   return {
-    id: "ride-1",
+    id: "req-1",
     spaceId: "s1",
     eventKey: "UID:game",
     requestingCircleId: "c2",
     requestingCircleName: "House B",
     requestedByAdultId: "a2",
-    kidIds: ["k2"],
-    kidFirstNames: ["Leo"],
-    seats: 1,
+    kidId: "k2",
+    kidFirstName: "Leo",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -59,8 +58,9 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -79,7 +79,7 @@ describe("CarpoolSpaceRides pass", () => {
     const onPassRide = vi.fn()
     render(
       <CarpoolSpaceRides
-        events={[event({ otherRequests: [ride()] })]}
+        events={[event({ otherRequests: [request()] })]}
         circleId="c1"
         adultId="a1"
         kids={kids}
@@ -93,7 +93,7 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Pass" }))
-    expect(onPassRide).toHaveBeenCalledWith("ride-1")
+    expect(onPassRide).toHaveBeenCalledWith("req-1")
   })
 
   it("shows PickupLine before Accept/Pass when detour data is present", () => {
@@ -102,7 +102,7 @@ describe("CarpoolSpaceRides pass", () => {
         events={[
           event({
             otherRequests: [
-              ride({
+              request({
                 pickupTown: "Cambridge, MA",
                 detourMinutes: 4,
               }),
@@ -129,7 +129,7 @@ describe("CarpoolSpaceRides pass", () => {
   it("still offers Accept after the caller has passed, without Pass or un-pass", () => {
     render(
       <CarpoolSpaceRides
-        events={[event({ otherRequests: [ride({ passedByMe: true })] })]}
+        events={[event({ otherRequests: [request({ passedByMe: true })] })]}
         circleId="c1"
         adultId="a1"
         kids={kids}
@@ -147,7 +147,7 @@ describe("CarpoolSpaceRides pass", () => {
   it("offers Pass without drives/vehicle when Accept is unavailable", () => {
     render(
       <CarpoolSpaceRides
-        events={[event({ otherRequests: [ride()] })]}
+        events={[event({ otherRequests: [request()] })]}
         circleId="c1"
         adultId="a1"
         kids={kids}
@@ -168,14 +168,17 @@ describe("CarpoolSpaceRides pass", () => {
       <CarpoolSpaceRides
         events={[
           event({
-            ownRequest: ride({
-              id: "own-1",
-              requestingCircleId: "c1",
-              requestingCircleName: "Ours",
-              status: "PENDING",
-              passedByAdultNames: ["Sam", "Alex"],
-              kidFirstNames: ["Mia"],
-            }),
+            ownRequests: [
+              request({
+                id: "own-1",
+                requestingCircleId: "c1",
+                requestingCircleName: "Ours",
+                kidId: "k1",
+                kidFirstName: "Mia",
+                status: "UNCOVERED",
+                passedByAdultNames: ["Sam", "Alex"],
+              }),
+            ],
           }),
         ]}
         circleId="c1"
@@ -211,8 +214,9 @@ describe("CarpoolSpaceRides request defaults", () => {
       screen.queryByText("Mark who's going on Calendar to request a ride."),
     ).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Request" })).toBeEnabled()
+    expect(screen.getByTestId("ride-needed-legs")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Request" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:game", undefined)
+    expect(onCreateRide).toHaveBeenCalledWith("UID:game", ["k1"], "BOTH")
   })
 
   it("does not tell adults to RSVP Yes first when defaults are empty", () => {

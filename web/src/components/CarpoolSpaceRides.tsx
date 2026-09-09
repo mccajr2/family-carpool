@@ -1,18 +1,26 @@
 import { useState } from "react"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage, Kid } from "@/api/types"
+import type {
+  CarpoolLeg,
+  CarpoolRequest,
+  CarpoolRideEvent,
+  Garage,
+  Kid,
+  Vehicle,
+} from "@/api/types"
 import {
   callerDrives,
   circleDisplayName,
-  eligibleVehiclesForAccept,
-  incomingRideAskSummary,
-  isAcceptedByCircle,
   kidDisplayName,
-  ownRideDetailLine,
-  ownRideStatusLine,
 } from "@/components/carpoolDisplay"
 import { formatIsoForDisplay } from "@/components/eventTimes"
 import { PickupLine } from "@/components/PickupLine"
+import {
+  DEFAULT_RIDE_NEEDED_LEGS,
+  defaultKidsNeedingCarpoolRequest,
+  type RideNeededLegsChoice,
+} from "@/components/rideNeededLegs"
+import { RideNeededLegsControl } from "@/components/RideNeededLegsControl"
 import { Button } from "@/components/ui/button"
 
 type CarpoolSpaceRidesProps = {
@@ -22,7 +30,7 @@ type CarpoolSpaceRidesProps = {
   kids: Kid[]
   garage: Garage | null
   busy: boolean
-  onCreateRide: (eventKey: string, kidIds?: string[]) => void
+  onCreateRide: (eventKey: string, kidIds?: string[], legs?: CarpoolLeg) => void
   onAcceptRide: (rideId: string, vehicleId: string) => void
   onPassRide: (rideId: string) => void
   onCancelRide: (rideId: string) => void
@@ -43,6 +51,9 @@ export function CarpoolSpaceRides({
   onWithdrawRide,
 }: CarpoolSpaceRidesProps) {
   const [kidSelection, setKidSelection] = useState<Record<string, string[]>>({})
+  const [legsSelection, setLegsSelection] = useState<Record<string, RideNeededLegsChoice>>(
+    {},
+  )
   const [vehicleSelection, setVehicleSelection] = useState<Record<string, string>>({})
   const drives = callerDrives(garage, adultId)
   const vehicles = garage?.vehicles ?? []
@@ -56,55 +67,60 @@ export function CarpoolSpaceRides({
   return (
     <ul className="flex flex-col gap-3" aria-label="Upcoming rides">
       {events.map((event) => {
-        const selectedKids = kidSelection[event.eventKey] ?? event.defaultKidIds
+        const kidsNeedingAsk = defaultKidsNeedingCarpoolRequest(event)
+        const selectedKids = kidSelection[event.eventKey] ?? kidsNeedingAsk
+        const legs = legsSelection[event.eventKey] ?? DEFAULT_RIDE_NEEDED_LEGS
         return (
           <li key={event.eventKey} className="flex flex-col gap-1">
             <span className="text-sm font-medium">{event.title}</span>
             <span className="text-xs text-muted-foreground">
               {formatIsoForDisplay(event.startsAt)}
             </span>
-            {event.ownRequest ? (
+            {event.ownRequests.map((request) => (
               <OwnRideStatus
-                ride={event.ownRequest}
+                key={request.id}
+                request={request}
                 busy={busy}
-                onCancel={() => onCancelRide(event.ownRequest!.id)}
+                onCancel={() => onCancelRide(request.id)}
               />
-            ) : event.defaultKidIds.length > 0 ? (
+            ))}
+            {kidsNeedingAsk.length > 0 ? (
               <RequestRideControls
-                event={event}
+                eventKey={event.eventKey}
                 kids={kids}
+                defaultKidIds={kidsNeedingAsk}
                 selectedKids={selectedKids}
+                legs={legs}
                 busy={busy}
                 onToggleKid={(kidId, checked) => {
-                  const current = kidSelection[event.eventKey] ?? event.defaultKidIds
+                  const current = kidSelection[event.eventKey] ?? kidsNeedingAsk
                   const next = checked
                     ? [...current, kidId]
                     : current.filter((id) => id !== kidId)
                   setKidSelection((prev) => ({ ...prev, [event.eventKey]: next }))
                 }}
+                onLegsChange={(next) =>
+                  setLegsSelection((prev) => ({ ...prev, [event.eventKey]: next }))
+                }
                 onRequest={() => {
-                  const allDefault =
-                    selectedKids.length === event.defaultKidIds.length &&
-                    selectedKids.every((id) => event.defaultKidIds.includes(id))
-                  onCreateRide(event.eventKey, allDefault ? undefined : selectedKids)
+                  onCreateRide(event.eventKey, selectedKids, legs)
                 }}
               />
-            ) : (
+            ) : event.ownRequests.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No kids need a ride for this event.
               </p>
-            )}
+            ) : null}
             {event.otherRequests.map((request) => (
               <OtherRideRequest
                 key={request.id}
                 request={request}
                 circleId={circleId}
                 busy={busy}
-                eligible={eligibleVehiclesForAccept({
+                eligible={eligibleVehiclesForOpenRequest({
                   drives,
                   adultId,
                   vehicles,
-                  event,
                   request,
                 })}
                 selectedVehicleId={vehicleSelection[request.id] ?? ""}
@@ -124,51 +140,82 @@ export function CarpoolSpaceRides({
 }
 
 function OwnRideStatus({
-  ride,
+  request,
   busy,
   onCancel,
 }: {
-  ride: CarpoolRide
+  request: CarpoolRequest
   busy: boolean
   onCancel: () => void
 }) {
   const statusLabel =
-    ride.status === "ACCEPTED"
-      ? `Accepted${
-          ride.acceptingCircleName
-            ? ` by ${circleDisplayName(ride.acceptingCircleName)}`
-            : ""
-        }`
-      : ownRideStatusLine(ride)
+    request.status === "FULLY_COVERED"
+      ? "Covered"
+      : request.status === "PARTIAL"
+        ? "Partially covered"
+        : request.passedByAdultNames.length > 0
+          ? `Passed by ${request.passedByAdultNames.join(", ")}`
+          : "Asked the team"
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm text-muted-foreground">{ownRideDetailLine(ride, statusLabel)}</p>
-      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onCancel}>
-        Cancel
-      </Button>
+      <p className="text-sm text-muted-foreground">
+        {request.kidFirstName}: {statusLabel}
+      </p>
+      {request.status === "UNCOVERED" || request.status === "PARTIAL" ? (
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onCancel}>
+          Cancel
+        </Button>
+      ) : null}
     </div>
   )
 }
 
+/** Interim seat-free eligibility until carpoolDisplay maps per-leg rides. */
+function eligibleVehiclesForOpenRequest(options: {
+  drives: boolean
+  adultId: string
+  vehicles: Vehicle[]
+  request: CarpoolRequest
+}): { id: string; label: string }[] {
+  if (
+    !options.drives ||
+    (options.request.status !== "UNCOVERED" && options.request.status !== "PARTIAL")
+  ) {
+    return []
+  }
+  return options.vehicles
+    .filter((vehicle) => vehicle.driverAdultIds.includes(options.adultId))
+    .map((vehicle) => ({
+      id: vehicle.id,
+      label: vehicle.label?.trim() || "Vehicle",
+    }))
+}
+
 function RequestRideControls({
-  event,
+  eventKey,
   kids,
+  defaultKidIds,
   selectedKids,
+  legs,
   busy,
   onToggleKid,
+  onLegsChange,
   onRequest,
 }: {
-  event: CarpoolRideEvent
+  eventKey: string
   kids: Kid[]
+  defaultKidIds: string[]
   selectedKids: string[]
+  legs: RideNeededLegsChoice
   busy: boolean
   onToggleKid: (kidId: string, checked: boolean) => void
+  onLegsChange: (legs: RideNeededLegsChoice) => void
   onRequest: () => void
 }) {
   return (
     <div className="flex flex-col gap-1">
-      {event.defaultKidIds.length > 1
-        ? event.defaultKidIds.map((kidId) => {
+      {defaultKidIds.length > 1
+        ? defaultKidIds.map((kidId) => {
             const name = kidDisplayName(kids, kidId)
             return (
               <label key={kidId} className="flex items-center gap-2 text-sm">
@@ -184,6 +231,12 @@ function RequestRideControls({
             )
           })
         : null}
+      <RideNeededLegsControl
+        id={`carpool-request-legs-${eventKey}`}
+        value={legs}
+        onChange={onLegsChange}
+        disabled={busy}
+      />
       <Button
         type="button"
         size="sm"
@@ -207,7 +260,7 @@ function OtherRideRequest({
   onPass,
   onWithdraw,
 }: {
-  request: CarpoolRide
+  request: CarpoolRequest
   circleId: string
   busy: boolean
   eligible: { id: string; label: string }[]
@@ -217,13 +270,13 @@ function OtherRideRequest({
   onPass: () => void
   onWithdraw: () => void
 }) {
-  const acceptedByUs = isAcceptedByCircle(request, circleId)
-  const canAccept = request.status === "PENDING" && eligible.length > 0
-  // Pass: PENDING + not yet passedByMe. drives / vehicle not required (Focus
-  // Accept eligibility does not gate Pass on the tab).
-  const canPass = request.status === "PENDING" && !request.passedByMe
+  const openNeed = request.status === "UNCOVERED" || request.status === "PARTIAL"
+  const acceptedByUs =
+    request.status === "FULLY_COVERED" && request.acceptingCircleId === circleId
+  const canAccept = openNeed && eligible.length > 0
+  const canPass = openNeed && !request.passedByMe
   const status =
-    request.status === "ACCEPTED"
+    request.status === "FULLY_COVERED"
       ? `Accepted${
           request.acceptingCircleName
             ? ` by ${circleDisplayName(request.acceptingCircleName)}`
@@ -233,10 +286,11 @@ function OtherRideRequest({
         ? "Passed"
         : "Needs a ride"
   const vehicleId = eligible.length === 1 ? eligible[0]!.id : selectedVehicleId
+  const askSummary = `${circleDisplayName(request.requestingCircleName)} · ${request.kidFirstName}`
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm">{incomingRideAskSummary(request)}</p>
+      <p className="text-sm">{askSummary}</p>
       <p className="text-xs text-muted-foreground">{status}</p>
       {canAccept || canPass ? (
         <PickupLine
