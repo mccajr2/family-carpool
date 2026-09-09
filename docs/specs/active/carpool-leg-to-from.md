@@ -351,7 +351,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Web: DriverPicker / accept flows create per-leg `Ride`s (two rows for
       round trip when one driver covers both)
 - [x] Docs: `docs/architecture.md` → Team carpool space (detail)
-- [ ] Docs: `docs/agenda-coverage-web-contract.md` gap / week-glance /
+- [x] Docs: `docs/agenda-coverage-web-contract.md` gap / week-glance /
       Ride-state surface set wording
 - [ ] Tests: unit tests for `rideStatusChip`, `agendaWeekGlanceDays`,
       `canRoute`, queue/display helpers that would fail if partial/leg logic

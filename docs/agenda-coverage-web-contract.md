@@ -26,6 +26,18 @@ consumers in the same PR** — do not leave one on the old model:
 4. **Week at a glance** — `AgendaWeekGlance` / `agendaWeekGlanceDays`
 5. **Route view** — `canRoute` → ride-detail / `RideRouteTab`
 
+Locked for [`carpool-leg-to-from`](specs/active/carpool-leg-to-from.md)
+(need ≠ fulfillment):
+
+| Rule | Contract |
+|------|----------|
+| Gap clear | A kid leaves **remaining gap** / week-glance “needs coverage” only when their own need is **`FULLY_COVERED`**. **`PARTIAL`** and open/`UNCOVERED` asks do **not** clear the gap. v1 `ACCEPTED` ≡ today’s `FULLY_COVERED`. |
+| Hero queue | Own kid stays in `getQueue` while any needed leg is still **OPEN** (includes **`PARTIAL`**). Leave queue only when **`FULLY_COVERED`** or otherwise no decision (same spirit as confirmed / requested-wait). |
+| Request UI | Per-kid **To / From / Round trip** (default Round trip) on create/PATCH — no split-plans disclosure. |
+| Accept / reverse | Accept covers **all still-OPEN legs** (no Accept leg picker). Cancel / Withdraw target a **specific `Ride` id** (one leg). |
+| Chips | Partial round-trip copy is a first-class own-ride chip (amber), e.g. **Round trip — from confirmed, to still needed**. |
+| Route | `canRoute` true iff a confirmed **TO** fulfillment covers that kid; **`PARTIAL` with TO confirmed** allows Route; FROM-only does not. |
+
 Carpool tab ride list stays a secondary surface but must use the same API
 clients/helpers when it shows the same states. Restyles alone do not excuse
 skipping mapper/gate updates.
@@ -73,11 +85,12 @@ the signed-in adult no longer has a decision on that kid row:
 | Kid-row `ownRide` | In carousel? |
 | --- | --- |
 | `unassigned` | Yes — pick a driver or ask the team |
+| `"partial"` (roll-up `PARTIAL`; any needed leg still OPEN) | Yes — finish the open leg(s) |
 | `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline |
 | `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
-| `"requested"` (asked the team) | No — waiting on teammates |
-| `{ driver, confirmed: true }` | No — covered |
-| Pending inbound carpool request (actionable) | Yes — Accept / Decline |
+| `"requested"` (open team ask; roll-up `UNCOVERED`) | No — waiting on teammates (**Asked the team**) |
+| `{ driver, confirmed: true }` (need `FULLY_COVERED`) | No — covered |
+| Pending inbound carpool request (actionable; still-OPEN legs) | Yes — Accept / Pass |
 
 When the filtered queue is empty, render the **All caught up** hero
 (`heroGlow`, `CheckCircle2` 28px in `heroSuccess`, uppercase **All caught up**,
@@ -286,9 +299,11 @@ Origin modes (locked with `coverage-leave-from`):
 - Uncovered kids (API `uncoveredKidIds`): **Needs coverage** /
   **Needs coverage: {names}** (in-play only — not-going kids are never
   uncovered). Calendar chrome uses **remaining gap kids** =
-  `uncoveredKidIds` minus kids on this circle’s **`ACCEPTED` `ownRequest`**
-  (PENDING ride does not clear the gap). Names on the row copy are remaining
-  gap kids only.
+  `uncoveredKidIds` minus kids whose own need is **`FULLY_COVERED`**
+  (`remainingCoverageGapKidIds` / per-kid `ownRequests`). **`PARTIAL`**,
+  open team asks (`UNCOVERED`), and no-ask gaps do **not** clear the gap.
+  Names on the row copy are remaining gap kids only. API `uncoveredKidIds`
+  stays orthogonal to seats/trips.
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
 - **Collapsed status tags** (Focus + collapsed `AgendaRow`) share
   one precedence via `rideStatusChipsForItem` + `insertOwnRideStatusChip`
@@ -300,10 +315,14 @@ Origin modes (locked with `coverage-leave-from`):
   (amber; from `rideCommitmentConflict`): **Also driving {inbound kid
   first-name}** when Type A with exactly one inbound kid name; else **Ride
   conflict** (Type A multi-kid or Type B mutual swap). Shown **alongside** the
-  own-ride / gap chip — not instead of it. Own-ride chip: **Riding with
-  {acceptingCircleName}** (mint; blank name → **Riding with a teammate**) when
-  `ACCEPTED`; **Requested** (amber) when `PENDING`. Do not use “Accepted ·” /
-  “Accepted:”.
+  own-ride / gap chip — not instead of it. Own-ride chip (amber unless noted):
+  **Ride needed** when uncovered with no ask; **Asked the team** when open
+  team ask (`UNCOVERED`); **Round trip — {leg} confirmed, {other} still
+  needed** (or equivalent from `partialRideStatusLabel`) when roll-up is
+  **`PARTIAL`**; **You're driving** / **You're driving · +N** (route tone when
+  riders) when household `FULLY_COVERED`; **Riding with {drivingCircleName}**
+  (mint; blank name → **Riding with a teammate**) when teammate
+  `FULLY_COVERED`. Do not use “Accepted ·” / “Accepted:” / bare **Requested**.
   **Presentation:** Feeds-aligned uppercase chips (`AgendaStatusChip`
   default/`tag`, `feedChip*` tokens) — **no** leading dot, **no** Title Case
   pills (`appearance="pill"` retired on Agenda surfaces). Canonical label
@@ -313,8 +332,8 @@ Origin modes (locked with `coverage-leave-from`):
 ### Assign
 
 - Show assign UI only when there are **remaining gap kids** and at least one
-  member (not raw `uncoveredKidIds` alone — ACCEPTED own-ride kids are out of
-  the gap).
+  member (not raw `uncoveredKidIds` alone — `FULLY_COVERED` own-need kids are
+  out of the gap; `PARTIAL` kids stay in it).
 - **Sole remaining gap kid** → no kid checkboxes; that kid is implicit on
   Assign.
 - **Sole circle adult** → no covering-adult picker; that adult is implicit.
@@ -406,14 +425,16 @@ First match:
 | Condition | Copy | Flag |
 |-----------|------|------|
 | Zero items that local day | **No events** | none |
-| `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids on this circle’s **ACCEPTED** `ownRequest`; PENDING does not clear) | **1 needs coverage** / **{n} need coverage** | amber |
+| `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids whose own need is **`FULLY_COVERED`**; `PARTIAL` / open ask do not clear) | **1 needs coverage** / **{n} need coverage** | amber |
 | else `n` in-play with `conflicts.length > 0` | **1 overlaps** / **{n} overlap** | amber |
 | else `n` in-play pending-for-self | **1 to confirm** / **{n} to confirm** | amber |
 | else (in-play all-set, pending-for-others, out-of-play only) | **All set** | none |
 
-Wire the same ride join as Agenda rows (`ownRequestForItem` from
-`calendarRideByItemKey`). API `uncoveredKidIds` stays orthogonal; the strip
-must not flag events that Focus/rows treat as covered by an ACCEPTED ride.
+Wire the same ride join as Agenda rows (`ownRequestForItem` / per-kid
+`ownRequests` from `calendarRideByItemKey`). API `uncoveredKidIds` stays
+orthogonal; the strip must not flag events that Focus/rows treat as covered by
+a **`FULLY_COVERED`** need. No separate “partial” week-glance string this PR —
+`PARTIAL` still rolls into **needs coverage**.
 
 Two uncovered kids on **one** event still **1 needs coverage**. Pending for
 someone else without uncovered / conflict is calm (**All set**) — same as
