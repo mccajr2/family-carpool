@@ -12,7 +12,6 @@ import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
 import com.yourorg.quickapp.leaveby.internal.StubOsrmPort;
 import java.util.List;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,7 +25,6 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Disabled("carpool-leg-to-from: rewrite against ride-requests in next integration-test task")
 class CarpoolRideDetourIntegrationTest {
 
     private static final String FROM = "2026-08-01T00:00:00Z";
@@ -46,8 +44,8 @@ class CarpoolRideDetourIntegrationTest {
 
     @Test
     void listCarpoolRidesReturnsPickupTownAndViewerDetourMinutes() throws Exception {
-        String orgA = signIn("carpool-detour-org-a@example.com");
-        String orgB = signIn("carpool-detour-org-b@example.com");
+        String orgA = signIn("carpool-detour-v2-org-a@example.com");
+        String orgB = signIn("carpool-detour-v2-org-b@example.com");
 
         createCircle(orgA, "Alex", "Detour House A");
         createCircle(orgB, "Sam", "Detour House B");
@@ -55,8 +53,8 @@ class CarpoolRideDetourIntegrationTest {
         String kidA = addKid(orgA, "Sam");
         String kidB = addKid(orgB, "Riley");
         String feedA =
-                createFeed(orgA, "Soccer", "https://example.com/carpool-detour.ics", kidA);
-        createFeed(orgB, "Soccer", "https://example.com/carpool-detour.ics", kidB);
+                createFeed(orgA, "Soccer", "https://example.com/carpool-detour-v2.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-detour-v2.ics", kidB);
 
         MvcResult enabled =
                 mockMvc.perform(
@@ -81,10 +79,15 @@ class CarpoolRideDetourIntegrationTest {
         addPlace(orgB, "Home B", VIEWER_ORIGIN);
 
         mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides")
+                        post("/api/carpool/spaces/" + spaceId + "/ride-requests")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + EVENT_KEY
+                                                + "\",\"kidId\":\""
+                                                + kidA
+                                                + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.pickupAddress").value(PICKUP_ADDRESS))
                 .andExpect(jsonPath("$.pickupTown").value("Cambridge, MA"))
@@ -123,18 +126,18 @@ class CarpoolRideDetourIntegrationTest {
         String orgAJson = orgAList.getResponse().getContentAsString();
         @SuppressWarnings("unchecked")
         List<String> ownPickupTowns =
-                JsonPath.read(orgAJson, eventFilter() + ".ownRequest.pickupTown");
+                JsonPath.read(orgAJson, eventFilter() + ".ownRequests[0].pickupTown");
         assertThat(ownPickupTowns).containsExactly("Cambridge, MA");
         @SuppressWarnings("unchecked")
         List<Integer> ownDetours =
-                JsonPath.read(orgAJson, eventFilter() + ".ownRequest.detourMinutes");
+                JsonPath.read(orgAJson, eventFilter() + ".ownRequests[0].detourMinutes");
         assertThat(ownDetours).containsExactly((Integer) null);
     }
 
     @Test
     void listCarpoolRidesSoftFailsDetourWhenViewerHasNoLocatedOrigin() throws Exception {
-        String orgA = signIn("carpool-detour-miss-org-a@example.com");
-        String orgB = signIn("carpool-detour-miss-org-b@example.com");
+        String orgA = signIn("carpool-detour-miss-v2-org-a@example.com");
+        String orgB = signIn("carpool-detour-miss-v2-org-b@example.com");
 
         createCircle(orgA, "Alex", "Detour Miss House A");
         createCircle(orgB, "Sam", "Detour Miss House B");
@@ -143,8 +146,8 @@ class CarpoolRideDetourIntegrationTest {
         String kidB = addKid(orgB, "Riley");
         String feedA =
                 createFeed(
-                        orgA, "Soccer", "https://example.com/carpool-detour-miss.ics", kidA);
-        createFeed(orgB, "Soccer", "https://example.com/carpool-detour-miss.ics", kidB);
+                        orgA, "Soccer", "https://example.com/carpool-detour-miss-v2.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-detour-miss-v2.ics", kidB);
 
         MvcResult enabled =
                 mockMvc.perform(
@@ -169,10 +172,15 @@ class CarpoolRideDetourIntegrationTest {
         addPlace(orgB, "Home B", "Unlocateable Lane");
 
         mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides")
+                        post("/api/carpool/spaces/" + spaceId + "/ride-requests")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + EVENT_KEY
+                                                + "\",\"kidId\":\""
+                                                + kidA
+                                                + "\"}"))
                 .andExpect(status().isCreated());
 
         MvcResult listed =

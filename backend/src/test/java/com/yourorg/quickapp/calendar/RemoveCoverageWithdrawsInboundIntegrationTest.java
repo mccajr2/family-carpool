@@ -1,6 +1,7 @@
 package com.yourorg.quickapp.calendar;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,7 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
 import java.util.List;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,15 +25,14 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Disabled("carpool-leg-to-from: rewrite against ride-requests in next integration-test task")
 class RemoveCoverageWithdrawsInboundIntegrationTest {
 
     private static final String FROM = "2026-08-01T00:00:00Z";
     private static final String TO = "2026-09-01T00:00:00Z";
     private static final String EVENT_KEY = "UID:stub-game-1@example.com";
-    private static final String FEED_URL = "https://example.com/carpool-remove-coverage.ics";
+    private static final String FEED_URL = "https://example.com/carpool-remove-coverage-v2.ics";
     private static final String RSVP_WITHDRAW_FEED_URL =
-            "https://example.com/carpool-rsvp-withdraw.ics";
+            "https://example.com/carpool-rsvp-withdraw-v2.ics";
 
     @DynamicPropertySource
     static void datasourceProps(DynamicPropertyRegistry registry) {
@@ -44,9 +43,9 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void removingConfirmedCoverageWithdrawsAcceptedInboundRideToPending() throws Exception {
-        String driver = signIn("remove-coverage-driver@example.com");
-        String requester = signIn("remove-coverage-requester@example.com");
+    void removingConfirmedCoverageWithdrawsActiveInboundRidesToUncovered() throws Exception {
+        String driver = signIn("remove-coverage-v2-driver@example.com");
+        String requester = signIn("remove-coverage-v2-requester@example.com");
 
         createCircle(driver, "Alex", "House Driver");
         createCircle(requester, "Sam", "House Requester");
@@ -103,22 +102,38 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
 
         MvcResult created =
                 mockMvc.perform(
-                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                post("/api/carpool/spaces/" + spaceId + "/ride-requests")
                                         .header(HttpHeaders.AUTHORIZATION, bearer(requester))
                                         .contentType(MediaType.APPLICATION_JSON)
-                                        .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"kidId\":\""
+                                                        + requesterKid
+                                                        + "\"}"))
                         .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.status").value("PENDING"))
+                        .andExpect(jsonPath("$.status").value("UNCOVERED"))
                         .andReturn();
-        String rideId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        String requestId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+        MvcResult accepted =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/"
+                                                + spaceId
+                                                + "/ride-requests/"
+                                                + requestId
+                                                + "/accept")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$", hasSize(2)))
+                        .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                        .andExpect(jsonPath("$[1].status").value("ACTIVE"))
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> rideIds = JsonPath.read(accepted.getResponse().getContentAsString(), "$[*].id");
+        assertThat(rideIds).hasSize(2);
 
         mockMvc.perform(
                         delete("/api/family/circle/calendar/coverages/" + assignmentId)
@@ -126,30 +141,50 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.coverages").isEmpty());
 
+        // List only returns ACTIVE rides; withdrawn fulfillments leave the request UNCOVERED.
+        MvcResult listedAfterRemove =
+                mockMvc.perform(
+                                get("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                        .param("from", FROM)
+                                        .param("to", TO))
+                        .andExpect(status().isOk())
+                        .andExpect(
+                                jsonPath(
+                                                "$.[?(@.eventKey=='"
+                                                        + EVENT_KEY
+                                                        + "')].ownRequests[0].status")
+                                        .value("UNCOVERED"))
+                        .andExpect(
+                                jsonPath(
+                                                "$.[?(@.eventKey=='"
+                                                        + EVENT_KEY
+                                                        + "')].ownRequests[0].id")
+                                        .value(requestId))
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<List<?>> activeRidesAfterRemove =
+                JsonPath.read(
+                        listedAfterRemove.getResponse().getContentAsString(),
+                        "$.[?(@.eventKey=='" + EVENT_KEY + "')].rides");
+        assertThat(activeRidesAfterRemove).hasSize(1);
+        assertThat(activeRidesAfterRemove.getFirst()).isEmpty();
+
+        // Direct withdraw on already-withdrawn rides is conflict (proves WITHDRAWN, not ACTIVE).
         mockMvc.perform(
-                        get("/api/carpool/spaces/" + spaceId + "/rides")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(requester))
-                                .param("from", FROM)
-                                .param("to", TO))
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownRequest.status")
-                                .value("PENDING"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownRequest.id")
-                                .value(rideId));
+                        post("/api/carpool/spaces/"
+                                        + spaceId
+                                        + "/rides/"
+                                        + rideIds.getFirst()
+                                        + "/withdraw")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                .andExpect(status().isConflict());
     }
 
     @Test
-    void markingNotGoingWithdrawsAcceptedInboundRideToPending() throws Exception {
-        String driver = signIn("rsvp-withdraw-driver@example.com");
-        String requester = signIn("rsvp-withdraw-requester@example.com");
+    void markingNotGoingWithdrawsActiveInboundRidesToUncovered() throws Exception {
+        String driver = signIn("rsvp-withdraw-v2-driver@example.com");
+        String requester = signIn("rsvp-withdraw-v2-requester@example.com");
 
         createCircle(driver, "Alex", "House Driver");
         createCircle(requester, "Sam", "House Requester");
@@ -202,22 +237,33 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
 
         MvcResult created =
                 mockMvc.perform(
-                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                post("/api/carpool/spaces/" + spaceId + "/ride-requests")
                                         .header(HttpHeaders.AUTHORIZATION, bearer(requester))
                                         .contentType(MediaType.APPLICATION_JSON)
-                                        .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"kidId\":\""
+                                                        + requesterKid
+                                                        + "\"}"))
                         .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.status").value("PENDING"))
+                        .andExpect(jsonPath("$.status").value("UNCOVERED"))
                         .andReturn();
-        String rideId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        String requestId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
         mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                        post("/api/carpool/spaces/"
+                                        + spaceId
+                                        + "/ride-requests/"
+                                        + requestId
+                                        + "/accept")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(driver))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$[1].status").value("ACTIVE"));
 
         mockMvc.perform(
                         put("/api/family/circle/calendar/FEED/"
@@ -231,24 +277,33 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
                 .andExpect(jsonPath("$.coverages").isEmpty())
                 .andExpect(jsonPath("$.rsvps[?(@.kidId=='" + driverKid + "')].status").value("NO"));
 
-        mockMvc.perform(
-                        get("/api/carpool/spaces/" + spaceId + "/rides")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(requester))
-                                .param("from", FROM)
-                                .param("to", TO))
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownRequest.status")
-                                .value("PENDING"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownRequest.id")
-                                .value(rideId));
+        MvcResult listedAfterNo =
+                mockMvc.perform(
+                                get("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                        .param("from", FROM)
+                                        .param("to", TO))
+                        .andExpect(status().isOk())
+                        .andExpect(
+                                jsonPath(
+                                                "$.[?(@.eventKey=='"
+                                                        + EVENT_KEY
+                                                        + "')].ownRequests[0].status")
+                                        .value("UNCOVERED"))
+                        .andExpect(
+                                jsonPath(
+                                                "$.[?(@.eventKey=='"
+                                                        + EVENT_KEY
+                                                        + "')].ownRequests[0].id")
+                                        .value(requestId))
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<List<?>> activeRidesAfterNo =
+                JsonPath.read(
+                        listedAfterNo.getResponse().getContentAsString(),
+                        "$.[?(@.eventKey=='" + EVENT_KEY + "')].rides");
+        assertThat(activeRidesAfterNo).hasSize(1);
+        assertThat(activeRidesAfterNo.getFirst()).isEmpty();
     }
 
     private String organizerAdultId(String token) throws Exception {
