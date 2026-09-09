@@ -350,7 +350,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Web: `canRoute` TO-confirmed gate; ride-detail entry unchanged otherwise
 - [x] Web: DriverPicker / accept flows create per-leg `Ride`s (two rows for
       round trip when one driver covers both)
-- [ ] Docs: `docs/architecture.md` → Team carpool space (detail)
+- [x] Docs: `docs/architecture.md` → Team carpool space (detail)
 - [ ] Docs: `docs/agenda-coverage-web-contract.md` gap / week-glance /
       Ride-state surface set wording
 - [ ] Tests: unit tests for `rideStatusChip`, `agendaWeekGlanceDays`,
