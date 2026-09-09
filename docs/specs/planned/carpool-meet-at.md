@@ -21,7 +21,7 @@ driver can accept a plan they can actually run.
 
 ## Non-goals (sketch)
 
-- To XOR from (`carpool-leg-to-from`) — ship legs first or decide shared OpenAPI at `/spec`
+- To XOR from / Request–Ride remodel (`carpool-leg-to-from`) — ship first; this slice owns meet-point logic on the placeholder fields
 - Early/late windows (`carpool-early-late-window`)
 - Stop-order optimize (`carpool-route-optimize`)
 - Live navigation or in-app maps

@@ -13,6 +13,23 @@ patterns. Toolkit chrome may differ; **decisions and strings** must not.
 Reference implementation: `web/src/components/FamilyScreen.tsx` (Agenda + Places
 default leave-from + event compose).
 
+## Ride-state surface set
+
+When **ride / carpool request semantics** change (status roll-ups, legs,
+passenger rules, Accept/Cancel/Withdraw), update these **five Calendar
+consumers in the same PR** — do not leave one on the old model:
+
+1. **Hero card** — `HeroAttentionCarousel` / `HeroAttentionSlide` /
+   `AgendaFocusCard` + `getQueue`
+2. **Normal agenda card** — `AgendaRow` + `AgendaInboundRequestRow`
+3. **Status chips** — `rideStatusChip.ts` (Focus + collapsed AgendaRow)
+4. **Week at a glance** — `AgendaWeekGlance` / `agendaWeekGlanceDays`
+5. **Route view** — `canRoute` → ride-detail / `RideRouteTab`
+
+Carpool tab ride list stays a secondary surface but must use the same API
+clients/helpers when it shows the same states. Restyles alone do not excuse
+skipping mapper/gate updates.
+
 Shared leave-by reason copy (all clients): `No leave-from place yet` /
 `Add a location to estimate leave-by` / `Couldn't locate the destination` /
 `Leave-by estimate unavailable`; estimate line

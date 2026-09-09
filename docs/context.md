@@ -23,7 +23,7 @@ Open the **section**, not the whole file, unless the spec says otherwise.
 |-------|------|
 | Locked product/engineering decisions | `docs/architecture.md` — jump via its Contents |
 | UI tokens, mocks, WCAG, icons | `docs/ui-system.md` |
-| Agenda coverage / RSVP / conflict chrome (web) | `docs/agenda-coverage-web-contract.md` |
+| Agenda coverage / RSVP / conflict chrome (web) | `docs/agenda-coverage-web-contract.md` (incl. **Ride-state surface set**) |
 | Agenda list layout constraints (wrap, no truncate) | `docs/agenda-full-redesign-addendum.md` |
 | Focus card layout notes | `docs/agenda-focus-card-addendum.md` |
 | OpenAPI | `contracts/openapi.yaml` |
