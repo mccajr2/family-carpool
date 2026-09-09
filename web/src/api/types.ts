@@ -453,11 +453,16 @@ export type CarpoolRequest = {
   status: CarpoolRequestStatus
   passedByMe: boolean
   passedByAdultNames: string[]
-  acceptedByAdultId: string | null
-  acceptingCircleId: string | null
-  acceptingCircleName: string | null
-  vehicleId: string | null
-  vehicleLabel: string | null
+  /** @deprecated Replaced by rides[] on CarpoolRideEvent */
+  acceptedByAdultId?: string | null
+  /** @deprecated Replaced by rides[] on CarpoolRideEvent */
+  acceptingCircleId?: string | null
+  /** @deprecated Replaced by rides[] on CarpoolRideEvent */
+  acceptingCircleName?: string | null
+  /** @deprecated Replaced by rides[] on CarpoolRideEvent */
+  vehicleId?: string | null
+  /** @deprecated Replaced by rides[] on CarpoolRideEvent */
+  vehicleLabel?: string | null
 }
 
 export type CarpoolRide = {
@@ -494,7 +499,7 @@ export type CreateCarpoolRequestRequest = {
 
 export type PatchCarpoolRequestRequest = {
   legs?: CarpoolLeg
-  legsNeeded?: CarpoolNeededLeg[]
+  legsNeeded: CarpoolNeededLeg[]
 }
 
 export type CreateCarpoolRideRequest = {

@@ -1,5 +1,6 @@
 import { authUrl } from "@/api/authClient"
 import type {
+  AcceptCarpoolRequestRequest,
   CarpoolInvite,
   CarpoolJoinRequest,
   CarpoolRide,
@@ -243,7 +244,7 @@ export class CarpoolClient {
     accessToken: string,
     spaceId: string,
     requestId: string,
-    request: { vehicleId: string; passengerRequestIds?: string[] },
+    request: AcceptCarpoolRequestRequest,
   ): Promise<CarpoolRide[]> {
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-requests/${requestId}/accept`),
@@ -312,16 +313,17 @@ export class CarpoolClient {
     return (await response.json()) as CarpoolRide
   }
 
-  // Transitional aliases while UI migrates to request-based naming.
+  /** @deprecated Prefer acceptRequest — kept while UI migrates off ride-request naming. */
   async acceptRide(
     accessToken: string,
     spaceId: string,
     requestId: string,
-    request: { vehicleId: string; passengerRequestIds?: string[] },
+    request: AcceptCarpoolRequestRequest,
   ): Promise<CarpoolRide[]> {
     return this.acceptRequest(accessToken, spaceId, requestId, request)
   }
 
+  /** @deprecated Prefer passRequest — kept while UI migrates off ride-request naming. */
   async passRide(accessToken: string, spaceId: string, requestId: string): Promise<CarpoolRequest> {
     return this.passRequest(accessToken, spaceId, requestId)
   }

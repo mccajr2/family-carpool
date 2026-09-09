@@ -163,11 +163,6 @@ describe("CarpoolClient", () => {
       status: "UNCOVERED",
       passedByMe: false,
       passedByAdultNames: [],
-      acceptedByAdultId: null,
-      acceptingCircleId: null,
-      acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     }
     const ride = {
       id: "ride-1",
@@ -181,6 +176,11 @@ describe("CarpoolClient", () => {
       vehicleLabel: "Odyssey",
       passengerRequestIds: ["req-1"],
       status: "ACTIVE",
+    }
+    const fromRide = {
+      ...ride,
+      id: "ride-2",
+      leg: "FROM",
     }
     const event = {
       eventKey: "UID:practice",
@@ -228,6 +228,12 @@ describe("CarpoolClient", () => {
         }),
       )
       .mockResolvedValueOnce(
+        new Response(JSON.stringify([ride, fromRide]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
         new Response(JSON.stringify({ ...ride, status: "CANCELLED" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -243,10 +249,14 @@ describe("CarpoolClient", () => {
 
     await expect(
       client.listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z"),
-    ).resolves.toMatchObject([{ title: "Practice" }])
+    ).resolves.toMatchObject([{ title: "Practice", ownRequests: [], rides: [ride] }])
     await expect(
-      client.createCarpoolRequest("tok", "s1", { eventKey: "UID:practice", kidId: "k1" }),
-    ).resolves.toMatchObject({ id: "req-1", status: "UNCOVERED" })
+      client.createCarpoolRequest("tok", "s1", {
+        eventKey: "UID:practice",
+        kidId: "k1",
+        legs: "BOTH",
+      }),
+    ).resolves.toMatchObject({ id: "req-1", status: "UNCOVERED", legsNeeded: ["TO", "FROM"] })
     await expect(
       client.patchCarpoolRequest("tok", "s1", "req-1", { legsNeeded: ["TO"] }),
     ).resolves.toMatchObject({ id: "req-1", legsNeeded: ["TO"] })
@@ -265,6 +275,15 @@ describe("CarpoolClient", () => {
       id: "ride-1",
       status: "ACTIVE",
     })
+    await expect(
+      client.acceptRequest("tok", "s1", "req-1", {
+        vehicleId: "v1",
+        passengerRequestIds: ["req-1"],
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: "ride-1", leg: "TO", status: "ACTIVE" }),
+      expect.objectContaining({ id: "ride-2", leg: "FROM", status: "ACTIVE" }),
+    ])
     await expect(client.cancelRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       status: "CANCELLED",
     })
@@ -279,6 +298,7 @@ describe("CarpoolClient", () => {
       "http://localhost:8080/api/carpool/spaces/s1/ride-requests/req-1",
       "http://localhost:8080/api/carpool/spaces/s1/ride-requests/req-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/rides",
+      "http://localhost:8080/api/carpool/spaces/s1/ride-requests/req-1/accept",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/cancel",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/withdraw",
     ])
@@ -286,7 +306,7 @@ describe("CarpoolClient", () => {
       Authorization: "Bearer tok",
     })
     expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
-      JSON.stringify({ eventKey: "UID:practice", kidId: "k1" }),
+      JSON.stringify({ eventKey: "UID:practice", kidId: "k1", legs: "BOTH" }),
     )
     expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBe(
       JSON.stringify({ legsNeeded: ["TO"] }),
@@ -301,6 +321,9 @@ describe("CarpoolClient", () => {
         vehicleId: "v1",
         passengerRequestIds: ["req-1"],
       }),
+    )
+    expect((fetchFn.mock.calls[5] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ vehicleId: "v1", passengerRequestIds: ["req-1"] }),
     )
   })
 })

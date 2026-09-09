@@ -337,7 +337,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Backend: map create/accept/cancel/withdraw/pass/list to new model; seat
       math per leg; same-circle passenger enforcement; Accept = all OPEN legs
 - [x] Backend: integration tests for AC above
-- [ ] Web: update `carpoolClient` + types
+- [x] Web: update `carpoolClient` + types
 - [ ] Web: Request UI To/From/Round trip on Agenda/Focus/Carpool create paths
 - [ ] Web: `coverageQueue` / `coverageDisplay` / `carpoolDisplay` mappers for
       per-kid / per-leg / `PARTIAL` (gap clears only on `FULLY_COVERED`)

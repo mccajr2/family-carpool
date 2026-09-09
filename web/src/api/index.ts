@@ -51,6 +51,7 @@ export type {
   SpotifyConnectionStatus,
   SpotifyPlaylistOption,
   CarpoolLeg,
+  CarpoolLegCoverageStatus,
   CarpoolLegStatus,
   CarpoolNeededLeg,
   CarpoolRequest,
