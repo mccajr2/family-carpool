@@ -8272,7 +8272,7 @@ detourMinutes: null,
       expect(within(item).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     })
 
-    it("cancels PENDING own team ask when Assign covers intersecting kids", async () => {
+    it("creates per-leg household Rides when Assign self-drives over an open ask", async () => {
       const user = userEvent.setup()
       const ownPending = {
         id: "own-ask",
@@ -8281,23 +8281,34 @@ detourMinutes: null,
         requestingCircleId: "c1",
         requestingCircleName: "House",
         requestedByAdultId: "1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
+        kidId: "k1",
+        kidFirstName: "Sam",
+        legsNeeded: ["TO", "FROM"] as const,
+        legStatuses: [
+          { leg: "TO" as const, status: "OPEN" as const },
+          { leg: "FROM" as const, status: "OPEN" as const },
+        ],
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-        status: "PENDING" as const,
+        pickupTown: null,
+        detourMinutes: null,
+        status: "UNCOVERED" as const,
         passedByMe: false,
         passedByAdultNames: [],
-        acceptedByAdultId: null,
-        acceptingCircleId: null,
-        acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
-      const cancelRide = vi.fn().mockResolvedValue({ ...ownPending, status: "CANCELLED" as const })
+      const createRide = vi.fn().mockResolvedValue({
+        id: "ride-to",
+        spaceId: "s1",
+        eventKey: "UID:assign-cancel",
+        leg: "TO",
+        driverAdultId: "1",
+        drivingCircleId: "c1",
+        drivingCircleName: "House",
+        vehicleId: "v1",
+        vehicleLabel: "SUV",
+        passengerRequestIds: ["own-ask"],
+        status: "ACTIVE",
+      })
       const assignCalendarCoverage = vi.fn().mockResolvedValue(
         calendarItem({
           id: "e-assign-cancel",
@@ -8318,12 +8329,12 @@ detourMinutes: null,
               assignedByAdultId: "1",
               kidIds: ["k1"],
               status: "CONFIRMED",
-            leaveFromPlaceId: null,
-            leaveFromPlaceName: null,
-            leaveFromAddress: null,
-            leaveByAt: null,
-            leaveByStatus: null,
-            leaveByReason: null,
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
             },
           ],
         }),
@@ -8337,8 +8348,9 @@ detourMinutes: null,
             startsAt: "2030-08-15T17:00:00.000Z",
             endsAt: null,
             defaultKidIds: ["k1"],
-            ownRequest: ownPending,
+            ownRequests: [ownPending],
             otherRequests: [],
+            rides: [],
           },
         ])
         .mockResolvedValue([
@@ -8347,9 +8359,46 @@ detourMinutes: null,
             title: "Practice",
             startsAt: "2030-08-15T17:00:00.000Z",
             endsAt: null,
-            defaultKidIds: ["k1"],
-            ownRequest: null,
+            defaultKidIds: [],
+            ownRequests: [
+              {
+                ...ownPending,
+                status: "FULLY_COVERED",
+                legStatuses: [
+                  { leg: "TO", status: "CONFIRMED" },
+                  { leg: "FROM", status: "CONFIRMED" },
+                ],
+              },
+            ],
             otherRequests: [],
+            rides: [
+              {
+                id: "ride-to",
+                spaceId: "s1",
+                eventKey: "UID:assign-cancel",
+                leg: "TO",
+                driverAdultId: "1",
+                drivingCircleId: "c1",
+                drivingCircleName: "House",
+                vehicleId: "v1",
+                vehicleLabel: "SUV",
+                passengerRequestIds: ["own-ask"],
+                status: "ACTIVE",
+              },
+              {
+                id: "ride-from",
+                spaceId: "s1",
+                eventKey: "UID:assign-cancel",
+                leg: "FROM",
+                driverAdultId: "1",
+                drivingCircleId: "c1",
+                drivingCircleName: "House",
+                vehicleId: "v1",
+                vehicleLabel: "SUV",
+                passengerRequestIds: ["own-ask"],
+                status: "ACTIVE",
+              },
+            ],
           },
         ])
 
@@ -8381,7 +8430,7 @@ detourMinutes: null,
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
             listRides,
-            cancelRide,
+            createRide,
           })}
           onSignedOut={vi.fn()}
         />,
@@ -8391,11 +8440,7 @@ detourMinutes: null,
       await waitFor(() => expect(listRides).toHaveBeenCalled())
       const item = within(agenda).getByTestId("agenda-item-FEED-e-assign-cancel")
       await expandAgendaItem(user, item)
-      expect(
-        within(item).getByRole("button", {
-          name: "No longer need a ride? Cancel this ask",
-        }),
-      ).toBeInTheDocument()
+      expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
       await user.click(within(item).getByTestId("driver-picker-confirm"))
       await waitFor(() => {
         expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "FEED", "e-assign-cancel", {
@@ -8404,15 +8449,23 @@ detourMinutes: null,
         })
       })
       await waitFor(() => {
-        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "own-ask")
+        expect(createRide).toHaveBeenCalledTimes(2)
       })
-      expect(cancelRide.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "UID:assign-cancel",
+        leg: "TO",
+        vehicleId: "v1",
+        passengerRequestIds: ["own-ask"],
+      })
+      expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "UID:assign-cancel",
+        leg: "FROM",
+        vehicleId: "v1",
+        passengerRequestIds: ["own-ask"],
+      })
+      expect(createRide.mock.invocationCallOrder[0]!).toBeGreaterThan(
         assignCalendarCoverage.mock.invocationCallOrder[0]!,
       )
-      await waitFor(() => {
-        expect(within(item).queryByText("Asked the team")).not.toBeInTheDocument()
-      })
-      // No confirmation dialog on Assign→cancel-own-ask (ADR-0002).
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
     })
 

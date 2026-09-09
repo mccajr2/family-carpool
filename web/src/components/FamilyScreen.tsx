@@ -76,9 +76,12 @@ import {
   activeCoverages,
   calendarItemKey,
   memberLabel,
-  pendingOwnAskIdToCancelOnAssign,
   remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
+import {
+  createHouseholdLegRides,
+  vehicleIdForDriver,
+} from "@/components/householdLegRides"
 import {
   applyAutoDeclinedViewModel,
   coverageGameEventKey,
@@ -1881,24 +1884,10 @@ export function FamilyScreen({
         delete next[itemKey]
         return next
       })
-      const ownRequests =
-        calendarRideByItemKey.get(itemKey)?.ownRequests ??
-        (item.eventKey != null
-          ? [...calendarRideByItemKey.values()].find((event) => event.eventKey === item.eventKey)
-              ?.ownRequests
-          : null) ??
-        null
-      const cancelRideId = pendingOwnAskIdToCancelOnAssign(ownRequests, kidIds)
-      if (
-        cancelRideId != null &&
-        item.feedId != null &&
-        calendarCarpoolSummary != null
-      ) {
-        const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
-        if (spaceId != null) {
-          await carpoolClient.cancelRide(token, spaceId, cancelRideId)
-          await reloadCalendarCarpoolRides(token)
-        }
+      // Household self-drive: create one Ride per still-OPEN leg (round trip → two).
+      // Other-adult PENDING assign waits until they Confirm (caller must be driver).
+      if (coveringAdultId === adult?.id) {
+        await createHouseholdLegRidesForItem(token, item, kidIds)
       }
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1910,6 +1899,39 @@ export function FamilyScreen({
           : "Something went wrong",
       )
     }
+  }
+
+  async function createHouseholdLegRidesForItem(
+    token: string,
+    item: CalendarItem,
+    kidIds: readonly string[],
+  ) {
+    if (item.feedId == null || calendarCarpoolSummary == null || kidIds.length === 0) {
+      return
+    }
+    const spaceId = feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+    if (spaceId == null) {
+      return
+    }
+    const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
+    const eventKey = rideEvent?.eventKey ?? item.eventKey
+    if (eventKey == null) {
+      return
+    }
+    const vehicleId = vehicleIdForDriver(calendarGarage, adult?.id ?? "")
+    if (vehicleId == null) {
+      return
+    }
+    await createHouseholdLegRides({
+      client: carpoolClient,
+      accessToken: token,
+      spaceId,
+      eventKey,
+      kidIds,
+      rideEvent,
+      vehicleId,
+    })
+    await reloadCalendarCarpoolRides(token)
   }
 
   async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
@@ -1926,6 +1948,10 @@ export function FamilyScreen({
         updated,
       )
       replaceCalendarItem(updated)
+      const assignment = activeCoverages(updated).find((row) => row.id === assignmentId)
+      if (assignment != null) {
+        await createHouseholdLegRidesForItem(token, updated, assignment.kidIds)
+      }
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({ kind: "idle" })
