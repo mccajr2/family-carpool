@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.25.0
+  version: 0.26.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -3711,20 +3711,12 @@ paths:
         ordered by startsAt ascending. Manual events are excluded. Each row
         includes event identity (iCal UID when present, else a title/start/
         location fingerprint), title, start/end, defaultKidIds (this circle's
-        feed-linked kids who are not RSVP NO and still need a ride —
-        YES and NO_RESPONSE both qualify; for Request pre-fill), this
-        circle's active ride request if any (PENDING or ACCEPTED), and other
-        member circles' PENDING/ACCEPTED requests (circle name, kid first
-        names, seat count, pickup name+address, pickupTown, and on
-        otherRequests viewer-specific detourMinutes (null when routing
-        unavailable), passedByAdultNames). Passed
-        asks remain in otherRequests with passedByMe true for the calling
-        adult (still PENDING for everyone else). Pass is a soft decline:
-        non-Focus surfaces may still offer Accept while the ride is PENDING;
-        Focus ranking/CTAs may skip asks the caller has passed. Empty array
-        when no upcoming feed events match. from must be strictly before to
-        and the window must not exceed 31 days (400 otherwise). Non-member or
-        unknown space returns 404.
+        feed-linked kids who are not RSVP NO and still need a ride), this
+        circle's active request if any, other member circles' requests, and
+        active rides for the event split by leg (TO/FROM). Empty array when no
+        upcoming feed events match. from must be strictly before to and the
+        window must not exceed 31 days (400 otherwise). Non-member or unknown
+        space returns 404.
       security:
         - bearerAuth: []
       parameters:
@@ -3776,22 +3768,13 @@ paths:
     post:
       operationId: createCarpoolRide
       tags: [carpool]
-      summary: Request a ride for a feed event
+      summary: Create a fulfillment ride (TO or FROM)
       description: >
-        Any space-member adult. Creates a PENDING ride request for both legs
-        with pickup at the requester's house (default leave-from place if set,
-        else the circle's first named place with a non-blank address). Snapshots
-        kid first names and pickup name+address at create. When kidIds is
-        omitted, defaults to all feed-linked kids on that event who are not
-        RSVP NO and not already on this circle's ACCEPTED ride
-        (YES and NO_RESPONSE both qualify; stable order = feed kid link order);
-        when present, must be a non-empty subset of that set.
-        Create does not change RSVP (requested kids may remain NO_RESPONSE).
-        Empty default set (no feed kids, or all RSVP NO / already covered),
-        unknown kids, RSVP NO in kidIds, kid already on an ACCEPTED ride, or
-        no pickup address returns 400. Duplicate active (PENDING or ACCEPTED)
-        request from this circle for the same event returns 409. Caregiver
-        create is allowed.
+        Any space-member adult with drives=true who may drive the selected
+        vehicle. Creates one active ride for a single leg with one or more
+        passenger request ids from the same requesting circle. Creating both
+        TO and FROM fulfillment requires two POSTs (or one accept flow that
+        creates both server-side).
       security:
         - bearerAuth: []
       requestBody:
@@ -3802,15 +3785,13 @@ paths:
               $ref: "#/components/schemas/CreateCarpoolRideRequest"
       responses:
         "201":
-          description: Ride request created (PENDING)
+          description: Ride created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CarpoolRide"
         "400":
-          description: >
-            Invalid kids (including RSVP NO), no pickup address, or empty
-            default kid set
+          description: Invalid payload or seat math failure
           content:
             application/json:
               schema:
@@ -3822,38 +3803,70 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Unknown space, or caller's circle is not a member
+          description: Unknown space, request, or vehicle, or caller not a member
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: >
-            An active ride request from this circle already exists for this
-            event
+          description: Passenger leg conflict or vehicle already committed for this leg
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/carpool/spaces/{spaceId}/rides/{rideId}/accept:
+  /api/carpool/spaces/{spaceId}/requests:
     post:
-      operationId: acceptCarpoolRide
+      operationId: createCarpoolRequest
       tags: [carpool]
-      summary: Accept another circle's pending ride request
+      summary: Create a ride need request for one kid
       description: >
-        Space-member adult with drives=true who is in the chosen vehicle's
-        driverAdultIds, and whose circle is not the requesting circle. Accept
-        is all-or-nothing when remaining vehicle seats (including driver and
-        this circle's RSVP YES kids on the event) are at least the request's
-        seat count, and this vehicle has no other ACCEPTED ride for the event.
-        Success sets ACCEPTED, records accepter, circle, and vehicle, clears
-        pass rows, and sets RSVP YES for the requesting circle's kids on that
-        ride. Allowed even when the caller previously passed (passedByMe).
-        Cancel, Withdraw, and Pass do not auto-change RSVP. Own circle's
-        request returns 409. drives=false returns 403. Unknown or not allowed
-        vehicle returns 404. Not enough seats, vehicle already committed, or
-        ride not PENDING returns 409.
+        Any space-member adult in the requesting circle. Creates one request row
+        for (space, event, kid, circle). Defaults legsNeeded to [TO, FROM] when
+        omitted. Clients may send legs as TO/FROM/BOTH convenience; BOTH is
+        expanded to [TO, FROM] before persistence.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCarpoolRequestRequest"
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarpoolRequest"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, event, or kid, or caller is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate (space, event, kid, circle) request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/requests/{requestId}:
+    patch:
+      operationId: patchCarpoolRequest
+      tags: [carpool]
+      summary: Patch request legs needed
+      description: >
+        Any space-member adult in the requesting circle. Replaces legsNeeded.
+        BOTH is accepted as convenience input and expands to [TO, FROM].
       security:
         - bearerAuth: []
       parameters:
@@ -3863,7 +3876,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: rideId
+        - name: requestId
           in: path
           required: true
           schema:
@@ -3874,14 +3887,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AcceptCarpoolRideRequest"
+              $ref: "#/components/schemas/PatchCarpoolRequestRequest"
       responses:
         "200":
-          description: Ride request accepted
+          description: Request updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CarpoolRide"
+                $ref: "#/components/schemas/CarpoolRequest"
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -3889,44 +3902,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Caller has drives=false
+          description: Caller not in requesting circle
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: >
-            Unknown space, ride, or vehicle, caller not a member, or vehicle
-            not drivable by caller
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: >
-            Own-circle request, not PENDING, not enough seats, or vehicle
-            already has an ACCEPTED ride for this event
+          description: Unknown space or request, or caller not a member
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/carpool/spaces/{spaceId}/rides/{rideId}/pass:
+  /api/carpool/spaces/{spaceId}/requests/{requestId}/pass:
     post:
-      operationId: passCarpoolRide
+      operationId: passCarpoolRequest
       tags: [carpool]
-      summary: Pass on another circle's pending ride request
+      summary: Pass on another circle's open request
       description: >
         Space-member adult whose circle is not the requesting circle. Soft
-        decline: records that this adult is not taking this PENDING ask right
-        now; the request stays PENDING for everyone else and Accept remains
-        allowed while PENDING (Focus clients may skip passed asks). drives /
-        vehicle eligibility is not required. Empty body. Own circle's request
-        returns 409. Ride not PENDING returns 409. Non-member or unknown ride
-        returns 404. Second pass by the same adult is idempotent (200, no-op).
-        Passes are cleared when the ride is Cancelled or Accepted; they
-        survive Withdraw back to PENDING. No un-pass in this revision. The
-        200 body includes passedByAdultNames for the ride.
+        decline against an open request. Empty body; second pass by the same
+        adult is idempotent.
       security:
         - bearerAuth: []
       parameters:
@@ -3936,7 +3932,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: rideId
+        - name: requestId
           in: path
           required: true
           schema:
@@ -3944,11 +3940,11 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Pass recorded (or already recorded); ride remains PENDING
+          description: Pass recorded (or already recorded)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CarpoolRide"
+                $ref: "#/components/schemas/CarpoolRequest"
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -3956,13 +3952,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Unknown space or ride, or caller not a member
+          description: Unknown space or request, or caller not a member
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Own-circle request, or ride is not PENDING
+          description: Own-circle request, or request has no open legs
           content:
             application/json:
               schema:
@@ -3974,10 +3970,8 @@ paths:
       tags: [carpool]
       summary: Cancel a ride request from the requesting circle
       description: >
-        Any adult in the requesting circle. Transitions PENDING or ACCEPTED to
-        CANCELLED; an accepted cancel frees the vehicle. Wrong circle returns
-        403. Non-member or unknown ride returns 404. Already CANCELLED or
-        invalid transition returns 409.
+        Any adult in the ride driver's circle. Cancels one fulfillment ride
+        leg. Other legs on the same event remain unchanged.
       security:
         - bearerAuth: []
       parameters:
@@ -3995,7 +3989,7 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Ride request cancelled
+          description: Ride cancelled
           content:
             application/json:
               schema:
@@ -4007,7 +4001,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Caller's circle is not the requesting circle
+          description: Caller's circle is not the driver circle
           content:
             application/json:
               schema:
@@ -4019,7 +4013,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Ride is not PENDING or ACCEPTED
+          description: Ride is already inactive
           content:
             application/json:
               schema:
@@ -4029,11 +4023,10 @@ paths:
     post:
       operationId: withdrawCarpoolRide
       tags: [carpool]
-      summary: Withdraw an acceptance from the accepting circle
+      summary: Withdraw a committed ride
       description: >
-        Any adult in the accepting circle. Transitions ACCEPTED to PENDING and
-        clears accepter and vehicle fields. Wrong circle returns 403.
-        Non-member or unknown ride returns 404. Not ACCEPTED returns 409.
+        Any adult in the ride driver's circle. Deactivates this ride leg and
+        removes its passenger assignment.
       security:
         - bearerAuth: []
       parameters:
@@ -4051,7 +4044,7 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Acceptance withdrawn; ride is PENDING again
+          description: Ride withdrawn
           content:
             application/json:
               schema:
@@ -4063,7 +4056,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Caller's circle is not the accepting circle
+          description: Caller's circle is not the driver circle
           content:
             application/json:
               schema:
@@ -4075,7 +4068,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Ride is not ACCEPTED
+          description: Ride is already inactive
           content:
             application/json:
               schema:
@@ -5929,14 +5922,39 @@ components:
           description: Invite code from a space member (listserv shortcut)
           example: AB12CD34
 
+    CarpoolRequestStatus:
+      type: string
+      enum: [UNCOVERED, PARTIAL, FULLY_COVERED]
+      description: Request roll-up status derived from per-leg fulfillment.
+
     CarpoolRideStatus:
       type: string
-      enum: [PENDING, ACCEPTED, CANCELLED]
-      description: >
-        PENDING — awaiting a driver. ACCEPTED — a member circle committed a
-        vehicle. CANCELLED — requesting circle cancelled (may request again).
+      enum: [ACTIVE, CANCELLED, WITHDRAWN]
+      description: Fulfillment ride lifecycle.
 
-    CarpoolRide:
+    CarpoolLeg:
+      type: string
+      enum: [TO, FROM, BOTH]
+      description: Client input convenience; BOTH is never persisted.
+
+    CarpoolNeededLeg:
+      type: string
+      enum: [TO, FROM]
+      description: Persisted request need leg.
+
+    CarpoolLegStatus:
+      type: object
+      required:
+        - leg
+        - status
+      properties:
+        leg:
+          $ref: "#/components/schemas/CarpoolNeededLeg"
+        status:
+          type: string
+          enum: [OPEN, CONFIRMED]
+
+    CarpoolRequest:
       type: object
       required:
         - id
@@ -5944,12 +5962,13 @@ components:
         - eventKey
         - requestingCircleId
         - requestedByAdultId
-        - kidIds
-        - kidFirstNames
-        - seats
+        - kidId
+        - kidFirstName
+        - legsNeeded
+        - legStatuses
+        - status
         - pickupPlaceName
         - pickupAddress
-        - status
         - passedByMe
         - passedByAdultNames
       properties:
@@ -5977,22 +5996,23 @@ components:
           type: string
           format: uuid
           description: Adult who created the request (pickup place is theirs)
-        kidIds:
+        kidId:
+          type: string
+          format: uuid
+        kidFirstName:
+          type: string
+          description: Snapshot at create for display
+        legsNeeded:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/CarpoolNeededLeg"
+        legStatuses:
           type: array
           minItems: 1
           items:
-            type: string
-            format: uuid
-        kidFirstNames:
-          type: array
-          minItems: 1
-          description: Snapshot at create for display to other member circles
-          items:
-            type: string
-        seats:
-          type: integer
-          minimum: 1
-          description: Number of kids requested (= kidIds.length)
+            $ref: "#/components/schemas/CarpoolLegStatus"
         pickupPlaceName:
           type: string
           description: Snapshot of requester's pickup place name at create
@@ -6014,10 +6034,10 @@ components:
             Viewer-specific extra driving minutes vs going straight to the
             event. Set only on otherRequests rows in listCarpoolRides when
             origin, pickup, event location, and routing all resolve; null on
-            ownRequest, on create/accept/pass/cancel/withdraw responses, and
+            ownRequest, on create/pass/cancel/withdraw responses, and
             when routing is unavailable (soft-fail).
         status:
-          $ref: "#/components/schemas/CarpoolRideStatus"
+          $ref: "#/components/schemas/CarpoolRequestStatus"
         passedByMe:
           type: boolean
           description: >
@@ -6025,40 +6045,83 @@ components:
             Always false on ownRequest, on ACCEPTED/CANCELLED rides, and on
             create/accept/cancel/withdraw responses. On list rides, true only
             for otherRequests entries the caller has passed; those rows stay
-            visible. Soft decline: non-Focus surfaces may still offer Accept
-            while status is PENDING; Focus ranking/CTAs may skip passed asks.
+            visible.
         passedByAdultNames:
           type: array
           description: >
-            Display names of adults who have passed on this ride, ordered by
-            pass createdAt ascending. Empty when none, and after passes are
-            cleared (Accept or Cancel). Present on list rides and on pass
-            responses; empty on create/accept/cancel/withdraw.
+            Display names of adults who have passed on this request.
           items:
             type: string
         acceptedByAdultId:
           type: string
           format: uuid
           nullable: true
-          description: Set when status is ACCEPTED
+          description: Deprecated; replaced by rides[]
         acceptingCircleId:
           type: string
           format: uuid
           nullable: true
-          description: Set when status is ACCEPTED
+          description: Deprecated; replaced by rides[]
         acceptingCircleName:
           type: string
           nullable: true
-          description: Accepting circle's name when status is ACCEPTED
+          description: Deprecated; replaced by rides[]
         vehicleId:
           type: string
           format: uuid
           nullable: true
-          description: Committed vehicle when status is ACCEPTED
+          description: Deprecated; replaced by rides[]
         vehicleLabel:
           type: string
           nullable: true
-          description: Vehicle nickname when status is ACCEPTED
+          description: Deprecated; replaced by rides[]
+
+    CarpoolRide:
+      type: object
+      required:
+        - id
+        - spaceId
+        - eventKey
+        - leg
+        - driverAdultId
+        - drivingCircleId
+        - vehicleId
+        - passengerRequestIds
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        eventKey:
+          type: string
+        leg:
+          $ref: "#/components/schemas/CarpoolNeededLeg"
+        driverAdultId:
+          type: string
+          format: uuid
+        drivingCircleId:
+          type: string
+          format: uuid
+        drivingCircleName:
+          type: string
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+        vehicleLabel:
+          type: string
+          nullable: true
+        passengerRequestIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        status:
+          $ref: "#/components/schemas/CarpoolRideStatus"
 
     CarpoolRideEvent:
       type: object
@@ -6071,7 +6134,7 @@ components:
       properties:
         eventKey:
           type: string
-          description: Same identity scheme as CarpoolRide.eventKey
+          description: Same identity scheme as CarpoolRequest.eventKey
         title:
           type: string
         startsAt:
@@ -6093,51 +6156,83 @@ components:
             format: uuid
         ownRequest:
           allOf:
-            - $ref: "#/components/schemas/CarpoolRide"
+            - $ref: "#/components/schemas/CarpoolRequest"
           nullable: true
           description: >
-            This circle's active request (PENDING or ACCEPTED), if any. Null
-            when none or last request was CANCELLED. passedByMe is always
+            This circle's active request, if any. passedByMe is always
             false here; passedByAdultNames lists adults from other circles
             who passed (for requester visibility).
         otherRequests:
           type: array
           description: >
-            Other member circles' PENDING or ACCEPTED requests on this event.
-            Includes PENDING asks the calling adult has passed
-            (passedByMe true). Soft decline: Accept may still be offered on
-            non-Focus surfaces while PENDING.
+            Other member circles' requests on this event.
+          items:
+            $ref: "#/components/schemas/CarpoolRequest"
+        rides:
+          type: array
+          description: Active fulfillment rides for the event (TO/FROM rows).
           items:
             $ref: "#/components/schemas/CarpoolRide"
+
+    CreateCarpoolRequestRequest:
+      type: object
+      required:
+        - eventKey
+        - kidId
+      properties:
+        eventKey:
+          type: string
+          description: Target feed event identity (must match a listed event)
+        kidId:
+          type: string
+          format: uuid
+        legs:
+          $ref: "#/components/schemas/CarpoolLeg"
+        legsNeeded:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Explicit request legs (TO/FROM). Optional when legs is supplied.
+          items:
+            $ref: "#/components/schemas/CarpoolNeededLeg"
+
+    PatchCarpoolRequestRequest:
+      type: object
+      required:
+        - legsNeeded
+      properties:
+        legs:
+          $ref: "#/components/schemas/CarpoolLeg"
+        legsNeeded:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/CarpoolNeededLeg"
 
     CreateCarpoolRideRequest:
       type: object
       required:
         - eventKey
+        - leg
+        - vehicleId
+        - passengerRequestIds
       properties:
         eventKey:
           type: string
           description: Target feed event identity (must match a listed event)
-        kidIds:
-          type: array
-          minItems: 1
-          description: >
-            Non-empty subset of defaultKidIds. When omitted, server defaults to
-            all kids in that default set. Create does not change RSVP.
-          items:
-            type: string
-            format: uuid
-
-    AcceptCarpoolRideRequest:
-      type: object
-      required:
-        - vehicleId
-      properties:
+        leg:
+          $ref: "#/components/schemas/CarpoolNeededLeg"
         vehicleId:
           type: string
           format: uuid
-          description: >
-            Caller's circle vehicle they may drive with enough remaining seats
+        passengerRequestIds:
+          type: array
+          minItems: 1
+          description: One or more request ids from the same requesting circle.
+          items:
+            type: string
+            format: uuid
 
     ErrorResponse:
       type: object

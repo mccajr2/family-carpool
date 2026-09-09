@@ -424,23 +424,33 @@ export type CarpoolSummary = {
   spaces: CarpoolSpace[]
 }
 
-export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED"
+export type CarpoolLeg = "TO" | "FROM" | "BOTH"
+export type CarpoolNeededLeg = Exclude<CarpoolLeg, "BOTH">
+export type CarpoolLegCoverageStatus = "OPEN" | "CONFIRMED"
+export type CarpoolRequestStatus = "UNCOVERED" | "PARTIAL" | "FULLY_COVERED"
+export type CarpoolRideStatus = "ACTIVE" | "CANCELLED" | "WITHDRAWN"
 
-export type CarpoolRide = {
+export type CarpoolLegStatus = {
+  leg: CarpoolNeededLeg
+  status: CarpoolLegCoverageStatus
+}
+
+export type CarpoolRequest = {
   id: string
   spaceId: string
   eventKey: string
   requestingCircleId: string
   requestingCircleName: string | null
   requestedByAdultId: string
-  kidIds: string[]
-  kidFirstNames: string[]
-  seats: number
+  kidId: string
+  kidFirstName: string
+  legsNeeded: CarpoolNeededLeg[]
+  legStatuses: CarpoolLegStatus[]
   pickupPlaceName: string
   pickupAddress: string
   pickupTown: string | null
   detourMinutes: number | null
-  status: CarpoolRideStatus
+  status: CarpoolRequestStatus
   passedByMe: boolean
   passedByAdultNames: string[]
   acceptedByAdultId: string | null
@@ -450,21 +460,49 @@ export type CarpoolRide = {
   vehicleLabel: string | null
 }
 
+export type CarpoolRide = {
+  id: string
+  spaceId: string
+  eventKey: string
+  leg: CarpoolNeededLeg
+  driverAdultId: string
+  drivingCircleId: string
+  drivingCircleName: string | null
+  vehicleId: string
+  vehicleLabel: string | null
+  passengerRequestIds: string[]
+  status: CarpoolRideStatus
+}
+
 export type CarpoolRideEvent = {
   eventKey: string
   title: string
   startsAt: string
   endsAt: string | null
   defaultKidIds: string[]
-  ownRequest: CarpoolRide | null
-  otherRequests: CarpoolRide[]
+  ownRequest: CarpoolRequest | null
+  otherRequests: CarpoolRequest[]
+  rides?: CarpoolRide[]
+}
+
+export type CreateCarpoolRequestRequest = {
+  eventKey: string
+  kidId: string
+  legs?: CarpoolLeg
+  legsNeeded?: CarpoolNeededLeg[]
+}
+
+export type PatchCarpoolRequestRequest = {
+  legs?: CarpoolLeg
+  legsNeeded: CarpoolNeededLeg[]
 }
 
 export type CreateCarpoolRideRequest = {
   eventKey: string
-  kidIds?: string[]
+  leg: CarpoolNeededLeg
+  vehicleId: string
+  passengerRequestIds: string[]
 }
 
-export type AcceptCarpoolRideRequest = {
-  vehicleId: string
-}
+/** @deprecated Transitional alias while callers migrate to request-based naming. */
+export type LegacyCarpoolRideRequest = CarpoolRequest

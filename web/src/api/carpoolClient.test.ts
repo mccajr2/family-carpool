@@ -141,22 +141,26 @@ describe("CarpoolClient", () => {
     await expect(client.enable("tok", "f1")).rejects.toThrow("Organizer role required")
   })
 
-  it("lists, creates, accepts, passes, cancels, and withdraws rides", async () => {
-    const ride = {
-      id: "ride-1",
+  it("lists events, creates/patches/passes requests, and manages rides", async () => {
+    const request = {
+      id: "req-1",
       spaceId: "s1",
       eventKey: "UID:practice",
       requestingCircleId: "c2",
       requestingCircleName: "House B",
       requestedByAdultId: "a2",
-      kidIds: ["k1"],
-      kidFirstNames: ["Mia"],
-      seats: 1,
+      kidId: "k1",
+      kidFirstName: "Mia",
+      legsNeeded: ["TO", "FROM"],
+      legStatuses: [
+        { leg: "TO", status: "OPEN" },
+        { leg: "FROM", status: "OPEN" },
+      ],
       pickupPlaceName: "Home",
       pickupAddress: "1 Main St",
-pickupTown: null,
-detourMinutes: null,
-      status: "PENDING",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "UNCOVERED",
       passedByMe: false,
       passedByAdultNames: [],
       acceptedByAdultId: null,
@@ -165,6 +169,19 @@ detourMinutes: null,
       vehicleId: null,
       vehicleLabel: null,
     }
+    const ride = {
+      id: "ride-1",
+      spaceId: "s1",
+      eventKey: "UID:practice",
+      leg: "TO",
+      driverAdultId: "a1",
+      drivingCircleId: "c1",
+      drivingCircleName: "House A",
+      vehicleId: "v1",
+      vehicleLabel: "Odyssey",
+      passengerRequestIds: ["req-1"],
+      status: "ACTIVE",
+    }
     const event = {
       eventKey: "UID:practice",
       title: "Practice",
@@ -172,7 +189,8 @@ detourMinutes: null,
       endsAt: null,
       defaultKidIds: ["k1"],
       ownRequest: null,
-      otherRequests: [ride],
+      otherRequests: [request],
+      rides: [ride],
     }
     const fetchFn = vi
       .fn()
@@ -183,20 +201,29 @@ detourMinutes: null,
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(ride), {
+        new Response(JSON.stringify(request), {
           status: 201,
           headers: { "Content-Type": "application/json" },
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...ride, status: "ACCEPTED", vehicleId: "v1" }), {
+        new Response(JSON.stringify({ ...request, legsNeeded: ["TO"] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...ride, passedByMe: true, passedByAdultNames: ["Alex"] }), {
-          status: 200,
+        new Response(
+          JSON.stringify({ ...request, passedByMe: true, passedByAdultNames: ["Alex"] }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(ride), {
+          status: 201,
           headers: { "Content-Type": "application/json" },
         }),
       )
@@ -207,7 +234,7 @@ detourMinutes: null,
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...ride, status: "PENDING" }), {
+        new Response(JSON.stringify({ ...ride, status: "WITHDRAWN" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -218,29 +245,40 @@ detourMinutes: null,
       client.listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z"),
     ).resolves.toMatchObject([{ title: "Practice" }])
     await expect(
-      client.createRide("tok", "s1", { eventKey: "UID:practice" }),
-    ).resolves.toMatchObject({ id: "ride-1", passedByMe: false })
+      client.createCarpoolRequest("tok", "s1", { eventKey: "UID:practice", kidId: "k1" }),
+    ).resolves.toMatchObject({ id: "req-1", status: "UNCOVERED" })
     await expect(
-      client.acceptRide("tok", "s1", "ride-1", { vehicleId: "v1" }),
-    ).resolves.toMatchObject({ status: "ACCEPTED" })
-    await expect(client.passRide("tok", "s1", "ride-1")).resolves.toMatchObject({
+      client.patchCarpoolRequest("tok", "s1", "req-1", { legsNeeded: ["TO"] }),
+    ).resolves.toMatchObject({ id: "req-1", legsNeeded: ["TO"] })
+    await expect(client.passRequest("tok", "s1", "req-1")).resolves.toMatchObject({
       passedByMe: true,
       passedByAdultNames: ["Alex"],
-      status: "PENDING",
+    })
+    await expect(
+      client.createRide("tok", "s1", {
+        eventKey: "UID:practice",
+        leg: "TO",
+        vehicleId: "v1",
+        passengerRequestIds: ["req-1"],
+      }),
+    ).resolves.toMatchObject({
+      id: "ride-1",
+      status: "ACTIVE",
     })
     await expect(client.cancelRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       status: "CANCELLED",
     })
     await expect(client.withdrawRide("tok", "s1", "ride-1")).resolves.toMatchObject({
-      status: "PENDING",
+      status: "WITHDRAWN",
     })
 
     const urls = fetchFn.mock.calls.map((call) => (call as [string, RequestInit])[0])
     expect(urls).toEqual([
       "http://localhost:8080/api/carpool/spaces/s1/rides?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z",
+      "http://localhost:8080/api/carpool/spaces/s1/requests",
+      "http://localhost:8080/api/carpool/spaces/s1/requests/req-1",
+      "http://localhost:8080/api/carpool/spaces/s1/requests/req-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/rides",
-      "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/accept",
-      "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/cancel",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/withdraw",
     ])
@@ -248,12 +286,21 @@ detourMinutes: null,
       Authorization: "Bearer tok",
     })
     expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
-      JSON.stringify({ eventKey: "UID:practice" }),
+      JSON.stringify({ eventKey: "UID:practice", kidId: "k1" }),
     )
     expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBe(
-      JSON.stringify({ vehicleId: "v1" }),
+      JSON.stringify({ legsNeeded: ["TO"] }),
     )
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].method).toBe("PATCH")
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].method).toBe("POST")
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].body).toBeUndefined()
+    expect((fetchFn.mock.calls[4] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({
+        eventKey: "UID:practice",
+        leg: "TO",
+        vehicleId: "v1",
+        passengerRequestIds: ["req-1"],
+      }),
+    )
   })
 })
