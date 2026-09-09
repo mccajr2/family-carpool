@@ -9,16 +9,40 @@ import {
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
 
+function ownRequestForGame(
+  game: CoverageGameEvent,
+  rideEvent: CarpoolRideEvent | null | undefined,
+) {
+  return rideEvent?.ownRequests?.find((request) => request.kidId === game.kidId) ?? null
+}
+
+/** True when this kid's need has a confirmed TO leg (destination Route). */
+export function hasConfirmedToLeg(
+  game: CoverageGameEvent,
+  rideEvent: CarpoolRideEvent | null | undefined,
+): boolean {
+  const ownRequest = ownRequestForGame(game, rideEvent)
+  if (ownRequest == null) {
+    return false
+  }
+  return ownRequest.legStatuses.some(
+    (legStatus) => legStatus.leg === "TO" && legStatus.status === "CONFIRMED",
+  )
+}
+
 /**
- * Own-request FULLY_COVERED covering this kid via a teammate-driven Ride
- * (driving circle ≠ requesting circle).
+ * Own-request covering this kid via a teammate-driven active Ride
+ * (driving circle ≠ requesting circle) — any confirmed leg.
  */
 export function isTeammateOwnRide(
   game: CoverageGameEvent,
   rideEvent: CarpoolRideEvent | null | undefined,
 ): boolean {
-  const ownRequest = rideEvent?.ownRequests?.find((request) => request.kidId === game.kidId)
-  if (ownRequest?.status !== "FULLY_COVERED") {
+  const ownRequest = ownRequestForGame(game, rideEvent)
+  if (ownRequest == null || !isConfirmedDriver(game.ownRide)) {
+    return false
+  }
+  if (ownRequest.status !== "FULLY_COVERED" && ownRequest.status !== "PARTIAL") {
     return false
   }
   return (rideEvent?.rides ?? []).some(
@@ -30,8 +54,8 @@ export function isTeammateOwnRide(
 }
 
 /**
- * Household driver confirmed for this kid — confirmed ownRide that is not an
- * ACCEPTED teammate own-request for that kid.
+ * Household driver confirmed for this kid — confirmed ownRide that is not a
+ * teammate-driven own-request for that kid.
  */
 export function isHouseholdConfirmedDriver(
   game: CoverageGameEvent,
@@ -41,10 +65,10 @@ export function isHouseholdConfirmedDriver(
 }
 
 /**
- * True only when a ride is actually confirmed (household driver or teammate
- * driving) and attendance is not not-going. Unassigned, pending household
- * confirm, and open team ask stay false — nothing to route yet.
- * (TO-confirmed gate lands in the canRoute task.)
+ * Destination Route entry: attendance in play, and a confirmed **TO**
+ * fulfillment when this kid has a carpool need. `PARTIAL` with TO confirmed
+ * allows Route; FROM-only confirmation does not. With no own need, household
+ * confirmed coverage still opens ride detail (unchanged).
  */
 export function canRoute(
   game: CoverageGameEvent,
@@ -53,8 +77,9 @@ export function canRoute(
   if (game.attendance === "not_going") {
     return false
   }
-  return (
-    isHouseholdConfirmedDriver(game, rideEvent) ||
-    isTeammateOwnRide(game, rideEvent)
-  )
+  const ownRequest = ownRequestForGame(game, rideEvent)
+  if (ownRequest != null) {
+    return hasConfirmedToLeg(game, rideEvent)
+  }
+  return isHouseholdConfirmedDriver(game, rideEvent)
 }

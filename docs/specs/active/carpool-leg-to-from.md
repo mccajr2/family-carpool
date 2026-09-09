@@ -347,7 +347,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Web: `AgendaRow` + `AgendaInboundRequestRow` parity with Hero Accept/
       Cancel/Withdraw; per-leg ride-line density
 - [x] Web: `agendaWeekGlanceDays` remaining-gap uses `FULLY_COVERED` only
-- [ ] Web: `canRoute` TO-confirmed gate; ride-detail entry unchanged otherwise
+- [x] Web: `canRoute` TO-confirmed gate; ride-detail entry unchanged otherwise
 - [ ] Web: DriverPicker / accept flows create per-leg `Ride`s (two rows for
       round trip when one driver covers both)
 - [ ] Docs: `docs/architecture.md` → Team carpool space (detail)

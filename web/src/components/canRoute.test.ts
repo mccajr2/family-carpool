@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CarpoolRequest, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   canRoute,
+  hasConfirmedToLeg,
   isHouseholdConfirmedDriver,
   isTeammateOwnRide,
 } from "@/components/canRoute"
@@ -80,8 +81,47 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
   }
 }
 
+describe("hasConfirmedToLeg", () => {
+  it("is true only when the kid's need has TO CONFIRMED", () => {
+    const row = game({ id: "g1" })
+    expect(
+      hasConfirmedToLeg(
+        row,
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(true)
+    expect(
+      hasConfirmedToLeg(
+        row,
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "OPEN" },
+                { leg: "FROM", status: "CONFIRMED" },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false)
+    expect(hasConfirmedToLeg(row, null)).toBe(false)
+  })
+})
+
 describe("isTeammateOwnRide", () => {
-  it("is true only when own-request is FULLY_COVERED by a teammate ride for this kid", () => {
+  it("is true when a teammate Ride covers this kid on FULLY_COVERED or PARTIAL", () => {
     const row = game({ id: "g1", ownRide: { driver: "The Patels", confirmed: true } })
     expect(
       isTeammateOwnRide(
@@ -92,6 +132,23 @@ describe("isTeammateOwnRide", () => {
         }),
       ),
     ).toBe(true)
+    expect(
+      isTeammateOwnRide(
+        game({ id: "g-partial", ownRide: "partial" }),
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
+        }),
+      ),
+    ).toBe(false)
     expect(
       isTeammateOwnRide(
         row,
@@ -138,7 +195,7 @@ describe("isHouseholdConfirmedDriver", () => {
 })
 
 describe("canRoute", () => {
-  it("is true for household confirmed driver when going", () => {
+  it("is true for household confirmed driver when going and no own need", () => {
     expect(
       canRoute(
         game({ id: "g1", ownRide: { driver: "You", confirmed: true } }),
@@ -147,7 +204,7 @@ describe("canRoute", () => {
     ).toBe(true)
   })
 
-  it("is true for teammate-driving (FULLY_COVERED own-request) when going", () => {
+  it("is true for teammate FULLY_COVERED when TO is confirmed", () => {
     expect(
       canRoute(
         game({
@@ -162,6 +219,79 @@ describe("canRoute", () => {
     ).toBe(true)
   })
 
+  it("is true for PARTIAL when TO is confirmed even if FROM is still open", () => {
+    expect(
+      canRoute(
+        game({ id: "g1", ownRide: "partial" }),
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it("is false when only FROM is confirmed (no destination Route)", () => {
+    expect(
+      canRoute(
+        game({ id: "g1", ownRide: "partial" }),
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legsNeeded: ["FROM"],
+              legStatuses: [{ leg: "FROM", status: "CONFIRMED" }],
+            }),
+          ],
+          rides: [fulfillment({ leg: "FROM", passengerRequestIds: ["r1"] })],
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      canRoute(
+        game({ id: "g2", ownRide: "partial" }),
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "OPEN" },
+                { leg: "FROM", status: "CONFIRMED" },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it("is false while TO is still OPEN on an own need", () => {
+    expect(
+      canRoute(
+        game({ id: "g1", ownRide: "requested" }),
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "UNCOVERED",
+              legStatuses: [
+                { leg: "TO", status: "OPEN" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false)
+  })
+
   it("is false for unassigned, pending household confirm, and open team ask", () => {
     expect(canRoute(game({ id: "g1", ownRide: "unassigned" }), null)).toBe(false)
     expect(
@@ -171,15 +301,9 @@ describe("canRoute", () => {
       ),
     ).toBe(false)
     expect(canRoute(game({ id: "g3", ownRide: "requested" }), null)).toBe(false)
-    expect(
-      canRoute(
-        game({ id: "g4", ownRide: "requested" }),
-        rideEvent({ ownRequests: [ownNeed({ status: "UNCOVERED" })] }),
-      ),
-    ).toBe(false)
   })
 
-  it("is false when attendance is not_going even if ride is confirmed", () => {
+  it("is false when attendance is not_going even if TO is confirmed", () => {
     expect(
       canRoute(
         game({
