@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CarpoolRequest } from "@/api/types"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
 import { agendaWeekGlanceDays } from "@/components/agendaWeekGlanceDays"
 
@@ -74,7 +74,7 @@ function pendingFor(coveringAdultId: string) {
   }
 }
 
-function acceptedOwnRide(kidIds: string[]): CarpoolRide {
+function ownNeed(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -82,22 +82,35 @@ function acceptedOwnRide(kidIds: string[]): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: adultId,
-    kidIds,
-    kidFirstNames: kidIds.map((id) => id),
-    seats: kidIds.length,
+    kidId: "k1",
+    kidFirstName: "Sam",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "ACCEPTED",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: "a2",
-    acceptingCircleId: "c2",
-    acceptingCircleName: "Sharks Family",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
+    ...partial,
   }
+}
+
+function fullyCoveredNeed(kidId: string): CarpoolRequest {
+  return ownNeed({
+    id: `need-${kidId}`,
+    kidId,
+    kidFirstName: kidId,
+    status: "FULLY_COVERED",
+    legStatuses: [
+      { leg: "TO", status: "CONFIRMED" },
+      { leg: "FROM", status: "CONFIRMED" },
+    ],
+  })
 }
 
 describe("agendaWeekGlanceDays", () => {
@@ -333,7 +346,7 @@ describe("agendaWeekGlanceDays", () => {
     expect(days[1]).toEqual(expect.objectContaining({ copy: "No events", flagged: false }))
   })
 
-  it("treats ACCEPTED own rides as clearing coverage gap kids (same as Focus/rows)", () => {
+  it("clears gap kids only on FULLY_COVERED; PARTIAL and UNCOVERED stay flagged", () => {
     const coveredA = item({
       id: "a",
       startsAt: localIso(2026, 8, 12, 16),
@@ -344,9 +357,9 @@ describe("agendaWeekGlanceDays", () => {
       startsAt: localIso(2026, 8, 12, 18),
       uncoveredKidIds: ["k1"],
     })
-    const ownById = new Map<string, CarpoolRide>([
-      ["a", acceptedOwnRide(["k1"])],
-      ["b", acceptedOwnRide(["k1"])],
+    const ownById = new Map<string, CarpoolRequest[]>([
+      ["a", [fullyCoveredNeed("k1")]],
+      ["b", [fullyCoveredNeed("k1")]],
     ])
     const cleared = agendaWeekGlanceDays(
       [coveredA, coveredB],
@@ -356,18 +369,35 @@ describe("agendaWeekGlanceDays", () => {
     )
     expect(cleared[0]).toEqual(expect.objectContaining({ copy: "All set", flagged: false }))
 
-    const pendingRide: CarpoolRide = { ...acceptedOwnRide(["k1"]), status: "PENDING" }
-    const stillOpen = agendaWeekGlanceDays(
+    const uncovered = agendaWeekGlanceDays(
       [coveredA],
       now,
       adultId,
-      () => pendingRide,
+      () => [ownNeed({ status: "UNCOVERED" })],
     )
-    expect(stillOpen[0]).toEqual(
+    expect(uncovered[0]).toEqual(
       expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
     )
 
-    const partial = agendaWeekGlanceDays(
+    const partialOnly = agendaWeekGlanceDays(
+      [coveredA],
+      now,
+      adultId,
+      () => [
+        ownNeed({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+        }),
+      ],
+    )
+    expect(partialOnly[0]).toEqual(
+      expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
+    )
+
+    const oneOfTwoCovered = agendaWeekGlanceDays(
       [
         item({
           id: "partial",
@@ -382,9 +412,9 @@ describe("agendaWeekGlanceDays", () => {
       ],
       now,
       adultId,
-      () => acceptedOwnRide(["k1"]),
+      () => [fullyCoveredNeed("k1")],
     )
-    expect(partial[0]).toEqual(
+    expect(oneOfTwoCovered[0]).toEqual(
       expect.objectContaining({ copy: "1 needs coverage", flagged: true }),
     )
   })

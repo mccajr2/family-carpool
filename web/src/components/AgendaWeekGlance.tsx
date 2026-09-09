@@ -8,7 +8,7 @@ type AgendaWeekGlanceProps = {
   items: CalendarItem[]
   currentAdultId: string
   now?: Date
-  /** When set, ACCEPTED own rides clear kids from the day coverage rollup. */
+  /** When set, FULLY_COVERED own needs clear kids from the day coverage rollup. */
   ownRequestForItem?: WeekGlanceOwnRequestForItem
 }
 

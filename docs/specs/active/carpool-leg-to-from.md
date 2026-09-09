@@ -346,7 +346,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
       OPEN legs + per-Ride Cancel/Withdraw; queue keeps `PARTIAL`
 - [x] Web: `AgendaRow` + `AgendaInboundRequestRow` parity with Hero Accept/
       Cancel/Withdraw; per-leg ride-line density
-- [ ] Web: `agendaWeekGlanceDays` remaining-gap uses `FULLY_COVERED` only
+- [x] Web: `agendaWeekGlanceDays` remaining-gap uses `FULLY_COVERED` only
 - [ ] Web: `canRoute` TO-confirmed gate; ride-detail entry unchanged otherwise
 - [ ] Web: DriverPicker / accept flows create per-leg `Ride`s (two rows for
       round trip when one driver covers both)
