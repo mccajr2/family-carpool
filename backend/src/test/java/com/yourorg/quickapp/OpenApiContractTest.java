@@ -184,7 +184,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.25.0");
+        assertThat(yaml).contains("version: 0.26.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.25.0");
+        assertThat(yaml).contains("version: 0.26.0");
     }
 
     @Test
