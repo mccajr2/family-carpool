@@ -74,6 +74,45 @@ export function activeRidesForRequest(
   )
 }
 
+/**
+ * Active fulfillments a passenger circle can Cancel (one Ride id per leg).
+ * Uncovered asks with no rides have nothing to cancel here.
+ */
+export function cancelableRidesForRequest(
+  rideEvent: CarpoolRideEvent | null | undefined,
+  requestId: string,
+): CarpoolRide[] {
+  return activeRidesForRequest(rideEvent, requestId)
+}
+
+/**
+ * Active fulfillments this circle drives for a request — Withdraw targets.
+ */
+export function withdrawableRidesForRequest(
+  rideEvent: CarpoolRideEvent | null | undefined,
+  requestId: string,
+  circleId: string,
+): CarpoolRide[] {
+  if (!circleId) {
+    return []
+  }
+  return activeRidesForRequest(rideEvent, requestId).filter(
+    (ride) => ride.drivingCircleId === circleId,
+  )
+}
+
+/** Button label when Cancel/Withdraw may target more than one leg. */
+export function rideLegActionLabel(
+  action: "Cancel" | "Withdraw",
+  leg: CarpoolNeededLeg,
+  rideCount: number,
+): string {
+  if (rideCount <= 1) {
+    return action
+  }
+  return `${action} ${leg === "TO" ? "to" : "from"}`
+}
+
 export function openLegsNeeded(request: CarpoolRequest): CarpoolNeededLeg[] {
   return request.legStatuses
     .filter((legStatus) => legStatus.status === "OPEN")

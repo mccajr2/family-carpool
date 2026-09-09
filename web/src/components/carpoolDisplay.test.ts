@@ -11,6 +11,7 @@ import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
   callerDrives,
+  cancelableRidesForRequest,
   carpoolFeedStatusLabel,
   circleDisplayName,
   eligiblePendingRideAccept,
@@ -27,8 +28,10 @@ import {
   ownYesKidCount,
   partialRideStatusLabel,
   rideKidsSeatsPickup,
+  rideLegActionLabel,
   rideSeatsLabel,
   vehicleCommittedForRequest,
+  withdrawableRidesForRequest,
 } from "@/components/carpoolDisplay"
 import { ASKED_THE_TEAM, RIDING_WITH_TEAMMATE, ridingWithCircleLabel } from "@/components/coverageCopy"
 
@@ -212,6 +215,36 @@ describe("carpoolDisplay", () => {
         }),
       ]),
     ).toEqual(["To: Riding with House B", "From: Riding with Ours"])
+  })
+
+  it("lists Cancel/Withdraw targets as active Ride ids (not request ids)", () => {
+    const rideEvent = event({
+      rides: [
+        fulfillment({
+          id: "ride-to",
+          leg: "TO",
+          drivingCircleId: "c1",
+          passengerRequestIds: ["need-1"],
+        }),
+        fulfillment({
+          id: "ride-from",
+          leg: "FROM",
+          drivingCircleId: "c9",
+          passengerRequestIds: ["need-1"],
+        }),
+      ],
+    })
+    expect(cancelableRidesForRequest(rideEvent, "need-1").map((ride) => ride.id)).toEqual([
+      "ride-to",
+      "ride-from",
+    ])
+    expect(
+      withdrawableRidesForRequest(rideEvent, "need-1", "c1").map((ride) => ride.id),
+    ).toEqual(["ride-to"])
+    expect(cancelableRidesForRequest(rideEvent, "missing")).toEqual([])
+    expect(rideLegActionLabel("Cancel", "TO", 1)).toBe("Cancel")
+    expect(rideLegActionLabel("Cancel", "FROM", 2)).toBe("Cancel from")
+    expect(rideLegActionLabel("Withdraw", "TO", 2)).toBe("Withdraw to")
   })
 
   it("counts YES kids as still-need-a-ride plus FULLY_COVERED own needs", () => {

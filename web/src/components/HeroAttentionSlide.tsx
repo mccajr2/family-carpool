@@ -9,10 +9,14 @@ import type {
 } from "@/api/types"
 import {
   callerDrives,
+  cancelableRidesForRequest,
   eligibleVehiclesForAccept,
   isRequestOpen,
+  ownRequestForKid,
+  partialRideStatusLabel,
+  rideLegActionLabel,
 } from "@/components/carpoolDisplay"
-import type { QueueItem } from "@/components/coverageQueue"
+import { isPartialOwnRide, type QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
@@ -63,6 +67,8 @@ export type HeroAttentionSlideProps = {
   onDeclineCoverage?: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
+  onCancelRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string) => void
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
@@ -94,6 +100,7 @@ export function HeroAttentionSlide({
   onDeclineCoverage,
   onAcceptRide,
   onPassRide,
+  onCancelRide,
   leaveFromValue,
   onSetLeaveFrom,
   now = new Date(),
@@ -114,6 +121,18 @@ export function HeroAttentionSlide({
   const showLeaveFrom = item.kind === "ownRide" && onSetLeaveFrom != null
   const originForConfirm =
     confirmOriginLabel || resolvedLeaveFromLabel(leaveFromFields, circle)
+
+  const ownNeed =
+    item.kind === "ownRide" ? ownRequestForKid(rideEvent, item.game.kidId) : null
+  const cancelableOwn =
+    ownNeed != null ? cancelableRidesForRequest(rideEvent, ownNeed.id) : []
+  const showCancelOwnRide = cancelableOwn.length > 0 && onCancelRide != null
+  const partialStatus =
+    ownNeed?.status === "PARTIAL"
+      ? partialRideStatusLabel(ownNeed)
+      : item.kind === "ownRide" && isPartialOwnRide(item.game.ownRide)
+        ? "Partially covered"
+        : null
 
   const leaveFromSlot =
     showLeaveFrom && !pendingForSelf ? (
@@ -211,6 +230,15 @@ export function HeroAttentionSlide({
                 className="mt-1"
                 data-testid="hero-attention-where"
               />
+              {partialStatus != null ? (
+                <p
+                  data-testid="hero-attention-partial-status"
+                  className="mt-1 text-sm font-semibold"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {partialStatus}
+                </p>
+              ) : null}
               {pendingForSelf && onConfirmCoverage && onDeclineCoverage ? (
                 <div
                   className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
@@ -285,6 +313,23 @@ export function HeroAttentionSlide({
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={() => onAskTeam(rideNeededLegs)}
                   />
+                  {showCancelOwnRide ? (
+                    <div className="mt-[var(--fc-space-md)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
+                      {cancelableOwn.map((ride) => (
+                        <button
+                          key={ride.id}
+                          type="button"
+                          data-testid={`hero-attention-cancel-${ride.id}`}
+                          className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-hero-on)]"
+                          style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
+                          disabled={loading}
+                          onClick={() => onCancelRide?.(ride.id)}
+                        >
+                          {rideLegActionLabel("Cancel", ride.leg, cancelableOwn.length)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </>

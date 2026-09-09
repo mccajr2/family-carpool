@@ -17,10 +17,14 @@ import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
   callerDrives,
+  cancelableRidesForRequest,
   eligiblePendingRideAccept,
   eligibleVehiclesForAccept,
   incomingRideAskSummary,
   ownRideDetailLine,
+  ownRideStatusLine,
+  rideLegActionLabel,
+  withdrawableRidesForRequest,
 } from "@/components/carpoolDisplay"
 import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
@@ -212,13 +216,18 @@ export function AgendaFocusCard({
     !pendingForSelf
   const showRequest =
     !pendingForSelf && !showRideAcceptPass && canAskTeam && !showAssign
-  // Cancel/Withdraw per-Ride wiring lands in the Hero task; show Cancel while any
-  // open own need remains.
-  const ownRequest =
-    ownRequests?.find((request) => request.status === "UNCOVERED" || request.status === "PARTIAL") ??
-    null
-  const showCancelOwnRide = ownRequest != null && onCancelRide != null
-  const showWithdrawAcceptedByUs = acceptedByUs != null && onWithdrawRide != null
+  // Cancel/Withdraw target specific Ride fulfillments (one leg each).
+  const cancelableOwn = (ownRequests ?? []).flatMap((request) =>
+    cancelableRidesForRequest(rideEvent, request.id).map((ride) => ({ request, ride })),
+  )
+  const showCancelOwnRide = cancelableOwn.length > 0 && onCancelRide != null
+  const withdrawableAccepted =
+    acceptedByUs != null
+      ? withdrawableRidesForRequest(rideEvent, acceptedByUs.id, circle.id)
+      : []
+  const showWithdrawAcceptedByUs =
+    acceptedByUs != null && withdrawableAccepted.length > 0 && onWithdrawRide != null
+  const cancelDetailRequest = cancelableOwn[0]?.request ?? null
   const showChangeSelect =
     Boolean(activeCoverage) && circle.members.length > 1 && !showAssign
   const showCoveringSelect = showChangeSelect
@@ -607,25 +616,31 @@ export function AgendaFocusCard({
             />
           </div>
         ) : null}
-        {showCancelOwnRide && ownRequest ? (
+        {showCancelOwnRide && cancelDetailRequest ? (
           <>
             <p
               data-testid="agenda-focus-own-ride"
               className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
               style={{ color: onSecondaryVar }}
             >
-              {ownRideDetailLine(ownRequest)}
+              {ownRideDetailLine(
+                cancelDetailRequest,
+                ownRideStatusLine(cancelDetailRequest, rideEvent?.rides ?? []),
+              )}
             </p>
-            <Button
-              type="button"
-              size="sm"
-              variant={needsDecision ? "secondary" : "outline"}
-              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-              onClick={() => onCancelRide?.(ownRequest.id)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
+            {cancelableOwn.map(({ ride }) => (
+              <Button
+                key={ride.id}
+                type="button"
+                size="sm"
+                variant={needsDecision ? "secondary" : "outline"}
+                className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+                onClick={() => onCancelRide?.(ride.id)}
+                disabled={loading}
+              >
+                {rideLegActionLabel("Cancel", ride.leg, cancelableOwn.length)}
+              </Button>
+            ))}
           </>
         ) : null}
         {showWithdrawAcceptedByUs && acceptedByUs ? (
@@ -637,16 +652,19 @@ export function AgendaFocusCard({
             >
               {acceptedByUsRideDetailLine(acceptedByUs)}
             </p>
-            <Button
-              type="button"
-              size="sm"
-              variant={needsDecision ? "secondary" : "outline"}
-              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-              onClick={() => onWithdrawRide?.(acceptedByUs.id)}
-              disabled={loading}
-            >
-              Withdraw
-            </Button>
+            {withdrawableAccepted.map((ride) => (
+              <Button
+                key={ride.id}
+                type="button"
+                size="sm"
+                variant={needsDecision ? "secondary" : "outline"}
+                className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+                onClick={() => onWithdrawRide?.(ride.id)}
+                disabled={loading}
+              >
+                {rideLegActionLabel("Withdraw", ride.leg, withdrawableAccepted.length)}
+              </Button>
+            ))}
           </>
         ) : null}
         {showRemoveCoverage && activeCoverage ? (

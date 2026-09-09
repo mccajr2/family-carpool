@@ -17,8 +17,9 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2026-08-21T16:00:00Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -72,7 +73,60 @@ describe("feedSpaceIdsFromSummary", () => {
 })
 
 describe("spaceIdForCarpoolRide", () => {
-  it("prefers spaceId on the matched inbound ride over feed summary mapping", () => {
+  it("prefers spaceId on the matched fulfillment Ride over feed summary mapping", () => {
+    const event = rideEvent({
+      rides: [
+        {
+          id: "ride-1",
+          spaceId: "team-space",
+          eventKey: "UID:game-1",
+          leg: "TO",
+          driverAdultId: "a1",
+          drivingCircleId: "c1",
+          drivingCircleName: "McCarthy",
+          vehicleId: "v1",
+          vehicleLabel: "Van",
+          passengerRequestIds: ["ask-1"],
+          status: "ACTIVE",
+        },
+      ],
+      otherRequests: [
+        {
+          id: "ask-1",
+          spaceId: "other-space",
+          eventKey: "UID:game-1",
+          requestingCircleId: "c2",
+          requestingCircleName: "Sharks",
+          requestedByAdultId: "a2",
+          kidId: "k2",
+          kidFirstName: "Apollo",
+          legsNeeded: ["TO", "FROM"],
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "PARTIAL",
+          passedByMe: false,
+          passedByAdultNames: [],
+        },
+      ],
+    })
+
+    expect(
+      spaceIdForCarpoolRide(
+        item({ source: "FEED", feedId: "f2", title: "Practice", startsAt: "2026-08-21T16:00:00Z" }),
+        "ride-1",
+        event,
+        summary,
+      ),
+    ).toBe("team-space")
+  })
+
+  it("falls back to request spaceId when no fulfillment Ride matches", () => {
     const event = rideEvent({
       otherRequests: [
         {
@@ -82,25 +136,23 @@ describe("spaceIdForCarpoolRide", () => {
           requestingCircleId: "c2",
           requestingCircleName: "Sharks",
           requestedByAdultId: "a2",
-          kidIds: ["k2"],
-          kidFirstNames: ["Apollo"],
-          seats: 1,
+          kidId: "k2",
+          kidFirstName: "Apollo",
+          legsNeeded: ["TO", "FROM"],
+          legStatuses: [
+            { leg: "TO", status: "OPEN" },
+            { leg: "FROM", status: "OPEN" },
+          ],
           pickupPlaceName: "Home",
           pickupAddress: "1 Main",
           pickupTown: null,
           detourMinutes: null,
-          status: "ACCEPTED",
+          status: "UNCOVERED",
           passedByMe: false,
           passedByAdultNames: [],
-          acceptedByAdultId: "a1",
-          acceptingCircleId: "c1",
-          acceptingCircleName: "McCarthy",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       ],
     })
-
     expect(
       spaceIdForCarpoolRide(
         item({ source: "FEED", feedId: "f2", title: "Practice", startsAt: "2026-08-21T16:00:00Z" }),

@@ -85,7 +85,7 @@ const rideEvent: CarpoolRideEvent = {
   startsAt: "2030-08-29T21:20:00.000Z",
   endsAt: "2030-08-29T22:20:00.000Z",
   defaultKidIds: ["k1"],
-  ownRequest: null,
+  ownRequests: [],
   otherRequests: [
     {
       id: "ride-1",
@@ -94,23 +94,23 @@ const rideEvent: CarpoolRideEvent = {
       requestingCircleId: "c2",
       requestingCircleName: "the Nguyens",
       requestedByAdultId: "a9",
-      kidIds: ["k9"],
-      kidFirstNames: ["Ben"],
-      seats: 1,
+      kidId: "k9",
+      kidFirstName: "Ben",
+      legsNeeded: ["TO", "FROM"],
+      legStatuses: [
+        { leg: "TO", status: "OPEN" },
+        { leg: "FROM", status: "OPEN" },
+      ],
       pickupPlaceName: "Nguyen home",
       pickupAddress: "Cambridge, MA",
       pickupTown: "Cambridge, MA",
       detourMinutes: 4,
-      status: "PENDING",
+      status: "UNCOVERED",
       passedByMe: false,
       passedByAdultNames: [],
-      acceptedByAdultId: null,
-      acceptingCircleId: null,
-      acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     },
   ],
+  rides: [],
 }
 
 function baseSlideProps(
@@ -545,5 +545,78 @@ describe("HeroAttentionSlide", () => {
     )
 
     expect(screen.getByTestId("hero-attention-days-ring")).toHaveAttribute("aria-hidden", "true")
+  })
+
+  it("shows partial status copy and Cancel with Ride id on PARTIAL ownRide slides", async () => {
+    const user = userEvent.setup()
+    const onCancelRide = vi.fn()
+    const partialQueue: QueueItem[] = [
+      {
+        kind: "ownRide",
+        game: game({ id: "UID:game1:k1", ownRide: "partial" }),
+      },
+    ]
+    const partialEvent: CarpoolRideEvent = {
+      ...rideEvent,
+      ownRequests: [
+        {
+          id: "own-need",
+          spaceId: "s1",
+          eventKey: "UID:game1",
+          requestingCircleId: "c1",
+          requestingCircleName: "Ours",
+          requestedByAdultId: "a1",
+          kidId: "k1",
+          kidFirstName: "Declan",
+          legsNeeded: ["TO", "FROM"],
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "PARTIAL",
+          passedByMe: false,
+          passedByAdultNames: [],
+        },
+      ],
+      rides: [
+        {
+          id: "fulfill-to",
+          spaceId: "s1",
+          eventKey: "UID:game1",
+          leg: "TO",
+          driverAdultId: "a9",
+          drivingCircleId: "c2",
+          drivingCircleName: "the Nguyens",
+          vehicleId: "v9",
+          vehicleLabel: "Van",
+          passengerRequestIds: ["own-need"],
+          status: "ACTIVE",
+        },
+      ],
+    }
+
+    render(
+      <HeroAttentionCarousel
+        queue={partialQueue}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            rideEvent: partialEvent,
+            onCancelRide,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("hero-attention-partial-status")).toHaveTextContent(
+      "Round trip — to confirmed, from still needed",
+    )
+    await user.click(within(slide).getByRole("button", { name: "Cancel" }))
+    expect(onCancelRide).toHaveBeenCalledWith("fulfill-to")
   })
 })

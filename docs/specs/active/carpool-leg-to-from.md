@@ -342,7 +342,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Web: `coverageQueue` / `coverageDisplay` / `carpoolDisplay` mappers for
       per-kid / per-leg / `PARTIAL` (gap clears only on `FULLY_COVERED`)
 - [x] Web: `rideStatusChip` partial + covered/ask labels; Focus + AgendaRow
-- [ ] Web: Hero (`HeroAttentionSlide` / carousel / Focus) Request + Accept all
+- [x] Web: Hero (`HeroAttentionSlide` / carousel / Focus) Request + Accept all
       OPEN legs + per-Ride Cancel/Withdraw; queue keeps `PARTIAL`
 - [ ] Web: `AgendaRow` + `AgendaInboundRequestRow` parity with Hero Accept/
       Cancel/Withdraw; per-leg ride-line density

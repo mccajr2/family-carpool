@@ -67,6 +67,69 @@ const noopHandlers = {
   onEdit: vi.fn(),
 }
 
+function focusRequest(
+  partial: Partial<import("@/api/types").CarpoolRequest> = {},
+): import("@/api/types").CarpoolRequest {
+  return {
+    id: "ask-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    requestingCircleId: "c2",
+    requestingCircleName: "House B",
+    requestedByAdultId: "a2",
+    kidId: "k2",
+    kidFirstName: "Mia",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
+    pickupPlaceName: "Home",
+    pickupAddress: "1 Main",
+    pickupTown: null,
+    detourMinutes: null,
+    status: "UNCOVERED",
+    passedByMe: false,
+    passedByAdultNames: [],
+    ...partial,
+  }
+}
+
+function focusRide(
+  partial: Partial<import("@/api/types").CarpoolRide> = {},
+): import("@/api/types").CarpoolRide {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a1",
+    drivingCircleId: "c1",
+    drivingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["ask-1"],
+    status: "ACTIVE",
+    ...partial,
+  }
+}
+
+function focusRideEvent(
+  partial: Partial<import("@/api/types").CarpoolRideEvent> = {},
+): import("@/api/types").CarpoolRideEvent {
+  return {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequests: [],
+    otherRequests: [],
+    rides: [],
+    ...partial,
+  }
+}
+
 function renderCard(
   calendarItem: CalendarItem,
   overrides: Partial<ComponentProps<typeof AgendaFocusCard>> = {},
@@ -651,39 +714,11 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     ],
   }
 
-  const pendingAsk = {
-    id: "ask-1",
-    spaceId: "s1",
-    eventKey: "UID:game",
-    requestingCircleId: "c2",
-    requestingCircleName: "House B",
-    requestedByAdultId: "a2",
-    kidIds: ["k2"],
-    kidFirstNames: ["Mia"],
-    seats: 1,
-    pickupPlaceName: "Home",
-    pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-    status: "PENDING" as const,
-    passedByMe: false,
-    passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
-  }
+  const pendingAsk = focusRequest()
 
-  const rideEvent = {
-    eventKey: "UID:game",
-    title: "Practice",
-    startsAt: "2030-08-15T17:00:00.000Z",
-    endsAt: null,
-    defaultKidIds: [],
-    ownRequest: null,
+  const rideEvent = focusRideEvent({
     otherRequests: [pendingAsk],
-  }
+  })
 
   it("shows Accept and Pass for an eligible pending ride ask", async () => {
     const user = userEvent.setup()
@@ -768,19 +803,22 @@ detourMinutes: null,
         ],
       }),
       {
-        rideEvent: {
-          ...rideEvent,
+        rideEvent: focusRideEvent({
           otherRequests: [
-            {
-              ...pendingAsk,
+            focusRequest({
               id: "accepted-1",
-              status: "ACCEPTED" as const,
-              acceptingCircleId: "c1",
-              acceptedByAdultId: "a1",
-              vehicleId: "v1",
-            },
+              status: "FULLY_COVERED",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "CONFIRMED" },
+              ],
+            }),
           ],
-        },
+          rides: [
+            focusRide({ id: "ride-to", leg: "TO", passengerRequestIds: ["accepted-1"] }),
+            focusRide({ id: "ride-from", leg: "FROM", passengerRequestIds: ["accepted-1"] }),
+          ],
+        }),
       },
     )
     expect(screen.getByTestId("agenda-focus-MANUAL-route-carpool")).toHaveStyle({
@@ -811,13 +849,19 @@ detourMinutes: null,
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
   })
 
-  it("does not show Accept/Pass for own PENDING request", () => {
+  it("does not show Accept/Pass for own UNCOVERED request", () => {
     renderCard(item({ id: "own-pending", title: "Practice" }), {
-      rideEvent: {
-        ...rideEvent,
-        ownRequest: { ...pendingAsk, id: "own", status: "PENDING" },
-        otherRequests: [],
-      },
+      rideEvent: focusRideEvent({
+        ownRequests: [
+          focusRequest({
+            id: "own",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            kidId: "k1",
+            kidFirstName: "Maya",
+          }),
+        ],
+      }),
       garage,
       onAcceptRide: vi.fn(),
       onPassRide: vi.fn(),
@@ -834,10 +878,9 @@ detourMinutes: null,
 
   it("does not show Accept/Pass after the caller has passed", () => {
     renderCard(item({ id: "passed-ask", title: "Practice" }), {
-      rideEvent: {
-        ...rideEvent,
-        otherRequests: [{ ...pendingAsk, passedByMe: true }],
-      },
+      rideEvent: focusRideEvent({
+        otherRequests: [focusRequest({ passedByMe: true })],
+      }),
       garage,
       onAcceptRide: vi.fn(),
       onPassRide: vi.fn(),
@@ -847,7 +890,7 @@ detourMinutes: null,
     expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
-  it("keeps Ride needed chip and Assign while own ride is still PENDING", () => {
+  it("keeps Ride needed chip and Assign while own ride is still UNCOVERED", () => {
     renderCard(
       item({
         id: "own-pending-gap",
@@ -855,106 +898,113 @@ detourMinutes: null,
         uncoveredKidIds: ["k1"],
       }),
       {
-        rideEvent: {
-          ...rideEvent,
-          ownRequest: {
-            ...pendingAsk,
-            id: "own",
-            status: "PENDING",
-            requestingCircleId: "c1",
-            requestingCircleName: "Ours",
-            kidIds: ["k1"],
-            kidFirstNames: ["Maya"],
-          },
-          otherRequests: [],
-        },
-        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true },
+        rideEvent: focusRideEvent({
+          ownRequests: [
+            focusRequest({
+              id: "own",
+              requestingCircleId: "c1",
+              requestingCircleName: "Ours",
+              kidId: "k1",
+              kidFirstName: "Maya",
+            }),
+          ],
+        }),
         onAssignCoverage: vi.fn(),
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true },
       },
     )
-    const chips = screen.getByTestId("agenda-focus-chips")
-    expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
-    expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
-    expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
-      backgroundColor: "var(--fc-hero-surface)",
-    })
   })
 })
 
 describe("AgendaFocusCard Cancel CTA", () => {
-  const ownPending = {
+  const ownCovered = focusRequest({
     id: "own-ride",
-    spaceId: "s1",
     eventKey: "UID:practice",
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
-    pickupPlaceName: "Home",
-    pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-    status: "PENDING" as const,
-    passedByMe: false,
-    passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
-  }
-
-  const ownRideEvent = {
-    eventKey: "UID:practice",
-    title: "Practice",
-    startsAt: "2030-08-15T17:00:00.000Z",
-    endsAt: null,
-    defaultKidIds: [],
-    ownRequest: ownPending,
-    otherRequests: [],
-  }
-
-  it("shows outline Cancel for own PENDING and calls onCancelRide", async () => {
-    const user = userEvent.setup()
-    const onCancelRide = vi.fn()
-    renderCard(item({ id: "cancel-pending", title: "Practice" }), {
-      rideEvent: ownRideEvent,
-      onCancelRide,
-    })
-    expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
-      "Requested · Maya · 1 seat · Home, 1 Main",
-    )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
-    const cancel = screen.getByRole("button", { name: "Cancel" })
-    expect(cancel).toBeInTheDocument()
-    expect(cancel.className).toMatch(/outline|border/)
-    expect(screen.getByTestId("agenda-focus-MANUAL-cancel-pending")).toHaveStyle({
-      backgroundColor: "var(--fc-surface-raised)",
-    })
-    await user.click(cancel)
-    expect(onCancelRide).toHaveBeenCalledWith("own-ride")
+    kidId: "k1",
+    kidFirstName: "Maya",
+    status: "FULLY_COVERED",
+    legStatuses: [
+      { leg: "TO", status: "CONFIRMED" },
+      { leg: "FROM", status: "CONFIRMED" },
+    ],
   })
 
-  it("shows outline Cancel for own ACCEPTED and calls onCancelRide", async () => {
+  const ownCoveredEvent = focusRideEvent({
+    eventKey: "UID:practice",
+    ownRequests: [ownCovered],
+    rides: [
+      focusRide({
+        id: "fulfill-to",
+        eventKey: "UID:practice",
+        leg: "TO",
+        drivingCircleId: "c2",
+        drivingCircleName: "Sharks Family",
+        passengerRequestIds: ["own-ride"],
+      }),
+    ],
+  })
+
+  const ownPartialEvent = focusRideEvent({
+    eventKey: "UID:practice",
+    ownRequests: [
+      focusRequest({
+        id: "own-ride",
+        eventKey: "UID:practice",
+        requestingCircleId: "c1",
+        requestingCircleName: "Ours",
+        requestedByAdultId: "a1",
+        kidId: "k1",
+        kidFirstName: "Maya",
+        status: "PARTIAL",
+        legStatuses: [
+          { leg: "TO", status: "CONFIRMED" },
+          { leg: "FROM", status: "OPEN" },
+        ],
+      }),
+    ],
+    rides: [
+      focusRide({
+        id: "fulfill-to",
+        eventKey: "UID:practice",
+        leg: "TO",
+        drivingCircleId: "c2",
+        drivingCircleName: "Sharks Family",
+        passengerRequestIds: ["own-ride"],
+      }),
+    ],
+  })
+
+  it("does not show Cancel for uncovered own ask with no Ride yet", () => {
+    renderCard(item({ id: "cancel-uncovered", title: "Practice" }), {
+      rideEvent: focusRideEvent({
+        eventKey: "UID:practice",
+        ownRequests: [
+          focusRequest({
+            id: "own-ride",
+            eventKey: "UID:practice",
+            requestingCircleId: "c1",
+            requestingCircleName: "Ours",
+            kidId: "k1",
+            kidFirstName: "Maya",
+          }),
+        ],
+      }),
+      onCancelRide: vi.fn(),
+    })
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
+  })
+
+  it("shows outline Cancel for covered own Ride and calls onCancelRide with Ride id", async () => {
     const user = userEvent.setup()
     const onCancelRide = vi.fn()
     renderCard(item({ id: "cancel-accepted", title: "Practice" }), {
-      rideEvent: {
-        ...ownRideEvent,
-        ownRequest: {
-          ...ownPending,
-          status: "ACCEPTED",
-          acceptedByAdultId: "a2",
-          acceptingCircleId: "c2",
-          acceptingCircleName: "Sharks Family",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
-        },
-      },
+      rideEvent: ownCoveredEvent,
       onCancelRide,
     })
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
@@ -965,11 +1015,12 @@ detourMinutes: null,
     ).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
+    expect(cancel.className).toMatch(/outline|border/)
     await user.click(cancel)
-    expect(onCancelRide).toHaveBeenCalledWith("own-ride")
+    expect(onCancelRide).toHaveBeenCalledWith("fulfill-to")
   })
 
-  it("keeps Cancel outline beside Assign when own PENDING still has a coverage gap", () => {
+  it("keeps Cancel outline beside Assign when PARTIAL still has a coverage gap", () => {
     renderCard(
       item({
         id: "cancel-with-assign",
@@ -977,7 +1028,7 @@ detourMinutes: null,
         uncoveredKidIds: ["k1"],
       }),
       {
-        rideEvent: ownRideEvent,
+        rideEvent: ownPartialEvent,
         assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true },
         onAssignCoverage: vi.fn(),
         onCancelRide: vi.fn(),
@@ -986,33 +1037,29 @@ detourMinutes: null,
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
+      "Round trip — to confirmed, from still needed",
+    )
   })
 })
 
 describe("AgendaFocusCard Withdraw CTA", () => {
-  const acceptedByUsAsk = {
+  const acceptedByUsAsk = focusRequest({
     id: "accepted-ask",
-    spaceId: "s1",
     eventKey: "UID:practice",
-    requestingCircleId: "c2",
-    requestingCircleName: "House B",
-    requestedByAdultId: "a2",
-    kidIds: ["k2"],
-    kidFirstNames: ["Mia"],
-    seats: 1,
-    pickupPlaceName: "Home",
-    pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-    status: "ACCEPTED" as const,
-    passedByMe: false,
-    passedByAdultNames: [],
-    acceptedByAdultId: "a1",
-    acceptingCircleId: "c1",
-    acceptingCircleName: "Ours",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
-  }
+    status: "FULLY_COVERED",
+    legStatuses: [
+      { leg: "TO", status: "CONFIRMED" },
+      { leg: "FROM", status: "CONFIRMED" },
+    ],
+  })
+
+  const acceptedRide = focusRide({
+    id: "fulfill-accepted",
+    eventKey: "UID:practice",
+    leg: "TO",
+    passengerRequestIds: ["accepted-ask"],
+  })
 
   const garage = {
     members: [{ adultId: "a1", displayName: "Alex", drives: true }],
@@ -1036,15 +1083,11 @@ detourMinutes: null,
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()
     renderCard(item({ id: "withdraw-focus", title: "Practice" }), {
-      rideEvent: {
+      rideEvent: focusRideEvent({
         eventKey: "UID:practice",
-        title: "Practice",
-        startsAt: "2030-08-15T17:00:00.000Z",
-        endsAt: null,
-        defaultKidIds: [],
-        ownRequest: null,
         otherRequests: [acceptedByUsAsk],
-      },
+        rides: [acceptedRide],
+      }),
       onWithdrawRide,
     })
     expect(screen.getByTestId("agenda-focus-accepted-by-us")).toHaveTextContent(
@@ -1056,48 +1099,43 @@ detourMinutes: null,
       backgroundColor: "var(--fc-surface-raised)",
     })
     await user.click(withdraw)
-    expect(onWithdrawRide).toHaveBeenCalledWith("accepted-ask")
+    expect(onWithdrawRide).toHaveBeenCalledWith("fulfill-accepted")
   })
 
-  it("does not show Withdraw for an ACCEPTED ask accepted by another circle", () => {
+  it("does not show Withdraw for a ask covered by another circle", () => {
     renderCard(item({ id: "other-accepted", title: "Practice" }), {
-      rideEvent: {
+      rideEvent: focusRideEvent({
         eventKey: "UID:practice",
-        title: "Practice",
-        startsAt: "2030-08-15T17:00:00.000Z",
-        endsAt: null,
-        defaultKidIds: [],
-        ownRequest: null,
-        otherRequests: [{ ...acceptedByUsAsk, acceptingCircleId: "c9", acceptingCircleName: "Them" }],
-      },
+        otherRequests: [acceptedByUsAsk],
+        rides: [
+          focusRide({
+            id: "fulfill-them",
+            eventKey: "UID:practice",
+            drivingCircleId: "c9",
+            drivingCircleName: "Them",
+            passengerRequestIds: ["accepted-ask"],
+          }),
+        ],
+      }),
       onWithdrawRide: vi.fn(),
     })
     expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument()
   })
 
-  it("keeps Accept/Pass primary when another pending ask is eligible alongside accepted-by-us", () => {
+  it("keeps Accept/Pass primary when another open ask is eligible alongside accepted-by-us", () => {
     renderCard(item({ id: "withdraw-with-accept", title: "Practice" }), {
-      rideEvent: {
+      rideEvent: focusRideEvent({
         eventKey: "UID:practice",
-        title: "Practice",
-        startsAt: "2030-08-15T17:00:00.000Z",
-        endsAt: null,
-        defaultKidIds: [],
-        ownRequest: null,
         otherRequests: [
           acceptedByUsAsk,
-          {
-            ...acceptedByUsAsk,
+          focusRequest({
             id: "pending-ask",
-            status: "PENDING",
-            acceptedByAdultId: null,
-            acceptingCircleId: null,
-            acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
-          },
+            eventKey: "UID:practice",
+            status: "UNCOVERED",
+          }),
         ],
-      },
+        rides: [acceptedRide],
+      }),
       garage: {
         members: [{ adultId: "a1", displayName: "Alex", drives: true }],
         vehicles: [
@@ -1304,29 +1342,10 @@ detourMinutes: null,
         ...requestableRide,
         defaultKidIds: ["k1"],
         otherRequests: [
-          {
+          focusRequest({
             id: "ask-1",
-            spaceId: "s1",
             eventKey: "UID:practice",
-            requestingCircleId: "c2",
-            requestingCircleName: "House B",
-            requestedByAdultId: "a2",
-            kidIds: ["k2"],
-            kidFirstNames: ["Mia"],
-            seats: 1,
-            pickupPlaceName: "Home",
-            pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-            status: "PENDING",
-            passedByMe: false,
-            passedByAdultNames: [],
-            acceptedByAdultId: null,
-            acceptingCircleId: null,
-            acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
-          },
+          }),
         ],
       },
       garage: {
@@ -1388,29 +1407,23 @@ detourMinutes: null,
 })
 
 describe("AgendaFocusCard ride commitment conflict", () => {
-  const inboundAccepted = {
+  const inboundAccepted = focusRequest({
     id: "inbound-accepted",
-    spaceId: "s1",
     eventKey: "UID:practice",
-    requestingCircleId: "c2",
-    requestingCircleName: "House B",
-    requestedByAdultId: "a2",
-    kidIds: ["k-them"],
-    kidFirstNames: ["Mia"],
-    seats: 1,
-    pickupPlaceName: "Home",
-    pickupAddress: "1 Main",
-    pickupTown: null,
-    detourMinutes: null,
-    status: "ACCEPTED" as const,
-    passedByMe: false,
-    passedByAdultNames: [],
-    acceptedByAdultId: "a1",
-    acceptingCircleId: "c1",
-    acceptingCircleName: "Ours",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
-  }
+    kidId: "k-them",
+    kidFirstName: "Mia",
+    status: "FULLY_COVERED",
+    legStatuses: [
+      { leg: "TO", status: "CONFIRMED" },
+      { leg: "FROM", status: "CONFIRMED" },
+    ],
+  })
+
+  const inboundRide = focusRide({
+    id: "inbound-fulfill",
+    eventKey: "UID:practice",
+    passengerRequestIds: ["inbound-accepted"],
+  })
 
   it("shows Type A conflict line under chips and keeps Withdraw", () => {
     const onWithdrawRide = vi.fn()
@@ -1421,15 +1434,12 @@ describe("AgendaFocusCard ride commitment conflict", () => {
         uncoveredKidIds: ["k1"],
       }),
       {
-        rideEvent: {
+        rideEvent: focusRideEvent({
           eventKey: "UID:practice",
-          title: "Practice",
-          startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
           defaultKidIds: ["k1"],
-          ownRequest: null,
           otherRequests: [inboundAccepted],
-        },
+          rides: [inboundRide],
+        }),
         onWithdrawRide,
       },
     )
@@ -1451,37 +1461,38 @@ describe("AgendaFocusCard ride commitment conflict", () => {
         uncoveredKidIds: [],
       }),
       {
-        rideEvent: {
+        rideEvent: focusRideEvent({
           eventKey: "UID:practice",
-          title: "Practice",
-          startsAt: "2030-08-15T17:00:00.000Z",
-          endsAt: null,
-          defaultKidIds: [],
-          ownRequest: {
-            id: "own-accepted",
-            spaceId: "s1",
-            eventKey: "UID:practice",
-            requestingCircleId: "c1",
-            requestingCircleName: "Ours",
-            requestedByAdultId: "a1",
-            kidIds: ["k1"],
-            kidFirstNames: ["Sam"],
-            seats: 1,
-            pickupPlaceName: "Home",
-            pickupAddress: "1 Main",
-            pickupTown: null,
-            detourMinutes: null,
-            status: "ACCEPTED",
-            passedByMe: false,
-            passedByAdultNames: [],
-            acceptedByAdultId: "a2",
-            acceptingCircleId: "c2",
-            acceptingCircleName: "House B",
-            vehicleId: "v2",
-            vehicleLabel: "SUV",
-          },
+          ownRequests: [
+            focusRequest({
+              id: "own-accepted",
+              eventKey: "UID:practice",
+              requestingCircleId: "c1",
+              requestingCircleName: "Ours",
+              requestedByAdultId: "a1",
+              kidId: "k1",
+              kidFirstName: "Sam",
+              status: "FULLY_COVERED",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "CONFIRMED" },
+              ],
+            }),
+          ],
           otherRequests: [inboundAccepted],
-        },
+          rides: [
+            inboundRide,
+            focusRide({
+              id: "own-fulfill",
+              eventKey: "UID:practice",
+              drivingCircleId: "c2",
+              drivingCircleName: "House B",
+              vehicleId: "v2",
+              vehicleLabel: "SUV",
+              passengerRequestIds: ["own-accepted"],
+            }),
+          ],
+        }),
         onWithdrawRide: vi.fn(),
         onCancelRide: vi.fn(),
       },

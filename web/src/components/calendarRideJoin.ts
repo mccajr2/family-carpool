@@ -24,7 +24,11 @@ export function spaceIdForCarpoolRide(
   rideEvent: CarpoolRideEvent | null | undefined,
   summary: CarpoolSummary | null | undefined,
 ): string | null {
-  const fromOther = rideEvent?.otherRequests.find((ride) => ride.id === rideId)?.spaceId
+  const fulfillment = rideEvent?.rides.find((ride) => ride.id === rideId)
+  if (fulfillment != null) {
+    return fulfillment.spaceId
+  }
+  const fromOther = rideEvent?.otherRequests.find((request) => request.id === rideId)?.spaceId
   if (fromOther != null) {
     return fromOther
   }
