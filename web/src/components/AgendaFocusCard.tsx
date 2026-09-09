@@ -292,7 +292,7 @@ export function AgendaFocusCard({
                 circle={circle}
                 loading={loading}
                 ariaLabel={`Leave from for ${item.title}`}
-                summaryLine={
+                helperLine={
                   selfCoverage != null
                     ? focusLeaveFromEstimateLine(
                         {

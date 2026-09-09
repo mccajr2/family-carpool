@@ -2165,7 +2165,7 @@ detourMinutes: null,
 
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(focus).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(focus).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     const teamAsk = within(focus).getByRole("button", { name: "Ask the team for a ride" })
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
 
@@ -2868,9 +2868,8 @@ detourMinutes: null,
     await expandAgendaItem(user, item)
     const leaveBy = within(item).getByText(/^Leave by ~/)
     expect(leaveBy.textContent).toMatch(/^Leave by ~/)
-    expect(leaveBy.textContent).toMatch(/ · estimate$/)
+    expect(leaveBy.textContent).toMatch(/ · estimate, not live traffic$/)
     expect(leaveBy.textContent?.toLowerCase()).not.toMatch(/\beta\b/)
-    expect(leaveBy.textContent?.toLowerCase()).not.toContain("live traffic")
 
     const leaveFrom = within(item).getByLabelText("Leave from for Practice")
     expect(leaveFrom).toHaveValue("p1")
@@ -3012,7 +3011,8 @@ detourMinutes: null,
       within(item).getByTestId("coverage-leave-from-cov1-one-time-input"),
       "Jack's house",
     )
-    await user.click(within(item).getByTestId("coverage-leave-from-cov1-one-time-apply"))
+    await user.click(within(item).getByTestId("coverage-leave-from-cov1-one-time-input"))
+    await user.tab()
 
     await waitFor(() => {
       expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
@@ -3158,7 +3158,8 @@ detourMinutes: null,
       within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"),
       "Jack's house",
     )
-    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-apply"))
+    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"))
+    await user.tab()
     expect(setCoverageLeaveFrom).not.toHaveBeenCalled()
     await user.click(within(slide).getByTestId("hero-attention-confirm-coverage"))
 
@@ -3404,10 +3405,10 @@ detourMinutes: null,
       user,
       within(agenda).getByTestId("agenda-item-FEED-e-feed"),
     )
-    expect(within(agenda).getByTestId("leave-by-MANUAL-e-dest")).toHaveTextContent(
+    expect(within(agenda).getByTestId("leave-from-MANUAL-e-dest-helper")).toHaveTextContent(
       "Add a location to estimate leave-by",
     )
-    expect(within(agenda).getByTestId("leave-by-FEED-e-feed")).toHaveTextContent(
+    expect(within(agenda).getByTestId("leave-from-FEED-e-feed-helper")).toHaveTextContent(
       "Couldn't locate the destination",
     )
 
@@ -3645,7 +3646,7 @@ detourMinutes: null,
     expect(within(carousel).getByText("· 2 things need you")).toBeInTheDocument()
 
     const firstSlide = heroSlideIn(agenda, "Sam needs a ride")
-    await user.click(within(firstSlide).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(firstSlide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -3766,7 +3767,7 @@ detourMinutes: null,
     const secondSlide = heroSlideIn(agenda, "Riley needs a ride")
     expect(within(carousel).getByText("Sam needs a ride")).toBeInTheDocument()
     await user.click(within(secondSlide).getByRole("button", { name: "Jordan" }))
-    await user.click(within(secondSlide).getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(within(secondSlide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e2", {
@@ -3857,7 +3858,7 @@ detourMinutes: null,
     expect(within(heroCarouselIn(agenda)).getByTestId("hero-attention-slide")).toBeInTheDocument()
 
     await user.click(
-      within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }),
+      within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm"),
     )
 
     await waitFor(() => {
@@ -3961,7 +3962,7 @@ detourMinutes: null,
     )
     expect(within(card).getByTestId("agenda-row-title")).toBeInTheDocument()
     expect(within(card).getByTestId("agenda-row-when")).toBeInTheDocument()
-    expect(within(card).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
     expect(within(agenda).getByTestId("hero-attention-empty")).toBeInTheDocument()
     expect(within(card).queryByTestId("agenda-status-pill-dot")).not.toBeInTheDocument()
   })
@@ -4209,7 +4210,7 @@ detourMinutes: null,
     expect(
       within(agenda).queryByLabelText("Cover Riley for Practice"),
     ).not.toBeInTheDocument()
-    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4310,7 +4311,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalled()
@@ -4410,7 +4411,7 @@ detourMinutes: null,
 
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
-    await user.click(within(slide).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4499,8 +4500,8 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     await user.click(within(slide).getByRole("button", { name: "Jordan" }))
-    expect(within(slide).getByRole("button", { name: "Ask Jordan to drive" })).toBeEnabled()
-    await user.click(within(slide).getByRole("button", { name: "Ask Jordan to drive" }))
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeEnabled()
+    await user.click(within(slide).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4584,7 +4585,7 @@ detourMinutes: null,
     expect(
       within(agenda).queryByLabelText("Cover Sam for Practice"),
     ).not.toBeInTheDocument()
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4687,18 +4688,21 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    const rileyRow = within(item).getByTestId("agenda-kid-row-k2")
-    expect(within(rileyRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    await user.click(within(rileyRow).getByRole("button", { name: "Mark as going again" }))
+    expect(within(item).queryByTestId("agenda-kid-row-k2")).not.toBeInTheDocument()
+    await user.click(within(item).getByRole("button", { name: "Mark as going again" }))
     await waitFor(() => {
       expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e1", "k2", {
         status: "YES",
       })
     })
     await waitFor(() => {
+      expect(within(item).getByTestId("agenda-kid-row-k2")).toBeInTheDocument()
+    })
+    const rileyRow = within(item).getByTestId("agenda-kid-row-k2")
+    await waitFor(() => {
       expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
     })
-    await user.click(within(rileyRow).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(rileyRow).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -4780,7 +4784,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(agenda).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(agenda).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalled()
@@ -4872,7 +4876,7 @@ detourMinutes: null,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    await user.click(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm"))
 
     await waitFor(() => {
       expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "MANUAL", "e1", {
@@ -5072,7 +5076,7 @@ detourMinutes: null,
       expect(removeCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
     })
     expect(within(heroSlideIn(agenda)).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(heroSlideIn(agenda)).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(heroSlideIn(agenda)).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     // List row stays expanded after revert — gap shows DriverPicker, no revert link.
     expect(within(item).getByTestId("driver-picker")).toBeInTheDocument()
     expect(
@@ -5412,32 +5416,28 @@ detourMinutes: null,
     const primary = within(item).getByTestId("agenda-band-primary")
     const kids = within(item).getByTestId("agenda-band-kids")
     const travel = within(item).getByTestId("agenda-band-travel")
-    const people = within(item).getByTestId("agenda-band-people")
 
     expect(primary.compareDocumentPosition(kids) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(kids.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(travel.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     expect(within(primary).getByText("Practice")).toBeInTheDocument()
     expect(within(primary).getByText(/Field/)).toBeInTheDocument()
-    expect(within(kids).getByText("You're driving")).toBeInTheDocument()
+    expect(within(kids).getByTestId("agenda-override-links")).toBeInTheDocument()
     expect(
       within(kids).getByRole("button", {
         name: "Can't drive anymore? Reassign the ride",
       }),
     ).toBeInTheDocument()
     expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
-    expect(within(travel).getByTestId("leave-by-MANUAL-e1")).toBeInTheDocument()
     expect(within(travel).getByTestId("coverage-leave-from-cov1-place-select")).toHaveValue("p1")
     expect(within(travel).queryByTestId("leave-from-MANUAL-e1-field-row")).not.toBeInTheDocument()
-    expect(within(people).getByText("Manual")).toBeInTheDocument()
     expect(
       within(kids).getByRole("button", { name: "Mark Sam as not going" }),
     ).toBeInTheDocument()
 
     expect(within(item).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
     const manualActions = within(item).getByTestId("agenda-band-manual-actions")
-    expect(people.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(travel.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
     expect(within(manualActions).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
   })
@@ -5490,7 +5490,7 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeInTheDocument()
   })
 
   it("sets default leave-from from the Places screen", async () => {
@@ -7159,7 +7159,7 @@ detourMinutes: null,
     const slide = heroSlideIn(agenda, "Sam needs a ride")
     expect(within(slide).getByText("Sam needs a ride")).toBeInTheDocument()
     expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(slide).getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(within(slide).getByTestId("driver-picker-confirm")).toBeInTheDocument()
   })
 
   describe("weekly list focus sync", () => {
@@ -8370,7 +8370,7 @@ detourMinutes: null,
           name: "No longer need a ride? Cancel this ask",
         }),
       ).toBeInTheDocument()
-      await user.click(within(item).getByRole("button", { name: "Confirm I'll drive" }))
+      await user.click(within(item).getByTestId("driver-picker-confirm"))
       await waitFor(() => {
         expect(assignCalendarCoverage).toHaveBeenCalledWith("tok", "FEED", "e-assign-cancel", {
           coveringAdultId: "1",

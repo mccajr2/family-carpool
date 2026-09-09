@@ -192,6 +192,9 @@
   --fc-font-list-row-meta-size: 14px;
   --fc-font-list-row-meta-line: 20px;
   --fc-font-list-row-meta-weight: 400;
+  --fc-font-location-line-size: 13px;
+  --fc-font-location-line-line: 18px;
+  --fc-font-location-line-weight: 400;
   --fc-font-page-size: 34px;
   --fc-font-page-line: 40px;
   --fc-font-page-weight: 700;

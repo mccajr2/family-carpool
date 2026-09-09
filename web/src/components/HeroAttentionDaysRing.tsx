@@ -1,14 +1,16 @@
-import { formatHeroDaysRing } from "@/components/agendaFocusRing"
+import { formatHeroCountdownRing } from "@/components/agendaFocusRing"
 
-/** Decorative days-until ring for hero carousel slides (mock CountdownRing). */
+/** Adaptive countdown ring for hero carousel slides (days → hours → minutes). */
 export function HeroAttentionDaysRing({
-  days,
+  startsAt,
+  now = new Date(),
   "data-testid": testId = "hero-attention-days-ring",
 }: {
-  days: number
+  startsAt: string
+  now?: Date
   "data-testid"?: string
 }) {
-  const { label, unit } = formatHeroDaysRing(days)
+  const { label, unit } = formatHeroCountdownRing(startsAt, now)
 
   return (
     <div

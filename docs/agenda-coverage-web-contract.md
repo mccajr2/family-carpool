@@ -15,7 +15,8 @@ default leave-from + event compose).
 
 Shared leave-by reason copy (all clients): `No leave-from place yet` /
 `Add a location to estimate leave-by` / `Couldn't locate the destination` /
-`Leave-by estimate unavailable`; estimate line `Leave by ~{time} · estimate`.
+`Leave-by estimate unavailable`; estimate line
+`Leave by ~{time} · estimate, not live traffic`.
 
 ## Layout
 

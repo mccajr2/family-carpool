@@ -212,7 +212,7 @@ describe("AgendaFocusCard header chrome", () => {
       { onSetLeaveFrom },
     )
     expect(screen.getByTestId("agenda-focus-leave-from")).toBeInTheDocument()
-    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-summary").textContent).toMatch(
+    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-helper").textContent).toMatch(
       /^Leave from Mom's house · estimate /,
     )
     const select = screen.getByTestId("focus-leave-from-MANUAL-covering-place-select")
@@ -222,7 +222,8 @@ describe("AgendaFocusCard header chrome", () => {
       screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"),
       "Jack's house",
     )
-    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-apply"))
+    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"))
+    await user.tab()
     expect(onSetLeaveFrom).toHaveBeenCalledWith({
       leaveFromPlaceId: null,
       leaveFromAddress: "Jack's house",
@@ -380,7 +381,7 @@ describe("AgendaFocusCard assign", () => {
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "You" })).toHaveAttribute("aria-pressed", "true")
-    await user.click(screen.getByRole("button", { name: "Confirm I'll drive" }))
+    await user.click(screen.getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
@@ -875,7 +876,7 @@ detourMinutes: null,
     expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
     expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
       backgroundColor: "var(--fc-hero-surface)",
     })
@@ -983,7 +984,7 @@ detourMinutes: null,
       },
     )
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
 })
@@ -1158,7 +1159,7 @@ describe("AgendaFocusCard Request CTA", () => {
     )
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Ask the team for a ride" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Ask the team for a ride" }))
@@ -1287,7 +1288,7 @@ detourMinutes: null,
       },
     )
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Ride needed")).toBeInTheDocument()
     expect(within(chips).queryByText("Riding with Sharks Family")).not.toBeInTheDocument()

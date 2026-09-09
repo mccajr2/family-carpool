@@ -15,9 +15,9 @@ export function formatLeaveByTime(iso: string): string {
   })
 }
 
-/** e.g. "Leave by ~3:40 PM · estimate" */
+/** e.g. "Leave by ~3:40 PM · estimate, not live traffic" */
 export function formatLeaveByEstimateLine(leaveByAtIso: string): string {
-  return `Leave by ~${formatLeaveByTime(leaveByAtIso)} · estimate`
+  return `Leave by ~${formatLeaveByTime(leaveByAtIso)} · estimate, not live traffic`
 }
 
 /** Short human reason when leaveByStatus is UNAVAILABLE. */

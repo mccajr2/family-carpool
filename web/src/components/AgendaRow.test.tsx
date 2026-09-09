@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
-import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, CONFIRM_ILL_DRIVE, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel, ridingWithCircleLabel } from "@/components/coverageCopy"
+import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel, ridingWithCircleLabel } from "@/components/coverageCopy"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -213,7 +213,7 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-MANUAL-cov-leave")
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("agenda-coverage-leave-cov1")).toBeInTheDocument()
-    expect(within(row).getByTestId("coverage-leave-by-cov1").textContent).toMatch(
+    expect(within(row).getByTestId("coverage-leave-from-cov1-helper").textContent).toMatch(
       /^Leave by ~/,
     )
     expect(within(row).queryByTestId("leave-from-MANUAL-cov-leave-field-row")).not.toBeInTheDocument()
@@ -225,16 +225,16 @@ describe("AgendaRow", () => {
       within(row).getByTestId("coverage-leave-from-cov1-one-time-input"),
       "Playground",
     )
-    await user.click(within(row).getByTestId("coverage-leave-from-cov1-one-time-apply"))
+    await user.tab()
     expect(onSetCoverageLeaveFrom).toHaveBeenCalledWith("cov1", {
       leaveFromPlaceId: null,
       leaveFromAddress: "Playground",
     })
   })
 
-  it("shows item-level leave-from when the signed-in adult is not covering", async () => {
+  it("shows only the covering adult's leave-from when the viewer is not covering", async () => {
     const user = userEvent.setup()
-    const onSetLeaveFrom = vi.fn()
+    const onSetCoverageLeaveFrom = vi.fn()
     const withSchool: FamilyCircle = {
       ...circle,
       places: [
@@ -276,26 +276,88 @@ describe("AgendaRow", () => {
           },
         ],
       }),
-      { onSetLeaveFrom, circle: withSchool },
+      { onSetCoverageLeaveFrom, circle: withSchool },
     )
 
     const row = screen.getByTestId("agenda-row-MANUAL-item-leave")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByTestId("leave-from-MANUAL-item-leave-field-row")).toBeInTheDocument()
+    expect(within(row).queryByTestId("leave-from-MANUAL-item-leave-field-row")).not.toBeInTheDocument()
+    expect(within(row).getAllByText("Leave from")).toHaveLength(1)
     expect(within(row).getByTestId("coverage-leave-from-cov-other-place-select")).toHaveValue("p2")
     await user.selectOptions(
-      within(row).getByTestId("leave-from-MANUAL-item-leave-place-select"),
+      within(row).getByTestId("coverage-leave-from-cov-other-place-select"),
       "__one_time__",
     )
     await user.type(
-      within(row).getByTestId("leave-from-MANUAL-item-leave-one-time-input"),
+      within(row).getByTestId("coverage-leave-from-cov-other-one-time-input"),
       "Jack's house",
     )
-    await user.click(within(row).getByTestId("leave-from-MANUAL-item-leave-one-time-apply"))
-    expect(onSetLeaveFrom).toHaveBeenCalledWith({
+    await user.tab()
+    expect(onSetCoverageLeaveFrom).toHaveBeenCalledWith("cov-other", {
       leaveFromPlaceId: null,
       leaveFromAddress: "Jack's house",
     })
+  })
+
+  it("shows Cancel request + Mark not going when waiting on another household driver", async () => {
+    const user = userEvent.setup()
+    const onRemoveCoverage = vi.fn()
+    const twoAdultCircle: FamilyCircle = {
+      ...circle,
+      places: [
+        ...circle.places,
+        { id: "p2", name: "Haggerty", address: "9 Haggerty", latitude: 40.2, longitude: -74.2 },
+      ],
+      members: [
+        { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+        { adultId: "a2", email: "j@example.com", displayName: "Jordan", role: "CAREGIVER" },
+      ],
+    }
+    renderRow(
+      item({
+        id: "waiting-leave",
+        title: "Game",
+        uncoveredKidIds: [],
+        leaveFromPlaceId: "p1",
+        leaveFromPlaceName: "Mom's house",
+        leaveByAt: "2030-08-15T21:43:00.000Z",
+        leaveByStatus: "OK",
+        coverages: [
+          {
+            id: "cov-pending",
+            coveringAdultId: "a2",
+            coveringAdultDisplayName: "Jordan",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "PENDING",
+            leaveFromPlaceId: "p2",
+            leaveFromPlaceName: "Haggerty",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T21:41:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onRemoveCoverage, circle: twoAdultCircle },
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-waiting-leave")
+    expect(within(row).getByText("Waiting on Jordan")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+
+    expect(within(row).getAllByText("Leave from")).toHaveLength(1)
+    expect(within(row).getByTestId("coverage-leave-from-cov-pending-place-select")).toHaveValue("p2")
+    expect(within(row).queryByTestId("leave-from-MANUAL-waiting-leave-field-row")).not.toBeInTheDocument()
+
+    expect(
+      within(row).getByRole("button", { name: "Cancel request to Jordan" }),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByRole("button", { name: "Mark Sam as not going" }),
+    ).toBeInTheDocument()
+    await user.click(within(row).getByTestId("agenda-cancel-request-link"))
+    expect(onRemoveCoverage).toHaveBeenCalledWith("cov-pending")
   })
 
   it("shows distinct leave-from on each active coverage band", async () => {
@@ -371,8 +433,8 @@ describe("AgendaRow", () => {
     expect(within(row).getByTestId("coverage-leave-from-cov-b-one-time-input")).toHaveValue(
       "Playground lot",
     )
-    expect(within(row).getByTestId("coverage-leave-by-cov-a").textContent).toMatch(/^Leave by ~/)
-    expect(within(row).getByTestId("coverage-leave-by-cov-b").textContent).toMatch(/^Leave by ~/)
+    expect(within(row).getByTestId("coverage-leave-from-cov-a-helper").textContent).toMatch(/^Leave by ~/)
+    expect(within(row).getByTestId("coverage-leave-from-cov-b-helper").textContent).toMatch(/^Leave by ~/)
     expect(within(row).queryByTestId("leave-from-MANUAL-two-cov-field-row")).not.toBeInTheDocument()
   })
 
@@ -446,7 +508,6 @@ describe("AgendaRow", () => {
     expect(within(samRow).queryByText("Sam")).not.toBeInTheDocument()
 
     const rileyRow = within(row).getByTestId("agenda-kid-row-k2")
-    expect(within(rileyRow).getByText("Riley")).toBeInTheDocument()
     expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(rileyRow).getByTestId("rsvp-MANUAL-mixed-k2")).toHaveAttribute(
       "data-attendance",
@@ -734,17 +795,17 @@ describe("AgendaRow", () => {
 
     const rowA = screen.getByTestId("agenda-row-MANUAL-a")
     const rowB = screen.getByTestId("agenda-row-MANUAL-b")
-    expect(within(rowA).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
-    expect(within(rowB).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
+    expect(within(rowA).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
+    expect(within(rowB).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
 
     await user.click(within(rowA).getByRole("button", { expanded: false }))
-    expect(within(rowA).getByTestId("agenda-band-people")).toBeInTheDocument()
-    expect(within(rowB).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
+    expect(within(rowA).getByTestId("agenda-band-travel")).toBeInTheDocument()
+    expect(within(rowB).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
 
     await user.click(within(rowA).getByRole("button", { expanded: true }))
     await user.click(within(rowB).getByRole("button", { expanded: false }))
-    expect(within(rowA).queryByTestId("agenda-band-people")).not.toBeInTheDocument()
-    expect(within(rowB).getByTestId("agenda-band-people")).toBeInTheDocument()
+    expect(within(rowA).queryByTestId("agenda-band-travel")).not.toBeInTheDocument()
+    expect(within(rowB).getByTestId("agenda-band-travel")).toBeInTheDocument()
   })
 
   it("shows Asked the team chip collapsed and Request/Cancel when expanded for a ride event", async () => {
@@ -1062,11 +1123,10 @@ detourMinutes: null,
     expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
     const riley = within(row).getByTestId("agenda-kid-row-k2")
     expect(within(riley).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(riley).getByRole("button", { name: CONFIRM_ILL_DRIVE })).toBeInTheDocument()
-    const sam = within(row).getByTestId("agenda-kid-row-k1")
-    expect(within(sam).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(riley).getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-kid-row-k1")).not.toBeInTheDocument()
     expect(
-      within(sam).getByRole("button", {
+      within(row).getByRole("button", {
         name: "House B can't drive anymore? Find a new ride",
       }),
     ).toBeInTheDocument()
@@ -1135,7 +1195,7 @@ detourMinutes: null,
     await user.click(within(row).getByRole("button", { expanded: false }))
     // Assign cancels the open ask (auto-decline-unofferable); Cancel ask still available.
     expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(row).getByRole("button", { name: CONFIRM_ILL_DRIVE })).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage: Sam")).not.toBeInTheDocument()
     expect(
       within(row).getByRole("button", {
@@ -1187,10 +1247,16 @@ detourMinutes: null,
     await user.click(within(row).getByRole("button", { expanded: false }))
     const kid = within(row).getByTestId("agenda-kid-row-k1")
     expect(within(kid).getByTestId("driver-picker")).toBeInTheDocument()
+    const household = within(kid).getByTestId("driver-picker-household-section")
+    const leaveFrom = within(household).getByTestId("leave-from-FEED-feed-gap-field-row")
+    const confirm = within(household).getByTestId("driver-picker-confirm")
+    expect(
+      leaveFrom.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     await user.click(within(kid).getByRole("button", { name: "Ask the team for a ride" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
-    await user.click(within(kid).getByRole("button", { name: CONFIRM_ILL_DRIVE }))
+    await user.click(confirm)
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
@@ -1901,13 +1967,10 @@ detourMinutes: null,
 
     const row = screen.getByTestId("agenda-row-FEED-feed-confirmed")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const kid = within(row).getByTestId("agenda-kid-row-k1")
-    expect(within(kid).getByText("You're driving")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-override-links")).toBeInTheDocument()
     expect(within(row).queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    await user.click(
-      within(kid).getByRole("button", { name: "Can't drive anymore? Reassign the ride" }),
-    )
+    await user.click(within(row).getByTestId("agenda-reassign-link"))
     expect(onRemoveCoverage).toHaveBeenCalledWith("cov1")
   })
 
@@ -2138,8 +2201,7 @@ detourMinutes: null,
     expect(within(gapRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
   })
 
-  it("uses RiderChips in the expanded per-kid header for confirmed drivers", async () => {
-    const user = userEvent.setup()
+  it("uses RiderChips below the header for confirmed drivers", () => {
     renderRow(
       item({
         id: "covered",
@@ -2163,12 +2225,13 @@ detourMinutes: null,
       }),
     )
     const row = screen.getByTestId("agenda-row-MANUAL-covered")
-    await user.click(within(row).getByRole("button", { expanded: false }))
-    const kidChips = within(row).getByTestId("agenda-kid-rider-chips-k1")
-    expect(kidChips).toHaveAttribute("aria-label", "Riding: Sam")
-    const circle = within(kidChips).getByText("S")
-    expect(circle.style.width).toBe("var(--fc-space-list-row-kid-avatar)")
-    expect(within(kidChips).getByTestId("agenda-kid-rider-chips-k1-name")).toHaveTextContent("Sam")
+    expect(within(row).getByTestId("agenda-row-rider-chips")).toHaveAttribute(
+      "aria-label",
+      "Riding: Sam",
+    )
+    const stack = within(row).getByTestId("agenda-row-rider-chips-avatar-stack")
+    expect(within(stack).getByText("S")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent("Sam")
   })
 
   it("lists both circle kids on a collapsed row when they share a confirmed driver", () => {
@@ -2556,7 +2619,7 @@ detourMinutes: null,
 
     const row = screen.getByTestId("agenda-row-MANUAL-routable")
     const collapsed = within(row).getByTestId("agenda-row-open-ride")
-    expect(collapsed).toHaveAttribute("aria-label", "View route")
+    expect(collapsed).toHaveAttribute("aria-label", "Route for this ride")
     await user.click(collapsed)
     expect(onOpenRide).toHaveBeenCalledTimes(1)
     // Collapsed control must not toggle expand.

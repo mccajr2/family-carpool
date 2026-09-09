@@ -18,6 +18,18 @@ export function formatRingCountdown(mins: number | null): { label: string; unit:
   return { label: `${days}`, unit: days === 1 ? "day" : "days" }
 }
 
+/**
+ * Whole minutes until event start (floor at 0). Null when `startsAt` is invalid.
+ * Used by the hero carousel ring so granularity can step days → hours → minutes.
+ */
+export function minutesUntilEvent(startsAt: string, now: Date = new Date()): number | null {
+  const eventStart = new Date(startsAt)
+  if (Number.isNaN(eventStart.getTime())) {
+    return null
+  }
+  return Math.max(0, Math.round((eventStart.getTime() - now.getTime()) / 60_000))
+}
+
 /** Whole local calendar days until an event start (minimum 0). */
 export function heroDaysUntilEvent(startsAt: string, now: Date = new Date()): number {
   const eventStart = new Date(startsAt)
@@ -28,7 +40,7 @@ export function heroDaysUntilEvent(startsAt: string, now: Date = new Date()): nu
   return Math.max(0, Math.round(diffMs / MS_PER_LOCAL_DAY))
 }
 
-/** Hero carousel days ring — mock CountdownRing uses DAY / DAYS (uppercase). */
+/** @deprecated Prefer {@link formatHeroCountdownRing}; kept for calendar-day-only call sites. */
 export function formatHeroDaysRing(days: number): { label: string; unit: string } {
   return {
     label: `${days}`,
@@ -36,7 +48,16 @@ export function formatHeroDaysRing(days: number): { label: string; unit: string 
   }
 }
 
-/** Convenience: local calendar days from ISO start → carousel ring label. */
+/** Hero carousel ring — adaptive minutes/hours/days with uppercase unit labels. */
+export function formatHeroCountdownRing(
+  startsAt: string,
+  now: Date = new Date(),
+): { label: string; unit: string } {
+  const { label, unit } = formatRingCountdown(minutesUntilEvent(startsAt, now))
+  return { label, unit: unit.toUpperCase() }
+}
+
+/** Convenience: local calendar days from ISO start → carousel ring label (days only). */
 export function heroDaysRingFromStartsAt(
   startsAt: string,
   now: Date = new Date(),

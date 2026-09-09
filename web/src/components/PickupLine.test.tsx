@@ -18,37 +18,32 @@ describe("PickupLine", () => {
     const line = screen.getByTestId("pickup-line")
     expect(line).toHaveTextContent("Pickup in Cambridge, MA")
     expect(line).not.toHaveTextContent("min out of your way")
+    expect(screen.queryByTestId("pickup-line-detour-pill")).not.toBeInTheDocument()
     expect(line.style.color).toBe("var(--fc-text-secondary)")
-    expect(line.querySelector("svg")?.getAttribute("style")).toContain(
-      "var(--fc-text-secondary)",
-    )
   })
 
-  it("renders town and tone-colored detour copy when minutes are present", () => {
+  it("renders a color-coded detour pill when minutes are present", () => {
     render(<PickupLine pickupTown="Cambridge, MA" detourMinutes={4} />)
 
     const line = screen.getByTestId("pickup-line")
-    expect(line).toHaveTextContent(
-      "Pickup in Cambridge, MA · ~4 min out of your way (On your way)",
-    )
-    expect(line.querySelector("svg")?.getAttribute("style")).toContain(
-      "var(--fc-detour-on-way)",
-    )
-    expect(line).toHaveTextContent("On your way")
+    expect(line).toHaveTextContent("Pickup in Cambridge, MA")
+    const pill = screen.getByTestId("pickup-line-detour-pill")
+    expect(pill).toHaveTextContent("~4 min out of your way")
+    expect(pill).toHaveStyle({ color: "var(--fc-detour-on-way)" })
   })
 
-  it("uses moderate and far tone labels at boundaries", () => {
+  it("uses moderate and far tone colors at v6 mock thresholds", () => {
     const { rerender } = render(
       <PickupLine pickupTown="Somerville, MA" detourMinutes={11} />,
     )
-    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
-      "· ~11 min out of your way (Bit of a detour)",
-    )
+    expect(screen.getByTestId("pickup-line-detour-pill")).toHaveStyle({
+      color: "var(--fc-detour-moderate)",
+    })
 
     rerender(<PickupLine pickupTown="Worcester, MA" detourMinutes={21} />)
-    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
-      "· ~21 min out of your way (Far out of the way)",
-    )
+    expect(screen.getByTestId("pickup-line-detour-pill")).toHaveStyle({
+      color: "var(--fc-detour-far)",
+    })
   })
 
   it("uses hero on-secondary base text on hero slides", () => {

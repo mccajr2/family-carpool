@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight, ChevronUp, Clock, Navigation } from "lucide-react"
+import { ChevronDown, ChevronRight, ChevronUp, Navigation } from "lucide-react"
 import type {
   CalendarItem,
   CarpoolRideEvent,
@@ -12,12 +12,13 @@ import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { AttendanceToggle, rsvpWriteForAttendanceAction } from "@/components/AttendanceToggle"
 import { Button } from "@/components/ui/button"
-import { resolveSemanticIcon } from "@/components/uiIcons"
-import { formatEventWhen } from "@/components/eventTimes"
+import { formatCompactEventWhen } from "@/components/eventTimes"
+import { EventLocationLine } from "@/components/EventLocationLine"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
 import {
   coverageLeaveByLine,
+  resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
@@ -29,19 +30,18 @@ import {
 import {
   applyAutoDeclinedViewModel,
   isConfirmedDriver,
+  isPendingHouseholdConfirm,
   isUnassigned,
   mapCalendarItemToCoverageGames,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
-import { RevertRideLink } from "@/components/RevertRideLink"
+import { revertOwnRideLabel } from "@/components/revertRideCopy"
 import {
   activeCoverageForAdult,
   activeCoverages,
   calendarSourceLabel,
   coverageAdultLabel,
-  coverageKidNames,
-  coverageStatusLabel,
   eventKidNames,
   pendingCoverageForAdult,
   remainingCoverageGapKidIds,
@@ -49,22 +49,21 @@ import {
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
+  cancelRequestToDriverLabel,
+  markAsNotGoingLabel,
   needsCoverageWithKids,
 } from "@/components/coverageCopy"
 import {
   carpoolAskChipForRideEvent,
-  rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
 import {
   rideCommitmentConflict,
   rideCommitmentConflictLine,
 } from "@/components/rideCommitmentConflict"
-import { ridersForGameRow, ridersForItem } from "@/components/riderChips"
+import { ridersForItem } from "@/components/riderChips"
 import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
-
-const MapPinIcon = resolveSemanticIcon("icon.places")
 
 /** Team/feed label for GameCard header — omit for manual events without a feed name. */
 function agendaRowTeamLabel(item: CalendarItem): string | null {
@@ -86,21 +85,6 @@ function agendaRowTeamLabel(item: CalendarItem): string | null {
  */
 function showDriverPickerForKid(game: CoverageGameEvent): boolean {
   return isUnassigned(game.ownRide) || game.ownRide === "requested"
-}
-
-function showRevertLinkForKid(
-  game: CoverageGameEvent,
-  pendingSelfForKid: boolean,
-): boolean {
-  if (game.attendance === "not_going" || pendingSelfForKid) {
-    return false
-  }
-  // Confirmed drivers: revert only (no picker).
-  if (isConfirmedDriver(game.ownRide)) {
-    return true
-  }
-  // Asked the team: Cancel-ask link alongside Assign (Assign also cancels).
-  return game.ownRide === "requested"
 }
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
@@ -256,18 +240,41 @@ export function AgendaRow({
       ? rideCommitmentConflictLine(commitmentConflict)
       : null
   const teamLabel = agendaRowTeamLabel(item)
-  const whenLabel = formatEventWhen(item.startsAt, item.endsAt)
+  const whenLabel = formatCompactEventWhen(item.startsAt, item.endsAt)
   const locationLabel = item.location?.trim() || null
   const defaultRideKids = rideEvent?.defaultKidIds ?? []
   const rideKidSelection = selectedRideKidIds ?? defaultRideKids
-  // Own Request in the carpool band when RevertRideLink is not covering cancel;
-  // inbound asks use AgendaInboundRequestRow.
+  // Own Request in the carpool band when not yet asked; inbound asks use AgendaInboundRequestRow.
   const showCarpoolBand =
     !outOfPlay &&
     rideEvent != null &&
     showRequestInCarpool &&
     defaultRideKids.length > 0 &&
     onCreateRide != null
+  const confirmedGames = inPlayGames.filter((game) => isConfirmedDriver(game.ownRide))
+  const waitingOnOtherGames = inPlayGames.filter(
+    (game) =>
+      isPendingHouseholdConfirm(game.ownRide) && game.ownRide.driver !== "You",
+  )
+  const showOverrideLinks =
+    !outOfPlay && (confirmedGames.length > 0 || waitingOnOtherGames.length > 0)
+  /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
+  const leaveFromInPicker = showAssign && active.length === 0
+  const firstPickerKidId =
+    coverageGames.find(
+      (game) =>
+        !outOfPlay &&
+        game.attendance !== "not_going" &&
+        showAssign &&
+        showDriverPickerForKid(game),
+    )?.kidId ?? null
+
+  const itemLeaveFromFields = {
+    leaveFromPlaceId: item.leaveFromPlaceId,
+    leaveFromPlaceName: item.leaveFromPlaceName,
+    leaveFromAddress: item.leaveFromAddress,
+  }
+  const itemLeaveFromLabel = resolvedLeaveFromLabel(itemLeaveFromFields, circle)
 
   const ChevronIcon = open ? ChevronUp : ChevronDown
   const focusRingStyle = isFocused
@@ -298,8 +305,51 @@ export function AgendaRow({
       if (coverage != null) {
         onRemoveCoverage(coverage.id)
       }
+      return
+    }
+    if (isPendingHouseholdConfirm(game.ownRide) && game.ownRide.driver !== "You") {
+      const coverage = active.find(
+        (row) =>
+          row.status === "PENDING" &&
+          row.kidIds.includes(game.kidId) &&
+          row.coveringAdultId !== currentAdultId,
+      )
+      if (coverage != null) {
+        onRemoveCoverage(coverage.id)
+      }
     }
   }
+
+  function cancelPendingRequestForGame(game: CoverageGameEvent) {
+    if (!isPendingHouseholdConfirm(game.ownRide) || game.ownRide.driver === "You") {
+      return
+    }
+    const coverage = active.find(
+      (row) =>
+        row.status === "PENDING" &&
+        row.kidIds.includes(game.kidId) &&
+        row.coveringAdultId !== currentAdultId,
+    )
+    if (coverage != null) {
+      onRemoveCoverage(coverage.id)
+    }
+  }
+
+  const overrideLinkClass =
+    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+
+  const leaveFromSlotForPicker = (
+    <LeaveFromControls
+      variant="field-row"
+      value={itemLeaveFromFields}
+      circle={circle}
+      loading={loading}
+      ariaLabel={`Leave from for ${item.title}`}
+      helperLine={agendaLeaveByLine(item)}
+      onChange={onSetLeaveFrom}
+      testIdPrefix={`leave-from-${item.source}-${item.id}`}
+    />
+  )
 
   return (
     <div
@@ -316,7 +366,7 @@ export function AgendaRow({
       <div data-testid="agenda-band-primary">
       <button
         type="button"
-        className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)] text-left"
+        className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-list-row-pad-y)] pb-[var(--fc-space-sm)] text-left"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
@@ -339,28 +389,15 @@ export function AgendaRow({
           </span>
           <span
             data-testid="agenda-row-when"
-            className="mt-0.5 flex items-center gap-1.5 text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
+            className="mt-0.5 block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
           >
-            <Clock aria-hidden className="size-[14px] shrink-0" />
             {whenLabel}
           </span>
-          {locationLabel != null ? (
-            <span
-              data-testid="agenda-row-where"
-              className="flex items-center gap-1.5 text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
-            >
-              <MapPinIcon aria-hidden className="size-[14px] shrink-0" />
-              {locationLabel}
-            </span>
-          ) : null}
-          {itemRiders.length > 0 ? (
-            <RiderChips
-              riders={itemRiders}
-              variant="compact"
-              data-testid="agenda-row-rider-chips"
-              className="mt-0.5"
-            />
-          ) : null}
+          <EventLocationLine
+            location={locationLabel}
+            data-testid="agenda-row-where"
+            className="mt-0.5"
+          />
         </span>
         <span
           data-testid="agenda-row-chip-strip"
@@ -378,8 +415,8 @@ export function AgendaRow({
               role="button"
               tabIndex={0}
               data-testid="agenda-row-open-ride"
-              title="View route"
-              aria-label="View route"
+              title="Route for this ride"
+              aria-label="Route for this ride"
               className="inline-flex rounded-full p-[var(--fc-space-ride-detail-open-ride-pad)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
               onClick={(event) => {
                 event.stopPropagation()
@@ -407,6 +444,17 @@ export function AgendaRow({
           />
         </span>
       </button>
+      {itemRiders.length > 0 ? (
+        <div className="px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
+          <RiderChips
+            riders={itemRiders}
+            variant="compact"
+            data-testid="agenda-row-rider-chips"
+          />
+        </div>
+      ) : (
+        <div className="pb-[var(--fc-space-sm)]" />
+      )}
       </div>
 
       {open ? (
@@ -434,28 +482,134 @@ export function AgendaRow({
             </p>
           ) : null}
 
-          {/* Per-kid own-ride (mock GameCard): chip + DriverPicker | RevertRideLink + AttendanceToggle */}
+          {/* Pending assign / confirm per uncovered kid; confirmed rides use override links */}
           {coverageGames.length > 0 ? (
             <div
               data-testid="agenda-band-kids"
               className="flex flex-col gap-[var(--fc-space-md)]"
             >
+              {showOverrideLinks ? (
+                <div
+                  data-testid="agenda-override-links"
+                  className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
+                >
+                  {(() => {
+                    const seenLabels = new Set<string>()
+                    const cancelLinks = waitingOnOtherGames.map((game) => {
+                      if (!isPendingHouseholdConfirm(game.ownRide)) {
+                        return null
+                      }
+                      const label = cancelRequestToDriverLabel(game.ownRide.driver)
+                      if (seenLabels.has(label)) {
+                        return null
+                      }
+                      seenLabels.add(label)
+                      return (
+                        <button
+                          key={`cancel-request-${game.kidId}`}
+                          type="button"
+                          disabled={loading}
+                          className={overrideLinkClass}
+                          data-testid="agenda-cancel-request-link"
+                          onClick={() => cancelPendingRequestForGame(game)}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })
+                    const reassignLinks = confirmedGames.map((game) => {
+                      const label = revertOwnRideLabel(game.ownRide, {
+                        teammateRide: isTeammateOwnRide(game, rideEvent),
+                      })
+                      if (label == null || seenLabels.has(label)) {
+                        return null
+                      }
+                      seenLabels.add(label)
+                      return (
+                        <button
+                          key={`reassign-${game.kidId}`}
+                          type="button"
+                          disabled={loading}
+                          className={overrideLinkClass}
+                          data-testid="agenda-reassign-link"
+                          onClick={() => handleCantMakeIt(game)}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })
+                    return [...cancelLinks, ...reassignLinks]
+                  })()}
+                  {coverageGames.map((game) => {
+                    if (game.attendance === "not_going") {
+                      return (
+                        <AttendanceToggle
+                          key={`att-${game.kidId}`}
+                          displayName={
+                            circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                            "Kid"
+                          }
+                          attendance={game.attendance}
+                          disabled={loading}
+                          data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                          onSetAttendance={(next) =>
+                            onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                          }
+                        />
+                      )
+                    }
+                    const kidName =
+                      circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                      "Kid"
+                    return (
+                      <button
+                        key={`not-going-${game.kidId}`}
+                        type="button"
+                        disabled={loading}
+                        className={overrideLinkClass}
+                        data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                        data-attendance="going"
+                        onClick={() => onSetRsvp(game.kidId, "NO")}
+                      >
+                        {markAsNotGoingLabel(kidName)}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null}
+
+              {ownRequest != null ? (
+                <div className="flex flex-col gap-[var(--fc-space-sm)]">
+                  <p
+                    data-testid="agenda-row-own-ride"
+                    className="text-xs text-[var(--fc-text-secondary)]"
+                  >
+                    {ownRideDetailLine(ownRequest)}
+                  </p>
+                  {ownRequest.status === "PENDING" && onCancelRide != null ? (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={`${overrideLinkClass} text-left`}
+                      onClick={() => onCancelRide(ownRequest.id)}
+                    >
+                      No longer need a ride? Cancel this ask
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
               {coverageGames.map((game) => {
                 const kid = circle.kids.find((row) => row.id === game.kidId)
                 const kidName = kid?.displayName?.trim() || "Kid"
-                const kidRiders = ridersForGameRow(
-                  game,
-                  coverageGames,
-                  ownRequest,
-                  circle.kids,
-                )
-                const chip = rideStatusChipForGameRow(game, ownRequest)
                 const pendingSelfForKid =
                   pendingForSelf != null && pendingForSelf.kidIds.includes(game.kidId)
                 const showKidChrome = !outOfPlay && game.attendance !== "not_going"
                 const showPicker = showKidChrome && showAssign && showDriverPickerForKid(game)
-                const showRevert =
-                  showKidChrome && showRevertLinkForKid(game, pendingSelfForKid)
+
+                if (showOverrideLinks && !showPicker && !pendingSelfForKid) {
+                  return null
+                }
 
                 return (
                   <div
@@ -465,29 +619,6 @@ export function AgendaRow({
                   >
                     {showKidChrome ? (
                       <>
-                        <div className="flex items-center justify-between gap-[var(--fc-space-md)] py-[var(--fc-space-sm)]">
-                          <div className="flex min-w-0 items-center gap-[var(--fc-space-sm)] text-sm text-[var(--fc-text-primary)]">
-                            {kidRiders.length > 0 ? (
-                              <RiderChips
-                                riders={kidRiders}
-                                variant="inline"
-                                data-testid={`agenda-kid-rider-chips-${game.kidId}`}
-                              />
-                            ) : (
-                              <>
-                                <span
-                                  aria-hidden
-                                  className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-[var(--fc-accent-on)] bg-[var(--fc-accent)]"
-                                >
-                                  {kidName.charAt(0).toUpperCase() || "?"}
-                                </span>
-                                <span className="min-w-0">{kidName}</span>
-                              </>
-                            )}
-                          </div>
-                          <AgendaStatusChip label={chip.label} tone={chip.tone} />
-                        </div>
-
                         {pendingSelfForKid && pendingForSelf != null ? (
                           <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
                             <Button
@@ -522,6 +653,12 @@ export function AgendaRow({
                               }
                               kidIds={[game.kidId]}
                               loading={loading}
+                              leaveFromSlot={
+                                leaveFromInPicker && game.kidId === firstPickerKidId
+                                  ? leaveFromSlotForPicker
+                                  : undefined
+                              }
+                              leaveFromLabel={itemLeaveFromLabel}
                               onAssignCoverage={onAssignCoverage}
                               onAskTeam={() => {
                                 if (rideEvent?.eventKey && onCreateRide) {
@@ -537,164 +674,27 @@ export function AgendaRow({
                             />
                           </div>
                         ) : null}
-
-                        {showRevert ? (
-                          <RevertRideLink
-                            ownRide={game.ownRide}
-                            teammateRide={isTeammateOwnRide(game, rideEvent)}
-                            disabled={loading}
-                            onCantMakeIt={() => handleCantMakeIt(game)}
-                          />
-                        ) : null}
-
-                        {ownRequest != null && ownRequest.kidIds.includes(game.kidId) ? (
-                          <p
-                            data-testid="agenda-row-own-ride"
-                            className="mt-1 text-xs text-[var(--fc-text-secondary)]"
-                          >
-                            {ownRideDetailLine(ownRequest)}
-                          </p>
-                        ) : null}
                       </>
                     ) : null}
 
-                    <AttendanceToggle
-                      displayName={kidName}
-                      attendance={game.attendance}
-                      disabled={loading}
-                      data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                      onSetAttendance={(next) =>
-                        onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
-                      }
-                    />
+                    {!showOverrideLinks ? (
+                      <AttendanceToggle
+                        displayName={kidName}
+                        attendance={game.attendance}
+                        disabled={loading}
+                        data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                        onSetAttendance={(next) =>
+                          onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                        }
+                      />
+                    ) : null}
                   </div>
                 )
               })}
             </div>
           ) : null}
 
-          {routable ? (
-            <button
-              type="button"
-              data-testid="agenda-row-open-ride-cta"
-              onClick={() => onOpenRide?.()}
-              className="flex w-full items-center justify-between rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-agenda-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-back-size)] leading-[var(--fc-font-ride-detail-back-line)] font-[number:var(--fc-font-ride-detail-back-weight)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
-            >
-              <span className="flex items-center gap-[var(--fc-space-sm)]">
-                <Navigation aria-hidden size={15} />
-                Route for this ride
-              </span>
-              <ChevronRight aria-hidden size={16} />
-            </button>
-          ) : null}
-
-          {/* Travel / origin — coverage leave-from when covering; else item fallback */}
-          {!outOfPlay ? (
-            <div
-              data-testid="agenda-band-travel"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
-            >
-              {active.length > 0 ? (
-                active.map((coverage) => {
-                  const leaveBy = coverageLeaveByLine(coverage)
-                  return (
-                    <div
-                      key={coverage.id}
-                      data-testid={`agenda-coverage-leave-${coverage.id}`}
-                      className="flex flex-col gap-[var(--fc-space-sm)]"
-                    >
-                      <span className="text-xs text-[var(--fc-text-secondary)]">
-                        {coverageAdultLabel(coverage, circle.members)}
-                        {" · "}
-                        {coverageKidNames(coverage, circle.kids) || "Kids"}
-                        {" · "}
-                        {coverageStatusLabel(coverage.status)}
-                      </span>
-                      {leaveBy != null ? (
-                        <span
-                          className="text-xs text-[var(--fc-text-secondary)]"
-                          data-testid={`coverage-leave-by-${coverage.id}`}
-                        >
-                          {leaveBy}
-                        </span>
-                      ) : null}
-                      <LeaveFromControls
-                        variant="field-row"
-                        value={{
-                          leaveFromPlaceId: coverage.leaveFromPlaceId,
-                          leaveFromPlaceName: coverage.leaveFromPlaceName,
-                          leaveFromAddress: coverage.leaveFromAddress,
-                        }}
-                        circle={circle}
-                        loading={loading}
-                        ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
-                        onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
-                        testIdPrefix={`coverage-leave-from-${coverage.id}`}
-                      />
-                    </div>
-                  )
-                })
-              ) : null}
-
-              {selfCoverage == null ? (
-                <>
-                  <span
-                    className="text-xs text-[var(--fc-text-secondary)]"
-                    data-testid={`leave-by-${item.source}-${item.id}`}
-                  >
-                    {agendaLeaveByLine(item)}
-                  </span>
-                  <LeaveFromControls
-                    variant="field-row"
-                    value={{
-                      leaveFromPlaceId: item.leaveFromPlaceId,
-                      leaveFromPlaceName: item.leaveFromPlaceName,
-                      leaveFromAddress: item.leaveFromAddress,
-                    }}
-                    circle={circle}
-                    loading={loading}
-                    ariaLabel={`Leave from for ${item.title}`}
-                    onChange={onSetLeaveFrom}
-                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
-                  />
-                  {item.leaveByStatus === "UNAVAILABLE" &&
-                  item.leaveByReason === "NO_ORIGIN" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                      Open Places
-                    </Button>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  {/* Signed-in adult covering: item leave-by mirrors coverage; no duplicate chooser */}
-                  <span
-                    className="text-xs text-[var(--fc-text-secondary)]"
-                    data-testid={`leave-by-${item.source}-${item.id}`}
-                  >
-                    {agendaLeaveByLine(item)}
-                  </span>
-                  {item.leaveByStatus === "UNAVAILABLE" &&
-                  item.leaveByReason === "NO_ORIGIN" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                      Open Places
-                    </Button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
-
-          {/* People / source — attendance toggle lives under DriverPicker / Revert per kid */}
-          <div
-            data-testid="agenda-band-people"
-            className="flex flex-col gap-[var(--fc-space-sm)]"
-          >
-            <span className="text-xs text-[var(--fc-text-secondary)]">
-              {calendarSourceLabel(item.source, item.feedName)}
-            </span>
-          </div>
-
-          {/* Coverage residuals: gap copy + errors (no Remove coverage admin button) */}
+          {/* Coverage residuals sit with the decision chrome (below Confirm / overrides) */}
           {!outOfPlay && (unassignedGapKidIds.length > 0 || coverageActionError) ? (
             <div
               data-testid="agenda-band-coverage"
@@ -717,12 +717,96 @@ export function AgendaRow({
             </div>
           ) : null}
 
+          {routable ? (
+            <button
+              type="button"
+              data-testid="agenda-row-open-ride-cta"
+              onClick={() => onOpenRide?.()}
+              className="flex w-full items-center justify-between rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-agenda-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-back-size)] leading-[var(--fc-font-ride-detail-back-line)] font-[number:var(--fc-font-ride-detail-back-weight)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
+            >
+              <span className="flex items-center gap-[var(--fc-space-sm)]">
+                <Navigation aria-hidden size={15} />
+                Route for this ride
+              </span>
+              <ChevronRight aria-hidden size={16} />
+            </button>
+          ) : null}
+
+          {/* Travel / origin — coverage leave-from when covering/waiting; else item (unless in picker) */}
+          {!outOfPlay ? (
+            <div
+              data-testid="agenda-band-travel"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {active.length > 0 ? (
+                active.map((coverage) => {
+                  const leaveBy = coverageLeaveByLine(coverage)
+                  return (
+                    <div
+                      key={coverage.id}
+                      data-testid={`agenda-coverage-leave-${coverage.id}`}
+                      className="flex flex-col gap-[var(--fc-space-sm)]"
+                    >
+                      <LeaveFromControls
+                        variant="field-row"
+                        value={{
+                          leaveFromPlaceId: coverage.leaveFromPlaceId,
+                          leaveFromPlaceName: coverage.leaveFromPlaceName,
+                          leaveFromAddress: coverage.leaveFromAddress,
+                        }}
+                        circle={circle}
+                        loading={loading}
+                        ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
+                        helperLine={leaveBy}
+                        onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
+                        testIdPrefix={`coverage-leave-from-${coverage.id}`}
+                      />
+                    </div>
+                  )
+                })
+              ) : null}
+
+              {/* Item-level only when nobody has coverage — and not already in DriverPicker */}
+              {active.length === 0 && !leaveFromInPicker ? (
+                <>
+                  <LeaveFromControls
+                    variant="field-row"
+                    value={itemLeaveFromFields}
+                    circle={circle}
+                    loading={loading}
+                    ariaLabel={`Leave from for ${item.title}`}
+                    helperLine={agendaLeaveByLine(item)}
+                    onChange={onSetLeaveFrom}
+                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
+                  />
+                  {item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                      Open Places
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+
+              {active.length > 0 &&
+              item.leaveByStatus === "UNAVAILABLE" &&
+              item.leaveByReason === "NO_ORIGIN" &&
+              selfCoverage != null ? (
+                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                  Open Places
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {showCarpoolBand && rideEvent != null ? (
             <div
               data-testid="agenda-band-carpool"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
-              <span className="text-xs text-[var(--fc-text-secondary)]">Carpool</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
+                Carpool
+              </span>
               {showRequestInCarpool && defaultRideKids.length > 0 ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
                   {defaultRideKids.length > 1
@@ -779,6 +863,9 @@ export function AgendaRow({
               data-testid="agenda-band-inbound-requests"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
+                Carpool
+              </span>
               {rideEvent.otherRequests.map((request) => (
                 <AgendaInboundRequestRow
                   key={request.id}

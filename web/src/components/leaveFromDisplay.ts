@@ -85,7 +85,7 @@ export function coverageLeaveByLine(coverage: CalendarCoverageAssignment): strin
     return "Estimating leave-by…"
   }
   if (coverage.leaveByStatus === "OK" && coverage.leaveByAt) {
-    return `Leave by ~${formatLeaveByTime(coverage.leaveByAt)} · estimate`
+    return `Leave by ~${formatLeaveByTime(coverage.leaveByAt)} · estimate, not live traffic`
   }
   return leaveByUnavailableLabel(coverage.leaveByReason)
 }

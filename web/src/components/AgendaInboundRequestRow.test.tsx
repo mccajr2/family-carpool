@@ -162,8 +162,9 @@ describe("AgendaInboundRequestRow", () => {
       />,
     )
 
-    expect(screen.getByTestId("pickup-line")).toHaveTextContent(
-      "Pickup in Cambridge, MA · ~12 min out of your way (Bit of a detour)",
+    expect(screen.getByTestId("pickup-line")).toHaveTextContent("Pickup in Cambridge, MA")
+    expect(screen.getByTestId("pickup-line-detour-pill")).toHaveTextContent(
+      "~12 min out of your way",
     )
   })
 
