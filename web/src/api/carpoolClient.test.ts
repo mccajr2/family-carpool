@@ -188,7 +188,7 @@ describe("CarpoolClient", () => {
       startsAt: "2026-08-21T16:00:00Z",
       endsAt: null,
       defaultKidIds: ["k1"],
-      ownRequest: null,
+      ownRequests: [],
       otherRequests: [request],
       rides: [ride],
     }
@@ -275,9 +275,9 @@ describe("CarpoolClient", () => {
     const urls = fetchFn.mock.calls.map((call) => (call as [string, RequestInit])[0])
     expect(urls).toEqual([
       "http://localhost:8080/api/carpool/spaces/s1/rides?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z",
-      "http://localhost:8080/api/carpool/spaces/s1/requests",
-      "http://localhost:8080/api/carpool/spaces/s1/requests/req-1",
-      "http://localhost:8080/api/carpool/spaces/s1/requests/req-1/pass",
+      "http://localhost:8080/api/carpool/spaces/s1/ride-requests",
+      "http://localhost:8080/api/carpool/spaces/s1/ride-requests/req-1",
+      "http://localhost:8080/api/carpool/spaces/s1/ride-requests/req-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/rides",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/cancel",
       "http://localhost:8080/api/carpool/spaces/s1/rides/ride-1/withdraw",

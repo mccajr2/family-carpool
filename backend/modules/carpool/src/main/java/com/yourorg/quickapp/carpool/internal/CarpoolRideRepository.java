@@ -17,6 +17,21 @@ interface CarpoolRideRepository extends JpaRepository<CarpoolRideEntity, UUID> {
     List<CarpoolRideEntity> findBySpaceIdAndEventKeyInAndStatus(
             UUID spaceId, Collection<String> eventKeys, CarpoolFulfillmentStatus status);
 
+    List<CarpoolRideEntity> findBySpaceIdInAndEventKeyAndStatus(
+            Collection<UUID> spaceIds, String eventKey, CarpoolFulfillmentStatus status);
+
+    List<CarpoolRideEntity> findBySpaceIdInAndEventKeyAndDrivingCircleIdAndStatus(
+            Collection<UUID> spaceIds,
+            String eventKey,
+            UUID drivingCircleId,
+            CarpoolFulfillmentStatus status);
+
+    List<CarpoolRideEntity> findBySpaceIdInAndEventKeyAndDriverAdultIdAndStatus(
+            Collection<UUID> spaceIds,
+            String eventKey,
+            UUID driverAdultId,
+            CarpoolFulfillmentStatus status);
+
     boolean existsBySpaceIdAndEventKeyAndVehicleIdAndLegAndStatus(
             UUID spaceId,
             String eventKey,

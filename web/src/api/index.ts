@@ -62,6 +62,7 @@ export type {
   CarpoolRideEvent,
   CarpoolRideStatus,
   CreateCarpoolRequestRequest,
+  AcceptCarpoolRequestRequest,
   CarpoolSpace,
   CarpoolSummary,
   CreateCarpoolRideRequest,

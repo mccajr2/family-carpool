@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -123,26 +124,46 @@ public class CarpoolController {
             @Valid @RequestBody CreateCarpoolRideRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.create(adult, spaceId, request);
+        return carpoolRideService.createRide(adult, spaceId, request);
     }
 
-    @PostMapping("/spaces/{spaceId}/rides/{rideId}/accept")
-    public CarpoolRideResponse acceptRide(
+    @PostMapping("/spaces/{spaceId}/ride-requests")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CarpoolRequestResponse createRideRequest(
             @PathVariable("spaceId") UUID spaceId,
-            @PathVariable("rideId") UUID rideId,
-            @Valid @RequestBody AcceptCarpoolRideRequest request,
+            @Valid @RequestBody CreateCarpoolRequestRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.accept(adult, spaceId, rideId, request);
+        return carpoolRideService.createRequest(adult, spaceId, request);
     }
 
-    @PostMapping("/spaces/{spaceId}/rides/{rideId}/pass")
-    public CarpoolRideResponse passRide(
+    @PatchMapping("/spaces/{spaceId}/ride-requests/{requestId}")
+    public CarpoolRequestResponse patchRideRequest(
             @PathVariable("spaceId") UUID spaceId,
-            @PathVariable("rideId") UUID rideId,
+            @PathVariable("requestId") UUID requestId,
+            @Valid @RequestBody PatchCarpoolRequestRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.pass(adult, spaceId, rideId);
+        return carpoolRideService.patchRequest(adult, spaceId, requestId, request);
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-requests/{requestId}/pass")
+    public CarpoolRequestResponse passRideRequest(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("requestId") UUID requestId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.pass(adult, spaceId, requestId);
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-requests/{requestId}/accept")
+    public List<CarpoolRideResponse> acceptRideRequest(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("requestId") UUID requestId,
+            @Valid @RequestBody AcceptCarpoolRequestRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.accept(adult, spaceId, requestId, request);
     }
 
     @PostMapping("/spaces/{spaceId}/rides/{rideId}/cancel")

@@ -14,4 +14,9 @@ interface CarpoolRequestRepository extends JpaRepository<CarpoolRequestEntity, U
             UUID spaceId, String eventKey, UUID kidId, UUID requestingCircleId);
 
     List<CarpoolRequestEntity> findBySpaceIdAndEventKeyIn(UUID spaceId, Collection<String> eventKeys);
+
+    List<CarpoolRequestEntity> findByIdIn(Collection<UUID> ids);
+
+    List<CarpoolRequestEntity> findBySpaceIdAndEventKeyAndRequestingCircleId(
+            UUID spaceId, String eventKey, UUID requestingCircleId);
 }

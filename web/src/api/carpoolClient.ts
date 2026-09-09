@@ -178,7 +178,7 @@ export class CarpoolClient {
     request: CreateCarpoolRequestRequest,
   ): Promise<CarpoolRequest> {
     const response = await this.fetchFn(
-      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/requests`),
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-requests`),
       {
         method: "POST",
         headers: {
@@ -201,7 +201,7 @@ export class CarpoolClient {
     request: PatchCarpoolRequestRequest,
   ): Promise<CarpoolRequest> {
     const response = await this.fetchFn(
-      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/requests/${requestId}`),
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-requests/${requestId}`),
       {
         method: "PATCH",
         headers: {
@@ -239,13 +239,36 @@ export class CarpoolClient {
     return (await response.json()) as CarpoolRide
   }
 
+  async acceptRequest(
+    accessToken: string,
+    spaceId: string,
+    requestId: string,
+    request: { vehicleId: string; passengerRequestIds?: string[] },
+  ): Promise<CarpoolRide[]> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-requests/${requestId}/accept`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Accept carpool request failed"))
+    }
+    return (await response.json()) as CarpoolRide[]
+  }
+
   async passRequest(
     accessToken: string,
     spaceId: string,
     requestId: string,
   ): Promise<CarpoolRequest> {
     const response = await this.fetchFn(
-      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/requests/${requestId}/pass`),
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-requests/${requestId}/pass`),
       {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -289,27 +312,18 @@ export class CarpoolClient {
     return (await response.json()) as CarpoolRide
   }
 
-  // Backward-compatible aliases for in-progress UI migration.
+  // Transitional aliases while UI migrates to request-based naming.
   async acceptRide(
     accessToken: string,
     spaceId: string,
     requestId: string,
-    request: { vehicleId: string; eventKey?: string; leg?: "TO" | "FROM"; passengerRequestIds?: string[] },
-  ): Promise<CarpoolRide> {
-    if (request.eventKey == null || request.leg == null) {
-      throw new Error("Accept carpool ride failed: eventKey and leg are required")
-    }
-    const createRequest: CreateCarpoolRideRequest = {
-      eventKey: request.eventKey,
-      leg: request.leg,
-      vehicleId: request.vehicleId,
-      passengerRequestIds: request.passengerRequestIds ?? [requestId],
-    }
-    return this.createRide(accessToken, spaceId, createRequest)
+    request: { vehicleId: string; passengerRequestIds?: string[] },
+  ): Promise<CarpoolRide[]> {
+    return this.acceptRequest(accessToken, spaceId, requestId, request)
   }
 
-  async passRide(accessToken: string, spaceId: string, rideId: string): Promise<CarpoolRequest> {
-    return this.passRequest(accessToken, spaceId, rideId)
+  async passRide(accessToken: string, spaceId: string, requestId: string): Promise<CarpoolRequest> {
+    return this.passRequest(accessToken, spaceId, requestId)
   }
 }
 

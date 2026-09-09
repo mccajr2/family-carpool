@@ -3815,7 +3815,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/carpool/spaces/{spaceId}/requests:
+  /api/carpool/spaces/{spaceId}/ride-requests:
     post:
       operationId: createCarpoolRequest
       tags: [carpool]
@@ -3824,9 +3824,17 @@ paths:
         Any space-member adult in the requesting circle. Creates one request row
         for (space, event, kid, circle). Defaults legsNeeded to [TO, FROM] when
         omitted. Clients may send legs as TO/FROM/BOTH convenience; BOTH is
-        expanded to [TO, FROM] before persistence.
+        expanded to [TO, FROM] before persistence. Path is ride-requests so it
+        does not collide with join requests under /requests.
       security:
         - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -3840,6 +3848,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CarpoolRequest"
+        "400":
+          description: Invalid kid, event, pickup, or legs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:
@@ -3859,7 +3873,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/carpool/spaces/{spaceId}/requests/{requestId}:
+  /api/carpool/spaces/{spaceId}/ride-requests/{requestId}:
     patch:
       operationId: patchCarpoolRequest
       tags: [carpool]
@@ -3914,7 +3928,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/carpool/spaces/{spaceId}/requests/{requestId}/pass:
+  /api/carpool/spaces/{spaceId}/ride-requests/{requestId}/pass:
     post:
       operationId: passCarpoolRequest
       tags: [carpool]
@@ -3964,14 +3978,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/carpool/spaces/{spaceId}/ride-requests/{requestId}/accept:
+    post:
+      operationId: acceptCarpoolRequest
+      tags: [carpool]
+      summary: Accept all still-OPEN legs on a request
+      description: >
+        Space-member adult with drives=true who may drive the vehicle. Creates
+        one ACTIVE ride per still-OPEN leg for the passenger set (default the
+        path requestId; optional passengerRequestIds must be same-circle). Sets
+        RSVP YES for kids on those requests. Own-circle request returns 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptCarpoolRequestRequest"
+      responses:
+        "200":
+          description: Rides created for all previously OPEN legs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CarpoolRide"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller has drives=false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, request, or vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Own-circle request, no OPEN legs, seat math failure, passenger
+            conflict, or vehicle already committed for a leg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/carpool/spaces/{spaceId}/rides/{rideId}/cancel:
     post:
       operationId: cancelCarpoolRide
       tags: [carpool]
-      summary: Cancel a ride request from the requesting circle
+      summary: Cancel a fulfillment ride from a passenger's circle
       description: >
-        Any adult in the ride driver's circle. Cancels one fulfillment ride
-        leg. Other legs on the same event remain unchanged.
+        Any adult in a passenger request's requesting circle. Cancels one
+        fulfillment ride leg. Other legs on the same event remain unchanged.
       security:
         - bearerAuth: []
       parameters:
@@ -4001,7 +4082,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
-          description: Caller's circle is not the driver circle
+          description: Caller's circle is not a passenger requesting circle
           content:
             application/json:
               schema:
@@ -6130,7 +6211,9 @@ components:
         - title
         - startsAt
         - defaultKidIds
+        - ownRequests
         - otherRequests
+        - rides
       properties:
         eventKey:
           type: string
@@ -6154,14 +6237,14 @@ components:
           items:
             type: string
             format: uuid
-        ownRequest:
-          allOf:
-            - $ref: "#/components/schemas/CarpoolRequest"
-          nullable: true
+        ownRequests:
+          type: array
           description: >
-            This circle's active request, if any. passedByMe is always
-            false here; passedByAdultNames lists adults from other circles
-            who passed (for requester visibility).
+            This circle's active per-kid requests on this event. Empty when none.
+            passedByMe is always false here; passedByAdultNames lists adults from
+            other circles who passed (for requester visibility).
+          items:
+            $ref: "#/components/schemas/CarpoolRequest"
         otherRequests:
           type: array
           description: >
@@ -6230,6 +6313,24 @@ components:
           type: array
           minItems: 1
           description: One or more request ids from the same requesting circle.
+          items:
+            type: string
+            format: uuid
+
+    AcceptCarpoolRequestRequest:
+      type: object
+      required:
+        - vehicleId
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        passengerRequestIds:
+          type: array
+          minItems: 1
+          description: >
+            Optional same-circle request ids to accept together. Defaults to the
+            path requestId alone.
           items:
             type: string
             format: uuid

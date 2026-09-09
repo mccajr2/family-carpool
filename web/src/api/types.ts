@@ -480,9 +480,9 @@ export type CarpoolRideEvent = {
   startsAt: string
   endsAt: string | null
   defaultKidIds: string[]
-  ownRequest: CarpoolRequest | null
+  ownRequests: CarpoolRequest[]
   otherRequests: CarpoolRequest[]
-  rides?: CarpoolRide[]
+  rides: CarpoolRide[]
 }
 
 export type CreateCarpoolRequestRequest = {
@@ -494,7 +494,7 @@ export type CreateCarpoolRequestRequest = {
 
 export type PatchCarpoolRequestRequest = {
   legs?: CarpoolLeg
-  legsNeeded: CarpoolNeededLeg[]
+  legsNeeded?: CarpoolNeededLeg[]
 }
 
 export type CreateCarpoolRideRequest = {
@@ -504,5 +504,7 @@ export type CreateCarpoolRideRequest = {
   passengerRequestIds: string[]
 }
 
-/** @deprecated Transitional alias while callers migrate to request-based naming. */
-export type LegacyCarpoolRideRequest = CarpoolRequest
+export type AcceptCarpoolRequestRequest = {
+  vehicleId: string
+  passengerRequestIds?: string[]
+}

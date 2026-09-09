@@ -10,5 +10,6 @@ public record CarpoolRideEventResponse(
         Instant startsAt,
         Instant endsAt,
         List<UUID> defaultKidIds,
-        CarpoolRideResponse ownRequest,
-        List<CarpoolRideResponse> otherRequests) {}
+        List<CarpoolRequestResponse> ownRequests,
+        List<CarpoolRequestResponse> otherRequests,
+        List<CarpoolRideResponse> rides) {}

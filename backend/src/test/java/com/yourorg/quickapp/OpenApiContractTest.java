@@ -299,7 +299,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.25.0");
+        assertThat(yaml).contains("version: 0.26.0");
     }
 
     @Test
@@ -307,49 +307,51 @@ class OpenApiContractTest {
         String yaml = Files.readString(resolveOpenApi());
 
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides");
-        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/accept");
-        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/pass");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-requests");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-requests/{requestId}");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-requests/{requestId}/pass");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-requests/{requestId}/accept");
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/cancel");
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/withdraw");
 
         assertThat(yaml).contains("operationId: listCarpoolRides");
         assertThat(yaml).contains("operationId: createCarpoolRide");
-        assertThat(yaml).contains("operationId: acceptCarpoolRide");
-        assertThat(yaml).contains("operationId: passCarpoolRide");
+        assertThat(yaml).contains("operationId: createCarpoolRequest");
+        assertThat(yaml).contains("operationId: patchCarpoolRequest");
+        assertThat(yaml).contains("operationId: passCarpoolRequest");
+        assertThat(yaml).contains("operationId: acceptCarpoolRequest");
         assertThat(yaml).contains("operationId: cancelCarpoolRide");
         assertThat(yaml).contains("operationId: withdrawCarpoolRide");
 
+        assertThat(yaml).contains("CarpoolRequest:");
         assertThat(yaml).contains("CarpoolRide:");
         assertThat(yaml).contains("CarpoolRideStatus:");
+        assertThat(yaml).contains("CarpoolRequestStatus:");
         assertThat(yaml).contains("CarpoolRideEvent:");
+        assertThat(yaml).contains("CreateCarpoolRequestRequest:");
         assertThat(yaml).contains("CreateCarpoolRideRequest:");
-        assertThat(yaml).contains("AcceptCarpoolRideRequest:");
-        assertThat(yaml).contains("[PENDING, ACCEPTED, CANCELLED]");
+        assertThat(yaml).contains("AcceptCarpoolRequestRequest:");
+        assertThat(yaml).contains("[ACTIVE, CANCELLED, WITHDRAWN]");
+        assertThat(yaml).contains("[UNCOVERED, PARTIAL, FULLY_COVERED]");
         assertThat(yaml).contains("eventKey:");
         assertThat(yaml).contains("defaultKidIds:");
-        assertThat(yaml).contains("ownRequest:");
+        assertThat(yaml).contains("ownRequests:");
         assertThat(yaml).contains("otherRequests:");
+        assertThat(yaml).contains("legsNeeded:");
+        assertThat(yaml).contains("passengerRequestIds:");
         assertThat(yaml).contains("passedByMe:");
         assertThat(yaml).contains("passedByAdultNames:");
-        assertThat(yaml).contains("kidFirstNames:");
+        assertThat(yaml).contains("kidFirstName:");
         assertThat(yaml).contains("pickupPlaceName:");
         assertThat(yaml).contains("pickupAddress:");
         assertThat(yaml).contains("pickupTown:");
         assertThat(yaml).contains("detourMinutes:");
-        assertThat(yaml).contains("acceptingCircleId:");
         assertThat(yaml).contains("vehicleLabel:");
         assertThat(yaml).contains("not exceed 31 days");
-        assertThat(yaml).contains("drives=false returns 403");
         assertThat(yaml).contains("GET /api/carpool/spaces/{spaceId}/rides");
-        assertThat(yaml).contains("passedByMe true");
-        assertThat(yaml).contains("soft decline");
-        assertThat(yaml).contains("Accept remains allowed while PENDING");
         assertThat(yaml).contains("idempotent");
-        assertThat(yaml).contains("YES and NO_RESPONSE both qualify");
-        assertThat(yaml).contains("Create does not change RSVP");
-        assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on that");
-        assertThat(yaml).contains("Allowed even when the caller previously passed");
-        assertThat(yaml).contains("version: 0.25.0");
+        assertThat(yaml).contains("RSVP YES for kids on those requests");
+        assertThat(yaml).contains("version: 0.26.0");
     }
 
     @Test
