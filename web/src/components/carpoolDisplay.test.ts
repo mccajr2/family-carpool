@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
+import type {
+  CarpoolRequest,
+  CarpoolRide,
+  CarpoolRideEvent,
+  Garage,
+  Vehicle,
+} from "@/api/types"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
@@ -14,11 +20,15 @@ import {
   isAcceptedByCircle,
   kidDisplayName,
   incomingRideAskSummary,
+  openLegsNeeded,
   ownRideDetailLine,
+  ownRideLegDetailLines,
   ownRideStatusLine,
   ownYesKidCount,
+  partialRideStatusLabel,
   rideKidsSeatsPickup,
   rideSeatsLabel,
+  vehicleCommittedForRequest,
 } from "@/components/carpoolDisplay"
 import { ASKED_THE_TEAM, RIDING_WITH_TEAMMATE, ridingWithCircleLabel } from "@/components/coverageCopy"
 
@@ -58,60 +68,92 @@ describe("carpoolDisplay", () => {
 
   it("labels own ride chips and status lines for Agenda", () => {
     expect(agendaOwnRideStatusChip(null)).toBeNull()
+    expect(agendaOwnRideStatusChip(request({ status: "UNCOVERED" }))).toEqual({
+      label: ASKED_THE_TEAM,
+      tone: "amber",
+    })
     expect(
-      agendaOwnRideStatusChip(ride({ status: "PENDING", acceptingCircleName: null })),
-    ).toEqual({ label: ASKED_THE_TEAM, tone: "amber" })
-    expect(
-      agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+      agendaOwnRideStatusChip(
+        request({ status: "FULLY_COVERED" }),
+        [fulfillment({ drivingCircleName: "House B", passengerRequestIds: ["r1"] })],
+      ),
     ).toEqual({ label: ridingWithCircleLabel("House B"), tone: "mint" })
     expect(
-      agendaOwnRideStatusChip(ride({ status: "ACCEPTED", acceptingCircleName: "  " })),
+      agendaOwnRideStatusChip(request({ status: "FULLY_COVERED", acceptingCircleName: "  " })),
     ).toEqual({ label: RIDING_WITH_TEAMMATE, tone: "mint" })
-    expect(ownRideStatusLine(ride({ status: "PENDING" }))).toBe("Requested")
+    expect(
+      agendaOwnRideStatusChip(
+        request({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+        }),
+      ),
+    ).toEqual({
+      label: "Round trip — to confirmed, from still needed",
+      tone: "amber",
+    })
+    expect(ownRideStatusLine(request({ status: "UNCOVERED" }))).toBe("Requested")
     expect(
       ownRideStatusLine(
-        ride({ status: "PENDING", passedByAdultNames: ["Sam", "Alex"] }),
+        request({ status: "UNCOVERED", passedByAdultNames: ["Sam", "Alex"] }),
       ),
     ).toBe("Passed by Sam, Alex")
     expect(
-      ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: "House B" })),
+      ownRideStatusLine(request({ status: "FULLY_COVERED" }), [
+        fulfillment({ drivingCircleName: "House B", passengerRequestIds: ["r1"] }),
+      ]),
     ).toBe("Riding with House B")
-    expect(ownRideStatusLine(ride({ status: "ACCEPTED", acceptingCircleName: null }))).toBe(
+    expect(ownRideStatusLine(request({ status: "FULLY_COVERED" }))).toBe(
       "Riding with a teammate",
     )
+  })
+
+  it("formats partial round-trip copy from leg statuses", () => {
+    expect(
+      partialRideStatusLabel(
+        request({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "OPEN" },
+            { leg: "FROM", status: "CONFIRMED" },
+          ],
+        }),
+      ),
+    ).toBe("Round trip — from confirmed, to still needed")
+    expect(openLegsNeeded(request({ status: "UNCOVERED" }))).toEqual(["TO", "FROM"])
   })
 
   it("formats kids · seats · pickup for shared ride detail tails", () => {
     expect(
       rideKidsSeatsPickup(
-        ride({
-          kidFirstNames: ["Mia", "Leo"],
-          seats: 2,
+        request({
+          kidFirstName: "Mia",
           pickupPlaceName: "Home",
           pickupAddress: "1 Main St",
         }),
       ),
-    ).toBe("Mia, Leo · 2 seats · Home, 1 Main St")
+    ).toBe("Mia · 1 seat · Home, 1 Main St")
   })
 
   it("summarizes an incoming ask with seats for Focus Accept/Pass", () => {
     expect(
       incomingRideAskSummary(
-        ride({
+        request({
           requestingCircleName: "House B",
-          kidFirstNames: ["Mia", "Leo"],
-          seats: 2,
+          kidFirstName: "Mia",
           pickupPlaceName: "Home",
           pickupAddress: "1 Main St",
         }),
       ),
-    ).toBe("House B · Mia, Leo · 2 seats · Home, 1 Main St")
+    ).toBe("House B · Mia · 1 seat · Home, 1 Main St")
     expect(
       incomingRideAskSummary(
-        ride({
+        request({
           requestingCircleName: "  ",
-          kidFirstNames: ["Mia"],
-          seats: 1,
+          kidFirstName: "Mia",
           pickupPlaceName: "School",
           pickupAddress: "2 Oak",
         }),
@@ -122,10 +164,9 @@ describe("carpoolDisplay", () => {
   it("builds own and accepted-by-us ride detail lines with Calendar field density", () => {
     expect(
       ownRideDetailLine(
-        ride({
-          status: "PENDING",
-          kidFirstNames: ["Maya"],
-          seats: 1,
+        request({
+          status: "UNCOVERED",
+          kidFirstName: "Maya",
           pickupPlaceName: "Home",
           pickupAddress: "1 Main",
         }),
@@ -133,35 +174,20 @@ describe("carpoolDisplay", () => {
     ).toBe("Requested · Maya · 1 seat · Home, 1 Main")
     expect(
       ownRideDetailLine(
-        ride({
-          status: "ACCEPTED",
-          acceptingCircleName: "House B",
-          kidFirstNames: ["Maya"],
-          seats: 1,
+        request({
+          status: "FULLY_COVERED",
+          kidFirstName: "Maya",
           pickupPlaceName: "Home",
           pickupAddress: "1 Main",
         }),
+        "Riding with House B",
       ),
     ).toBe("Riding with House B · Maya · 1 seat · Home, 1 Main")
     expect(
-      ownRideDetailLine(
-        ride({
-          status: "ACCEPTED",
-          acceptingCircleName: "House B",
-          kidFirstNames: ["Maya"],
-          seats: 1,
-          pickupPlaceName: "Home",
-          pickupAddress: "1 Main",
-        }),
-        "Accepted by House B",
-      ),
-    ).toBe("Accepted by House B · Maya · 1 seat · Home, 1 Main")
-    expect(
       acceptedByUsRideDetailLine(
-        ride({
+        request({
           requestingCircleName: "House B",
-          kidFirstNames: ["Mia"],
-          seats: 1,
+          kidFirstName: "Mia",
           pickupPlaceName: "Home",
           pickupAddress: "1 Main",
         }),
@@ -169,16 +195,43 @@ describe("carpoolDisplay", () => {
     ).toBe("House B · Mia · 1 seat · Home, 1 Main")
   })
 
-  it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {
+  it("emits per-leg fulfillment lines when TO and FROM rides differ", () => {
+    expect(
+      ownRideLegDetailLines(request({ id: "need-1" }), [
+        fulfillment({
+          id: "ride-to",
+          leg: "TO",
+          drivingCircleName: "House B",
+          passengerRequestIds: ["need-1"],
+        }),
+        fulfillment({
+          id: "ride-from",
+          leg: "FROM",
+          drivingCircleName: "Ours",
+          passengerRequestIds: ["need-1"],
+        }),
+      ]),
+    ).toEqual(["To: Riding with House B", "From: Riding with Ours"])
+  })
+
+  it("counts YES kids as still-need-a-ride plus FULLY_COVERED own needs", () => {
     expect(ownYesKidCount(event({ defaultKidIds: ["k1", "k2"] }))).toBe(2)
     expect(
       ownYesKidCount(
         event({
           defaultKidIds: ["k2"],
-          ownRequest: ride({ status: "ACCEPTED", kidIds: ["k1"] }),
+          ownRequests: [request({ status: "FULLY_COVERED", kidId: "k1" })],
         }),
       ),
     ).toBe(2)
+    expect(
+      ownYesKidCount(
+        event({
+          defaultKidIds: ["k2"],
+          ownRequests: [request({ status: "PARTIAL", kidId: "k1" })],
+        }),
+      ),
+    ).toBe(1)
   })
 
   it("defaults the only vehicle with remaining seats the caller may drive", () => {
@@ -186,7 +239,7 @@ describe("carpoolDisplay", () => {
     const compact = vehicle({ id: "v2", seats: 2, driverAdultIds: ["a1"] })
     const otherDriver = vehicle({ id: "v3", seats: 8, driverAdultIds: ["a2"] })
     const eventRow = event({ defaultKidIds: ["k1"] })
-    const request = ride({ seats: 2, kidIds: ["k2", "k3"] })
+    const ask = request({ status: "UNCOVERED" })
 
     expect(
       eligibleVehiclesForAccept({
@@ -194,43 +247,72 @@ describe("carpoolDisplay", () => {
         adultId: "a1",
         vehicles: [van, compact, otherDriver],
         event: eventRow,
-        request,
+        request: ask,
+        passengerCount: 2,
       }).map((row) => row.id),
     ).toEqual(["v1"])
   })
 
-  it("excludes vehicles already accepted on the event and when drives is false", () => {
+  it("excludes vehicles already committed on an OPEN leg and when drives is false", () => {
     const van = vehicle({ id: "v1", seats: 8, driverAdultIds: ["a1"] })
+    const ask = request({
+      status: "UNCOVERED",
+      legStatuses: [
+        { leg: "TO", status: "OPEN" },
+        { leg: "FROM", status: "OPEN" },
+      ],
+    })
     const eventRow = event({
       defaultKidIds: [],
-      otherRequests: [ride({ status: "ACCEPTED", vehicleId: "v1", seats: 1 })],
+      rides: [fulfillment({ vehicleId: "v1", leg: "TO", passengerRequestIds: ["other"] })],
     })
+    expect(vehicleCommittedForRequest("v1", eventRow, ask)).toBe(true)
     expect(
       eligibleVehiclesForAccept({
         drives: true,
         adultId: "a1",
         vehicles: [van],
         event: eventRow,
-        request: ride({ seats: 1 }),
+        request: ask,
       }),
     ).toEqual([])
+    // FROM-only commitment does not block a TO-only open ask on the same vehicle.
+    const toOnlyAsk = request({
+      status: "UNCOVERED",
+      legsNeeded: ["TO"],
+      legStatuses: [{ leg: "TO", status: "OPEN" }],
+    })
+    const fromCommitted = event({
+      defaultKidIds: [],
+      rides: [fulfillment({ vehicleId: "v1", leg: "FROM", passengerRequestIds: ["other"] })],
+    })
+    expect(vehicleCommittedForRequest("v1", fromCommitted, toOnlyAsk)).toBe(false)
+    expect(
+      eligibleVehiclesForAccept({
+        drives: true,
+        adultId: "a1",
+        vehicles: [van],
+        event: fromCommitted,
+        request: toOnlyAsk,
+      }).map((row) => row.id),
+    ).toEqual(["v1"])
     expect(
       eligibleVehiclesForAccept({
         drives: false,
         adultId: "a1",
         vehicles: [van],
         event: event({ defaultKidIds: [] }),
-        request: ride({ seats: 1 }),
+        request: ask,
       }),
     ).toEqual([])
   })
 
-  it("picks the first pending otherRequest that can be accepted", () => {
+  it("picks the first open otherRequest that can be accepted", () => {
     const garage: Garage = {
       members: [{ adultId: "a1", displayName: "Alex", drives: true }],
       vehicles: [vehicle()],
     }
-    const pending = ride({ id: "ask-1", status: "PENDING", passedByMe: false })
+    const pending = request({ id: "ask-1", status: "UNCOVERED", passedByMe: false })
     const eventRow = event({ otherRequests: [pending] })
     expect(eligiblePendingRideAccept(eventRow, { adultId: "a1", garage })?.id).toBe(
       "ask-1",
@@ -245,38 +327,40 @@ describe("carpoolDisplay", () => {
     expect(
       eligiblePendingRideAccept(
         event({
-          ownRequest: ride({ id: "own", status: "PENDING" }),
-          otherRequests: [ride({ id: "passed", passedByMe: true })],
+          ownRequests: [request({ id: "own", status: "UNCOVERED" })],
+          otherRequests: [request({ id: "passed", passedByMe: true })],
         }),
         { adultId: "a1", garage },
       ),
     ).toBeNull()
   })
 
-  it("detects teammate asks this circle accepted", () => {
-    const ours = ride({
-      id: "accepted-us",
-      status: "ACCEPTED",
-      acceptingCircleId: "c1",
-      acceptingCircleName: "Ours",
-    })
-    const theirs = ride({
-      id: "accepted-them",
-      status: "ACCEPTED",
-      acceptingCircleId: "c9",
-      acceptingCircleName: "Them",
-    })
-    expect(isAcceptedByCircle(ours, "c1")).toBe(true)
-    expect(isAcceptedByCircle(theirs, "c1")).toBe(false)
-    expect(acceptedByUsRequest(event({ otherRequests: [theirs, ours] }), "c1")?.id).toBe(
-      "accepted-us",
-    )
-    expect(acceptedByUsRequest(event({ otherRequests: [theirs] }), "c1")).toBeNull()
+  it("detects teammate asks this circle is driving via active rides", () => {
+    const ours = request({ id: "accepted-us" })
+    const theirs = request({ id: "accepted-them" })
+    const rides = [
+      fulfillment({
+        id: "ride-us",
+        drivingCircleId: "c1",
+        passengerRequestIds: ["accepted-us"],
+      }),
+      fulfillment({
+        id: "ride-them",
+        drivingCircleId: "c9",
+        passengerRequestIds: ["accepted-them"],
+      }),
+    ]
+    expect(isAcceptedByCircle(ours, "c1", rides)).toBe(true)
+    expect(isAcceptedByCircle(theirs, "c1", rides)).toBe(false)
+    expect(
+      acceptedByUsRequest(event({ otherRequests: [theirs, ours], rides }), "c1")?.id,
+    ).toBe("accepted-us")
+    expect(acceptedByUsRequest(event({ otherRequests: [theirs], rides }), "c1")).toBeNull()
     expect(acceptedByUsRequest(null, "c1")).toBeNull()
   })
 })
 
-function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function request(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -284,21 +368,37 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c2",
     requestingCircleName: "House B",
     requestedByAdultId: "a2",
-    kidIds: ["k2"],
-    kidFirstNames: ["Mia"],
-    seats: 1,
+    kidId: "k2",
+    kidFirstName: "Mia",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main St",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a1",
+    drivingCircleId: "c1",
+    drivingCircleName: "Ours",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["r1"],
+    status: "ACTIVE",
     ...partial,
   }
 }
@@ -310,8 +410,9 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2026-08-21T16:00:00Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }

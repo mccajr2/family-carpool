@@ -3,20 +3,21 @@
  * Pure view-model — no UI, no API. Phase 1 of ride-commitment-conflict.
  */
 
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Kid } from "@/api/types"
+import type { CalendarItem, CarpoolRequest, CarpoolRideEvent, Kid } from "@/api/types"
 import { acceptedByUsRequest, kidDisplayName } from "@/components/carpoolDisplay"
 import {
   alsoDrivingKidLabel,
   RIDE_CONFLICT_CHIP,
 } from "@/components/coverageCopy"
 import {
+  isPartialOwnRide,
   isUnassigned,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
 
 export type RideCommitmentConflict =
-  | { kind: "needRideAndDriving"; inbound: CarpoolRide; gapKidNames: string[] }
-  | { kind: "mutualSwap"; inbound: CarpoolRide; ownRequest: CarpoolRide }
+  | { kind: "needRideAndDriving"; inbound: CarpoolRequest; gapKidNames: string[] }
+  | { kind: "mutualSwap"; inbound: CarpoolRequest; ownRequest: CarpoolRequest }
 
 function formatKidNames(names: readonly string[]): string {
   const cleaned = names.map((name) => name.trim()).filter(Boolean)
@@ -30,11 +31,9 @@ export function rideCommitmentConflictChipLabel(
   if (conflict.kind === "mutualSwap") {
     return RIDE_CONFLICT_CHIP
   }
-  const inboundNames = conflict.inbound.kidFirstNames
-    .map((name) => name.trim())
-    .filter(Boolean)
-  if (inboundNames.length === 1) {
-    return alsoDrivingKidLabel(inboundNames[0]!)
+  const inboundName = conflict.inbound.kidFirstName.trim()
+  if (inboundName) {
+    return alsoDrivingKidLabel(inboundName)
   }
   return RIDE_CONFLICT_CHIP
 }
@@ -51,12 +50,12 @@ export function rideCommitmentConflictLine(
   conflict: RideCommitmentConflict,
 ): string {
   if (conflict.kind === "needRideAndDriving") {
-    const inboundSummary = formatKidNames(conflict.inbound.kidFirstNames)
+    const inboundSummary = formatKidNames([conflict.inbound.kidFirstName])
     const gapNames = formatKidNames(conflict.gapKidNames)
     return `You're driving ${inboundSummary} but ${gapNames} still need a ride.`
   }
-  const theirKid = formatKidNames(conflict.inbound.kidFirstNames)
-  const yourKid = formatKidNames(conflict.ownRequest.kidFirstNames)
+  const theirKid = formatKidNames([conflict.inbound.kidFirstName])
+  const yourKid = formatKidNames([conflict.ownRequest.kidFirstName])
   return `You're driving ${theirKid} and ${yourKid} rides with them — pick one plan.`
 }
 
@@ -65,15 +64,11 @@ function isInPlay(game: CoverageGameEvent): boolean {
 }
 
 function needsRideGap(game: CoverageGameEvent): boolean {
-  return isUnassigned(game.ownRide) || game.ownRide === "requested"
-}
-
-function sameKidSet(left: readonly string[], right: readonly string[]): boolean {
-  if (left.length !== right.length) {
-    return false
-  }
-  const rightSet = new Set(right)
-  return left.every((kidId) => rightSet.has(kidId))
+  return (
+    isUnassigned(game.ownRide) ||
+    game.ownRide === "requested" ||
+    isPartialOwnRide(game.ownRide)
+  )
 }
 
 /** First-name for a gap kid: circle roster, else own-ask labels, else "Kid". */
@@ -88,22 +83,16 @@ function gapKidName(
       return fromCircle
     }
   }
-  const ownRequest = rideEvent?.ownRequest
-  if (ownRequest != null) {
-    const index = ownRequest.kidIds.indexOf(kidId)
-    const named = index >= 0 ? ownRequest.kidFirstNames[index]?.trim() : null
-    if (named) {
-      return named
-    }
+  const ownRequest = rideEvent?.ownRequests.find((request) => request.kidId === kidId)
+  if (ownRequest?.kidFirstName.trim()) {
+    return ownRequest.kidFirstName.trim()
   }
   return "Kid"
 }
 
 /**
- * Type A: ACCEPTED inbound + in-play kid still unassigned / Asked the team.
- * Type B: mutual ACCEPTED swap (both directions, different kid sets).
- * Null when inbound + household CONFIRMED covers every own gap (valid two-kid
- * plan), or only one direction is set with gaps cleared.
+ * Type A: driving an inbound ask + in-play kid still unassigned / Asked the team /
+ * PARTIAL. Type B: mutual fully-covered swap (both directions, different kids).
  */
 export function rideCommitmentConflict(
   rideEvent: CarpoolRideEvent | null | undefined,
@@ -122,17 +111,13 @@ export function rideCommitmentConflict(
     (game) => itemKidIds.has(game.kidId) && isInPlay(game),
   )
 
-  const ownRequest = rideEvent?.ownRequest ?? null
-  if (ownRequest?.status === "ACCEPTED") {
-    const inPlayOwnKidIds = ownRequest.kidIds.filter((kidId) =>
-      inPlay.some((game) => game.kidId === kidId),
-    )
-    if (
-      inPlayOwnKidIds.length > 0 &&
-      !sameKidSet(inPlayOwnKidIds, inbound.kidIds)
-    ) {
-      return { kind: "mutualSwap", inbound, ownRequest }
-    }
+  const fullyCoveredOwn =
+    rideEvent?.ownRequests.filter((request) => request.status === "FULLY_COVERED") ?? []
+  const inPlayOwn = fullyCoveredOwn.filter((request) =>
+    inPlay.some((game) => game.kidId === request.kidId),
+  )
+  if (inPlayOwn.length > 0 && !inPlayOwn.some((request) => request.kidId === inbound.kidId)) {
+    return { kind: "mutualSwap", inbound, ownRequest: inPlayOwn[0]! }
   }
 
   const gapGames = inPlay.filter(needsRideGap)

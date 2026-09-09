@@ -339,7 +339,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
 - [x] Backend: integration tests for AC above
 - [x] Web: update `carpoolClient` + types
 - [x] Web: Request UI To/From/Round trip on Agenda/Focus/Carpool create paths
-- [ ] Web: `coverageQueue` / `coverageDisplay` / `carpoolDisplay` mappers for
+- [x] Web: `coverageQueue` / `coverageDisplay` / `carpoolDisplay` mappers for
       per-kid / per-leg / `PARTIAL` (gap clears only on `FULLY_COVERED`)
 - [ ] Web: `rideStatusChip` partial + covered/ask labels; Focus + AgendaRow
 - [ ] Web: Hero (`HeroAttentionSlide` / carousel / Focus) Request + Accept all

@@ -192,8 +192,13 @@ export function AgendaRow({
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-  // Mapper task will join ownRequests; gap clearing stays coverage-only until then.
-  const ownRequest = null
+  // Gap clearing uses per-kid FULLY_COVERED ownRequests; Cancel/Withdraw per-Ride
+  // and chip copy land in later tasks.
+  const ownRequests = rideEvent?.ownRequests ?? null
+  const ownRequest =
+    ownRequests?.find((request) => request.status === "UNCOVERED" || request.status === "PARTIAL") ??
+    ownRequests?.[0] ??
+    null
   const { games: coverageGames } = applyAutoDeclinedViewModel(
     mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -201,17 +206,20 @@ export function AgendaRow({
     }),
     autoDeclinedRideIds ?? new Set(),
   )
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
   // Gap copy only for true unassigned kids — team ask / teammate ride use chips + revert.
   const unassignedGapKidIds = gapKidIds.filter((kidId) => {
     const game = coverageGames.find((row) => row.kidId === kidId)
     return game == null || isUnassigned(game.ownRide)
   })
-  // Assign is available for unassigned gaps and open team asks (Assign cancels the ask).
+  // Assign is available for unassigned gaps, PARTIAL needs, and open team asks.
   const assignableGapKidIds = gapKidIds.filter((kidId) => {
     const game = coverageGames.find((row) => row.kidId === kidId)
     return (
-      game == null || isUnassigned(game.ownRide) || game.ownRide === "requested"
+      game == null ||
+      isUnassigned(game.ownRide) ||
+      game.ownRide === "requested" ||
+      game.ownRide === "partial"
     )
   })
   const uncoveredKidNames = eventKidNames(unassignedGapKidIds, circle.kids)
@@ -231,8 +239,8 @@ export function AgendaRow({
   const routable =
     onOpenRide != null && coverageGames.some((game) => canRoute(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
-  const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
-  const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest, {
+  const itemRiders = ridersForItem(coverageGames, null, circle.kids)
+  const rideChips = rideStatusChipsForItem(item, coverageGames, null, {
     rideEvent,
     circleId: circle.id,
   })
@@ -595,7 +603,8 @@ export function AgendaRow({
                   >
                     {ownRideDetailLine(ownRequest)}
                   </p>
-                  {ownRequest.status === "PENDING" && onCancelRide != null ? (
+                  {(ownRequest.status === "UNCOVERED" || ownRequest.status === "PARTIAL") &&
+                  onCancelRide != null ? (
                     <button
                       type="button"
                       disabled={loading}

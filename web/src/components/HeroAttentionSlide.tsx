@@ -10,6 +10,7 @@ import type {
 import {
   callerDrives,
   eligibleVehiclesForAccept,
+  isRequestOpen,
 } from "@/components/carpoolDisplay"
 import type { QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
@@ -138,7 +139,7 @@ export function HeroAttentionSlide({
       return null
     }
     const ride = requestRideForSlide(rideEvent, item.request.id)
-    if (ride == null || ride.status !== "PENDING" || ride.passedByMe) {
+    if (ride == null || !isRequestOpen(ride) || ride.passedByMe) {
       return null
     }
     const drives = callerDrives(garage, currentAdultId)

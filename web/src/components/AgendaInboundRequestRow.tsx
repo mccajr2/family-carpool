@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Car, Undo2 } from "lucide-react"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
+import type { CarpoolRequest, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
 import { AgendaStatusChip, type AgendaStatusChipTone } from "@/components/agendaStatusChip"
 import {
   callerDrives,
@@ -9,6 +9,7 @@ import {
   eligibleVehiclesForAccept,
   incomingRideAskSummary,
   isAcceptedByCircle,
+  isRequestOpen,
 } from "@/components/carpoolDisplay"
 import {
   REVERT_INBOUND_CANT_TAKE_THEM,
@@ -29,7 +30,7 @@ const revertLinkClassName =
   "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
 
 export type AgendaInboundRequestRowProps = {
-  request: CarpoolRide
+  request: CarpoolRequest
   circleId: string
   currentAdultId: string
   garage: Garage | null
@@ -41,8 +42,8 @@ export type AgendaInboundRequestRowProps = {
   /** Session-local: viewer withdrew this acceptance before reload. */
   recentlyWithdrawn?: boolean
   /**
-   * Rank-2 auto-decline flag (not on CarpoolRide yet). When true, show Declined
-   * chip + Reconsider when canOffer — no Accept/Pass.
+   * Rank-2 auto-decline flag. When true, show Declined chip + Reconsider when
+   * canOffer — no Accept/Pass.
    */
   autoDeclined?: boolean
   onAcceptRide?: (rideId: string, vehicleId: string) => void
@@ -51,11 +52,11 @@ export type AgendaInboundRequestRowProps = {
 }
 
 export function inboundRequestStatusChip(
-  request: CarpoolRide,
+  request: CarpoolRequest,
   circleId: string,
-  options: { autoDeclined?: boolean } = {},
+  options: { autoDeclined?: boolean; rides?: readonly CarpoolRide[] } = {},
 ): { label: string; tone: AgendaStatusChipTone } {
-  if (isAcceptedByCircle(request, circleId)) {
+  if (isAcceptedByCircle(request, circleId, options.rides ?? [])) {
     return { label: INBOUND_ACCEPTED, tone: "mint" }
   }
   if (options.autoDeclined) {
@@ -64,10 +65,10 @@ export function inboundRequestStatusChip(
   if (request.passedByMe) {
     return { label: INBOUND_PASSED, tone: "muted" }
   }
-  if (request.status === "PENDING") {
+  if (isRequestOpen(request)) {
     return { label: RIDE_NEEDED, tone: "amber" }
   }
-  if (request.status === "ACCEPTED") {
+  if (request.status === "FULLY_COVERED") {
     return { label: INBOUND_ACCEPTED, tone: "mint" }
   }
   return { label: request.status, tone: "muted" }
@@ -94,7 +95,7 @@ export function AgendaInboundRequestRow({
   onWithdrawRide,
 }: AgendaInboundRequestRowProps) {
   const [selectedVehicleId, setSelectedVehicleId] = useState("")
-  const acceptedByUs = isAcceptedByCircle(request, circleId)
+  const acceptedByUs = isAcceptedByCircle(request, circleId, rideEvent.rides)
   const drives = callerDrives(garage, currentAdultId)
   const eligible = eligibleVehiclesForAccept({
     drives,
@@ -105,10 +106,11 @@ export function AgendaInboundRequestRow({
   })
   const vehicleId =
     eligible.length === 1 ? eligible[0]!.id : selectedVehicleId || eligible[0]?.id || ""
+  const openNeed = isRequestOpen(request)
 
   const showHeroHandoff =
     inHeroQueue &&
-    request.status === "PENDING" &&
+    openNeed &&
     !request.passedByMe &&
     !autoDeclined &&
     !recentlyWithdrawn
@@ -118,14 +120,14 @@ export function AgendaInboundRequestRow({
     !showHeroHandoff &&
     !autoDeclined &&
     !recentlyWithdrawn &&
-    request.status === "PENDING" &&
+    openNeed &&
     eligible.length > 0 &&
     onAcceptRide != null
   const canPass =
     !showHeroHandoff &&
     !autoDeclined &&
     !recentlyWithdrawn &&
-    request.status === "PENDING" &&
+    openNeed &&
     !request.passedByMe &&
     onPassRide != null
 
@@ -133,20 +135,23 @@ export function AgendaInboundRequestRow({
     !showHeroHandoff &&
     autoDeclined &&
     canOffer &&
-    request.status === "PENDING" &&
+    openNeed &&
     eligible.length > 0 &&
     onAcceptRide != null
   const canUndo =
     !showHeroHandoff &&
     recentlyWithdrawn &&
     canOffer &&
-    request.status === "PENDING" &&
+    openNeed &&
     eligible.length > 0 &&
     onAcceptRide != null
   const canCantTakeThem =
     !showHeroHandoff && acceptedByUs && onWithdrawRide != null
 
-  const statusChip = inboundRequestStatusChip(request, circleId, { autoDeclined })
+  const statusChip = inboundRequestStatusChip(request, circleId, {
+    autoDeclined,
+    rides: rideEvent.rides,
+  })
   const showVehicleSelect =
     (canAccept || canReconsider || canUndo) && eligible.length > 1
   const showSingleVehicleAccept = canAccept && eligible.length === 1
@@ -165,6 +170,14 @@ export function AgendaInboundRequestRow({
     }
     onAcceptRide?.(request.id, vehicleId)
   }
+
+  const withdrawRideId =
+    rideEvent.rides.find(
+      (ride) =>
+        ride.status === "ACTIVE" &&
+        ride.drivingCircleId === circleId &&
+        ride.passengerRequestIds.includes(request.id),
+    )?.id ?? request.id
 
   return (
     <div
@@ -277,7 +290,7 @@ export function AgendaInboundRequestRow({
               type="button"
               data-testid="agenda-row-accepted-by-us-withdraw"
               disabled={loading}
-              onClick={() => onWithdrawRide(request.id)}
+              onClick={() => onWithdrawRide?.(withdrawRideId)}
               className={revertLinkClassName}
             >
               {REVERT_INBOUND_CANT_TAKE_THEM}

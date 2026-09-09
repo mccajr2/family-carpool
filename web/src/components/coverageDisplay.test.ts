@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type {
   CalendarCoverageAssignment,
   CalendarItem,
-  CarpoolRide,
+  CarpoolRequest,
   FamilyMember,
   Kid,
 } from "@/api/types"
@@ -20,6 +20,7 @@ import {
   memberLabel,
   remainingCoverageGapKidIds,
   pendingOwnAskIdToCancelOnAssign,
+  pendingOwnAskIdsToCancelOnAssign,
 } from "@/components/coverageDisplay"
 import {
   AWAITING_CONFIRM,
@@ -87,7 +88,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
   }
 }
 
-function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function ownNeed(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -95,21 +96,20 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
+    kidId: "k1",
+    kidFirstName: "Maya",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "ACCEPTED",
+    status: "FULLY_COVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: "a2",
-    acceptingCircleId: "c2",
-    acceptingCircleName: "Sharks Family",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
     ...partial,
   }
 }
@@ -202,56 +202,99 @@ describe("coverageDisplay", () => {
     ])
   })
 
-  it("subtracts ACCEPTED own-ride kids from the coverage gap", () => {
-    expect(remainingCoverageGapKidIds(["k1", "k2"], ownRide({ kidIds: ["k1"] }))).toEqual([
-      "k2",
-    ])
-    expect(remainingCoverageGapKidIds(["k1"], ownRide({ kidIds: ["k1"] }))).toEqual([])
+  it("subtracts only FULLY_COVERED own-need kids from the coverage gap", () => {
     expect(
-      remainingCoverageGapKidIds(["k1"], ownRide({ status: "PENDING", kidIds: ["k1"] })),
+      remainingCoverageGapKidIds(
+        ["k1", "k2"],
+        [ownNeed({ kidId: "k1", status: "FULLY_COVERED" })],
+      ),
+    ).toEqual(["k2"])
+    expect(
+      remainingCoverageGapKidIds(["k1"], [ownNeed({ kidId: "k1", status: "FULLY_COVERED" })]),
+    ).toEqual([])
+    expect(
+      remainingCoverageGapKidIds(
+        ["k1"],
+        [ownNeed({ kidId: "k1", status: "UNCOVERED" })],
+      ),
+    ).toEqual(["k1"])
+    expect(
+      remainingCoverageGapKidIds(
+        ["k1"],
+        [
+          ownNeed({
+            kidId: "k1",
+            status: "PARTIAL",
+            legStatuses: [
+              { leg: "TO", status: "CONFIRMED" },
+              { leg: "FROM", status: "OPEN" },
+            ],
+          }),
+        ],
+      ),
     ).toEqual(["k1"])
     expect(remainingCoverageGapKidIds(["k1"], null)).toEqual(["k1"])
+    expect(remainingCoverageGapKidIds(["k1"], [])).toEqual(["k1"])
   })
 
-  it("cancels PENDING own ask when Assign kid sets intersect", () => {
+  it("cancels open own asks when Assign kid sets intersect", () => {
     expect(
-      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "PENDING", kidIds: ["k1", "k2"] }), [
-        "k2",
-      ]),
-    ).toBe("r1")
+      pendingOwnAskIdsToCancelOnAssign(
+        [
+          ownNeed({ id: "need-1", status: "UNCOVERED", kidId: "k1" }),
+          ownNeed({ id: "need-2", status: "PARTIAL", kidId: "k2" }),
+        ],
+        ["k2"],
+      ),
+    ).toEqual(["need-2"])
     expect(
-      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "PENDING", kidIds: ["k1"] }), ["k2"]),
+      pendingOwnAskIdToCancelOnAssign(
+        [ownNeed({ status: "UNCOVERED", kidId: "k1" })],
+        ["k2"],
+      ),
     ).toBeNull()
     expect(
-      pendingOwnAskIdToCancelOnAssign(ownRide({ status: "ACCEPTED", kidIds: ["k1"] }), ["k1"]),
+      pendingOwnAskIdToCancelOnAssign(
+        [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+        ["k1"],
+      ),
     ).toBeNull()
     expect(pendingOwnAskIdToCancelOnAssign(null, ["k1"])).toBeNull()
   })
 
-  it("omits Needs coverage when every uncovered kid is on an ACCEPTED ride", () => {
+  it("omits Needs coverage when every uncovered kid is FULLY_COVERED", () => {
     const item = calendarItem({ uncoveredKidIds: ["k1"] })
-    const accepted = ownRide({ kidIds: ["k1"] })
-    expect(agendaItemStatusTags(item, "a1", { ownRequest: accepted })).toEqual([])
-    expect(agendaItemNeedsAttention(item, "a1", false, accepted)).toBe(false)
+    const covered = [ownNeed({ kidId: "k1", status: "FULLY_COVERED" })]
+    expect(agendaItemStatusTags(item, "a1", { ownRequests: covered })).toEqual([])
+    expect(agendaItemNeedsAttention(item, "a1", false, covered)).toBe(false)
 
     const mixed = calendarItem({ uncoveredKidIds: ["k1", "k2"] })
-    expect(agendaItemStatusTags(mixed, "a1", { ownRequest: accepted })).toEqual([
+    expect(agendaItemStatusTags(mixed, "a1", { ownRequests: covered })).toEqual([
       { label: NEEDS_COVERAGE, tone: "amber" },
     ])
-    expect(agendaItemNeedsAttention(mixed, "a1", false, accepted)).toBe(true)
+    expect(agendaItemNeedsAttention(mixed, "a1", false, covered)).toBe(true)
 
-    const pending = ownRide({ status: "PENDING", kidIds: ["k1"] })
-    expect(agendaItemStatusTags(item, "a1", { ownRequest: pending })).toEqual([
+    const partial = [
+      ownNeed({
+        kidId: "k1",
+        status: "PARTIAL",
+        legStatuses: [
+          { leg: "TO", status: "CONFIRMED" },
+          { leg: "FROM", status: "OPEN" },
+        ],
+      }),
+    ]
+    expect(agendaItemStatusTags(item, "a1", { ownRequests: partial })).toEqual([
       { label: NEEDS_COVERAGE, tone: "amber" },
     ])
   })
 
   it("treats ride-commitment conflict as attention even when gaps are cleared", () => {
     const item = calendarItem({ uncoveredKidIds: [] })
-    const accepted = ownRide({ kidIds: ["k1"] })
-    expect(agendaItemNeedsAttention(item, "a1", false, accepted)).toBe(false)
-    expect(agendaItemNeedsAttention(item, "a1", false, accepted, true)).toBe(true)
-    expect(agendaItemNeedsAttention(item, "a1", true, accepted, true)).toBe(false)
+    const covered = [ownNeed({ kidId: "k1", status: "FULLY_COVERED" })]
+    expect(agendaItemNeedsAttention(item, "a1", false, covered)).toBe(false)
+    expect(agendaItemNeedsAttention(item, "a1", false, covered, true)).toBe(true)
+    expect(agendaItemNeedsAttention(item, "a1", true, covered, true)).toBe(false)
   })
 
   it("composes Overlaps, Riding with, and remaining Needs coverage in order", () => {
@@ -270,9 +313,9 @@ describe("coverageDisplay", () => {
         },
       ],
     })
-    const accepted = ownRide({ kidIds: ["k1"], acceptingCircleName: "House B" })
+    const covered = [ownNeed({ kidId: "k1", status: "FULLY_COVERED" })]
     const tags = insertOwnRideStatusChip(
-      agendaItemStatusTags(mixed, "a1", { ownRequest: accepted }),
+      agendaItemStatusTags(mixed, "a1", { ownRequests: covered }),
       {
         label: "Riding with House B",
         tone: "mint",

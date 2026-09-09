@@ -8,6 +8,7 @@
 
 import type {
   CalendarItem,
+  CarpoolRequest as ApiCarpoolRequest,
   CarpoolRide,
   CarpoolRideEvent,
   FamilyMember,
@@ -29,6 +30,7 @@ export type Attendance = "going" | "not_going"
 export type OwnRideStatus =
   | "unassigned"
   | "requested"
+  | "partial"
   | { driver: string; confirmed: boolean }
 
 export type CarpoolRequestStatus = "pending" | "accepted" | "declined"
@@ -74,6 +76,10 @@ export function isUnassigned(ownRide: OwnRideStatus): boolean {
   return ownRide === "unassigned"
 }
 
+export function isPartialOwnRide(ownRide: OwnRideStatus): boolean {
+  return ownRide === "partial"
+}
+
 export function isPendingHouseholdConfirm(
   ownRide: OwnRideStatus,
 ): ownRide is { driver: string; confirmed: false } {
@@ -100,9 +106,10 @@ function isInPlay(game: CoverageGameEvent): boolean {
 
 /**
  * Own-child row that needs a decision from the signed-in adult in the hero
- * carousel. Unassigned gaps and pending confirm-for-self only — "Asked the
- * team" and waiting on another household driver are out of queue (see mock
- * `getQueue` + empty-state copy).
+ * carousel. Unassigned gaps, PARTIAL needs, and pending confirm-for-self —
+ * "Asked the team" (UNCOVERED wait) and waiting on another household driver
+ * are out of queue (see mock `getQueue` + empty-state copy). PARTIAL stays
+ * queued while any needed leg is still OPEN.
  */
 function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (!isInPlay(game)) {
@@ -111,7 +118,7 @@ function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (isConfirmedDriver(game.ownRide)) {
     return false
   }
-  if (isUnassigned(game.ownRide)) {
+  if (isUnassigned(game.ownRide) || isPartialOwnRide(game.ownRide)) {
     return true
   }
   return (
@@ -305,36 +312,57 @@ function householdDriverLabel(
   return member ? memberLabel(member) : "Adult"
 }
 
-function mapCarpoolRideStatus(
-  status: CarpoolRide["status"],
+function mapInboundRollupStatus(
+  status: ApiCarpoolRequest["status"],
 ): CarpoolRequestStatus {
   switch (status) {
-    case "PENDING":
+    case "UNCOVERED":
+    case "PARTIAL":
       return "pending"
-    case "ACCEPTED":
+    case "FULLY_COVERED":
       return "accepted"
-    case "CANCELLED":
-      return "declined"
   }
 }
 
-function mapCarpoolRequest(ride: CarpoolRide): CarpoolRequest {
+function mapCarpoolRequest(request: ApiCarpoolRequest): CarpoolRequest {
   return {
-    id: ride.id,
-    requestingCircleName: ride.requestingCircleName,
-    kidFirstNames: [...ride.kidFirstNames],
-    seats: ride.seats,
-    pickupPlaceName: ride.pickupPlaceName,
-    pickupAddress: ride.pickupAddress,
-    pickupTown: ride.pickupTown,
-    detourMinutes: ride.detourMinutes,
-    status: mapCarpoolRideStatus(ride.status),
-    passedByMe: ride.passedByMe,
+    id: request.id,
+    requestingCircleName: request.requestingCircleName,
+    kidFirstNames: [request.kidFirstName],
+    seats: 1,
+    pickupPlaceName: request.pickupPlaceName,
+    pickupAddress: request.pickupAddress,
+    pickupTown: request.pickupTown,
+    detourMinutes: request.detourMinutes,
+    status: mapInboundRollupStatus(request.status),
+    passedByMe: request.passedByMe,
   }
 }
 
 function inboundRequests(rideEvent: CarpoolRideEvent | null | undefined): CarpoolRequest[] {
   return (rideEvent?.otherRequests ?? []).map(mapCarpoolRequest)
+}
+
+function coveringDriverForRequest(
+  request: ApiCarpoolRequest,
+  rides: readonly CarpoolRide[],
+  options: MapCoverageGamesOptions,
+): string {
+  const covering = rides.filter(
+    (ride) =>
+      ride.status === "ACTIVE" && ride.passengerRequestIds.includes(request.id),
+  )
+  const teammate = covering.find(
+    (ride) => ride.drivingCircleId !== request.requestingCircleId,
+  )
+  if (teammate != null) {
+    return circleDisplayName(teammate.drivingCircleName)
+  }
+  const household = covering[0]
+  if (household != null) {
+    return householdDriverLabel(household.driverAdultId, null, options)
+  }
+  return circleDisplayName(request.acceptingCircleName)
 }
 
 function mapOwnRideStatusForKid(
@@ -343,16 +371,21 @@ function mapOwnRideStatusForKid(
   rideEvent: CarpoolRideEvent | null | undefined,
   options: MapCoverageGamesOptions,
 ): OwnRideStatus {
-  const ownRequest = rideEvent?.ownRequest ?? null
+  const ownRequests = rideEvent?.ownRequests ?? []
+  const ownRequest = ownRequests.find((request) => request.kidId === kidId) ?? null
+  const rides = rideEvent?.rides ?? []
 
-  if (ownRequest?.kidIds.includes(kidId)) {
-    if (ownRequest.status === "ACCEPTED") {
+  if (ownRequest != null) {
+    if (ownRequest.status === "FULLY_COVERED") {
       return {
-        driver: circleDisplayName(ownRequest.acceptingCircleName),
+        driver: coveringDriverForRequest(ownRequest, rides, options),
         confirmed: true,
       }
     }
-    if (ownRequest.status === "PENDING") {
+    if (ownRequest.status === "PARTIAL") {
+      return "partial"
+    }
+    if (ownRequest.status === "UNCOVERED") {
       return "requested"
     }
   }
@@ -384,7 +417,7 @@ function mapOwnRideStatusForKid(
     }
   }
 
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
   if (gapKidIds.includes(kidId)) {
     return "unassigned"
   }

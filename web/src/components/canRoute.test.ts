@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CarpoolRequest, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   canRoute,
   isHouseholdConfirmedDriver,
@@ -23,7 +23,7 @@ function game(
   }
 }
 
-function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function ownNeed(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -31,21 +31,37 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
+    kidId: "k1",
+    kidFirstName: "Maya",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "CONFIRMED" },
+      { leg: "FROM", status: "CONFIRMED" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "FULLY_COVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a9",
+    drivingCircleId: "c2",
+    drivingCircleName: "The Patels",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["r1"],
+    status: "ACTIVE",
     ...partial,
   }
 }
@@ -57,20 +73,22 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
 
 describe("isTeammateOwnRide", () => {
-  it("is true only when own-request is ACCEPTED for this kid", () => {
+  it("is true only when own-request is FULLY_COVERED by a teammate ride for this kid", () => {
     const row = game({ id: "g1", ownRide: { driver: "The Patels", confirmed: true } })
     expect(
       isTeammateOwnRide(
         row,
         rideEvent({
-          ownRequest: ownRide({ status: "ACCEPTED", kidIds: ["k1"] }),
+          ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
         }),
       ),
     ).toBe(true)
@@ -78,14 +96,17 @@ describe("isTeammateOwnRide", () => {
       isTeammateOwnRide(
         row,
         rideEvent({
-          ownRequest: ownRide({ status: "ACCEPTED", kidIds: ["k2"] }),
+          ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k2", id: "r2" })],
+          rides: [fulfillment({ passengerRequestIds: ["r2"] })],
         }),
       ),
     ).toBe(false)
     expect(
       isTeammateOwnRide(
         row,
-        rideEvent({ ownRequest: ownRide({ status: "PENDING" }) }),
+        rideEvent({
+          ownRequests: [ownNeed({ status: "UNCOVERED" })],
+        }),
       ),
     ).toBe(false)
     expect(isTeammateOwnRide(row, null)).toBe(false)
@@ -93,7 +114,7 @@ describe("isTeammateOwnRide", () => {
 })
 
 describe("isHouseholdConfirmedDriver", () => {
-  it("is true for confirmed household driver, false for teammate ACCEPTED", () => {
+  it("is true for confirmed household driver, false for teammate FULLY_COVERED", () => {
     const household = game({
       id: "g1",
       ownRide: { driver: "You", confirmed: true },
@@ -108,7 +129,8 @@ describe("isHouseholdConfirmedDriver", () => {
       isHouseholdConfirmedDriver(
         teammate,
         rideEvent({
-          ownRequest: ownRide({ status: "ACCEPTED", kidIds: ["k1"] }),
+          ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
         }),
       ),
     ).toBe(false)
@@ -125,7 +147,7 @@ describe("canRoute", () => {
     ).toBe(true)
   })
 
-  it("is true for teammate-driving (ACCEPTED own-request) when going", () => {
+  it("is true for teammate-driving (FULLY_COVERED own-request) when going", () => {
     expect(
       canRoute(
         game({
@@ -133,11 +155,8 @@ describe("canRoute", () => {
           ownRide: { driver: "The Patels", confirmed: true },
         }),
         rideEvent({
-          ownRequest: ownRide({
-            status: "ACCEPTED",
-            acceptingCircleName: "The Patels",
-            kidIds: ["k1"],
-          }),
+          ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
         }),
       ),
     ).toBe(true)
@@ -155,7 +174,7 @@ describe("canRoute", () => {
     expect(
       canRoute(
         game({ id: "g4", ownRide: "requested" }),
-        rideEvent({ ownRequest: ownRide({ status: "PENDING" }) }),
+        rideEvent({ ownRequests: [ownNeed({ status: "UNCOVERED" })] }),
       ),
     ).toBe(false)
   })
@@ -179,7 +198,8 @@ describe("canRoute", () => {
           ownRide: { driver: "The Patels", confirmed: true },
         }),
         rideEvent({
-          ownRequest: ownRide({ status: "ACCEPTED", kidIds: ["k1"] }),
+          ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+          rides: [fulfillment({ passengerRequestIds: ["r1"] })],
         }),
       ),
     ).toBe(false)

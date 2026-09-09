@@ -1,4 +1,4 @@
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
+import type { CalendarItem, CarpoolRequest, CarpoolRideEvent, Garage } from "@/api/types"
 import { agendaDayBucketForStartsAt } from "@/components/agendaDayGroups"
 import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
 import {
@@ -14,14 +14,14 @@ export type FocusRideOptions = {
 
 /**
  * Family decisions only — remaining coverage gap, conflict, or pending Confirm
- * for self. Pass ACCEPTED `ownRequest` so ride kids are not treated as a gap.
+ * for self. Pass FULLY_COVERED `ownRequests` so ride kids are not treated as a gap.
  */
 export function focusItemNeedsFamilyDecision(
   item: CalendarItem,
   currentAdultId: string,
-  ownRequest?: CarpoolRide | null,
+  ownRequests?: readonly CarpoolRequest[] | null,
 ): boolean {
-  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
   if (gapKids.length > 0 || item.conflicts.length > 0) {
     return true
   }
@@ -39,10 +39,10 @@ export function focusItemNeedsFamilyDecision(
 export function focusItemNeedsDecision(
   item: CalendarItem,
   currentAdultId: string,
-  eligibleRideAccept: CarpoolRide | null = null,
-  ownRequest?: CarpoolRide | null,
+  eligibleRideAccept: CarpoolRequest | null = null,
+  ownRequests?: readonly CarpoolRequest[] | null,
 ): boolean {
-  if (focusItemNeedsFamilyDecision(item, currentAdultId, ownRequest)) {
+  if (focusItemNeedsFamilyDecision(item, currentAdultId, ownRequests)) {
     return true
   }
   return eligibleRideAccept != null
@@ -52,7 +52,7 @@ function eligibleRideForItem(
   item: CalendarItem,
   currentAdultId: string,
   rideOptions: FocusRideOptions | undefined,
-): CarpoolRide | null {
+): CarpoolRequest | null {
   if (rideOptions == null) {
     return null
   }
@@ -66,7 +66,7 @@ function eligibleRideForItem(
  * Selects the single item (if any) that should render as the Focus card.
  * Horizon: Today decisions → Tomorrow decisions → earliest in-play.
  * Inside Today/Tomorrow: family decisions beat eligible ride Accept, then
- * earliest startsAt. Own PENDING ride is not a decision.
+ * earliest startsAt. Own open ask is not a decision.
  * `items` must already be sorted by startsAt (agenda list is).
  */
 export function selectFocusItem(
@@ -80,15 +80,15 @@ export function selectFocusItem(
     return null
   }
 
-  const ownRequestFor = (item: CalendarItem) =>
-    rideOptions?.rideEventForItem(item)?.ownRequest ?? null
+  const ownRequestsFor = (item: CalendarItem) =>
+    rideOptions?.rideEventForItem(item)?.ownRequests ?? null
 
   const earliestNeedsDecisionIn = (bucket: "today" | "tomorrow") => {
     const inBucket = inPlay.filter(
       (item) => agendaDayBucketForStartsAt(item.startsAt, now) === bucket,
     )
     const family = inBucket.find((item) =>
-      focusItemNeedsFamilyDecision(item, currentAdultId, ownRequestFor(item)),
+      focusItemNeedsFamilyDecision(item, currentAdultId, ownRequestsFor(item)),
     )
     if (family) {
       return family

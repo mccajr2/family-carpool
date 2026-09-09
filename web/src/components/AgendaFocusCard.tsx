@@ -145,13 +145,13 @@ export function AgendaFocusCard({
     adultId: currentAdultId,
     garage,
   })
-  const ownRequest = null
+  const ownRequests = rideEvent?.ownRequests ?? null
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const needsDecision = focusItemNeedsDecision(
     item,
     currentAdultId,
     eligibleRide,
-    ownRequest,
+    ownRequests,
   )
 
   const active = activeCoverages(item)
@@ -162,13 +162,13 @@ export function AgendaFocusCard({
       currentAdultId,
       members: circle.members,
     })
-    const rideChips = rideStatusChipsForItem(item, games, ownRequest, {
+    const rideChips = rideStatusChipsForItem(item, games, null, {
       rideEvent,
       circleId: circle.id,
     })
     const askChip = carpoolAskChipForRideEvent(games)
     return askChip != null ? [...rideChips, askChip] : rideChips
-  }, [item, rideEvent, currentAdultId, circle.id, circle.members, ownRequest])
+  }, [item, rideEvent, currentAdultId, circle.id, circle.members])
   const rideCommitmentConflictLineText = useMemo(() => {
     const games = mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -183,7 +183,7 @@ export function AgendaFocusCard({
     )
     return conflict != null ? rideCommitmentConflictLine(conflict) : null
   }, [item, rideEvent, currentAdultId, circle.id, circle.members, circle.kids])
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
   // secondary if remaining gap) → Assign → calm Edit. Outline Cancel /
@@ -212,8 +212,12 @@ export function AgendaFocusCard({
     !pendingForSelf
   const showRequest =
     !pendingForSelf && !showRideAcceptPass && canAskTeam && !showAssign
-  const showCancelOwnRide =
-    ownRequest != null && onCancelRide != null
+  // Cancel/Withdraw per-Ride wiring lands in the Hero task; show Cancel while any
+  // open own need remains.
+  const ownRequest =
+    ownRequests?.find((request) => request.status === "UNCOVERED" || request.status === "PARTIAL") ??
+    null
+  const showCancelOwnRide = ownRequest != null && onCancelRide != null
   const showWithdrawAcceptedByUs = acceptedByUs != null && onWithdrawRide != null
   const showChangeSelect =
     Boolean(activeCoverage) && circle.members.length > 1 && !showAssign

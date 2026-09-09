@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent, FamilyMember } from "@/api/types"
+import type {
+  CalendarItem,
+  CarpoolRequest as ApiCarpoolRequest,
+  CarpoolRide,
+  CarpoolRideEvent,
+  FamilyMember,
+} from "@/api/types"
 import {
   acceptedRiders,
   applyAutoDeclinedViewModel,
@@ -9,6 +15,7 @@ import {
   filterQueueWithinHorizon,
   getQueue,
   isConfirmedDriver,
+  isPartialOwnRide,
   isPendingHouseholdConfirm,
   isUnassigned,
   mapCalendarItemToCoverageGames,
@@ -80,7 +87,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
   }
 }
 
-function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function ownNeed(partial: Partial<ApiCarpoolRequest> = {}): ApiCarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -88,21 +95,37 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
+    kidId: "k1",
+    kidFirstName: "Maya",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a9",
+    drivingCircleId: "c2",
+    drivingCircleName: "Sharks",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["r1"],
+    status: "ACTIVE",
     ...partial,
   }
 }
@@ -114,8 +137,9 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: [],
-    ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -124,6 +148,8 @@ describe("coverageQueue helpers", () => {
   it("classifies own-ride status variants", () => {
     expect(isUnassigned("unassigned")).toBe(true)
     expect(isUnassigned("requested")).toBe(false)
+    expect(isPartialOwnRide("partial")).toBe(true)
+    expect(isPartialOwnRide("requested")).toBe(false)
     expect(isPendingHouseholdConfirm({ driver: "Jordan", confirmed: false })).toBe(true)
     expect(isPendingHouseholdConfirm({ driver: "You", confirmed: true })).toBe(false)
     expect(isConfirmedDriver({ driver: "You", confirmed: true })).toBe(true)
@@ -513,7 +539,7 @@ describe("applyAutoDeclinedViewModel", () => {
   })
 
   it("re-applies auto-decline after remap while ownRide stays requested", () => {
-    // Simulates reload: API still returns PENDING inbound + PENDING own ask.
+    // Simulates reload: API still returns open inbound + UNCOVERED own ask.
     const remapped = mapCalendarItemsToCoverageGames(
       [
         calendarItem({
@@ -526,22 +552,24 @@ describe("applyAutoDeclinedViewModel", () => {
       () =>
         rideEvent({
           eventKey: "UID:reload",
-          ownRequest: ownRide({
-            id: "own-ask",
-            eventKey: "UID:reload",
-            status: "PENDING",
-            kidIds: ["k1"],
-          }),
+          ownRequests: [
+            ownNeed({
+              id: "own-ask",
+              eventKey: "UID:reload",
+              status: "UNCOVERED",
+              kidId: "k1",
+            }),
+          ],
           otherRequests: [
-            ownRide({
+            ownNeed({
               id: "inbound",
               eventKey: "UID:reload",
               requestingCircleId: "c2",
               requestingCircleName: "House B",
               requestedByAdultId: "a2",
-              kidIds: ["k2"],
-              kidFirstNames: ["Mia"],
-              status: "PENDING",
+              kidId: "k2",
+              kidFirstName: "Mia",
+              status: "UNCOVERED",
             }),
           ],
         }),
@@ -612,7 +640,7 @@ describe("mapCalendarItemToCoverageGames", () => {
     expect(withoutRow[0]?.attendance).toBe("going")
   })
 
-  it("maps pending household confirm and requested own rides from API shapes", () => {
+  it("maps household confirm and per-kid request roll-ups from API shapes", () => {
     const pendingConfirm = mapCalendarItemToCoverageGames(
       calendarItem({
         coverages: [
@@ -623,12 +651,12 @@ describe("mapCalendarItemToCoverageGames", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "PENDING",
-          leaveFromPlaceId: null,
-          leaveFromPlaceName: null,
-          leaveFromAddress: null,
-          leaveByAt: null,
-          leaveByStatus: null,
-          leaveByReason: null,
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
           },
         ],
       }),
@@ -647,12 +675,12 @@ describe("mapCalendarItemToCoverageGames", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
-          leaveFromPlaceId: null,
-          leaveFromPlaceName: null,
-          leaveFromAddress: null,
-          leaveByAt: null,
-          leaveByStatus: null,
-          leaveByReason: null,
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
           },
         ],
       }),
@@ -663,22 +691,77 @@ describe("mapCalendarItemToCoverageGames", () => {
 
     const requested = mapCalendarItemToCoverageGames(
       calendarItem({ uncoveredKidIds: ["k1"] }),
-      rideEvent({ ownRequest: ownRide({ status: "PENDING" }) }),
+      rideEvent({ ownRequests: [ownNeed({ status: "UNCOVERED" })] }),
       mapOptions,
     )
     expect(requested[0]?.ownRide).toBe("requested")
 
+    const partial = mapCalendarItemToCoverageGames(
+      calendarItem({ uncoveredKidIds: ["k1"] }),
+      rideEvent({
+        ownRequests: [
+          ownNeed({
+            status: "PARTIAL",
+            legStatuses: [
+              { leg: "TO", status: "CONFIRMED" },
+              { leg: "FROM", status: "OPEN" },
+            ],
+          }),
+        ],
+        rides: [fulfillment({ passengerRequestIds: ["r1"] })],
+      }),
+      mapOptions,
+    )
+    expect(partial[0]?.ownRide).toBe("partial")
+
     const riding = mapCalendarItemToCoverageGames(
       calendarItem(),
       rideEvent({
-        ownRequest: ownRide({
-          status: "ACCEPTED",
-          acceptingCircleName: "Sharks",
-        }),
+        ownRequests: [ownNeed({ status: "FULLY_COVERED" })],
+        rides: [
+          fulfillment({
+            drivingCircleName: "Sharks",
+            drivingCircleId: "c2",
+            passengerRequestIds: ["r1"],
+          }),
+        ],
       }),
       mapOptions,
     )
     expect(riding[0]?.ownRide).toEqual({ driver: "Sharks", confirmed: true })
+  })
+
+  it("keeps PARTIAL in the queue and drops FULLY_COVERED", () => {
+    const partialGame = mapCalendarItemToCoverageGames(
+      calendarItem({ uncoveredKidIds: ["k1"] }),
+      rideEvent({
+        ownRequests: [
+          ownNeed({
+            status: "PARTIAL",
+            legStatuses: [
+              { leg: "TO", status: "CONFIRMED" },
+              { leg: "FROM", status: "OPEN" },
+            ],
+          }),
+        ],
+      }),
+      mapOptions,
+    )
+    expect(getQueue(partialGame)).toHaveLength(1)
+    expect(getQueue(partialGame)[0]).toMatchObject({
+      kind: "ownRide",
+      game: { ownRide: "partial" },
+    })
+
+    const coveredGame = mapCalendarItemToCoverageGames(
+      calendarItem({ uncoveredKidIds: ["k1"] }),
+      rideEvent({
+        ownRequests: [ownNeed({ status: "FULLY_COVERED" })],
+        rides: [fulfillment({ passengerRequestIds: ["r1"] })],
+      }),
+      mapOptions,
+    )
+    expect(getQueue(coveredGame)).toEqual([])
   })
 
   it("maps inbound otherRequests onto each kid row", () => {
@@ -686,10 +769,10 @@ describe("mapCalendarItemToCoverageGames", () => {
       calendarItem({ kidIds: ["k1", "k2"] }),
       rideEvent({
         otherRequests: [
-          ownRide({
+          ownNeed({
             id: "ask-1",
             requestingCircleName: "House B",
-            status: "PENDING",
+            status: "UNCOVERED",
           }),
         ],
       }),
@@ -702,6 +785,7 @@ describe("mapCalendarItemToCoverageGames", () => {
       id: "ask-1",
       status: "pending",
       requestingCircleName: "House B",
+      kidFirstNames: ["Maya"],
     })
   })
 
@@ -710,7 +794,7 @@ describe("mapCalendarItemToCoverageGames", () => {
       calendarItem({ kidIds: ["k1"] }),
       rideEvent({
         otherRequests: [
-          ownRide({
+          ownNeed({
             id: "ask-1",
             pickupTown: "Cambridge, MA",
             detourMinutes: 7,
@@ -740,7 +824,11 @@ describe("mapCalendarItemToCoverageGames", () => {
         item.id === "late"
           ? rideEvent({
               otherRequests: [
-                ownRide({ id: "ask-late", requestingCircleName: "House B", status: "PENDING" }),
+                ownNeed({
+                  id: "ask-late",
+                  requestingCircleName: "House B",
+                  status: "UNCOVERED",
+                }),
               ],
             })
           : null,

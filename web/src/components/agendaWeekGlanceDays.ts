@@ -1,4 +1,4 @@
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CarpoolRequest } from "@/api/types"
 import { addDays, AGENDA_NEAR_TERM_DAYS, startOfLocalDay } from "@/components/agendaDayGroups"
 import {
   pendingCoverageForAdult,
@@ -27,10 +27,10 @@ export type WeekGlanceDay = {
   flagged: boolean
 }
 
-/** Resolve this circle's own ride request for an Agenda item (ACCEPTED clears gap chrome). */
+/** Resolve this circle's own needs for an Agenda item (FULLY_COVERED clears gap chrome). */
 export type WeekGlanceOwnRequestForItem = (
   item: CalendarItem,
-) => CarpoolRide | null | undefined
+) => readonly CarpoolRequest[] | null | undefined
 
 function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -93,7 +93,7 @@ function statusForDay(
 /**
  * Seven local days starting today, with one status line each, derived from the
  * already-loaded (kid-filtered) Agenda window. Unparseable `startsAt` is skipped.
- * Pass `ownRequestForItem` so ACCEPTED own rides clear kids from the coverage
+ * Pass `ownRequestForItem` so FULLY_COVERED own needs clear kids from the coverage
  * gap the same way Focus / Agenda rows do.
  */
 export function agendaWeekGlanceDays(

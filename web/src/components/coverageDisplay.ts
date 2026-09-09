@@ -1,7 +1,7 @@
 import type {
   CalendarCoverageAssignment,
   CalendarItem,
-  CarpoolRide,
+  CarpoolRequest,
   FamilyMember,
   Kid,
 } from "@/api/types"
@@ -100,43 +100,59 @@ export type AgendaItemStatusTag = {
 }
 
 /**
- * Coverage API `uncoveredKidIds` minus kids already on this circle's ACCEPTED
- * own ride. PENDING (and no ride) leave the gap unchanged — transport is not
- * done until Accept. API uncovered stays orthogonal; chrome uses this list.
+ * Coverage API `uncoveredKidIds` minus kids whose own need is `FULLY_COVERED`.
+ * `PARTIAL` / `UNCOVERED` / no request leave the gap unchanged — transport is
+ * not done until every needed leg is confirmed. API uncovered stays orthogonal;
+ * chrome uses this list.
  */
 export function remainingCoverageGapKidIds(
   uncoveredKidIds: string[],
-  ownRequest: CarpoolRide | null | undefined,
+  ownRequests: readonly CarpoolRequest[] | null | undefined,
 ): string[] {
-  if (ownRequest?.status !== "ACCEPTED") {
+  if (ownRequests == null || ownRequests.length === 0) {
     return [...uncoveredKidIds]
   }
-  const onRide = new Set(ownRequest.kidIds)
-  return uncoveredKidIds.filter((kidId) => !onRide.has(kidId))
+  const fullyCovered = new Set(
+    ownRequests
+      .filter((request) => request.status === "FULLY_COVERED")
+      .map((request) => request.kidId),
+  )
+  return uncoveredKidIds.filter((kidId) => !fullyCovered.has(kidId))
 }
 
 /**
- * When household Assign covers any kid on an open PENDING team ask, cancel that
- * ask (ADR-0002 — one action, no dialog). Returns the ride id to cancel, or null.
+ * When household Assign covers kids with open own needs, cancel those asks
+ * (ADR-0002 — one action, no dialog). Returns request ids to cancel.
  */
-export function pendingOwnAskIdToCancelOnAssign(
-  ownRequest: CarpoolRide | null | undefined,
+export function pendingOwnAskIdsToCancelOnAssign(
+  ownRequests: readonly CarpoolRequest[] | null | undefined,
   assignedKidIds: readonly string[],
-): string | null {
-  if (ownRequest == null || ownRequest.status !== "PENDING") {
-    return null
+): string[] {
+  if (ownRequests == null || ownRequests.length === 0) {
+    return []
   }
   const assigned = new Set(assignedKidIds)
-  if (!ownRequest.kidIds.some((kidId) => assigned.has(kidId))) {
-    return null
-  }
-  return ownRequest.id
+  return ownRequests
+    .filter(
+      (request) =>
+        (request.status === "UNCOVERED" || request.status === "PARTIAL") &&
+        assigned.has(request.kidId),
+    )
+    .map((request) => request.id)
+}
+
+/** First open own-ask id to cancel on Assign, or null. */
+export function pendingOwnAskIdToCancelOnAssign(
+  ownRequests: readonly CarpoolRequest[] | null | undefined,
+  assignedKidIds: readonly string[],
+): string | null {
+  return pendingOwnAskIdsToCancelOnAssign(ownRequests, assignedKidIds)[0] ?? null
 }
 
 /**
  * Collapsed-row tags and Focus header pills share this precedence (see
  * docs/agenda-coverage-web-contract.md). Focus passes `includeAllSet: true`.
- * Pass `ownRequest` so Needs coverage uses remaining gap kids (ACCEPTED ride).
+ * Pass `ownRequests` so Needs coverage uses remaining gap kids (FULLY_COVERED).
  */
 export function agendaItemStatusTags(
   item: CalendarItem,
@@ -144,10 +160,10 @@ export function agendaItemStatusTags(
   options: {
     outOfPlay?: boolean
     includeAllSet?: boolean
-    ownRequest?: CarpoolRide | null
+    ownRequests?: readonly CarpoolRequest[] | null
   } = {},
 ): AgendaItemStatusTag[] {
-  const { outOfPlay = false, includeAllSet = false, ownRequest } = options
+  const { outOfPlay = false, includeAllSet = false, ownRequests } = options
   if (outOfPlay) {
     return [{ label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" }]
   }
@@ -155,7 +171,7 @@ export function agendaItemStatusTags(
   const tags: AgendaItemStatusTag[] = []
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
-  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
 
   if (item.conflicts.length > 0) {
     tags.push({ label: OVERLAPS_CHIP, tone: "amber" })
@@ -212,13 +228,13 @@ export function agendaItemNeedsAttention(
   item: CalendarItem,
   currentAdultId: string,
   outOfPlay = false,
-  ownRequest?: CarpoolRide | null,
+  ownRequests?: readonly CarpoolRequest[] | null,
   hasRideCommitmentConflict = false,
 ): boolean {
   if (outOfPlay) {
     return false
   }
-  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequests)
   return (
     gapKids.length > 0 ||
     item.conflicts.length > 0 ||

@@ -1877,8 +1877,14 @@ export function FamilyScreen({
         delete next[itemKey]
         return next
       })
-      const ownRequest = null
-      const cancelRideId = pendingOwnAskIdToCancelOnAssign(ownRequest, kidIds)
+      const ownRequests =
+        calendarRideByItemKey.get(itemKey)?.ownRequests ??
+        (item.eventKey != null
+          ? [...calendarRideByItemKey.values()].find((event) => event.eventKey === item.eventKey)
+              ?.ownRequests
+          : null) ??
+        null
+      const cancelRideId = pendingOwnAskIdToCancelOnAssign(ownRequests, kidIds)
       if (
         cancelRideId != null &&
         item.feedId != null &&
@@ -2017,9 +2023,10 @@ export function FamilyScreen({
     const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
     const acceptedInbound =
       rideEvent?.otherRequests.filter(
-        (ride) => circle != null && isAcceptedByCircle(ride, circle.id),
+        (ride) =>
+          circle != null && isAcceptedByCircle(ride, circle.id, rideEvent.rides),
       ) ?? []
-    const inboundPassengerNames = acceptedInbound.flatMap((ride) => ride.kidFirstNames)
+    const inboundPassengerNames = acceptedInbound.map((ride) => ride.kidFirstName)
     if (
       statusValue === "NO" &&
       (kidHasActiveCoverage(item, kidId) || inboundPassengerNames.length > 0)
@@ -2362,7 +2369,8 @@ export function FamilyScreen({
     now,
     currentAdultId: adult?.id ?? "",
     queueHasItems: attentionQueue.length > 0,
-    ownRequestFor: (_item) => null,
+    ownRequestFor: (item) =>
+      calendarRideByItemKey.get(calendarItemKey(item))?.ownRequests ?? null,
     rideCommitmentConflictFor: (item) => {
       const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
       const games = mapCalendarItemToCoverageGames(item, rideEvent, {
@@ -3703,7 +3711,9 @@ export function FamilyScreen({
             items={agendaWindowItems}
             currentAdultId={adult?.id ?? ""}
             now={now}
-            ownRequestForItem={() => null}
+            ownRequestForItem={(item) =>
+              calendarRideByItemKey.get(calendarItemKey(item))?.ownRequests ?? null
+            }
           />
         </aside>
       ) : null}

@@ -28,8 +28,8 @@ export function spaceIdForCarpoolRide(
   if (fromOther != null) {
     return fromOther
   }
-  const own = rideEvent?.ownRequest
-  if (own?.id === rideId) {
+  const own = rideEvent?.ownRequests.find((request) => request.id === rideId)
+  if (own != null) {
     return own.spaceId
   }
   if (item.feedId == null || summary == null) {

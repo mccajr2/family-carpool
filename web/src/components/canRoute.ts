@@ -10,17 +10,22 @@ import {
 } from "@/components/coverageQueue"
 
 /**
- * Own-request ACCEPTED covering this kid — a teammate's parent is driving
- * (same idea as AgendaRow's teammate-accepted check).
+ * Own-request FULLY_COVERED covering this kid via a teammate-driven Ride
+ * (driving circle ≠ requesting circle).
  */
 export function isTeammateOwnRide(
   game: CoverageGameEvent,
   rideEvent: CarpoolRideEvent | null | undefined,
 ): boolean {
-  const ownRequest = rideEvent?.ownRequest
-  return (
-    ownRequest?.status === "ACCEPTED" &&
-    ownRequest.kidIds.includes(game.kidId)
+  const ownRequest = rideEvent?.ownRequests?.find((request) => request.kidId === game.kidId)
+  if (ownRequest?.status !== "FULLY_COVERED") {
+    return false
+  }
+  return (rideEvent?.rides ?? []).some(
+    (ride) =>
+      ride.status === "ACTIVE" &&
+      ride.passengerRequestIds.includes(ownRequest.id) &&
+      ride.drivingCircleId !== ownRequest.requestingCircleId,
   )
 }
 
@@ -39,6 +44,7 @@ export function isHouseholdConfirmedDriver(
  * True only when a ride is actually confirmed (household driver or teammate
  * driving) and attendance is not not-going. Unassigned, pending household
  * confirm, and open team ask stay false — nothing to route yet.
+ * (TO-confirmed gate lands in the canRoute task.)
  */
 export function canRoute(
   game: CoverageGameEvent,

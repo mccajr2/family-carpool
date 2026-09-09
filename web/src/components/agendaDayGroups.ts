@@ -1,4 +1,4 @@
-import type { CalendarItem, CarpoolRide } from "@/api/types"
+import type { CalendarItem, CarpoolRequest } from "@/api/types"
 import {
   AGENDA_LIST_SECTION_LABEL,
   type AgendaListSectionLabel,
@@ -138,7 +138,7 @@ export type GroupAgendaListSectionsOptions = {
   currentAdultId: string
   /** True when the hero carousel has queue slides (carousel owns NEEDS YOUR ATTENTION). */
   queueHasItems: boolean
-  ownRequestFor?: (item: CalendarItem) => CarpoolRide | null | undefined
+  ownRequestFor?: (item: CalendarItem) => readonly CarpoolRequest[] | null | undefined
   /** Ride-commitment conflict (Type A/B) — same attention tier as gap / Overlaps. */
   rideCommitmentConflictFor?: (item: CalendarItem) => boolean
 }
