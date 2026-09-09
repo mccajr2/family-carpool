@@ -32,6 +32,9 @@ class CarpoolRequestEntity {
     @Column(name = "kid_id", nullable = false)
     private UUID kidId;
 
+    @Column(name = "kid_first_name", nullable = false, length = 80)
+    private String kidFirstName;
+
     @Column(name = "requesting_circle_id", nullable = false)
     private UUID requestingCircleId;
 
@@ -68,6 +71,7 @@ class CarpoolRequestEntity {
             UUID spaceId,
             String eventKey,
             UUID kidId,
+            String kidFirstName,
             UUID requestingCircleId,
             UUID createdByAdultId,
             String pickupPlaceName,
@@ -78,6 +82,7 @@ class CarpoolRequestEntity {
         this.spaceId = spaceId;
         this.eventKey = eventKey;
         this.kidId = kidId;
+        this.kidFirstName = kidFirstName;
         this.requestingCircleId = requestingCircleId;
         this.createdByAdultId = createdByAdultId;
         this.pickupPlaceName = pickupPlaceName;
@@ -100,6 +105,10 @@ class CarpoolRequestEntity {
 
     UUID kidId() {
         return kidId;
+    }
+
+    String kidFirstName() {
+        return kidFirstName;
     }
 
     UUID requestingCircleId() {

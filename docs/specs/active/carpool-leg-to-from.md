@@ -333,7 +333,7 @@ Do not list `docs/roadmap.md` or the entire architecture file.
       bump version
 - [x] Backend: entities/repos/services for `CarpoolRequest` + per-leg `Ride`;
       uniqueness, passenger conflict, status derivation
-- [ ] Backend: Flyway migration from v1 household `CarpoolRideRequest` shape
+- [x] Backend: Flyway migration from v1 household `CarpoolRideRequest` shape
 - [ ] Backend: map create/accept/cancel/withdraw/pass/list to new model; seat
       math per leg; same-circle passenger enforcement; Accept = all OPEN legs
 - [ ] Backend: integration tests for AC above
