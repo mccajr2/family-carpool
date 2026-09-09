@@ -1,8 +1,11 @@
 # Spec: Ride cards cleanup
 
-Status: in-progress
-Created: 2026-09-08
-Parent: [docs/roadmap.md](../../roadmap.md) — UI polish on open `coverage-leave-from` PR (#104); no new roadmap row
+Status: archived  
+Completed: 2026-09-09  
+Created: 2026-09-08  
+Updated: 2026-09-09 (`/pr` closeout — shipped in #104 on `coverage-leave-from`)  
+Parent: [docs/roadmap.md](../../roadmap.md) — UI polish on `coverage-leave-from` PR (#104); no separate roadmap Upcoming row  
+Branch: `coverage-leave-from`  
 
 ## Problem
 
