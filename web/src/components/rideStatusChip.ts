@@ -1,12 +1,15 @@
 /**
  * Unified ride-status + carpool-ask chip descriptors for Agenda collapsed rows
- * and Focus card. Pure view-model — no UI. See docs/specs/active/unified-ride-status-chip.md.
+ * and Focus card. Pure view-model — no UI. See docs/specs/archive/unified-ride-status-chip.md.
  */
 
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CalendarItem, CarpoolRideEvent } from "@/api/types"
+import { isTeammateOwnRide } from "@/components/canRoute"
+import { partialRideStatusLabel } from "@/components/carpoolDisplay"
 import {
   acceptedRiders,
   isConfirmedDriver,
+  isPartialOwnRide,
   isPendingHouseholdConfirm,
   isUnassigned,
   pendingRequests,
@@ -37,10 +40,21 @@ export type RideStatusChipDescriptor = {
   tone: RideStatusChipTone
 }
 
+export type RideStatusChipOptions = {
+  rideEvent?: CarpoolRideEvent | null
+  circleId?: string
+}
+
 function isInPlay(game: CoverageGameEvent): boolean {
   return game.attendance !== "not_going"
 }
 
+/**
+ * Own-ride gap for chip urgency — same spirit as `getQueue`: unassigned,
+ * PARTIAL, and confirm-for-self. Asked-the-team wait is not a gap chip tier
+ * preference over confirmed (requested rows still emit Asked the team when
+ * they are the urgent calm row).
+ */
 function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (!isInPlay(game)) {
     return false
@@ -48,7 +62,7 @@ function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (isConfirmedDriver(game.ownRide)) {
     return false
   }
-  if (isUnassigned(game.ownRide)) {
+  if (isUnassigned(game.ownRide) || isPartialOwnRide(game.ownRide)) {
     return true
   }
   return (
@@ -64,8 +78,8 @@ function sortByOrder(games: readonly CoverageGameEvent[]): CoverageGameEvent[] {
 }
 
 /**
- * Most urgent in-play kid row on one calendar item — own-ride gaps before calm
- * states; soonest `order` within a tier (same tiers as `getQueue` own-ride pass).
+ * Most urgent in-play kid row on one calendar item — own-ride gaps (including
+ * PARTIAL) before calm states; soonest `order` within a tier.
  */
 export function pickMostUrgentGameRow(
   games: readonly CoverageGameEvent[],
@@ -83,20 +97,28 @@ export function pickMostUrgentGameRow(
   return sortByOrder(inPlay)[0] ?? null
 }
 
-function isTeammateRide(
+function teammateCoveringCircleName(
   game: CoverageGameEvent,
-  ownRequest: CarpoolRide | null | undefined,
-): boolean {
-  return (
-    ownRequest?.status === "ACCEPTED" &&
-    ownRequest.kidIds.includes(game.kidId)
+  rideEvent: CarpoolRideEvent,
+): string | null {
+  const ownNeed = rideEvent.ownRequests.find((request) => request.kidId === game.kidId)
+  if (ownNeed == null) {
+    return null
+  }
+  const covering = rideEvent.rides.find(
+    (ride) =>
+      ride.status === "ACTIVE" &&
+      ride.passengerRequestIds.includes(ownNeed.id) &&
+      ride.drivingCircleId !== ownNeed.requestingCircleId,
   )
+  return covering?.drivingCircleName?.trim() || ownNeed.acceptingCircleName?.trim() || null
 }
 
 function teammateRideChip(
-  ownRequest: CarpoolRide,
+  game: CoverageGameEvent,
+  rideEvent: CarpoolRideEvent,
 ): RideStatusChipDescriptor {
-  const who = ownRequest.acceptingCircleName?.trim()
+  const who = teammateCoveringCircleName(game, rideEvent)
   return {
     label: who ? ridingWithCircleLabel(who) : RIDING_WITH_TEAMMATE,
     tone: "mint",
@@ -113,21 +135,35 @@ function drivingLabel(
   }
 }
 
+function partialChip(
+  game: CoverageGameEvent,
+  rideEvent: CarpoolRideEvent | null | undefined,
+): RideStatusChipDescriptor {
+  const ownNeed = rideEvent?.ownRequests.find((request) => request.kidId === game.kidId)
+  return {
+    label: ownNeed != null ? partialRideStatusLabel(ownNeed) : "Partially covered",
+    tone: "amber",
+  }
+}
+
 /**
  * Map one game row's ride-side state to a single chip descriptor.
  */
 export function rideStatusChipForGameRow(
   game: CoverageGameEvent,
-  ownRequest: CarpoolRide | null | undefined,
+  rideEvent?: CarpoolRideEvent | null,
 ): RideStatusChipDescriptor {
-  if (isTeammateRide(game, ownRequest)) {
-    return teammateRideChip(ownRequest!)
+  if (rideEvent != null && isTeammateOwnRide(game, rideEvent)) {
+    return teammateRideChip(game, rideEvent)
   }
 
   const { ownRide } = game
 
   if (isUnassigned(ownRide)) {
     return { label: RIDE_NEEDED, tone: "amber" }
+  }
+  if (isPartialOwnRide(ownRide)) {
+    return partialChip(game, rideEvent)
   }
   if (ownRide === "requested") {
     return { label: ASKED_THE_TEAM, tone: "amber" }
@@ -152,11 +188,7 @@ export function rideStatusChipForGameRow(
 export function rideStatusChipsForItem(
   item: CalendarItem,
   games: readonly CoverageGameEvent[],
-  ownRequest: CarpoolRide | null | undefined,
-  options?: {
-    rideEvent?: CarpoolRideEvent | null
-    circleId?: string
-  },
+  options?: RideStatusChipOptions,
 ): RideStatusChipDescriptor[] {
   const allNotGoing = games.length > 0 && games.every((game) => !isInPlay(game))
   if (allNotGoing) {
@@ -187,7 +219,7 @@ export function rideStatusChipsForItem(
 
   const urgent = pickMostUrgentGameRow(games)
   if (urgent != null) {
-    chips.push(rideStatusChipForGameRow(urgent, ownRequest))
+    chips.push(rideStatusChipForGameRow(urgent, options?.rideEvent))
   }
 
   return chips

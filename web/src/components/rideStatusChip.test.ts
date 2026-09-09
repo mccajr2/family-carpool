@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CalendarConflict, CarpoolRide } from "@/api/types"
+import type {
+  CalendarItem,
+  CalendarConflict,
+  CarpoolRequest,
+  CarpoolRide,
+  CarpoolRideEvent,
+} from "@/api/types"
 import {
   ASKED_THE_TEAM,
   ATTENDANCE_NOT_GOING_CHIP,
@@ -22,10 +28,9 @@ import {
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
-import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
-import type { CarpoolRideEvent } from "@/api/types"
+import type { CarpoolRequest as QueueRequest, CoverageGameEvent } from "@/components/coverageQueue"
 
-function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
+function request(partial: Partial<QueueRequest> & Pick<QueueRequest, "id">): QueueRequest {
   return {
     requestingCircleName: "House B",
     kidFirstNames: ["Mia"],
@@ -94,7 +99,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
   }
 }
 
-function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+function ownNeed(partial: Partial<CarpoolRequest> = {}): CarpoolRequest {
   return {
     id: "r1",
     spaceId: "s1",
@@ -102,21 +107,51 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     requestingCircleId: "c1",
     requestingCircleName: "Ours",
     requestedByAdultId: "a1",
-    kidIds: ["k1"],
-    kidFirstNames: ["Maya"],
-    seats: 1,
+    kidId: "k1",
+    kidFirstName: "Maya",
+    legsNeeded: ["TO", "FROM"],
+    legStatuses: [
+      { leg: "TO", status: "OPEN" },
+      { leg: "FROM", status: "OPEN" },
+    ],
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
     pickupTown: null,
     detourMinutes: null,
-    status: "PENDING",
+    status: "UNCOVERED",
     passedByMe: false,
     passedByAdultNames: [],
-    acceptedByAdultId: null,
-    acceptingCircleId: null,
-    acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
+    ...partial,
+  }
+}
+
+function fulfillment(partial: Partial<CarpoolRide> = {}): CarpoolRide {
+  return {
+    id: "ride-1",
+    spaceId: "s1",
+    eventKey: "UID:game",
+    leg: "TO",
+    driverAdultId: "a9",
+    drivingCircleId: "c2",
+    drivingCircleName: "Sharks",
+    vehicleId: "v1",
+    vehicleLabel: "Van",
+    passengerRequestIds: ["r1"],
+    status: "ACTIVE",
+    ...partial,
+  }
+}
+
+function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
+  return {
+    eventKey: "UID:game",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: [],
+    ownRequests: [],
+    otherRequests: [],
+    rides: [],
     ...partial,
   }
 }
@@ -141,6 +176,25 @@ describe("pickMostUrgentGameRow", () => {
     expect(picked?.id).toBe("gap-later")
   })
 
+  it("prefers PARTIAL over a sooner confirmed-driver row", () => {
+    const picked = pickMostUrgentGameRow([
+      game({
+        id: "confirmed-sooner",
+        kidId: "k2",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+      }),
+      game({
+        id: "partial-later",
+        kidId: "k1",
+        order: 200,
+        ownRide: "partial",
+      }),
+    ])
+
+    expect(picked?.id).toBe("partial-later")
+  })
+
   it("picks soonest in-play row when all are resolved", () => {
     const picked = pickMostUrgentGameRow([
       game({ id: "late", kidId: "k2", order: 200, ownRide: { driver: "Jordan", confirmed: true } }),
@@ -153,26 +207,62 @@ describe("pickMostUrgentGameRow", () => {
 
 describe("rideStatusChipForGameRow", () => {
   it("maps own-ride states to label and tone", () => {
-    expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "unassigned" }), null)).toEqual({
+    expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "unassigned" }))).toEqual({
       label: RIDE_NEEDED,
       tone: "amber",
     })
-    expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "requested" }), null)).toEqual({
+    expect(rideStatusChipForGameRow(game({ id: "g", order: 1, ownRide: "requested" }))).toEqual({
       label: ASKED_THE_TEAM,
       tone: "amber",
     })
     expect(
       rideStatusChipForGameRow(
         game({ id: "g", order: 1, ownRide: { driver: "You", confirmed: false } }),
-        null,
       ),
     ).toEqual({ label: CONFIRM_YOU_WILL_DRIVE, tone: "amber" })
     expect(
       rideStatusChipForGameRow(
         game({ id: "g", order: 1, ownRide: { driver: "Jordan", confirmed: false } }),
-        null,
       ),
     ).toEqual({ label: waitingOnDriverLabel("Jordan"), tone: "amber" })
+  })
+
+  it("emits partial round-trip chip copy from leg statuses", () => {
+    const row = game({ id: "g", order: 1, kidId: "k1", ownRide: "partial" })
+    const event = rideEvent({
+      ownRequests: [
+        ownNeed({
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "OPEN" },
+            { leg: "FROM", status: "CONFIRMED" },
+          ],
+        }),
+      ],
+    })
+    expect(rideStatusChipForGameRow(row, event)).toEqual({
+      label: "Round trip — from confirmed, to still needed",
+      tone: "amber",
+    })
+    expect(
+      rideStatusChipForGameRow(
+        row,
+        rideEvent({
+          ownRequests: [
+            ownNeed({
+              status: "PARTIAL",
+              legStatuses: [
+                { leg: "TO", status: "CONFIRMED" },
+                { leg: "FROM", status: "OPEN" },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toEqual({
+      label: "Round trip — to confirmed, from still needed",
+      tone: "amber",
+    })
   })
 
   it("uses route tone for confirmed driver with accepted riders", () => {
@@ -182,7 +272,7 @@ describe("rideStatusChipForGameRow", () => {
       ownRide: { driver: "You", confirmed: true },
       requests: [request({ id: "a1", status: "accepted" })],
     })
-    expect(rideStatusChipForGameRow(withRiders, null)).toEqual({
+    expect(rideStatusChipForGameRow(withRiders)).toEqual({
       label: drivingChipLabel("You", 1),
       tone: "route",
     })
@@ -192,7 +282,7 @@ describe("rideStatusChipForGameRow", () => {
       order: 1,
       ownRide: { driver: "You", confirmed: true },
     })
-    expect(rideStatusChipForGameRow(solo, null)).toEqual({
+    expect(rideStatusChipForGameRow(solo)).toEqual({
       label: YOURE_DRIVING,
       tone: "mint",
     })
@@ -206,26 +296,31 @@ describe("rideStatusChipForGameRow", () => {
         request({ id: "a2", status: "accepted" }),
       ],
     })
-    expect(rideStatusChipForGameRow(otherDriver, null)).toEqual({
+    expect(rideStatusChipForGameRow(otherDriver)).toEqual({
       label: drivingChipLabel("Jordan", 2),
       tone: "route",
     })
   })
 
-  it("labels teammate ride from ACCEPTED ownRequest, not household driving", () => {
+  it("labels teammate ride from FULLY_COVERED own need + teammate Ride", () => {
     const row = game({
       id: "g",
       order: 1,
       kidId: "k1",
       ownRide: { driver: "Sharks", confirmed: true },
     })
-    const accepted = ownRide({
-      status: "ACCEPTED",
-      acceptingCircleName: "Sharks",
-      kidIds: ["k1"],
+    const event = rideEvent({
+      ownRequests: [ownNeed({ status: "FULLY_COVERED", kidId: "k1" })],
+      rides: [
+        fulfillment({
+          drivingCircleId: "c2",
+          drivingCircleName: "Sharks",
+          passengerRequestIds: ["r1"],
+        }),
+      ],
     })
 
-    expect(rideStatusChipForGameRow(row, accepted)).toEqual({
+    expect(rideStatusChipForGameRow(row, event)).toEqual({
       label: ridingWithCircleLabel("Sharks"),
       tone: "mint",
     })
@@ -240,7 +335,7 @@ describe("rideStatusChipsForItem", () => {
       game({ id: "g2", kidId: "k2", order: 100, attendance: "not_going" }),
     ]
 
-    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+    expect(rideStatusChipsForItem(item, games)).toEqual([
       { label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" },
     ])
   })
@@ -265,9 +360,43 @@ describe("rideStatusChipsForItem", () => {
       }),
     ]
 
-    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+    expect(rideStatusChipsForItem(item, games)).toEqual([
       { label: OVERLAPS_CHIP, tone: "amber" },
       { label: RIDE_NEEDED, tone: "amber" },
+    ])
+  })
+
+  it("prefers PARTIAL chip over confirmed sibling on the same item", () => {
+    const item = calendarItem({ kidIds: ["k1", "k2"] })
+    const games = [
+      game({
+        id: "confirmed",
+        kidId: "k2",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+      }),
+      game({
+        id: "partial",
+        kidId: "k1",
+        order: 200,
+        ownRide: "partial",
+      }),
+    ]
+    const event = rideEvent({
+      ownRequests: [
+        ownNeed({
+          kidId: "k1",
+          status: "PARTIAL",
+          legStatuses: [
+            { leg: "TO", status: "CONFIRMED" },
+            { leg: "FROM", status: "OPEN" },
+          ],
+        }),
+      ],
+    })
+
+    expect(rideStatusChipsForItem(item, games, { rideEvent: event })).toEqual([
+      { label: "Round trip — to confirmed, from still needed", tone: "amber" },
     ])
   })
 
@@ -288,7 +417,7 @@ describe("rideStatusChipsForItem", () => {
       }),
     ]
 
-    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+    expect(rideStatusChipsForItem(item, games)).toEqual([
       { label: RIDE_NEEDED, tone: "amber" },
     ])
   })
@@ -305,7 +434,7 @@ describe("rideStatusChipsForItem", () => {
         requests: [request({ id: "p1" }), request({ id: "a1", status: "accepted" })],
       }),
     ]
-    const rideChips = rideStatusChipsForItem(item, games, null)
+    const rideChips = rideStatusChipsForItem(item, games)
     const askChip = carpoolAskChipForRideEvent(games)
 
     expect(rideChips).toEqual([
@@ -331,7 +460,7 @@ describe("rideStatusChipsForItem", () => {
       }),
     ]
 
-    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+    expect(rideStatusChipsForItem(item, games)).toEqual([
       { label: "You're driving · +1", tone: "route" },
     ])
   })
@@ -342,31 +471,32 @@ describe("rideStatusChipsForItem", () => {
     })
     const games = [game({ id: "g", order: 100, attendance: "not_going" })]
 
-    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+    expect(rideStatusChipsForItem(item, games)).toEqual([
       { label: ATTENDANCE_NOT_GOING_CHIP, tone: "muted" },
     ])
   })
 
   it("inserts Also driving {name} after Overlaps and before Ride needed", () => {
-    const inbound = ownRide({
+    const inbound = ownNeed({
       id: "inbound",
       requestingCircleId: "c2",
       requestingCircleName: "House B",
-      status: "ACCEPTED",
-      acceptingCircleId: "c1",
-      acceptingCircleName: "Ours",
-      kidIds: ["k-them"],
-      kidFirstNames: ["Sam"],
+      kidId: "k-them",
+      kidFirstName: "Sam",
+      status: "FULLY_COVERED",
     })
-    const rideEvent: CarpoolRideEvent = {
-      eventKey: "UID:game",
-      title: "Practice",
-      startsAt: "2030-08-15T17:00:00.000Z",
-      endsAt: null,
+    const event = rideEvent({
       defaultKidIds: ["k1"],
-      ownRequest: null,
       otherRequests: [inbound],
-    }
+      rides: [
+        fulfillment({
+          id: "drive-them",
+          drivingCircleId: "c1",
+          drivingCircleName: "Ours",
+          passengerRequestIds: ["inbound"],
+        }),
+      ],
+    })
     const item = calendarItem({
       kidIds: ["k1"],
       uncoveredKidIds: ["k1"],
@@ -375,8 +505,8 @@ describe("rideStatusChipsForItem", () => {
     const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "unassigned" })]
 
     expect(
-      rideStatusChipsForItem(item, games, null, {
-        rideEvent,
+      rideStatusChipsForItem(item, games, {
+        rideEvent: event,
         circleId: "c1",
       }),
     ).toEqual([
@@ -387,31 +517,36 @@ describe("rideStatusChipsForItem", () => {
   })
 
   it("inserts Ride conflict for Type B mutual swap before Riding with", () => {
-    const inbound = ownRide({
+    const inbound = ownNeed({
       id: "inbound",
       requestingCircleId: "c2",
-      status: "ACCEPTED",
-      acceptingCircleId: "c1",
-      kidIds: ["k-them"],
-      kidFirstNames: ["Sam"],
+      kidId: "k-them",
+      kidFirstName: "Sam",
+      status: "FULLY_COVERED",
     })
-    const accepted = ownRide({
+    const own = ownNeed({
       id: "own",
-      status: "ACCEPTED",
-      acceptingCircleId: "c2",
-      acceptingCircleName: "House B",
-      kidIds: ["k1"],
-      kidFirstNames: ["Maya"],
+      status: "FULLY_COVERED",
+      kidId: "k1",
+      kidFirstName: "Maya",
     })
-    const rideEvent: CarpoolRideEvent = {
-      eventKey: "UID:game",
-      title: "Practice",
-      startsAt: "2030-08-15T17:00:00.000Z",
-      endsAt: null,
-      defaultKidIds: [],
-      ownRequest: accepted,
+    const event = rideEvent({
+      ownRequests: [own],
       otherRequests: [inbound],
-    }
+      rides: [
+        fulfillment({
+          id: "we-drive",
+          drivingCircleId: "c1",
+          passengerRequestIds: ["inbound"],
+        }),
+        fulfillment({
+          id: "they-drive",
+          drivingCircleId: "c2",
+          drivingCircleName: "House B",
+          passengerRequestIds: ["own"],
+        }),
+      ],
+    })
     const item = calendarItem({ kidIds: ["k1"] })
     const games = [
       game({
@@ -423,8 +558,8 @@ describe("rideStatusChipsForItem", () => {
     ]
 
     expect(
-      rideStatusChipsForItem(item, games, accepted, {
-        rideEvent,
+      rideStatusChipsForItem(item, games, {
+        rideEvent: event,
         circleId: "c1",
       }),
     ).toEqual([
@@ -434,33 +569,50 @@ describe("rideStatusChipsForItem", () => {
   })
 
   it("uses Ride conflict for Type A with multiple inbound kids, still beside Ride needed", () => {
-    const inbound = ownRide({
-      id: "inbound",
+    const inboundA = ownNeed({
+      id: "inbound-a",
       requestingCircleId: "c2",
-      status: "ACCEPTED",
-      acceptingCircleId: "c1",
-      kidIds: ["k-a", "k-b"],
-      kidFirstNames: ["Sam", "Lee"],
+      kidId: "k-a",
+      kidFirstName: "Sam",
+      status: "FULLY_COVERED",
     })
-    const rideEvent: CarpoolRideEvent = {
-      eventKey: "UID:game",
-      title: "Practice",
-      startsAt: "2030-08-15T17:00:00.000Z",
-      endsAt: null,
+    const inboundB = ownNeed({
+      id: "inbound-b",
+      requestingCircleId: "c2",
+      kidId: "k-b",
+      kidFirstName: "Lee",
+      status: "FULLY_COVERED",
+    })
+    // acceptedByUsRequest returns the first other request we drive — conflict chip
+    // uses Ride conflict when inbound has multiple kid first-names on one request.
+    // With per-kid requests, multi-kid Type A becomes first inbound only ("Also driving Sam").
+    // Spec still allows Ride conflict for multi-kid Type A; prefer alsoDriving for single name.
+    const event = rideEvent({
       defaultKidIds: ["k1"],
-      ownRequest: null,
-      otherRequests: [inbound],
-    }
+      otherRequests: [inboundA, inboundB],
+      rides: [
+        fulfillment({
+          id: "drive-a",
+          drivingCircleId: "c1",
+          passengerRequestIds: ["inbound-a"],
+        }),
+        fulfillment({
+          id: "drive-b",
+          drivingCircleId: "c1",
+          passengerRequestIds: ["inbound-b"],
+        }),
+      ],
+    })
     const item = calendarItem({ kidIds: ["k1"], uncoveredKidIds: ["k1"] })
     const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "unassigned" })]
 
     expect(
-      rideStatusChipsForItem(item, games, null, {
-        rideEvent,
+      rideStatusChipsForItem(item, games, {
+        rideEvent: event,
         circleId: "c1",
       }),
     ).toEqual([
-      { label: RIDE_CONFLICT_CHIP, tone: "amber" },
+      { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
       { label: RIDE_NEEDED, tone: "amber" },
     ])
   })

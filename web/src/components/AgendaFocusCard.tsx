@@ -162,7 +162,7 @@ export function AgendaFocusCard({
       currentAdultId,
       members: circle.members,
     })
-    const rideChips = rideStatusChipsForItem(item, games, null, {
+    const rideChips = rideStatusChipsForItem(item, games, {
       rideEvent,
       circleId: circle.id,
     })
