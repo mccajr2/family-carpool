@@ -152,7 +152,7 @@ describe("coverageGameEventKey", () => {
 })
 
 describe("getQueue", () => {
-  it("ranks an own-ride gap ahead of a sooner pending carpool request", () => {
+  it("ranks a same-event ask ahead of a later own-ride gap (event-grouped)", () => {
     const soonerRequest = game({
       id: "soon-ask",
       order: 100,
@@ -168,12 +168,12 @@ describe("getQueue", () => {
     const queue = getQueue([soonerRequest, laterGap])
 
     expect(queue).toHaveLength(2)
-    expect(queue[0]).toMatchObject({ kind: "ownRide", game: { id: "later-gap" } })
-    expect(queue[1]).toMatchObject({
+    expect(queue[0]).toMatchObject({
       kind: "request",
       game: { id: "soon-ask" },
       request: { id: "ask-sooner" },
     })
+    expect(queue[1]).toMatchObject({ kind: "ownRide", game: { id: "later-gap" } })
   })
 
   it("excludes not_going games even when ownRide is unassigned", () => {
@@ -190,7 +190,7 @@ describe("getQueue", () => {
     expect(queue).toEqual([])
   })
 
-  it("orders multiple own-ride gaps and requests soonest-first by order", () => {
+  it("orders by event soonest-first: asks on earlier events before later own gaps", () => {
     const games = [
       game({
         id: "gap-late",
@@ -219,9 +219,9 @@ describe("getQueue", () => {
     const queue = getQueue(games)
 
     expect(queue.map((item) => item.kind + ":" + item.game.id)).toEqual([
-      "ownRide:gap-late",
       "request:resolved-with-ask",
       "request:resolved-with-ask-late",
+      "ownRide:gap-late",
     ])
   })
 
@@ -273,6 +273,78 @@ describe("getQueue", () => {
 
     expect(queue).toHaveLength(1)
     expect(queue[0]).toMatchObject({ kind: "request", request: { id: "live" } })
+  })
+
+  it("interleaves same-event ask before a later own gap when E is already covered", () => {
+    const askOnE = request({ id: "ask-e" })
+    const queue = getQueue([
+      game({
+        id: "EVENT-E:k1",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [askOnE],
+      }),
+      game({
+        id: "EVENT-F:k1",
+        order: 200,
+        ownRide: "unassigned",
+      }),
+    ])
+
+    expect(queue.map((item) => item.kind + ":" + (item.kind === "request" ? item.request.id : item.game.id))).toEqual([
+      "request:ask-e",
+      "ownRide:EVENT-F:k1",
+    ])
+  })
+
+  it("keeps family-first within an event: ownGap(E) then ask(E) then ownGap(F)", () => {
+    const askOnE = request({ id: "ask-e" })
+    const queue = getQueue([
+      game({
+        id: "EVENT-E:k1",
+        order: 100,
+        ownRide: "unassigned",
+        requests: [askOnE],
+      }),
+      game({
+        id: "EVENT-F:k1",
+        order: 200,
+        ownRide: "unassigned",
+      }),
+    ])
+
+    expect(queue.map((item) => item.kind + ":" + (item.kind === "request" ? item.request.id : item.game.id))).toEqual([
+      "ownRide:EVENT-E:k1",
+      "request:ask-e",
+      "ownRide:EVENT-F:k1",
+    ])
+  })
+
+  it("dedupes multi-kid same-event asks to one slide per request.id", () => {
+    const sharedAsk = request({ id: "shared-ask" })
+    const queue = getQueue([
+      game({
+        id: "EVENT-E:k1",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [sharedAsk],
+      }),
+      game({
+        id: "EVENT-E:k2",
+        kidId: "k2",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [sharedAsk],
+      }),
+    ])
+
+    expect(queue).toHaveLength(1)
+    expect(queue[0]).toMatchObject({
+      kind: "request",
+      request: { id: "shared-ask" },
+      game: { id: "EVENT-E:k1" },
+    })
   })
 })
 
