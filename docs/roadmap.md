@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-08 (`/pr coverage-leave-from`)
+Updated: 2026-09-09 (`/pr ride-cards-cleanup` closeout)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -205,6 +205,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| ride-cards-cleanup         | 2026-09-09 | [archive](specs/archive/ride-cards-cleanup.md)         |
 | coverage-leave-from        | 2026-09-08 | [archive](specs/archive/coverage-leave-from.md)        |
 | ride-detail-route-only     | 2026-09-08 | [archive](specs/archive/ride-detail-route-only.md)     |
 | ride-playlist-tab          | 2026-09-07 | [archive](specs/archive/ride-playlist-tab.md)          |
@@ -280,6 +281,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | `/pr ride-cards-cleanup` closeout: Hero/Agenda ride-card polish shipped in [#104](https://github.com/mccajr2/family-carpool/pull/104); spec archived (was never a separate Upcoming row). Next up still `coverage-priority-same-event`. |
 | 2026-09-08 | `/pr coverage-leave-from`: per-coverage + one-time leave-from on Agenda/Focus; Route honors origin. Spec archived. Next up `coverage-priority-same-event`. |
 | 2026-09-08 | `/spec coverage-leave-from`: active — default / named place / one-time free-text + per-coverage leave-from (any-member write; item-level fallback); web Agenda. Branch `coverage-leave-from`. |
 | 2026-09-08 | Major `/roadmap` carpool Beta re-rank: leave-from → same-event priority → one-way → meet-at → stop-order optimize → team-link → recurring → neighborhood; park Expo/push + calendar ETag/venue polish; playlist stays parked. Next up `coverage-leave-from`. |

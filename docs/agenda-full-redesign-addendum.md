@@ -63,9 +63,9 @@ only the Focus card uses the theme-independent `hero*` surface).
 
 ## Ride cards cleanup (2026-09)
 
-Reference: active spec `docs/specs/active/ride-cards-cleanup.md` (Hero + Agenda
-GameCard polish on the leave-from branch). Conventions that apply to **all**
-Calendar ride cards, not only the two named surfaces:
+Reference: archived [`ride-cards-cleanup`](specs/archive/ride-cards-cleanup.md)
+(Hero + Agenda GameCard polish on the leave-from branch). Conventions that
+apply to **all** Calendar ride cards, not only the two named surfaces:
 
 1. **One instance per fact** — who’s driving, leave-by, going/not-going each
    render once per card (header chip wins over body restatement).
