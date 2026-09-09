@@ -112,6 +112,7 @@ import {
   validateManualEventTimes,
 } from "@/components/eventTimes"
 import { coverageDoubleBookMessage } from "@/components/conflictDisplay"
+import type { LeaveFromFields } from "@/components/leaveFromDisplay"
 import {
   isAgendaItemOutOfPlay,
   kidHasActiveCoverage,
@@ -307,6 +308,10 @@ export function FamilyScreen({
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
     Record<string, { adultId: string; kidIds?: string[] }>
+  >({})
+  /** Leave-from draft on hero before Assign / Confirm (committed with that CTA). */
+  const [leaveFromDrafts, setLeaveFromDrafts] = useState<
+    Record<string, SetCalendarLeaveFromRequest>
   >({})
   /** Confirm/Assign failures — keyed by agenda item so the alert sits on the control. */
   const [coverageActionErrors, setCoverageActionErrors] = useState<
@@ -1737,6 +1742,47 @@ export function FamilyScreen({
     return { adultId, kidIds, soleAdult, soleKid }
   }
 
+  function leaveFromFieldsFromBody(
+    body: SetCalendarLeaveFromRequest,
+  ): LeaveFromFields {
+    const placeId = body.leaveFromPlaceId ?? null
+    const address = body.leaveFromAddress?.trim() || null
+    return {
+      leaveFromPlaceId: placeId,
+      leaveFromPlaceName:
+        placeId != null
+          ? (circle?.places.find((place) => place.id === placeId)?.name ?? null)
+          : null,
+      leaveFromAddress: address,
+    }
+  }
+
+  function clearLeaveFromDraft(itemKey: string) {
+    setLeaveFromDrafts((current) => {
+      if (!(itemKey in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[itemKey]
+      return next
+    })
+  }
+
+  async function applyCoverageLeaveFromIfDrafted(
+    token: string,
+    itemKey: string,
+    assignmentId: string,
+    updated: CalendarItem,
+  ): Promise<CalendarItem> {
+    const draft = leaveFromDrafts[itemKey]
+    if (draft == null) {
+      return updated
+    }
+    const next = await familyClient.setCoverageLeaveFrom(token, assignmentId, draft)
+    clearLeaveFromDraft(itemKey)
+    return next
+  }
+
   async function onSetDefaultLeaveFrom(placeId: string | null) {
     if (circle?.defaultLeaveFromPlaceId === placeId) {
       return
@@ -1798,6 +1844,19 @@ export function FamilyScreen({
           { status: "YES" },
         )
       }
+      const assignment = activeCoverages(updated).find(
+        (row) => row.coveringAdultId === coveringAdultId,
+      )
+      if (assignment != null) {
+        updated = await applyCoverageLeaveFromIfDrafted(
+          token,
+          itemKey,
+          assignment.id,
+          updated,
+        )
+      } else {
+        clearLeaveFromDraft(itemKey)
+      }
       replaceCalendarItem(updated)
       setAssignCoverageDrafts((current) => {
         const next = { ...current }
@@ -1836,7 +1895,13 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      const updated = await familyClient.confirmCalendarCoverage(token, assignmentId)
+      let updated = await familyClient.confirmCalendarCoverage(token, assignmentId)
+      updated = await applyCoverageLeaveFromIfDrafted(
+        token,
+        itemKey,
+        assignmentId,
+        updated,
+      )
       replaceCalendarItem(updated)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1856,6 +1921,7 @@ export function FamilyScreen({
       const token = await requireToken()
       const updated = await familyClient.declineCalendarCoverage(token, assignmentId)
       replaceCalendarItem(updated)
+      clearLeaveFromDraft(calendarItemKey(updated))
       setStatus({ kind: "idle" })
     } catch (error) {
       setStatus({
@@ -2341,15 +2407,37 @@ export function FamilyScreen({
       onAcceptRide: (rideId, vehicleId) =>
         void onAcceptAgendaRide(calendarItemForSlide, rideId, vehicleId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
-      onSetLeaveFrom: (body) => {
+      leaveFromValue: (() => {
+        const draft = leaveFromDrafts[itemKey]
+        if (draft != null) {
+          return leaveFromFieldsFromBody(draft)
+        }
         const coverage = activeCoverages(calendarItemForSlide).find(
           (row) => row.coveringAdultId === (adult?.id ?? ""),
         )
         if (coverage != null) {
+          return {
+            leaveFromPlaceId: coverage.leaveFromPlaceId,
+            leaveFromPlaceName: coverage.leaveFromPlaceName,
+            leaveFromAddress: coverage.leaveFromAddress,
+          }
+        }
+        return {
+          leaveFromPlaceId: calendarItemForSlide.leaveFromPlaceId,
+          leaveFromPlaceName: calendarItemForSlide.leaveFromPlaceName,
+          leaveFromAddress: calendarItemForSlide.leaveFromAddress,
+        }
+      })(),
+      onSetLeaveFrom: (body) => {
+        const coverage = activeCoverages(calendarItemForSlide).find(
+          (row) => row.coveringAdultId === (adult?.id ?? ""),
+        )
+        // CONFIRMED covering: write immediately. Uncovered / PENDING: draft until CTA.
+        if (coverage != null && coverage.status === "CONFIRMED") {
           void onSetCoverageLeaveFrom(coverage.id, body)
           return
         }
-        void onSetCalendarLeaveFrom(calendarItemForSlide, body)
+        setLeaveFromDrafts((current) => ({ ...current, [itemKey]: body }))
       },
     }
   }

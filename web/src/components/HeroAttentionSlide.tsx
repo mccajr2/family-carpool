@@ -29,7 +29,10 @@ import {
   kidNeedsRideTitle,
 } from "@/components/coverageCopy"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
-import { focusLeaveFromEstimateLine } from "@/components/leaveFromDisplay"
+import {
+  focusLeaveFromEstimateLine,
+  type LeaveFromFields,
+} from "@/components/leaveFromDisplay"
 import { PickupLine } from "@/components/PickupLine"
 import {
   heroEventContextLine,
@@ -56,6 +59,8 @@ export type HeroAttentionSlideProps = {
   onDeclineCoverage?: (assignmentId: string) => void
   onAcceptRide?: (rideId: string, vehicleId: string) => void
   onPassRide?: (rideId: string) => void
+  /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
+  leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
   now?: Date
 }
@@ -85,6 +90,7 @@ export function HeroAttentionSlide({
   onDeclineCoverage,
   onAcceptRide,
   onPassRide,
+  leaveFromValue,
   onSetLeaveFrom,
   now = new Date(),
 }: HeroAttentionSlideProps) {
@@ -95,6 +101,43 @@ export function HeroAttentionSlide({
   const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
   const selfCoverage = activeCoverageForAdult(calendarItem, currentAdultId)
+  const leaveFromFields: LeaveFromFields = leaveFromValue ?? {
+    leaveFromPlaceId: calendarItem.leaveFromPlaceId,
+    leaveFromPlaceName: calendarItem.leaveFromPlaceName,
+    leaveFromAddress: calendarItem.leaveFromAddress,
+  }
+  const showLeaveFrom = item.kind === "ownRide" && onSetLeaveFrom != null
+  const leaveFromControls =
+    showLeaveFrom ? (
+      <div
+        className="mt-[var(--fc-space-sm)]"
+        style={{ color: "var(--fc-hero-on-secondary)" }}
+        data-testid="hero-attention-leave-from"
+      >
+        <LeaveFromControls
+          variant="subtle"
+          value={leaveFromFields}
+          circle={circle}
+          loading={loading}
+          ariaLabel={`Leave from for ${calendarItem.title}`}
+          summaryLine={
+            selfCoverage != null
+              ? focusLeaveFromEstimateLine(
+                  {
+                    ...leaveFromFields,
+                    leaveByAt: calendarItem.leaveByAt,
+                    leaveByStatus: calendarItem.leaveByStatus,
+                    leaveByReason: calendarItem.leaveByReason,
+                  },
+                  circle,
+                )
+              : null
+          }
+          onChange={onSetLeaveFrom}
+          testIdPrefix={`hero-leave-from-${calendarItem.source}-${calendarItem.id}`}
+        />
+      </div>
+    ) : null
 
   const requestAccept = useMemo(() => {
     if (item.kind !== "request") {
@@ -174,38 +217,7 @@ export function HeroAttentionSlide({
                   {venue}
                 </p>
               ) : null}
-              {selfCoverage != null && onSetLeaveFrom != null ? (
-                <div
-                  className="mt-[var(--fc-space-sm)]"
-                  style={{ color: "var(--fc-hero-on-secondary)" }}
-                  data-testid="hero-attention-leave-from"
-                >
-                  <LeaveFromControls
-                    variant="subtle"
-                    value={{
-                      leaveFromPlaceId: calendarItem.leaveFromPlaceId,
-                      leaveFromPlaceName: calendarItem.leaveFromPlaceName,
-                      leaveFromAddress: calendarItem.leaveFromAddress,
-                    }}
-                    circle={circle}
-                    loading={loading}
-                    ariaLabel={`Leave from for ${calendarItem.title}`}
-                    summaryLine={focusLeaveFromEstimateLine(
-                      {
-                        leaveFromPlaceId: calendarItem.leaveFromPlaceId,
-                        leaveFromPlaceName: calendarItem.leaveFromPlaceName,
-                        leaveFromAddress: calendarItem.leaveFromAddress,
-                        leaveByAt: calendarItem.leaveByAt,
-                        leaveByStatus: calendarItem.leaveByStatus,
-                        leaveByReason: calendarItem.leaveByReason,
-                      },
-                      circle,
-                    )}
-                    onChange={onSetLeaveFrom}
-                    testIdPrefix={`hero-leave-from-${calendarItem.source}-${calendarItem.id}`}
-                  />
-                </div>
-              ) : null}
+              {leaveFromControls}
               {pendingForSelf && onConfirmCoverage && onDeclineCoverage ? (
                 <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
                   <button

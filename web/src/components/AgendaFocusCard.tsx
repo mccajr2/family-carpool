@@ -275,7 +275,8 @@ export function AgendaFocusCard({
               {metaLine}
             </span>
           ) : null}
-          {selfCoverage != null && onSetLeaveFrom != null ? (
+          {onSetLeaveFrom != null &&
+          (selfCoverage != null || pendingForSelf != null || showAssign) ? (
             <div
               className="mt-[var(--fc-space-sm)]"
               style={{ color: onSecondaryVar }}
@@ -291,17 +292,21 @@ export function AgendaFocusCard({
                 circle={circle}
                 loading={loading}
                 ariaLabel={`Leave from for ${item.title}`}
-                summaryLine={focusLeaveFromEstimateLine(
-                  {
-                    leaveFromPlaceId: item.leaveFromPlaceId,
-                    leaveFromPlaceName: item.leaveFromPlaceName,
-                    leaveFromAddress: item.leaveFromAddress,
-                    leaveByAt: item.leaveByAt,
-                    leaveByStatus: item.leaveByStatus,
-                    leaveByReason: item.leaveByReason,
-                  },
-                  circle,
-                )}
+                summaryLine={
+                  selfCoverage != null
+                    ? focusLeaveFromEstimateLine(
+                        {
+                          leaveFromPlaceId: item.leaveFromPlaceId,
+                          leaveFromPlaceName: item.leaveFromPlaceName,
+                          leaveFromAddress: item.leaveFromAddress,
+                          leaveByAt: item.leaveByAt,
+                          leaveByStatus: item.leaveByStatus,
+                          leaveByReason: item.leaveByReason,
+                        },
+                        circle,
+                      )
+                    : null
+                }
                 onChange={onSetLeaveFrom}
                 testIdPrefix={`focus-leave-from-${item.source}-${item.id}`}
               />

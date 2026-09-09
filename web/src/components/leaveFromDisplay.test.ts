@@ -3,6 +3,9 @@ import type { FamilyCircle } from "@/api/types"
 import {
   defaultLeaveFromDisplayName,
   focusLeaveFromEstimateLine,
+  LEAVE_FROM_ONE_TIME_VALUE,
+  leaveFromBodyForPlaceId,
+  leaveFromSelectValue,
   resolvedLeaveFromLabel,
 } from "./leaveFromDisplay"
 
@@ -94,5 +97,41 @@ describe("focusLeaveFromEstimateLine", () => {
     )
     expect(line).toMatch(/^Leave from Home · estimate /)
     expect(line.toLowerCase()).not.toContain("live traffic")
+  })
+})
+
+describe("leaveFromSelectValue / leaveFromBodyForPlaceId", () => {
+  it("maps Default mode to the membership default place id in the combobox", () => {
+    expect(
+      leaveFromSelectValue(
+        {
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+        },
+        circle,
+      ),
+    ).toBe("p1")
+    expect(leaveFromBodyForPlaceId("p1", circle)).toEqual({
+      leaveFromPlaceId: null,
+      leaveFromAddress: null,
+    })
+    expect(leaveFromBodyForPlaceId("p2", circle)).toEqual({
+      leaveFromPlaceId: "p2",
+      leaveFromAddress: null,
+    })
+  })
+
+  it("uses the one-time sentinel when an address override is set", () => {
+    expect(
+      leaveFromSelectValue(
+        {
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: "Jack's house",
+        },
+        circle,
+      ),
+    ).toBe(LEAVE_FROM_ONE_TIME_VALUE)
   })
 })

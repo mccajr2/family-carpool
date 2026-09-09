@@ -217,7 +217,10 @@ describe("AgendaRow", () => {
       /^Leave by ~/,
     )
     expect(within(row).queryByTestId("leave-from-MANUAL-cov-leave-field-row")).not.toBeInTheDocument()
-    await user.click(within(row).getByTestId("coverage-leave-from-cov1-mode-one-time"))
+    await user.selectOptions(
+      within(row).getByTestId("coverage-leave-from-cov1-place-select"),
+      "__one_time__",
+    )
     await user.type(
       within(row).getByTestId("coverage-leave-from-cov1-one-time-input"),
       "Playground",
@@ -232,6 +235,22 @@ describe("AgendaRow", () => {
   it("shows item-level leave-from when the signed-in adult is not covering", async () => {
     const user = userEvent.setup()
     const onSetLeaveFrom = vi.fn()
+    const withSchool: FamilyCircle = {
+      ...circle,
+      places: [
+        ...circle.places,
+        { id: "p2", name: "School", address: "2 School", latitude: 40.1, longitude: -74.1 },
+      ],
+      members: [
+        ...circle.members,
+        {
+          adultId: "a2",
+          email: "jordan@example.com",
+          displayName: "Jordan",
+          role: "CAREGIVER",
+        },
+      ],
+    }
     renderRow(
       item({
         id: "item-leave",
@@ -248,7 +267,7 @@ describe("AgendaRow", () => {
             assignedByAdultId: "a1",
             kidIds: ["k1"],
             status: "CONFIRMED",
-            leaveFromPlaceId: null,
+            leaveFromPlaceId: "p2",
             leaveFromPlaceName: "School",
             leaveFromAddress: null,
             leaveByAt: "2030-08-15T16:10:00.000Z",
@@ -257,16 +276,17 @@ describe("AgendaRow", () => {
           },
         ],
       }),
-      { onSetLeaveFrom },
+      { onSetLeaveFrom, circle: withSchool },
     )
 
     const row = screen.getByTestId("agenda-row-MANUAL-item-leave")
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("leave-from-MANUAL-item-leave-field-row")).toBeInTheDocument()
-    expect(within(row).getByTestId("coverage-leave-from-cov-other-label")).toHaveTextContent(
-      "School",
+    expect(within(row).getByTestId("coverage-leave-from-cov-other-place-select")).toHaveValue("p2")
+    await user.selectOptions(
+      within(row).getByTestId("leave-from-MANUAL-item-leave-place-select"),
+      "__one_time__",
     )
-    await user.click(within(row).getByTestId("leave-from-MANUAL-item-leave-mode-one-time"))
     await user.type(
       within(row).getByTestId("leave-from-MANUAL-item-leave-one-time-input"),
       "Jack's house",
@@ -344,8 +364,9 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-MANUAL-two-cov")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByTestId("coverage-leave-from-cov-a-label")).toHaveTextContent(
-      "Mom's house",
+    expect(within(row).getByTestId("coverage-leave-from-cov-a-place-select")).toHaveValue("p1")
+    expect(within(row).getByTestId("coverage-leave-from-cov-b-place-select")).toHaveValue(
+      "__one_time__",
     )
     expect(within(row).getByTestId("coverage-leave-from-cov-b-one-time-input")).toHaveValue(
       "Playground lot",
@@ -374,7 +395,7 @@ describe("AgendaRow", () => {
     const toggle = within(row).getByTestId("rsvp-MANUAL-going-k1")
     expect(toggle).toHaveAttribute("data-attendance", "going")
     expect(toggle).toHaveTextContent("Mark Sam as not going")
-    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(toggle.tagName).toBe("BUTTON")
     expect(within(row).queryByText("No response")).not.toBeInTheDocument()
     await user.click(toggle)
     expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
@@ -449,7 +470,7 @@ describe("AgendaRow", () => {
     const toggle = within(row).getByTestId("rsvp-MANUAL-default-going-k1")
     expect(toggle).toHaveAttribute("data-attendance", "going")
     expect(toggle).toHaveTextContent("Mark Sam as not going")
-    expect(within(row).queryByRole("combobox")).not.toBeInTheDocument()
+    expect(toggle.tagName).toBe("BUTTON")
     expect(within(row).queryByText("No response")).not.toBeInTheDocument()
   })
 

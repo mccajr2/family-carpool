@@ -3,7 +3,7 @@
 Status: archived  
 Completed: 2026-09-08  
 Created: 2026-08-12  
-Updated: 2026-09-08 (`/pr`)  
+Updated: 2026-09-08 (`/pr` UX fix — leave-from combobox on hero + Agenda)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `coverage-leave-from`  
 Added: 2026-08-12 · enhancement
@@ -103,26 +103,22 @@ Resolution for **signed-in adult** item leave-by:
 
 ### Web UX
 
-- **Focus (hero) — keep slim:**
-  - Primary: existing one-click **Assign to me** (or Confirm) still lands
-    coverage with leave-from in **Default** — no extra step.
-  - After the signed-in adult is covering: show resolved leave-from / leave-by
-    as calm secondary copy (e.g. “Leave from Home · estimate 5:10”), not a
-    full Agenda-style field row.
-  - **Subtle override:** a low-weight control (link / menu / disclosure) on
-    Focus to switch default ↔ named place ↔ one-time without opening the
-    expanded day row. Prefer Hick’s law — few choices; sole located place
-    stays label-only. Implementer picks the exact chrome; must stay visually
-    quieter than primary CTAs.
-  - This **supersedes** the Focus-addendum “leave-from only on expand” note
-    for a *subtle* override only — do not restore the old form-hero.
-- **Expanded `AgendaRow`:** full Leave from field-row + leave-by on each
-  active coverage band (other adults’ origins visible). Item-level Leave from
-  only when the signed-in adult is **not** covering that item (no duplicate
-  when they are).
-- One-time: short address field + apply (on Focus, inside the subtle override
-  flow; on Agenda, in the field-row band); copy says **estimate**, never live
-  traffic. Unlocated named places stay disabled in place choosers.
+- **Shared leave-from control:** located-place **combobox** with membership
+  default **preselected** (stored as Default/null so midseason default changes
+  still apply) and a permanent **One-time address…** option that reveals a
+  free-text field. Selecting a named place exits one-time. Unlocated places
+  stay disabled. Copy: leave-by is an **estimate**, never live traffic.
+- **Focus (hero):**
+  - **Uncovered own-ride:** DriverPicker (default = signed-in adult) and
+    leave-from combobox are both visible; DriverPicker confirm commits both
+    (create coverage + apply leave-from draft when not Default).
+  - **Pending for you:** leave-from combobox visible; **Confirm** / **Decline**
+    only — no changeable driver. Confirm commits leave-from draft with confirm.
+  - **CONFIRMED covering:** combobox remains and writes immediately on change.
+  - Calm estimate line when covering (`Leave from {origin} · estimate {time}`).
+- **Expanded `AgendaRow`:** same combobox + leave-by on each active coverage
+  band (other adults’ origins visible; any circle member may edit). Item-level
+  Leave from only when the signed-in adult is **not** covering that item.
 - Out of play (all kids not going): hide leave-from / leave-by / coverage chrome
   as today.
 

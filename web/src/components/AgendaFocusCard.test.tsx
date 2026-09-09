@@ -178,7 +178,7 @@ describe("AgendaFocusCard header chrome", () => {
     expect(meta.className).not.toMatch(/whitespace-nowrap/)
   })
 
-  it("when covering, shows calm leave-from estimate and a subtle Change control", async () => {
+  it("when covering, shows leave-from combobox with estimate and one-time option", async () => {
     const user = userEvent.setup()
     const onSetLeaveFrom = vi.fn()
     renderCard(
@@ -215,10 +215,9 @@ describe("AgendaFocusCard header chrome", () => {
     expect(screen.getByTestId("focus-leave-from-MANUAL-covering-summary").textContent).toMatch(
       /^Leave from Mom's house · estimate /,
     )
-    expect(screen.queryByText(/^Leave from$/)).not.toBeInTheDocument()
-    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-change"))
-    expect(screen.getByTestId("focus-leave-from-MANUAL-covering-editor")).toBeInTheDocument()
-    await user.click(screen.getByTestId("focus-leave-from-MANUAL-covering-mode-one-time"))
+    const select = screen.getByTestId("focus-leave-from-MANUAL-covering-place-select")
+    expect(select).toHaveValue("p1")
+    await user.selectOptions(select, "__one_time__")
     await user.type(
       screen.getByTestId("focus-leave-from-MANUAL-covering-one-time-input"),
       "Jack's house",

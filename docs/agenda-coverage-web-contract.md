@@ -232,15 +232,18 @@ Origin modes (locked with `coverage-leave-from`):
 
 - **Expanded Agenda — active coverage bands:** each `PENDING`/`CONFIRMED`
   coverage shows adult · kids · status, that row’s leave-by estimate, and a
-  **Leave from** field-row (Default / named place / one-time). Any circle
-  member may edit. Other adults’ origins stay visible.
+  **Leave from** combobox (located places; membership default **preselected**
+  and stored as Default/null; permanent **One-time address…** option). Any
+  circle member may edit. Other adults’ origins stay visible.
 - **Expanded Agenda — item-level Leave from:** only when the signed-in adult
-  is **not** covering that item (no duplicate when they are). Same three
-  modes; leave-by line + **Open Places** on `NO_ORIGIN` as before.
-- **Focus / hero (slim):** when the signed-in adult is covering, show calm
-  copy `Leave from {origin} · estimate {time}` plus a low-weight **Change
-  leave-from** disclosure (not a full field-row band). Assign / Confirm still
-  land coverage at Default.
+  is **not** covering that item (no duplicate when they are). Same combobox;
+  leave-by line + **Open Places** on `NO_ORIGIN` as before.
+- **Focus / hero:** uncovered own-ride shows **DriverPicker** (default =
+  signed-in adult) **and** leave-from combobox together; DriverPicker confirm
+  commits both (coverage + leave-from draft if not Default). **Pending for
+  you:** leave-from combobox + Confirm / Decline only (no changeable driver).
+  Confirm commits leave-from draft with confirm. After **CONFIRMED** covering,
+  combobox writes immediately. Calm estimate copy when covering.
 - **Route:** starting stop + leave-by come from `GET …/route`, which uses the
   same origin resolution (coverage → item override → default → first located).
   Changing leave-from refreshes Route via calendar item replace.

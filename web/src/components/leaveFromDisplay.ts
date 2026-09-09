@@ -96,3 +96,66 @@ export function locatedPlacesSorted(places: Place[]): Place[] {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/** Combobox sentinel for the one-time address option. */
+export const LEAVE_FROM_ONE_TIME_VALUE = "__one_time__"
+
+/**
+ * Place id that represents membership Default in the combobox (membership
+ * default when located, else first located by name).
+ */
+export function resolvedDefaultLeaveFromPlaceId(circle: FamilyCircle): string | null {
+  const membershipId = circle.defaultLeaveFromPlaceId
+  if (membershipId != null) {
+    const match = circle.places.find(
+      (place) => place.id === membershipId && isPlaceLocated(place),
+    )
+    if (match != null) {
+      return match.id
+    }
+  }
+  return locatedPlacesSorted(circle.places)[0]?.id ?? null
+}
+
+/**
+ * Combobox value for current leave-from fields: place id, or
+ * {@link LEAVE_FROM_ONE_TIME_VALUE} when a one-time address is set.
+ * Default mode (both null) maps to the resolved default place id.
+ */
+export function leaveFromSelectValue(
+  fields: LeaveFromFields,
+  circle: FamilyCircle,
+): string {
+  if (fields.leaveFromAddress?.trim()) {
+    return LEAVE_FROM_ONE_TIME_VALUE
+  }
+  if (fields.leaveFromPlaceId) {
+    return fields.leaveFromPlaceId
+  }
+  return resolvedDefaultLeaveFromPlaceId(circle) ?? ""
+}
+
+/**
+ * Persist body for a combobox place selection. Selecting the resolved default
+ * place stores Default (both null) so midseason membership-default changes
+ * still apply.
+ */
+export function leaveFromBodyForPlaceId(
+  placeId: string,
+  circle: FamilyCircle,
+): { leaveFromPlaceId: string | null; leaveFromAddress: null } {
+  const defaultId = resolvedDefaultLeaveFromPlaceId(circle)
+  if (defaultId != null && placeId === defaultId) {
+    return { leaveFromPlaceId: null, leaveFromAddress: null }
+  }
+  return { leaveFromPlaceId: placeId, leaveFromAddress: null }
+}
+
+/** True when the request is Default mode (no place / one-time override). */
+export function isDefaultLeaveFromBody(body: {
+  leaveFromPlaceId?: string | null
+  leaveFromAddress?: string | null
+}): boolean {
+  const address = body.leaveFromAddress?.trim()
+  return !body.leaveFromPlaceId && !address
+}

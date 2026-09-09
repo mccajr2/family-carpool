@@ -2835,6 +2835,8 @@ detourMinutes: null,
                 longitude: null,
               },
             ],
+            defaultLeaveFromPlaceId: "p1",
+            defaultLeaveFromPlaceName: "Mom's house",
           }),
           listCalendar: vi.fn().mockResolvedValue([
             earlierFocusDecoy(),
@@ -3002,7 +3004,10 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    await user.click(within(item).getByTestId("coverage-leave-from-cov1-mode-one-time"))
+    await user.selectOptions(
+      within(item).getByTestId("coverage-leave-from-cov1-place-select"),
+      "__one_time__",
+    )
     await user.type(
       within(item).getByTestId("coverage-leave-from-cov1-one-time-input"),
       "Jack's house",
@@ -3017,7 +3022,7 @@ detourMinutes: null,
     })
   })
 
-  it("writes coverage leave-from from Focus hero Change leave-from control", async () => {
+  it("commits hero leave-from draft when Confirm coverage is pressed", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -3026,36 +3031,37 @@ detourMinutes: null,
       displayName: "Alex",
     })
 
-    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(
-      calendarItem({
-        id: "e1",
-        source: "MANUAL",
-        title: "Practice",
-        startsAt: "2030-08-15T17:00:00.000Z",
-        kidIds: ["k1"],
-        uncoveredKidIds: ["k1"],
-        leaveFromAddress: "Jack's house",
-        leaveByStatus: "OK",
-        leaveByAt: "2030-08-15T16:15:00.000Z",
-        leaveByReason: null,
-        coverages: [
-          {
-            id: "cov1",
-            coveringAdultId: "1",
-            coveringAdultDisplayName: "Alex",
-            assignedByAdultId: "2",
-            kidIds: ["k2"],
-            status: "PENDING",
-            leaveFromPlaceId: null,
-            leaveFromPlaceName: null,
-            leaveFromAddress: "Jack's house",
-            leaveByAt: "2030-08-15T16:15:00.000Z",
-            leaveByStatus: "OK",
-            leaveByReason: null,
-          },
-        ],
-      }),
-    )
+    const confirmedItem = calendarItem({
+      id: "e1",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1"],
+      leaveFromAddress: "Jack's house",
+      leaveByStatus: "OK",
+      leaveByAt: "2030-08-15T16:15:00.000Z",
+      leaveByReason: null,
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "2",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: "Jack's house",
+          leaveByAt: "2030-08-15T16:15:00.000Z",
+          leaveByStatus: "OK",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    const confirmCalendarCoverage = vi.fn().mockResolvedValue(confirmedItem)
+    const setCoverageLeaveFrom = vi.fn().mockResolvedValue(confirmedItem)
 
     render(
       <FamilyScreen
@@ -3132,6 +3138,7 @@ detourMinutes: null,
               ],
             }),
           ]),
+          confirmCalendarCoverage,
           setCoverageLeaveFrom,
         })}
         onSignedOut={vi.fn()}
@@ -3141,18 +3148,22 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const slide = heroSlideIn(agenda, "Practice")
     expect(within(slide).getByTestId("hero-attention-leave-from")).toBeInTheDocument()
-    expect(
-      within(slide).getByTestId("hero-leave-from-MANUAL-e1-summary").textContent,
-    ).toMatch(/^Leave from Mom's house · estimate /)
-    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-change"))
-    await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-mode-one-time"))
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker-chip")).not.toBeInTheDocument()
+    await user.selectOptions(
+      within(slide).getByTestId("hero-leave-from-MANUAL-e1-place-select"),
+      "__one_time__",
+    )
     await user.type(
       within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-input"),
       "Jack's house",
     )
     await user.click(within(slide).getByTestId("hero-leave-from-MANUAL-e1-one-time-apply"))
+    expect(setCoverageLeaveFrom).not.toHaveBeenCalled()
+    await user.click(within(slide).getByTestId("hero-attention-confirm-coverage"))
 
     await waitFor(() => {
+      expect(confirmCalendarCoverage).toHaveBeenCalledWith("tok", "cov1")
       expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov1", {
         leaveFromPlaceId: null,
         leaveFromAddress: "Jack's house",
@@ -3296,7 +3307,6 @@ detourMinutes: null,
     const agenda = await screen.findByLabelText("Agenda")
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
-    await user.click(within(item).getByTestId("coverage-leave-from-cov1-mode-place"))
     await user.selectOptions(
       within(item).getByTestId("coverage-leave-from-cov1-place-select"),
       "p2",
@@ -5418,9 +5428,7 @@ detourMinutes: null,
     ).toBeInTheDocument()
     expect(within(item).queryByTestId("agenda-band-coverage")).not.toBeInTheDocument()
     expect(within(travel).getByTestId("leave-by-MANUAL-e1")).toBeInTheDocument()
-    expect(within(travel).getByTestId("coverage-leave-from-cov1-label")).toHaveTextContent(
-      "Mom's house",
-    )
+    expect(within(travel).getByTestId("coverage-leave-from-cov1-place-select")).toHaveValue("p1")
     expect(within(travel).queryByTestId("leave-from-MANUAL-e1-field-row")).not.toBeInTheDocument()
     expect(within(people).getByText("Manual")).toBeInTheDocument()
     expect(
