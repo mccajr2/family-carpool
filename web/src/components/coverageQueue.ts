@@ -131,27 +131,54 @@ function isActionableInboundRequest(request: CarpoolRequest): boolean {
 }
 
 /**
- * Priority queue per ADR-0001: own-ride gaps first (soonest order), then pending
- * inbound carpool requests (soonest order). Empty array = all caught up.
+ * Priority queue per ADR-0001 (event-grouped): walk calendar events
+ * soonest-first; for each event emit own-ride gaps then actionable inbound
+ * asks (deduped by `request.id`). Empty array = all caught up.
  */
 export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
   const inPlay = games.filter(isInPlay)
+  const byEvent = new Map<string, CoverageGameEvent[]>()
+  const eventOrder = new Map<string, number>()
 
-  const ownRideItems: QueueItem[] = sortByOrder(inPlay.filter(isOwnRideGap)).map((game) => ({
-    kind: "ownRide" as const,
-    game,
-  }))
+  for (const game of inPlay) {
+    const eventKey = coverageGameEventKey(game.id)
+    const group = byEvent.get(eventKey)
+    if (group) {
+      group.push(game)
+    } else {
+      byEvent.set(eventKey, [game])
+      eventOrder.set(eventKey, game.order)
+    }
+  }
 
-  const requestItems: QueueItem[] = []
-  for (const game of sortByOrder(inPlay)) {
-    for (const request of pendingRequests(game)) {
-      if (isActionableInboundRequest(request)) {
-        requestItems.push({ kind: "request", game, request })
+  const eventKeys = [...byEvent.keys()].sort(
+    (left, right) => (eventOrder.get(left) ?? 0) - (eventOrder.get(right) ?? 0),
+  )
+
+  const queue: QueueItem[] = []
+  const emittedRequestIds = new Set<string>()
+
+  for (const eventKey of eventKeys) {
+    const eventGames = sortByOrder(byEvent.get(eventKey) ?? [])
+
+    for (const game of eventGames) {
+      if (isOwnRideGap(game)) {
+        queue.push({ kind: "ownRide", game })
+      }
+    }
+
+    for (const game of eventGames) {
+      for (const request of pendingRequests(game)) {
+        if (!isActionableInboundRequest(request) || emittedRequestIds.has(request.id)) {
+          continue
+        }
+        emittedRequestIds.add(request.id)
+        queue.push({ kind: "request", game, request })
       }
     }
   }
 
-  return [...ownRideItems, ...requestItems]
+  return queue
 }
 
 /** Hero carousel horizon — same seven-day window as agenda "This week". */

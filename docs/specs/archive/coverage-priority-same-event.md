@@ -1,6 +1,6 @@
 # Spec: coverage-priority-same-event
 
-Status: draft  
+Status: archived  
 Created: 2026-09-08  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-09-08 · enhancement  
@@ -59,34 +59,34 @@ No OpenAPI change. Empty queue still means all caught up. Horizon filtering
 
 ## Acceptance criteria
 
-- [ ] ADR-0001 is amended in the same PR: event-grouped ordering replaces the
+- [x] ADR-0001 is amended in the same PR: event-grouped ordering replaces the
       absolute “all own gaps, then all asks” rule; consequences still require a
       single shared `getQueue`.
-- [ ] `getQueue` implements event-grouped order: for events E then F (E sooner),
+- [x] `getQueue` implements event-grouped order: for events E then F (E sooner),
       `ownGap(E)` before `ask(E)` before `ownGap(F)` before `ask(F)`.
-- [ ] Motivating case: own ride on E confirmed + actionable ask on E + own gap on
+- [x] Motivating case: own ride on E confirmed + actionable ask on E + own gap on
       later F → queue starts with `ask(E)`, then `ownGap(F)` (not the reverse).
-- [ ] Same-event family-first: own gap on E still outranks ask on E when both
+- [x] Same-event family-first: own gap on E still outranks ask on E when both
       exist; that ask still outranks own gap on later F.
-- [ ] Own-gap predicate unchanged: only `isOwnRideGap` rows (unassigned or
+- [x] Own-gap predicate unchanged: only `isOwnRideGap` rows (unassigned or
       pending confirm-for-self); `requested`, waiting on another adult, confirmed,
       and `not_going` stay out of the own-ride tier.
-- [ ] Actionable-ask predicate unchanged: pending and not `autoDeclined` /
+- [x] Actionable-ask predicate unchanged: pending and not `autoDeclined` /
       `passedByMe`.
-- [ ] Multi-kid same calendar item: one queue slide per distinct `request.id`
+- [x] Multi-kid same calendar item: one queue slide per distinct `request.id`
       (dedupe across duplicated `requests` arrays on kid rows).
-- [ ] Empty input / all-resolved input still returns `[]`.
-- [ ] Existing absolute-tier test(s) that assert “later own gap beats sooner ask”
+- [x] Empty input / all-resolved input still returns `[]`.
+- [x] Existing absolute-tier test(s) that assert “later own gap beats sooner ask”
       are updated to the new event-grouped expectation (not deleted without a
       replacement assertion).
-- [ ] No OpenAPI / backend / Expo / KMP changes in this PR.
+- [x] No OpenAPI / backend / Expo / KMP changes in this PR.
 
 ## Tasks
 
-- [ ] Docs: amend [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md) for event-grouped precedence (keep “single shared `getQueue`” consequence)
-- [ ] Web: rewrite `getQueue` in `web/src/components/coverageQueue.ts` to group by calendar event (`coverageGameEventKey`), emit own gaps then asks per event, soonest event first; dedupe asks by `request.id`
-- [ ] Tests: update `coverageQueue.test.ts` — replace absolute-tier ordering cases; add same-event interleave (covered E + ask E + gap F); add same-event own-gap-before-ask-before-later-gap; add multi-kid request dedupe
-- [ ] Web (smoke): confirm hero carousel / focus-sync still consume `getQueue` output order with no local re-sort (fix-only; fix only if a stray sort exists)
+- [x] Docs: amend [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md) for event-grouped precedence (keep “single shared `getQueue`” consequence)
+- [x] Web: rewrite `getQueue` in `web/src/components/coverageQueue.ts` to group by calendar event (`coverageGameEventKey`), emit own gaps then asks per event, soonest event first; dedupe asks by `request.id`
+- [x] Tests: update `coverageQueue.test.ts` — replace absolute-tier ordering cases; add same-event interleave (covered E + ask E + gap F); add same-event own-gap-before-ask-before-later-gap; add multi-kid request dedupe
+- [x] Web (smoke): confirm hero carousel / focus-sync still consume `getQueue` output order with no local re-sort (fix-only; fix only if a stray sort exists)
 
 ## Open questions
 
