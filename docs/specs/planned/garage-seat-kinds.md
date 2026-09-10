@@ -5,11 +5,12 @@ Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-08-14  
 Added: 2026-08-14 · enhancement
 
-Thin stub from `/roadmap`. **Not implementable yet.** Run `/spec garage-seat-kinds`
-to flesh out Approach, Acceptance Criteria, and Tasks before any code.
+Thin stub from `/roadmap`. **Not implementable yet.** Parked with
+`garage-capacity` after `garage-retire`. Do not promote until capacity
+returns.
 
-If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **split**
-(`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
+If fleshing out reveals more than one PR-sized slice, stop and `/roadmap`
+**split** (`Added: … · re-rank split`) — do not grow this stub into a mega-spec.
 
 ## Problem
 
@@ -20,12 +21,12 @@ for a toddler, not only whether a raw seat count is left.
 
 ## Non-goals (sketch)
 
-- Changing v1 `garage-vehicles` (one overridable total)
+- Reviving garage / capacity before `garage-capacity` dogfoods
+- Changing Accept to require vehicles while garage is retired
 - Insurance, LATCH hardware catalogs, or legal-compliance engines
-- Ride request/accept trip math (consume this later)
 
 ## Notes
 
-- Depends on `garage-vehicles`. Promote after request/accept is dogfoodable
-  unless dogfood shows total-only seats is blocking.
-- Keep Hick: don’t add three counters on Add vehicle in v1.
+- Depends on parking `garage-capacity` (and prior `garage-retire`).
+- Do not promote while Accept is vehicle-free.
+- Keep Hick: don’t add three counters on Add vehicle when capacity returns.

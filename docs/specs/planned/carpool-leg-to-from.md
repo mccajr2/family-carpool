@@ -22,10 +22,12 @@ ask for to, from, or both; accepters see which legs they are covering.
 - Pickup vs drop-off at a house (`carpool-meet-at`)
 - Early/late time windows (`carpool-early-late-window`)
 - Stop-order optimize (`carpool-route-optimize`)
+- Garage / seat-capacity gating (`garage-retire` / parking `garage-capacity`)
 - Expo / push
 
 ## Notes
 
-- Depends on shipped `carpool-request-accept`.
+- Depends on shipped `carpool-request-accept`. Prefer after `garage-retire`
+  so Accept is not vehicle-gated while legs land.
 - Kid subset stays on request/accept (default all attending; deselect override).
 - Promoted for carpool Beta (2026-09-08) — web first.
