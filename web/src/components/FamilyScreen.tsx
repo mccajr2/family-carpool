@@ -22,7 +22,6 @@ import {
   type CarpoolSummary,
   type FamilyCircle,
   type FamilyMember,
-  type Garage,
   type Kid,
   type Place,
   type RsvpStatus,
@@ -41,7 +40,6 @@ import {
   feedSectionLabelClass,
   feedSubmitClass,
 } from "@/components/FeedCard"
-import { GaragePanel } from "@/components/GaragePanel"
 import {
   AccountSummaryRow,
   SettingsGroupLabel,
@@ -120,7 +118,7 @@ import {
   rsvpStatusForKid,
 } from "@/components/rsvpDisplay"
 
-type ShellDestination = "calendar" | "carpool" | "family" | "places" | "garage" | "feeds"
+type ShellDestination = "calendar" | "carpool" | "family" | "places" | "feeds"
 
 type Status =
   | { kind: "idle" }
@@ -303,7 +301,6 @@ export function FamilyScreen({
   const [calendarRidesBySpace, setCalendarRidesBySpace] = useState<
     Record<string, CarpoolRideEvent[]>
   >({})
-  const [calendarGarage, setCalendarGarage] = useState<Garage | null>(null)
   const [calendarCarpoolError, setCalendarCarpoolError] = useState<string | null>(null)
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
@@ -451,24 +448,18 @@ export function FamilyScreen({
         const summary = await carpoolClient.getSummary(token)
         const window = defaultCalendarWindow()
         const nextRides: Record<string, CarpoolRideEvent[]> = {}
-        let nextGarage: Garage | null = null
         if (summary.spaces.length > 0) {
-          const [garageNext, rideLists] = await Promise.all([
-            familyClient.getGarage(token),
-            Promise.all(
-              summary.spaces.map((space) =>
-                carpoolClient.listRides(token, space.id, window.from, window.to),
-              ),
+          const rideLists = await Promise.all(
+            summary.spaces.map((space) =>
+              carpoolClient.listRides(token, space.id, window.from, window.to),
             ),
-          ])
-          nextGarage = garageNext
+          )
           summary.spaces.forEach((space, index) => {
             nextRides[space.id] = rideLists[index] ?? []
           })
         }
         setCalendarCarpoolSummary(summary)
         setCalendarRidesBySpace(nextRides)
-        setCalendarGarage(nextGarage)
         setCalendarCarpoolError(null)
       } catch (error: unknown) {
         setCalendarCarpoolError(
@@ -476,7 +467,7 @@ export function FamilyScreen({
         )
       }
     },
-    [carpoolClient, familyClient],
+    [carpoolClient],
   )
 
   useEffect(() => {
@@ -493,17 +484,12 @@ export function FamilyScreen({
         const summary = await carpoolClient.getSummary(token)
         const window = defaultCalendarWindow()
         const nextRides: Record<string, CarpoolRideEvent[]> = {}
-        let nextGarage: Garage | null = null
         if (summary.spaces.length > 0) {
-          const [garageNext, rideLists] = await Promise.all([
-            familyClient.getGarage(token),
-            Promise.all(
-              summary.spaces.map((space) =>
-                carpoolClient.listRides(token, space.id, window.from, window.to),
-              ),
+          const rideLists = await Promise.all(
+            summary.spaces.map((space) =>
+              carpoolClient.listRides(token, space.id, window.from, window.to),
             ),
-          ])
-          nextGarage = garageNext
+          )
           summary.spaces.forEach((space, index) => {
             nextRides[space.id] = rideLists[index] ?? []
           })
@@ -513,7 +499,6 @@ export function FamilyScreen({
         }
         setCalendarCarpoolSummary(summary)
         setCalendarRidesBySpace(nextRides)
-        setCalendarGarage(nextGarage)
         setCalendarCarpoolError(null)
       } catch (error: unknown) {
         if (cancelled) {
@@ -527,7 +512,7 @@ export function FamilyScreen({
     return () => {
       cancelled = true
     }
-  }, [destination, circle, carpoolClient, familyClient, session])
+  }, [destination, circle, carpoolClient, session])
 
   useEffect(() => {
     if (destination !== "calendar") {
@@ -1377,7 +1362,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onAcceptAgendaRide(item: CalendarItem, rideId: string, vehicleId: string) {
+  async function onAcceptAgendaRide(item: CalendarItem, rideId: string) {
     const rideEvent = calendarRideByItemKey.get(calendarItemKey(item))
     const spaceId = spaceIdForCarpoolRide(
       item,
@@ -1395,7 +1380,7 @@ export function FamilyScreen({
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      await carpoolClient.acceptRide(token, spaceId, rideId, { vehicleId })
+      await carpoolClient.acceptRide(token, spaceId, rideId)
       setRecentlyWithdrawnRideIds((current) => {
         if (!current.has(rideId)) {
           return current
@@ -2389,7 +2374,6 @@ export function FamilyScreen({
       circle,
       currentAdultId: adult?.id ?? "",
       loading: status.kind === "loading",
-      garage: calendarGarage,
       rideEvent,
       assignDraft: { adultId: baseAssign.adultId, kidIds: [queueItem.game.kidId] },
       onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
@@ -2404,8 +2388,8 @@ export function FamilyScreen({
           void onCreateAgendaRide(calendarItemForSlide, eventKey, [queueItem.game.kidId])
         }
       },
-      onAcceptRide: (rideId, vehicleId) =>
-        void onAcceptAgendaRide(calendarItemForSlide, rideId, vehicleId),
+      onAcceptRide: (rideId) =>
+        void onAcceptAgendaRide(calendarItemForSlide, rideId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
       leaveFromValue: (() => {
         const draft = leaveFromDrafts[itemKey]
@@ -2458,9 +2442,7 @@ export function FamilyScreen({
           ? circleTitle(circle)
           : destination === "places"
             ? "Places"
-            : destination === "garage"
-              ? "Garage"
-              : "Feeds"
+            : "Feeds"
 
   // Mock frame: grid 240 | 1fr | 320; this <main> is a block with max-width
   // 820 only. Flex / w-full / min-w-* here, or nowrap in the column, freeze 1fr.
@@ -2532,15 +2514,6 @@ export function FamilyScreen({
               onClick={() => {
                 setRideDetailItemKey(null)
                 setDestination("places")
-              }}
-            />
-            <SettingsRow
-              label="Garage"
-              icon="icon.garage"
-              active={destination === "garage"}
-              onClick={() => {
-                setRideDetailItemKey(null)
-                setDestination("garage")
               }}
             />
             {isOrganizer ? (
@@ -3111,7 +3084,6 @@ export function FamilyScreen({
                             )}
                             coverageActionError={coverageActionErrors[itemKey]}
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
-                            garage={calendarGarage}
                             heroQueuedRequestIds={heroQueuedRequestIds}
                             recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
                             autoDeclinedRideIds={autoDeclinedRideIds}
@@ -3120,8 +3092,8 @@ export function FamilyScreen({
                             }
                             onCancelRide={(rideId) => void onCancelAgendaRide(item, rideId)}
                             onWithdrawRide={(rideId) => void onWithdrawAgendaRide(item, rideId)}
-                            onAcceptRide={(rideId, vehicleId) =>
-                              void onAcceptAgendaRide(item, rideId, vehicleId)
+                            onAcceptRide={(rideId) =>
+                              void onAcceptAgendaRide(item, rideId)
                             }
                             onPassRide={(rideId) => void onPassAgendaRide(item, rideId)}
                             onCantMakeIt={(game) => void onCantMakeItAgenda(item, game)}
@@ -3462,31 +3434,11 @@ export function FamilyScreen({
                     </>
           ) : null}
 
-          {destination === "garage" ? (
-            carpoolAccessToken && adult ? (
-              <GaragePanel
-                accessToken={carpoolAccessToken}
-                adultId={adult.id}
-                familyClient={familyClient}
-                places={circle.places}
-                defaultLeaveFromPlaceId={circle.defaultLeaveFromPlaceId}
-              />
-            ) : (
-              <section aria-label="Garage" className="flex flex-col gap-2">
-                <p role="alert" className="text-sm text-destructive">
-                  Not signed in
-                </p>
-              </section>
-            )
-          ) : null}
-
           {destination === "carpool" ? (
             carpoolAccessToken && adult ? (
               <CarpoolPanel
                 accessToken={carpoolAccessToken}
                 carpoolClient={carpoolClient}
-                familyClient={familyClient}
-                adultId={adult.id}
                 circleId={circle.id}
                 kids={circle.kids}
                 onJoined={() => refreshFeedsAndCalendarAfterCarpoolJoin()}

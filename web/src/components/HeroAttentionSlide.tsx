@@ -3,13 +3,8 @@ import type {
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
-  Garage,
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
-import {
-  callerDrives,
-  eligibleVehiclesForAccept,
-} from "@/components/carpoolDisplay"
 import type { QueueItem } from "@/components/coverageQueue"
 import { DriverPicker } from "@/components/DriverPicker"
 import { EventLocationLine } from "@/components/EventLocationLine"
@@ -46,7 +41,6 @@ export type HeroAttentionSlideProps = {
   circle: FamilyCircle
   currentAdultId: string
   loading?: boolean
-  garage?: Garage | null
   rideEvent?: CarpoolRideEvent | null
   assignDraft: { adultId: string; kidIds: string[] }
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
@@ -54,7 +48,7 @@ export type HeroAttentionSlideProps = {
   onAskTeam: () => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
-  onAcceptRide?: (rideId: string, vehicleId: string) => void
+  onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
@@ -77,7 +71,6 @@ export function HeroAttentionSlide({
   circle,
   currentAdultId,
   loading = false,
-  garage = null,
   rideEvent = null,
   assignDraft,
   onUpdateAssignDraft,
@@ -91,7 +84,6 @@ export function HeroAttentionSlide({
   onSetLeaveFrom,
   now = new Date(),
 }: HeroAttentionSlideProps) {
-  const [acceptVehicleId, setAcceptVehicleId] = useState("")
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
@@ -133,24 +125,8 @@ export function HeroAttentionSlide({
     if (ride == null || ride.status !== "PENDING" || ride.passedByMe) {
       return null
     }
-    const drives = callerDrives(garage, currentAdultId)
-    const vehicles = eligibleVehiclesForAccept({
-      drives,
-      adultId: currentAdultId,
-      vehicles: garage?.vehicles ?? [],
-      event: rideEvent!,
-      request: ride,
-    })
-    if (vehicles.length === 0) {
-      return null
-    }
-    return { ride, vehicles }
-  }, [currentAdultId, garage, item, rideEvent])
-
-  const acceptVehicle =
-    requestAccept?.vehicles.find((vehicle) => vehicle.id === acceptVehicleId)?.id ??
-    requestAccept?.vehicles[0]?.id ??
-    ""
+    return ride
+  }, [item, rideEvent])
 
   return (
     <div
@@ -303,31 +279,12 @@ export function HeroAttentionSlide({
               />
               {requestAccept && onAcceptRide && onPassRide ? (
                 <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
-                  {requestAccept.vehicles.length > 1 ? (
-                    <select
-                      aria-label="Vehicle"
-                      className="h-9 rounded-md border bg-transparent px-[var(--fc-space-md)] text-sm"
-                      style={{
-                        borderColor: "rgba(255,255,255,0.12)",
-                        color: "var(--fc-hero-on)",
-                      }}
-                      value={acceptVehicleId || acceptVehicle}
-                      disabled={loading}
-                      onChange={(event) => setAcceptVehicleId(event.target.value)}
-                    >
-                      {requestAccept.vehicles.map((vehicle) => (
-                        <option key={vehicle.id} value={vehicle.id}>
-                          {vehicle.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
                   <button
                     type="button"
                     className="rounded-xl px-5 py-3 font-semibold"
                     style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
-                    disabled={loading || !acceptVehicle}
-                    onClick={() => onAcceptRide(requestAccept.ride.id, acceptVehicle)}
+                    disabled={loading}
+                    onClick={() => onAcceptRide(requestAccept.id)}
                   >
                     Accept
                   </button>
@@ -336,7 +293,7 @@ export function HeroAttentionSlide({
                     className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-hero-on)]"
                     style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
                     disabled={loading}
-                    onClick={() => onPassRide(requestAccept.ride.id)}
+                    onClick={() => onPassRide(requestAccept.id)}
                   >
                     Decline
                   </button>

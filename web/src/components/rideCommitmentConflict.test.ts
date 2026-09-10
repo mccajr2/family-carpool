@@ -33,8 +33,6 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }

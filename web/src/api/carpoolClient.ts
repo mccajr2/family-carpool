@@ -1,6 +1,5 @@
 import { authUrl } from "@/api/authClient"
 import type {
-  AcceptCarpoolRideRequest,
   CarpoolInvite,
   CarpoolJoinRequest,
   CarpoolRide,
@@ -200,17 +199,12 @@ export class CarpoolClient {
     accessToken: string,
     spaceId: string,
     rideId: string,
-    request: AcceptCarpoolRideRequest,
   ): Promise<CarpoolRide> {
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/accept`),
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ vehicleId: request.vehicleId }),
+        headers: { Authorization: `Bearer ${accessToken}` },
       },
     )
     if (!response.ok) {

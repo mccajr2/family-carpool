@@ -159,9 +159,9 @@ reach without thawing KMP — they must not be called from web/backend.
 - [x] Backend: Delete garage HTTP + `FamilyGarageApi` + `GarageService` +
       related DTOs/entities/repos; delete **entire** vPIC stack + config;
       strip carpool Accept of garage/seat/vehicle logic; empty-body Accept
-- [ ] Contract: Remove garage/vPIC paths/schemas/narrative; rewrite Accept;
+- [x] Contract: Remove garage/vPIC paths/schemas/narrative; rewrite Accept;
       drop `vehicleId`/`vehicleLabel` from `CarpoolRide`
-- [ ] Web: Remove Garage destination/panel/client methods/types; strip
+- [x] Web: Remove Garage destination/panel/client methods/types; strip
       `callerDrives` / `eligibleVehiclesForAccept` / garage props from Accept
       surfaces; Accept calls with no body
 - [ ] Docs: Rewrite living garage/vPIC/NHTSA locks in `docs/architecture.md`;

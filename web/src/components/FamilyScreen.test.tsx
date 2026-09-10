@@ -46,7 +46,6 @@ function heroSlideIn(agenda: HTMLElement, title?: string) {
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
-    getGarage: vi.fn().mockResolvedValue({ members: [], vehicles: [] }),
     getCalendarRoute: vi.fn().mockResolvedValue({
       status: "OK",
       reason: null,
@@ -204,7 +203,7 @@ function circleFixture(
 
 async function goTo(
   user: ReturnType<typeof userEvent.setup>,
-  destination: "Calendar" | "Carpool" | "Family" | "Places" | "Garage" | "Feeds",
+  destination: "Calendar" | "Carpool" | "Family" | "Places" | "Feeds",
 ) {
   await user.click(await screen.findByRole("button", { name: destination }))
 }
@@ -1709,7 +1708,6 @@ describe("FamilyScreen", () => {
     expect(screen.getByLabelText("Context")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Carpool" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Places" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Garage" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Feeds" })).not.toBeInTheDocument()
     const account = within(nav).getByLabelText("Account")
     expect(within(account).getByText("J")).toBeInTheDocument()
@@ -2095,8 +2093,6 @@ detourMinutes: null,
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     })
     const getSummary = vi.fn().mockResolvedValue({
       circleRole: "ORGANIZER",
@@ -2328,8 +2324,8 @@ detourMinutes: null,
     expect(settings).toBeInTheDocument()
     expect(within(nav).queryByLabelText("General")).not.toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Places" })).toBeInTheDocument()
-    expect(within(nav).getByRole("button", { name: "Garage" })).toBeInTheDocument()
     expect(within(nav).getByRole("button", { name: "Feeds" })).toBeInTheDocument()
+    expect(within(nav).queryByRole("button", { name: "Garage" })).not.toBeInTheDocument()
     const account = within(nav).getByLabelText("Account")
     expect(account.className).toMatch(/shrink-0/)
     expect(settings.closest("[class*='overflow-y-auto']")).not.toBeNull()
@@ -2345,10 +2341,6 @@ detourMinutes: null,
         name: "Sign out",
       }),
     ).not.toBeInTheDocument()
-
-    await goTo(user, "Garage")
-    expect(await screen.findByRole("heading", { name: "Garage" })).toBeInTheDocument()
-    expect(await screen.findByLabelText("Garage")).toBeInTheDocument()
 
     await goTo(user, "Carpool")
     expect(await screen.findByRole("heading", { name: "Carpool" })).toBeInTheDocument()
@@ -2437,7 +2429,7 @@ detourMinutes: null,
     expect(screen.queryByText(/open in maps/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/need drivers/i)).not.toBeInTheDocument()
 
-    for (const destination of ["Carpool", "Family", "Places", "Garage", "Feeds"] as const) {
+    for (const destination of ["Carpool", "Family", "Places", "Feeds"] as const) {
       await goTo(user, destination)
       expect(screen.queryByLabelText("Context")).not.toBeInTheDocument()
       const destHeading = screen.getByRole("heading", {
@@ -2530,7 +2522,7 @@ detourMinutes: null,
       }),
     ).toBeInTheDocument()
 
-    for (const destination of ["Carpool", "Places", "Garage", "Feeds"] as const) {
+    for (const destination of ["Carpool", "Places", "Feeds"] as const) {
       await goTo(user, destination)
       const destHeading = screen.getByRole("heading", { level: 1, name: destination })
       expect(destHeading).toHaveClass("fc-display")
@@ -6813,8 +6805,6 @@ detourMinutes: null,
       acceptedByAdultId: "1",
       acceptingCircleId: "c1",
       acceptingCircleName: "McCarthy",
-      vehicleId: "v1",
-      vehicleLabel: "Van",
     }
     const feedItem = calendarItem({
       id: "feed-practice",
@@ -6885,23 +6875,6 @@ detourMinutes: null,
           ),
           listCalendar: vi.fn().mockResolvedValue([feedItem]),
           setCalendarRsvp,
-          getGarage: vi.fn().mockResolvedValue({
-            members: [{ adultId: "1", displayName: "Alex", drives: true }],
-            vehicles: [
-              {
-                id: "v1",
-                ownerAdultId: "1",
-                driverAdultIds: ["1"],
-                keptAtPlaceId: null,
-                label: "Van",
-                year: 2020,
-                make: "HONDA",
-                model: "Odyssey",
-                seats: 7,
-                suggestedSeats: null,
-              },
-            ],
-          }),
         })}
         carpoolClient={mockCarpoolClient({
           getSummary: vi.fn().mockResolvedValue({
@@ -7321,8 +7294,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const feedItem = calendarItem({
         id: "e-feed-inbound",
@@ -7396,23 +7367,6 @@ detourMinutes: null,
             getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
             listFeeds: vi.fn().mockResolvedValue([]),
             listCalendar: vi.fn().mockResolvedValue([feedItem]),
-            getGarage: vi.fn().mockResolvedValue({
-              members: [{ adultId: "1", displayName: "Alex", drives: true }],
-              vehicles: [
-                {
-                  id: "v1",
-                  ownerAdultId: "1",
-                  driverAdultIds: ["1"],
-                  keptAtPlaceId: null,
-                  label: "SUV",
-                  year: 2021,
-                  make: "Honda",
-                  model: "Pilot",
-                  seats: 5,
-                  suggestedSeats: null,
-                },
-              ],
-            }),
           })}
           carpoolClient={mockCarpoolClient({ getSummary, listRides })}
           onSignedOut={vi.fn()}
@@ -7508,24 +7462,6 @@ detourMinutes: null,
       })
     }
 
-    const garage = {
-      members: [{ adultId: "1", displayName: "Alex", drives: true }],
-      vehicles: [
-        {
-          id: "v1",
-          ownerAdultId: "1",
-          driverAdultIds: ["1"],
-          keptAtPlaceId: null,
-          label: "SUV",
-          year: 2021,
-          make: "Honda",
-          model: "Pilot",
-          seats: 5,
-          suggestedSeats: null,
-        },
-      ],
-    }
-
     const carpoolSummary = {
       circleRole: "ORGANIZER" as const,
       feeds: [
@@ -7572,8 +7508,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       })
       const ownPending = {
         id: "ride-ask",
@@ -7595,8 +7529,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const listRides = vi
         .fn()
@@ -7645,7 +7577,6 @@ detourMinutes: null,
                 rsvps: [{ kidId: "k1", status: "YES" }],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
@@ -7692,8 +7623,6 @@ detourMinutes: null,
         acceptedByAdultId: "1",
         acceptingCircleId: "c1",
         acceptingCircleName: "House",
-        vehicleId: "v1",
-        vehicleLabel: "SUV",
       }
       const pendingAfterWithdraw = {
         ...acceptedInbound,
@@ -7701,8 +7630,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const withdrawRide = vi.fn().mockResolvedValue(pendingAfterWithdraw)
       const acceptRide = vi.fn().mockResolvedValue(acceptedInbound)
@@ -7769,7 +7696,6 @@ detourMinutes: null,
                 ],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
@@ -7799,7 +7725,7 @@ detourMinutes: null,
       expect(within(item).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
       await user.click(within(item).getByRole("button", { name: "Undo" }))
       await waitFor(() => {
-        expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in", { vehicleId: "v1" })
+        expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
       })
     })
 
@@ -7825,8 +7751,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const inboundAccepted = {
         ...inboundPending,
@@ -7834,8 +7758,6 @@ detourMinutes: null,
         acceptedByAdultId: "1",
         acceptingCircleId: "c1",
         acceptingCircleName: "House",
-        vehicleId: "v1",
-        vehicleLabel: "SUV",
       }
       const ownPending = {
         id: "own-ask",
@@ -7857,8 +7779,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const cancelRide = vi.fn().mockResolvedValue({ ...ownPending, status: "CANCELLED" as const })
       const acceptRide = vi.fn().mockResolvedValue(inboundAccepted)
@@ -7948,7 +7868,6 @@ detourMinutes: null,
                 ],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
@@ -7983,7 +7902,7 @@ detourMinutes: null,
 
       await user.click(within(item).getByRole("button", { name: "Reconsider" }))
       await waitFor(() => {
-        expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in", { vehicleId: "v1" })
+        expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
       })
       await waitFor(() => {
         expect(
@@ -8035,8 +7954,6 @@ detourMinutes: null,
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
           },
           otherRequests: [
             {
@@ -8059,8 +7976,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         },
@@ -8088,7 +8003,6 @@ detourMinutes: null,
                 rsvps: [{ kidId: "k1", status: "YES" }],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
@@ -8136,8 +8050,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const ownPending = {
         id: "own-ask",
@@ -8159,8 +8071,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const createRide = vi.fn().mockResolvedValue(ownPending)
       const listRides = vi
@@ -8210,7 +8120,6 @@ detourMinutes: null,
                 rsvps: [{ kidId: "k1", status: "YES" }],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
@@ -8268,8 +8177,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       }
       const cancelRide = vi.fn().mockResolvedValue({ ...ownPending, status: "CANCELLED" as const })
       const assignCalendarCoverage = vi.fn().mockResolvedValue(
@@ -8349,7 +8256,6 @@ detourMinutes: null,
                 rsvps: [{ kidId: "k1", status: "YES" }],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
             assignCalendarCoverage,
           })}
           carpoolClient={mockCarpoolClient({
@@ -8412,8 +8318,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       })
       const acceptedOwn = {
         id: "ride-teammate",
@@ -8435,8 +8339,6 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
-        vehicleId: "v9",
-        vehicleLabel: "Van",
       }
       const listRides = vi
         .fn()
@@ -8485,7 +8387,6 @@ detourMinutes: null,
                 rsvps: [{ kidId: "k1", status: "YES" }],
               }),
             ]),
-            getGarage: vi.fn().mockResolvedValue(garage),
           })}
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
