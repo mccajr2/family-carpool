@@ -52,9 +52,6 @@ class CarpoolRideRequestEntity {
     @Column(name = "accepting_circle_id")
     private UUID acceptingCircleId;
 
-    @Column(name = "vehicle_id")
-    private UUID vehicleId;
-
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -129,10 +126,6 @@ class CarpoolRideRequestEntity {
         return acceptingCircleId;
     }
 
-    UUID vehicleId() {
-        return vehicleId;
-    }
-
     List<RideKidSnapshot> kids() {
         return List.copyOf(kids);
     }
@@ -141,24 +134,21 @@ class CarpoolRideRequestEntity {
         return kids.size();
     }
 
-    void accept(UUID acceptedByAdultId, UUID acceptingCircleId, UUID vehicleId) {
+    void accept(UUID acceptedByAdultId, UUID acceptingCircleId) {
         this.status = CarpoolRideStatus.ACCEPTED;
         this.acceptedByAdultId = acceptedByAdultId;
         this.acceptingCircleId = acceptingCircleId;
-        this.vehicleId = vehicleId;
     }
 
     void cancel() {
         this.status = CarpoolRideStatus.CANCELLED;
         this.acceptedByAdultId = null;
         this.acceptingCircleId = null;
-        this.vehicleId = null;
     }
 
     void withdraw() {
         this.status = CarpoolRideStatus.PENDING;
         this.acceptedByAdultId = null;
         this.acceptingCircleId = null;
-        this.vehicleId = null;
     }
 }

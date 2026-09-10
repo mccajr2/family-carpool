@@ -2,20 +2,15 @@ package com.yourorg.quickapp.carpool.internal;
 
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
-import com.yourorg.quickapp.carpool.AcceptCarpoolRideRequest;
 import com.yourorg.quickapp.carpool.CarpoolRideEventResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CreateCarpoolRideRequest;
 import com.yourorg.quickapp.family.CirclePlaceDto;
 import com.yourorg.quickapp.family.FamilyCircleName;
-import com.yourorg.quickapp.family.FamilyGarageApi;
 import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyPlaceApi;
-import com.yourorg.quickapp.family.GarageMemberDrivesResponse;
-import com.yourorg.quickapp.family.GarageResponse;
-import com.yourorg.quickapp.family.VehicleResponse;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
@@ -61,7 +56,6 @@ public class CarpoolRideService {
     private final AdultSessionApi adultSessionApi;
     private final FamilyMembershipApi familyMembershipApi;
     private final FamilyPlaceApi familyPlaceApi;
-    private final FamilyGarageApi familyGarageApi;
     private final FeedsApi feedsApi;
     private final FeedCalendarApi feedCalendarApi;
     private final RsvpApi rsvpApi;
@@ -75,7 +69,6 @@ public class CarpoolRideService {
             AdultSessionApi adultSessionApi,
             FamilyMembershipApi familyMembershipApi,
             FamilyPlaceApi familyPlaceApi,
-            FamilyGarageApi familyGarageApi,
             FeedsApi feedsApi,
             FeedCalendarApi feedCalendarApi,
             RsvpApi rsvpApi,
@@ -87,7 +80,6 @@ public class CarpoolRideService {
         this.adultSessionApi = adultSessionApi;
         this.familyMembershipApi = familyMembershipApi;
         this.familyPlaceApi = familyPlaceApi;
-        this.familyGarageApi = familyGarageApi;
         this.feedsApi = feedsApi;
         this.feedCalendarApi = feedCalendarApi;
         this.rsvpApi = rsvpApi;
@@ -117,18 +109,15 @@ public class CarpoolRideService {
                         .stream()
                         .collect(Collectors.groupingBy(CarpoolRideRequestEntity::eventKey));
         Set<UUID> circleIds = new HashSet<>();
-        Set<UUID> vehicleCircleIds = new HashSet<>();
         for (List<CarpoolRideRequestEntity> group : ridesByKey.values()) {
             for (CarpoolRideRequestEntity ride : group) {
                 circleIds.add(ride.requestingCircleId());
                 if (ride.acceptingCircleId() != null) {
                     circleIds.add(ride.acceptingCircleId());
-                    vehicleCircleIds.add(ride.acceptingCircleId());
                 }
             }
         }
         Map<UUID, String> circleNames = circleNames(circleIds);
-        Map<UUID, String> vehicleLabels = vehicleLabels(vehicleCircleIds);
         Set<UUID> listedRideIds =
                 ridesByKey.values().stream()
                         .flatMap(List::stream)
@@ -175,7 +164,6 @@ public class CarpoolRideService {
                         toRideResponse(
                                 ride,
                                 circleNames,
-                                vehicleLabels,
                                 passedByMe,
                                 passedByAdultNames(ridePasses, adultDisplayNames),
                                 detourMinutes);
@@ -251,15 +239,13 @@ public class CarpoolRideService {
         return toRideResponse(
                 created,
                 circleNames(List.of(circleId)),
-                Map.of(),
                 false,
                 List.of(),
                 null);
     }
 
     @Transactional
-    public CarpoolRideResponse accept(
-            AdultResponse adult, UUID spaceId, UUID rideId, AcceptCarpoolRideRequest request) {
+    public CarpoolRideResponse accept(AdultResponse adult, UUID spaceId, UUID rideId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         requireMemberSpace(spaceId, circleId);
         CarpoolRideRequestEntity ride =
@@ -270,45 +256,13 @@ public class CarpoolRideService {
         if (ride.status() != CarpoolRideStatus.PENDING) {
             throw new CarpoolException(HttpStatus.CONFLICT, "Ride is not PENDING");
         }
-        GarageResponse garage = familyGarageApi.garageForCircle(circleId);
-        boolean drives =
-                garage.members().stream()
-                        .filter(member -> member.adultId().equals(adult.id()))
-                        .findFirst()
-                        .map(GarageMemberDrivesResponse::drives)
-                        .orElse(true);
-        if (!drives) {
-            throw new CarpoolException(HttpStatus.FORBIDDEN, "Caller has drives=false");
-        }
-        VehicleResponse vehicle =
-                garage.vehicles().stream()
-                        .filter(row -> row.id().equals(request.vehicleId()))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new CarpoolException(
-                                                HttpStatus.NOT_FOUND, "Vehicle not found"));
-        if (!vehicle.driverAdultIds().contains(adult.id())) {
-            throw new CarpoolException(HttpStatus.NOT_FOUND, "Vehicle not found");
-        }
-        if (rides.existsBySpaceIdAndEventKeyAndVehicleIdAndStatus(
-                spaceId, ride.eventKey(), vehicle.id(), CarpoolRideStatus.ACCEPTED)) {
-            throw new CarpoolException(
-                    HttpStatus.CONFLICT, "Vehicle already has an accepted ride for this event");
-        }
-        int ownYesKids = yesKidCountOnEvent(circleId, spaceId, ride.eventKey());
-        int remaining = vehicle.seats() - 1 - ownYesKids;
-        if (remaining < ride.seats()) {
-            throw new CarpoolException(HttpStatus.CONFLICT, "Not enough remaining seats");
-        }
-        ride.accept(adult.id(), circleId, vehicle.id());
+        ride.accept(adult.id(), circleId);
         rides.save(ride);
         passes.deleteByRideId(ride.id());
         ensureRequestingKidsYes(ride, adult.id());
         upsertAcceptedDriverRoute(ride, spaceId);
         Map<UUID, String> names = circleNames(List.of(ride.requestingCircleId(), circleId));
-        return toRideResponse(
-                ride, names, Map.of(vehicle.id(), vehicle.label()), false, List.of(), null);
+        return toRideResponse(ride, names, false, List.of(), null);
     }
 
     @Transactional
@@ -334,7 +288,6 @@ public class CarpoolRideService {
         return toRideResponse(
                 ride,
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
-                Map.of(),
                 true,
                 passedByAdultNames(ridePasses, adultDisplayNames),
                 null);
@@ -363,7 +316,7 @@ public class CarpoolRideService {
             refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
         }
         return toRideResponse(
-                ride, circleNames(List.of(circleId)), Map.of(), false, List.of(), null);
+                ride, circleNames(List.of(circleId)), false, List.of(), null);
     }
 
     @Transactional
@@ -388,7 +341,6 @@ public class CarpoolRideService {
         return toRideResponse(
                 ride,
                 circleNames(List.of(ride.requestingCircleId(), circleId)),
-                Map.of(),
                 false,
                 List.of(),
                 null);
@@ -658,30 +610,6 @@ public class CarpoolRideService {
         return kidIds;
     }
 
-    private int yesKidCountOnEvent(UUID circleId, UUID spaceId, String eventKey) {
-        CarpoolSpaceEntity space = spaces.findById(spaceId).orElseThrow(this::notFound);
-        return findSpaceEvent(circleId, space, eventKey)
-                .map(
-                        event -> {
-                            List<UUID> feedKids =
-                                    event.kidIds() == null ? List.of() : event.kidIds();
-                            if (feedKids.isEmpty()) {
-                                return 0;
-                            }
-                            return (int)
-                                    rsvpApi
-                                            .statusesForKids(
-                                                    circleId,
-                                                    RsvpItemSource.FEED,
-                                                    event.id(),
-                                                    feedKids)
-                                            .stream()
-                                            .filter(row -> row.status() == RsvpStatus.YES)
-                                            .count();
-                        })
-                .orElse(0);
-    }
-
     private Optional<FeedCalendarEventDto> findSpaceEvent(
             UUID circleId, CarpoolSpaceEntity space, String eventKey) {
         if (eventKey == null || eventKey.isBlank()) {
@@ -720,14 +648,11 @@ public class CarpoolRideService {
     private CarpoolRideResponse toRideResponse(
             CarpoolRideRequestEntity ride,
             Map<UUID, String> circleNames,
-            Map<UUID, String> vehicleLabels,
             boolean passedByMe,
             List<String> passedByAdultNames,
             Integer detourMinutes) {
         List<UUID> kidIds = ride.kids().stream().map(RideKidSnapshot::kidId).toList();
         List<String> firstNames = ride.kids().stream().map(RideKidSnapshot::firstName).toList();
-        String vehicleLabel =
-                ride.vehicleId() == null ? null : vehicleLabels.get(ride.vehicleId());
         return new CarpoolRideResponse(
                 ride.id(),
                 ride.spaceId(),
@@ -746,8 +671,6 @@ public class CarpoolRideService {
                 ride.acceptedByAdultId(),
                 ride.acceptingCircleId(),
                 ride.acceptingCircleId() == null ? null : circleNames.get(ride.acceptingCircleId()),
-                ride.vehicleId(),
-                vehicleLabel,
                 PickupTownParser.pickupTownFromAddress(ride.pickupAddress()),
                 detourMinutes);
     }
@@ -812,19 +735,6 @@ public class CarpoolRideService {
             names.put(row.id(), row.name());
         }
         return names;
-    }
-
-    private Map<UUID, String> vehicleLabels(Set<UUID> circleIds) {
-        Map<UUID, String> labels = new HashMap<>();
-        for (UUID circleId : circleIds) {
-            if (circleId == null) {
-                continue;
-            }
-            for (VehicleResponse vehicle : familyGarageApi.garageForCircle(circleId).vehicles()) {
-                labels.put(vehicle.id(), vehicle.label());
-            }
-        }
-        return labels;
     }
 
     private CarpoolSpaceEntity requireMemberSpace(UUID spaceId, UUID circleId) {

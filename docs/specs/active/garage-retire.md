@@ -154,9 +154,9 @@ reach without thawing KMP — they must not be called from web/backend.
 
 ## Tasks
 
-- [ ] Backend: Flyway hard-drop migration (vehicles, drivers, vpic cache,
+- [x] Backend: Flyway hard-drop migration (vehicles, drivers, vpic cache,
       `drives`, ride `vehicle_id` + unique index)
-- [ ] Backend: Delete garage HTTP + `FamilyGarageApi` + `GarageService` +
+- [x] Backend: Delete garage HTTP + `FamilyGarageApi` + `GarageService` +
       related DTOs/entities/repos; delete **entire** vPIC stack + config;
       strip carpool Accept of garage/seat/vehicle logic; empty-body Accept
 - [ ] Contract: Remove garage/vPIC paths/schemas/narrative; rewrite Accept;

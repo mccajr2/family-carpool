@@ -130,10 +130,9 @@ public class CarpoolController {
     public CarpoolRideResponse acceptRide(
             @PathVariable("spaceId") UUID spaceId,
             @PathVariable("rideId") UUID rideId,
-            @Valid @RequestBody AcceptCarpoolRideRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.accept(adult, spaceId, rideId, request);
+        return carpoolRideService.accept(adult, spaceId, rideId);
     }
 
     @PostMapping("/spaces/{spaceId}/rides/{rideId}/pass")

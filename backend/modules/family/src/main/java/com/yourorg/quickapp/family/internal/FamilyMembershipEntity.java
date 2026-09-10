@@ -33,9 +33,6 @@ class FamilyMembershipEntity {
     @Column(name = "default_leave_from_place_id")
     private UUID defaultLeaveFromPlaceId;
 
-    @Column(nullable = false)
-    private boolean drives = true;
-
     protected FamilyMembershipEntity() {}
 
     FamilyMembershipEntity(UUID id, UUID circleId, UUID adultId, FamilyRole role, Instant createdAt) {
@@ -62,19 +59,11 @@ class FamilyMembershipEntity {
         return defaultLeaveFromPlaceId;
     }
 
-    boolean drives() {
-        return drives;
-    }
-
     void setRole(FamilyRole role) {
         this.role = role;
     }
 
     void setDefaultLeaveFromPlaceId(UUID defaultLeaveFromPlaceId) {
         this.defaultLeaveFromPlaceId = defaultLeaveFromPlaceId;
-    }
-
-    void setDrives(boolean drives) {
-        this.drives = drives;
     }
 }
