@@ -13,9 +13,9 @@ Family scheduling and carpool app — built from the quickapp SDD starter.
 
 
 Product path so far: **email OTP + Bearer auth**, **family circle + kids**,
-unified **Agenda**, **opt-in team carpool spaces** (one per feed URL;
-Organizer Enable; join by code or request), then **circle garage** (vehicles,
-who may drive, I don’t drive). Greeting harness removed.
+unified **Agenda**, and **opt-in team carpool spaces** (one per feed URL;
+Organizer Enable; join by code or request; request / accept / pass rides).
+Greeting harness removed.
 
 ## Quick start (auth + family smoke)
 
@@ -65,40 +65,6 @@ curl -s -X POST http://localhost:8080/api/family/circle/kids \
   -d '{"displayName":"Sam"}'
 ```
 
-## Garage smoke (add a vehicle, second driver, don’t drive)
-
-Same backend, `$TOKEN` (Alex), and `$TOKEN2` (Jordan) as above. Makes/models
-lists come from the backend (NHTSA vPIC); clients never send a VIN.
-
-```bash
-ADULT=$(curl -s http://localhost:8080/api/family/circle \
-  -H "Authorization: Bearer $TOKEN" | jq -r '.members[] | select(.role=="ORGANIZER") | .adultId')
-ADULT2=$(curl -s http://localhost:8080/api/family/circle \
-  -H "Authorization: Bearer $TOKEN" | jq -r '.members[] | select(.role=="CAREGIVER") | .adultId')
-
-# Add a vehicle (owner = Alex; drivers default to Alex only)
-VEHICLE_ID=$(curl -s -X POST http://localhost:8080/api/family/circle/garage/vehicles \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"label":"Blue van","year":2019,"make":"HONDA","model":"Odyssey","seats":8}' \
-  | jq -r .id)
-
-# Add Jordan as a driver (same named place would not do this automatically)
-curl -s -X PUT "http://localhost:8080/api/family/circle/garage/vehicles/$VEHICLE_ID" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d "{\"label\":\"Blue van\",\"year\":2019,\"make\":\"HONDA\",\"model\":\"Odyssey\",\"seats\":8,\"driverAdultIds\":[\"$ADULT\",\"$ADULT2\"]}"
-
-# I don’t drive — owned vehicles and driver lists stay
-curl -s -X PATCH http://localhost:8080/api/family/circle/garage/me \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"drives":false}'
-
-curl -s http://localhost:8080/api/family/circle/garage \
-  -H "Authorization: Bearer $TOKEN"
-```
-
 ## Team carpool smoke (enable, join, request, accept)
 
 Same backend and `$TOKEN` (family A Organizer) as above. A second household
@@ -144,13 +110,6 @@ curl -s -X POST http://localhost:8080/api/family/circle/places \
   -H 'Content-Type: application/json' \
   -d '{"name":"Home","address":"1 Main St"}'
 
-# Family A: a vehicle they can drive (seats include the driver)
-VEHICLE_ID=$(curl -s -X POST http://localhost:8080/api/family/circle/garage/vehicles \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"label":"Van","year":2019,"make":"HONDA","model":"Odyssey","seats":8}' \
-  | jq -r .id)
-
 FROM=$(date -u -v-0d +%Y-%m-%dT00:00:00Z 2>/dev/null || date -u -d 'today 00:00' +%Y-%m-%dT00:00:00Z)
 TO=$(date -u -v+30d +%Y-%m-%dT00:00:00Z 2>/dev/null || date -u -d 'today + 30 days' +%Y-%m-%dT00:00:00Z)
 
@@ -167,11 +126,9 @@ RIDE_ID=$(curl -s -X POST "http://localhost:8080/api/carpool/spaces/$SPACE_ID/ri
   -H 'Content-Type: application/json' \
   -d "{\"eventKey\":\"$EVENT_KEY\"}" | jq -r .id)
 
-# Family A accepts (see kid first names, seats, pickup name+address on the request)
+# Family A accepts (empty body — no vehicle required)
 curl -s -X POST "http://localhost:8080/api/carpool/spaces/$SPACE_ID/rides/$RIDE_ID/accept" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d "{\"vehicleId\":\"$VEHICLE_ID\"}" | jq .
+  -H "Authorization: Bearer $TOKEN" | jq .
 ```
 
 **Web:**
@@ -184,10 +141,10 @@ npm run dev
 
 Open the app → email OTP → **Create family** or **Have an invite code?** →
 members / invite code (Organizer) → add/rename/remove kids (Organizer) →
-**More / Settings → Garage** (add a vehicle, who can drive, I don’t drive) →
+**More / Settings → Places** (and Feeds for Organizers) →
 **Calendar** (RSVP Yes for who’s going) → **Carpool** (Enable on a feed,
-paste a code, request/admit, then **Request** / **Accept** a ride and confirm
-seats + pickup) → Leave family or Sign out. Unnamed circles show as **Your
+paste a code, request/admit, then **Request** / **Accept** / **Pass** a ride) →
+Leave family or Sign out. Unnamed circles show as **Your
 family**. Android/iOS Carpool UI stays membership-only for now.
 
 **Android:** open `mobile/` in Android Studio → run `androidApp` on an emulator.
@@ -241,7 +198,7 @@ npm test
 ## Status
 
 Active product: family calendar + carpool roadmap. Auth, family-circle, Agenda,
-team carpool spaces, and circle garage shipped on feature branches via PR.
+and team carpool spaces shipped on feature branches via PR.
 `main` is PR-protected. Next up: `auth-email-delivery`.
 Pre-beta gates later: `web-auth-session-hardening`,
 `adult-optional-password`.

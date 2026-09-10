@@ -164,7 +164,7 @@ reach without thawing KMP — they must not be called from web/backend.
 - [x] Web: Remove Garage destination/panel/client methods/types; strip
       `callerDrives` / `eligibleVehiclesForAccept` / garage props from Accept
       surfaces; Accept calls with no body
-- [ ] Docs: Rewrite living garage/vPIC/NHTSA locks in `docs/architecture.md`;
+- [x] Docs: Rewrite living garage/vPIC/NHTSA locks in `docs/architecture.md`;
       remove README Garage smoke; invert/replace `docs/garage-docs.test.mjs`
       to absence guards
 - [ ] Tests: Flip `OpenApiContractTest` garage assertions to absence; backend
