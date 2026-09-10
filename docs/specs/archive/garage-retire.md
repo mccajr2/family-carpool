@@ -1,10 +1,10 @@
 # Spec: garage-retire
 
-Status: draft  
+Status: archived  
 Created: 2026-09-10  
 Parent: [docs/roadmap.md](../../roadmap.md)  
-Branch: `garage-retire`  
-Added: 2026-09-10 · enhancement
+Added: 2026-09-10 · enhancement  
+Branch: `garage-retire`
 
 ## Problem
 
@@ -104,38 +104,38 @@ reach without thawing KMP — they must not be called from web/backend.
 
 ## Acceptance criteria
 
-- [ ] **Nav:** Signed-in Settings rail shows Places / Feeds only — no Garage
+- [x] **Nav:** Signed-in Settings rail shows Places / Feeds only — no Garage
       row, no `destination === "garage"` route, no `GaragePanel` mount.
-- [ ] **Accept eligibility (API):** Space-member adult whose circle is **not**
+- [x] **Accept eligibility (API):** Space-member adult whose circle is **not**
       the requesting circle may `POST .../accept` with **empty body** (no
       request schema / no `vehicleId`). Own-circle → **409**. Not `PENDING`
       → **409**. Member/unknown → **404**. **No** `403` for `drives=false`.
       **No** seat-remaining or vehicle-committed checks.
-- [ ] **Accept effect:** Success sets `ACCEPTED`, records accepting
+- [x] **Accept effect:** Success sets `ACCEPTED`, records accepting
       adult/circle, clears passes, sets RSVP YES for kids on the ride —
       unchanged except **no** vehicle recorded.
-- [ ] **Contract:** All `/api/family/circle/garage*` paths and garage/vehicle /
+- [x] **Contract:** All `/api/family/circle/garage*` paths and garage/vehicle /
       vPIC schemas removed from OpenAPI (including overview narrative).
       `AcceptCarpoolRideRequest` removed. `CarpoolRide` has no `vehicleId` /
       `vehicleLabel`. Web clients + types updated in the same change.
-- [ ] **Schema:** New Flyway migration drops `family_vehicle_drivers`,
+- [x] **Schema:** New Flyway migration drops `family_vehicle_drivers`,
       `family_vehicles`, `vpic_seat_cache`; drops `family_memberships.drives`;
       drops `carpool_ride_requests.vehicle_id` and the
       `carpool_ride_requests_vehicle_event_unique` index.
-- [ ] **Backend cleanup:** Garage controller/service/API/DTOs/entities and
+- [x] **Backend cleanup:** Garage controller/service/API/DTOs/entities and
       **all** vPIC/NHTSA code gone (`VpicPort`, lookup, cache, YAML
       `app.vpic` / `VPIC_BASE_URL` / `vpic.nhtsa.dot.gov`, testcontainer stub
       property). Carpool no longer depends on `FamilyGarageApi`.
-- [ ] **Web Accept UX:** Focus / Agenda inbound / Carpool tab Accept does not
+- [x] **Web Accept UX:** Focus / Agenda inbound / Carpool tab Accept does not
       fetch garage, pick a vehicle, or hide Accept when garage would have been
       empty or `drives` false. Pass/Decline unchanged.
-- [ ] **Copy:** No living dogfood copy that tells users to add a vehicle or
+- [x] **Copy:** No living dogfood copy that tells users to add a vehicle or
       set drives before Accept. Ride `seats` label (kid count) may remain.
-- [ ] **Living docs:** `docs/architecture.md` does not lock live Garage,
+- [x] **Living docs:** `docs/architecture.md` does not lock live Garage,
       `FamilyGarageApi`, vPIC, or NHTSA as current product behavior; Accept
       rules match this spec; revive pointed only at parking
       `garage-capacity`. `README.md` has no Garage / garage-API smoke.
-- [ ] **Anti-leak fence (until explicit revive):**
+- [x] **Anti-leak fence (until explicit revive):**
       - Docs test (replace/invert `docs/garage-docs.test.mjs`): architecture
         must **not** match live `FamilyGarageApi` / Circle garage detail /
         NHTSA-as-current; README must **not** contain Garage smoke /
@@ -148,7 +148,7 @@ reach without thawing KMP — they must not be called from web/backend.
       - `ModularityTests` still passes.
       - **Allowed later:** a dedicated parked revive spec may re-add garage /
         vPIC and flip these tests — that is intentional, not a leak.
-- [ ] **Archive/history untouched:** Do not rewrite
+- [x] **Archive/history untouched:** Do not rewrite
       `docs/specs/archive/*` or roadmap **Roadmap history** solely to erase
       past garage/NHTSA mentions.
 
@@ -167,7 +167,7 @@ reach without thawing KMP — they must not be called from web/backend.
 - [x] Docs: Rewrite living garage/vPIC/NHTSA locks in `docs/architecture.md`;
       remove README Garage smoke; invert/replace `docs/garage-docs.test.mjs`
       to absence guards
-- [ ] Tests: Flip `OpenApiContractTest` garage assertions to absence; backend
+- [x] Tests: Flip `OpenApiContractTest` garage assertions to absence; backend
       accept + migration; remove garage/vPIC unit/integration tests; web nav +
       Accept + client tests; run ModularityTests + docs tests
 

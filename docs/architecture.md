@@ -206,7 +206,7 @@ Adult --RSVP--> (source + itemId) + Kid
 
 ### Circle garage (retired)
 
-**Retired** by [`garage-retire`](specs/active/garage-retire.md). Household
+**Retired** by [`garage-retire`](specs/archive/garage-retire.md). Household
 vehicle inventory and seat-capacity lookup were removed — do not treat
 archived [`garage-vehicles`](specs/archive/garage-vehicles.md) as a live lock.
 Revive only via parking [`garage-capacity`](roadmap.md) (and later seat-kinds
