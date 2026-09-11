@@ -213,7 +213,7 @@ above. Do not revive closed PR #107 patches.
       (`CarpoolRideControllerIntegrationTest`) for leg matrix + migration
       readability + not-going.
 - [x] Web: types + `carpoolClient` mapping.
-- [ ] Web: dual-chip helpers (`coverageCopy` / `rideStatusChip` /
+- [x] Web: dual-chip helpers (`coverageCopy` / `rideStatusChip` /
       `carpoolDisplay` / `coverageQueue` as needed) + component tests.
 - [ ] Web: wire Focus, AgendaRow (and Carpool ride lines / week-glance if they
       share the same helpers) to dual chips; keep round-trip actions working;

@@ -6,6 +6,8 @@ import {
   ATTENDANCE_NOT_GOING_CHIP,
   CARPOOL_ASK_SINGULAR,
   CONFIRM_YOU_WILL_DRIVE,
+  LEG_ASKED_TEAM,
+  LEG_NEEDS_RIDE,
   OVERLAPS_CHIP,
   RIDE_CONFLICT_CHIP,
   RIDE_NEEDED,
@@ -13,18 +15,22 @@ import {
   alsoDrivingKidLabel,
   carpoolAskCountLabel,
   drivingChipLabel,
+  legStatusChipLabel,
   ridingWithCircleLabel,
   waitingOnDriverLabel,
 } from "@/components/coverageCopy"
 import {
+  agendaOwnRideLegChips,
   carpoolAskChipForRideEvent,
+  inboundAskLegChips,
   pickMostUrgentGameRow,
+  rideLegStatusChips,
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
 import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
 import type { CarpoolRideEvent } from "@/api/types"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
   return {
@@ -383,7 +389,8 @@ describe("rideStatusChipsForItem", () => {
     ).toEqual([
       { label: OVERLAPS_CHIP, tone: "amber" },
       { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
-      { label: RIDE_NEEDED, tone: "amber" },
+      { label: legStatusChipLabel("TO", LEG_NEEDS_RIDE), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
     ])
   })
 
@@ -431,7 +438,8 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
-      { label: ridingWithCircleLabel("House B"), tone: "mint" },
+      { label: legStatusChipLabel("TO", "House B confirmed"), tone: "mint" },
+      { label: legStatusChipLabel("FROM", "House B confirmed"), tone: "mint" },
     ])
   })
 
@@ -464,7 +472,76 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
-      { label: RIDE_NEEDED, tone: "amber" },
+      { label: legStatusChipLabel("TO", LEG_NEEDS_RIDE), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+    ])
+  })
+})
+
+describe("rideLegStatusChips", () => {
+  it("maps the four phases with Getting there / Coming back prefixes", () => {
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "ASKED_TEAM"),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ]),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+    ])
+
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "WAITING_HOUSEHOLD", { assigneeDisplayName: "Katy" }),
+        carpoolLeg("FROM", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Alex",
+        }),
+      ], { currentAdultId: "a1" }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", waitingOnDriverLabel("Katy")), tone: "amber" },
+      { label: legStatusChipLabel("FROM", YOURE_DRIVING), tone: "mint" },
+    ])
+  })
+
+  it("orders TO before FROM regardless of input order", () => {
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+        carpoolLeg("TO", "ASKED_TEAM"),
+      ]),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+    ])
+  })
+})
+
+describe("agendaOwnRideLegChips / inboundAskLegChips", () => {
+  it("returns null without an own request and maps request legs for inbound", () => {
+    expect(agendaOwnRideLegChips(null)).toBeNull()
+    expect(
+      agendaOwnRideLegChips(
+        ownRide({
+          status: "PENDING",
+          legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "ASKED_TEAM")],
+        }),
+      ),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
+    ])
+
+    expect(
+      inboundAskLegChips(
+        ownRide({
+          status: "PENDING",
+          legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
+        }),
+      ),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
     ])
   })
 })

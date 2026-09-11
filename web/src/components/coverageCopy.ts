@@ -53,6 +53,39 @@ export function waitingOnDriverLabel(driver: string): string {
   return `Waiting on ${driver}`
 }
 
+// — Per-leg transport chips (Getting there / Coming back) —
+
+export const LEG_GETTING_THERE = "Getting there" as const
+export const LEG_COMING_BACK = "Coming back" as const
+/** Leg-chip phase copy (shorter than collapsed Agenda `RIDE_NEEDED`). */
+export const LEG_NEEDS_RIDE = "Needs ride" as const
+export const LEG_ASKED_TEAM = "Asked team" as const
+
+export function legKindLabel(kind: "TO" | "FROM"): string {
+  return kind === "TO" ? LEG_GETTING_THERE : LEG_COMING_BACK
+}
+
+/** Confirmed-leg chip body: You're driving | {name} confirmed. */
+export function legConfirmedStatusLabel(
+  assigneeDisplayName: string | null | undefined,
+  options?: { currentAdultId?: string; assigneeAdultId?: string | null },
+): string {
+  if (
+    options?.currentAdultId != null &&
+    options.assigneeAdultId != null &&
+    options.assigneeAdultId === options.currentAdultId
+  ) {
+    return YOURE_DRIVING
+  }
+  const who = assigneeDisplayName?.trim()
+  return who ? `${who} confirmed` : "Confirmed"
+}
+
+/** Full dual-chip label: `Getting there: Asked team`. */
+export function legStatusChipLabel(kind: "TO" | "FROM", phaseStatus: string): string {
+  return `${legKindLabel(kind)}: ${phaseStatus}`
+}
+
 /** Cancel a pending household assign to another adult. */
 export function cancelRequestToDriverLabel(driver: string): string {
   return `Cancel request to ${driver}`
