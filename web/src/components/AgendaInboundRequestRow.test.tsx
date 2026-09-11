@@ -12,6 +12,7 @@ import {
   REVERT_INBOUND_RECONSIDER,
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 
 const pendingAsk: CarpoolRide = {
@@ -34,6 +35,7 @@ const pendingAsk: CarpoolRide = {
   acceptedByAdultId: null,
   acceptingCircleId: null,
   acceptingCircleName: null,
+  legs: carpoolLegsBoth("ASKED_TEAM"),
 }
 
 const acceptedByUs: CarpoolRide = {
@@ -47,11 +49,8 @@ const acceptedByUs: CarpoolRide = {
 
 
 describe("inboundRequestStatusChip", () => {
-  it("labels pending asks as Ride needed", () => {
-    expect(inboundRequestStatusChip(pendingAsk, "c1")).toEqual({
-      label: "Ride needed",
-      tone: "amber",
-    })
+  it("defers pending asks to dual leg chips", () => {
+    expect(inboundRequestStatusChip(pendingAsk, "c1")).toBeNull()
   })
 
   it("labels auto-declined asks with the mock Declined copy", () => {
@@ -79,10 +78,45 @@ describe("AgendaInboundRequestRow", () => {
       />,
     )
 
+    expect(screen.getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(screen.getByText("Coming back: Asked team")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ask-1")
+  })
+
+  it("shows TO-only asks as distinct from round-trip", () => {
+    render(
+      <AgendaInboundRequestRow
+        request={{
+          ...pendingAsk,
+          legs: [
+            {
+              kind: "TO",
+              phase: "ASKED_TEAM",
+              assigneeAdultId: null,
+              assigneeDisplayName: null,
+              assigneeCircleId: null,
+              assigneeCircleName: null,
+            },
+            {
+              kind: "FROM",
+              phase: "NEEDS_RIDE",
+              assigneeAdultId: null,
+              assigneeDisplayName: null,
+              assigneeCircleId: null,
+              assigneeCircleName: null,
+            },
+          ],
+        }}
+        circleId="c1"
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+      />,
+    )
+    expect(screen.getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(screen.getByText("Coming back: Needs ride")).toBeInTheDocument()
   })
 
   it("shows hero handoff copy instead of Accept/Pass when queued above", () => {

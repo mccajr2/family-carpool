@@ -223,6 +223,7 @@ export function AgendaRow({
   const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest, {
     rideEvent,
     circleId: circle.id,
+    currentAdultId,
   })
   const tags = askChip != null ? [...rideChips, askChip] : rideChips
   const commitmentConflict = rideCommitmentConflict(

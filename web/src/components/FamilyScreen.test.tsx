@@ -7718,7 +7718,7 @@ detourMinutes: null,
         expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
       })
       // ADR-0002 §2: withdraw inbound does not drop caller's own coverage.
-      expect(within(item).getAllByText("You're driving").length).toBeGreaterThan(0)
+      expect(within(item).getAllByText(/You're driving/).length).toBeGreaterThan(0)
       await waitFor(() => {
         expect(within(item).getByRole("button", { name: "Undo" })).toBeInTheDocument()
       })

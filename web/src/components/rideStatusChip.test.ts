@@ -6,6 +6,8 @@ import {
   ATTENDANCE_NOT_GOING_CHIP,
   CARPOOL_ASK_SINGULAR,
   CONFIRM_YOU_WILL_DRIVE,
+  LEG_ASKED_TEAM,
+  LEG_NEEDS_RIDE,
   OVERLAPS_CHIP,
   RIDE_CONFLICT_CHIP,
   RIDE_NEEDED,
@@ -13,17 +15,22 @@ import {
   alsoDrivingKidLabel,
   carpoolAskCountLabel,
   drivingChipLabel,
+  legStatusChipLabel,
   ridingWithCircleLabel,
   waitingOnDriverLabel,
 } from "@/components/coverageCopy"
 import {
+  agendaOwnRideLegChips,
   carpoolAskChipForRideEvent,
+  inboundAskLegChips,
   pickMostUrgentGameRow,
+  rideLegStatusChips,
   rideStatusChipForGameRow,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
 import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
 import type { CarpoolRideEvent } from "@/api/types"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
   return {
@@ -116,6 +123,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -362,6 +370,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [inbound],
     }
@@ -407,6 +416,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: accepted,
       otherRequests: [inbound],
     }
@@ -427,7 +437,8 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
-      { label: ridingWithCircleLabel("House B"), tone: "mint" },
+      { label: legStatusChipLabel("TO", "House B confirmed"), tone: "mint" },
+      { label: legStatusChipLabel("FROM", "House B confirmed"), tone: "mint" },
     ])
   })
 
@@ -446,6 +457,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [inbound],
     }
@@ -460,6 +472,144 @@ describe("rideStatusChipsForItem", () => {
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
       { label: RIDE_NEEDED, tone: "amber" },
+    ])
+  })
+
+  it("prefers dual leg chips when ownRequest is PENDING even if coverage says unassigned", () => {
+    const pending = ownRide({ status: "PENDING" })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("ASKED_TEAM"),
+      ownRequest: pending,
+      otherRequests: [],
+    }
+    const item = calendarItem({ kidIds: ["k1"] })
+    const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "requested" })]
+
+    expect(
+      rideStatusChipsForItem(item, games, pending, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
+    ])
+  })
+
+  it("keeps Ride needed for a sibling gap beside an ACCEPTED own plan", () => {
+    const accepted = ownRide({
+      status: "ACCEPTED",
+      acceptingCircleName: "House B",
+      kidIds: ["k1"],
+      legs: carpoolLegsBoth("CONFIRMED"),
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownLegs: carpoolLegsBoth("CONFIRMED"),
+      ownRequest: accepted,
+      otherRequests: [],
+    }
+    const item = calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: ["k2"] })
+    const games = [
+      game({
+        id: "on-plan",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "House B", confirmed: true },
+      }),
+      game({ id: "gap", kidId: "k2", order: 200, ownRide: "unassigned" }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, accepted, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([{ label: RIDE_NEEDED, tone: "amber" }])
+  })
+})
+
+describe("rideLegStatusChips", () => {
+  it("maps the four phases with Getting there / Coming back prefixes", () => {
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "ASKED_TEAM"),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ]),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+    ])
+
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "WAITING_HOUSEHOLD", { assigneeDisplayName: "Katy" }),
+        carpoolLeg("FROM", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Alex",
+        }),
+      ], { currentAdultId: "a1" }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", waitingOnDriverLabel("Katy")), tone: "amber" },
+      { label: legStatusChipLabel("FROM", YOURE_DRIVING), tone: "mint" },
+    ])
+  })
+
+  it("orders TO before FROM regardless of input order", () => {
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+        carpoolLeg("TO", "ASKED_TEAM"),
+      ]),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+    ])
+  })
+
+  it("returns no chips when legs are missing", () => {
+    expect(rideLegStatusChips(undefined)).toEqual([])
+    expect(rideLegStatusChips(null)).toEqual([])
+    expect(inboundAskLegChips({ legs: undefined as unknown as CarpoolRide["legs"] })).toEqual(
+      [],
+    )
+  })
+})
+
+describe("agendaOwnRideLegChips / inboundAskLegChips", () => {
+  it("returns null without an own request and maps request legs for inbound", () => {
+    expect(agendaOwnRideLegChips(null)).toBeNull()
+    expect(
+      agendaOwnRideLegChips(
+        ownRide({
+          status: "PENDING",
+          legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "ASKED_TEAM")],
+        }),
+      ),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
+    ])
+
+    expect(
+      inboundAskLegChips(
+        ownRide({
+          status: "PENDING",
+          legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
+        }),
+      ),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
     ])
   })
 })

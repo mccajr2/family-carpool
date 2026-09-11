@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -646,14 +647,15 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING" as const,
     passedByMe: false,
     passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
   }
 
   const rideEvent = {
@@ -662,6 +664,8 @@ detourMinutes: null,
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: [],
+    ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
     ownRequest: null,
     otherRequests: [pendingAsk],
   }
@@ -683,10 +687,35 @@ detourMinutes: null,
     expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
       "House B · Mia · 1 seat · Home, 1 Main",
     )
+    expect(screen.getByTestId("agenda-focus-incoming-leg-chips")).toHaveTextContent(
+      "Getting there: Asked team",
+    )
+    expect(screen.getByTestId("agenda-focus-incoming-leg-chips")).toHaveTextContent(
+      "Coming back: Asked team",
+    )
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ask-1")
+  })
+
+  it("shows TO-only inbound asks as distinct from round-trip", () => {
+    renderCard(item({ id: "to-only-focus", title: "Practice" }), {
+      rideEvent: {
+        ...rideEvent,
+        otherRequests: [
+          {
+            ...pendingAsk,
+            legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
+          },
+        ],
+      },
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+    })
+    const chips = screen.getByTestId("agenda-focus-incoming-leg-chips")
+    expect(within(chips).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: Needs ride")).toBeInTheDocument()
   })
 
   it("prefers Confirm/Decline over Accept/Pass on the same card", () => {
@@ -848,7 +877,8 @@ detourMinutes: null,
       },
     )
     const chips = screen.getByTestId("agenda-focus-chips")
-    expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(chips).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
@@ -871,14 +901,15 @@ describe("AgendaFocusCard Cancel CTA", () => {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
     status: "PENDING" as const,
     passedByMe: false,
     passedByAdultNames: [],
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
   }
 
   const ownRideEvent = {
@@ -887,6 +918,8 @@ detourMinutes: null,
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: [],
+    ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
     ownRequest: ownPending,
     otherRequests: [],
   }
@@ -901,7 +934,8 @@ detourMinutes: null,
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
       "Requested · Maya · 1 seat · Home, 1 Main",
     )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Asked team")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     expect(cancel.className).toMatch(/outline|border/)
@@ -924,6 +958,7 @@ detourMinutes: null,
           acceptedByAdultId: "a2",
           acceptingCircleId: "c2",
           acceptingCircleName: "Sharks Family",
+          legs: carpoolLegsBoth("CONFIRMED"),
         },
       },
       onCancelRide,
@@ -931,9 +966,8 @@ detourMinutes: null,
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
       "Riding with Sharks Family · Maya · 1 seat · Home, 1 Main",
     )
-    expect(
-      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
-    ).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Sharks Family confirmed")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Sharks Family confirmed")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     await user.click(cancel)
@@ -973,14 +1007,15 @@ describe("AgendaFocusCard Withdraw CTA", () => {
     seats: 1,
     pickupPlaceName: "Home",
     pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
     status: "ACCEPTED" as const,
     passedByMe: false,
     passedByAdultNames: [],
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
+    legs: carpoolLegsBoth("CONFIRMED"),
   }
 
   it("shows outline Withdraw when this circle accepted a teammate ask", async () => {
@@ -993,6 +1028,8 @@ detourMinutes: null,
         startsAt: "2030-08-15T17:00:00.000Z",
         endsAt: null,
         defaultKidIds: [],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
         ownRequest: null,
         otherRequests: [acceptedByUsAsk],
       },
@@ -1018,6 +1055,7 @@ detourMinutes: null,
         startsAt: "2030-08-15T17:00:00.000Z",
         endsAt: null,
         defaultKidIds: [],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         ownRequest: null,
         otherRequests: [{ ...acceptedByUsAsk, acceptingCircleId: "c9", acceptingCircleName: "Them" }],
       },
@@ -1034,6 +1072,7 @@ detourMinutes: null,
         startsAt: "2030-08-15T17:00:00.000Z",
         endsAt: null,
         defaultKidIds: [],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         ownRequest: null,
         otherRequests: [
           acceptedByUsAsk,
@@ -1064,6 +1103,8 @@ describe("AgendaFocusCard Request CTA", () => {
     startsAt: "2030-08-15T17:00:00.000Z",
     endsAt: null,
     defaultKidIds: ["k1"],
+    ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
     ownRequest: null,
     otherRequests: [],
   }
@@ -1121,6 +1162,7 @@ describe("AgendaFocusCard Request CTA", () => {
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: {
             id: "r1",
             spaceId: "s1",
@@ -1133,14 +1175,15 @@ describe("AgendaFocusCard Request CTA", () => {
             seats: 1,
             pickupPlaceName: "Home",
             pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
             status: "ACCEPTED",
             passedByMe: false,
             passedByAdultNames: [],
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [],
         },
@@ -1149,9 +1192,8 @@ detourMinutes: null,
     )
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
-    expect(
-      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
-    ).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Sharks Family confirmed")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Sharks Family confirmed")).toBeInTheDocument()
     expect(
       within(screen.getByTestId("agenda-focus-chips")).queryByText("All set"),
     ).not.toBeInTheDocument()
@@ -1187,6 +1229,7 @@ detourMinutes: null,
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: {
             id: "r1",
             spaceId: "s1",
@@ -1199,14 +1242,15 @@ detourMinutes: null,
             seats: 1,
             pickupPlaceName: "Home",
             pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
             status: "ACCEPTED",
             passedByMe: false,
             passedByAdultNames: [],
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [],
         },
@@ -1226,6 +1270,7 @@ detourMinutes: null,
       rideEvent: {
         ...requestableRide,
         defaultKidIds: ["k1"],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         otherRequests: [
           {
             id: "ask-1",
@@ -1239,14 +1284,15 @@ detourMinutes: null,
             seats: 1,
             pickupPlaceName: "Home",
             pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
             status: "PENDING",
             passedByMe: false,
             passedByAdultNames: [],
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
           },
         ],
       },
@@ -1312,6 +1358,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
+    legs: carpoolLegsBoth("CONFIRMED"),
   }
 
   it("shows Type A conflict line under chips and keeps Withdraw", () => {
@@ -1329,6 +1376,8 @@ describe("AgendaFocusCard ride commitment conflict", () => {
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
           ownRequest: null,
           otherRequests: [inboundAccepted],
         },
@@ -1359,6 +1408,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: {
             id: "own-accepted",
             spaceId: "s1",
@@ -1379,6 +1429,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "House B",
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [inboundAccepted],
         },
@@ -1389,7 +1440,8 @@ describe("AgendaFocusCard ride commitment conflict", () => {
 
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Ride conflict")).toBeInTheDocument()
-    expect(within(chips).getByText("Riding with House B")).toBeInTheDocument()
+    expect(within(chips).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-ride-conflict")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",
     )

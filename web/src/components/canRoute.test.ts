@@ -7,6 +7,7 @@ import {
   isTeammateOwnRide,
 } from "@/components/canRoute"
 import type { CoverageGameEvent } from "@/components/coverageQueue"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function game(
   partial: Partial<CoverageGameEvent> & Pick<CoverageGameEvent, "id">,
@@ -45,6 +46,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -58,6 +60,7 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 

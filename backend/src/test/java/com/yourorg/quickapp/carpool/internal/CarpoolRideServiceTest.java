@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CarpoolSpaceMembership;
 import com.yourorg.quickapp.carpool.CreateCarpoolRideRequest;
@@ -35,6 +36,7 @@ import com.yourorg.quickapp.rsvp.RsvpStatus;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -103,6 +105,8 @@ class CarpoolRideServiceTest {
                     Instant.parse("2026-08-01T00:00:00Z"),
                     null,
                     2);
+    private static final List<CarpoolRideStatus> ACTIVE =
+            List.of(CarpoolRideStatus.PENDING, CarpoolRideStatus.ACCEPTED);
 
     @BeforeEach
     void setUp() {
@@ -200,13 +204,20 @@ class CarpoolRideServiceTest {
                 .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
 
         var created =
-                service.create(adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", null));
+                service.create(adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", null, null));
 
         assertThat(created.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(created.kidIds()).containsExactly(kidA, kidB);
         assertThat(created.seats()).isEqualTo(2);
         assertThat(created.passedByAdultNames()).isEmpty();
         assertThat(created.pickupPlaceName()).isEqualTo("Home");
+        assertThat(created.legs()).hasSize(2);
+        assertThat(created.legs().get(0).kind()).isEqualTo(CarpoolLegKind.TO);
+        assertThat(created.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        assertThat(created.legs().get(1).kind()).isEqualTo(CarpoolLegKind.FROM);
+        assertThat(created.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
         ArgumentCaptor<CarpoolRideRequestEntity> saved =
                 ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
         verify(rides).save(saved.capture());
@@ -236,7 +247,7 @@ class CarpoolRideServiceTest {
 
         var created =
                 service.create(
-                        adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", List.of(kidA)));
+                        adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", List.of(kidA), null));
 
         assertThat(created.kidIds()).containsExactly(kidA);
         assertThat(created.seats()).isEqualTo(1);
@@ -260,7 +271,7 @@ class CarpoolRideServiceTest {
                                 service.create(
                                         adult,
                                         spaceId,
-                                        new CreateCarpoolRideRequest("UID:game-1", null)))
+                                        new CreateCarpoolRideRequest("UID:game-1", null, null)))
                 .isInstanceOf(CarpoolException.class)
                 .satisfies(
                         ex -> {
@@ -273,7 +284,7 @@ class CarpoolRideServiceTest {
                                 service.create(
                                         adult,
                                         spaceId,
-                                        new CreateCarpoolRideRequest("UID:game-1", List.of(kidA))))
+                                        new CreateCarpoolRideRequest("UID:game-1", List.of(kidA), null)))
                 .isInstanceOf(CarpoolException.class)
                 .extracting(ex -> ((CarpoolException) ex).status())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -299,7 +310,7 @@ class CarpoolRideServiceTest {
                                 service.create(
                                         adult,
                                         spaceId,
-                                        new CreateCarpoolRideRequest("UID:game-1", null)))
+                                        new CreateCarpoolRideRequest("UID:game-1", null, null)))
                 .isInstanceOf(CarpoolException.class)
                 .extracting(ex -> ((CarpoolException) ex).status())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -322,7 +333,7 @@ class CarpoolRideServiceTest {
                                 service.create(
                                         adult,
                                         spaceId,
-                                        new CreateCarpoolRideRequest("UID:game-1", null)))
+                                        new CreateCarpoolRideRequest("UID:game-1", null, null)))
                 .isInstanceOf(CarpoolException.class)
                 .extracting(ex -> ((CarpoolException) ex).status())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -376,6 +387,14 @@ class CarpoolRideServiceTest {
         assertThat(accepted.acceptingCircleId()).isEqualTo(circleId);
         assertThat(accepted.passedByMe()).isFalse();
         assertThat(accepted.passedByAdultNames()).isEmpty();
+        assertThat(accepted.legs())
+                .extracting(leg -> leg.phase())
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(accepted.legs())
+                .extracting(leg -> leg.assigneeAdultId())
+                .containsOnly(adultId);
         verify(passes).deleteByRideId(pending.id());
         verify(rsvpApi)
                 .setStatus(
@@ -668,11 +687,177 @@ class CarpoolRideServiceTest {
         var withdrawn = service.withdraw(adult, spaceId, accepted.id());
         assertThat(withdrawn.status()).isEqualTo(CarpoolRideStatus.PENDING);
         assertThat(withdrawn.acceptedByAdultId()).isNull();
+        assertThat(withdrawn.legs())
+                .extracting(leg -> leg.phase())
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
         assertThat(withdrawn.passedByAdultNames()).isEmpty();
         verify(passes, never()).deleteByRideId(accepted.id());
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
         verify(leaveByApi)
                 .invalidateCalendarRoute(adultId, LeaveByItemSource.FEED, eventId);
+    }
+
+    @Test
+    void createRoundTripThenCancelOneLegLeavesOtherAsked() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        when(rides.existsBySpaceIdAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        eq(spaceId), eq("UID:game-1"), eq(circleId), any()))
+                .thenReturn(false);
+        stubPickup();
+        stubKidNames();
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var created =
+                service.create(
+                        adult, spaceId, new CreateCarpoolRideRequest("UID:game-1", null, null));
+        assertThat(created.legs())
+                .extracting(leg -> leg.phase())
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+
+        ArgumentCaptor<CarpoolRideRequestEntity> saved =
+                ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
+        verify(rides).save(saved.capture());
+        CarpoolRideRequestEntity entity = saved.getValue();
+        when(rides.findByIdAndSpaceId(entity.id(), spaceId)).thenReturn(Optional.of(entity));
+
+        var afterCancel =
+                service.cancel(adult, spaceId, entity.id(), List.of(CarpoolLegKind.TO));
+        assertThat(afterCancel.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(afterCancel.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        assertThat(afterCancel.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+    }
+
+    @Test
+    void createSingleLegAskOnlyMarksThatLegAsked() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        when(rides.existsBySpaceIdAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        eq(spaceId), eq("UID:game-1"), eq(circleId), any()))
+                .thenReturn(false);
+        stubPickup();
+        stubKidNames();
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var created =
+                service.create(
+                        adult,
+                        spaceId,
+                        new CreateCarpoolRideRequest(
+                                "UID:game-1", null, List.of(CarpoolLegKind.TO)));
+        assertThat(created.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(created.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        assertThat(created.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+    }
+
+    @Test
+    void acceptSingleLegAskConfirmsOnlyAskedLeg() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        when(rides.existsBySpaceIdAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        eq(spaceId), eq("UID:game-1"), eq(circleId), any()))
+                .thenReturn(false);
+        stubPickup();
+        stubKidNames();
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(
+                        List.of(
+                                new FamilyCircleName(circleId, "House A"),
+                                new FamilyCircleName(otherCircleId, "House B")));
+
+        var created =
+                service.create(
+                        adult,
+                        spaceId,
+                        new CreateCarpoolRideRequest(
+                                "UID:game-1", null, List.of(CarpoolLegKind.TO)));
+        ArgumentCaptor<CarpoolRideRequestEntity> saved =
+                ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
+        verify(rides).save(saved.capture());
+        CarpoolRideRequestEntity pending = saved.getValue();
+
+        AdultResponse accepter =
+                new AdultResponse(otherAdultId, "b@example.com", "Sam");
+        when(familyMembershipApi.requireMemberCircleId(otherAdultId)).thenReturn(otherCircleId);
+        when(memberships.findBySpaceIdAndCircleId(spaceId, otherCircleId))
+                .thenReturn(
+                        Optional.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        otherCircleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        when(rides.findByIdAndSpaceId(pending.id(), spaceId)).thenReturn(Optional.of(pending));
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(
+                        circleId, CarpoolRideService.EVENT_LOOKUP_FROM, CarpoolRideService.EVENT_LOOKUP_TO))
+                .thenReturn(List.of(practiceEvent(List.of(kidA))));
+
+        var accepted = service.accept(accepter, spaceId, pending.id());
+
+        assertThat(accepted.status()).isEqualTo(CarpoolRideStatus.ACCEPTED);
+        assertThat(accepted.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(accepted.legs().get(0).assigneeAdultId()).isEqualTo(otherAdultId);
+        assertThat(accepted.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        assertThat(accepted.legs().get(1).assigneeAdultId()).isNull();
+    }
+
+    @Test
+    void cancelOmitConflictsWhenConfirmedAssigneesDifferThenPerLegSucceeds() {
+        CarpoolRideRequestEntity ride = pendingOwnRide(List.of(kidA));
+        ride.accept(adultId, circleId);
+        ride.leg(CarpoolLegKind.FROM).setAssignee(otherAdultId, otherCircleId);
+        stubMemberSpace();
+        when(rides.findByIdAndSpaceId(ride.id(), spaceId)).thenReturn(Optional.of(ride));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+        when(adultSessionApi.requireAdult(otherAdultId))
+                .thenReturn(new AdultResponse(otherAdultId, "b@example.com", "Sam"));
+
+        assertThatThrownBy(() -> service.cancel(adult, spaceId, ride.id(), null))
+                .isInstanceOf(CarpoolException.class)
+                .extracting(ex -> ((CarpoolException) ex).status())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        var after =
+                service.cancel(adult, spaceId, ride.id(), List.of(CarpoolLegKind.TO));
+        assertThat(after.status()).isEqualTo(CarpoolRideStatus.ACCEPTED);
+        assertThat(after.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        assertThat(after.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(after.legs().get(1).assigneeAdultId()).isEqualTo(otherAdultId);
+        assertThat(after.acceptedByAdultId()).isEqualTo(otherAdultId);
     }
 
     @Test
@@ -751,6 +936,108 @@ class CarpoolRideServiceTest {
                 .findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
                         any(), any(), any(), any());
         verify(rides, never()).save(any());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidRemovesKidKeepingSharedPendingPlan() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA, kidB))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity pending = pendingOwnRide(List.of(kidA, kidB));
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(pending));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(pending.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(pending.kids()).extracting(RideKidSnapshot::kidId).containsExactly(kidB);
+        assertThat(pending.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        verify(rides).save(pending);
+        verify(passes, never()).deleteByRideId(any());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidCancelsPendingWhenLastKidRemoved() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity pending = pendingOwnRide(List.of(kidA));
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(pending));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(pending.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(pending.kids()).isEmpty();
+        assertThat(pending.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        verify(passes).deleteByRideId(pending.id());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidCancelsAcceptedWhenLastKidRemoved() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity accepted = pendingOwnRide(List.of(kidA));
+        accepted.accept(otherAdultId, otherCircleId);
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(accepted));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(spaces.findById(spaceId)).thenReturn(Optional.of(space()));
+        when(familyMembershipApi.requireMemberCircleId(otherAdultId)).thenReturn(otherCircleId);
+        when(feedsApi.findByCircleAndNormalizedUrl(otherCircleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.empty());
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(accepted.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(accepted.acceptedByAdultId()).isNull();
+        assertThat(accepted.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        verify(passes).deleteByRideId(accepted.id());
     }
 
     private void stubMemberSpace() {
@@ -834,6 +1121,7 @@ class CarpoolRideServiceTest {
                 "Home",
                 pickupAddress,
                 kids,
+                EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM),
                 Instant.now());
     }
 

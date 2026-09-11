@@ -9,13 +9,21 @@ import {
   HERO_ALL_CAUGHT_UP,
   HERO_ON_INVERSE,
   HERO_SECTION_LABEL,
+  LEG_ASKED_TEAM,
+  LEG_COMING_BACK,
+  LEG_GETTING_THERE,
+  LEG_NEEDS_RIDE,
   NEEDS_COVERAGE,
   REVERT_CANCEL_TEAM_ASK,
   RIDE_NEEDED,
   WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
   WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
+  YOURE_DRIVING,
   confirmDriveFromLabel,
   cancelRequestToDriverLabel,
+  legConfirmedStatusLabel,
+  legKindLabel,
+  legStatusChipLabel,
   markAsGoingAgainLabel,
   markAsNotGoingLabel,
   needsCoverageWithKids,
@@ -27,11 +35,29 @@ describe("coverageCopy", () => {
   it("exports locked vocabulary constants", () => {
     expect(RIDE_NEEDED).toBe("Ride needed")
     expect(ASKED_THE_TEAM).toBe("Asked the team")
+    expect(LEG_NEEDS_RIDE).toBe("Needs ride")
+    expect(LEG_ASKED_TEAM).toBe("Asked team")
+    expect(LEG_GETTING_THERE).toBe("Getting there")
+    expect(LEG_COMING_BACK).toBe("Coming back")
     expect(NEEDS_COVERAGE).toBe("Needs coverage")
     expect(CONFIRM_ILL_DRIVE).toBe("Confirm I'll drive")
     expect(CONFIRM_YOU_WILL_DRIVE).toBe("Confirm you'll drive")
     expect(ATTENDANCE_NOT_GOING_CHIP).toBe("Not going")
     expect(HERO_ON_INVERSE).toBe("var(--fc-hero-on-inverse)")
+  })
+
+  it("builds Getting there / Coming back dual-chip labels", () => {
+    expect(legKindLabel("TO")).toBe(LEG_GETTING_THERE)
+    expect(legKindLabel("FROM")).toBe(LEG_COMING_BACK)
+    expect(legStatusChipLabel("TO", LEG_ASKED_TEAM)).toBe("Getting there: Asked team")
+    expect(legStatusChipLabel("FROM", LEG_NEEDS_RIDE)).toBe("Coming back: Needs ride")
+    expect(legConfirmedStatusLabel("Katy")).toBe("Katy confirmed")
+    expect(
+      legConfirmedStatusLabel("Alex", {
+        currentAdultId: "a1",
+        assigneeAdultId: "a1",
+      }),
+    ).toBe(YOURE_DRIVING)
   })
 
   it("builds dynamic Confirm — drive from labels", () => {

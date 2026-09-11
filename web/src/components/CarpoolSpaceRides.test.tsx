@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CarpoolRide, CarpoolRideEvent, Kid } from "@/api/types"
 import { CarpoolSpaceRides } from "@/components/CarpoolSpaceRides"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const kids: Kid[] = [{ id: "k1", displayName: "Mia" }]
 
@@ -30,6 +31,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -43,6 +45,7 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 
@@ -68,7 +71,7 @@ describe("CarpoolSpaceRides pass", () => {
         onPassRide={onPassRide}
       />,
     )
-    expect(screen.getByText("Needs a ride")).toBeInTheDocument()
+    expect(screen.getByText("Getting there: Asked team · Coming back: Asked team")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Pass" }))

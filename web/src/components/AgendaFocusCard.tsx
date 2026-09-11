@@ -32,6 +32,7 @@ import { DriverPicker } from "@/components/DriverPicker"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 import {
   carpoolAskChipForRideEvent,
+  inboundAskLegChips,
   rideStatusChipsForItem,
 } from "@/components/rideStatusChip"
 import {
@@ -149,6 +150,7 @@ export function AgendaFocusCard({
     const rideChips = rideStatusChipsForItem(item, games, ownRequest, {
       rideEvent,
       circleId: circle.id,
+      currentAdultId,
     })
     const askChip = carpoolAskChipForRideEvent(games)
     return askChip != null ? [...rideChips, askChip] : rideChips
@@ -450,6 +452,14 @@ export function AgendaFocusCard({
             >
               {incomingRideAskSummary(eligibleRide)}
             </p>
+            <div
+              data-testid="agenda-focus-incoming-leg-chips"
+              className="flex w-full flex-wrap gap-[var(--fc-space-xs)]"
+            >
+              {inboundAskLegChips(eligibleRide).map((chip) => (
+                <AgendaStatusChip key={chip.label} label={chip.label} tone={chip.tone} />
+              ))}
+            </div>
             <Button
               type="button"
               size="sm"

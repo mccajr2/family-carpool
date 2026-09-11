@@ -11,6 +11,7 @@ import {
   alsoDrivingKidLabel,
 } from "@/components/coverageCopy"
 import type { CoverageGameEvent } from "@/components/coverageQueue"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
   return {
@@ -34,6 +35,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -47,6 +49,7 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 

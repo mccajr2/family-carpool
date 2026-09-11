@@ -142,6 +142,42 @@ describe("CarpoolClient", () => {
   })
 
   it("lists, creates, accepts, passes, cancels, and withdraws rides", async () => {
+    const askedTeamLegs = [
+      {
+        kind: "TO",
+        phase: "ASKED_TEAM",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+      {
+        kind: "FROM",
+        phase: "ASKED_TEAM",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+    ]
+    const needsRideLegs = [
+      {
+        kind: "TO",
+        phase: "NEEDS_RIDE",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+      {
+        kind: "FROM",
+        phase: "NEEDS_RIDE",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+    ]
     const ride = {
       id: "ride-1",
       spaceId: "s1",
@@ -157,6 +193,7 @@ describe("CarpoolClient", () => {
       pickupTown: null,
       detourMinutes: null,
       status: "PENDING",
+      legs: askedTeamLegs,
       passedByMe: false,
       passedByAdultNames: [],
       acceptedByAdultId: null,
@@ -169,6 +206,7 @@ describe("CarpoolClient", () => {
       startsAt: "2026-08-21T16:00:00Z",
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: needsRideLegs,
       ownRequest: null,
       otherRequests: [ride],
     }
@@ -214,10 +252,10 @@ describe("CarpoolClient", () => {
 
     await expect(
       client.listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z"),
-    ).resolves.toMatchObject([{ title: "Practice" }])
+    ).resolves.toMatchObject([{ title: "Practice", ownLegs: needsRideLegs }])
     await expect(
       client.createRide("tok", "s1", { eventKey: "UID:practice" }),
-    ).resolves.toMatchObject({ id: "ride-1", passedByMe: false })
+    ).resolves.toMatchObject({ id: "ride-1", passedByMe: false, legs: askedTeamLegs })
     await expect(client.acceptRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       status: "ACCEPTED",
     })
@@ -252,5 +290,98 @@ describe("CarpoolClient", () => {
     expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBeUndefined()
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].method).toBe("POST")
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].body).toBeUndefined()
+    expect((fetchFn.mock.calls[4] as [string, RequestInit])[1].body).toBeUndefined()
+    expect((fetchFn.mock.calls[5] as [string, RequestInit])[1].body).toBeUndefined()
+  })
+
+  it("creates a single-leg ask and cancels or withdraws one leg", async () => {
+    const toOnlyLegs = [
+      {
+        kind: "TO",
+        phase: "ASKED_TEAM",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+      {
+        kind: "FROM",
+        phase: "NEEDS_RIDE",
+        assigneeAdultId: null,
+        assigneeDisplayName: null,
+        assigneeCircleId: null,
+        assigneeCircleName: null,
+      },
+    ]
+    const ride = {
+      id: "ride-1",
+      spaceId: "s1",
+      eventKey: "UID:practice",
+      requestingCircleId: "c1",
+      requestingCircleName: null,
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Mia"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main St",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: toOnlyLegs,
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(ride), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...ride,
+            legs: [
+              { ...toOnlyLegs[0], phase: "NEEDS_RIDE" },
+              toOnlyLegs[1],
+            ],
+            status: "CANCELLED",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...ride, status: "ACCEPTED" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+    const client = new CarpoolClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.createRide("tok", "s1", { eventKey: "UID:practice", legs: ["TO"] }),
+    ).resolves.toMatchObject({ legs: toOnlyLegs })
+    await expect(
+      client.cancelRide("tok", "s1", "ride-1", { legs: ["TO"] }),
+    ).resolves.toMatchObject({ status: "CANCELLED" })
+    await expect(
+      client.withdrawRide("tok", "s1", "ride-1", { legs: ["FROM"] }),
+    ).resolves.toMatchObject({ status: "ACCEPTED" })
+
+    expect((fetchFn.mock.calls[0] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ eventKey: "UID:practice", legs: ["TO"] }),
+    )
+    expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ legs: ["TO"] }),
+    )
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ legs: ["FROM"] }),
+    )
   })
 })

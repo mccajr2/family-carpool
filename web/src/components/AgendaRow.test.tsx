@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
-import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel, ridingWithCircleLabel } from "@/components/coverageCopy"
+import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel } from "@/components/coverageCopy"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -644,6 +645,7 @@ describe("AgendaRow", () => {
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -666,6 +668,7 @@ describe("AgendaRow", () => {
               acceptedByAdultId: "a1",
               acceptingCircleId: "c1",
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -835,6 +838,8 @@ describe("AgendaRow", () => {
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1", "k2"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
       ownRequest: null,
       otherRequests: [],
     }
@@ -868,6 +873,7 @@ describe("AgendaRow", () => {
     const requestedEvent = {
       ...rideEvent,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -880,14 +886,15 @@ describe("AgendaRow", () => {
         seats: 1,
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
         status: "PENDING" as const,
         passedByMe: false,
         passedByAdultNames: [],
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
       },
     }
     rerender(
@@ -903,7 +910,8 @@ detourMinutes: null,
         {...noopHandlers}
       />,
     )
-    expect(within(row).getAllByText(ASKED_THE_TEAM).length).toBeGreaterThan(0)
+    expect(within(row).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam · 1 seat · Home, 1 Main",
     )
@@ -955,6 +963,7 @@ detourMinutes: null,
             ...requestedEvent.ownRequest!,
             status: "ACCEPTED",
             acceptingCircleName: "House B",
+            legs: carpoolLegsBoth("CONFIRMED"),
           },
         }}
         onCreateRide={onCreateRide}
@@ -962,7 +971,8 @@ detourMinutes: null,
         {...noopHandlers}
       />,
     )
-    expect(within(row).getAllByText("Riding with House B").length).toBeGreaterThan(0)
+    expect(within(row).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Riding with House B · Sam · 1 seat · Home, 1 Main",
     )
@@ -985,6 +995,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -997,14 +1008,15 @@ detourMinutes: null,
         seats: 1,
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
         status: "ACCEPTED" as const,
         passedByMe: false,
         passedByAdultNames: [],
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks Family",
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [],
     }
@@ -1024,14 +1036,14 @@ detourMinutes: null,
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
-    expect(within(row).getAllByText("Riding with Sharks Family").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Getting there: Sharks Family confirmed").length).toBeGreaterThan(0)
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    expect(within(row).getAllByText("Riding with Sharks Family").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Getting there: Sharks Family confirmed").length).toBeGreaterThan(0)
     expect(
       within(row).getByRole("button", {
         name: "Sharks Family can't drive anymore? Find a new ride",
@@ -1068,6 +1080,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -1080,14 +1093,15 @@ detourMinutes: null,
         seats: 1,
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
         status: "ACCEPTED" as const,
         passedByMe: false,
         passedByAdultNames: [],
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [],
     }
@@ -1140,6 +1154,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -1152,14 +1167,15 @@ detourMinutes: null,
         seats: 1,
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
         status: "PENDING" as const,
         passedByMe: false,
         passedByAdultNames: [],
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
       },
       otherRequests: [],
     }
@@ -1179,7 +1195,8 @@ detourMinutes: null,
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-pending")
-    expect(within(row).getByText(ASKED_THE_TEAM)).toBeInTheDocument()
+    expect(within(row).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -1214,6 +1231,8 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
       ownRequest: null,
       otherRequests: [],
     }
@@ -1268,6 +1287,8 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
       ownRequest: null,
       otherRequests: [],
     }
@@ -1314,6 +1335,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [
         {
@@ -1328,14 +1350,15 @@ detourMinutes: null,
           seats: 1,
           pickupPlaceName: "Home",
           pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
           status: "ACCEPTED" as const,
           passedByMe: false,
           passedByAdultNames: [],
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
+    legs: carpoolLegsBoth("ASKED_TEAM"),
         },
       ],
     }
@@ -1394,6 +1417,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -1408,14 +1432,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1462,6 +1487,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: {
             id: "own-ask",
             spaceId: "s1",
@@ -1474,14 +1500,15 @@ detourMinutes: null,
             seats: 1,
             pickupPlaceName: "Home",
             pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
             status: "PENDING",
             passedByMe: false,
             passedByAdultNames: [],
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
           },
           otherRequests: [
             {
@@ -1496,14 +1523,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1548,6 +1576,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -1562,14 +1591,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1629,6 +1659,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -1643,14 +1674,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1694,6 +1726,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -1708,14 +1741,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1759,6 +1793,7 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
           otherRequests: [
             {
@@ -1773,14 +1808,15 @@ detourMinutes: null,
               seats: 1,
               pickupPlaceName: "Home",
               pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
+    pickupTown: null,
+    detourMinutes: null,
               status: "PENDING",
               passedByMe: false,
               passedByAdultNames: [],
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
             },
           ],
         }}
@@ -1824,6 +1860,8 @@ detourMinutes: null,
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
           ownRequest: null,
           otherRequests: [],
         }}
@@ -2059,6 +2097,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -2079,6 +2118,7 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks",
+    legs: carpoolLegsBoth("ASKED_TEAM"),
       },
       otherRequests: [],
     }
@@ -2218,6 +2258,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -2238,6 +2279,7 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
+    legs: carpoolLegsBoth("ASKED_TEAM"),
       },
       otherRequests: [],
     }
@@ -2255,7 +2297,8 @@ detourMinutes: null,
       />,
     )
     const askedRow = screen.getByTestId("agenda-row-FEED-feed-asked")
-    expect(within(askedRow).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(askedRow).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(askedRow).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(askedRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
 
     rerender(
@@ -2340,6 +2383,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [
         {
@@ -2362,6 +2406,7 @@ detourMinutes: null,
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
+    legs: carpoolLegsBoth("ASKED_TEAM"),
         },
       ],
     }
@@ -2414,6 +2459,7 @@ detourMinutes: null,
       startsAt: feedItem.startsAt,
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: {
         id: "own-accepted",
         spaceId: "s1",
@@ -2434,6 +2480,7 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [
         {
@@ -2456,6 +2503,7 @@ detourMinutes: null,
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
+    legs: carpoolLegsBoth("ASKED_TEAM"),
         },
       ],
     }
@@ -2477,7 +2525,8 @@ detourMinutes: null,
     const row = screen.getByTestId("agenda-row-FEED-feed-type-b")
     const chipStrip = within(row).getByTestId("agenda-row-chip-strip")
     expect(within(chipStrip).getByText(RIDE_CONFLICT_CHIP)).toBeInTheDocument()
-    expect(within(chipStrip).getByText(ridingWithCircleLabel("House B"))).toBeInTheDocument()
+    expect(within(chipStrip).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(chipStrip).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("agenda-ride-conflict-FEED-feed-type-b")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",
@@ -2559,6 +2608,8 @@ detourMinutes: null,
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+
           ownRequest: null,
           otherRequests: [],
         }}
@@ -2662,6 +2713,7 @@ detourMinutes: null,
           startsAt: "2030-08-15T17:00:00.000Z",
           endsAt: null,
           defaultKidIds: ["k1"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: {
             id: "own",
             spaceId: "s1",
@@ -2682,6 +2734,7 @@ detourMinutes: null,
             acceptedByAdultId: "a9",
             acceptingCircleId: "c9",
             acceptingCircleName: "The Patels",
+    legs: carpoolLegsBoth("ASKED_TEAM"),
           },
           otherRequests: [],
         }}

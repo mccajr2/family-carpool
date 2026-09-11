@@ -11,6 +11,7 @@ import {
 } from "@/components/carpoolDisplay"
 import { formatIsoForDisplay } from "@/components/eventTimes"
 import { PickupLine } from "@/components/PickupLine"
+import { inboundAskLegChips, rideLegStatusChips } from "@/components/rideStatusChip"
 import { Button } from "@/components/ui/button"
 
 type CarpoolSpaceRidesProps = {
@@ -120,9 +121,17 @@ function OwnRideStatus({
             : ""
         }`
       : ownRideStatusLine(ride)
+  const legLabels = rideLegStatusChips(ride.legs)
+    .map((chip) => chip.label)
+    .join(" · ")
   return (
     <div className="flex flex-col gap-1">
       <p className="text-sm text-muted-foreground">{ownRideDetailLine(ride, statusLabel)}</p>
+      {legLabels ? (
+        <p className="text-xs text-muted-foreground" data-testid={`own-ride-legs-${ride.id}`}>
+          {legLabels}
+        </p>
+      ) : null}
       <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onCancel}>
         Cancel
       </Button>
@@ -204,7 +213,9 @@ function OtherRideRequest({
         }`
       : request.passedByMe
         ? "Passed"
-        : "Needs a ride"
+        : inboundAskLegChips(request)
+            .map((chip) => chip.label)
+            .join(" · ")
 
   return (
     <div className="flex flex-col gap-1">

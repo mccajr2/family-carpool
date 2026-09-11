@@ -11,6 +11,7 @@ import {
   selectFocusItem,
   type FocusRideOptions,
 } from "@/components/agendaFocusSelection"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "startsAt"> &
@@ -84,6 +85,7 @@ function rideAsk(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -97,6 +99,7 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [rideAsk()],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 
