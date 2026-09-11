@@ -129,6 +129,8 @@ export function HeroAttentionSlide({
     }
     return ride
   }, [item, rideEvent])
+  const inboundLegChips =
+    requestAccept != null ? inboundAskLegChips(requestAccept) : []
 
   return (
     <div
@@ -279,12 +281,12 @@ export function HeroAttentionSlide({
                 detourMinutes={item.request.detourMinutes}
                 variant="hero"
               />
-              {requestAccept != null ? (
+              {inboundLegChips.length > 0 ? (
                 <div
                   data-testid="hero-attention-incoming-leg-chips"
                   className="mt-[var(--fc-space-md)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-xs)]"
                 >
-                  {inboundAskLegChips(requestAccept).map((chip) => (
+                  {inboundLegChips.map((chip) => (
                     <AgendaStatusChip
                       key={chip.label}
                       label={chip.label}

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
-import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel, ridingWithCircleLabel } from "@/components/coverageCopy"
+import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel } from "@/components/coverageCopy"
 import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(

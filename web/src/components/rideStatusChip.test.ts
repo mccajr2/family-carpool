@@ -575,6 +575,14 @@ describe("rideLegStatusChips", () => {
       { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
     ])
   })
+
+  it("returns no chips when legs are missing", () => {
+    expect(rideLegStatusChips(undefined)).toEqual([])
+    expect(rideLegStatusChips(null)).toEqual([])
+    expect(inboundAskLegChips({ legs: undefined as unknown as CarpoolRide["legs"] })).toEqual(
+      [],
+    )
+  })
 })
 
 describe("agendaOwnRideLegChips / inboundAskLegChips", () => {

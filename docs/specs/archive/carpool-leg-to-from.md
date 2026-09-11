@@ -1,9 +1,9 @@
 # Spec: carpool-leg-to-from
 
-Status: draft  
+Status: archived  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
-Updated: 2026-09-10 (`/spec` — not-going clears legs; inbound hero leg clarity)  
+Updated: 2026-09-10 (`/pr` — archive after ship)  
 Added: 2026-08-14 · enhancement  
 Branch: `carpool-leg-to-from`
 

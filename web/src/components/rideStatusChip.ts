@@ -170,7 +170,12 @@ function legChipTone(leg: CarpoolRideLeg): RideStatusChipTone {
   return leg.phase === "CONFIRMED" ? "mint" : "amber"
 }
 
-function orderedLegs(legs: readonly CarpoolRideLeg[]): CarpoolRideLeg[] {
+function orderedLegs(
+  legs: readonly CarpoolRideLeg[] | null | undefined,
+): CarpoolRideLeg[] {
+  if (legs == null) {
+    return []
+  }
   const to = legs.find((leg) => leg.kind === "TO")
   const from = legs.find((leg) => leg.kind === "FROM")
   const ordered: CarpoolRideLeg[] = []
@@ -186,9 +191,10 @@ function orderedLegs(legs: readonly CarpoolRideLeg[]): CarpoolRideLeg[] {
 /**
  * Dual Getting there / Coming back chips from persisted leg slots.
  * Inbound Accept clarity: TO-only asks show Coming back as Needs ride.
+ * Missing/undefined legs (legacy fixtures) yield no chips.
  */
 export function rideLegStatusChips(
-  legs: readonly CarpoolRideLeg[],
+  legs: readonly CarpoolRideLeg[] | null | undefined,
   options?: RideLegChipOptions,
 ): RideStatusChipDescriptor[] {
   return orderedLegs(legs).map((leg) => ({
@@ -205,7 +211,7 @@ export function agendaOwnRideLegChips(
   ownRequest: CarpoolRide | null | undefined,
   options?: RideLegChipOptions,
 ): RideStatusChipDescriptor[] | null {
-  if (ownRequest == null || ownRequest.legs.length === 0) {
+  if (ownRequest == null || ownRequest.legs == null || ownRequest.legs.length === 0) {
     return null
   }
   return rideLegStatusChips(ownRequest.legs, {
@@ -218,7 +224,7 @@ export function agendaOwnRideLegChips(
 
 /** Inbound Accept / Pass clarity — which leg(s) the teammate asked for. */
 export function inboundAskLegChips(
-  request: CarpoolRide,
+  request: Pick<CarpoolRide, "legs">,
   options?: RideLegChipOptions,
 ): RideStatusChipDescriptor[] {
   return rideLegStatusChips(request.legs, options)
