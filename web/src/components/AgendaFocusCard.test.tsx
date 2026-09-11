@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaFocusCard } from "@/components/AgendaFocusCard"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -697,6 +697,25 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ask-1")
+  })
+
+  it("shows TO-only inbound asks as distinct from round-trip", () => {
+    renderCard(item({ id: "to-only-focus", title: "Practice" }), {
+      rideEvent: {
+        ...rideEvent,
+        otherRequests: [
+          {
+            ...pendingAsk,
+            legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
+          },
+        ],
+      },
+      onAcceptRide: vi.fn(),
+      onPassRide: vi.fn(),
+    })
+    const chips = screen.getByTestId("agenda-focus-incoming-leg-chips")
+    expect(within(chips).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: Needs ride")).toBeInTheDocument()
   })
 
   it("prefers Confirm/Decline over Accept/Pass on the same card", () => {

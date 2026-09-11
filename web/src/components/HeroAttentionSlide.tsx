@@ -26,12 +26,14 @@ import {
   type LeaveFromFields,
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
+import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
 import {
   heroKidFirstName,
   heroRequestTitle,
   heroVenueLine,
 } from "@/components/heroAttentionCopy"
+import { inboundAskLegChips } from "@/components/rideStatusChip"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -277,6 +279,21 @@ export function HeroAttentionSlide({
                 detourMinutes={item.request.detourMinutes}
                 variant="hero"
               />
+              {requestAccept != null ? (
+                <div
+                  data-testid="hero-attention-incoming-leg-chips"
+                  className="mt-[var(--fc-space-md)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-xs)]"
+                >
+                  {inboundAskLegChips(requestAccept).map((chip) => (
+                    <AgendaStatusChip
+                      key={chip.label}
+                      label={chip.label}
+                      tone={chip.tone}
+                      variant="hero"
+                    />
+                  ))}
+                </div>
+              ) : null}
               {requestAccept && onAcceptRide && onPassRide ? (
                 <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
                   <button

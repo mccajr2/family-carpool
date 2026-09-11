@@ -6,7 +6,7 @@ import type { CalendarItem, CarpoolRideEvent, FamilyCircle } from "@/api/types"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { CoverageGameEvent, QueueItem } from "@/components/coverageQueue"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const circle: FamilyCircle = {
   id: "c1",
@@ -445,11 +445,50 @@ describe("HeroAttentionSlide", () => {
     expect(
       within(slide).getByTestId("hero-attention-pickup-summary-detour-pill"),
     ).toHaveTextContent("~4 min out of your way")
+    expect(within(slide).getByTestId("hero-attention-incoming-leg-chips")).toHaveTextContent(
+      "Getting there: Asked team",
+    )
+    expect(within(slide).getByTestId("hero-attention-incoming-leg-chips")).toHaveTextContent(
+      "Coming back: Asked team",
+    )
 
     await user.click(within(slide).getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ride-1")
     await user.click(within(slide).getByRole("button", { name: "Decline" }))
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
+  })
+
+  it("shows TO-only inbound asks as distinct from round-trip on the hero", () => {
+    const toOnlyRideEvent: CarpoolRideEvent = {
+      ...rideEvent,
+      otherRequests: [
+        {
+          ...rideEvent.otherRequests[0]!,
+          legs: [
+            carpoolLeg("TO", "ASKED_TEAM"),
+            carpoolLeg("FROM", "NEEDS_RIDE"),
+          ],
+        },
+      ],
+    }
+
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[1]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            rideEvent: toOnlyRideEvent,
+          })
+        }
+      />,
+    )
+
+    const chips = within(screen.getByTestId("hero-attention-slide")).getByTestId(
+      "hero-attention-incoming-leg-chips",
+    )
+    expect(within(chips).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: Needs ride")).toBeInTheDocument()
   })
 
   it("uses theme-independent ink on filled hero CTAs", () => {
