@@ -184,7 +184,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.26.0");
+        assertThat(yaml).contains("version: 0.27.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.26.0");
+        assertThat(yaml).contains("version: 0.27.0");
     }
 
     @Test
@@ -299,7 +299,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.26.0");
+        assertThat(yaml).contains("version: 0.27.0");
     }
 
     @Test
@@ -323,6 +323,14 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CarpoolRideStatus:");
         assertThat(yaml).contains("CarpoolRideEvent:");
         assertThat(yaml).contains("CreateCarpoolRideRequest:");
+        assertThat(yaml).contains("CarpoolLegKind:");
+        assertThat(yaml).contains("CarpoolLegPhase:");
+        assertThat(yaml).contains("CarpoolRideLeg:");
+        assertThat(yaml).contains("ownLegs:");
+        assertThat(yaml).contains("CancelCarpoolRideRequest:");
+        assertThat(yaml).contains("WithdrawCarpoolRideRequest:");
+        assertThat(yaml).contains("[NEEDS_RIDE, WAITING_HOUSEHOLD, ASKED_TEAM, CONFIRMED]");
+        assertThat(yaml).contains("[TO, FROM]");
         assertThat(yaml).doesNotContain("AcceptCarpoolRideRequest:");
         assertThat(yaml).contains("[PENDING, ACCEPTED, CANCELLED]");
         assertThat(yaml).contains("eventKey:");
@@ -350,9 +358,11 @@ class OpenApiContractTest {
         assertThat(yaml).contains("idempotent");
         assertThat(yaml).contains("YES and NO_RESPONSE both qualify");
         assertThat(yaml).contains("Create does not change RSVP");
-        assertThat(yaml).contains("sets RSVP YES for the requesting circle's kids on");
-        assertThat(yaml).contains("Allowed even when the caller previously passed");
-        assertThat(yaml).contains("version: 0.26.0");
+        assertThat(yaml).contains("sets RSVP YES for the");
+        assertThat(yaml).contains("requesting circle's kids on that ride");
+        assertThat(yaml).contains("Allowed even when the caller");
+        assertThat(yaml).contains("previously passed");
+        assertThat(yaml).contains("version: 0.27.0");
     }
 
     /**

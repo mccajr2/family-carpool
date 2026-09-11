@@ -204,7 +204,7 @@ above. Do not revive closed PR #107 patches.
 
 - [x] Contract: OpenAPI per-leg schemas/fields + version bump; align summary
       copy that still says “both legs” only.
-- [ ] Backend: persist two leg slots; round-trip + single-leg writes; Accept /
+- [x] Backend: persist two leg slots; round-trip + single-leg writes; Accept /
       Pass / Cancel / Withdraw rules; combined cancel when same assignee;
       Flyway migration from v1 rows.
 - [ ] Backend: RSVP `NO` → remove kid from plan / clear all legs (and cancel

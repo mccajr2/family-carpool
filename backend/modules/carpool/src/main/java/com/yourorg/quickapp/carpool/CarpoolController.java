@@ -148,17 +148,21 @@ public class CarpoolController {
     public CarpoolRideResponse cancelRide(
             @PathVariable("spaceId") UUID spaceId,
             @PathVariable("rideId") UUID rideId,
+            @RequestBody(required = false) CancelCarpoolRideRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.cancel(adult, spaceId, rideId);
+        return carpoolRideService.cancel(
+                adult, spaceId, rideId, request == null ? null : request.legs());
     }
 
     @PostMapping("/spaces/{spaceId}/rides/{rideId}/withdraw")
     public CarpoolRideResponse withdrawRide(
             @PathVariable("spaceId") UUID spaceId,
             @PathVariable("rideId") UUID rideId,
+            @RequestBody(required = false) WithdrawCarpoolRideRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return carpoolRideService.withdraw(adult, spaceId, rideId);
+        return carpoolRideService.withdraw(
+                adult, spaceId, rideId, request == null ? null : request.legs());
     }
 }

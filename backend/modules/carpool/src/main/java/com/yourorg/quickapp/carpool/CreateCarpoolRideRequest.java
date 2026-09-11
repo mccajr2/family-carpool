@@ -6,4 +6,6 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateCarpoolRideRequest(
-        @NotBlank String eventKey, List<@NotNull UUID> kidIds) {}
+        @NotBlank String eventKey,
+        List<@NotNull UUID> kidIds,
+        List<@NotNull CarpoolLegKind> legs) {}

@@ -1,5 +1,7 @@
 package com.yourorg.quickapp.carpool.internal;
 
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
+import com.yourorg.quickapp.carpool.CarpoolLegPhase;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -14,7 +16,9 @@ import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -62,6 +66,13 @@ class CarpoolRideRequestEntity {
     @OrderColumn(name = "sort_order")
     private List<RideKidSnapshot> kids = new ArrayList<>();
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "carpool_ride_request_legs",
+            joinColumns = @JoinColumn(name = "ride_id"))
+    @OrderColumn(name = "sort_order")
+    private List<RideLegSlot> legs = new ArrayList<>();
+
     protected CarpoolRideRequestEntity() {}
 
     CarpoolRideRequestEntity(
@@ -73,6 +84,7 @@ class CarpoolRideRequestEntity {
             String pickupPlaceName,
             String pickupAddress,
             List<RideKidSnapshot> kids,
+            Set<CarpoolLegKind> askedLegs,
             Instant createdAt) {
         this.id = id;
         this.spaceId = spaceId;
@@ -83,7 +95,25 @@ class CarpoolRideRequestEntity {
         this.pickupAddress = pickupAddress;
         this.status = CarpoolRideStatus.PENDING;
         this.kids = new ArrayList<>(kids);
+        this.legs = initialAskedLegs(askedLegs);
         this.createdAt = createdAt;
+    }
+
+    private static List<RideLegSlot> initialAskedLegs(Set<CarpoolLegKind> askedLegs) {
+        Set<CarpoolLegKind> asked =
+                askedLegs == null || askedLegs.isEmpty()
+                        ? EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM)
+                        : EnumSet.copyOf(askedLegs);
+        List<RideLegSlot> slots = new ArrayList<>(2);
+        slots.add(
+                asked.contains(CarpoolLegKind.TO)
+                        ? RideLegSlot.askedTeam(CarpoolLegKind.TO)
+                        : RideLegSlot.needsRide(CarpoolLegKind.TO));
+        slots.add(
+                asked.contains(CarpoolLegKind.FROM)
+                        ? RideLegSlot.askedTeam(CarpoolLegKind.FROM)
+                        : RideLegSlot.needsRide(CarpoolLegKind.FROM));
+        return slots;
     }
 
     UUID id() {
@@ -130,6 +160,10 @@ class CarpoolRideRequestEntity {
         return List.copyOf(kids);
     }
 
+    List<RideLegSlot> legs() {
+        return List.copyOf(legs);
+    }
+
     int seats() {
         return kids.size();
     }
@@ -138,17 +172,130 @@ class CarpoolRideRequestEntity {
         this.status = CarpoolRideStatus.ACCEPTED;
         this.acceptedByAdultId = acceptedByAdultId;
         this.acceptingCircleId = acceptingCircleId;
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                leg.setPhase(CarpoolLegPhase.CONFIRMED);
+                leg.setAssignee(acceptedByAdultId, acceptingCircleId);
+            }
+        }
+    }
+
+    /**
+     * Clears asked/confirmed legs to NEEDS_RIDE. Returns true when the request
+     * should become CANCELLED (no asked/confirmed legs remain).
+     */
+    boolean cancelLegs(Set<CarpoolLegKind> kinds) {
+        for (RideLegSlot leg : legs) {
+            if (kinds.contains(leg.kind())
+                    && (leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                            || leg.phase() == CarpoolLegPhase.CONFIRMED)) {
+                leg.setPhase(CarpoolLegPhase.NEEDS_RIDE);
+                leg.clearAssignee();
+            }
+        }
+        syncRollupAfterClear();
+        return status == CarpoolRideStatus.CANCELLED;
+    }
+
+    /**
+     * Reopens confirmed team legs to ASKED_TEAM. Returns true when no confirmed
+     * team legs remain (status becomes PENDING).
+     */
+    boolean withdrawLegs(Set<CarpoolLegKind> kinds) {
+        for (RideLegSlot leg : legs) {
+            if (kinds.contains(leg.kind()) && leg.phase() == CarpoolLegPhase.CONFIRMED) {
+                leg.setPhase(CarpoolLegPhase.ASKED_TEAM);
+                leg.clearAssignee();
+            }
+        }
+        syncRollupAfterWithdraw();
+        return status == CarpoolRideStatus.PENDING;
     }
 
     void cancel() {
-        this.status = CarpoolRideStatus.CANCELLED;
-        this.acceptedByAdultId = null;
-        this.acceptingCircleId = null;
+        cancelLegs(EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM));
     }
 
     void withdraw() {
-        this.status = CarpoolRideStatus.PENDING;
-        this.acceptedByAdultId = null;
-        this.acceptingCircleId = null;
+        withdrawLegs(EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM));
+    }
+
+    /** Distinct assignee adult ids on CONFIRMED legs (nulls ignored). */
+    Set<UUID> confirmedAssigneeAdultIds() {
+        Set<UUID> ids = new java.util.HashSet<>();
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.CONFIRMED && leg.assigneeAdultId() != null) {
+                ids.add(leg.assigneeAdultId());
+            }
+        }
+        return ids;
+    }
+
+    boolean assigneesMatchForCombinedClear() {
+        return confirmedAssigneeAdultIds().size() <= 1;
+    }
+
+    private void syncRollupAfterClear() {
+        boolean anyAsked = false;
+        boolean anyConfirmed = false;
+        UUID confirmedAdult = null;
+        UUID confirmedCircle = null;
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                anyAsked = true;
+            } else if (leg.phase() == CarpoolLegPhase.CONFIRMED) {
+                anyConfirmed = true;
+                if (confirmedAdult == null) {
+                    confirmedAdult = leg.assigneeAdultId();
+                    confirmedCircle = leg.assigneeCircleId();
+                }
+            }
+        }
+        if (anyConfirmed) {
+            this.status = CarpoolRideStatus.ACCEPTED;
+            this.acceptedByAdultId = confirmedAdult;
+            this.acceptingCircleId = confirmedCircle;
+        } else if (anyAsked) {
+            this.status = CarpoolRideStatus.PENDING;
+            this.acceptedByAdultId = null;
+            this.acceptingCircleId = null;
+        } else {
+            this.status = CarpoolRideStatus.CANCELLED;
+            this.acceptedByAdultId = null;
+            this.acceptingCircleId = null;
+        }
+    }
+
+    private void syncRollupAfterWithdraw() {
+        boolean anyConfirmed = false;
+        UUID confirmedAdult = null;
+        UUID confirmedCircle = null;
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.CONFIRMED) {
+                anyConfirmed = true;
+                if (confirmedAdult == null) {
+                    confirmedAdult = leg.assigneeAdultId();
+                    confirmedCircle = leg.assigneeCircleId();
+                }
+            }
+        }
+        if (anyConfirmed) {
+            this.status = CarpoolRideStatus.ACCEPTED;
+            this.acceptedByAdultId = confirmedAdult;
+            this.acceptingCircleId = confirmedCircle;
+        } else {
+            this.status = CarpoolRideStatus.PENDING;
+            this.acceptedByAdultId = null;
+            this.acceptingCircleId = null;
+        }
+    }
+
+    RideLegSlot leg(CarpoolLegKind kind) {
+        for (RideLegSlot leg : legs) {
+            if (leg.kind() == kind) {
+                return leg;
+            }
+        }
+        throw new IllegalStateException("Missing leg slot " + kind);
     }
 }
