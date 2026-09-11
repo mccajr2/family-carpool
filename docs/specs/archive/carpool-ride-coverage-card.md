@@ -1,9 +1,9 @@
 # Spec: carpool-ride-coverage-card
 
-Status: draft  
+Status: archived  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-10  
-Updated: 2026-09-11 (`/spec` — promote stub; Focus/Hero + Agenda DriverPicker)  
+Updated: 2026-09-11 (`/pr` — archive after ship)  
 Added: 2026-09-10 · re-rank split  
 Branch: `carpool-ride-coverage-card`
 
@@ -29,6 +29,9 @@ need one default collapsed layout on Focus/Hero and Agenda expanded rows.
 - Domain leg persistence, four-state chip model, combined cancel, RSVP
   not-going clears legs — already done in
   [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md)
+- Collapsing matching TO/FROM chips to a single Round trip chip —
+  [`carpool-leg-chip-collapse`](../planned/carpool-leg-chip-collapse.md)
+  (dual chips stay as shipped until that id)
 - OpenAPI / backend coverage or carpool write-path changes
 - Expo / push / KMP UI
 - Carpool tab visual restyle —
@@ -118,43 +121,43 @@ Do not load `docs/roadmap.md` or whole-architecture dumps. Do not implement
 
 ## Acceptance criteria
 
-- [ ] Focus/Hero and Agenda expanded uncovered own-ride DriverPicker surfaces
+- [x] Focus/Hero and Agenda expanded uncovered own-ride DriverPicker surfaces
       show household adult chips (dynamic count) with default = signed-in adult,
       plus a trailing **Ask the team** chip in the same driver row (no separate
       team footer button / “Nobody in the household free?” band on those
       surfaces).
-- [ ] Leave-from remains a single combobox with default pre-selected, other
+- [x] Leave-from remains a single combobox with default pre-selected, other
       located places selectable, and existing one-time address option inside the
       combobox; Confirm / Post label origin updates live (including one-time
       draft / empty placeholder).
-- [ ] Primary button copy updates live: household selection →  
+- [x] Primary button copy updates live: household selection →  
       `Confirm — … round trip from {origin}`; Ask the team →  
       `Post to team — round trip`. Confirm still commits coverage + leave-from
       draft as today; Post still creates a plain round-trip team ask for all
       going siblings (no meet-at UI).
-- [ ] **“Different plans for each leg.”** appears below the primary button and
+- [x] **“Different plans for each leg.”** appears below the primary button and
       does not open a split editor in this PR.
-- [ ] No OpenAPI / backend changes; dual leg status chips and other
+- [x] No OpenAPI / backend changes; dual leg status chips and other
       post-plan chrome from `carpool-leg-to-from` remain unchanged.
-- [ ] `docs/agenda-coverage-web-contract.md` documents the new DriverPicker
+- [x] `docs/agenda-coverage-web-contract.md` documents the new DriverPicker
       chrome for Focus/Hero + expanded Agenda.
-- [ ] Component/unit tests cover chip selection (self default, Ask the team),
+- [x] Component/unit tests cover chip selection (self default, Ask the team),
       live Confirm / Post labels, and presence of the non-activating Different
       plans link; relevant web suite passes.
 
 ## Tasks
 
-- [ ] Docs: this spec; update `docs/agenda-coverage-web-contract.md` DriverPicker
+- [x] Docs: this spec; update `docs/agenda-coverage-web-contract.md` DriverPicker
       / leave-from Focus + expanded Agenda sections; roadmap Active row
-- [ ] Web copy: extend `coverageCopy` (+ tests) for round-trip Confirm /
+- [x] Web copy: extend `coverageCopy` (+ tests) for round-trip Confirm /
       `Post to team — round trip` helpers; retire unused team-footer-only strings
       if nothing else references them
-- [ ] Web: restructure `DriverPicker` — Ask the team as trailing selectable chip;
+- [x] Web: restructure `DriverPicker` — Ask the team as trailing selectable chip;
       primary button branches assign vs ask; slot for Different plans link;
       remove team footer section on these surfaces
-- [ ] Web: wire Focus/Hero + Agenda expanded DriverPicker call sites (leave-from
+- [x] Web: wire Focus/Hero + Agenda expanded DriverPicker call sites (leave-from
       slot + labels) without forking a second stack
-- [ ] Tests: `DriverPicker`, `coverageCopy`, Focus/Hero and AgendaRow (or
+- [x] Tests: `DriverPicker`, `coverageCopy`, Focus/Hero and AgendaRow (or
       equivalent mount sites) updated for new chrome; run relevant `web/` tests
 
 ## Open questions

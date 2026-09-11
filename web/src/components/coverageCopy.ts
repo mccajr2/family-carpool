@@ -29,8 +29,14 @@ export const ASKED_THE_TEAM = "Asked the team" as const
 export const CONFIRM_YOU_WILL_DRIVE = "Confirm you'll drive" as const
 export const YOURE_DRIVING = "You're driving" as const
 export const CONFIRM_ILL_DRIVE = "Confirm I'll drive" as const
-export const ASK_THE_TEAM_FOR_RIDE = "Ask the team for a ride" as const
-export const NOBODY_IN_HOUSEHOLD_FREE = "Nobody in the household free?" as const
+/** Trailing driver-row chip (Focus/Hero + expanded Agenda DriverPicker). */
+export const ASK_THE_TEAM = "Ask the team" as const
+/** Primary CTA when Ask the team is selected on DriverPicker. */
+export const POST_TO_TEAM_ROUND_TRIP = "Post to team — round trip" as const
+/** Progressive disclosure under Confirm / Post (inert until leg-split). */
+export const DIFFERENT_PLANS_FOR_EACH_LEG = "Different plans for each leg." as const
+/** One-time leave-from still empty in the draft field. */
+export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 export const OVERLAPS_CHIP = "Overlaps" as const
 export const RIDE_CONFLICT_CHIP = "Ride conflict" as const
 export const RIDING_WITH_TEAMMATE = "Riding with a teammate" as const
@@ -99,25 +105,25 @@ export function askMemberToDriveLabel(name: string): string {
   return `Ask ${name} to drive`
 }
 
-/** Dynamic Confirm CTA: "Confirm — you'll drive from Home". */
+/**
+ * Dynamic Confirm CTA for household driver + leave-from:
+ * "Confirm — You'll drive round trip from Home".
+ */
 export function confirmDriveFromLabel(options: {
   selectedAdultId: string
   members: { adultId: string; displayName: string | null }[]
   currentAdultId: string
   leaveFromLabel: string
 }): string {
-  const origin = options.leaveFromLabel.trim() || "the address you enter"
+  const origin = options.leaveFromLabel.trim() || LEAVE_FROM_ADDRESS_PLACEHOLDER
   if (options.selectedAdultId === options.currentAdultId) {
-    return `Confirm — you'll drive from ${origin}`
+    return `Confirm — You'll drive round trip from ${origin}`
   }
   const member = options.members.find((row) => row.adultId === options.selectedAdultId)
   const name = member?.displayName?.trim() || "them"
   const first = name.split(/\s+/)[0] ?? name
-  return `Confirm — ${first} will drive from ${origin}`
+  return `Confirm — ${first}'ll drive round trip from ${origin}`
 }
-
-/** One-time leave-from still empty in the draft field. */
-export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 
 export function kidNeedsRideTitle(kidFirstName: string): string {
   return `${kidFirstName} needs a ride`

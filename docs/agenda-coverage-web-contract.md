@@ -2,7 +2,9 @@
 
 Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to this contract;
 presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md);
-conflict amber via [`conflict-detection`](specs/archive/conflict-detection.md))  
+conflict amber via [`conflict-detection`](specs/archive/conflict-detection.md);
+DriverPicker default chrome via [`carpool-ride-coverage-card`](specs/archive/carpool-ride-coverage-card.md)
+— 2026-09-11)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -239,12 +241,39 @@ Origin modes (locked with `coverage-leave-from`):
 - **Expanded Agenda — item-level Leave from:** only when the signed-in adult
   is **not** covering that item (no duplicate when they are). Same combobox;
   leave-by line + **Open Places** on `NO_ORIGIN` as before.
-- **Focus / hero:** uncovered own-ride shows **DriverPicker** (default =
-  signed-in adult) **and** leave-from combobox together; DriverPicker confirm
-  commits both (coverage + leave-from draft if not Default). **Pending for
-  you:** leave-from combobox + Confirm / Decline only (no changeable driver).
-  Confirm commits leave-from draft with confirm. After **CONFIRMED** covering,
-  combobox writes immediately. Calm estimate copy when covering.
+- **Focus / hero + expanded Agenda — uncovered own-ride (`DriverPicker`):**
+  same assign stack on Focus card, hero attention slide, and expanded Agenda
+  rows that already mount `DriverPicker`. Layout top → bottom:
+
+  1. **Driver row** — one chip per household/circle adult (dynamic count),
+     default selection = signed-in adult (**You**), plus exactly one trailing
+     **Ask the team** chip in the **same** row. Do **not** use a separate
+     team footer band (“Nobody in the household free?” + outline **Ask the
+     team for a ride** button) on these surfaces.
+  2. **Leave from** — single combobox (`LeaveFromControls`): membership
+     default pre-selected; other located saved places as options; keep the
+     existing **One-time address…** option inside the same combobox (no
+     separate “other location” control outside it).
+  3. **Primary button** — label updates live from Driver + Leave-from:
+     - Household self / other adult →  
+       `Confirm — You'll drive round trip from {origin}` /  
+       `Confirm — {First}'ll drive round trip from {origin}`  
+       (origin = resolved place name, or live one-time draft / empty
+       placeholder). Pressing confirms coverage and commits leave-from draft
+       when needed (same write path as today).
+     - **Ask the team** selected → `Post to team — round trip`. Pressing
+       posts the existing plain round-trip team request for all **going**
+       siblings together (no meet-at / radius sub-options on this surface).
+  4. **“Different plans for each leg.”** — plain text link **below** the
+     primary button. Visible for progressive disclosure; **does not** open
+     a split editor until `carpool-leg-split-plans` (prefer `aria-disabled` /
+     non-activating control so it is not dead navigation).
+
+  **Pending for you:** leave-from combobox + Confirm / Decline only (no
+  changeable driver). Confirm commits leave-from draft with confirm. After
+  **CONFIRMED** covering, combobox writes immediately. Calm estimate copy
+  when covering. Do not redesign pending-for-you or settled covering chrome
+  in the ride-coverage-card slice.
 - **Route:** starting stop + leave-by come from `GET …/route`, which uses the
   same origin resolution (coverage → item override → default → first located).
   Changing leave-from refreshes Route via calendar item replace.
@@ -311,6 +340,25 @@ Origin modes (locked with `coverage-leave-from`):
   UI must not imply a confirm step is still required for that assignment.
 - Assign / confirm also set those kids’ RSVP to **Yes** / going (server);
   assigning a **not going** kid fails.
+
+### Coverage assign / Ask the team (`DriverPicker`)
+
+Own-ride **uncovered** gaps on Focus / hero and expanded Agenda use shared
+`DriverPicker` + `LeaveFromControls` + `coverageCopy` (web reference; no
+second stack). Rules and strings live under **Leave-from → Focus / hero +
+expanded Agenda — uncovered own-ride** above. Summary:
+
+- Household adult chips + trailing **Ask the team** chip in one driver row;
+  default = signed-in adult.
+- Leave-from combobox under the driver row; primary CTA under leave-from.
+- Household selection → live **Confirm — … round trip from {origin}**
+  (assigns / confirms coverage + leave-from draft).
+- Ask the team → live **Post to team — round trip** (plain round-trip team
+  ask; meet-at deferred to `carpool-meet-at`).
+- **Different plans for each leg.** link under the primary button (inert until
+  `carpool-leg-split-plans`).
+- No separate “Nobody in the household free?” / outline Ask-the-team footer
+  on these surfaces.
 
 ## RSVP / attendance
 

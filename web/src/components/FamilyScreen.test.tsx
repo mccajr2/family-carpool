@@ -2162,10 +2162,10 @@ detourMinutes: null,
     expect(within(focus).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(focus).getByTestId("driver-picker-confirm")).toBeInTheDocument()
-    const teamAsk = within(focus).getByRole("button", { name: "Ask the team for a ride" })
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    await user.click(within(focus).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(focus).getByRole("button", { name: "Post to team — round trip" }))
 
-    await user.click(teamAsk)
     await waitFor(() => {
       expect(createRide).toHaveBeenCalledWith("tok", "s1", {
         eventKey: "UID:practice-1",
@@ -8135,7 +8135,8 @@ detourMinutes: null,
       const slide = heroSlideIn(agenda, "Sam needs a ride")
       // No warning copy before Ask the team (spec non-goal).
       expect(within(slide).queryByText(/warning/i)).not.toBeInTheDocument()
-      await user.click(within(slide).getByRole("button", { name: "Ask the team for a ride" }))
+      await user.click(within(slide).getByRole("button", { name: "Ask the team" }))
+      await user.click(within(slide).getByRole("button", { name: "Post to team — round trip" }))
       await waitFor(() => {
         expect(createRide).toHaveBeenCalledWith("tok", "s1", {
           eventKey: "UID:ask-decline",

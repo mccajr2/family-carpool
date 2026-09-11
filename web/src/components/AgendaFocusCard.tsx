@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import type {
   CalendarItem,
   CarpoolRideEvent,
@@ -10,7 +10,10 @@ import { formatRingCountdown } from "@/components/agendaFocusRing"
 import { focusItemNeedsDecision } from "@/components/agendaFocusSelection"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
-import { focusLeaveFromEstimateLine } from "@/components/leaveFromDisplay"
+import {
+  focusLeaveFromEstimateLine,
+  resolvedLeaveFromLabel,
+} from "@/components/leaveFromDisplay"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
@@ -126,6 +129,7 @@ export function AgendaFocusCard({
   onEdit,
   onSetLeaveFrom,
 }: AgendaFocusCardProps) {
+  const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const isManual = item.source === "MANUAL"
   const eligibleRide = eligiblePendingRideAccept(rideEvent, {
     adultId: currentAdultId,
@@ -200,6 +204,13 @@ export function AgendaFocusCard({
   const showRemoveCoverage = Boolean(activeCoverage) && !pendingForSelf
   const metaLine = focusMetaLine(item, circle)
   const showOpenPlaces = item.leaveByStatus === "UNAVAILABLE" && item.leaveByReason === "NO_ORIGIN"
+  const leaveFromFields = {
+    leaveFromPlaceId: item.leaveFromPlaceId,
+    leaveFromPlaceName: item.leaveFromPlaceName,
+    leaveFromAddress: item.leaveFromAddress,
+  }
+  const originForConfirm =
+    confirmOriginLabel || resolvedLeaveFromLabel(leaveFromFields, circle)
 
   const mins = useMemo(() => minutesUntil(item.leaveByAt ?? item.startsAt), [item.leaveByAt, item.startsAt])
   const ringFraction = mins == null ? 1 : Math.min(1, mins / RING_MAX_MINUTES)
@@ -214,6 +225,21 @@ export function AgendaFocusCard({
   const borderVar = needsDecision ? "transparent" : "var(--fc-border)"
   const dividerVar = needsDecision ? "rgba(255,255,255,0.12)" : "var(--fc-border)"
   const ringTrackVar = needsDecision ? "rgba(255,255,255,0.14)" : "var(--fc-border)"
+  const assignLeaveFromSlot =
+    showAssign && onSetLeaveFrom != null ? (
+      <div style={{ color: onSecondaryVar }} data-testid="agenda-focus-leave-from">
+        <LeaveFromControls
+          variant="subtle"
+          value={leaveFromFields}
+          circle={circle}
+          loading={loading}
+          ariaLabel={`Leave from for ${item.title}`}
+          onChange={onSetLeaveFrom}
+          onConfirmOriginLabelChange={setConfirmOriginLabel}
+          testIdPrefix={`focus-leave-from-${item.source}-${item.id}`}
+        />
+      </div>
+    ) : null
 
   return (
     <div
@@ -260,7 +286,8 @@ export function AgendaFocusCard({
             </span>
           ) : null}
           {onSetLeaveFrom != null &&
-          (selfCoverage != null || pendingForSelf != null || showAssign) ? (
+          (selfCoverage != null || pendingForSelf != null) &&
+          !showAssign ? (
             <div
               className="mt-[var(--fc-space-sm)]"
               style={{ color: onSecondaryVar }}
@@ -549,6 +576,8 @@ export function AgendaFocusCard({
               onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
               showTeamSection={canAskTeam}
               hero={needsDecision}
+              leaveFromSlot={assignLeaveFromSlot}
+              leaveFromLabel={originForConfirm}
             />
           </div>
         ) : null}

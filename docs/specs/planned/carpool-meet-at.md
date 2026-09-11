@@ -22,7 +22,7 @@ driver can accept a plan they can actually run.
 ## Non-goals (sketch)
 
 - Per-leg domain / four-state chips — [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md)
-- Default coverage card chrome — [`carpool-ride-coverage-card`](../active/carpool-ride-coverage-card.md)
+- Default coverage card chrome — [`carpool-ride-coverage-card`](../archive/carpool-ride-coverage-card.md)
 - Split-plans editor — [`carpool-leg-split-plans`](carpool-leg-split-plans.md)
 - Early/late windows (`carpool-early-late-window`)
 - Stop-order optimize (`carpool-route-optimize`)
