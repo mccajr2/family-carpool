@@ -651,6 +651,166 @@ class CarpoolRideControllerIntegrationTest {
                                 .value((Object) null));
     }
 
+    @Test
+    void legMatrixCreateAcceptCancelWithdrawAndOwnLegs() throws Exception {
+        String orgA = signIn("carpool-legs-org-a@example.com");
+        String orgB = signIn("carpool-legs-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Legs House A");
+        createCircle(orgB, "Sam", "Legs House B");
+
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA = createFeed(orgA, "Soccer", "https://example.com/carpool-legs.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-legs.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(orgA, "Practice");
+        String practiceB = feedEventId(orgB, "Practice");
+        setRsvpYes(orgA, practiceA, kidA);
+        setRsvpYes(orgB, practiceB, kidB);
+        addPlace(orgA, "Home A", "12 Oak St");
+        addPlace(orgB, "Home B", "Unlocateable Lane");
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[0].kind")
+                                .value("TO"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[0].phase")
+                                .value("NEEDS_RIDE"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[1].phase")
+                                .value("NEEDS_RIDE"));
+
+        MvcResult toOnly =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"legs\":[\"TO\"]}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.status").value("PENDING"))
+                        .andExpect(jsonPath("$.legs[0].kind").value("TO"))
+                        .andExpect(jsonPath("$.legs[0].phase").value("ASKED_TEAM"))
+                        .andExpect(jsonPath("$.legs[1].kind").value("FROM"))
+                        .andExpect(jsonPath("$.legs[1].phase").value("NEEDS_RIDE"))
+                        .andReturn();
+        String toOnlyId = JsonPath.read(toOnly.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + toOnlyId + "/cancel")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        MvcResult roundTrip =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.legs[0].phase").value("ASKED_TEAM"))
+                        .andExpect(jsonPath("$.legs[1].phase").value("ASKED_TEAM"))
+                        .andReturn();
+        String rideId = JsonPath.read(roundTrip.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/cancel")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"legs\":[\"TO\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.legs[0].phase").value("NEEDS_RIDE"))
+                .andExpect(jsonPath("$.legs[1].phase").value("ASKED_TEAM"));
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/cancel")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        MvcResult created =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        rideId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.legs[0].phase").value("CONFIRMED"))
+                .andExpect(jsonPath("$.legs[1].phase").value("CONFIRMED"));
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[0].phase")
+                                .value("CONFIRMED"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[1].phase")
+                                .value("CONFIRMED"));
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/withdraw")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.legs[0].phase").value("ASKED_TEAM"))
+                .andExpect(jsonPath("$.legs[1].phase").value("ASKED_TEAM"));
+    }
+
     private String feedEventId(String token, String title) throws Exception {
         MvcResult calendar =
                 mockMvc.perform(
