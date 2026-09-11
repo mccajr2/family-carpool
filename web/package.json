@@ -12,6 +12,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint .",
     "test": "vitest run",
+    "test:parked": "VITEST_INCLUDE_PARKED=1 vitest run src/components/RidePlaylistTab.test.tsx src/api/playlistClient.test.ts src/components/playlistRidersFromCalendarPlaylist.test.ts",
     "test:watch": "vitest",
     "preview": "vite preview"
   },
