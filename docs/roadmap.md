@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-10 (`/pr carpool-leg-to-from` — per-leg plan archived)
+Updated: 2026-09-11 (`/spec carpool-ride-coverage-card` — default card chrome active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -104,7 +104,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-ride-coverage-card      | planned | 2026-09-10 · re-rank split | Default collapsed coverage card: household driver chips + Ask the team, leave-from combobox, live Confirm / Post labels     |
+| 1    | carpool-ride-coverage-card      | active  | 2026-09-10 · re-rank split | Default collapsed coverage card: household driver chips + Ask the team, leave-from combobox, live Confirm / Post labels     |
 | 2    | carpool-leg-split-plans         | planned | 2026-09-10 · re-rank split | “Different plans for each leg” editor: independent driver + location per leg; Save ride plan; Back to simple view             |
 | 3    | carpool-kid-split-plans         | planned | 2026-09-10 · re-rank split | Progressive per-kid plans for multi-kid teams (twins/triplets); default remains shared round-trip                           |
 | 4    | carpool-meet-at                 | planned | 2026-08-14 · enhancement   | Ask-team sub-flow + pickup vs drop-off at a teammate’s house (who drives to whom; radius match deferred into this id)         |
@@ -201,7 +201,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| — | — | _none_ |
+| carpool-ride-coverage-card | `carpool-ride-coverage-card` | [active](specs/active/carpool-ride-coverage-card.md) |
 
 ## Done
 
@@ -287,6 +287,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-11 | `/spec carpool-ride-coverage-card`: promote stub — default collapsed DriverPicker chrome on Focus/Hero + Agenda expanded rows; Ask the team as trailing chip; live Confirm / Post labels; Different plans link inert. Branch `carpool-ride-coverage-card`. |
 | 2026-09-10 | `/pr carpool-leg-to-from`: per-leg TO/FROM phases + dual chips; round-trip default; combined cancel; RSVP not-going clears legs; Flyway V24. Spec archived. Next up `carpool-ride-coverage-card`. |
 | 2026-09-10 | `/spec carpool-leg-to-from` amend: **not going** clears all legs (asks + confirmed); default multi-kid = shared plan; add rank-4 `carpool-kid-split-plans` (progressive per-kid; twins/triplets). |
 | 2026-09-10 | `/spec carpool-leg-to-from`: Ride Coverage Card goals split — active domain/chips slice; add ranks 2–3 `carpool-ride-coverage-card` + `carpool-leg-split-plans`; bump `carpool-meet-at` (Ask-team sub-flow). Branch `carpool-leg-to-from`. |

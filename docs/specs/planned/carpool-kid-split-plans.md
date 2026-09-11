@@ -22,8 +22,8 @@ from “simple,” then distinct plans per kid (including distinct per-leg plans
 ## Non-goals (sketch)
 
 - Domain four-state legs + not-going clears transport —
-  [`carpool-leg-to-from`](../active/carpool-leg-to-from.md) (prerequisite)
-- Default card chrome — [`carpool-ride-coverage-card`](carpool-ride-coverage-card.md)
+  [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md) (prerequisite)
+- Default card chrome — [`carpool-ride-coverage-card`](../active/carpool-ride-coverage-card.md)
 - Leg-only split editor — [`carpool-leg-split-plans`](carpool-leg-split-plans.md)
   (ship first; reuse disclosure pattern)
 - Ask-team radius / meet-at — [`carpool-meet-at`](carpool-meet-at.md)
