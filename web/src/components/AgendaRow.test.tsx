@@ -1262,10 +1262,21 @@ describe("AgendaRow", () => {
     expect(
       leaveFrom.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    expect(confirm).toHaveTextContent("Confirm — You'll drive round trip from Mom's house")
+    await user.selectOptions(
+      within(household).getByTestId("leave-from-FEED-feed-gap-place-select"),
+      "__one_time__",
+    )
+    const oneTime = within(household).getByTestId("leave-from-FEED-feed-gap-one-time-input")
+    await user.clear(oneTime)
+    await user.type(oneTime, "Side gate")
+    expect(confirm).toHaveTextContent("Confirm — You'll drive round trip from Side gate")
     expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
-    await user.click(within(kid).getByRole("button", { name: "Ask the team for a ride" }))
+    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
-    await user.click(confirm)
+    await user.click(within(kid).getByRole("button", { name: "You" }))
+    await user.click(within(household).getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 

@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest"
 import {
   AGENDA_LIST_SECTION_LABEL,
   ASKED_THE_TEAM,
+  ASK_THE_TEAM,
   ATTENDANCE_NOT_GOING_CHIP,
   CONFIRM_ILL_DRIVE,
   CONFIRM_YOU_WILL_DRIVE,
+  DIFFERENT_PLANS_FOR_EACH_LEG,
   HERO_ALL_CAUGHT_UP,
   HERO_ON_INVERSE,
   HERO_SECTION_LABEL,
@@ -13,7 +15,9 @@ import {
   LEG_COMING_BACK,
   LEG_GETTING_THERE,
   LEG_NEEDS_RIDE,
+  LEAVE_FROM_ADDRESS_PLACEHOLDER,
   NEEDS_COVERAGE,
+  POST_TO_TEAM_ROUND_TRIP,
   REVERT_CANCEL_TEAM_ASK,
   RIDE_NEEDED,
   WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
@@ -60,7 +64,7 @@ describe("coverageCopy", () => {
     ).toBe(YOURE_DRIVING)
   })
 
-  it("builds dynamic Confirm — drive from labels", () => {
+  it("builds dynamic Confirm — round trip from labels", () => {
     const members = [
       { adultId: "a1", displayName: "Alex" },
       { adultId: "a2", displayName: "Katy Smith" },
@@ -72,7 +76,7 @@ describe("coverageCopy", () => {
         currentAdultId: "a1",
         leaveFromLabel: "Home",
       }),
-    ).toBe("Confirm — you'll drive from Home")
+    ).toBe("Confirm — You'll drive round trip from Home")
     expect(
       confirmDriveFromLabel({
         selectedAdultId: "a2",
@@ -80,7 +84,21 @@ describe("coverageCopy", () => {
         currentAdultId: "a1",
         leaveFromLabel: "",
       }),
-    ).toBe("Confirm — Katy will drive from the address you enter")
+    ).toBe(`Confirm — Katy'll drive round trip from ${LEAVE_FROM_ADDRESS_PLACEHOLDER}`)
+    expect(
+      confirmDriveFromLabel({
+        selectedAdultId: "a2",
+        members,
+        currentAdultId: "a1",
+        leaveFromLabel: "  Work  ",
+      }),
+    ).toBe("Confirm — Katy'll drive round trip from Work")
+  })
+
+  it("exports Ask the team chip and Post / Different plans DriverPicker copy", () => {
+    expect(ASK_THE_TEAM).toBe("Ask the team")
+    expect(POST_TO_TEAM_ROUND_TRIP).toBe("Post to team — round trip")
+    expect(DIFFERENT_PLANS_FOR_EACH_LEG).toBe("Different plans for each leg.")
   })
 
   it("names cancel-request and waiting-on copy for pending household drivers", () => {

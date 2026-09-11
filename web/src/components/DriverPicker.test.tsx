@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { FamilyMember } from "@/api/types"
 import {
+  ASK_THE_TEAM,
+  DIFFERENT_PLANS_FOR_EACH_LEG,
+  LEAVE_FROM_ADDRESS_PLACEHOLDER,
+  POST_TO_TEAM_ROUND_TRIP,
+} from "@/components/coverageCopy"
+import {
   confirmDriverLabel,
   DriverPicker,
   householdDriverChipLabel,
@@ -41,30 +47,36 @@ describe("DriverPicker helpers", () => {
   })
 
   it("builds confirm labels for self vs other adult", () => {
-    expect(confirmDriverLabel("a1", members, "a1")).toBe("Confirm I'll drive")
-    expect(confirmDriverLabel("a2", members, "a1")).toBe("Ask Jordan to drive")
+    expect(confirmDriverLabel("a1", members, "a1")).toBe(
+      `Confirm — You'll drive round trip from ${LEAVE_FROM_ADDRESS_PLACEHOLDER}`,
+    )
+    expect(confirmDriverLabel("a2", members, "a1")).toBe(
+      `Confirm — Jordan'll drive round trip from ${LEAVE_FROM_ADDRESS_PLACEHOLDER}`,
+    )
     expect(confirmDriverLabel("a1", members, "a1", "Home")).toBe(
-      "Confirm — you'll drive from Home",
+      "Confirm — You'll drive round trip from Home",
     )
     expect(confirmDriverLabel("a2", members, "a1", "Work")).toBe(
-      "Confirm — Jordan will drive from Work",
+      "Confirm — Jordan'll drive round trip from Work",
     )
   })
 })
 
 describe("DriverPicker", () => {
   it("renders household member chips with You selected by default", () => {
-    render(<DriverPicker {...defaultProps} />)
+    render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
 
     const youChip = screen.getByRole("button", { name: "You" })
     const jordanChip = screen.getByRole("button", { name: "Jordan" })
 
     expect(youChip).toHaveAttribute("aria-pressed", "true")
     expect(jordanChip).toHaveAttribute("aria-pressed", "false")
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Confirm — You'll drive round trip from Home" }),
+    ).toBeInTheDocument()
   })
 
-  it("updates selection and confirm label when another adult is chosen", async () => {
+  it("updates selection when another adult is chosen", async () => {
     const user = userEvent.setup()
     const onSelectedAdultChange = vi.fn()
 
@@ -77,10 +89,14 @@ describe("DriverPicker", () => {
     expect(onSelectedAdultChange).toHaveBeenCalledWith("a2")
   })
 
-  it("shows Ask {name} to drive when another adult is selected", () => {
-    render(<DriverPicker {...defaultProps} selectedAdultId="a2" />)
+  it("shows other-adult Confirm label when another adult is selected", () => {
+    render(<DriverPicker {...defaultProps} selectedAdultId="a2" leaveFromLabel="Home" />)
 
-    expect(screen.getByRole("button", { name: "Ask Jordan to drive" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: "Confirm — Jordan'll drive round trip from Home",
+      }),
+    ).toBeInTheDocument()
   })
 
   it("calls onAssignCoverage with selected adult and kid subset", async () => {
@@ -92,66 +108,127 @@ describe("DriverPicker", () => {
         {...defaultProps}
         selectedAdultId="a2"
         kidIds={["k1", "k2"]}
+        leaveFromLabel="Home"
         onAssignCoverage={onAssignCoverage}
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(
+      screen.getByRole("button", {
+        name: "Confirm — Jordan'll drive round trip from Home",
+      }),
+    )
 
     expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1", "k2"])
   })
 
-  it("separates the team section from household chips", () => {
-    render(<DriverPicker {...defaultProps} />)
+  it("puts Ask the team as a trailing chip in the driver row", () => {
+    render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
 
-    const householdSection = screen.getByTestId("driver-picker-household-section")
-    const teamSection = screen.getByTestId("driver-picker-team-section")
-    expect(householdSection).toContainElement(screen.getByRole("button", { name: "You" }))
-    expect(householdSection).toContainElement(
-      screen.getByTestId("driver-picker-confirm"),
+    const group = screen.getByRole("group", { name: "Household driver" })
+    expect(group).toContainElement(screen.getByRole("button", { name: "You" }))
+    expect(group).toContainElement(screen.getByRole("button", { name: ASK_THE_TEAM }))
+    expect(screen.getByTestId("driver-picker-ask-team-chip")).toHaveAttribute(
+      "aria-pressed",
+      "false",
     )
-    expect(screen.getByTestId("driver-picker-driver-label")).toHaveTextContent("Driver")
-    expect(teamSection).not.toContainElement(screen.getByRole("button", { name: "You" }))
-    expect(teamSection.className).toMatch(/border-t/)
-    expect(teamSection.className).toMatch(/mt-\[var\(--fc-space-md\)\]/)
-    expect(screen.getByText("Nobody in the household free?")).toBeInTheDocument()
-    expect(screen.getByTestId("driver-picker-team-ask").className).toMatch(/border/)
+    expect(screen.queryByTestId("driver-picker-team-section")).not.toBeInTheDocument()
+    expect(screen.queryByText("Nobody in the household free?")).not.toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Ask the team for a ride" }),
+      screen.queryByRole("button", { name: "Ask the team for a ride" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("switches primary to Post and calls onAskTeam when Ask the team is selected", async () => {
+    const user = userEvent.setup()
+    const onAskTeam = vi.fn()
+    const onAssignCoverage = vi.fn()
+
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onAskTeam={onAskTeam}
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: ASK_THE_TEAM }))
+
+    expect(screen.getByRole("button", { name: "You" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+    expect(screen.getByTestId("driver-picker-ask-team-chip")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP }))
+
+    expect(onAskTeam).toHaveBeenCalledOnce()
+    expect(onAssignCoverage).not.toHaveBeenCalled()
+  })
+
+  it("returns to household Confirm after selecting an adult from Ask the team", async () => {
+    const user = userEvent.setup()
+    const onSelectedAdultChange = vi.fn()
+
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSelectedAdultChange={onSelectedAdultChange}
+      />,
+    )
+
+    await user.click(screen.getByRole("button", { name: ASK_THE_TEAM }))
+    expect(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "You" }))
+    expect(onSelectedAdultChange).toHaveBeenCalledWith("a1")
+    expect(
+      screen.getByRole("button", { name: "Confirm — You'll drive round trip from Home" }),
     ).toBeInTheDocument()
   })
 
-  it("calls onAskTeam from the team button", async () => {
+  it("shows a non-activating Different plans link below the primary button", async () => {
     const user = userEvent.setup()
-    const onAskTeam = vi.fn()
+    render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
 
-    render(<DriverPicker {...defaultProps} onAskTeam={onAskTeam} />)
-
-    await user.click(screen.getByRole("button", { name: "Ask the team for a ride" }))
-
-    expect(onAskTeam).toHaveBeenCalledOnce()
+    const link = screen.getByTestId("driver-picker-different-plans")
+    expect(link).toHaveTextContent(DIFFERENT_PLANS_FOR_EACH_LEG)
+    expect(link).toHaveAttribute("aria-disabled", "true")
+    expect(link).toHaveAttribute("tabIndex", "-1")
+    await user.click(link)
+    expect(link).toBeInTheDocument()
   })
 
   it("disables chips and actions while loading", () => {
-    render(<DriverPicker {...defaultProps} loading />)
+    render(<DriverPicker {...defaultProps} leaveFromLabel="Home" loading />)
 
     expect(screen.getByRole("button", { name: "You" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Jordan" })).toBeDisabled()
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeDisabled()
-    expect(screen.getByRole("button", { name: "Ask the team for a ride" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: ASK_THE_TEAM })).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "Confirm — You'll drive round trip from Home" }),
+    ).toBeDisabled()
   })
 
   it("disables confirm when kid subset is empty", () => {
-    render(<DriverPicker {...defaultProps} kidIds={[]} />)
+    render(<DriverPicker {...defaultProps} kidIds={[]} leaveFromLabel="Home" />)
 
-    expect(screen.getByRole("button", { name: "Confirm I'll drive" })).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "Confirm — You'll drive round trip from Home" }),
+    ).toBeDisabled()
   })
 
-  it("hides the team section when showTeamSection is false", () => {
-    render(<DriverPicker {...defaultProps} showTeamSection={false} />)
+  it("hides the Ask the team chip when showTeamSection is false", () => {
+    render(<DriverPicker {...defaultProps} showTeamSection={false} leaveFromLabel="Home" />)
 
-    expect(screen.queryByTestId("driver-picker-team-section")).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Ask the team for a ride" })).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker-ask-team-chip")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: ASK_THE_TEAM })).not.toBeInTheDocument()
   })
 
   it("wraps household chips inside a 390px container", () => {
@@ -162,14 +239,18 @@ describe("DriverPicker", () => {
     )
 
     expect(screen.getByTestId("driver-picker").className).toMatch(/max-w-full/)
-    expect(screen.getByRole("group", { name: "Household driver" }).className).toMatch(/flex-wrap/)
-    expect(screen.getByTestId("driver-picker-household-section").className).toMatch(/max-w-full/)
+    expect(screen.getByRole("group", { name: "Household driver" }).className).toMatch(
+      /flex-wrap/,
+    )
+    expect(screen.getByTestId("driver-picker-household-section").className).toMatch(
+      /max-w-full/,
+    )
   })
 })
 
 describe("DriverPicker hero styling", () => {
   it("uses white/ink chips and a white primary confirm on hero glow", () => {
-    render(<DriverPicker {...defaultProps} hero />)
+    render(<DriverPicker {...defaultProps} hero leaveFromLabel="Home" />)
 
     const youChip = screen.getByRole("button", { name: "You" })
     const jordanChip = screen.getByRole("button", { name: "Jordan" })
@@ -189,29 +270,30 @@ describe("DriverPicker hero styling", () => {
     })
   })
 
-  it("separates the team ask with a divider and outline button on hero", () => {
-    render(<DriverPicker {...defaultProps} hero />)
+  it("styles Ask the team as a trailing chip on hero without a team footer", async () => {
+    const user = userEvent.setup()
+    render(<DriverPicker {...defaultProps} hero leaveFromLabel="Home" />)
 
-    const householdSection = screen.getByTestId("driver-picker-household-section")
-    const teamSection = screen.getByTestId("driver-picker-team-section")
-    expect(householdSection).toContainElement(screen.getByTestId("driver-picker-confirm"))
-    expect(teamSection).not.toContainElement(screen.getByTestId("driver-picker-confirm"))
-    expect(teamSection.className).toMatch(/border-t/)
-    expect(teamSection.className).toMatch(/mt-\[var\(--fc-space-lg\)\]/)
-    expect(teamSection).toHaveStyle({ borderColor: "rgba(255, 255, 255, 0.14)" })
-    expect(screen.getByTestId("driver-picker-team-ask")).toHaveStyle({
-      color: "var(--fc-hero-on)",
+    const askChip = screen.getByTestId("driver-picker-ask-team-chip")
+    expect(screen.getByRole("group", { name: "Household driver" })).toContainElement(askChip)
+    expect(screen.queryByTestId("driver-picker-team-section")).not.toBeInTheDocument()
+
+    await user.click(askChip)
+    expect(askChip).toHaveAttribute("data-selected", "true")
+    expect(askChip).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-on-inverse)",
     })
-    expect(screen.getByTestId("driver-picker-team-ask").getAttribute("style") ?? "").toMatch(
-      /transparent/,
+    expect(screen.getByTestId("driver-picker-confirm")).toHaveTextContent(
+      POST_TO_TEAM_ROUND_TRIP,
     )
   })
 
   it("disables hero actions while loading", () => {
-    render(<DriverPicker {...defaultProps} hero loading />)
+    render(<DriverPicker {...defaultProps} hero loading leaveFromLabel="Home" />)
 
     expect(screen.getByRole("button", { name: "You" })).toBeDisabled()
     expect(screen.getByTestId("driver-picker-confirm")).toBeDisabled()
-    expect(screen.getByTestId("driver-picker-team-ask")).toBeDisabled()
+    expect(screen.getByTestId("driver-picker-ask-team-chip")).toBeDisabled()
   })
 })

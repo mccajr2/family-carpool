@@ -20,10 +20,12 @@ away — never inline by default — via **“Different plans for each leg.”**
 
 ## Non-goals (sketch)
 
-- Default collapsed card chrome — [`carpool-ride-coverage-card`](carpool-ride-coverage-card.md)
+- Default collapsed card chrome — [`carpool-ride-coverage-card`](../archive/carpool-ride-coverage-card.md)
+- Matching-leg chip collapse (`Round trip: {status}`) —
+  [`carpool-leg-chip-collapse`](carpool-leg-chip-collapse.md)
 - Ask-the-team radius / meet-at sub-flow — [`carpool-meet-at`](carpool-meet-at.md)
 - Domain four-state legs + combined cancel foundation —
-  [`carpool-leg-to-from`](../active/carpool-leg-to-from.md) (prerequisite)
+  [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md) (prerequisite)
 
 ## Notes
 

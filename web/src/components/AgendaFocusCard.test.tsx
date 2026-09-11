@@ -377,13 +377,47 @@ describe("AgendaFocusCard assign", () => {
         circle: twoAdultCircle,
         assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: false, soleKid: true },
         onAssignCoverage,
+        onSetLeaveFrom: vi.fn(),
       },
     )
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "You" })).toHaveAttribute("aria-pressed", "true")
+    const household = screen.getByTestId("driver-picker-household-section")
+    expect(within(household).getByTestId("agenda-focus-leave-from")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", {
+        name: "Confirm — You'll drive round trip from Mom's house",
+      }),
+    ).toBeInTheDocument()
     await user.click(screen.getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
+  })
+
+  it("updates Confirm origin live from one-time leave-from draft", async () => {
+    const user = userEvent.setup()
+    renderCard(
+      item({
+        id: "assign-origin",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        circle: twoAdultCircle,
+        assignDraft: { adultId: "a1", kidIds: ["k1"], soleAdult: false, soleKid: true },
+        onSetLeaveFrom: vi.fn(),
+      },
+    )
+    const select = screen.getByTestId("focus-leave-from-MANUAL-assign-origin-place-select")
+    await user.selectOptions(select, "__one_time__")
+    const input = screen.getByTestId("focus-leave-from-MANUAL-assign-origin-one-time-input")
+    await user.clear(input)
+    await user.type(input, "Library lot")
+    expect(
+      screen.getByRole("button", {
+        name: "Confirm — You'll drive round trip from Library lot",
+      }),
+    ).toBeInTheDocument()
   })
 
   it("assigns a different adult after selecting another household chip", async () => {
@@ -404,7 +438,11 @@ describe("AgendaFocusCard assign", () => {
       },
     )
     expect(screen.getByRole("button", { name: "Jordan" })).toHaveAttribute("aria-pressed", "true")
-    await user.click(screen.getByRole("button", { name: "Ask Jordan to drive" }))
+    await user.click(
+      screen.getByRole("button", {
+        name: /Confirm — Jordan'll drive round trip from/,
+      }),
+    )
     expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1"])
   })
 
@@ -1132,9 +1170,10 @@ describe("AgendaFocusCard Request CTA", () => {
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Ask the team for a ride" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ask the team" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Ask the team for a ride" }))
+    await user.click(screen.getByRole("button", { name: "Ask the team" }))
+    await user.click(screen.getByRole("button", { name: "Post to team — round trip" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice")
     expect(onAssignCoverage).not.toHaveBeenCalled()
   })

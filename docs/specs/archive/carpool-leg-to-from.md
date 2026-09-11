@@ -20,7 +20,7 @@ Getting there / Coming back chips.
 
 - **Default collapsed coverage card chrome** (driver chips + leave-from
   combobox + live Confirm / Post to team labels) —
-  [`carpool-ride-coverage-card`](../planned/carpool-ride-coverage-card.md)
+  [`carpool-ride-coverage-card`](carpool-ride-coverage-card.md)
 - **“Different plans for each leg” split editor** (independent driver +
   location per leg, Save ride plan) —
   [`carpool-leg-split-plans`](../planned/carpool-leg-split-plans.md)

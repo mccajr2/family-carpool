@@ -174,6 +174,7 @@ export function AgendaRow({
 }: AgendaRowProps) {
   const [open, setOpen] = useState(false)
   const [selectedRideKidIds, setSelectedRideKidIds] = useState<string[] | null>(null)
+  const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
@@ -273,6 +274,7 @@ export function AgendaRow({
     leaveFromAddress: item.leaveFromAddress,
   }
   const itemLeaveFromLabel = resolvedLeaveFromLabel(itemLeaveFromFields, circle)
+  const originForConfirm = confirmOriginLabel || itemLeaveFromLabel
 
   const ChevronIcon = open ? ChevronUp : ChevronDown
   const focusRingStyle = isFocused
@@ -345,6 +347,7 @@ export function AgendaRow({
       ariaLabel={`Leave from for ${item.title}`}
       helperLine={agendaLeaveByLine(item)}
       onChange={onSetLeaveFrom}
+      onConfirmOriginLabelChange={setConfirmOriginLabel}
       testIdPrefix={`leave-from-${item.source}-${item.id}`}
     />
   )
@@ -656,7 +659,7 @@ export function AgendaRow({
                                   ? leaveFromSlotForPicker
                                   : undefined
                               }
-                              leaveFromLabel={itemLeaveFromLabel}
+                              leaveFromLabel={originForConfirm}
                               onAssignCoverage={onAssignCoverage}
                               onAskTeam={() => {
                                 if (rideEvent?.eventKey && onCreateRide) {
