@@ -21,8 +21,8 @@ away — never inline by default — via **“Different plans for each leg.”**
 ## Non-goals (sketch)
 
 - Default collapsed card chrome — [`carpool-ride-coverage-card`](../archive/carpool-ride-coverage-card.md)
-- Matching-leg chip collapse (`Round trip: {status}`) —
-  [`carpool-leg-chip-collapse`](carpool-leg-chip-collapse.md)
+- Matching-leg chip collapse (plain status body when TO/FROM match) —
+  [`carpool-leg-chip-collapse`](../active/carpool-leg-chip-collapse.md)
 - Ask-the-team radius / meet-at sub-flow — [`carpool-meet-at`](carpool-meet-at.md)
 - Domain four-state legs + combined cancel foundation —
   [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md) (prerequisite)
@@ -39,3 +39,12 @@ away — never inline by default — via **“Different plans for each leg.”**
 - Still one shared plan for all going kids; per-kid progressive disclosure is
   [`carpool-kid-split-plans`](carpool-kid-split-plans.md).
 - Web first.
+- **Hero / coverage queue (must address at `/spec`):** today `getQueue` /
+  `isOwnRideGap` key off rollup `ownRide` (household coverage + whole-request
+  PENDING/ACCEPTED), **not** per-leg `NEEDS_RIDE`. Mixed plans (e.g. you cover
+  TO, ask team on FROM) mean a cancelled/withdrawn teammate leg can leave a
+  real gap that never re-enters the hero carousel while coverage still looks
+  “covered.” This id owns teaching the queue (and Focus CTAs) about **per-leg
+  gaps** when legs diverge — out of scope for
+  [`carpool-leg-chip-collapse`](../active/carpool-leg-chip-collapse.md)
+  (display-only).
