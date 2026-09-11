@@ -438,6 +438,50 @@ public class CarpoolRideService {
         }
     }
 
+    /**
+     * RSVP NO side effect: drop the kid from this circle's active ride plans
+     * for the feed event. Empty plans are cancelled (both legs cleared).
+     */
+    @Transactional
+    public void clearTransportForNotGoingKid(
+            UUID actorAdultId, UUID feedEventId, UUID kidId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(actorAdultId);
+        Optional<FeedCalendarEventDto> event =
+                feedCalendarApi.findEventInCircle(circleId, feedEventId);
+        if (event.isEmpty()) {
+            return;
+        }
+        String eventKey = RideEventKey.of(event.get());
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+        if (spaceIds.isEmpty()) {
+            return;
+        }
+        List<CarpoolRideRequestEntity> active =
+                rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        spaceIds, eventKey, circleId, ACTIVE);
+        for (CarpoolRideRequestEntity ride : active) {
+            if (!ride.removeKid(kidId)) {
+                continue;
+            }
+            UUID previousDriverId = ride.acceptedByAdultId();
+            boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
+            if (ride.kids().isEmpty()) {
+                ride.cancel();
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+                if (wasAccepted && previousDriverId != null) {
+                    refreshDriverRouteAfterAcceptedChange(
+                            previousDriverId, ride.spaceId(), eventKey);
+                }
+            } else {
+                rides.save(ride);
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
             UUID circleId, UUID feedEventId) {

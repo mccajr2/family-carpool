@@ -37,4 +37,10 @@ interface CarpoolRideRequestRepository extends JpaRepository<CarpoolRideRequestE
             String eventKey,
             UUID acceptedByAdultId,
             CarpoolRideStatus status);
+
+    List<CarpoolRideRequestEntity> findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+            Collection<UUID> spaceIds,
+            String eventKey,
+            UUID requestingCircleId,
+            Collection<CarpoolRideStatus> statuses);
 }

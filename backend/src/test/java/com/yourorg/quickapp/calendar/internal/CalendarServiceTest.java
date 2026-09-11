@@ -608,6 +608,7 @@ class CalendarServiceTest {
         verify(coverageApi)
                 .releaseKidFromActiveRows(
                         circleId, CoverageItemSource.MANUAL, itemId, kidId);
+        verify(carpoolApi, never()).clearTransportForNotGoingKid(any(), any(), any());
         verify(rsvpApi)
                 .setStatus(
                         circleId,
@@ -657,6 +658,7 @@ class CalendarServiceTest {
                 .releaseKidFromActiveRows(
                         circleId, CoverageItemSource.FEED, itemId, kidId);
         order.verify(carpoolApi).withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
+        order.verify(carpoolApi).clearTransportForNotGoingKid(adult.id(), itemId, kidId);
         order.verify(rsvpApi)
                 .setStatus(
                         circleId,
@@ -721,6 +723,7 @@ class CalendarServiceTest {
                 .releaseKidFromActiveRows(
                         circleId, CoverageItemSource.FEED, itemId, kidA);
         verify(carpoolApi, never()).withdrawAcceptedInboundForFeedEvent(any(), any());
+        verify(carpoolApi).clearTransportForNotGoingKid(adult.id(), itemId, kidA);
     }
 
     @Test

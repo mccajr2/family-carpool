@@ -486,6 +486,9 @@ public class CalendarService {
                 carpoolApi.withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
             }
         }
+        if (status == RsvpStatus.NO && source == CalendarItemSource.FEED) {
+            carpoolApi.clearTransportForNotGoingKid(adult.id(), itemId, kidId);
+        }
         rsvpApi.setStatus(
                 circleId, toRsvpSource(source), itemId, kidId, status, adult.id());
         return requireItem(adult.id(), circleId, source, itemId);

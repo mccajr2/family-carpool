@@ -533,6 +533,124 @@ class CarpoolRideControllerIntegrationTest {
                                 .value("YES"));
     }
 
+    @Test
+    void rsvpNoRemovesKidFromPendingAndCancelsAcceptedWhenLastKid() throws Exception {
+        String orgA = signIn("carpool-rsvp-no-org-a@example.com");
+        String orgB = signIn("carpool-rsvp-no-org-b@example.com");
+
+        createCircle(orgA, "Alex", "RsvpNo House A");
+        createCircle(orgB, "Sam", "RsvpNo House B");
+
+        String kidA1 = addKid(orgA, "Sam");
+        String kidA2 = addKid(orgA, "Jordan");
+        String kidB = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(
+                        orgA,
+                        "Soccer",
+                        "https://example.com/carpool-rsvp-no.ics",
+                        kidA1,
+                        kidA2);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-rsvp-no.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(orgA, "Practice");
+        String practiceB = feedEventId(orgB, "Practice");
+        setRsvpYes(orgA, practiceA, kidA1);
+        setRsvpYes(orgA, practiceA, kidA2);
+        setRsvpYes(orgB, practiceB, kidB);
+        addPlace(orgA, "Home A", "12 Oak St");
+        addPlace(orgB, "Home B", "Unlocateable Lane");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"eventKey\":\"" + EVENT_KEY + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.seats").value(2));
+
+        setRsvpNo(orgA, practiceA, kidA1);
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.status")
+                                .value("PENDING"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.seats")
+                                .value(1))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.kidIds[0]")
+                                .value(kidA2));
+
+        MvcResult listed =
+                mockMvc.perform(
+                                get("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                        .param("from", FROM)
+                                        .param("to", TO))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> rideIds =
+                JsonPath.read(
+                        listed.getResponse().getContentAsString(),
+                        "$.[?(@.eventKey=='" + EVENT_KEY + "')].otherRequests[0].id");
+        String rideId = rideIds.getFirst();
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        setRsvpNo(orgA, practiceA, kidA2);
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest")
+                                .value((Object) null));
+    }
+
     private String feedEventId(String token, String title) throws Exception {
         MvcResult calendar =
                 mockMvc.perform(
@@ -588,7 +706,12 @@ class CarpoolRideControllerIntegrationTest {
                 "$.id");
     }
 
-    private String createFeed(String token, String name, String url, String kidId) throws Exception {
+    private String createFeed(String token, String name, String url, String... kidIds)
+            throws Exception {
+        String kidsJson =
+                java.util.Arrays.stream(kidIds)
+                        .map(id -> "\"" + id + "\"")
+                        .collect(java.util.stream.Collectors.joining(","));
         return JsonPath.read(
                 mockMvc.perform(
                                 post("/api/family/circle/feeds")
@@ -599,14 +722,23 @@ class CarpoolRideControllerIntegrationTest {
                                                         + name
                                                         + "\",\"sourceUrl\":\""
                                                         + url
-                                                        + "\",\"kidIds\":[\""
-                                                        + kidId
-                                                        + "\"]}"))
+                                                        + "\",\"kidIds\":["
+                                                        + kidsJson
+                                                        + "]}"))
                         .andExpect(status().isCreated())
                         .andReturn()
                         .getResponse()
                         .getContentAsString(),
                 "$.id");
+    }
+
+    private void setRsvpNo(String token, String itemId, String kidId) throws Exception {
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + itemId + "/rsvps/" + kidId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"NO\"}"))
+                .andExpect(status().isOk());
     }
 
     private void addPlace(String token, String name, String address) throws Exception {

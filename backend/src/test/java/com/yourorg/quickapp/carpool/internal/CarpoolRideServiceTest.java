@@ -105,6 +105,8 @@ class CarpoolRideServiceTest {
                     Instant.parse("2026-08-01T00:00:00Z"),
                     null,
                     2);
+    private static final List<CarpoolRideStatus> ACTIVE =
+            List.of(CarpoolRideStatus.PENDING, CarpoolRideStatus.ACCEPTED);
 
     @BeforeEach
     void setUp() {
@@ -836,6 +838,108 @@ class CarpoolRideServiceTest {
                 .findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
                         any(), any(), any(), any());
         verify(rides, never()).save(any());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidRemovesKidKeepingSharedPendingPlan() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA, kidB))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity pending = pendingOwnRide(List.of(kidA, kidB));
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(pending));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(pending.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(pending.kids()).extracting(RideKidSnapshot::kidId).containsExactly(kidB);
+        assertThat(pending.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        verify(rides).save(pending);
+        verify(passes, never()).deleteByRideId(any());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidCancelsPendingWhenLastKidRemoved() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity pending = pendingOwnRide(List.of(kidA));
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(pending));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(pending.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(pending.kids()).isEmpty();
+        assertThat(pending.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        verify(passes).deleteByRideId(pending.id());
+    }
+
+    @Test
+    void clearTransportForNotGoingKidCancelsAcceptedWhenLastKidRemoved() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity accepted = pendingOwnRide(List.of(kidA));
+        accepted.accept(otherAdultId, otherCircleId);
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        List.of(spaceId), "UID:game-1", circleId, ACTIVE))
+                .thenReturn(List.of(accepted));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(spaces.findById(spaceId)).thenReturn(Optional.of(space()));
+        when(familyMembershipApi.requireMemberCircleId(otherAdultId)).thenReturn(otherCircleId);
+        when(feedsApi.findByCircleAndNormalizedUrl(otherCircleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.empty());
+
+        service.clearTransportForNotGoingKid(adultId, eventId, kidA);
+
+        assertThat(accepted.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        assertThat(accepted.acceptedByAdultId()).isNull();
+        assertThat(accepted.legs())
+                .extracting(RideLegSlot::phase)
+                .containsExactly(
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE,
+                        com.yourorg.quickapp.carpool.CarpoolLegPhase.NEEDS_RIDE);
+        verify(passes).deleteByRideId(accepted.id());
     }
 
     private void stubMemberSpace() {

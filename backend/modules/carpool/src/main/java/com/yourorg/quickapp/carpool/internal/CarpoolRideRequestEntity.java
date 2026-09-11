@@ -168,6 +168,28 @@ class CarpoolRideRequestEntity {
         return kids.size();
     }
 
+    /**
+     * Removes a kid from this plan's bag. Returns true when the kid was
+     * present. Rebuilds the ordered collection so {@code @OrderColumn} stays
+     * dense.
+     */
+    boolean removeKid(UUID kidId) {
+        List<RideKidSnapshot> next = new ArrayList<>();
+        boolean removed = false;
+        for (RideKidSnapshot kid : kids) {
+            if (kid.kidId().equals(kidId)) {
+                removed = true;
+            } else {
+                next.add(kid);
+            }
+        }
+        if (removed) {
+            kids.clear();
+            kids.addAll(next);
+        }
+        return removed;
+    }
+
     void accept(UUID acceptedByAdultId, UUID acceptingCircleId) {
         this.status = CarpoolRideStatus.ACCEPTED;
         this.acceptedByAdultId = acceptedByAdultId;

@@ -21,6 +21,12 @@ class CarpoolApiImpl implements CarpoolApi {
     }
 
     @Override
+    public void clearTransportForNotGoingKid(
+            UUID actorAdultId, UUID feedEventId, UUID kidId) {
+        rideService.clearTransportForNotGoingKid(actorAdultId, feedEventId, kidId);
+    }
+
+    @Override
     public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
             UUID circleId, UUID feedEventId) {
         return rideService.listAcceptedPickupsForFeedEvent(circleId, feedEventId);

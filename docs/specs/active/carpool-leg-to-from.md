@@ -207,7 +207,7 @@ above. Do not revive closed PR #107 patches.
 - [x] Backend: persist two leg slots; round-trip + single-leg writes; Accept /
       Pass / Cancel / Withdraw rules; combined cancel when same assignee;
       Flyway migration from v1 rows.
-- [ ] Backend: RSVP `NO` → remove kid from plan / clear all legs (and cancel
+- [x] Backend: RSVP `NO` → remove kid from plan / clear all legs (and cancel
       empty plans); unit + integration coverage.
 - [ ] Backend: unit tests (`CarpoolRideServiceTest`) + integration tests
       (`CarpoolRideControllerIntegrationTest`) for leg matrix + migration
