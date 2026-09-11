@@ -437,8 +437,7 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
-      { label: legStatusChipLabel("TO", "House B confirmed"), tone: "mint" },
-      { label: legStatusChipLabel("FROM", "House B confirmed"), tone: "mint" },
+      { label: "House B confirmed", tone: "mint" },
     ])
   })
 
@@ -475,7 +474,7 @@ describe("rideStatusChipsForItem", () => {
     ])
   })
 
-  it("prefers dual leg chips when ownRequest is PENDING even if coverage says unassigned", () => {
+  it("prefers collapsed leg chips when ownRequest is PENDING even if coverage says unassigned", () => {
     const pending = ownRide({ status: "PENDING" })
     const rideEvent: CarpoolRideEvent = {
       eventKey: "UID:game",
@@ -495,10 +494,7 @@ describe("rideStatusChipsForItem", () => {
         rideEvent,
         circleId: "c1",
       }),
-    ).toEqual([
-      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
-      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
-    ])
+    ).toEqual([{ label: LEG_ASKED_TEAM, tone: "amber" }])
   })
 
   it("keeps Ride needed for a sibling gap beside an ACCEPTED own plan", () => {
@@ -539,7 +535,50 @@ describe("rideStatusChipsForItem", () => {
 })
 
 describe("rideLegStatusChips", () => {
-  it("maps the four phases with Getting there / Coming back prefixes", () => {
+  it("collapses matching TO/FROM bodies to one unprefixed chip", () => {
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "ASKED_TEAM"),
+        carpoolLeg("FROM", "ASKED_TEAM"),
+      ]),
+    ).toEqual([{ label: LEG_ASKED_TEAM, tone: "amber" }])
+
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "NEEDS_RIDE"),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ]),
+    ).toEqual([{ label: LEG_NEEDS_RIDE, tone: "amber" }])
+
+    expect(
+      rideLegStatusChips(
+        [
+          carpoolLeg("TO", "CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          carpoolLeg("FROM", "CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+        ],
+        { currentAdultId: "a1" },
+      ),
+    ).toEqual([{ label: YOURE_DRIVING, tone: "mint" }])
+
+    expect(
+      rideLegStatusChips([
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeCircleName: "House B",
+        }),
+        carpoolLeg("FROM", "CONFIRMED", {
+          assigneeCircleName: "House B",
+        }),
+      ]),
+    ).toEqual([{ label: "House B confirmed", tone: "mint" }])
+  })
+
+  it("keeps dual prefixed chips when bodies differ", () => {
     expect(
       rideLegStatusChips([
         carpoolLeg("TO", "ASKED_TEAM"),
@@ -551,16 +590,28 @@ describe("rideLegStatusChips", () => {
     ])
 
     expect(
-      rideLegStatusChips([
-        carpoolLeg("TO", "WAITING_HOUSEHOLD", { assigneeDisplayName: "Katy" }),
-        carpoolLeg("FROM", "CONFIRMED", {
-          assigneeAdultId: "a1",
-          assigneeDisplayName: "Alex",
-        }),
-      ], { currentAdultId: "a1" }),
+      rideLegStatusChips(
+        [
+          carpoolLeg("TO", "WAITING_HOUSEHOLD", { assigneeDisplayName: "Katy" }),
+          carpoolLeg("FROM", "CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+        ],
+        { currentAdultId: "a1" },
+      ),
     ).toEqual([
       { label: legStatusChipLabel("TO", waitingOnDriverLabel("Katy")), tone: "amber" },
       { label: legStatusChipLabel("FROM", YOURE_DRIVING), tone: "mint" },
+    ])
+  })
+
+  it("keeps a kind prefix for true single-leg plans", () => {
+    expect(rideLegStatusChips([carpoolLeg("TO", "ASKED_TEAM")])).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+    ])
+    expect(rideLegStatusChips([carpoolLeg("FROM", "NEEDS_RIDE")])).toEqual([
+      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
     ])
   })
 
@@ -595,10 +646,7 @@ describe("agendaOwnRideLegChips / inboundAskLegChips", () => {
           legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "ASKED_TEAM")],
         }),
       ),
-    ).toEqual([
-      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
-      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
-    ])
+    ).toEqual([{ label: LEG_ASKED_TEAM, tone: "amber" }])
 
     expect(
       inboundAskLegChips(
