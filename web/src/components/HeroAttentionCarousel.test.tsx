@@ -6,6 +6,7 @@ import type { CalendarItem, CarpoolRideEvent, FamilyCircle } from "@/api/types"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { CoverageGameEvent, QueueItem } from "@/components/coverageQueue"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const circle: FamilyCircle = {
   id: "c1",
@@ -68,6 +69,7 @@ const rideEvent: CarpoolRideEvent = {
   startsAt: "2030-08-29T21:20:00.000Z",
   endsAt: "2030-08-29T22:20:00.000Z",
   defaultKidIds: ["k1"],
+  ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
   ownRequest: null,
   otherRequests: [
     {
@@ -90,6 +92,7 @@ const rideEvent: CarpoolRideEvent = {
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
+      legs: carpoolLegsBoth("ASKED_TEAM"),
     },
   ],
 }

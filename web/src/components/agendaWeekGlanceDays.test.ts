@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CalendarItem, CarpoolRide } from "@/api/types"
 import { selectFocusItem } from "@/components/agendaFocusSelection"
 import { agendaWeekGlanceDays } from "@/components/agendaWeekGlanceDays"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "startsAt"> &
@@ -95,6 +96,7 @@ function acceptedOwnRide(kidIds: string[]): CarpoolRide {
     acceptedByAdultId: "a2",
     acceptingCircleId: "c2",
     acceptingCircleName: "Sharks Family",
+    legs: carpoolLegsBoth("CONFIRMED"),
   }
 }
 

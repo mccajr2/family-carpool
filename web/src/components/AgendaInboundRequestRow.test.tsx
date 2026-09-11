@@ -12,6 +12,7 @@ import {
   REVERT_INBOUND_RECONSIDER,
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 
 const pendingAsk: CarpoolRide = {
@@ -34,6 +35,7 @@ const pendingAsk: CarpoolRide = {
   acceptedByAdultId: null,
   acceptingCircleId: null,
   acceptingCircleName: null,
+  legs: carpoolLegsBoth("ASKED_TEAM"),
 }
 
 const acceptedByUs: CarpoolRide = {

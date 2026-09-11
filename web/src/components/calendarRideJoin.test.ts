@@ -9,6 +9,7 @@ import {
   spaceIdForCarpoolRide,
   startsAtEqual,
 } from "@/components/calendarRideJoin"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
   return {
@@ -20,6 +21,7 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 
@@ -95,6 +97,7 @@ describe("spaceIdForCarpoolRide", () => {
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "McCarthy",
+          legs: carpoolLegsBoth("CONFIRMED"),
         },
       ],
     })

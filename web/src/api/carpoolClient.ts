@@ -1,5 +1,6 @@
 import { authUrl } from "@/api/authClient"
 import type {
+  CancelCarpoolRideRequest,
   CarpoolInvite,
   CarpoolJoinRequest,
   CarpoolRide,
@@ -7,6 +8,7 @@ import type {
   CarpoolSpace,
   CarpoolSummary,
   CreateCarpoolRideRequest,
+  WithdrawCarpoolRideRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -178,6 +180,9 @@ export class CarpoolClient {
     if (request.kidIds != null) {
       body.kidIds = request.kidIds
     }
+    if (request.legs != null) {
+      body.legs = request.legs
+    }
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides`),
       {
@@ -227,12 +232,22 @@ export class CarpoolClient {
     return (await response.json()) as CarpoolRide
   }
 
-  async cancelRide(accessToken: string, spaceId: string, rideId: string): Promise<CarpoolRide> {
+  async cancelRide(
+    accessToken: string,
+    spaceId: string,
+    rideId: string,
+    request: CancelCarpoolRideRequest = {},
+  ): Promise<CarpoolRide> {
+    const hasLegs = request.legs != null
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/cancel`),
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...(hasLegs ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(hasLegs ? { body: JSON.stringify({ legs: request.legs }) } : {}),
       },
     )
     if (!response.ok) {
@@ -245,12 +260,18 @@ export class CarpoolClient {
     accessToken: string,
     spaceId: string,
     rideId: string,
+    request: WithdrawCarpoolRideRequest = {},
   ): Promise<CarpoolRide> {
+    const hasLegs = request.legs != null
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/rides/${rideId}/withdraw`),
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...(hasLegs ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(hasLegs ? { body: JSON.stringify({ legs: request.legs }) } : {}),
       },
     )
     if (!response.ok) {

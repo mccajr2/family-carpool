@@ -24,6 +24,7 @@ import {
 } from "@/components/rideStatusChip"
 import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
 import type { CarpoolRideEvent } from "@/api/types"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
   return {
@@ -116,6 +117,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -362,6 +364,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [inbound],
     }
@@ -407,6 +410,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: accepted,
       otherRequests: [inbound],
     }
@@ -446,6 +450,7 @@ describe("rideStatusChipsForItem", () => {
       startsAt: "2030-08-15T17:00:00.000Z",
       endsAt: null,
       defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
       otherRequests: [inbound],
     }

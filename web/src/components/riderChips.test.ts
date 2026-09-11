@@ -8,6 +8,7 @@ import {
   ridersForItem,
 } from "@/components/riderChips"
 import type { CarpoolRequest, CoverageGameEvent } from "@/components/coverageQueue"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const kids: Kid[] = [
   { id: "k1", displayName: "Declan McCarthy" },
@@ -65,6 +66,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 

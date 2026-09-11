@@ -31,6 +31,7 @@ import {
   alsoDrivingKidLabel,
 } from "@/components/coverageCopy"
 import { calendarSourceLabel as eventTimesSourceLabel } from "@/components/eventTimes"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const kids: Kid[] = [
   { id: "k1", displayName: "Maya" },
@@ -109,6 +110,7 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: "c2",
     acceptingCircleName: "Sharks Family",
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 

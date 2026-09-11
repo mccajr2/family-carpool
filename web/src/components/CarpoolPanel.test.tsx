@@ -10,6 +10,7 @@ import type {
   Kid,
 } from "@/api/types"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function mockCarpoolClient(partial: Partial<CarpoolClient>): CarpoolClient {
   return {
@@ -88,6 +89,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -101,6 +103,7 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
 
@@ -325,10 +328,12 @@ describe("CarpoolPanel", () => {
     const user = userEvent.setup()
     const pendingOther = event({
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       otherRequests: [ride({ id: "ride-1", status: "PENDING", seats: 1 })],
     })
     const acceptedOther = event({
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       otherRequests: [
         ride({
           id: "ride-1",
@@ -341,6 +346,7 @@ describe("CarpoolPanel", () => {
     })
     const ownPending = event({
       defaultKidIds: [],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: ride({
         id: "ride-2",
         requestingCircleId: "c1",
@@ -390,6 +396,7 @@ describe("CarpoolPanel", () => {
     const listRides = vi.fn().mockImplementation(async () => [
       event({
         defaultKidIds: [],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         otherRequests: [ride({ id: "ride-1", status: "PENDING", passedByMe: passed })],
       }),
     ])

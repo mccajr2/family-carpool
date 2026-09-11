@@ -18,6 +18,7 @@ import {
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
 import { ASKED_THE_TEAM, RIDING_WITH_TEAMMATE, ridingWithCircleLabel } from "@/components/coverageCopy"
+import { carpoolLegsBoth } from "@/api/carpoolLegs"
 
 describe("carpoolDisplay", () => {
   it("shows Your family when the circle name is blank", () => {
@@ -221,6 +222,7 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptingCircleId: null,
     acceptingCircleName: null,
     ...partial,
+    legs: partial.legs ?? carpoolLegsBoth(partial.status === "ACCEPTED" ? "CONFIRMED" : "ASKED_TEAM"),
   }
 }
 
@@ -234,5 +236,6 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }

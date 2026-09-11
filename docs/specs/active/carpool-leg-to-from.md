@@ -202,7 +202,7 @@ above. Do not revive closed PR #107 patches.
 
 ## Tasks
 
-- [ ] Contract: OpenAPI per-leg schemas/fields + version bump; align summary
+- [x] Contract: OpenAPI per-leg schemas/fields + version bump; align summary
       copy that still says “both legs” only.
 - [ ] Backend: persist two leg slots; round-trip + single-leg writes; Accept /
       Pass / Cancel / Withdraw rules; combined cancel when same assignee;
@@ -212,7 +212,7 @@ above. Do not revive closed PR #107 patches.
 - [ ] Backend: unit tests (`CarpoolRideServiceTest`) + integration tests
       (`CarpoolRideControllerIntegrationTest`) for leg matrix + migration
       readability + not-going.
-- [ ] Web: types + `carpoolClient` mapping.
+- [x] Web: types + `carpoolClient` mapping.
 - [ ] Web: dual-chip helpers (`coverageCopy` / `rideStatusChip` /
       `carpoolDisplay` / `coverageQueue` as needed) + component tests.
 - [ ] Web: wire Focus, AgendaRow (and Carpool ride lines / week-glance if they

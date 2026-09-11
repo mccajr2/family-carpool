@@ -364,6 +364,23 @@ export type CarpoolSummary = {
 
 export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED"
 
+export type CarpoolLegKind = "TO" | "FROM"
+
+export type CarpoolLegPhase =
+  | "NEEDS_RIDE"
+  | "WAITING_HOUSEHOLD"
+  | "ASKED_TEAM"
+  | "CONFIRMED"
+
+export type CarpoolRideLeg = {
+  kind: CarpoolLegKind
+  phase: CarpoolLegPhase
+  assigneeAdultId: string | null
+  assigneeDisplayName: string | null
+  assigneeCircleId: string | null
+  assigneeCircleName: string | null
+}
+
 export type CarpoolRide = {
   id: string
   spaceId: string
@@ -379,6 +396,7 @@ export type CarpoolRide = {
   pickupTown: string | null
   detourMinutes: number | null
   status: CarpoolRideStatus
+  legs: CarpoolRideLeg[]
   passedByMe: boolean
   passedByAdultNames: string[]
   acceptedByAdultId: string | null
@@ -392,6 +410,7 @@ export type CarpoolRideEvent = {
   startsAt: string
   endsAt: string | null
   defaultKidIds: string[]
+  ownLegs: CarpoolRideLeg[]
   ownRequest: CarpoolRide | null
   otherRequests: CarpoolRide[]
 }
@@ -399,4 +418,14 @@ export type CarpoolRideEvent = {
 export type CreateCarpoolRideRequest = {
   eventKey: string
   kidIds?: string[]
+  /** Omit for round-trip (both TO and FROM). */
+  legs?: CarpoolLegKind[]
+}
+
+export type CancelCarpoolRideRequest = {
+  legs?: CarpoolLegKind[]
+}
+
+export type WithdrawCarpoolRideRequest = {
+  legs?: CarpoolLegKind[]
 }

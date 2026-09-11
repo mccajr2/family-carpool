@@ -54,8 +54,13 @@ export type {
   CarpoolJoinRequest,
   CarpoolRide,
   CarpoolRideEvent,
+  CarpoolRideLeg,
   CarpoolRideStatus,
+  CarpoolLegKind,
+  CarpoolLegPhase,
   CarpoolSpace,
   CarpoolSummary,
+  CancelCarpoolRideRequest,
   CreateCarpoolRideRequest,
+  WithdrawCarpoolRideRequest,
 } from "@/api/types"
