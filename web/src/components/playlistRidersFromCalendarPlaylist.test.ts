@@ -1,3 +1,7 @@
+/**
+ * Parked Spotify playlist / OAuth return helpers (Carpool music parking lot).
+ * Excluded from default `npm test`; run via `npm run test:parked`.
+ */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 
 import type { CalendarPlaylist } from "@/api/types"

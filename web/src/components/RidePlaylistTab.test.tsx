@@ -1,3 +1,8 @@
+/**
+ * Parked Spotify Playlist UI chrome (Carpool music parking lot).
+ * Excluded from default `npm test`; run via `npm run test:parked`.
+ * Pure remix helpers live in `RidePlaylistTab.remix.test.ts`.
+ */
 import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -36,24 +41,6 @@ const TWO_CONNECTED_RIDERS: FixturePlaylistRider[] = [
     ],
   },
 ]
-
-describe("remixMergedTracks", () => {
-  it("leaves fair merge order alone at seed 0 and reshuffles for later seeds", () => {
-    const base = mergeTracks(TWO_CONNECTED_RIDERS)
-    expect(remixMergedTracks(base, 0)).toEqual(base)
-    const remixed = remixMergedTracks(base, 1)
-    expect(remixed).toHaveLength(base.length)
-    expect(remixed.map((t) => t.title).sort()).toEqual(base.map((t) => t.title).sort())
-    expect(remixed).not.toEqual(base)
-  })
-
-  it("collects remixed Spotify URIs in order", () => {
-    const remixed = remixMergedTracks(mergeTracks(TWO_CONNECTED_RIDERS), 1)
-    expect(remixedTrackUris(remixed)).toEqual(
-      remixed.map((track) => track.uri).filter(Boolean),
-    )
-  })
-})
 
 describe("RidePlaylistTab", () => {
   beforeEach(() => {

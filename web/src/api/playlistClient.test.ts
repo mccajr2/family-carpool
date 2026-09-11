@@ -1,3 +1,7 @@
+/**
+ * Parked Spotify Playlist API client (Carpool music parking lot).
+ * Excluded from default `npm test`; run via `npm run test:parked`.
+ */
 import { describe, expect, it, vi } from "vitest"
 
 import { PlaylistClient } from "@/api/playlistClient"
