@@ -4,7 +4,6 @@ import type {
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
-  Garage,
   RsvpStatus,
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
@@ -98,7 +97,6 @@ type AgendaRowProps = {
   assignDraft: AssignDraft
   coverageActionError?: string
   rideEvent?: CarpoolRideEvent | null
-  garage?: Garage | null
   heroQueuedRequestIds?: ReadonlySet<string>
   recentlyWithdrawnRideIds?: ReadonlySet<string>
   /** Session-local auto-decline ids — inbound chip + Reconsider until Accept. */
@@ -106,7 +104,7 @@ type AgendaRowProps = {
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
-  onAcceptRide?: (rideId: string, vehicleId: string) => void
+  onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   /** Own-ride revert; when omitted, maps to onRemoveCoverage / onCancelRide. */
   onCantMakeIt?: (game: CoverageGameEvent) => void
@@ -152,7 +150,6 @@ export function AgendaRow({
   assignDraft,
   coverageActionError,
   rideEvent = null,
-  garage = null,
   heroQueuedRequestIds,
   recentlyWithdrawnRideIds,
   autoDeclinedRideIds,
@@ -871,9 +868,6 @@ export function AgendaRow({
                   key={request.id}
                   request={request}
                   circleId={circle.id}
-                  currentAdultId={currentAdultId}
-                  garage={garage}
-                  rideEvent={rideEvent}
                   loading={loading}
                   inHeroQueue={heroQueuedRequestIds?.has(request.id) ?? false}
                   canOffer={canOffer}

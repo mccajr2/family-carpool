@@ -3,12 +3,10 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 import type { CarpoolClient } from "@/api/carpoolClient"
-import type { FamilyClient } from "@/api/familyClient"
 import type {
   CarpoolRide,
   CarpoolRideEvent,
   CarpoolSummary,
-  Garage,
   Kid,
 } from "@/api/types"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
@@ -20,13 +18,6 @@ function mockCarpoolClient(partial: Partial<CarpoolClient>): CarpoolClient {
   } as CarpoolClient
 }
 
-function mockFamilyClient(partial: Partial<FamilyClient> = {}): FamilyClient {
-  return {
-    getGarage: vi.fn().mockResolvedValue({ members: [], vehicles: [] } satisfies Garage),
-    ...partial,
-  } as FamilyClient
-}
-
 const kids: Kid[] = [
   { id: "k1", displayName: "Mia" },
   { id: "k2", displayName: "Leo" },
@@ -34,14 +25,12 @@ const kids: Kid[] = [
 
 function renderPanel(
   carpool: Partial<CarpoolClient>,
-  extras: { family?: Partial<FamilyClient>; onJoined?: () => void } = {},
+  extras: { onJoined?: () => void } = {},
 ) {
   return render(
     <CarpoolPanel
       accessToken="tok"
       carpoolClient={mockCarpoolClient(carpool)}
-      familyClient={mockFamilyClient(extras.family)}
-      adultId="a1"
       circleId="c1"
       kids={kids}
       onJoined={extras.onJoined}
@@ -98,8 +87,6 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -117,23 +104,6 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
   }
 }
 
-const garageWithVan: Garage = {
-  members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-  vehicles: [
-    {
-      id: "v1",
-      ownerAdultId: "a1",
-      driverAdultIds: ["a1"],
-      keptAtPlaceId: null,
-      label: "Van",
-      year: 2019,
-      make: "HONDA",
-      model: "Odyssey",
-      seats: 8,
-      suggestedSeats: 8,
-    },
-  ],
-}
 
 describe("CarpoolPanel", () => {
   it("shows loading then empty copy without sending caregivers to Feeds", async () => {
@@ -351,7 +321,7 @@ describe("CarpoolPanel", () => {
     })
   })
 
-  it("accepts with the default eligible vehicle, cancels, and withdraws", async () => {
+  it("accepts a pending other ask, then withdraws and cancels", async () => {
     const user = userEvent.setup()
     const pendingOther = event({
       defaultKidIds: [],
@@ -366,8 +336,6 @@ describe("CarpoolPanel", () => {
           seats: 1,
           acceptingCircleId: "c1",
           acceptingCircleName: "House A",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         }),
       ],
     })
@@ -402,11 +370,10 @@ describe("CarpoolPanel", () => {
         withdrawRide,
         cancelRide,
       },
-      { family: { getGarage: vi.fn().mockResolvedValue(garageWithVan) } },
     )
 
     await user.click(await screen.findByRole("button", { name: "Accept" }))
-    expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ride-1", { vehicleId: "v1" })
+    expect(acceptRide).toHaveBeenCalledWith("tok", "s1", "ride-1")
     expect(await screen.findByRole("button", { name: "Withdraw" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Withdraw" }))
@@ -436,7 +403,6 @@ describe("CarpoolPanel", () => {
         listRides,
         passRide,
       },
-      { family: { getGarage: vi.fn().mockResolvedValue(garageWithVan) } },
     )
 
     await user.click(await screen.findByRole("button", { name: "Pass" }))

@@ -95,8 +95,6 @@ describe("spaceIdForCarpoolRide", () => {
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "McCarthy",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       ],
     })

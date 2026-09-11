@@ -2,9 +2,7 @@ import type {
   CarpoolFeedStatusKind,
   CarpoolRide,
   CarpoolRideEvent,
-  Garage,
   Kid,
-  Vehicle,
 } from "@/api/types"
 import {
   ASKED_THE_TEAM,
@@ -44,55 +42,6 @@ export function rideSeatsLabel(seats: number): string {
   return seats === 1 ? "1 seat" : `${seats} seats`
 }
 
-export function callerDrives(garage: Garage | null, adultId: string): boolean {
-  if (garage == null) {
-    return false
-  }
-  const member = garage.members.find((row) => row.adultId === adultId)
-  return member?.drives ?? true
-}
-
-/** RSVP YES kids on this event: still-need-a-ride plus this circle's accepted kids. */
-export function ownYesKidCount(event: CarpoolRideEvent): number {
-  const acceptedOwn =
-    event.ownRequest?.status === "ACCEPTED" ? event.ownRequest.kidIds.length : 0
-  return acceptedOwn + event.defaultKidIds.length
-}
-
-export function vehicleCommittedOnEvent(
-  vehicleId: string,
-  event: CarpoolRideEvent,
-): boolean {
-  const rides = [
-    ...(event.ownRequest ? [event.ownRequest] : []),
-    ...event.otherRequests,
-  ]
-  return rides.some((ride) => ride.status === "ACCEPTED" && ride.vehicleId === vehicleId)
-}
-
-export function eligibleVehiclesForAccept(options: {
-  drives: boolean
-  adultId: string
-  vehicles: Vehicle[]
-  event: CarpoolRideEvent
-  request: CarpoolRide
-}): Vehicle[] {
-  if (!options.drives) {
-    return []
-  }
-  const occupantsKids = ownYesKidCount(options.event)
-  return options.vehicles.filter((vehicle) => {
-    if (!vehicle.driverAdultIds.includes(options.adultId)) {
-      return false
-    }
-    if (vehicleCommittedOnEvent(vehicle.id, options.event)) {
-      return false
-    }
-    const remaining = vehicle.seats - 1 - occupantsKids
-    return remaining >= options.request.seats
-  })
-}
-
 /** Teammate ask this circle accepted (Withdraw target) — not our own request. */
 export function isAcceptedByCircle(request: CarpoolRide, circleId: string): boolean {
   return request.status === "ACCEPTED" && request.acceptingCircleId === circleId
@@ -113,31 +62,18 @@ export function acceptedByUsRequest(
 
 /**
  * First other-circle PENDING ask this adult can Accept for Focus ranking/CTAs
- * (skips passedByMe soft declines; has an eligible vehicle). Own PENDING/
- * ACCEPTED requests never qualify. Carpool tab Accept is gated separately and
- * may still offer Accept after Pass.
+ * (skips passedByMe soft declines). Own PENDING/ACCEPTED requests never qualify.
+ * Carpool tab Accept is gated separately and may still offer Accept after Pass.
  */
 export function eligiblePendingRideAccept(
   rideEvent: CarpoolRideEvent | null | undefined,
-  options: { adultId: string; garage: Garage | null },
+  options: { adultId: string },
 ): CarpoolRide | null {
   if (rideEvent == null || !options.adultId) {
     return null
   }
-  const drives = callerDrives(options.garage, options.adultId)
-  const vehicles = options.garage?.vehicles ?? []
   for (const request of rideEvent.otherRequests) {
-    if (request.status !== "PENDING" || request.passedByMe) {
-      continue
-    }
-    const eligible = eligibleVehiclesForAccept({
-      drives,
-      adultId: options.adultId,
-      vehicles,
-      event: rideEvent,
-      request,
-    })
-    if (eligible.length > 0) {
+    if (request.status === "PENDING" && !request.passedByMe) {
       return request
     }
   }
@@ -209,4 +145,3 @@ export function ownRideDetailLine(
 export function acceptedByUsRideDetailLine(ride: CarpoolRide): string {
   return incomingRideAskSummary(ride)
 }
-

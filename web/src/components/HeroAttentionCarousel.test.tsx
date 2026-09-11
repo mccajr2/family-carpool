@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle, Garage } from "@/api/types"
+import type { CalendarItem, CarpoolRideEvent, FamilyCircle } from "@/api/types"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { CoverageGameEvent, QueueItem } from "@/components/coverageQueue"
@@ -61,23 +61,6 @@ function game(partial: Partial<CoverageGameEvent> & Pick<CoverageGameEvent, "id"
   }
 }
 
-const garage: Garage = {
-  members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-  vehicles: [
-    {
-      id: "v1",
-      ownerAdultId: "a1",
-      driverAdultIds: ["a1"],
-      keptAtPlaceId: null,
-      label: "SUV",
-      year: 2021,
-      make: "Honda",
-      model: "Pilot",
-      seats: 5,
-      suggestedSeats: null,
-    },
-  ],
-}
 
 const rideEvent: CarpoolRideEvent = {
   eventKey: "UID:game1",
@@ -107,8 +90,6 @@ const rideEvent: CarpoolRideEvent = {
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     },
   ],
 }
@@ -126,7 +107,6 @@ function baseSlideProps(
     circle,
     currentAdultId: "a1",
     loading: false,
-    garage,
     rideEvent,
     assignDraft: { adultId: "a1", kidIds: [item.game.kidId] },
     onUpdateAssignDraft: vi.fn(),
@@ -464,7 +444,7 @@ describe("HeroAttentionSlide", () => {
     ).toHaveTextContent("~4 min out of your way")
 
     await user.click(within(slide).getByRole("button", { name: "Accept" }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ride-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ride-1")
     await user.click(within(slide).getByRole("button", { name: "Decline" }))
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
   })

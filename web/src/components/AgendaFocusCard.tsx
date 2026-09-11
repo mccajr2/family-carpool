@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import type {
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
-  Garage,
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { Button } from "@/components/ui/button"
@@ -15,9 +14,7 @@ import { focusLeaveFromEstimateLine } from "@/components/leaveFromDisplay"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
-  callerDrives,
   eligiblePendingRideAccept,
-  eligibleVehiclesForAccept,
   incomingRideAskSummary,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
@@ -52,14 +49,13 @@ type AgendaFocusCardProps = {
   assignDraft: AssignDraft
   coverageActionError?: string
   rideEvent?: CarpoolRideEvent | null
-  garage?: Garage | null
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onReassignCoverage: (assignmentId: string, adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
   onRemoveCoverage: (assignmentId: string) => void
-  onAcceptRide?: (rideId: string, vehicleId: string) => void
+  onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
@@ -114,7 +110,6 @@ export function AgendaFocusCard({
   assignDraft,
   coverageActionError,
   rideEvent = null,
-  garage = null,
   onUpdateAssignDraft,
   onAssignCoverage,
   onReassignCoverage,
@@ -130,11 +125,9 @@ export function AgendaFocusCard({
   onEdit,
   onSetLeaveFrom,
 }: AgendaFocusCardProps) {
-  const [acceptVehicleId, setAcceptVehicleId] = useState("")
   const isManual = item.source === "MANUAL"
   const eligibleRide = eligiblePendingRideAccept(rideEvent, {
     adultId: currentAdultId,
-    garage,
   })
   const ownRequest = rideEvent?.ownRequest ?? null
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
@@ -181,17 +174,6 @@ export function AgendaFocusCard({
   // Withdraw sit beside that chrome (Focus is not in the day list).
   const showRideAcceptPass =
     !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
-  const acceptVehicles = showRideAcceptPass
-    ? eligibleVehiclesForAccept({
-        drives: callerDrives(garage, currentAdultId),
-        adultId: currentAdultId,
-        vehicles: garage?.vehicles ?? [],
-        event: rideEvent!,
-        request: eligibleRide!,
-      })
-    : []
-  const acceptVehicle =
-    acceptVehicles.length === 1 ? acceptVehicles[0]!.id : acceptVehicleId
   const canAskTeam =
     rideEvent != null &&
     rideEvent.ownRequest == null &&
@@ -468,30 +450,13 @@ export function AgendaFocusCard({
             >
               {incomingRideAskSummary(eligibleRide)}
             </p>
-            {acceptVehicles.length > 1 ? (
-              <select
-                aria-label="Vehicle"
-                className="h-9 rounded-md border bg-transparent px-[var(--fc-space-md)] text-[length:var(--fc-font-focus-action-size)]"
-                style={{ borderColor: dividerVar, color: onVar }}
-                value={acceptVehicleId}
-                disabled={loading}
-                onChange={(e) => setAcceptVehicleId(e.target.value)}
-              >
-                <option value="">Choose a vehicle</option>
-                {acceptVehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.label}
-                  </option>
-                ))}
-              </select>
-            ) : null}
             <Button
               type="button"
               size="sm"
               className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
               style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
-              onClick={() => onAcceptRide?.(eligibleRide.id, acceptVehicle)}
-              disabled={loading || !acceptVehicle}
+              onClick={() => onAcceptRide?.(eligibleRide.id)}
+              disabled={loading}
             >
               Accept
             </Button>

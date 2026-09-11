@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
+import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   agendaDayBucketForStartsAt,
   agendaDayBoundaries,
@@ -83,8 +83,6 @@ function rideAsk(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -102,31 +100,12 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
   }
 }
 
-const acceptGarage: Garage = {
-  members: [{ adultId, displayName: "Alex", drives: true }],
-  vehicles: [
-    {
-      id: "v1",
-      ownerAdultId: adultId,
-      driverAdultIds: [adultId],
-      keptAtPlaceId: null,
-      label: "Van",
-      year: 2019,
-      make: "HONDA",
-      model: "Odyssey",
-      seats: 8,
-      suggestedSeats: 8,
-    },
-  ],
-}
 
 function rideOptionsFor(
   byId: Record<string, CarpoolRideEvent>,
-  garage: Garage | null = acceptGarage,
 ): FocusRideOptions {
   return {
     rideEventForItem: (row) => byId[row.id] ?? null,
-    garage,
   }
 }
 

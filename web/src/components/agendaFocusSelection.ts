@@ -1,4 +1,4 @@
-import type { CalendarItem, CarpoolRide, CarpoolRideEvent, Garage } from "@/api/types"
+import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import { agendaDayBucketForStartsAt } from "@/components/agendaDayGroups"
 import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
 import {
@@ -9,7 +9,6 @@ import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 export type FocusRideOptions = {
   rideEventForItem: (item: CalendarItem) => CarpoolRideEvent | null | undefined
-  garage: Garage | null
 }
 
 /**
@@ -58,7 +57,6 @@ function eligibleRideForItem(
   }
   return eligiblePendingRideAccept(rideOptions.rideEventForItem(item), {
     adultId: currentAdultId,
-    garage: rideOptions.garage,
   })
 }
 

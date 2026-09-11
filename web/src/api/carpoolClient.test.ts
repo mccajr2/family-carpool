@@ -154,16 +154,14 @@ describe("CarpoolClient", () => {
       seats: 1,
       pickupPlaceName: "Home",
       pickupAddress: "1 Main St",
-pickupTown: null,
-detourMinutes: null,
+      pickupTown: null,
+      detourMinutes: null,
       status: "PENDING",
       passedByMe: false,
       passedByAdultNames: [],
       acceptedByAdultId: null,
       acceptingCircleId: null,
       acceptingCircleName: null,
-      vehicleId: null,
-      vehicleLabel: null,
     }
     const event = {
       eventKey: "UID:practice",
@@ -189,7 +187,7 @@ detourMinutes: null,
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...ride, status: "ACCEPTED", vehicleId: "v1" }), {
+        new Response(JSON.stringify({ ...ride, status: "ACCEPTED" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -220,9 +218,9 @@ detourMinutes: null,
     await expect(
       client.createRide("tok", "s1", { eventKey: "UID:practice" }),
     ).resolves.toMatchObject({ id: "ride-1", passedByMe: false })
-    await expect(
-      client.acceptRide("tok", "s1", "ride-1", { vehicleId: "v1" }),
-    ).resolves.toMatchObject({ status: "ACCEPTED" })
+    await expect(client.acceptRide("tok", "s1", "ride-1")).resolves.toMatchObject({
+      status: "ACCEPTED",
+    })
     await expect(client.passRide("tok", "s1", "ride-1")).resolves.toMatchObject({
       passedByMe: true,
       passedByAdultNames: ["Alex"],
@@ -250,9 +248,8 @@ detourMinutes: null,
     expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
       JSON.stringify({ eventKey: "UID:practice" }),
     )
-    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBe(
-      JSON.stringify({ vehicleId: "v1" }),
-    )
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].method).toBe("POST")
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBeUndefined()
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].method).toBe("POST")
     expect((fetchFn.mock.calls[3] as [string, RequestInit])[1].body).toBeUndefined()
   })

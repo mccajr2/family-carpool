@@ -87,19 +87,19 @@ describe("shellNav", () => {
   it("marks an active settings row with a quiet rail fill, not an accent pill", () => {
     render(
       <SettingsRow
-        label="Garage"
-        icon="icon.garage"
+        label="Places"
+        icon="icon.places"
         active
         onClick={() => undefined}
       />,
     )
-    const garage = screen.getByRole("button", { name: "Garage" })
-    expect(garage).toHaveAttribute("aria-current", "page")
-    expect(garage.className).toMatch(/--fc-rail-active/)
-    expect(garage.className).toMatch(/text-\[var\(--fc-rail-on\)\]/)
-    expect(garage.className).not.toMatch(/--fc-rail-on-secondary/)
-    expect(garage.className).not.toMatch(/--fc-accent/)
-    expect(garage.className).not.toMatch(/--fc-hero-/)
+    const places = screen.getByRole("button", { name: "Places" })
+    expect(places).toHaveAttribute("aria-current", "page")
+    expect(places.className).toMatch(/--fc-rail-active/)
+    expect(places.className).toMatch(/text-\[var\(--fc-rail-on\)\]/)
+    expect(places.className).not.toMatch(/--fc-rail-on-secondary/)
+    expect(places.className).not.toMatch(/--fc-accent/)
+    expect(places.className).not.toMatch(/--fc-hero-/)
   })
 
   it("renders initials, truncated email, and a humanized role without a button", () => {
@@ -127,7 +127,6 @@ describe("shellNav", () => {
 describe("uiIcons", () => {
   it("maps required semantic names to Lucide icons", () => {
     expect(semanticIcons["icon.places"]).toBeTruthy()
-    expect(semanticIcons["icon.garage"]).toBeTruthy()
     expect(semanticIcons["icon.feeds"]).toBeTruthy()
     expect(semanticIcons["icon.signout"]).toBeTruthy()
     expect(resolveSemanticIcon("icon.chevron")).toBe(

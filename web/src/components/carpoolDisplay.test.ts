@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage, Vehicle } from "@/api/types"
+import type { CarpoolRide, CarpoolRideEvent } from "@/api/types"
 import {
   acceptedByUsRequest,
   acceptedByUsRideDetailLine,
-  callerDrives,
   carpoolFeedStatusLabel,
   circleDisplayName,
   eligiblePendingRideAccept,
-  eligibleVehiclesForAccept,
   enableCarpoolConfirmMessage,
   agendaOwnRideStatusChip,
   isAcceptedByCircle,
@@ -16,7 +14,6 @@ import {
   incomingRideAskSummary,
   ownRideDetailLine,
   ownRideStatusLine,
-  ownYesKidCount,
   rideKidsSeatsPickup,
   rideSeatsLabel,
 } from "@/components/carpoolDisplay"
@@ -41,19 +38,11 @@ describe("carpoolDisplay", () => {
     expect(enableCarpoolConfirmMessage("Soccer")).toContain("own the carpool for Soccer")
   })
 
-  it("labels kids, seats, and drives", () => {
+  it("labels kids and seats", () => {
     expect(kidDisplayName([{ id: "k1", displayName: "Mia" }], "k1")).toBe("Mia")
     expect(kidDisplayName([], "k1")).toBe("Kid")
     expect(rideSeatsLabel(1)).toBe("1 seat")
     expect(rideSeatsLabel(2)).toBe("2 seats")
-    expect(callerDrives(null, "a1")).toBe(false)
-    expect(callerDrives({ members: [], vehicles: [] }, "a1")).toBe(true)
-    expect(
-      callerDrives(
-        { members: [{ adultId: "a1", displayName: "Alex", drives: false }], vehicles: [] },
-        "a1",
-      ),
-    ).toBe(false)
   })
 
   it("labels own ride chips and status lines for Agenda", () => {
@@ -169,86 +158,20 @@ describe("carpoolDisplay", () => {
     ).toBe("House B · Mia · 1 seat · Home, 1 Main")
   })
 
-  it("counts YES kids as still-need-a-ride plus this circle's accepted request", () => {
-    expect(ownYesKidCount(event({ defaultKidIds: ["k1", "k2"] }))).toBe(2)
-    expect(
-      ownYesKidCount(
-        event({
-          defaultKidIds: ["k2"],
-          ownRequest: ride({ status: "ACCEPTED", kidIds: ["k1"] }),
-        }),
-      ),
-    ).toBe(2)
-  })
-
-  it("defaults the only vehicle with remaining seats the caller may drive", () => {
-    const van = vehicle({ id: "v1", seats: 8, driverAdultIds: ["a1"] })
-    const compact = vehicle({ id: "v2", seats: 2, driverAdultIds: ["a1"] })
-    const otherDriver = vehicle({ id: "v3", seats: 8, driverAdultIds: ["a2"] })
-    const eventRow = event({ defaultKidIds: ["k1"] })
-    const request = ride({ seats: 2, kidIds: ["k2", "k3"] })
-
-    expect(
-      eligibleVehiclesForAccept({
-        drives: true,
-        adultId: "a1",
-        vehicles: [van, compact, otherDriver],
-        event: eventRow,
-        request,
-      }).map((row) => row.id),
-    ).toEqual(["v1"])
-  })
-
-  it("excludes vehicles already accepted on the event and when drives is false", () => {
-    const van = vehicle({ id: "v1", seats: 8, driverAdultIds: ["a1"] })
-    const eventRow = event({
-      defaultKidIds: [],
-      otherRequests: [ride({ status: "ACCEPTED", vehicleId: "v1", seats: 1 })],
-    })
-    expect(
-      eligibleVehiclesForAccept({
-        drives: true,
-        adultId: "a1",
-        vehicles: [van],
-        event: eventRow,
-        request: ride({ seats: 1 }),
-      }),
-    ).toEqual([])
-    expect(
-      eligibleVehiclesForAccept({
-        drives: false,
-        adultId: "a1",
-        vehicles: [van],
-        event: event({ defaultKidIds: [] }),
-        request: ride({ seats: 1 }),
-      }),
-    ).toEqual([])
-  })
-
-  it("picks the first pending otherRequest that can be accepted", () => {
-    const garage: Garage = {
-      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-      vehicles: [vehicle()],
-    }
+  it("picks the first pending otherRequest that can be accepted without garage", () => {
     const pending = ride({ id: "ask-1", status: "PENDING", passedByMe: false })
     const eventRow = event({ otherRequests: [pending] })
-    expect(eligiblePendingRideAccept(eventRow, { adultId: "a1", garage })?.id).toBe(
-      "ask-1",
-    )
+    expect(eligiblePendingRideAccept(eventRow, { adultId: "a1" })?.id).toBe("ask-1")
   })
 
   it("skips passed asks and own requests for Focus accept eligibility", () => {
-    const garage: Garage = {
-      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-      vehicles: [vehicle()],
-    }
     expect(
       eligiblePendingRideAccept(
         event({
           ownRequest: ride({ id: "own", status: "PENDING" }),
           otherRequests: [ride({ id: "passed", passedByMe: true })],
         }),
-        { adultId: "a1", garage },
+        { adultId: "a1" },
       ),
     ).toBeNull()
   })
@@ -297,8 +220,6 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -312,22 +233,6 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     defaultKidIds: [],
     ownRequest: null,
     otherRequests: [],
-    ...partial,
-  }
-}
-
-function vehicle(partial: Partial<Vehicle> = {}): Vehicle {
-  return {
-    id: "v1",
-    ownerAdultId: "a1",
-    driverAdultIds: ["a1"],
-    keptAtPlaceId: null,
-    label: "Van",
-    year: 2019,
-    make: "HONDA",
-    model: "Odyssey",
-    seats: 8,
-    suggestedSeats: 8,
     ...partial,
   }
 }

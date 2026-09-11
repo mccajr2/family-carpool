@@ -633,23 +633,6 @@ describe("AgendaFocusCard title", () => {
 })
 
 describe("AgendaFocusCard ride Accept/Pass", () => {
-  const garage = {
-    members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-    vehicles: [
-      {
-        id: "v1",
-        ownerAdultId: "a1",
-        driverAdultIds: ["a1"],
-        keptAtPlaceId: null,
-        label: "Van",
-        year: 2019,
-        make: "HONDA",
-        model: "Odyssey",
-        seats: 8,
-        suggestedSeats: 8,
-      },
-    ],
-  }
 
   const pendingAsk = {
     id: "ask-1",
@@ -671,8 +654,6 @@ detourMinutes: null,
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
   }
 
   const rideEvent = {
@@ -691,7 +672,6 @@ detourMinutes: null,
     const onPassRide = vi.fn()
     renderCard(item({ id: "ride-focus", title: "Practice" }), {
       rideEvent,
-      garage,
       onAcceptRide,
       onPassRide,
     })
@@ -704,7 +684,7 @@ detourMinutes: null,
       "House B · Mia · 1 seat · Home, 1 Main",
     )
     await user.click(screen.getByRole("button", { name: "Accept" }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ask-1")
   })
@@ -733,7 +713,6 @@ detourMinutes: null,
       }),
       {
         rideEvent,
-        garage,
         onAcceptRide: vi.fn(),
         onPassRide: vi.fn(),
       },
@@ -777,7 +756,6 @@ detourMinutes: null,
               status: "ACCEPTED" as const,
               acceptingCircleId: "c1",
               acceptedByAdultId: "a1",
-              vehicleId: "v1",
             },
           ],
         },
@@ -801,7 +779,6 @@ detourMinutes: null,
       }),
       {
         rideEvent,
-        garage,
         onAcceptRide: vi.fn(),
         onPassRide: vi.fn(),
       },
@@ -818,7 +795,6 @@ detourMinutes: null,
         ownRequest: { ...pendingAsk, id: "own", status: "PENDING" },
         otherRequests: [],
       },
-      garage,
       onAcceptRide: vi.fn(),
       onPassRide: vi.fn(),
       onCreateRide: vi.fn(),
@@ -838,7 +814,6 @@ detourMinutes: null,
         ...rideEvent,
         otherRequests: [{ ...pendingAsk, passedByMe: true }],
       },
-      garage,
       onAcceptRide: vi.fn(),
       onPassRide: vi.fn(),
     })
@@ -904,8 +879,6 @@ detourMinutes: null,
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
   }
 
   const ownRideEvent = {
@@ -951,8 +924,6 @@ detourMinutes: null,
           acceptedByAdultId: "a2",
           acceptingCircleId: "c2",
           acceptingCircleName: "Sharks Family",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       },
       onCancelRide,
@@ -1010,26 +981,6 @@ detourMinutes: null,
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
-  }
-
-  const garage = {
-    members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-    vehicles: [
-      {
-        id: "v1",
-        ownerAdultId: "a1",
-        driverAdultIds: ["a1"],
-        keptAtPlaceId: null,
-        label: "Van",
-        year: 2019,
-        make: "Honda",
-        model: "Odyssey",
-        seats: 8,
-        suggestedSeats: 8,
-      },
-    ],
   }
 
   it("shows outline Withdraw when this circle accepted a teammate ask", async () => {
@@ -1093,26 +1044,6 @@ detourMinutes: null,
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
-          },
-        ],
-      },
-      garage: {
-        members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-        vehicles: [
-          ...garage.vehicles,
-          {
-            id: "v2",
-            ownerAdultId: "a1",
-            driverAdultIds: ["a1"],
-            keptAtPlaceId: null,
-            label: "SUV",
-            year: 2021,
-            make: "Toyota",
-            model: "Highlander",
-            seats: 7,
-            suggestedSeats: 7,
           },
         ],
       },
@@ -1210,8 +1141,6 @@ detourMinutes: null,
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
-            vehicleId: "v1",
-            vehicleLabel: "Van",
           },
           otherRequests: [],
         },
@@ -1278,8 +1207,6 @@ detourMinutes: null,
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
-            vehicleId: "v1",
-            vehicleLabel: "Van",
           },
           otherRequests: [],
         },
@@ -1320,25 +1247,6 @@ detourMinutes: null,
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
-          },
-        ],
-      },
-      garage: {
-        members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-        vehicles: [
-          {
-            id: "v1",
-            ownerAdultId: "a1",
-            driverAdultIds: ["a1"],
-            keptAtPlaceId: null,
-            label: "Van",
-            year: 2019,
-            make: "HONDA",
-            model: "Odyssey",
-            seats: 8,
-            suggestedSeats: 8,
           },
         ],
       },
@@ -1404,8 +1312,6 @@ describe("AgendaFocusCard ride commitment conflict", () => {
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
   }
 
   it("shows Type A conflict line under chips and keeps Withdraw", () => {
@@ -1473,8 +1379,6 @@ describe("AgendaFocusCard ride commitment conflict", () => {
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "House B",
-            vehicleId: "v2",
-            vehicleLabel: "SUV",
           },
           otherRequests: [inboundAccepted],
         },

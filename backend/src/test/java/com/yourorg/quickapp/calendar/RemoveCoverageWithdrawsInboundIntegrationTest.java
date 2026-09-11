@@ -77,8 +77,6 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
         setRsvpYes(requester, practiceRequester, requesterKid);
         addPlace(driver, "Home A", "12 Oak St");
         addPlace(requester, "Home B", "34 Pine St");
-        String vehicleId = addVehicle(driver, "Van", 7);
-
         String driverAdultId = organizerAdultId(driver);
         MvcResult assigned =
                 mockMvc.perform(
@@ -112,9 +110,7 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
 
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"));
 
@@ -180,8 +176,6 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
         setRsvpYes(requester, practiceRequester, requesterKid);
         addPlace(driver, "Home A", "12 Oak St");
         addPlace(requester, "Home B", "34 Pine St");
-        String vehicleId = addVehicle(driver, "Van", 7);
-
         String driverAdultId = organizerAdultId(driver);
         mockMvc.perform(
                         post("/api/family/circle/calendar/FEED/"
@@ -211,9 +205,7 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
 
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"));
 
@@ -353,25 +345,6 @@ class RemoveCoverageWithdrawsInboundIntegrationTest {
                                                 + address
                                                 + "\"}"))
                 .andExpect(status().isCreated());
-    }
-
-    private String addVehicle(String token, String label, int seats) throws Exception {
-        return JsonPath.read(
-                mockMvc.perform(
-                                post("/api/family/circle/garage/vehicles")
-                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(
-                                                "{\"label\":\""
-                                                        + label
-                                                        + "\",\"year\":2020,\"make\":\"HONDA\",\"model\":\"Odyssey\",\"seats\":"
-                                                        + seats
-                                                        + "}"))
-                        .andExpect(status().isCreated())
-                        .andReturn()
-                        .getResponse()
-                        .getContentAsString(),
-                "$.id");
     }
 
     private String signIn(String email) throws Exception {

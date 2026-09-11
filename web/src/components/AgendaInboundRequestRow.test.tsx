@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CarpoolRide } from "@/api/types"
 import {
   AgendaInboundRequestRow,
   inboundRequestStatusChip,
@@ -13,23 +13,6 @@ import {
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
 
-const garage = {
-  members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-  vehicles: [
-    {
-      id: "v1",
-      ownerAdultId: "a1",
-      driverAdultIds: ["a1"],
-      keptAtPlaceId: null,
-      label: "Van",
-      year: 2019,
-      make: "HONDA",
-      model: "Odyssey",
-      seats: 8,
-      suggestedSeats: 8,
-    },
-  ],
-}
 
 const pendingAsk: CarpoolRide = {
   id: "ask-1",
@@ -51,8 +34,6 @@ const pendingAsk: CarpoolRide = {
   acceptedByAdultId: null,
   acceptingCircleId: null,
   acceptingCircleName: null,
-  vehicleId: null,
-  vehicleLabel: null,
 }
 
 const acceptedByUs: CarpoolRide = {
@@ -62,19 +43,8 @@ const acceptedByUs: CarpoolRide = {
   acceptedByAdultId: "a1",
   acceptingCircleId: "c1",
   acceptingCircleName: "Ours",
-  vehicleId: "v1",
-  vehicleLabel: "Van",
 }
 
-const rideEvent: CarpoolRideEvent = {
-  eventKey: "UID:game",
-  title: "Practice",
-  startsAt: "2030-08-15T17:00:00.000Z",
-  endsAt: null,
-  defaultKidIds: ["k1"],
-  ownRequest: null,
-  otherRequests: [pendingAsk],
-}
 
 describe("inboundRequestStatusChip", () => {
   it("labels pending asks as Ride needed", () => {
@@ -104,16 +74,13 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={pendingAsk}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         onAcceptRide={onAcceptRide}
         onPassRide={onPassRide}
       />,
     )
 
     await user.click(screen.getByRole("button", { name: "Accept" }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("ask-1")
   })
@@ -127,9 +94,6 @@ describe("AgendaInboundRequestRow", () => {
           detourMinutes: 12,
         }}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         inHeroQueue
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
@@ -154,9 +118,6 @@ describe("AgendaInboundRequestRow", () => {
           detourMinutes: 12,
         }}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         onAcceptRide={vi.fn()}
         onPassRide={vi.fn()}
       />,
@@ -176,9 +137,6 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={acceptedByUs}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={{ ...rideEvent, otherRequests: [acceptedByUs] }}
         onWithdrawRide={onWithdrawRide}
       />,
     )
@@ -198,9 +156,6 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={pendingAsk}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         canOffer
         autoDeclined
         onAcceptRide={onAcceptRide}
@@ -212,7 +167,7 @@ describe("AgendaInboundRequestRow", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: REVERT_INBOUND_RECONSIDER }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
   })
 
   it("hides Reconsider when autoDeclined but canOffer is false", () => {
@@ -220,9 +175,6 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={pendingAsk}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         autoDeclined
         onAcceptRide={vi.fn()}
       />,
@@ -242,9 +194,6 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={pendingAsk}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={rideEvent}
         canOffer
         recentlyWithdrawn
         onAcceptRide={onAcceptRide}
@@ -255,7 +204,7 @@ describe("AgendaInboundRequestRow", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: REVERT_INBOUND_UNDO }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
   })
 
   it("keeps Accept for passed asks without Reconsider/Undo", async () => {
@@ -267,9 +216,6 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={passed}
         circleId="c1"
-        currentAdultId="a1"
-        garage={garage}
-        rideEvent={{ ...rideEvent, otherRequests: [passed] }}
         canOffer
         onAcceptRide={onAcceptRide}
         onPassRide={vi.fn()}
@@ -283,6 +229,6 @@ describe("AgendaInboundRequestRow", () => {
     ).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: REVERT_INBOUND_UNDO })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Accept" }))
-    expect(onAcceptRide).toHaveBeenCalledWith("ask-1", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
   })
 })

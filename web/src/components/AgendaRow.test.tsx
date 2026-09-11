@@ -666,8 +666,6 @@ describe("AgendaRow", () => {
               acceptedByAdultId: "a1",
               acceptingCircleId: "c1",
               acceptingCircleName: null,
-              vehicleId: "v1",
-              vehicleLabel: "Van",
             },
           ],
         }}
@@ -890,8 +888,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       },
     }
     rerender(
@@ -1009,8 +1005,6 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks Family",
-        vehicleId: "v1",
-        vehicleLabel: "Van",
       },
       otherRequests: [],
     }
@@ -1094,8 +1088,6 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
-        vehicleId: "v1",
-        vehicleLabel: "Van",
       },
       otherRequests: [],
     }
@@ -1168,8 +1160,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       },
       otherRequests: [],
     }
@@ -1346,8 +1336,6 @@ detourMinutes: null,
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       ],
     }
@@ -1384,23 +1372,6 @@ detourMinutes: null,
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()
     const onPassRide = vi.fn()
-    const garage = {
-      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-      vehicles: [
-        {
-          id: "v1",
-          ownerAdultId: "a1",
-          driverAdultIds: ["a1"],
-          keptAtPlaceId: null,
-          label: "Van",
-          year: 2019,
-          make: "HONDA",
-          model: "Odyssey",
-          seats: 8,
-          suggestedSeats: 8,
-        },
-      ],
-    }
     const feedItem = item({
       id: "feed-accept",
       source: "FEED",
@@ -1417,7 +1388,6 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        garage={garage}
         rideEvent={{
           eventKey: "UID:practice-accept",
           title: "Practice",
@@ -1446,8 +1416,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -1464,7 +1432,7 @@ detourMinutes: null,
     await user.click(within(row).getByRole("button", { expanded: false }))
     const inbound = within(row).getByTestId("agenda-band-inbound-requests")
     await user.click(within(inbound).getByRole("button", { name: "Accept" }))
-    expect(onAcceptRide).toHaveBeenCalledWith("pending-other", "v1")
+    expect(onAcceptRide).toHaveBeenCalledWith("pending-other")
     await user.click(within(inbound).getByRole("button", { name: "Pass" }))
     expect(onPassRide).toHaveBeenCalledWith("pending-other")
   })
@@ -1514,8 +1482,6 @@ detourMinutes: null,
             acceptedByAdultId: null,
             acceptingCircleId: null,
             acceptingCircleName: null,
-            vehicleId: null,
-            vehicleLabel: null,
           },
           otherRequests: [
             {
@@ -1538,8 +1504,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -1561,23 +1525,6 @@ detourMinutes: null,
 
   it("does not auto-decline inbound when own ride is unassigned", async () => {
     const user = userEvent.setup()
-    const garage = {
-      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-      vehicles: [
-        {
-          id: "v1",
-          ownerAdultId: "a1",
-          driverAdultIds: ["a1"],
-          keptAtPlaceId: null,
-          label: "Van",
-          year: 2019,
-          make: "HONDA",
-          model: "Odyssey",
-          seats: 8,
-          suggestedSeats: 8,
-        },
-      ],
-    }
     const feedItem = item({
       id: "feed-no-auto-unassigned",
       source: "FEED",
@@ -1595,7 +1542,6 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
-        garage={garage}
         rideEvent={{
           eventKey: "UID:no-auto-u",
           title: "Practice",
@@ -1624,8 +1570,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -1646,23 +1590,6 @@ detourMinutes: null,
 
   it("does not auto-decline inbound when own ride is pending household confirm", async () => {
     const user = userEvent.setup()
-    const garage = {
-      members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-      vehicles: [
-        {
-          id: "v1",
-          ownerAdultId: "a1",
-          driverAdultIds: ["a1"],
-          keptAtPlaceId: null,
-          label: "Van",
-          year: 2019,
-          make: "HONDA",
-          model: "Odyssey",
-          seats: 8,
-          suggestedSeats: 8,
-        },
-      ],
-    }
     const feedItem = item({
       id: "feed-no-auto-confirm",
       source: "FEED",
@@ -1696,7 +1623,6 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        garage={garage}
         rideEvent={{
           eventKey: "UID:no-auto-c",
           title: "Practice",
@@ -1725,8 +1651,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -1792,8 +1716,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -1830,10 +1752,6 @@ detourMinutes: null,
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        garage={{
-          members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-          vehicles: [],
-        }}
         heroQueuedRequestIds={new Set(["pending-other"])}
         rideEvent={{
           eventKey: "UID:practice-queued",
@@ -1863,8 +1781,6 @@ detourMinutes: null,
               acceptedByAdultId: null,
               acceptingCircleId: null,
               acceptingCircleName: null,
-              vehicleId: null,
-              vehicleLabel: null,
             },
           ],
         }}
@@ -2163,8 +2079,6 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks",
-        vehicleId: null,
-        vehicleLabel: null,
       },
       otherRequests: [],
     }
@@ -2324,8 +2238,6 @@ detourMinutes: null,
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-        vehicleId: null,
-        vehicleLabel: null,
       },
       otherRequests: [],
     }
@@ -2450,8 +2362,6 @@ detourMinutes: null,
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       ],
     }
@@ -2524,8 +2434,6 @@ detourMinutes: null,
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
-        vehicleId: "v2",
-        vehicleLabel: "SUV",
       },
       otherRequests: [
         {
@@ -2548,8 +2456,6 @@ detourMinutes: null,
           acceptedByAdultId: "a1",
           acceptingCircleId: "c1",
           acceptingCircleName: "Test",
-          vehicleId: "v1",
-          vehicleLabel: "Van",
         },
       ],
     }
@@ -2776,8 +2682,6 @@ detourMinutes: null,
             acceptedByAdultId: "a9",
             acceptingCircleId: "c9",
             acceptingCircleName: "The Patels",
-            vehicleId: "v1",
-            vehicleLabel: "Van",
           },
           otherRequests: [],
         }}

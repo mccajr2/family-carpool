@@ -163,41 +163,16 @@ class CarpoolRideControllerIntegrationTest {
 
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"vehicleId\":\"01900000-0000-7000-8000-000000000071\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
                 .andExpect(status().isConflict());
 
-        String vehicleId = addVehicle(orgB, "Van", 7);
-        mockMvc.perform(
-                        patch("/api/family/circle/garage/me")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"drives\":false}"))
-                .andExpect(status().isOk());
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(
-                        patch("/api/family/circle/garage/me")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"drives\":true}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"))
-                .andExpect(jsonPath("$.vehicleId").value(vehicleId))
-                .andExpect(jsonPath("$.vehicleLabel").value("Van"));
+                .andExpect(jsonPath("$.acceptedByAdultId").isNotEmpty())
+                .andExpect(jsonPath("$.acceptingCircleId").isNotEmpty());
 
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/withdraw")
@@ -209,7 +184,7 @@ class CarpoolRideControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.vehicleId").isEmpty());
+                .andExpect(jsonPath("$.acceptedByAdultId").isEmpty());
 
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/cancel")
@@ -286,12 +261,6 @@ class CarpoolRideControllerIntegrationTest {
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(
-                        patch("/api/family/circle/garage/me")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"drives\":false}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/pass")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
                 .andExpect(status().isOk())
@@ -350,17 +319,8 @@ class CarpoolRideControllerIntegrationTest {
                                 .value("Sam"));
 
         mockMvc.perform(
-                        patch("/api/family/circle/garage/me")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"drives\":true}"))
-                .andExpect(status().isOk());
-        String vehicleId = addVehicle(orgB, "Van", 7);
-        mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"))
                 .andExpect(jsonPath("$.passedByMe").value(false))
@@ -551,12 +511,9 @@ class CarpoolRideControllerIntegrationTest {
                                                 + "')].status")
                                 .value("NO_RESPONSE"));
 
-        String vehicleId = addVehicle(orgB, "Van", 7);
         mockMvc.perform(
                         post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"vehicleId\":\"" + vehicleId + "\"}"))
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"));
 
@@ -664,25 +621,6 @@ class CarpoolRideControllerIntegrationTest {
                                                 + address
                                                 + "\"}"))
                 .andExpect(status().isCreated());
-    }
-
-    private String addVehicle(String token, String label, int seats) throws Exception {
-        return JsonPath.read(
-                mockMvc.perform(
-                                post("/api/family/circle/garage/vehicles")
-                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(
-                                                "{\"label\":\""
-                                                        + label
-                                                        + "\",\"year\":2020,\"make\":\"HONDA\",\"model\":\"Odyssey\",\"seats\":"
-                                                        + seats
-                                                        + "}"))
-                        .andExpect(status().isCreated())
-                        .andReturn()
-                        .getResponse()
-                        .getContentAsString(),
-                "$.id");
     }
 
     private String signIn(String email) throws Exception {

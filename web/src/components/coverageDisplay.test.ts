@@ -108,8 +108,6 @@ function ownRide(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: "a2",
     acceptingCircleId: "c2",
     acceptingCircleName: "Sharks Family",
-    vehicleId: "v1",
-    vehicleLabel: "Van",
     ...partial,
   }
 }

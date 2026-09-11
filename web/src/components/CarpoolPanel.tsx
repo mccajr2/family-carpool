@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import type { CarpoolClient } from "@/api/carpoolClient"
-import type { FamilyClient } from "@/api/familyClient"
-import type { CarpoolRideEvent, CarpoolSummary, Garage, Kid } from "@/api/types"
+import type { CarpoolRideEvent, CarpoolSummary, Kid } from "@/api/types"
 import { CarpoolFeedActions } from "@/components/CarpoolFeedActions"
 import { CarpoolSpaceRides } from "@/components/CarpoolSpaceRides"
 import { circleDisplayName } from "@/components/carpoolDisplay"
@@ -15,8 +14,6 @@ type Status = { kind: "idle" } | { kind: "loading" } | { kind: "error"; message:
 type CarpoolPanelProps = {
   accessToken: string
   carpoolClient: CarpoolClient
-  familyClient: FamilyClient
-  adultId: string
   circleId: string
   kids: Kid[]
   onJoined?: () => void | Promise<void>
@@ -25,14 +22,11 @@ type CarpoolPanelProps = {
 export function CarpoolPanel({
   accessToken,
   carpoolClient,
-  familyClient,
-  adultId,
   circleId,
   kids,
   onJoined,
 }: CarpoolPanelProps) {
   const [summary, setSummary] = useState<CarpoolSummary | null>(null)
-  const [garage, setGarage] = useState<Garage | null>(null)
   const [ridesBySpace, setRidesBySpace] = useState<Record<string, CarpoolRideEvent[]>>({})
   const [status, setStatus] = useState<Status>({ kind: "loading" })
   const [codeInput, setCodeInput] = useState("")
@@ -43,25 +37,19 @@ export function CarpoolPanel({
     setStatus({ kind: "loading" })
     try {
       const next = await carpoolClient.getSummary(accessToken)
-      let nextGarage: Garage | null = null
       const nextRides: Record<string, CarpoolRideEvent[]> = {}
       if (next.spaces.length > 0) {
         const window = defaultCalendarWindow()
-        const [garageNext, rideLists] = await Promise.all([
-          familyClient.getGarage(accessToken),
-          Promise.all(
-            next.spaces.map((space) =>
-              carpoolClient.listRides(accessToken, space.id, window.from, window.to),
-            ),
+        const rideLists = await Promise.all(
+          next.spaces.map((space) =>
+            carpoolClient.listRides(accessToken, space.id, window.from, window.to),
           ),
-        ])
-        nextGarage = garageNext
+        )
         next.spaces.forEach((space, index) => {
           nextRides[space.id] = rideLists[index] ?? []
         })
       }
       setSummary(next)
-      setGarage(nextGarage)
       setRidesBySpace(nextRides)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -70,7 +58,7 @@ export function CarpoolPanel({
         message: error instanceof Error ? error.message : "Something went wrong",
       })
     }
-  }, [accessToken, carpoolClient, familyClient])
+  }, [accessToken, carpoolClient])
 
   useEffect(() => {
     void reload()
@@ -207,9 +195,7 @@ export function CarpoolPanel({
               <CarpoolSpaceRides
                 events={ridesBySpace[space.id] ?? []}
                 circleId={circleId}
-                adultId={adultId}
                 kids={kids}
-                garage={garage}
                 busy={busy}
                 onCreateRide={(eventKey, kidIds) =>
                   void run(() =>
@@ -221,10 +207,10 @@ export function CarpoolPanel({
                       .then(() => undefined),
                   )
                 }
-                onAcceptRide={(rideId, vehicleId) =>
+                onAcceptRide={(rideId) =>
                   void run(() =>
                     carpoolClient
-                      .acceptRide(accessToken, space.id, rideId, { vehicleId })
+                      .acceptRide(accessToken, space.id, rideId)
                       .then(() => undefined),
                   )
                 }

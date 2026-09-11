@@ -2,28 +2,11 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { CarpoolRide, CarpoolRideEvent, Garage, Kid } from "@/api/types"
+import type { CarpoolRide, CarpoolRideEvent, Kid } from "@/api/types"
 import { CarpoolSpaceRides } from "@/components/CarpoolSpaceRides"
 
 const kids: Kid[] = [{ id: "k1", displayName: "Mia" }]
 
-const garage: Garage = {
-  members: [{ adultId: "a1", displayName: "Alex", drives: true }],
-  vehicles: [
-    {
-      id: "v1",
-      ownerAdultId: "a1",
-      driverAdultIds: ["a1"],
-      keptAtPlaceId: null,
-      label: "Van",
-      year: 2019,
-      make: "HONDA",
-      model: "Odyssey",
-      seats: 8,
-      suggestedSeats: 8,
-    },
-  ],
-}
 
 function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
   return {
@@ -46,8 +29,6 @@ function ride(partial: Partial<CarpoolRide> = {}): CarpoolRide {
     acceptedByAdultId: null,
     acceptingCircleId: null,
     acceptingCircleName: null,
-    vehicleId: null,
-    vehicleLabel: null,
     ...partial,
   }
 }
@@ -81,9 +62,7 @@ describe("CarpoolSpaceRides pass", () => {
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride()] })]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
         onPassRide={onPassRide}
@@ -110,9 +89,7 @@ describe("CarpoolSpaceRides pass", () => {
           }),
         ]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
       />,
@@ -131,9 +108,7 @@ describe("CarpoolSpaceRides pass", () => {
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride({ passedByMe: true })] })]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
       />,
@@ -144,22 +119,17 @@ describe("CarpoolSpaceRides pass", () => {
     expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
   })
 
-  it("offers Pass without drives/vehicle when Accept is unavailable", () => {
+  it("offers Accept and Pass without garage gating", () => {
     render(
       <CarpoolSpaceRides
         events={[event({ otherRequests: [ride()] })]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={{
-          members: [{ adultId: "a1", displayName: "Alex", drives: false }],
-          vehicles: [],
-        }}
         busy={false}
         {...noop}
       />,
     )
-    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
   })
 
@@ -179,9 +149,7 @@ describe("CarpoolSpaceRides pass", () => {
           }),
         ]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
       />,
@@ -199,9 +167,7 @@ describe("CarpoolSpaceRides request defaults", () => {
       <CarpoolSpaceRides
         events={[event({ defaultKidIds: ["k1"] })]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
         onCreateRide={onCreateRide}
@@ -220,9 +186,7 @@ describe("CarpoolSpaceRides request defaults", () => {
       <CarpoolSpaceRides
         events={[event({ defaultKidIds: [] })]}
         circleId="c1"
-        adultId="a1"
         kids={kids}
-        garage={garage}
         busy={false}
         {...noop}
       />,
