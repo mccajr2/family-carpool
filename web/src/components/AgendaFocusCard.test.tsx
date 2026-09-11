@@ -687,6 +687,12 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
       "House B · Mia · 1 seat · Home, 1 Main",
     )
+    expect(screen.getByTestId("agenda-focus-incoming-leg-chips")).toHaveTextContent(
+      "Getting there: Asked team",
+    )
+    expect(screen.getByTestId("agenda-focus-incoming-leg-chips")).toHaveTextContent(
+      "Coming back: Asked team",
+    )
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
@@ -852,7 +858,8 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
       },
     )
     const chips = screen.getByTestId("agenda-focus-chips")
-    expect(within(chips).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(chips).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
     expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
@@ -908,7 +915,8 @@ describe("AgendaFocusCard Cancel CTA", () => {
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
       "Requested · Maya · 1 seat · Home, 1 Main",
     )
-    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Asked team")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     expect(cancel.className).toMatch(/outline|border/)
@@ -931,6 +939,7 @@ describe("AgendaFocusCard Cancel CTA", () => {
           acceptedByAdultId: "a2",
           acceptingCircleId: "c2",
           acceptingCircleName: "Sharks Family",
+          legs: carpoolLegsBoth("CONFIRMED"),
         },
       },
       onCancelRide,
@@ -938,9 +947,8 @@ describe("AgendaFocusCard Cancel CTA", () => {
     expect(screen.getByTestId("agenda-focus-own-ride")).toHaveTextContent(
       "Riding with Sharks Family · Maya · 1 seat · Home, 1 Main",
     )
-    expect(
-      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
-    ).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Sharks Family confirmed")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Sharks Family confirmed")).toBeInTheDocument()
     const cancel = screen.getByRole("button", { name: "Cancel" })
     expect(cancel).toBeInTheDocument()
     await user.click(cancel)
@@ -988,7 +996,7 @@ describe("AgendaFocusCard Withdraw CTA", () => {
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
   }
 
   it("shows outline Withdraw when this circle accepted a teammate ask", async () => {
@@ -1156,7 +1164,7 @@ describe("AgendaFocusCard Request CTA", () => {
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [],
         },
@@ -1165,9 +1173,8 @@ describe("AgendaFocusCard Request CTA", () => {
     )
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.queryByText("Needs coverage")).not.toBeInTheDocument()
-    expect(
-      within(screen.getByTestId("agenda-focus-chips")).getByText("Riding with Sharks Family"),
-    ).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Getting there: Sharks Family confirmed")).toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Coming back: Sharks Family confirmed")).toBeInTheDocument()
     expect(
       within(screen.getByTestId("agenda-focus-chips")).queryByText("All set"),
     ).not.toBeInTheDocument()
@@ -1224,7 +1231,7 @@ describe("AgendaFocusCard Request CTA", () => {
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "Sharks Family",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [],
         },
@@ -1332,7 +1339,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
     acceptedByAdultId: "a1",
     acceptingCircleId: "c1",
     acceptingCircleName: "Ours",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
   }
 
   it("shows Type A conflict line under chips and keeps Withdraw", () => {
@@ -1403,7 +1410,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
             acceptedByAdultId: "a2",
             acceptingCircleId: "c2",
             acceptingCircleName: "House B",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
           },
           otherRequests: [inboundAccepted],
         },
@@ -1414,7 +1421,8 @@ describe("AgendaFocusCard ride commitment conflict", () => {
 
     const chips = screen.getByTestId("agenda-focus-chips")
     expect(within(chips).getByText("Ride conflict")).toBeInTheDocument()
-    expect(within(chips).getByText("Riding with House B")).toBeInTheDocument()
+    expect(within(chips).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(chips).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-ride-conflict")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",
     )

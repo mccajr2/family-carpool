@@ -71,7 +71,7 @@ describe("CarpoolSpaceRides pass", () => {
         onPassRide={onPassRide}
       />,
     )
-    expect(screen.getByText("Needs a ride")).toBeInTheDocument()
+    expect(screen.getByText("Getting there: Asked team · Coming back: Asked team")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Pass" }))

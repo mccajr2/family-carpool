@@ -389,8 +389,7 @@ describe("rideStatusChipsForItem", () => {
     ).toEqual([
       { label: OVERLAPS_CHIP, tone: "amber" },
       { label: alsoDrivingKidLabel("Sam"), tone: "amber" },
-      { label: legStatusChipLabel("TO", LEG_NEEDS_RIDE), tone: "amber" },
-      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
     ])
   })
 
@@ -472,9 +471,70 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([
       { label: RIDE_CONFLICT_CHIP, tone: "amber" },
-      { label: legStatusChipLabel("TO", LEG_NEEDS_RIDE), tone: "amber" },
-      { label: legStatusChipLabel("FROM", LEG_NEEDS_RIDE), tone: "amber" },
+      { label: RIDE_NEEDED, tone: "amber" },
     ])
+  })
+
+  it("prefers dual leg chips when ownRequest is PENDING even if coverage says unassigned", () => {
+    const pending = ownRide({ status: "PENDING" })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("ASKED_TEAM"),
+      ownRequest: pending,
+      otherRequests: [],
+    }
+    const item = calendarItem({ kidIds: ["k1"] })
+    const games = [game({ id: "g", kidId: "k1", order: 100, ownRide: "requested" })]
+
+    expect(
+      rideStatusChipsForItem(item, games, pending, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", LEG_ASKED_TEAM), tone: "amber" },
+      { label: legStatusChipLabel("FROM", LEG_ASKED_TEAM), tone: "amber" },
+    ])
+  })
+
+  it("keeps Ride needed for a sibling gap beside an ACCEPTED own plan", () => {
+    const accepted = ownRide({
+      status: "ACCEPTED",
+      acceptingCircleName: "House B",
+      kidIds: ["k1"],
+      legs: carpoolLegsBoth("CONFIRMED"),
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownLegs: carpoolLegsBoth("CONFIRMED"),
+      ownRequest: accepted,
+      otherRequests: [],
+    }
+    const item = calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: ["k2"] })
+    const games = [
+      game({
+        id: "on-plan",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "House B", confirmed: true },
+      }),
+      game({ id: "gap", kidId: "k2", order: 200, ownRide: "unassigned" }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, accepted, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([{ label: RIDE_NEEDED, tone: "amber" }])
   })
 })
 

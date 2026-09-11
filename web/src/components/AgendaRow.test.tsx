@@ -910,7 +910,8 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getAllByText(ASKED_THE_TEAM).length).toBeGreaterThan(0)
+    expect(within(row).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam · 1 seat · Home, 1 Main",
     )
@@ -962,6 +963,7 @@ describe("AgendaRow", () => {
             ...requestedEvent.ownRequest!,
             status: "ACCEPTED",
             acceptingCircleName: "House B",
+            legs: carpoolLegsBoth("CONFIRMED"),
           },
         }}
         onCreateRide={onCreateRide}
@@ -969,7 +971,8 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getAllByText("Riding with House B").length).toBeGreaterThan(0)
+    expect(within(row).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Riding with House B · Sam · 1 seat · Home, 1 Main",
     )
@@ -1013,7 +1016,7 @@ describe("AgendaRow", () => {
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks Family",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [],
     }
@@ -1033,14 +1036,14 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
-    expect(within(row).getAllByText("Riding with Sharks Family").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Getting there: Sharks Family confirmed").length).toBeGreaterThan(0)
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    expect(within(row).getAllByText("Riding with Sharks Family").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Getting there: Sharks Family confirmed").length).toBeGreaterThan(0)
     expect(
       within(row).getByRole("button", {
         name: "Sharks Family can't drive anymore? Find a new ride",
@@ -1098,7 +1101,7 @@ describe("AgendaRow", () => {
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [],
     }
@@ -1192,7 +1195,8 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-pending")
-    expect(within(row).getByText(ASKED_THE_TEAM)).toBeInTheDocument()
+    expect(within(row).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -2293,7 +2297,8 @@ describe("AgendaRow", () => {
       />,
     )
     const askedRow = screen.getByTestId("agenda-row-FEED-feed-asked")
-    expect(within(askedRow).getByText("Asked the team")).toBeInTheDocument()
+    expect(within(askedRow).getByText("Getting there: Asked team")).toBeInTheDocument()
+    expect(within(askedRow).getByText("Coming back: Asked team")).toBeInTheDocument()
     expect(within(askedRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
 
     rerender(
@@ -2475,7 +2480,7 @@ describe("AgendaRow", () => {
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "House B",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+    legs: carpoolLegsBoth("CONFIRMED"),
       },
       otherRequests: [
         {
@@ -2520,7 +2525,8 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-FEED-feed-type-b")
     const chipStrip = within(row).getByTestId("agenda-row-chip-strip")
     expect(within(chipStrip).getByText(RIDE_CONFLICT_CHIP)).toBeInTheDocument()
-    expect(within(chipStrip).getByText(ridingWithCircleLabel("House B"))).toBeInTheDocument()
+    expect(within(chipStrip).getByText("Getting there: House B confirmed")).toBeInTheDocument()
+    expect(within(chipStrip).getByText("Coming back: House B confirmed")).toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("agenda-ride-conflict-FEED-feed-type-b")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",

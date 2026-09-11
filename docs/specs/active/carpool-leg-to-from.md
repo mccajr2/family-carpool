@@ -215,7 +215,7 @@ above. Do not revive closed PR #107 patches.
 - [x] Web: types + `carpoolClient` mapping.
 - [x] Web: dual-chip helpers (`coverageCopy` / `rideStatusChip` /
       `carpoolDisplay` / `coverageQueue` as needed) + component tests.
-- [ ] Web: wire Focus, AgendaRow (and Carpool ride lines / week-glance if they
+- [x] Web: wire Focus, AgendaRow (and Carpool ride lines / week-glance if they
       share the same helpers) to dual chips; keep round-trip actions working;
       not-going refresh shows cleared legs.
 - [ ] Docs: `docs/architecture.md` → Team carpool space (detail) Rides /

@@ -13,9 +13,9 @@ import {
   INBOUND_DECLINED_NEEDED_RIDE,
   INBOUND_HERO_HANDOFF,
   INBOUND_PASSED,
-  RIDE_NEEDED,
 } from "@/components/coverageCopy"
 import { PickupLine } from "@/components/PickupLine"
+import { inboundAskLegChips } from "@/components/rideStatusChip"
 import { Button } from "@/components/ui/button"
 
 const revertLinkClassName =
@@ -44,7 +44,7 @@ export function inboundRequestStatusChip(
   request: CarpoolRide,
   circleId: string,
   options: { autoDeclined?: boolean } = {},
-): { label: string; tone: AgendaStatusChipTone } {
+): { label: string; tone: AgendaStatusChipTone } | null {
   if (isAcceptedByCircle(request, circleId)) {
     return { label: INBOUND_ACCEPTED, tone: "mint" }
   }
@@ -55,7 +55,8 @@ export function inboundRequestStatusChip(
     return { label: INBOUND_PASSED, tone: "muted" }
   }
   if (request.status === "PENDING") {
-    return { label: RIDE_NEEDED, tone: "amber" }
+    // Dual Getting there / Coming back chips render separately.
+    return null
   }
   if (request.status === "ACCEPTED") {
     return { label: INBOUND_ACCEPTED, tone: "mint" }
@@ -120,6 +121,10 @@ export function AgendaInboundRequestRow({
     !showHeroHandoff && acceptedByUs && onWithdrawRide != null
 
   const statusChip = inboundRequestStatusChip(request, circleId, { autoDeclined })
+  const pendingLegChips =
+    request.status === "PENDING" && !autoDeclined && !request.passedByMe
+      ? inboundAskLegChips(request)
+      : null
   const showPrimaryActions =
     canAccept || canPass || canCantTakeThem || canReconsider || canUndo
 
@@ -136,7 +141,16 @@ export function AgendaInboundRequestRow({
           />
           <span className="min-w-0">{incomingRideAskSummary(request)}</span>
         </div>
-        <AgendaStatusChip label={statusChip.label} tone={statusChip.tone} />
+        <div className="flex flex-wrap items-center justify-end gap-[var(--fc-space-xs)]">
+          {pendingLegChips != null
+            ? pendingLegChips.map((chip) => (
+                <AgendaStatusChip key={chip.label} label={chip.label} tone={chip.tone} />
+              ))
+            : null}
+          {statusChip != null ? (
+            <AgendaStatusChip label={statusChip.label} tone={statusChip.tone} />
+          ) : null}
+        </div>
       </div>
 
       {!showHeroHandoff ? (

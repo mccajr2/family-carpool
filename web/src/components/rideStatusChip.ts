@@ -228,13 +228,20 @@ function transportLegsForItem(
   ownRequest: CarpoolRide | null | undefined,
   rideEvent: CarpoolRideEvent | null | undefined,
 ): CarpoolRideLeg[] | null {
-  if (ownRequest?.legs != null && ownRequest.legs.length > 0) {
-    return ownRequest.legs
+  const fromRequest =
+    ownRequest?.legs != null && ownRequest.legs.length > 0 ? ownRequest.legs : null
+  const fromEvent =
+    rideEvent?.ownLegs != null && rideEvent.ownLegs.length > 0 ? rideEvent.ownLegs : null
+  const legs = fromRequest ?? fromEvent
+  if (legs == null) {
+    return null
   }
-  if (rideEvent?.ownLegs != null && rideEvent.ownLegs.length > 0) {
-    return rideEvent.ownLegs
+  // Household coverage Confirm/Assign still writes coverage rows, not leg slots
+  // yet — keep the coverage chip when legs are still blank NEEDS_RIDE.
+  if (ownRequest == null && legs.every((leg) => leg.phase === "NEEDS_RIDE")) {
+    return null
   }
-  return null
+  return legs
 }
 
 /**
@@ -312,7 +319,17 @@ export function rideStatusChipsForItem(
   }
 
   const legs = transportLegsForItem(ownRequest, options?.rideEvent)
-  if (legs != null) {
+  const urgent = pickMostUrgentGameRow(games)
+  const remainingGapBesideOwnPlan =
+    legs != null &&
+    ownRequest != null &&
+    urgent != null &&
+    isOwnRideGap(urgent) &&
+    !ownRequest.kidIds.includes(urgent.kidId)
+
+  if (remainingGapBesideOwnPlan) {
+    chips.push(rideStatusChipForGameRow(urgent, ownRequest))
+  } else if (legs != null) {
     chips.push(
       ...rideLegStatusChips(legs, {
         currentAdultId: options?.currentAdultId,
@@ -322,11 +339,8 @@ export function rideStatusChipsForItem(
             : null,
       }),
     )
-  } else {
-    const urgent = pickMostUrgentGameRow(games)
-    if (urgent != null) {
-      chips.push(rideStatusChipForGameRow(urgent, ownRequest))
-    }
+  } else if (urgent != null) {
+    chips.push(rideStatusChipForGameRow(urgent, ownRequest))
   }
 
   return chips
