@@ -51,7 +51,8 @@ string with the collapsed form when applicable).
 - Prerequisite: dual-chip helpers already ship in `rideStatusChip` /
   `coverageCopy` via `carpool-leg-to-from`.
 - Likely a small web-only helper change + surface tests; no OpenAPI needed.
-- After [`carpool-leg-split-plans`](carpool-leg-split-plans.md), mismatched
-  drivers/locations keep dual chips; matched round-trips stay one chip.
+- After [`carpool-leg-split-plans`](../active/carpool-leg-split-plans.md), mismatched
+  drivers keep dual chips; matched round-trips stay one chip. Per-leg places
+  remain [`carpool-meet-at`](carpool-meet-at.md).
 - Open at `/spec`: exact empty/Needs-ride edge cases; whether Carpool tab
   uses the chip component or stays a single text line.

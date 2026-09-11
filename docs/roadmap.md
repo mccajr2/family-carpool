@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-11 (`/pr carpool-ride-coverage-card` — archive; next up chip-collapse)
+Updated: 2026-09-11 (`/spec carpool-leg-split-plans` — active; locations → meet-at)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,9 +105,9 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | 1    | carpool-leg-chip-collapse       | planned | 2026-09-11 · enhancement   | Collapse matching TO/FROM chips to `Round trip: {status}`; keep dual chips when legs differ (clarity + simplicity)            |
-| 2    | carpool-leg-split-plans         | planned | 2026-09-10 · re-rank split | “Different plans for each leg” editor: independent driver + location per leg; Save ride plan; Back to simple view             |
+| 2    | carpool-leg-split-plans         | active  | 2026-09-10 · re-rank split | “Different plans for each leg” editor: independent driver per leg; Save ride plan; Back to simple view; per-leg hero gaps   |
 | 3    | carpool-kid-split-plans         | planned | 2026-09-10 · re-rank split | Progressive per-kid plans for multi-kid teams (twins/triplets); default remains shared round-trip                           |
-| 4    | carpool-meet-at                 | planned | 2026-08-14 · enhancement   | Ask-team sub-flow + pickup vs drop-off at a teammate’s house (who drives to whom; radius match deferred into this id)         |
+| 4    | carpool-meet-at                 | planned | 2026-08-14 · enhancement   | Ask-team meet-at sub-flow + true per-leg pickup/drop-off places (locations deferred from leg-split)                         |
 | 5    | carpool-route-optimize          | planned | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
 | 6    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
 | 7    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
@@ -201,7 +201,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| _(none)_ |  |  |
+| carpool-leg-split-plans | `carpool-leg-split-plans` | [active](specs/active/carpool-leg-split-plans.md) |
 
 ## Done
 
@@ -288,6 +288,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-11 | `/spec carpool-leg-split-plans`: promote — split editor + per-leg drivers + hero queue gaps; defer true per-leg locations into `carpool-meet-at` (no new id). Branch `carpool-leg-split-plans`. Soft dep: chip-collapse still planned on main. |
 | 2026-09-11 | `/pr carpool-ride-coverage-card`: DriverPicker household chips + trailing Ask the team; leave-from in picker; live Confirm / Post labels; Different plans link inert. Spec archived. Next up `carpool-leg-chip-collapse`. |
 | 2026-09-11 | `/roadmap`: add rank-2 `carpool-leg-chip-collapse` — collapse matching TO/FROM status chips to `Round trip: {status}`; dual chips only when legs differ. Bumps leg-split / kid-split / meet-at. |
 | 2026-09-11 | `/spec carpool-ride-coverage-card`: promote stub — default collapsed DriverPicker chrome on Focus/Hero + Agenda expanded rows; Ask the team as trailing chip; live Confirm / Post labels; Different plans link inert. Branch `carpool-ride-coverage-card`. |
