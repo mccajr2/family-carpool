@@ -218,7 +218,7 @@ above. Do not revive closed PR #107 patches.
 - [x] Web: wire Focus, AgendaRow (and Carpool ride lines / week-glance if they
       share the same helpers) to dual chips; keep round-trip actions working;
       not-going refresh shows cleared legs.
-- [ ] Docs: `docs/architecture.md` → Team carpool space (detail) Rides /
+- [x] Docs: `docs/architecture.md` → Team carpool space (detail) Rides /
       Clients / Out of scope (+ RSVP/transport clear note).
 - [ ] Tests: run backend carpool (+ RSVP coupling) tests + web unit tests for
       touched helpers / surfaces; report results.
