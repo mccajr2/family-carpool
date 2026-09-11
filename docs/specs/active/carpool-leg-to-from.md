@@ -166,38 +166,38 @@ above. Do not revive closed PR #107 patches.
 
 ## Acceptance criteria
 
-- [ ] OpenAPI documents per-leg phases for `TO` and `FROM` on the requesting
+- [x] OpenAPI documents per-leg phases for `TO` and `FROM` on the requesting
       circle’s ride plan (list + mutating responses as needed); `info.version`
       bumped; web clients updated in the same change.
-- [ ] Creating / confirming a **round-trip** plan (household self-confirm,
+- [x] Creating / confirming a **round-trip** plan (household self-confirm,
       household assign-pending, or Ask the team) for all **going** kids writes
       **both** legs to the matching phase; Accept on a both-legs team ask moves
       both to `CONFIRMED` with no intermediate claimed state.
-- [ ] API supports updating **one** leg without forcing the other (unit +
+- [x] API supports updating **one** leg without forcing the other (unit +
       integration coverage); this PR’s UI may only call the round-trip path.
-- [ ] Dual status chips render on Focus / hero + collapsed/expanded Agenda ride
+- [x] Dual status chips render on Focus / hero + collapsed/expanded Agenda ride
       chrome (+ Carpool ride lines): e.g. `Getting there: Asked team` and
       `Coming back: Needs ride` when only TO was asked; both confirmed when
       round-trip accepted.
-- [ ] Hero / Focus inbound Accept (teammate ask) and Waiting-on-{household}
+- [x] Hero / Focus inbound Accept (teammate ask) and Waiting-on-{household}
       states show which leg(s) are requested — a one-leg ask is visually
       distinct from round-trip (same clarity on expanded Agenda inbound rows
       that offer Accept/Pass).
-- [ ] Chip phases map only to the four states (Needs ride / Waiting on {name}
+- [x] Chip phases map only to the four states (Needs ride / Waiting on {name}
       / Asked team / You're driving | {name} confirmed) — no fifth state.
-- [ ] When both legs share the same assignee adult, a single Cancel or
+- [x] When both legs share the same assignee adult, a single Cancel or
       Withdraw clears **both**; when assignees differ, cancel is per-leg.
-- [ ] Marking a kid **not going** (RSVP `NO`) removes them from the plan and
+- [x] Marking a kid **not going** (RSVP `NO`) removes them from the plan and
       clears **all** their legs — pending team asks, waiting household, and
       confirmed — server-side; remaining going kids keep a reduced shared plan;
       last going kid cleared → whole plan cancelled. Integration test covers
       PENDING and ACCEPTED/CONFIRMED cases.
-- [ ] Flyway (or equivalent) migrates existing PENDING/ACCEPTED both-legs rows
+- [x] Flyway (or equivalent) migrates existing PENDING/ACCEPTED both-legs rows
       (and active household coverage pairing) so dogfood data stays coherent.
-- [ ] Backend unit + integration tests for create/accept/cancel/withdraw leg
+- [x] Backend unit + integration tests for create/accept/cancel/withdraw leg
       matrix + not-going clear; web helper tests for dual-chip derivation.
       `ModularityTests` still pass.
-- [ ] Architecture Team carpool **Rides** / **Out of scope** updated: legs
+- [x] Architecture Team carpool **Rides** / **Out of scope** updated: legs
       in; not-going clears transport; per-kid split and meet-at still out.
 
 ## Tasks
@@ -220,7 +220,7 @@ above. Do not revive closed PR #107 patches.
       not-going refresh shows cleared legs.
 - [x] Docs: `docs/architecture.md` → Team carpool space (detail) Rides /
       Clients / Out of scope (+ RSVP/transport clear note).
-- [ ] Tests: run backend carpool (+ RSVP coupling) tests + web unit tests for
+- [x] Tests: run backend carpool (+ RSVP coupling) tests + web unit tests for
       touched helpers / surfaces; report results.
 
 ## Open questions
