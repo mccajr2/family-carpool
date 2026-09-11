@@ -1,9 +1,9 @@
 # Spec: carpool-leg-chip-collapse
 
-Status: draft  
+Status: archived  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-11  
-Updated: 2026-09-11 (`/spec` — promote; drop Round trip prefix)  
+Updated: 2026-09-11 (`/pr` — archive after ship)  
 Added: 2026-09-11 · enhancement  
 Branch: `carpool-leg-chip-collapse`
 
@@ -76,39 +76,39 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] When both TO and FROM legs are present and `legPhaseStatusLabel` matches,
+- [x] When both TO and FROM legs are present and `legPhaseStatusLabel` matches,
       surfaces show **exactly one** ride-status chip/label whose text is that
       body only (examples: `Asked team`, `You're driving`,
       `House B confirmed`, `Needs ride`) — not `Round trip: …` and not
       `Getting there: …` / `Coming back: …`.
-- [ ] When the two bodies differ (including TO asked + FROM `Needs ride`, or
+- [x] When the two bodies differ (including TO asked + FROM `Needs ride`, or
       different assignees/phases), surfaces still show **two** prefixed chips
       `Getting there: …` and `Coming back: …`.
-- [ ] True single-leg plans (only TO or only FROM in the slots) show **one**
+- [x] True single-leg plans (only TO or only FROM in the slots) show **one**
       prefixed chip for that kind — never an unprefixed body that could be
       read as both ways.
-- [ ] Hero / Focus inbound Accept, Agenda collapsed + expanded inbound rows,
+- [x] Hero / Focus inbound Accept, Agenda collapsed + expanded inbound rows,
       and Carpool own/inbound ride lines all use the same collapse rule (Carpool
       may stay a single text line; matching → one body string, differing →
       ` · `-joined prefixed labels as today).
-- [ ] Existing blank-leg suppression for household coverage (no own request +
+- [x] Existing blank-leg suppression for household coverage (no own request +
       both `NEEDS_RIDE`) is unchanged — coverage chrome still owns that state.
-- [ ] No OpenAPI / backend changes in this PR.
-- [ ] Unit tests cover collapse / differ / single-leg; surface tests that
+- [x] No OpenAPI / backend changes in this PR.
+- [x] Unit tests cover collapse / differ / single-leg; surface tests that
       previously expected dual matching chips are updated and would fail if
       collapse were reverted.
 
 ## Tasks
 
-- [ ] Web: Add collapse in `rideLegStatusChips` (or a thin shared wrapper used
+- [x] Web: Add collapse in `rideLegStatusChips` (or a thin shared wrapper used
       by `inboundAskLegChips` / Agenda paths) — same body → one unprefixed
       descriptor; else keep prefixed dual / single-leg prefixed behavior.
-- [ ] Web: Confirm CarpoolSpaceRides text lines consume the helper output
+- [x] Web: Confirm CarpoolSpaceRides text lines consume the helper output
       (matching → single body; no separate join logic that re-prefixes).
-- [ ] Tests: Extend `rideStatusChip.test.ts` for match / mismatch / single-leg;
+- [x] Tests: Extend `rideStatusChip.test.ts` for match / mismatch / single-leg;
       update Focus, Agenda row, Hero, inbound row, and CarpoolSpaceRides
       assertions that currently expect dual matching chips.
-- [ ] Tests: Run the affected Vitest suites from `web/` and report results.
+- [x] Tests: Run the affected Vitest suites from `web/` and report results.
 
 ## Open questions
 

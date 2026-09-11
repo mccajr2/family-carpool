@@ -189,16 +189,36 @@ function orderedLegs(
 }
 
 /**
- * Dual Getting there / Coming back chips from persisted leg slots.
- * Inbound Accept clarity: TO-only asks show Coming back as Needs ride.
- * Missing/undefined legs (legacy fixtures) yield no chips.
+ * Getting there / Coming back chips from persisted leg slots.
+ * Both legs with the same display status body → one unprefixed chip.
+ * Differing bodies → dual prefixed chips. True single-leg plans keep one
+ * prefixed chip for that kind. Missing/undefined legs yield no chips.
  */
 export function rideLegStatusChips(
   legs: readonly CarpoolRideLeg[] | null | undefined,
   options?: RideLegChipOptions,
 ): RideStatusChipDescriptor[] {
-  return orderedLegs(legs).map((leg) => ({
-    label: legStatusChipLabel(leg.kind, legPhaseStatusLabel(leg, options)),
+  const ordered = orderedLegs(legs)
+  if (ordered.length === 0) {
+    return []
+  }
+
+  const labeled = ordered.map((leg) => ({
+    leg,
+    body: legPhaseStatusLabel(leg, options),
+  }))
+
+  if (labeled.length === 2 && labeled[0]!.body === labeled[1]!.body) {
+    return [
+      {
+        label: labeled[0]!.body,
+        tone: legChipTone(labeled[0]!.leg),
+      },
+    ]
+  }
+
+  return labeled.map(({ leg, body }) => ({
+    label: legStatusChipLabel(leg.kind, body),
     tone: legChipTone(leg),
   }))
 }
@@ -283,8 +303,9 @@ export function rideStatusChipForGameRow(
 }
 
 /**
- * Overlaps → ride-commitment conflict → dual leg chips (when carpool legs
- * exist) or one coverage ride-status chip. All kids out-of-play → single muted
+ * Overlaps → ride-commitment conflict → leg chips (when carpool legs
+ * exist) or one coverage ride-status chip. Matching TO/FROM bodies collapse
+ * to one unprefixed chip. All kids out-of-play → single muted
  * **Not going**; no overlaps/conflict.
  */
 export function rideStatusChipsForItem(
