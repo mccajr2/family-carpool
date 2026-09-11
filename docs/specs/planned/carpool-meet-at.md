@@ -21,7 +21,9 @@ driver can accept a plan they can actually run.
 
 ## Non-goals (sketch)
 
-- To XOR from (`carpool-leg-to-from`) — ship legs first or decide shared OpenAPI at `/spec`
+- Per-leg domain / four-state chips — [`carpool-leg-to-from`](../active/carpool-leg-to-from.md)
+- Default coverage card chrome — [`carpool-ride-coverage-card`](carpool-ride-coverage-card.md)
+- Split-plans editor — [`carpool-leg-split-plans`](carpool-leg-split-plans.md)
 - Early/late windows (`carpool-early-late-window`)
 - Stop-order optimize (`carpool-route-optimize`)
 - Live navigation or in-app maps
@@ -29,11 +31,15 @@ driver can accept a plan they can actually run.
 
 ## Notes
 
-- Depends on shipped `carpool-request-accept`. Pickup/drop-off **places** are circle
-  named places — do not invent a second address model.
+- **Owns** the deferred Ask-the-team sub-flow: plain pickup-at-home vs
+  requester-specified radius drop-off + match-time distance vs candidate
+  drivers’ homes. Until this ships, Ask the team stays undifferentiated.
+- Pickup/drop-off **places** are circle named places — do not invent a second
+  address model.
 - Showing teammate house addresses is PII: consider parked
   `[carpool-least-privilege](carpool-least-privilege.md)` before this ships.
 - Drop-off at the driver’s house still needs an agreed time if it is not the
   usual leave-by — that time window is `carpool-early-late-window`, not this
   slice.
-- Promoted for carpool Beta (2026-09-08), ranked after one-way legs — web first.
+- Ranked after legs + coverage-card + split-plans (2026-09-10 re-rank split) —
+  web first.
