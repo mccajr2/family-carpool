@@ -5,6 +5,8 @@ import { pickupTone } from "@/components/pickupTone"
 export type PickupLineProps = {
   pickupTown: string | null
   detourMinutes: number | null
+  /** Display-only: FROM-only asks say Drop off; otherwise Pickup. */
+  placeKind?: "pickup" | "dropoff"
   /** Hero carousel slide uses on-secondary base text per mock dark slide. */
   variant?: "default" | "hero"
   className?: string
@@ -14,6 +16,7 @@ export type PickupLineProps = {
 export function PickupLine({
   pickupTown,
   detourMinutes,
+  placeKind = "pickup",
   variant = "default",
   className,
   "data-testid": testId = "pickup-line",
@@ -27,6 +30,7 @@ export function PickupLine({
   const showMinutes = detourMinutes != null
   const tone = showMinutes ? pickupTone(detourMinutes) : null
   const pinColor = tone?.colorVar ?? textColor
+  const placeLabel = placeKind === "dropoff" ? "Drop off in" : "Pickup in"
 
   return (
     <div
@@ -40,7 +44,9 @@ export function PickupLine({
       style={{ color: textColor }}
     >
       <MapPin size={12} aria-hidden style={{ color: pinColor }} />
-      <span>Pickup in {pickupTown}</span>
+      <span>
+        {placeLabel} {pickupTown}
+      </span>
       {showMinutes && tone ? (
         <span
           data-testid={`${testId}-detour-pill`}

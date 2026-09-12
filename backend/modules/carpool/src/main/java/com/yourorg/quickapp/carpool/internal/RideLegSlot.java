@@ -46,6 +46,15 @@ class RideLegSlot {
         return new RideLegSlot(kind, CarpoolLegPhase.ASKED_TEAM, null, null);
     }
 
+    static RideLegSlot waitingHousehold(CarpoolLegKind kind, UUID assigneeAdultId) {
+        return new RideLegSlot(
+                kind, CarpoolLegPhase.WAITING_HOUSEHOLD, assigneeAdultId, null);
+    }
+
+    static RideLegSlot householdConfirmed(CarpoolLegKind kind, UUID assigneeAdultId) {
+        return new RideLegSlot(kind, CarpoolLegPhase.CONFIRMED, assigneeAdultId, null);
+    }
+
     static RideLegSlot confirmed(
             CarpoolLegKind kind, UUID assigneeAdultId, UUID assigneeCircleId) {
         return new RideLegSlot(

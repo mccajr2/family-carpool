@@ -446,10 +446,7 @@ describe("HeroAttentionSlide", () => {
       within(slide).getByTestId("hero-attention-pickup-summary-detour-pill"),
     ).toHaveTextContent("~4 min out of your way")
     expect(within(slide).getByTestId("hero-attention-incoming-leg-chips")).toHaveTextContent(
-      "Getting there: Asked team",
-    )
-    expect(within(slide).getByTestId("hero-attention-incoming-leg-chips")).toHaveTextContent(
-      "Coming back: Asked team",
+      "Round trip: Asked team",
     )
 
     await user.click(within(slide).getByRole("button", { name: "Accept" }))

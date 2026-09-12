@@ -1,9 +1,9 @@
 # Spec: carpool-leg-split-plans
 
-Status: draft  
+Status: archived  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-10  
-Updated: 2026-09-11 (`/spec` — promote; narrow: drivers + queue; locations → meet-at)  
+Updated: 2026-09-11 (`/pr` — archive after ship)  
 Added: 2026-09-10 · re-rank split  
 Branch: `carpool-leg-split-plans`
 
@@ -28,9 +28,9 @@ never re-enters the hero while coverage still looks “covered.”
   [`carpool-meet-at`](../planned/carpool-meet-at.md) (this slice keeps
   **ride-level** leave-from / requester-house pickup)
 - Matching-leg chip collapse (plain / round-trip status when TO/FROM match) —
-  [`carpool-leg-chip-collapse`](../planned/carpool-leg-chip-collapse.md)
+  [`carpool-leg-chip-collapse`](carpool-leg-chip-collapse.md)
   (display-only; soft dependency — dual chips from
-  [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md) already show
+  [`carpool-leg-to-from`](carpool-leg-to-from.md) already show
   diverge)
 - Per-kid progressive split —
   [`carpool-kid-split-plans`](../planned/carpool-kid-split-plans.md)
@@ -112,8 +112,8 @@ Allowlist for `/implement`:
 
 - Prior ships: `docs/specs/archive/carpool-leg-to-from.md`,
   `docs/specs/archive/carpool-ride-coverage-card.md`
-- Soft display follow-on: `docs/specs/planned/carpool-leg-chip-collapse.md`
-  (do not implement collapse here)
+- Soft display follow-on: `docs/specs/archive/carpool-leg-chip-collapse.md`
+  (shipped early in this PR; do not re-implement)
 - Locations / meet-at deferral: `docs/specs/planned/carpool-meet-at.md`
 - Contract UX: `docs/agenda-coverage-web-contract.md` → Leave-from Focus/hero +
   expanded Agenda DriverPicker; Coverage assign / Ask the team (extend for
@@ -144,55 +144,80 @@ above. Do not implement meet-at places or per-kid split.
 
 ## Acceptance criteria
 
-- [ ] **“Different plans for each leg.”** on Focus/Hero and Agenda expanded
+- [x] **“Different plans for each leg.”** on Focus/Hero and Agenda expanded
       uncovered own-ride DriverPicker surfaces activates a split editor
       (Getting there / Coming back) with independent driver selection per leg
       (household chips + Ask the team).
-- [ ] Split editor shows **one shared** Leave from control when any selected
+- [x] Split editor shows **one shared** Leave from control when any selected
       leg is household; does **not** persist or show independent per-leg
       place fields.
-- [ ] **Save ride plan** applies both legs so resulting `ownLegs` (or
+- [x] **Save ride plan** applies both legs so resulting `ownLegs` (or
       equivalent list payload) reflect the chosen phases/assignees; mixed
       household + Ask combinations from the Approach matrix work end-to-end.
-- [ ] **Back to simple view** restores collapsed round-trip DriverPicker chrome;
+- [x] **Back to simple view** restores collapsed round-trip DriverPicker chrome;
       round-trip Confirm / Post from simple view still work.
-- [ ] OpenAPI documents whatever write surface Save ride plan needs (version
+- [x] OpenAPI documents whatever write surface Save ride plan needs (version
       bump); web clients updated in the same change; **no** per-leg location
       schema.
-- [ ] `getQueue` / Focus own-ride gap detection treats an in-play leg in
+- [x] `getQueue` / Focus own-ride gap detection treats an in-play leg in
       `NEEDS_RIDE` as a gap even when the other leg is asked or confirmed —
       cancelled/withdrawn teammate leg (or intentional one-leg plan) re-enters
       the hero.
-- [ ] `docs/agenda-coverage-web-contract.md` documents split editor + Save ride
+- [x] `docs/agenda-coverage-web-contract.md` documents split editor + Save ride
       plan + queue per-leg gap rule; architecture Team carpool Rides / Out of
       scope updated (drivers in; locations still meet-at).
-- [ ] Backend unit + integration coverage for mixed-leg save / single-leg ask +
+- [x] Backend unit + integration coverage for mixed-leg save / single-leg ask +
       household combinations; web tests for editor toggle, Save, Back, and
       queue gap with divergent `ownLegs`. Relevant suites pass;
       `ModularityTests` still pass if backend changes.
 
 ## Tasks
 
-- [ ] Docs: this spec; roadmap Active row; update
+- [x] Docs: this spec; roadmap Active row; update
       `docs/agenda-coverage-web-contract.md`; architecture Team carpool
       Rides / Out of scope; note on `carpool-meet-at` stub (locations owned there)
-- [ ] Contract: smallest OpenAPI write for Save ride plan / household per-leg
+- [x] Contract: smallest OpenAPI write for Save ride plan / household per-leg
       phases + version bump; web `types` + `carpoolClient`
-- [ ] Backend: persist independent driver outcomes on TO/FROM slots; compose or
+- [x] Backend: persist independent driver outcomes on TO/FROM slots; compose or
       atomic save; unit + integration tests (mixed matrix + cancel rules unchanged)
-- [ ] Web: activate Different plans link → split editor in `DriverPicker` (or
+- [x] Web: activate Different plans link → split editor in `DriverPicker` (or
       thin wrapper); shared leave-from; Save ride plan; Back to simple view;
       wire Focus/Hero + Agenda expanded call sites; `coverageCopy` strings
-- [ ] Web: teach `coverageQueue` / Focus gap helpers about per-leg `NEEDS_RIDE`
-- [ ] Tests: DriverPicker / Focus / AgendaRow / coverageQueue (+ backend as
+- [x] Web: teach `coverageQueue` / Focus gap helpers about per-leg `NEEDS_RIDE`
+- [x] Tests: DriverPicker / Focus / AgendaRow / coverageQueue (+ backend as
       above); run relevant web + carpool tests; report results
 
 ## Open questions
 
-- Soft dependency: `carpool-leg-chip-collapse` is still **planned** on `main` at
-  `/spec` time (may ship first on another branch). Split plans does **not**
-  require it; when both ship, matching legs after a round-trip save should
-  collapse per that id’s rules.
+- Soft dependency: `carpool-leg-chip-collapse` shipped early in this PR
+  (`collapseMatchingLegChips`); matching legs after a round-trip save collapse
+  per that id’s rules.
 - Exact OpenAPI shape (new `saveRidePlan` vs extend create/coverage) is left to
   implementer under “smallest correct surface” — resolve in PR if review
   prefers one style; do not block on inventing per-leg places.
+
+## Dogfood follow-ups (locked in this PR)
+
+Smoke-test fixes shipped with this slice (same PR):
+
+1. **Family-only split** — “Different plans” works for 2+ adults without Enable
+   carpool; Ask stays space-gated; circle-local `PLAN` (`space_id` null) via
+   `GET/POST /api/carpool/ride-plans`; Enable attaches those plans to the new
+   space.
+2. **Waiting-on-you confirm** — `WAITING_HOUSEHOLD` assigned to the viewer is a
+   Hero/Agenda Confirm decision (`confirm-household` / `decline-household`);
+   chip body **Confirm you'll drive**; does not rewrite pickup or Ask legs.
+3. **RSVP NO clears waiting household** — `cancelLegs` resets
+   `WAITING_HOUSEHOLD`; last kid → both legs `NEEDS_RIDE` / `CANCELLED` so
+   going again does not resurrect the plan.
+4. **Settled driver + one-leg inbound** — confirmed household driver who
+   accepted a FROM-only (or TO-only) ask shows dual Getting there / Coming back
+   chips with `· +n` only on confirmed inbound legs — not `You're driving · +n`
+   as an unspecified round-trip.
+
+5. **Dogfood batch 2** — shared `transportPlan` helper: non-blank settled
+   `ownLegs` win over `uncoveredKidIds` (no false Needs coverage / Request);
+   per-assignee can't-drive links + `clear-legs` (PLAN / circle-local); Request
+   only when a gap remains; matching-chip collapse to `Round trip:`; inbound
+   `· +n` on every household path; FROM-only Drop off + leg-scoped withdraw;
+   hero pending title `{Assigner} assigned you to drive {Kid}`.

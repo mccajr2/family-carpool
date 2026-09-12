@@ -16,6 +16,11 @@ import {
 } from "@/components/coverageCopy"
 import { PickupLine } from "@/components/PickupLine"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
+import {
+  inboundWithdrawLabel,
+  inboundWithdrawLegs,
+  ridePlaceLineKind,
+} from "@/components/transportPlan"
 import { Button } from "@/components/ui/button"
 
 const revertLinkClassName =
@@ -37,7 +42,7 @@ export type AgendaInboundRequestRowProps = {
   autoDeclined?: boolean
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
-  onWithdrawRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
 }
 
 export function inboundRequestStatusChip(
@@ -119,6 +124,17 @@ export function AgendaInboundRequestRow({
     onAcceptRide != null
   const canCantTakeThem =
     !showHeroHandoff && acceptedByUs && onWithdrawRide != null
+  const withdrawLegs = acceptedByUs ? inboundWithdrawLegs(request.legs) : undefined
+  const withdrawLabel = acceptedByUs
+    ? inboundWithdrawLabel(request.legs)
+    : REVERT_INBOUND_CANT_TAKE_THEM
+  const placeKind = ridePlaceLineKind(
+    acceptedByUs
+      ? request.legs
+      : request.status === "PENDING"
+        ? request.legs
+        : null,
+  )
 
   const statusChip = inboundRequestStatusChip(request, circleId, { autoDeclined })
   const pendingLegChips =
@@ -157,6 +173,7 @@ export function AgendaInboundRequestRow({
         <PickupLine
           pickupTown={request.pickupTown}
           detourMinutes={request.detourMinutes}
+          placeKind={placeKind}
           className="mt-[var(--fc-space-sm)]"
         />
       ) : null}
@@ -198,10 +215,10 @@ export function AgendaInboundRequestRow({
               type="button"
               data-testid="agenda-row-accepted-by-us-withdraw"
               disabled={loading}
-              onClick={() => onWithdrawRide(request.id)}
+              onClick={() => onWithdrawRide(request.id, withdrawLegs)}
               className={revertLinkClassName}
             >
-              {REVERT_INBOUND_CANT_TAKE_THEM}
+              {withdrawLabel}
             </button>
           ) : null}
           {canReconsider ? (

@@ -7,7 +7,11 @@ import type {
   CarpoolRideEvent,
   CarpoolSpace,
   CarpoolSummary,
+  ClearCarpoolRidePlanRequest,
   CreateCarpoolRideRequest,
+  SaveCarpoolRidePlanLeg,
+  SaveCarpoolRidePlanRequest,
+  SaveCarpoolRidePlanResponse,
   WithdrawCarpoolRideRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -198,6 +202,217 @@ export class CarpoolClient {
       throw new Error(await readErrorMessage(response, "Request carpool ride failed"))
     }
     return (await response.json()) as CarpoolRide
+  }
+
+  async saveRidePlan(
+    accessToken: string,
+    spaceId: string,
+    request: SaveCarpoolRidePlanRequest,
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const body: SaveCarpoolRidePlanRequest = {
+      eventKey: request.eventKey,
+      legs: request.legs.map((leg) => {
+        const entry: SaveCarpoolRidePlanLeg = {
+          kind: leg.kind,
+          action: leg.action,
+        }
+        if (leg.assigneeAdultId != null) {
+          entry.assigneeAdultId = leg.assigneeAdultId
+        }
+        return entry
+      }),
+    }
+    if (request.kidIds != null) {
+      body.kidIds = request.kidIds
+    }
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-plans`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Save carpool ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async confirmHouseholdRidePlan(
+    accessToken: string,
+    spaceId: string,
+    request: { eventKey: string },
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-plans/confirm-household`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ eventKey: request.eventKey }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Confirm household ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async declineHouseholdRidePlan(
+    accessToken: string,
+    spaceId: string,
+    request: { eventKey: string },
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-plans/decline-household`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ eventKey: request.eventKey }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Decline household ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async listCircleRidePlans(accessToken: string): Promise<CarpoolRideEvent[]> {
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/carpool/ride-plans"), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List circle ride plans failed"))
+    }
+    return (await response.json()) as CarpoolRideEvent[]
+  }
+
+  async saveCircleRidePlan(
+    accessToken: string,
+    request: SaveCarpoolRidePlanRequest,
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const body: SaveCarpoolRidePlanRequest = {
+      eventKey: request.eventKey,
+      legs: request.legs.map((leg) => {
+        const entry: SaveCarpoolRidePlanLeg = {
+          kind: leg.kind,
+          action: leg.action,
+        }
+        if (leg.assigneeAdultId != null) {
+          entry.assigneeAdultId = leg.assigneeAdultId
+        }
+        return entry
+      }),
+    }
+    if (request.kidIds != null) {
+      body.kidIds = request.kidIds
+    }
+    const response = await this.fetchFn(authUrl(this.baseUrl, "/api/carpool/ride-plans"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Save circle ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async confirmCircleHouseholdRidePlan(
+    accessToken: string,
+    request: { eventKey: string },
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/carpool/ride-plans/confirm-household"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ eventKey: request.eventKey }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Confirm circle household ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async declineCircleHouseholdRidePlan(
+    accessToken: string,
+    request: { eventKey: string },
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/carpool/ride-plans/decline-household"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ eventKey: request.eventKey }),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Decline circle household ride plan failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async clearRidePlanLegs(
+    accessToken: string,
+    spaceId: string,
+    request: ClearCarpoolRidePlanRequest,
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-plans/clear-legs`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Clear ride plan legs failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
+  }
+
+  async clearCircleRidePlanLegs(
+    accessToken: string,
+    request: ClearCarpoolRidePlanRequest,
+  ): Promise<SaveCarpoolRidePlanResponse> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/carpool/ride-plans/clear-legs"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Clear circle ride plan legs failed"))
+    }
+    return (await response.json()) as SaveCarpoolRidePlanResponse
   }
 
   async acceptRide(

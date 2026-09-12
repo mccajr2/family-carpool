@@ -58,6 +58,44 @@ public class CarpoolController {
         return carpoolService.join(adult, request);
     }
 
+    @GetMapping("/ride-plans")
+    public List<CarpoolRideEventResponse> listCircleRidePlans(HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.listCirclePlans(adult);
+    }
+
+    @PostMapping("/ride-plans")
+    public SaveCarpoolRidePlanResponse saveCircleRidePlan(
+            @Valid @RequestBody SaveCarpoolRidePlanRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.saveCirclePlan(adult, request);
+    }
+
+    @PostMapping("/ride-plans/confirm-household")
+    public SaveCarpoolRidePlanResponse confirmCircleHouseholdRidePlan(
+            @Valid @RequestBody HouseholdRidePlanActionRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.confirmCircleHouseholdPlan(adult, request.eventKey());
+    }
+
+    @PostMapping("/ride-plans/decline-household")
+    public SaveCarpoolRidePlanResponse declineCircleHouseholdRidePlan(
+            @Valid @RequestBody HouseholdRidePlanActionRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.declineCircleHouseholdPlan(adult, request.eventKey());
+    }
+
+    @PostMapping("/ride-plans/clear-legs")
+    public SaveCarpoolRidePlanResponse clearCircleRidePlanLegs(
+            @Valid @RequestBody ClearCarpoolRidePlanRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.clearCirclePlanLegs(adult, request.eventKey(), request.legs());
+    }
+
     @GetMapping("/spaces/{spaceId}")
     public CarpoolSpaceResponse getSpace(
             @PathVariable("spaceId") UUID spaceId, HttpServletRequest httpRequest) {
@@ -124,6 +162,43 @@ public class CarpoolController {
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         return carpoolRideService.create(adult, spaceId, request);
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-plans")
+    public SaveCarpoolRidePlanResponse saveRidePlan(
+            @PathVariable("spaceId") UUID spaceId,
+            @Valid @RequestBody SaveCarpoolRidePlanRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.savePlan(adult, spaceId, request);
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-plans/confirm-household")
+    public SaveCarpoolRidePlanResponse confirmHouseholdRidePlan(
+            @PathVariable("spaceId") UUID spaceId,
+            @Valid @RequestBody HouseholdRidePlanActionRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.confirmHouseholdPlan(adult, spaceId, request.eventKey());
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-plans/decline-household")
+    public SaveCarpoolRidePlanResponse declineHouseholdRidePlan(
+            @PathVariable("spaceId") UUID spaceId,
+            @Valid @RequestBody HouseholdRidePlanActionRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.declineHouseholdPlan(adult, spaceId, request.eventKey());
+    }
+
+    @PostMapping("/spaces/{spaceId}/ride-plans/clear-legs")
+    public SaveCarpoolRidePlanResponse clearHouseholdRidePlanLegs(
+            @PathVariable("spaceId") UUID spaceId,
+            @Valid @RequestBody ClearCarpoolRidePlanRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return carpoolRideService.clearPlanLegs(
+                adult, spaceId, request.eventKey(), request.legs());
     }
 
     @PostMapping("/spaces/{spaceId}/rides/{rideId}/accept")

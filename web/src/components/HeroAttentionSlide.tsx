@@ -6,10 +6,11 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import type { QueueItem } from "@/components/coverageQueue"
-import { DriverPicker } from "@/components/DriverPicker"
+import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
+import { hasWaitingHouseholdForAdult } from "@/components/coverageQueue"
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
@@ -18,7 +19,6 @@ import {
   HERO_UP_NEXT,
   heroQueueCountLabel,
   kidAlreadyGoingSuffix,
-  kidNeedsRideTitle,
 } from "@/components/coverageCopy"
 import { formatCompactEventWhen } from "@/components/eventTimes"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
@@ -29,11 +29,14 @@ import {
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
 import {
+  heroAdultFirstName,
   heroKidFirstName,
+  heroOwnRideTitle,
   heroRequestTitle,
   heroVenueLine,
 } from "@/components/heroAttentionCopy"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
+import { ridePlaceLineKind } from "@/components/transportPlan"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -48,8 +51,12 @@ export type HeroAttentionSlideProps = {
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onAskTeam: () => void
+  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
+  /** Confirm WAITING_HOUSEHOLD legs assigned to the signed-in adult. */
+  onConfirmHouseholdPlan?: () => void
+  onDeclineHouseholdPlan?: () => void
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
@@ -78,8 +85,11 @@ export function HeroAttentionSlide({
   onUpdateAssignDraft,
   onAssignCoverage,
   onAskTeam,
+  onSaveRidePlan,
   onConfirmCoverage,
   onDeclineCoverage,
+  onConfirmHouseholdPlan,
+  onDeclineHouseholdPlan,
   onAcceptRide,
   onPassRide,
   leaveFromValue,
@@ -91,6 +101,24 @@ export function HeroAttentionSlide({
   const venue = heroVenueLine(calendarItem)
   const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
+  const pendingHouseholdPlan =
+    pendingForSelf == null &&
+    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    onConfirmHouseholdPlan != null &&
+    onDeclineHouseholdPlan != null
+  const showConfirmChrome = pendingForSelf != null || pendingHouseholdPlan
+  const assignerFirstName = showConfirmChrome
+    ? heroAdultFirstName(
+        pendingForSelf?.assignedByAdultId ?? rideEvent?.requestedByAdultId,
+        circle.members,
+        rideEvent?.requestedByDisplayName,
+      )
+    : null
+  const ownRideTitle = heroOwnRideTitle({
+    kidFirstName,
+    pendingConfirm: showConfirmChrome,
+    assignerFirstName,
+  })
   const leaveFromFields: LeaveFromFields = leaveFromValue ?? {
     leaveFromPlaceId: calendarItem.leaveFromPlaceId,
     leaveFromPlaceName: calendarItem.leaveFromPlaceName,
@@ -101,7 +129,7 @@ export function HeroAttentionSlide({
     confirmOriginLabel || resolvedLeaveFromLabel(leaveFromFields, circle)
 
   const leaveFromSlot =
-    showLeaveFrom && !pendingForSelf ? (
+    showLeaveFrom && !showConfirmChrome ? (
       <div
         style={{ color: "var(--fc-hero-on-secondary)" }}
         data-testid="hero-attention-leave-from"
@@ -167,7 +195,7 @@ export function HeroAttentionSlide({
                 className="fc-display mb-[var(--fc-space-sm)] text-[length:var(--fc-font-focus-title-size)] leading-[var(--fc-font-focus-title-line)] font-[number:var(--fc-font-focus-title-weight)]"
                 data-testid="hero-attention-slide-title"
               >
-                {kidNeedsRideTitle(kidFirstName)}
+                {ownRideTitle}
               </h2>
               <p
                 data-testid="hero-attention-when"
@@ -182,7 +210,7 @@ export function HeroAttentionSlide({
                 className="mt-1"
                 data-testid="hero-attention-where"
               />
-              {pendingForSelf && onConfirmCoverage && onDeclineCoverage ? (
+              {showConfirmChrome ? (
                 <div
                   className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
                   style={{ borderColor: "rgba(255,255,255,0.14)" }}
@@ -210,7 +238,13 @@ export function HeroAttentionSlide({
                       className="rounded-lg px-4 py-2 text-sm font-semibold"
                       style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                       disabled={loading}
-                      onClick={() => onConfirmCoverage(pendingForSelf.id)}
+                      onClick={() => {
+                        if (pendingForSelf != null && onConfirmCoverage != null) {
+                          onConfirmCoverage(pendingForSelf.id)
+                        } else {
+                          onConfirmHouseholdPlan?.()
+                        }
+                      }}
                     >
                       {CONFIRM_COVERAGE}
                     </button>
@@ -220,7 +254,13 @@ export function HeroAttentionSlide({
                       className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--fc-hero-on)]"
                       style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
                       disabled={loading}
-                      onClick={() => onDeclineCoverage(pendingForSelf.id)}
+                      onClick={() => {
+                        if (pendingForSelf != null && onDeclineCoverage != null) {
+                          onDeclineCoverage(pendingForSelf.id)
+                        } else {
+                          onDeclineHouseholdPlan?.()
+                        }
+                      }}
                     >
                       {DECLINE_COVERAGE}
                     </button>
@@ -244,6 +284,7 @@ export function HeroAttentionSlide({
                     leaveFromLabel={originForConfirm}
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={onAskTeam}
+                    onSaveRidePlan={onSaveRidePlan}
                   />
                 </div>
               )}
@@ -279,6 +320,9 @@ export function HeroAttentionSlide({
                 data-testid="hero-attention-pickup-summary"
                 pickupTown={item.request.pickupTown}
                 detourMinutes={item.request.detourMinutes}
+                placeKind={ridePlaceLineKind(
+                  requestRideForSlide(rideEvent, item.request.id)?.legs,
+                )}
                 variant="hero"
               />
               {inboundLegChips.length > 0 ? (

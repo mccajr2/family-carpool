@@ -411,6 +411,9 @@ export type CarpoolRideEvent = {
   endsAt: string | null
   defaultKidIds: string[]
   ownLegs: CarpoolRideLeg[]
+  /** Adult who saved/created the active plan; null when no plan. */
+  requestedByAdultId?: string | null
+  requestedByDisplayName?: string | null
   ownRequest: CarpoolRide | null
   otherRequests: CarpoolRide[]
 }
@@ -428,4 +431,36 @@ export type CancelCarpoolRideRequest = {
 
 export type WithdrawCarpoolRideRequest = {
   legs?: CarpoolLegKind[]
+}
+
+export type ClearCarpoolRidePlanRequest = {
+  eventKey: string
+  legs?: CarpoolLegKind[]
+}
+
+/** Per-leg driver intent for Save ride plan (server maps HOUSEHOLD → phase). */
+export type CarpoolRidePlanLegAction = "HOUSEHOLD" | "ASK_TEAM" | "NEEDS_RIDE"
+
+export type SaveCarpoolRidePlanLeg = {
+  kind: CarpoolLegKind
+  action: CarpoolRidePlanLegAction
+  /** Required when action is HOUSEHOLD; omit/null otherwise. */
+  assigneeAdultId?: string | null
+}
+
+export type SaveCarpoolRidePlanRequest = {
+  eventKey: string
+  kidIds?: string[]
+  /** Exactly one TO and one FROM. */
+  legs: SaveCarpoolRidePlanLeg[]
+}
+
+export type SaveCarpoolRidePlanResponse = {
+  ownLegs: CarpoolRideLeg[]
+  ownRequest: CarpoolRide | null
+}
+
+/** Confirm or decline WAITING_HOUSEHOLD legs assigned to the caller. */
+export type HouseholdRidePlanActionRequest = {
+  eventKey: string
 }

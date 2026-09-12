@@ -5,6 +5,7 @@ import {
   ASKED_THE_TEAM,
   ASK_THE_TEAM,
   ATTENDANCE_NOT_GOING_CHIP,
+  BACK_TO_SIMPLE_VIEW,
   CONFIRM_ILL_DRIVE,
   CONFIRM_YOU_WILL_DRIVE,
   DIFFERENT_PLANS_FOR_EACH_LEG,
@@ -20,6 +21,7 @@ import {
   POST_TO_TEAM_ROUND_TRIP,
   REVERT_CANCEL_TEAM_ASK,
   RIDE_NEEDED,
+  SAVE_RIDE_PLAN,
   WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
   WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
   YOURE_DRIVING,
@@ -99,6 +101,8 @@ describe("coverageCopy", () => {
     expect(ASK_THE_TEAM).toBe("Ask the team")
     expect(POST_TO_TEAM_ROUND_TRIP).toBe("Post to team — round trip")
     expect(DIFFERENT_PLANS_FOR_EACH_LEG).toBe("Different plans for each leg.")
+    expect(SAVE_RIDE_PLAN).toBe("Save ride plan")
+    expect(BACK_TO_SIMPLE_VIEW).toBe("Back to simple view")
   })
 
   it("names cancel-request and waiting-on copy for pending household drivers", () => {

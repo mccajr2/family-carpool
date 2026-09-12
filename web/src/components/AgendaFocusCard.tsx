@@ -21,7 +21,7 @@ import {
   incomingRideAskSummary,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
-import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
+import { hasWaitingHouseholdForAdult, isOwnRideGap, mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
   activeCoverageForAdult,
   activeCoverages,
@@ -29,9 +29,8 @@ import {
   eventKidNames,
   memberLabel,
   pendingCoverageForAdult,
-  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
-import { DriverPicker } from "@/components/DriverPicker"
+import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 import {
   carpoolAskChipForRideEvent,
@@ -42,6 +41,7 @@ import {
   rideCommitmentConflict,
   rideCommitmentConflictLine,
 } from "@/components/rideCommitmentConflict"
+import { transportGapKidIds } from "@/components/transportPlan"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -58,10 +58,13 @@ type AgendaFocusCardProps = {
   onReassignCoverage: (assignmentId: string, adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
+  onConfirmHouseholdPlan?: () => void
+  onDeclineHouseholdPlan?: () => void
   onRemoveCoverage: (assignmentId: string) => void
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string) => void
   onOpenPlaces: () => void
@@ -119,10 +122,13 @@ export function AgendaFocusCard({
   onReassignCoverage,
   onConfirmCoverage,
   onDeclineCoverage,
+  onConfirmHouseholdPlan,
+  onDeclineHouseholdPlan,
   onRemoveCoverage,
   onAcceptRide,
   onPassRide,
   onCreateRide,
+  onSaveRidePlan,
   onCancelRide,
   onWithdrawRide,
   onOpenPlaces,
@@ -141,10 +147,16 @@ export function AgendaFocusCard({
     currentAdultId,
     eligibleRide,
     ownRequest,
+    rideEvent?.ownLegs,
   )
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
+  const pendingHouseholdPlan =
+    pendingForSelf == null &&
+    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    onConfirmHouseholdPlan != null &&
+    onDeclineHouseholdPlan != null
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const statusChips = useMemo(() => {
     const games = mapCalendarItemToCoverageGames(item, rideEvent, {
@@ -173,7 +185,18 @@ export function AgendaFocusCard({
     )
     return conflict != null ? rideCommitmentConflictLine(conflict) : null
   }, [item, rideEvent, currentAdultId, circle.id, circle.members, circle.kids])
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKidIds = transportGapKidIds(
+    item.uncoveredKidIds,
+    ownRequest,
+    rideEvent?.ownLegs,
+  )
+  const focusGames = mapCalendarItemToCoverageGames(item, rideEvent, {
+    currentAdultId,
+    members: circle.members,
+  })
+  const hasOwnRideGap = focusGames.some(
+    (game) => game.attendance !== "not_going" && isOwnRideGap(game),
+  )
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
   // secondary if remaining gap) → Assign → calm Edit. Outline Cancel /
@@ -189,9 +212,15 @@ export function AgendaFocusCard({
     !showRideAcceptPass &&
     gapKidIds.length > 0 &&
     circle.members.length > 0 &&
-    !pendingForSelf
+    !pendingForSelf &&
+    !pendingHouseholdPlan
   const showRequest =
-    !pendingForSelf && !showRideAcceptPass && canAskTeam && !showAssign
+    !pendingForSelf &&
+    !pendingHouseholdPlan &&
+    !showRideAcceptPass &&
+    canAskTeam &&
+    hasOwnRideGap &&
+    !showAssign
   const showCancelOwnRide =
     ownRequest != null &&
     (ownRequest.status === "PENDING" || ownRequest.status === "ACCEPTED") &&
@@ -470,6 +499,30 @@ export function AgendaFocusCard({
             </Button>
           </>
         ) : null}
+        {pendingHouseholdPlan ? (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              onClick={() => onConfirmHouseholdPlan?.()}
+              disabled={loading}
+            >
+              Confirm coverage
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={needsDecision ? "secondary" : "outline"}
+              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              onClick={() => onDeclineHouseholdPlan?.()}
+              disabled={loading}
+            >
+              Decline coverage
+            </Button>
+          </>
+        ) : null}
         {showRideAcceptPass && eligibleRide ? (
           <>
             <p
@@ -574,6 +627,12 @@ export function AgendaFocusCard({
               loading={loading}
               onAssignCoverage={onAssignCoverage}
               onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
+              onSaveRidePlan={
+                onSaveRidePlan != null &&
+                (canAskTeam || circle.members.length > 1)
+                  ? onSaveRidePlan
+                  : undefined
+              }
               showTeamSection={canAskTeam}
               hero={needsDecision}
               leaveFromSlot={assignLeaveFromSlot}

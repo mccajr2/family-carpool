@@ -12,4 +12,6 @@ public record CarpoolRideEventResponse(
         List<UUID> defaultKidIds,
         List<CarpoolRideLegResponse> ownLegs,
         CarpoolRideResponse ownRequest,
-        List<CarpoolRideResponse> otherRequests) {}
+        List<CarpoolRideResponse> otherRequests,
+        UUID requestedByAdultId,
+        String requestedByDisplayName) {}

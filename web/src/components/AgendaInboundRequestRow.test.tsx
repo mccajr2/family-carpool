@@ -78,8 +78,7 @@ describe("AgendaInboundRequestRow", () => {
       />,
     )
 
-    expect(screen.getByText("Getting there: Asked team")).toBeInTheDocument()
-    expect(screen.getByText("Coming back: Asked team")).toBeInTheDocument()
+    expect(screen.getByText("Round trip: Asked team")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))
@@ -179,7 +178,44 @@ describe("AgendaInboundRequestRow", () => {
     const link = screen.getByRole("button", { name: REVERT_INBOUND_CANT_TAKE_THEM })
     expect(link).toHaveClass("underline")
     await user.click(link)
-    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted", undefined)
+  })
+
+  it("uses Drop off copy and FROM-scoped withdraw for FROM-only accepted asks", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    render(
+      <AgendaInboundRequestRow
+        request={{
+          ...acceptedByUs,
+          pickupTown: "Huron Ave",
+          legs: [
+            {
+              kind: "TO",
+              phase: "NEEDS_RIDE",
+              assigneeAdultId: null,
+              assigneeDisplayName: null,
+              assigneeCircleId: null,
+              assigneeCircleName: null,
+            },
+            {
+              kind: "FROM",
+              phase: "CONFIRMED",
+              assigneeAdultId: "a1",
+              assigneeDisplayName: "Alex",
+              assigneeCircleId: "c1",
+              assigneeCircleName: "Ours",
+            },
+          ],
+        }}
+        circleId="c1"
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+    expect(screen.getByTestId("pickup-line")).toHaveTextContent("Drop off in Huron Ave")
+    const link = screen.getByRole("button", { name: "Can't drive them home anymore?" })
+    await user.click(link)
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted", ["FROM"])
   })
 
   it("shows Reconsider when autoDeclined and canOffer", async () => {

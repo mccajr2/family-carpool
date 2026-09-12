@@ -8,7 +8,7 @@ import { heroKidFirstName } from "@/components/heroAttentionCopy"
 import {
   acceptedRiders,
   isConfirmedDriver,
-  isUnassigned,
+  isOwnRideGap,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
 import { pickMostUrgentGameRow } from "@/components/rideStatusChip"
@@ -20,24 +20,6 @@ export type RiderDescriptor = {
 
 function isInPlay(game: CoverageGameEvent): boolean {
   return game.attendance !== "not_going"
-}
-
-function isOwnRideGap(game: CoverageGameEvent): boolean {
-  if (!isInPlay(game)) {
-    return false
-  }
-  if (isConfirmedDriver(game.ownRide)) {
-    return false
-  }
-  if (isUnassigned(game.ownRide)) {
-    return true
-  }
-  return (
-    typeof game.ownRide === "object" &&
-    "driver" in game.ownRide &&
-    !game.ownRide.confirmed &&
-    game.ownRide.driver === "You"
-  )
 }
 
 function isTeammateRide(

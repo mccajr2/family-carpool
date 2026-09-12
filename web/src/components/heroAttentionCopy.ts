@@ -1,7 +1,11 @@
 import type { CalendarItem, Kid } from "@/api/types"
 import { circleDisplayName } from "@/components/carpoolDisplay"
 import { calendarSourceLabel } from "@/components/coverageDisplay"
-import { CONFIRM_COVERAGE, kidNeedsRideTitle } from "@/components/coverageCopy"
+import {
+  assignedYouToDriveTitle,
+  confirmYoullDriveKidTitle,
+  kidNeedsRideTitle,
+} from "@/components/coverageCopy"
 import type { CarpoolRequest, QueueItem } from "@/components/coverageQueue"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 
@@ -12,6 +16,41 @@ export function heroKidFirstName(kidId: string, kids: readonly Kid[]): string {
     return "Kid"
   }
   return name.split(/\s+/)[0] ?? name
+}
+
+export function heroAdultFirstName(
+  adultId: string | null | undefined,
+  members: readonly { adultId: string; displayName: string | null }[],
+  fallbackDisplayName?: string | null,
+): string | null {
+  if (fallbackDisplayName?.trim()) {
+    return fallbackDisplayName.trim().split(/\s+/)[0] ?? fallbackDisplayName.trim()
+  }
+  if (adultId == null || adultId === "") {
+    return null
+  }
+  const member = members.find((row) => row.adultId === adultId)
+  const name = member?.displayName?.trim()
+  if (!name) {
+    return null
+  }
+  return name.split(/\s+/)[0] ?? name
+}
+
+/** Own-ride hero title — pending confirm uses assigner copy when known. */
+export function heroOwnRideTitle(options: {
+  kidFirstName: string
+  pendingConfirm: boolean
+  assignerFirstName?: string | null
+}): string {
+  if (!options.pendingConfirm) {
+    return kidNeedsRideTitle(options.kidFirstName)
+  }
+  const assigner = options.assignerFirstName?.trim()
+  if (assigner) {
+    return assignedYouToDriveTitle(assigner, options.kidFirstName)
+  }
+  return confirmYoullDriveKidTitle(options.kidFirstName)
 }
 
 /** `{team/feed label} vs {title} · {formatted when}` */
@@ -44,13 +83,18 @@ export function heroPickupSummary(request: CarpoolRequest): string {
 /** Accessible name for a hero carousel slide shell (title-derived). */
 export function heroAttentionSlideAriaLabel(
   item: QueueItem,
-  options: { kidFirstName: string; pendingConfirm: boolean },
+  options: {
+    kidFirstName: string
+    pendingConfirm: boolean
+    assignerFirstName?: string | null
+  },
 ): string {
   if (item.kind === "request") {
     return heroRequestTitle(item.request)
   }
-  if (options.pendingConfirm) {
-    return CONFIRM_COVERAGE
-  }
-  return kidNeedsRideTitle(options.kidFirstName)
+  return heroOwnRideTitle({
+    kidFirstName: options.kidFirstName,
+    pendingConfirm: options.pendingConfirm,
+    assignerFirstName: options.assignerFirstName,
+  })
 }

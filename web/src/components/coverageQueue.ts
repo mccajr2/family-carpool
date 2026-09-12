@@ -10,18 +10,17 @@ import type {
   CalendarItem,
   CarpoolRide,
   CarpoolRideEvent,
+  CarpoolRideLeg,
   FamilyMember,
   RsvpStatus,
 } from "@/api/types"
-import { circleDisplayName } from "@/components/carpoolDisplay"
 import {
-  activeCoverages,
   calendarItemKey,
   memberLabel,
-  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import { rsvpStatusForKid } from "@/components/rsvpDisplay"
 import { agendaDayBoundaries } from "@/components/agendaDayGroups"
+import { ownRideStatusFromTransportPlan } from "@/components/transportPlan"
 
 export type Attendance = "going" | "not_going"
 
@@ -58,6 +57,11 @@ export type CoverageGameEvent = {
   attendance: Attendance
   ownRide: OwnRideStatus
   requests: CarpoolRequest[]
+  /**
+   * Circle transport plan legs (TO/FROM) when known. Used so a rollup
+   * `ownRide` of requested/confirmed still queues when any leg is NEEDS_RIDE.
+   */
+  ownLegs?: CarpoolRideLeg[]
 }
 
 export type QueueItem =
@@ -99,14 +103,55 @@ function isInPlay(game: CoverageGameEvent): boolean {
 }
 
 /**
- * Own-child row that needs a decision from the signed-in adult in the hero
- * carousel. Unassigned gaps and pending confirm-for-self only — "Asked the
- * team" and waiting on another household driver are out of queue (see mock
- * `getQueue` + empty-state copy).
+ * True when a mixed plan still has an open leg (`NEEDS_RIDE` alongside a
+ * decided TO/FROM). Blank plans (every leg still `NEEDS_RIDE`) are not a
+ * per-leg gap — household coverage rollup owns those, matching chip logic.
  */
-function isOwnRideGap(game: CoverageGameEvent): boolean {
+export function hasNeedsRideOwnLeg(game: CoverageGameEvent): boolean {
+  const legs = game.ownLegs
+  if (legs == null || legs.length === 0) {
+    return false
+  }
+  const anyNeedsRide = legs.some((leg) => leg.phase === "NEEDS_RIDE")
+  if (!anyNeedsRide) {
+    return false
+  }
+  return legs.some((leg) => leg.phase !== "NEEDS_RIDE")
+}
+
+/** WAITING_HOUSEHOLD legs assigned to this adult (confirm/decline-for-self). */
+export function waitingHouseholdLegsForAdult(
+  legs: readonly CarpoolRideLeg[] | null | undefined,
+  adultId: string | null | undefined,
+): CarpoolRideLeg[] {
+  if (legs == null || adultId == null || adultId === "") {
+    return []
+  }
+  return legs.filter(
+    (leg) =>
+      leg.phase === "WAITING_HOUSEHOLD" && leg.assigneeAdultId === adultId,
+  )
+}
+
+export function hasWaitingHouseholdForAdult(
+  legs: readonly CarpoolRideLeg[] | null | undefined,
+  adultId: string | null | undefined,
+): boolean {
+  return waitingHouseholdLegsForAdult(legs, adultId).length > 0
+}
+
+/**
+ * Own-child row that needs a decision from the signed-in adult in the hero
+ * carousel. Unassigned gaps, pending confirm-for-self, and any plan leg in
+ * `NEEDS_RIDE` — "Asked the team" (both legs) and waiting on another household
+ * driver stay out of queue unless a leg is still Needs ride.
+ */
+export function isOwnRideGap(game: CoverageGameEvent): boolean {
   if (!isInPlay(game)) {
     return false
+  }
+  if (hasNeedsRideOwnLeg(game)) {
+    return true
   }
   if (isConfirmedDriver(game.ownRide)) {
     return false
@@ -343,54 +388,15 @@ function mapOwnRideStatusForKid(
   rideEvent: CarpoolRideEvent | null | undefined,
   options: MapCoverageGamesOptions,
 ): OwnRideStatus {
-  const ownRequest = rideEvent?.ownRequest ?? null
-
-  if (ownRequest?.kidIds.includes(kidId)) {
-    if (ownRequest.status === "ACCEPTED") {
-      return {
-        driver: circleDisplayName(ownRequest.acceptingCircleName),
-        confirmed: true,
-      }
-    }
-    if (ownRequest.status === "PENDING") {
-      return "requested"
-    }
-  }
-
-  const coveragesForKid = activeCoverages(item).filter((coverage) =>
-    coverage.kidIds.includes(kidId),
-  )
-  const confirmed = coveragesForKid.find((coverage) => coverage.status === "CONFIRMED")
-  if (confirmed) {
-    return {
-      driver: householdDriverLabel(
-        confirmed.coveringAdultId,
-        confirmed.coveringAdultDisplayName,
-        options,
-      ),
-      confirmed: true,
-    }
-  }
-
-  const pending = coveragesForKid.find((coverage) => coverage.status === "PENDING")
-  if (pending) {
-    return {
-      driver: householdDriverLabel(
-        pending.coveringAdultId,
-        pending.coveringAdultDisplayName,
-        options,
-      ),
-      confirmed: false,
-    }
-  }
-
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
-  if (gapKidIds.includes(kidId)) {
-    return "unassigned"
-  }
-
-  // Covered or otherwise resolved — not a queue gap.
-  return { driver: "Assigned", confirmed: true }
+  return ownRideStatusFromTransportPlan({
+    kidId,
+    item,
+    ownRequest: rideEvent?.ownRequest ?? null,
+    ownLegs: rideEvent?.ownLegs,
+    currentAdultId: options.currentAdultId,
+    householdDriverLabel: (coveringAdultId, coveringAdultDisplayName) =>
+      householdDriverLabel(coveringAdultId, coveringAdultDisplayName, options),
+  })
 }
 
 /**
@@ -415,6 +421,7 @@ export function mapCalendarItemToCoverageGames(
     attendance: mapRsvpToAttendance(rsvpStatusForKid(item, kidId)),
     ownRide: mapOwnRideStatusForKid(kidId, item, rideEvent, options),
     requests,
+    ...(rideEvent?.ownLegs != null ? { ownLegs: rideEvent.ownLegs } : {}),
   }))
 }
 

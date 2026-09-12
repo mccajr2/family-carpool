@@ -184,7 +184,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.27.0");
+        assertThat(yaml).contains("version: 0.30.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.27.0");
+        assertThat(yaml).contains("version: 0.30.0");
     }
 
     @Test
@@ -299,7 +299,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.27.0");
+        assertThat(yaml).contains("version: 0.30.0");
     }
 
     @Test
@@ -307,6 +307,14 @@ class OpenApiContractTest {
         String yaml = Files.readString(resolveOpenApi());
 
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-plans");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-plans/confirm-household");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-plans/decline-household");
+        assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/ride-plans/clear-legs");
+        assertThat(yaml).contains("/api/carpool/ride-plans");
+        assertThat(yaml).contains("/api/carpool/ride-plans/confirm-household");
+        assertThat(yaml).contains("/api/carpool/ride-plans/decline-household");
+        assertThat(yaml).contains("/api/carpool/ride-plans/clear-legs");
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/accept");
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/pass");
         assertThat(yaml).contains("/api/carpool/spaces/{spaceId}/rides/{rideId}/cancel");
@@ -314,6 +322,15 @@ class OpenApiContractTest {
 
         assertThat(yaml).contains("operationId: listCarpoolRides");
         assertThat(yaml).contains("operationId: createCarpoolRide");
+        assertThat(yaml).contains("operationId: saveCarpoolRidePlan");
+        assertThat(yaml).contains("operationId: confirmHouseholdRidePlan");
+        assertThat(yaml).contains("operationId: declineHouseholdRidePlan");
+        assertThat(yaml).contains("operationId: clearCarpoolRidePlanLegs");
+        assertThat(yaml).contains("operationId: listCircleRidePlans");
+        assertThat(yaml).contains("operationId: saveCircleRidePlan");
+        assertThat(yaml).contains("operationId: confirmCircleHouseholdRidePlan");
+        assertThat(yaml).contains("operationId: declineCircleHouseholdRidePlan");
+        assertThat(yaml).contains("operationId: clearCircleRidePlanLegs");
         assertThat(yaml).contains("operationId: acceptCarpoolRide");
         assertThat(yaml).contains("operationId: passCarpoolRide");
         assertThat(yaml).contains("operationId: cancelCarpoolRide");
@@ -323,6 +340,15 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CarpoolRideStatus:");
         assertThat(yaml).contains("CarpoolRideEvent:");
         assertThat(yaml).contains("CreateCarpoolRideRequest:");
+        assertThat(yaml).contains("SaveCarpoolRidePlanRequest:");
+        assertThat(yaml).contains("ClearCarpoolRidePlanRequest:");
+        assertThat(yaml).contains("requestedByAdultId:");
+        assertThat(yaml).contains("requestedByDisplayName:");
+        assertThat(yaml).contains("PENDING, ACCEPTED, or PLAN");
+        assertThat(yaml).contains("HouseholdRidePlanActionRequest:");
+        assertThat(yaml).contains("SaveCarpoolRidePlanResponse:");
+        assertThat(yaml).contains("SaveCarpoolRidePlanLeg:");
+        assertThat(yaml).contains("CarpoolRidePlanLegAction:");
         assertThat(yaml).contains("CarpoolLegKind:");
         assertThat(yaml).contains("CarpoolLegPhase:");
         assertThat(yaml).contains("CarpoolRideLeg:");
@@ -331,6 +357,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("WithdrawCarpoolRideRequest:");
         assertThat(yaml).contains("[NEEDS_RIDE, WAITING_HOUSEHOLD, ASKED_TEAM, CONFIRMED]");
         assertThat(yaml).contains("[TO, FROM]");
+        assertThat(yaml).contains("[HOUSEHOLD, ASK_TEAM, NEEDS_RIDE]");
         assertThat(yaml).doesNotContain("AcceptCarpoolRideRequest:");
         assertThat(yaml).contains("[PENDING, ACCEPTED, CANCELLED]");
         assertThat(yaml).contains("eventKey:");
@@ -362,7 +389,10 @@ class OpenApiContractTest {
         assertThat(yaml).contains("requesting circle's kids on that ride");
         assertThat(yaml).contains("Allowed even when the caller");
         assertThat(yaml).contains("previously passed");
-        assertThat(yaml).contains("version: 0.27.0");
+        assertThat(yaml).contains("Save ride plan");
+        assertThat(yaml).contains("no per-leg place");
+        assertThat(yaml).contains("withdraw first");
+        assertThat(yaml).contains("version: 0.30.0");
     }
 
     /**

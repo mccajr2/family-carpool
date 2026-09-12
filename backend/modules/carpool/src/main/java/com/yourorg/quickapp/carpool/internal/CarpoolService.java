@@ -46,6 +46,7 @@ public class CarpoolService {
     private final CarpoolSpaceRepository spaces;
     private final CarpoolMembershipRepository memberships;
     private final CarpoolJoinRequestRepository requests;
+    private final CarpoolRideService carpoolRideService;
 
     public CarpoolService(
             AdultSessionApi adultSessionApi,
@@ -53,13 +54,15 @@ public class CarpoolService {
             FeedsApi feedsApi,
             CarpoolSpaceRepository spaces,
             CarpoolMembershipRepository memberships,
-            CarpoolJoinRequestRepository requests) {
+            CarpoolJoinRequestRepository requests,
+            CarpoolRideService carpoolRideService) {
         this.adultSessionApi = adultSessionApi;
         this.familyMembershipApi = familyMembershipApi;
         this.feedsApi = feedsApi;
         this.spaces = spaces;
         this.memberships = memberships;
         this.requests = requests;
+        this.carpoolRideService = carpoolRideService;
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +135,7 @@ public class CarpoolService {
                         circleId,
                         CarpoolSpaceMembership.OWNER,
                         now));
+        carpoolRideService.attachCircleLocalPlansToSpace(circleId, space.id(), feedId);
         return toSpaceResponse(space, circleId);
     }
 
