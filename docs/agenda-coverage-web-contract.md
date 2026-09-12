@@ -97,10 +97,11 @@ back`). Writes clear those legs only (`cancel` / `withdraw` with `legs`, or
 `…/ride-plans/clear-legs` for PLAN / circle-local) — do not rewrite remaining
 CONFIRMED household legs to WAITING.
 
-**Matching-leg chip collapse (must):** when both slot bodies match, one chip
-`Round trip: {body}`; when they differ or one is Needs ride, keep dual Getting
-there / Coming back. Inbound `· +n` overlays household CONFIRMED bodies per
-leg kind, then collapse.
+**Matching-leg chip collapse (must):** when both slot bodies match, one
+**unprefixed** chip with that body (e.g. `Asked team`, `You're driving · +1`,
+even matching `Needs ride`) — never `Round trip: …`. When they differ, keep
+dual Getting there / Coming back. True single-leg plans keep one prefixed chip.
+Inbound `· +n` overlays household CONFIRMED bodies per leg kind, then collapse.
 
 **FROM-only place copy (must):** inbound accepted FROM-only rows say **Drop off
 in {town}** (display-only); withdraw passes `{ legs: ["FROM"] }` with

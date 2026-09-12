@@ -244,9 +244,10 @@ function orderedLegs(
 }
 
 /**
- * Dual Getting there / Coming back chips from persisted leg slots.
- * Inbound Accept clarity: TO-only asks show Coming back as Needs ride.
- * Missing/undefined legs (legacy fixtures) yield no chips.
+ * Getting there / Coming back chips from persisted leg slots.
+ * Both legs with the same display status body → one unprefixed chip.
+ * Differing bodies → dual prefixed chips. True single-leg plans keep one
+ * prefixed chip for that kind. Missing/undefined legs yield no chips.
  */
 export function rideLegStatusChips(
   legs: readonly CarpoolRideLeg[] | null | undefined,
@@ -327,8 +328,9 @@ export function rideStatusChipForGameRow(
 }
 
 /**
- * Overlaps → ride-commitment conflict → dual leg chips (when carpool legs
- * exist) or one coverage ride-status chip. All kids out-of-play → single muted
+ * Overlaps → ride-commitment conflict → leg chips (when carpool legs
+ * exist) or one coverage ride-status chip. Matching TO/FROM bodies collapse
+ * to one unprefixed chip. All kids out-of-play → single muted
  * **Not going**; no overlaps/conflict.
  */
 export function rideStatusChipsForItem(

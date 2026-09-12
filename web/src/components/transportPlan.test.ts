@@ -165,13 +165,13 @@ describe("transportPlan dogfood batch 2", () => {
     expect(counts).toEqual({ TO: 0, FROM: 1 })
   })
 
-  it("collapses matching chip bodies to Round trip", () => {
+  it("collapses matching chip bodies to one unprefixed label", () => {
     expect(
       collapseMatchingLegChips([
         { label: "Getting there: You're driving · +1", tone: "route" },
         { label: "Coming back: You're driving · +1", tone: "route" },
       ]),
-    ).toEqual([{ label: "Round trip: You're driving · +1", tone: "route" }])
+    ).toEqual([{ label: "You're driving · +1", tone: "route" }])
     expect(
       collapseMatchingLegChips([
         { label: "Getting there: You're driving", tone: "mint" },

@@ -118,7 +118,8 @@ export function inboundConfirmedCountByKind(
 /**
  * Collapse dual Getting there / Coming back chips when bodies match.
  * Bodies = text after the first ": " (phase + assignee + · +n).
- * Needs-ride on either side keeps dual chips.
+ * Matching → one **unprefixed** chip (locked by carpool-leg-chip-collapse),
+ * including matching Needs ride → plain `Needs ride`.
  */
 export function collapseMatchingLegChips<T extends { label: string; tone: string }>(
   chips: readonly T[],
@@ -135,13 +136,10 @@ export function collapseMatchingLegChips<T extends { label: string; tone: string
   if (toBody == null || fromBody == null || toBody !== fromBody) {
     return [...chips]
   }
-  if (toBody === "Needs ride" || fromBody === "Needs ride") {
-    return [...chips]
-  }
   return [
     {
       ...toChip,
-      label: `Round trip: ${toBody}`,
+      label: toBody,
       tone: toChip.tone === "route" || fromChip.tone === "route" ? "route" : toChip.tone,
     },
   ]

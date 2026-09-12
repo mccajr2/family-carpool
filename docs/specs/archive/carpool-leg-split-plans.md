@@ -189,9 +189,9 @@ above. Do not implement meet-at places or per-kid split.
 
 ## Open questions
 
-- Soft dependency: `carpool-leg-chip-collapse` shipped early in this PR
-  (`collapseMatchingLegChips`); matching legs after a round-trip save collapse
-  per that id’s rules.
+- Soft dependency: `carpool-leg-chip-collapse` (merged on `main` first) —
+  `collapseMatchingLegChips` reuses plain unprefixed matching bodies; matching
+  legs after a round-trip save collapse per that id’s rules.
 - Exact OpenAPI shape (new `saveRidePlan` vs extend create/coverage) is left to
   implementer under “smallest correct surface” — resolve in PR if review
   prefers one style; do not block on inventing per-leg places.
@@ -218,6 +218,6 @@ Smoke-test fixes shipped with this slice (same PR):
 5. **Dogfood batch 2** — shared `transportPlan` helper: non-blank settled
    `ownLegs` win over `uncoveredKidIds` (no false Needs coverage / Request);
    per-assignee can't-drive links + `clear-legs` (PLAN / circle-local); Request
-   only when a gap remains; matching-chip collapse to `Round trip:`; inbound
+   only when a gap remains; matching-chip collapse to plain unprefixed body; inbound
    `· +n` on every household path; FROM-only Drop off + leg-scoped withdraw;
    hero pending title `{Assigner} assigned you to drive {Kid}`.

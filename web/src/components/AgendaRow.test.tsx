@@ -911,7 +911,9 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Round trip: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Asked team")).toBeInTheDocument()
+    expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Requested · Sam, Riley · 2 seats · Home, 1 Main",
     )
@@ -971,7 +973,9 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Round trip: House B confirmed")).toBeInTheDocument()
+    expect(within(row).getByText("House B confirmed")).toBeInTheDocument()
+    expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
       "Riding with House B · Sam, Riley · 2 seats · Home, 1 Main",
     )
@@ -1035,14 +1039,16 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
-    expect(within(row).getAllByText("Round trip: Sharks Family confirmed").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Sharks Family confirmed").length).toBeGreaterThan(0)
+    expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage")).not.toBeInTheDocument()
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByRole("button", { name: "Assign coverage" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
-    expect(within(row).getAllByText("Round trip: Sharks Family confirmed").length).toBeGreaterThan(0)
+    expect(within(row).getAllByText("Sharks Family confirmed").length).toBeGreaterThan(0)
     expect(
       within(row).getByRole("button", {
         name: "Sharks Family can't drive anymore? Find a new ride",
@@ -1194,7 +1200,9 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-feed-pending")
-    expect(within(row).getByText("Round trip: Asked team")).toBeInTheDocument()
+    expect(within(row).getByText("Asked team")).toBeInTheDocument()
+    expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
@@ -2311,7 +2319,9 @@ describe("AgendaRow", () => {
       />,
     )
     const askedRow = screen.getByTestId("agenda-row-FEED-feed-asked")
-    expect(within(askedRow).getByText("Round trip: Asked team")).toBeInTheDocument()
+    expect(within(askedRow).getByText("Asked team")).toBeInTheDocument()
+    expect(within(askedRow).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(askedRow).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(askedRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
 
     rerender(
@@ -2538,7 +2548,9 @@ describe("AgendaRow", () => {
     const row = screen.getByTestId("agenda-row-FEED-feed-type-b")
     const chipStrip = within(row).getByTestId("agenda-row-chip-strip")
     expect(within(chipStrip).getByText(RIDE_CONFLICT_CHIP)).toBeInTheDocument()
-    expect(within(chipStrip).getByText("Round trip: House B confirmed")).toBeInTheDocument()
+    expect(within(chipStrip).getByText("House B confirmed")).toBeInTheDocument()
+    expect(within(chipStrip).queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(within(chipStrip).queryByText(/Coming back:/)).not.toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("agenda-ride-conflict-FEED-feed-type-b")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",

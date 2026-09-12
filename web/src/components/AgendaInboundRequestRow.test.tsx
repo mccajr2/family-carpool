@@ -78,7 +78,9 @@ describe("AgendaInboundRequestRow", () => {
       />,
     )
 
-    expect(screen.getByText("Round trip: Asked team")).toBeInTheDocument()
+    expect(screen.getByText("Asked team")).toBeInTheDocument()
+    expect(screen.queryByText(/Getting there:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Coming back:/)).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Accept" }))
     expect(onAcceptRide).toHaveBeenCalledWith("ask-1")
     await user.click(screen.getByRole("button", { name: "Pass" }))

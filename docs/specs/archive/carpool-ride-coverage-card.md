@@ -29,8 +29,8 @@ need one default collapsed layout on Focus/Hero and Agenda expanded rows.
 - Domain leg persistence, four-state chip model, combined cancel, RSVP
   not-going clears legs — already done in
   [`carpool-leg-to-from`](../archive/carpool-leg-to-from.md)
-- Collapsing matching TO/FROM chips to a single Round trip chip —
-  [`carpool-leg-chip-collapse`](../planned/carpool-leg-chip-collapse.md)
+- Collapsing matching TO/FROM chips to a single plain status chip —
+  [`carpool-leg-chip-collapse`](../active/carpool-leg-chip-collapse.md)
   (dual chips stay as shipped until that id)
 - OpenAPI / backend coverage or carpool write-path changes
 - Expo / push / KMP UI
