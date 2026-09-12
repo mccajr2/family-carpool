@@ -33,8 +33,12 @@ export const CONFIRM_ILL_DRIVE = "Confirm I'll drive" as const
 export const ASK_THE_TEAM = "Ask the team" as const
 /** Primary CTA when Ask the team is selected on DriverPicker. */
 export const POST_TO_TEAM_ROUND_TRIP = "Post to team — round trip" as const
-/** Progressive disclosure under Confirm / Post (inert until leg-split). */
+/** Progressive disclosure under Confirm / Post — opens the split editor. */
 export const DIFFERENT_PLANS_FOR_EACH_LEG = "Different plans for each leg." as const
+/** Split-editor primary CTA (applies both legs). */
+export const SAVE_RIDE_PLAN = "Save ride plan" as const
+/** Split-editor link back to collapsed round-trip DriverPicker chrome. */
+export const BACK_TO_SIMPLE_VIEW = "Back to simple view" as const
 /** One-time leave-from still empty in the draft field. */
 export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 export const OVERLAPS_CHIP = "Overlaps" as const
@@ -127,6 +131,19 @@ export function confirmDriveFromLabel(options: {
 
 export function kidNeedsRideTitle(kidFirstName: string): string {
   return `${kidFirstName} needs a ride`
+}
+
+/** Pending household assign — assigner asked the viewer to drive this kid. */
+export function assignedYouToDriveTitle(
+  assignerFirstName: string,
+  kidFirstName: string,
+): string {
+  return `${assignerFirstName} assigned you to drive ${kidFirstName}`
+}
+
+/** Fallback when assigner is unknown on a pending confirm-for-self slide. */
+export function confirmYoullDriveKidTitle(kidFirstName: string): string {
+  return `Confirm you'll drive ${kidFirstName}`
 }
 
 export function kidAlreadyGoingSuffix(kidFirstName: string): string {

@@ -108,6 +108,7 @@ function mockCarpoolClient(partial: Partial<CarpoolClient> = {}): CarpoolClient 
       spaces: [],
     }),
     listRides: vi.fn().mockResolvedValue([]),
+    listCircleRidePlans: vi.fn().mockResolvedValue([]),
     ...partial,
   } as CarpoolClient
 }
@@ -5859,12 +5860,15 @@ detourMinutes: null,
           ]),
           confirmCalendarCoverage,
         })}
+        carpoolClient={mockCarpoolClient()}
         onSignedOut={onSignedOut}
       />,
     )
 
     const agenda = await screen.findByLabelText("Agenda")
-    expect(await within(agenda).findByText("Sam needs a ride")).toBeInTheDocument()
+    expect(
+      await within(agenda).findByText("Jordan assigned you to drive Sam"),
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(cache.load("1", "c1")?.items).toHaveLength(1)
     })
@@ -7597,7 +7601,7 @@ detourMinutes: null,
         }),
       )
       await waitFor(() => {
-        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-ask")
+        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-ask", {})
       })
     })
 
@@ -7715,7 +7719,7 @@ detourMinutes: null,
         within(item).getByRole("button", { name: "Can't take them anymore" }),
       )
       await waitFor(() => {
-        expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
+        expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in", {})
       })
       // ADR-0002 §2: withdraw inbound does not drop caller's own coverage.
       expect(within(item).getAllByText(/You're driving/).length).toBeGreaterThan(0)
@@ -7893,7 +7897,7 @@ detourMinutes: null,
         }),
       )
       await waitFor(() => {
-        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "own-ask")
+        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "own-ask", {})
       })
       await waitFor(() => {
         expect(within(item).getByRole("button", { name: "Reconsider" })).toBeInTheDocument()
@@ -7914,7 +7918,7 @@ detourMinutes: null,
         within(item).getByRole("button", { name: "Can't take them anymore" }),
       )
       await waitFor(() => {
-        expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in")
+        expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ask-in", {})
       })
       await waitFor(() => {
         expect(within(item).getByRole("button", { name: "Undo" })).toBeInTheDocument()
@@ -8408,7 +8412,7 @@ detourMinutes: null,
         }),
       )
       await waitFor(() => {
-        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-teammate")
+        expect(cancelRide).toHaveBeenCalledWith("tok", "s1", "ride-teammate", {})
       })
     })
 

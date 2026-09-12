@@ -1181,13 +1181,14 @@ describe("AgendaFocusCard Request CTA", () => {
     expect(onAssignCoverage).not.toHaveBeenCalled()
   })
 
-  it("shows Request without Assign when coverage is all-set", () => {
+  it("hides Request when coverage is all-set and no transport gap remains", () => {
     renderCard(item({ id: "covered-request", title: "Practice" }), {
       rideEvent: requestableRide,
       onCreateRide: vi.fn(),
     })
-    expect(screen.getByRole("button", { name: "Request" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Assigned driving")).toBeInTheDocument()
   })
 
   it("hides Assign when every uncovered kid is on an ACCEPTED own ride", () => {

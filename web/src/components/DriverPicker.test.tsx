@@ -193,7 +193,7 @@ describe("DriverPicker", () => {
     ).toBeInTheDocument()
   })
 
-  it("shows a non-activating Different plans link below the primary button", async () => {
+  it("shows a non-activating Different plans link when Save ride plan is unavailable", async () => {
     const user = userEvent.setup()
     render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
 
@@ -202,7 +202,78 @@ describe("DriverPicker", () => {
     expect(link).toHaveAttribute("aria-disabled", "true")
     expect(link).toHaveAttribute("tabIndex", "-1")
     await user.click(link)
-    expect(link).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+  })
+
+  it("opens the split editor without Ask chips when Save is provided and team section is hidden", async () => {
+    const user = userEvent.setup()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        showTeamSection={false}
+      />,
+    )
+
+    const link = screen.getByTestId("driver-picker-different-plans")
+    expect(link).not.toHaveAttribute("aria-disabled", "true")
+    await user.click(link)
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "split")
+    expect(screen.queryByTestId("driver-picker-to-ask-team-chip")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker-from-ask-team-chip")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: ASK_THE_TEAM })).not.toBeInTheDocument()
+  })
+
+  it("opens split editor, saves both legs, and returns to simple view", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={onSaveRidePlan}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "split")
+    expect(screen.getByText("Getting there")).toBeInTheDocument()
+    expect(screen.getByText("Coming back")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save ride plan" })).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-from-ask-team-chip"))
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+
+    expect(onSaveRidePlan).toHaveBeenCalledWith({
+      to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+      from: { action: "ASK_TEAM" },
+    })
+
+    await user.click(screen.getByTestId("driver-picker-back-to-simple"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+    expect(
+      screen.getByRole("button", { name: "Confirm — You'll drive round trip from Home" }),
+    ).toBeInTheDocument()
+  })
+
+  it("hides shared Leave from in split mode until a household leg is selected", async () => {
+    const user = userEvent.setup()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        leaveFromSlot={<div data-testid="leave-from-slot">Leave from</div>}
+        onSaveRidePlan={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-to-ask-team-chip"))
+    await user.click(screen.getByTestId("driver-picker-from-ask-team-chip"))
+    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
   })
 
   it("disables chips and actions while loading", () => {

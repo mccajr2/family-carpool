@@ -342,6 +342,52 @@ describe("rideStatusChipsForItem", () => {
     ])
   })
 
+  it("splits confirmed household driving into dual chips for FROM-only inbound Accept", () => {
+    const inbound = ownRide({
+      id: "inbound",
+      requestingCircleId: "c2",
+      requestingCircleName: "House B",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Ours",
+      kidIds: ["k-them"],
+      kidFirstNames: ["Mia"],
+      legs: [carpoolLeg("TO", "NEEDS_RIDE"), carpoolLeg("FROM", "CONFIRMED")],
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+      ownRequest: null,
+      otherRequests: [inbound],
+    }
+    const item = calendarItem()
+    const games = [
+      game({
+        id: "host",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [request({ id: "a1", status: "accepted", kidFirstNames: ["Mia"] })],
+      }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, null, {
+        rideEvent,
+        circleId: "c1",
+      }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", YOURE_DRIVING), tone: "mint" },
+      { label: legStatusChipLabel("FROM", drivingChipLabel("You", 1)), tone: "route" },
+    ])
+    expect(rideStatusChipsForItem(item, games, null, { rideEvent, circleId: "c1" })).not.toEqual([
+      { label: "You're driving · +1", tone: "route" },
+    ])
+  })
+
   it("omits Overlaps on out-of-play items", () => {
     const item = calendarItem({
       conflicts: [kidConflict()],

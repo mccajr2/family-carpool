@@ -4,7 +4,8 @@ Status: **stable** (web dogfood complete — 2026-08-12; iOS + Android ported to
 presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.md);
 conflict amber via [`conflict-detection`](specs/archive/conflict-detection.md);
 DriverPicker default chrome via [`carpool-ride-coverage-card`](specs/archive/carpool-ride-coverage-card.md)
-— 2026-09-11)  
+— 2026-09-11; split editor + per-leg hero gaps via
+[`carpool-leg-split-plans`](specs/active/carpool-leg-split-plans.md) — in progress)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -58,11 +59,58 @@ the signed-in adult no longer has a decision on that kid row:
 | Kid-row `ownRide` | In carousel? |
 | --- | --- |
 | `unassigned` | Yes — pick a driver or ask the team |
-| `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline |
+| `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline (calendar coverage **or** split-plan `WAITING_HOUSEHOLD` assigned to you) |
 | `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
-| `"requested"` (asked the team) | No — waiting on teammates |
-| `{ driver, confirmed: true }` | No — covered |
+| `"requested"` (asked the team) | No — waiting on teammates *(unless a per-leg gap below, or waiting-on-you household leg)* |
+| `{ driver, confirmed: true }` | No — covered *(unless a per-leg gap below)* |
 | Pending inbound carpool request (actionable) | Yes — Accept / Decline |
+
+**Waiting-on-you household leg (must):** when `ownLegs` has
+`WAITING_HOUSEHOLD` with `assigneeAdultId` equal to the signed-in adult, treat
+that as pending-confirm-for-self — Hero / Focus / Agenda show **Confirm
+coverage** / **Decline coverage**, and the leg chip body is **Confirm you'll
+drive** (not **Waiting on {your name}**). Confirm/decline writes flip only
+those waiting legs (other legs and pickup stay). Do **not** dual-write calendar
+coverage for this path (that would cancel a mixed Ask).
+
+**Per-leg own-ride gap (must):** `getQueue` / `isOwnRideGap` (and Focus CTAs
+that mirror gap detection) also treat a **mixed** plan with an in-play leg in
+`NEEDS_RIDE` as an own-ride queue item — even when rollup `ownRide` looks
+covered, requested, or confirmed on the other leg. Mixed plans (household on
+one leg, Ask / Needs ride on the other) and cancelled/withdrawn teammate legs
+must re-enter the hero. Blank plans where **every** leg is still `NEEDS_RIDE`
+are **not** per-leg gaps (household coverage rollup still owns those — same as
+ride-status chips). When `ownLegs` are **non-blank and settled** (no
+`NEEDS_RIDE`, not waiting-on-me), they **win** over stale calendar
+`uncoveredKidIds` — no Hero / Needs coverage / Assign / Request. ADR-0001
+ordering is unchanged; only gap *detection* widens to divergent `ownLegs`.
+
+**Request CTA (must):** show **Request** only when `canAskTeam` and some
+in-play kid is still an own-ride gap. Hide when every in-play kid's transport
+is settled (CONFIRMED / ASKED_TEAM / waiting-on-someone-else). After can't-drive
+clears a leg to `NEEDS_RIDE`, Request (and DriverPicker) return.
+
+**Per-assignee revert (must):** emit one can't-drive / cancel-request link per
+distinct decided assignee from `ownLegs` (dedupe by assignee, not by kid).
+Include the leg when they only own one (`… for getting there` / `… for coming
+back`). Writes clear those legs only (`cancel` / `withdraw` with `legs`, or
+`…/ride-plans/clear-legs` for PLAN / circle-local) — do not rewrite remaining
+CONFIRMED household legs to WAITING.
+
+**Matching-leg chip collapse (must):** when both slot bodies match, one
+**unprefixed** chip with that body (e.g. `Asked team`, `You're driving · +1`,
+even matching `Needs ride`) — never `Round trip: …`. When they differ, keep
+dual Getting there / Coming back. True single-leg plans keep one prefixed chip.
+Inbound `· +n` overlays household CONFIRMED bodies per leg kind, then collapse.
+
+**FROM-only place copy (must):** inbound accepted FROM-only rows say **Drop off
+in {town}** (display-only); withdraw passes `{ legs: ["FROM"] }` with
+leg-scoped copy.
+
+**Hero pending-confirm title (must):** `{Assigner} assigned you to drive {Kid}`
+(coverage `assignedByAdultId` or plan `requestedByAdultId`); fallback
+`Confirm you'll drive {Kid}`. True gaps keep `{Kid} needs a ride`. Buttons stay
+Confirm coverage / Decline coverage.
 
 When the filtered queue is empty, render the **All caught up** hero
 (`heroGlow`, `CheckCircle2` 28px in `heroSuccess`, uppercase **All caught up**,
@@ -265,15 +313,45 @@ Origin modes (locked with `coverage-leave-from`):
        posts the existing plain round-trip team request for all **going**
        siblings together (no meet-at / radius sub-options on this surface).
   4. **“Different plans for each leg.”** — plain text link **below** the
-     primary button. Visible for progressive disclosure; **does not** open
-     a split editor until `carpool-leg-split-plans` (prefer `aria-disabled` /
-     non-activating control so it is not dead navigation).
+     primary button. Available whenever the circle has **2+ adults** (family-
+     only split) **or** a carpool space/`rideEvent` exists. Ask chips stay
+     hidden until a space exists (`showTeamSection`). Activating the link
+     replaces the collapsed round-trip form with the **split editor** (same
+     Focus / hero / expanded Agenda surfaces):
+
+     1. **Getting there** — independent driver row (household adults +
+        trailing **Ask the team** when a space exists), same chip rules as
+        the default row.
+     2. **Coming back** — same, independently selected.
+     3. **One shared Leave from** combobox when **either** leg selects a
+        household adult (`LeaveFromControls` / one-time option as today).
+        Do **not** render two independent place fields; true per-leg places
+        stay with `carpool-meet-at`.
+     4. Primary button: **Save ride plan** — applies **both** legs in one
+        user action (household and/or Ask combinations; open **Needs ride**
+        on a leg is allowed and must re-enter the hero queue). Without a
+        space, Save persists a circle-local `PLAN` (`space_id` null; Ask is
+        rejected). With a space, Save uses the space ride-plan write.
+     5. **Back to simple view** — restores collapsed round-trip DriverPicker
+        chrome without forcing legs to re-sync; Confirm / Post round-trip
+        from simple view still work as above.
+
+     Ask-the-team + Ask-the-team may stay on the simple Post path. Matching-leg
+     chip collapse is display-only (`carpool-leg-chip-collapse`) — not required
+     for this editor.
+
+  **Settled driver + inbound Accept:** when the signed-in adult is a confirmed
+  household driver and has accepted an inbound ask, collapsed chips are dual
+  **Getting there** / **Coming back** with `You're driving` (or `{name}
+  driving`) and `· +n` only on legs that inbound request confirmed — not a
+  single `You're driving · +n` that looks like a round-trip extra rider.
+  `+n` remains inbound **request** count on that leg.
 
   **Pending for you:** leave-from combobox + Confirm / Decline only (no
   changeable driver). Confirm commits leave-from draft with confirm. After
   **CONFIRMED** covering, combobox writes immediately. Calm estimate copy
   when covering. Do not redesign pending-for-you or settled covering chrome
-  in the ride-coverage-card slice.
+  in the ride-coverage-card / split-plans slices.
 - **Route:** starting stop + leave-by come from `GET …/route`, which uses the
   same origin resolution (coverage → item override → default → first located).
   Changing leave-from refreshes Route via calendar item replace.
@@ -355,8 +433,11 @@ expanded Agenda — uncovered own-ride** above. Summary:
   (assigns / confirms coverage + leave-from draft).
 - Ask the team → live **Post to team — round trip** (plain round-trip team
   ask; meet-at deferred to `carpool-meet-at`).
-- **Different plans for each leg.** link under the primary button (inert until
-  `carpool-leg-split-plans`).
+- **Different plans for each leg.** under the primary button opens the split
+  editor (Getting there / Coming back, one shared Leave from, **Save ride
+  plan**, **Back to simple view**) — see Leave-from → uncovered own-ride
+  above. Hero queue treats in-play `NEEDS_RIDE` legs as gaps (see Hero
+  carousel queue).
 - No separate “Nobody in the household free?” / outline Ask-the-team footer
   on these surfaces.
 

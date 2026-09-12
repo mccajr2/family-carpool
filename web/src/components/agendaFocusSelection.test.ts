@@ -11,7 +11,7 @@ import {
   selectFocusItem,
   type FocusRideOptions,
 } from "@/components/agendaFocusSelection"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "startsAt"> &
@@ -187,6 +187,25 @@ describe("focusItemNeedsDecision", () => {
       ),
     ).toBe(true)
   })
+
+  it("treats any ownLegs NEEDS_RIDE as a family decision even when coverage looks cleared", () => {
+    const calm = item({ id: "calm", startsAt: localIso(2026, 8, 15, 18) })
+    const mixedLegs = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: adultId,
+        assigneeDisplayName: "Alex",
+      }),
+      carpoolLeg("FROM", "NEEDS_RIDE"),
+    ]
+    expect(focusItemNeedsFamilyDecision(calm, adultId, null, mixedLegs)).toBe(true)
+    expect(focusItemNeedsDecision(calm, adultId, null, null, mixedLegs)).toBe(true)
+    expect(
+      focusItemNeedsFamilyDecision(calm, adultId, null, carpoolLegsBoth("ASKED_TEAM")),
+    ).toBe(false)
+    expect(
+      focusItemNeedsFamilyDecision(calm, adultId, null, carpoolLegsBoth("NEEDS_RIDE")),
+    ).toBe(false)
+  })
 })
 
 describe("selectFocusItem", () => {
@@ -231,6 +250,29 @@ describe("selectFocusItem", () => {
       }),
     })
     expect(selectFocusItem([calmEarly, rideCovered], now, adultId, options)?.id).toBe("calm")
+  })
+
+  it("picks a covered item when any ownLegs phase is still NEEDS_RIDE", () => {
+    const calmEarly = item({
+      id: "calm",
+      startsAt: localIso(2026, 8, 15, 16),
+    })
+    const mixedLegGap = item({
+      id: "mixed-leg",
+      startsAt: localIso(2026, 8, 15, 17),
+    })
+    const options = rideOptionsFor({
+      "mixed-leg": rideEvent({
+        ownRequest: null,
+        ownLegs: [
+          carpoolLeg("TO", "ASKED_TEAM"),
+          carpoolLeg("FROM", "NEEDS_RIDE"),
+        ],
+      }),
+    })
+    expect(selectFocusItem([calmEarly, mixedLegGap], now, adultId, options)?.id).toBe(
+      "mixed-leg",
+    )
   })
 
   it("prefers tomorrow decisions over all-set today", () => {

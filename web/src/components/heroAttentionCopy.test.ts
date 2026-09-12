@@ -8,7 +8,6 @@ import {
   heroPickupSummary,
   heroRequestTitle,
 } from "@/components/heroAttentionCopy"
-import { CONFIRM_COVERAGE } from "@/components/coverageCopy"
 import type { CarpoolRequest } from "@/components/coverageQueue"
 
 function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
@@ -102,7 +101,14 @@ describe("heroAttentionCopy", () => {
     ).toBe("Declan needs a ride")
     expect(
       heroAttentionSlideAriaLabel(ownRide, { kidFirstName: "Declan", pendingConfirm: true }),
-    ).toBe(CONFIRM_COVERAGE)
+    ).toBe("Confirm you'll drive Declan")
+    expect(
+      heroAttentionSlideAriaLabel(ownRide, {
+        kidFirstName: "Declan",
+        pendingConfirm: true,
+        assignerFirstName: "Jordan",
+      }),
+    ).toBe("Jordan assigned you to drive Declan")
 
     const request = {
       kind: "request" as const,

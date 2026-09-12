@@ -122,3 +122,19 @@ export function ridesBySpaceRecordToMap(
 ): Map<string, readonly CarpoolRideEvent[]> {
   return new Map(Object.entries(ridesBySpace))
 }
+
+/**
+ * Event key for circle-local household plans: feed `eventKey` when present,
+ * otherwise `CAL:MANUAL:{id}` for one-off calendar items.
+ */
+export function circleLocalEventKey(
+  item: Pick<CalendarItem, "eventKey" | "source" | "id">,
+): string | null {
+  if (item.eventKey != null && item.eventKey.length > 0) {
+    return item.eventKey
+  }
+  if (item.source === "MANUAL") {
+    return `CAL:MANUAL:${item.id}`
+  }
+  return null
+}

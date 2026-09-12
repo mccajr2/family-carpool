@@ -28,7 +28,7 @@ class CarpoolRideRequestEntity {
     @Id
     private UUID id;
 
-    @Column(name = "space_id", nullable = false)
+    @Column(name = "space_id")
     private UUID spaceId;
 
     @Column(name = "event_key", nullable = false, length = 1280)
@@ -124,6 +124,10 @@ class CarpoolRideRequestEntity {
         return spaceId;
     }
 
+    void attachSpaceId(UUID spaceId) {
+        this.spaceId = spaceId;
+    }
+
     String eventKey() {
         return eventKey;
     }
@@ -203,13 +207,14 @@ class CarpoolRideRequestEntity {
     }
 
     /**
-     * Clears asked/confirmed legs to NEEDS_RIDE. Returns true when the request
-     * should become CANCELLED (no asked/confirmed legs remain).
+     * Clears asked / waiting-household / confirmed legs to NEEDS_RIDE. Returns
+     * true when the request should become CANCELLED (no active legs remain).
      */
     boolean cancelLegs(Set<CarpoolLegKind> kinds) {
         for (RideLegSlot leg : legs) {
             if (kinds.contains(leg.kind())
                     && (leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                            || leg.phase() == CarpoolLegPhase.WAITING_HOUSEHOLD
                             || leg.phase() == CarpoolLegPhase.CONFIRMED)) {
                 leg.setPhase(CarpoolLegPhase.NEEDS_RIDE);
                 leg.clearAssignee();
@@ -242,6 +247,75 @@ class CarpoolRideRequestEntity {
         withdrawLegs(EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM));
     }
 
+    /**
+     * Confirms every WAITING_HOUSEHOLD leg assigned to {@code adultId}. Returns
+     * how many legs flipped. Does not touch pickup, kids, or other legs.
+     */
+    int confirmWaitingHouseholdFor(UUID adultId) {
+        int changed = 0;
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.WAITING_HOUSEHOLD
+                    && adultId.equals(leg.assigneeAdultId())) {
+                leg.setPhase(CarpoolLegPhase.CONFIRMED);
+                changed++;
+            }
+        }
+        if (changed > 0) {
+            syncRollupFromLegs();
+        }
+        return changed;
+    }
+
+    /**
+     * Declines every WAITING_HOUSEHOLD leg assigned to {@code adultId} back to
+     * NEEDS_RIDE. Returns how many legs flipped. Does not touch pickup, kids,
+     * or other legs.
+     */
+    int declineWaitingHouseholdFor(UUID adultId) {
+        int changed = 0;
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.WAITING_HOUSEHOLD
+                    && adultId.equals(leg.assigneeAdultId())) {
+                leg.setPhase(CarpoolLegPhase.NEEDS_RIDE);
+                leg.clearAssignee();
+                changed++;
+            }
+        }
+        if (changed > 0) {
+            syncRollupFromLegs();
+        }
+        return changed;
+    }
+
+    /**
+     * Replaces TO/FROM slots with the given plan and syncs rollup status
+     * (PENDING / ACCEPTED / PLAN / CANCELLED).
+     */
+    void replaceLegs(List<RideLegSlot> nextLegs) {
+        if (nextLegs == null || nextLegs.size() != 2) {
+            throw new IllegalArgumentException("legs must be TO and FROM");
+        }
+        legs.clear();
+        legs.addAll(nextLegs);
+        syncRollupFromLegs();
+    }
+
+    void replaceKids(List<RideKidSnapshot> nextKids) {
+        kids.clear();
+        if (nextKids != null) {
+            kids.addAll(nextKids);
+        }
+    }
+
+    void updatePickup(String placeName, String address) {
+        this.pickupPlaceName = placeName;
+        this.pickupAddress = address;
+    }
+
+    void markRequestedBy(UUID adultId) {
+        this.requestedByAdultId = adultId;
+    }
+
     /** Distinct assignee adult ids on CONFIRMED legs (nulls ignored). */
     Set<UUID> confirmedAssigneeAdultIds() {
         Set<UUID> ids = new java.util.HashSet<>();
@@ -258,55 +332,53 @@ class CarpoolRideRequestEntity {
     }
 
     private void syncRollupAfterClear() {
+        syncRollupFromLegs();
+    }
+
+    private void syncRollupAfterWithdraw() {
+        syncRollupFromLegs();
+    }
+
+    /**
+     * Team ask → PENDING; team accept → ACCEPTED; household-only → PLAN; none →
+     * CANCELLED.
+     */
+    private void syncRollupFromLegs() {
         boolean anyAsked = false;
-        boolean anyConfirmed = false;
-        UUID confirmedAdult = null;
-        UUID confirmedCircle = null;
+        boolean anyTeamConfirmed = false;
+        boolean anyHousehold = false;
+        UUID teamAdult = null;
+        UUID teamCircle = null;
         for (RideLegSlot leg : legs) {
             if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
                 anyAsked = true;
-            } else if (leg.phase() == CarpoolLegPhase.CONFIRMED) {
-                anyConfirmed = true;
-                if (confirmedAdult == null) {
-                    confirmedAdult = leg.assigneeAdultId();
-                    confirmedCircle = leg.assigneeCircleId();
+            } else if (leg.phase() == CarpoolLegPhase.CONFIRMED
+                    && leg.assigneeCircleId() != null) {
+                anyTeamConfirmed = true;
+                if (teamAdult == null) {
+                    teamAdult = leg.assigneeAdultId();
+                    teamCircle = leg.assigneeCircleId();
                 }
+            } else if (leg.phase() == CarpoolLegPhase.WAITING_HOUSEHOLD
+                    || (leg.phase() == CarpoolLegPhase.CONFIRMED
+                            && leg.assigneeCircleId() == null)) {
+                anyHousehold = true;
             }
         }
-        if (anyConfirmed) {
+        if (anyTeamConfirmed) {
             this.status = CarpoolRideStatus.ACCEPTED;
-            this.acceptedByAdultId = confirmedAdult;
-            this.acceptingCircleId = confirmedCircle;
+            this.acceptedByAdultId = teamAdult;
+            this.acceptingCircleId = teamCircle;
         } else if (anyAsked) {
             this.status = CarpoolRideStatus.PENDING;
             this.acceptedByAdultId = null;
             this.acceptingCircleId = null;
-        } else {
-            this.status = CarpoolRideStatus.CANCELLED;
+        } else if (anyHousehold) {
+            this.status = CarpoolRideStatus.PLAN;
             this.acceptedByAdultId = null;
             this.acceptingCircleId = null;
-        }
-    }
-
-    private void syncRollupAfterWithdraw() {
-        boolean anyConfirmed = false;
-        UUID confirmedAdult = null;
-        UUID confirmedCircle = null;
-        for (RideLegSlot leg : legs) {
-            if (leg.phase() == CarpoolLegPhase.CONFIRMED) {
-                anyConfirmed = true;
-                if (confirmedAdult == null) {
-                    confirmedAdult = leg.assigneeAdultId();
-                    confirmedCircle = leg.assigneeCircleId();
-                }
-            }
-        }
-        if (anyConfirmed) {
-            this.status = CarpoolRideStatus.ACCEPTED;
-            this.acceptedByAdultId = confirmedAdult;
-            this.acceptingCircleId = confirmedCircle;
         } else {
-            this.status = CarpoolRideStatus.PENDING;
+            this.status = CarpoolRideStatus.CANCELLED;
             this.acceptedByAdultId = null;
             this.acceptingCircleId = null;
         }

@@ -53,6 +53,9 @@ class CarpoolServiceTest {
     @Mock
     private CarpoolJoinRequestRepository requests;
 
+    @Mock
+    private CarpoolRideService carpoolRideService;
+
     private CarpoolService service;
 
     private final UUID adultId = UUID.fromString("01900000-0000-7000-8000-000000000001");
@@ -74,7 +77,13 @@ class CarpoolServiceTest {
     void setUp() {
         service =
                 new CarpoolService(
-                        adultSessionApi, familyMembershipApi, feedsApi, spaces, memberships, requests);
+                        adultSessionApi,
+                        familyMembershipApi,
+                        feedsApi,
+                        spaces,
+                        memberships,
+                        requests,
+                        carpoolRideService);
     }
 
     @Test
@@ -97,6 +106,8 @@ class CarpoolServiceTest {
         verify(memberships).save(saved.capture());
         assertThat(saved.getValue().membership()).isEqualTo(CarpoolSpaceMembership.OWNER);
         assertThat(saved.getValue().circleId()).isEqualTo(circleId);
+        verify(carpoolRideService)
+                .attachCircleLocalPlansToSpace(eq(circleId), any(UUID.class), eq(feedId));
     }
 
     @Test

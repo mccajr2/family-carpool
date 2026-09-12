@@ -820,6 +820,7 @@ describe("AgendaRow", () => {
       feedId: "f1",
       feedName: "Soccer",
       kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
       rsvps: [
         { kidId: "k1", status: "YES" },
         { kidId: "k2", status: "YES" },
@@ -850,7 +851,7 @@ describe("AgendaRow", () => {
         circle={twoKids}
         currentAdultId="a1"
         loading={false}
-        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: true, soleKid: false }}
         rideEvent={rideEvent}
         onCreateRide={onCreateRide}
         onCancelRide={onCancelRide}
@@ -863,17 +864,16 @@ describe("AgendaRow", () => {
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const band = within(row).getByTestId("agenda-band-carpool")
-    expect(within(band).getByRole("checkbox", { name: "Request ride for Sam" })).toBeChecked()
-    expect(within(band).getByRole("checkbox", { name: "Request ride for Riley" })).toBeChecked()
-    await user.click(within(band).getByRole("checkbox", { name: "Request ride for Riley" }))
-    await user.click(within(band).getByRole("button", { name: "Request" }))
+    expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
+    const kid = within(row).getByTestId("agenda-kid-row-k1")
+    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"])
 
     const requestedEvent = {
       ...rideEvent,
       defaultKidIds: [],
-      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+      ownLegs: carpoolLegsBoth("ASKED_TEAM"),
       ownRequest: {
         id: "ride-1",
         spaceId: "s1",
@@ -881,9 +881,9 @@ describe("AgendaRow", () => {
         requestingCircleId: "c1",
         requestingCircleName: "Test",
         requestedByAdultId: "a1",
-        kidIds: ["k1"],
-        kidFirstNames: ["Sam"],
-        seats: 1,
+        kidIds: ["k1", "k2"],
+        kidFirstNames: ["Sam", "Riley"],
+        seats: 2,
         pickupPlaceName: "Home",
         pickupAddress: "1 Main",
     pickupTown: null,
@@ -897,9 +897,10 @@ describe("AgendaRow", () => {
     legs: carpoolLegsBoth("ASKED_TEAM"),
       },
     }
+    const askedItem = { ...feedItem, uncoveredKidIds: [] as string[] }
     rerender(
       <AgendaRow
-        item={feedItem}
+        item={askedItem}
         circle={twoKids}
         currentAdultId="a1"
         loading={false}
@@ -914,7 +915,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
-      "Requested · Sam · 1 seat · Home, 1 Main",
+      "Requested · Sam, Riley · 2 seats · Home, 1 Main",
     )
     await user.click(
       within(row).getByRole("button", {
@@ -925,7 +926,7 @@ describe("AgendaRow", () => {
 
     rerender(
       <AgendaRow
-        item={feedItem}
+        item={askedItem}
         circle={twoKids}
         currentAdultId="a1"
         loading={false}
@@ -944,7 +945,7 @@ describe("AgendaRow", () => {
     )
     expect(within(row).getByText(/Passed by Sam/)).toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
-      "Passed by Sam · Sam · 1 seat · Home, 1 Main",
+      "Passed by Sam · Sam, Riley · 2 seats · Home, 1 Main",
     )
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).not.toHaveTextContent(
@@ -953,7 +954,7 @@ describe("AgendaRow", () => {
 
     rerender(
       <AgendaRow
-        item={feedItem}
+        item={askedItem}
         circle={twoKids}
         currentAdultId="a1"
         loading={false}
@@ -976,7 +977,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
-      "Riding with House B · Sam · 1 seat · Home, 1 Main",
+      "Riding with House B · Sam, Riley · 2 seats · Home, 1 Main",
     )
     expect(within(row).queryByText(/Accepted ·|Accepted:/)).not.toBeInTheDocument()
   })
@@ -1285,7 +1286,7 @@ describe("AgendaRow", () => {
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
-  it("shows Request for No-response defaults without telling adults to RSVP Yes first", async () => {
+  it("asks the team from DriverPicker for No-response defaults without RSVP Yes first", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const feedItem = item({
@@ -1295,6 +1296,7 @@ describe("AgendaRow", () => {
       feedId: "f1",
       feedName: "Soccer",
       kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
       rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
     })
     const rideEvent = {
@@ -1315,7 +1317,7 @@ describe("AgendaRow", () => {
         circle={circle}
         currentAdultId="a1"
         loading={false}
-        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
         rideEvent={rideEvent}
         onCreateRide={onCreateRide}
         onCancelRide={vi.fn()}
@@ -1328,9 +1330,10 @@ describe("AgendaRow", () => {
       within(row).queryByText("Mark who's going on Calendar to request a ride."),
     ).not.toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const band = within(row).getByTestId("agenda-band-carpool")
-    expect(within(band).getByRole("button", { name: "Request" })).toBeEnabled()
-    await user.click(within(band).getByRole("button", { name: "Request" }))
+    expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
+    const kid = within(row).getByTestId("agenda-kid-row-k1")
+    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
   })
 
@@ -1404,7 +1407,7 @@ describe("AgendaRow", () => {
     await user.click(
       within(inbound).getByRole("button", { name: "Can't take them anymore" }),
     )
-    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted")
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted", undefined)
   })
 
   it("shows Accept and Pass for pending inbound asks outside the hero queue", async () => {
@@ -1853,7 +1856,7 @@ describe("AgendaRow", () => {
     expect(within(inbound).queryByRole("button", { name: "Pass" })).not.toBeInTheDocument()
   })
 
-  it("keeps Request/Cancel for own request without duplicate inbound Accept/Pass", async () => {
+  it("hides Request when transport is settled and keeps Cancel for own pending ask", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-no-accept",
@@ -1862,6 +1865,7 @@ describe("AgendaRow", () => {
       feedId: "f1",
       feedName: "Soccer",
       eventKey: "UID:practice-na",
+      uncoveredKidIds: [],
     })
     render(
       <AgendaRow
@@ -1876,8 +1880,10 @@ describe("AgendaRow", () => {
           startsAt: feedItem.startsAt,
           endsAt: null,
           defaultKidIds: ["k1"],
-          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
-
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
           ownRequest: null,
           otherRequests: [],
         }}
@@ -1890,8 +1896,8 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-feed-no-accept")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const band = within(row).getByTestId("agenda-band-carpool")
-    expect(within(band).getByRole("button", { name: "Request" })).toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-band-inbound-requests")).not.toBeInTheDocument()
   })
 

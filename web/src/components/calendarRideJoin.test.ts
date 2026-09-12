@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarItem, CarpoolRideEvent, CarpoolSummary } from "@/api/types"
 import {
+  circleLocalEventKey,
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
   normalizeRideMatchText,
@@ -384,6 +385,16 @@ describe("matchCalendarItemToRideEvent", () => {
 })
 
 describe("normalize helpers", () => {
+  it("derives circle-local event keys for feed and manual items", () => {
+    expect(
+      circleLocalEventKey({ source: "FEED", id: "e1", eventKey: "UID:game" }),
+    ).toBe("UID:game")
+    expect(circleLocalEventKey({ source: "FEED", id: "e1", eventKey: null })).toBeNull()
+    expect(circleLocalEventKey({ source: "MANUAL", id: "m1", eventKey: null })).toBe(
+      "CAL:MANUAL:m1",
+    )
+  })
+
   it("normalizes text and parses FP location", () => {
     expect(normalizeRideMatchText("  Ab C ")).toBe("ab c")
     expect(rideEventLocationNormalized(rideEvent({ eventKey: "UID:x" }))).toBe("")

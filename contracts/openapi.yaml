@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.27.0
+  version: 0.30.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -55,7 +55,19 @@ info:
     defaults to feed-linked kids who are not RSVP NO (YES and NO_RESPONSE both qualify)
     and not already on this circle's ACCEPTED ride; create does not change RSVP.
     Create defaults to a round-trip ask (both TO and FROM legs ASKED_TEAM); optional
-    `legs` may request a single leg. Each ride and each list event's `ownLegs`
+    `legs` may request a single leg. Save ride plan
+    (`POST /api/carpool/spaces/{spaceId}/ride-plans`) applies independent
+    driver outcomes to both TO and FROM in one atomic write (household,
+    Ask the team, and/or leave Needs ride) so mixed plans stay correct under
+    concurrent cancel — leave-from stays ride/coverage-level (no per-leg place
+    columns). Household-only plans before Enable carpool use
+    `GET/POST /api/carpool/ride-plans` (null `space_id`; ASK_TEAM is 400).
+    Enabling a space attaches matching circle-local plans onto it. The
+    assigned household adult confirms or declines their WAITING_HOUSEHOLD
+    legs via `POST …/ride-plans/confirm-household` and
+    `POST …/ride-plans/decline-household` (space-scoped or circle-local;
+    eventKey only; other legs and pickup stay unchanged). Each ride and each
+    list event's `ownLegs`
     expose TO/FROM phases (`NEEDS_RIDE` | `WAITING_HOUSEHOLD` | `ASKED_TEAM` |
     `CONFIRMED`). Accept is empty-body (like Pass): any space-member adult from
     another circle may Accept; own-circle request returns 409; ride not PENDING
@@ -119,7 +131,9 @@ tags:
       `ownLegs` TO/FROM plan phases), create ride requests (default round-trip
       both legs; optional single-leg via `legs`; pickup at the requester's
       house; default kids = not RSVP NO and still need a ride; create leaves
-      RSVP unchanged), accept another circle's pending request with an empty
+      RSVP unchanged), save a ride plan for both legs atomically
+      (household / Ask the team / Needs ride per leg; no per-leg places),
+      accept another circle's pending request with an empty
       body (like Pass; confirms every still-open asked leg; any space-member
       adult from another circle; no vehicle, drives, or seat gating; sets RSVP
       YES for kids on the ride; allowed after Pass while still PENDING), pass
@@ -2973,6 +2987,248 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/carpool/ride-plans:
+    get:
+      operationId: listCircleRidePlans
+      tags: [carpool]
+      summary: List circle-local household ride plans (no space yet)
+      description: >
+        Any circle member. Returns household-only plans persisted with null
+        `space_id` (before Enable carpool, or for manual events that never
+        attach to a feed space) as `CarpoolRideEvent` rows for Agenda join.
+        `ownRequest` / `otherRequests` are empty; `ownLegs` carry TO/FROM
+        phases. Rows with no kids are omitted. Does not list space-scoped
+        rides — those stay on GET /api/carpool/spaces/{spaceId}/rides.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Circle-local household plans (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CarpoolRideEvent"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: saveCircleRidePlan
+      tags: [carpool]
+      summary: Save a household-only ride plan without a carpool space
+      description: >
+        Any circle member. Same body as saveCarpoolRidePlan, but persists a
+        PLAN row with null `space_id`. ASK_TEAM is 400 (Ask the team requires
+        an enabled space). `eventKey` and `kidIds` are required. Mixed
+        household + Needs ride is allowed. Does **not** accept per-leg place
+        / leave-from fields. Caregiver save is allowed. Empty kidIds, missing
+        eventKey, invalid legs, unknown / non-circle household assignee
+        returns 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveCarpoolRidePlanRequest"
+      responses:
+        "200":
+          description: >
+            Plan applied; `ownLegs` reflect both legs. `ownRequest` is always
+            null (no team ask without a space).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: >
+            ASK_TEAM selected, missing eventKey or kidIds, invalid legs, or
+            unknown / non-circle household assignee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/ride-plans/confirm-household:
+    post:
+      operationId: confirmCircleHouseholdRidePlan
+      tags: [carpool]
+      summary: Confirm WAITING_HOUSEHOLD legs on a circle-local plan
+      description: >
+        Any circle member. Same as confirmHouseholdRidePlan, but finds this
+        circle's active null-space plan for `eventKey`. Confirms every
+        WAITING_HOUSEHOLD leg whose assignee is the caller (phase →
+        CONFIRMED). Does **not** change pickup, kids, `requestedBy`, or other
+        legs. Returns the same shape as saveCircleRidePlan. Caregiver confirm
+        is allowed. No active plan → 404. No waiting leg for the caller → 409.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
+      responses:
+        "200":
+          description: Waiting legs confirmed; `ownLegs` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing or blank eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle, or no active circle-local plan for eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: No WAITING_HOUSEHOLD leg assigned to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/ride-plans/decline-household:
+    post:
+      operationId: declineCircleHouseholdRidePlan
+      tags: [carpool]
+      summary: Decline WAITING_HOUSEHOLD legs on a circle-local plan
+      description: >
+        Any circle member. Same as declineHouseholdRidePlan, but finds this
+        circle's active null-space plan for `eventKey`. Clears every
+        WAITING_HOUSEHOLD leg whose assignee is the caller (phase →
+        NEEDS_RIDE). When the plan has no remaining active legs it becomes
+        CANCELLED and `ownLegs` are blank NEEDS_RIDE. Caregiver decline is
+        allowed. No active plan → 404. No waiting leg for the caller → 409.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
+      responses:
+        "200":
+          description: Waiting legs declined; `ownLegs` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing or blank eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle, or no active circle-local plan for eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: No WAITING_HOUSEHOLD leg assigned to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/ride-plans/clear-legs:
+    post:
+      operationId: clearCircleRidePlanLegs
+      tags: [carpool]
+      summary: Clear legs on a circle-local household ride plan
+      description: >
+        Any circle member. Finds this circle's active null-space plan for
+        `eventKey` and clears the named leg(s) to NEEDS_RIDE (or both legs
+        when omitted and assignees match). Works for PLAN status. Does **not**
+        rewrite remaining CONFIRMED household legs to WAITING_HOUSEHOLD.
+        Missing plan returns 404. Invalid legs or mismatched assignees without
+        `legs` returns 409/400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClearCarpoolRidePlanRequest"
+      responses:
+        "200":
+          description: Legs cleared; `ownLegs` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing eventKey or invalid legs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No active plan for this event, or no family circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan not clearable, or legs omitted when assignees differ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
   /api/carpool/spaces/{spaceId}:
     parameters:
       - name: spaceId
@@ -3528,10 +3784,10 @@ paths:
         assignees), clears every leg this request covers — combined cancel.
         When assignees differ across legs, omit returns 409; pass the specific
         leg(s). Clearing the last asked/confirmed leg on the request
-        transitions PENDING or ACCEPTED to CANCELLED; clearing one leg of a
-        still-open multi-leg ask leaves status PENDING/ACCEPTED with the
-        remaining leg. Wrong circle returns 403. Non-member or unknown ride
-        returns 404. Already CANCELLED or invalid transition returns 409.
+        transitions PENDING, ACCEPTED, or PLAN to CANCELLED; clearing one
+        leg of a still-open multi-leg ask leaves status PENDING/ACCEPTED/PLAN
+        with the remaining leg. Wrong circle returns 403. Non-member or unknown
+        ride returns 404. Already CANCELLED or invalid transition returns 409.
       security:
         - bearerAuth: []
       parameters:
@@ -3580,8 +3836,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: >
-            Ride is not PENDING or ACCEPTED, or `legs` omitted when assignees
-            differ across legs
+            Ride is not PENDING, ACCEPTED, or PLAN, or `legs` omitted when
+            assignees differ across legs
           content:
             application/json:
               schema:
@@ -3651,6 +3907,203 @@ paths:
           description: >
             Ride is not ACCEPTED, or `legs` omitted when assignees differ
             across legs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/ride-plans:
+    post:
+      operationId: saveCarpoolRidePlan
+      tags: [carpool]
+      summary: Save independent driver plans for Getting there and Coming back
+      description: >
+        Any space-member adult. Atomically applies the desired TO and FROM
+        driver outcomes for this circle on a feed event (web **Save ride
+        plan**). Body must include exactly one TO and one FROM leg. Each leg
+        action is HOUSEHOLD (circle adult — `assigneeAdultId` required; server
+        sets CONFIRMED when the assignee is the caller, WAITING_HOUSEHOLD when
+        another household adult), ASK_TEAM (post that leg; pickup stays the
+        requester's house), or NEEDS_RIDE (leave or clear that leg open). Mixed
+        household + Ask combinations upsert or clear the circle's team ask so
+        `ownLegs` match the plan without a multi-call race against cancel.
+        Optional `kidIds` follows createCarpoolRide rules when any leg is
+        ASK_TEAM (omit → default going kids who still need a ride). Does not
+        change RSVP. Does **not** accept per-leg place / leave-from fields —
+        leave-from stays on existing item / coverage leave-from writes. Caregiver
+        save is allowed. Unknown event, invalid legs, missing household
+        assignee, unknown / non-circle assignee, or ASK_TEAM without pickup
+        address returns 400. Non-member or unknown space returns 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveCarpoolRidePlanRequest"
+      responses:
+        "200":
+          description: >
+            Plan applied; `ownLegs` reflect both legs. `ownRequest` is the
+            circle's active team ask when any leg is ASKED_TEAM or an ACCEPTED
+            ask remains; null for household-only / all Needs ride plans.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: >
+            Invalid eventKey, legs (not exactly TO+FROM), household assignee,
+            kids, or no pickup address when Ask the team is selected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            A team acceptance is already active for this circle on the event
+            (withdraw first before saving a new plan)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/ride-plans/confirm-household:
+    post:
+      operationId: confirmHouseholdRidePlan
+      tags: [carpool]
+      summary: Confirm WAITING_HOUSEHOLD legs assigned to the caller
+      description: >
+        Any space-member adult. Finds this circle's active plan for `eventKey`
+        and confirms every WAITING_HOUSEHOLD leg whose assignee is the caller
+        (phase → CONFIRMED). Does **not** change pickup, kids, `requestedBy`,
+        or other legs (Ask the team / other adults stay). Returns the same
+        shape as saveCarpoolRidePlan. Caregiver confirm is allowed. Unknown
+        space / non-member → 404. No active plan → 404. No waiting leg for the
+        caller → 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
+      responses:
+        "200":
+          description: Waiting legs confirmed; `ownLegs` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing or blank eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, non-member, or no active plan for eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: No WAITING_HOUSEHOLD leg assigned to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/ride-plans/decline-household:
+    post:
+      operationId: declineHouseholdRidePlan
+      tags: [carpool]
+      summary: Decline WAITING_HOUSEHOLD legs assigned to the caller
+      description: >
+        Any space-member adult. Finds this circle's active plan for `eventKey`
+        and clears every WAITING_HOUSEHOLD leg whose assignee is the caller
+        (phase → NEEDS_RIDE). Does **not** change pickup, kids, `requestedBy`,
+        or other legs. Returns the same shape as saveCarpoolRidePlan. When the
+        plan has no remaining active legs it becomes CANCELLED and `ownLegs`
+        are blank NEEDS_RIDE. Caregiver decline is allowed. Unknown space /
+        non-member → 404. No active plan → 404. No waiting leg for the caller
+        → 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
+      responses:
+        "200":
+          description: Waiting legs declined; `ownLegs` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing or blank eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, non-member, or no active plan for eventKey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: No WAITING_HOUSEHOLD leg assigned to the caller
           content:
             application/json:
               schema:
@@ -5317,13 +5770,10 @@ components:
         spaceId:
           type: string
           format: uuid
-        eventKey:
-          type: string
+          nullable: true
           description: >
-            Cross-circle event identity. `UID:<icalUid>` when the feed event
-            has an iCal UID; otherwise `FP:<normalized title>|<startsAt>|
-            <normalized location>`.
-          example: "UID:abc123@example.com"
+            Carpool space for team asks. Null for circle-local household-only
+            plans saved before Enable carpool.
         requestingCircleId:
           type: string
           format: uuid
@@ -5463,6 +5913,18 @@ components:
             WAITING_HOUSEHOLD / CONFIRMED).
           items:
             $ref: "#/components/schemas/CarpoolRideLeg"
+        requestedByAdultId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Adult who last saved / created this circle's active plan for the
+            event. Null when there is no active plan. Used for hero assigner
+            copy when ownRequest is null (PLAN).
+        requestedByDisplayName:
+          type: string
+          nullable: true
+          description: Display name for requestedByAdultId when known
         ownRequest:
           allOf:
             - $ref: "#/components/schemas/CarpoolRide"
@@ -5540,6 +6002,111 @@ components:
           items:
             $ref: "#/components/schemas/CarpoolLegKind"
 
+    CarpoolRidePlanLegAction:
+      type: string
+      enum: [HOUSEHOLD, ASK_TEAM, NEEDS_RIDE]
+      description: >
+        HOUSEHOLD — circle adult drives this leg (`assigneeAdultId` required).
+        ASK_TEAM — post this leg to the team. NEEDS_RIDE — leave or clear this
+        leg with no driver.
+
+    SaveCarpoolRidePlanLeg:
+      type: object
+      required:
+        - kind
+        - action
+      properties:
+        kind:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        action:
+          $ref: "#/components/schemas/CarpoolRidePlanLegAction"
+        assigneeAdultId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Required when action is HOUSEHOLD (must be an adult in the caller's
+            circle). Must be null / omitted for ASK_TEAM and NEEDS_RIDE.
+
+    SaveCarpoolRidePlanRequest:
+      type: object
+      required:
+        - eventKey
+        - legs
+      properties:
+        eventKey:
+          type: string
+          description: Target feed event identity (must match a listed event)
+        kidIds:
+          type: array
+          minItems: 1
+          description: >
+            Non-empty subset of defaultKidIds when any leg uses ASK_TEAM. When
+            omitted and Ask is selected, server defaults like createCarpoolRide.
+            Ignored when no leg is ASK_TEAM. Does not change RSVP.
+          items:
+            type: string
+            format: uuid
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: >
+            Exactly one TO and one FROM. No per-leg place / leave-from fields.
+          items:
+            $ref: "#/components/schemas/SaveCarpoolRidePlanLeg"
+
+    ClearCarpoolRidePlanRequest:
+      type: object
+      required:
+        - eventKey
+      properties:
+        eventKey:
+          type: string
+          description: Target event identity for this circle's active plan
+        legs:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: >
+            Legs to clear. Omit for combined clear when assignees match.
+          items:
+            $ref: "#/components/schemas/CarpoolLegKind"
+    HouseholdRidePlanActionRequest:
+
+      type: object
+      required:
+        - eventKey
+      properties:
+        eventKey:
+          type: string
+          description: >
+            Target feed event identity for this circle's active plan (same key
+            as list rides / save ride plan)
+
+    SaveCarpoolRidePlanResponse:
+      type: object
+      required:
+        - ownLegs
+      properties:
+        ownLegs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: >
+            Resulting TO then FROM plan phases after the save (same shape as
+            CarpoolRideEvent.ownLegs).
+          items:
+            $ref: "#/components/schemas/CarpoolRideLeg"
+        ownRequest:
+          allOf:
+            - $ref: "#/components/schemas/CarpoolRide"
+          nullable: true
+          description: >
+            This circle's active team ask (PENDING or ACCEPTED) when the plan
+            includes or retains asked legs; null for household-only or all
+            Needs ride.
+
     ErrorResponse:
       type: object
       required:
@@ -5548,3 +6115,62 @@ components:
         message:
           type: string
           example: Invalid or expired code
+  /api/carpool/spaces/{spaceId}/ride-plans/clear-legs:
+    post:
+      operationId: clearCarpoolRidePlanLegs
+      tags: [carpool]
+      summary: Clear legs on this circle's active ride plan for an event
+      description: >
+        Any space member. Finds this circle's active PENDING / ACCEPTED / PLAN
+        row for `eventKey` and clears the named leg(s) to NEEDS_RIDE (or both
+        when omitted and assignees match). Falls back to a circle-local plan
+        and attaches it to the space. Does **not** rewrite remaining CONFIRMED
+        household legs to WAITING_HOUSEHOLD.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClearCarpoolRidePlanRequest"
+      responses:
+        "200":
+          description: Legs cleared; `ownLegs` / `ownRequest` updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
+        "400":
+          description: Missing eventKey or invalid legs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, not a member, or no active plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan not clearable, or legs omitted when assignees differ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+

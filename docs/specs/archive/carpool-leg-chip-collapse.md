@@ -19,7 +19,7 @@ qualifiers only when legs differ or only one leg is in play**.
 ## Non-goals
 
 - Per-leg split editor —
-  [`carpool-leg-split-plans`](../planned/carpool-leg-split-plans.md)
+  [`carpool-leg-split-plans`](carpool-leg-split-plans.md)
 - Per-kid progressive split —
   [`carpool-kid-split-plans`](../planned/carpool-kid-split-plans.md)
 - Default DriverPicker / Confirm chrome —
@@ -35,7 +35,7 @@ qualifiers only when legs differ or only one leg is in play**.
   (`transportLegsForItem` / coverage chip ownership)
 - Hero / `getQueue` per-leg gap awareness when mixed plans leave one leg
   `NEEDS_RIDE` — deferred to
-  [`carpool-leg-split-plans`](../planned/carpool-leg-split-plans.md)
+  [`carpool-leg-split-plans`](carpool-leg-split-plans.md)
 
 ## Approach
 

@@ -3,12 +3,27 @@ import type { FamilyMember } from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
 import {
   ASK_THE_TEAM,
+  BACK_TO_SIMPLE_VIEW,
   DIFFERENT_PLANS_FOR_EACH_LEG,
   HERO_ON_INVERSE,
+  LEG_COMING_BACK,
+  LEG_GETTING_THERE,
   POST_TO_TEAM_ROUND_TRIP,
+  SAVE_RIDE_PLAN,
   confirmDriveFromLabel,
 } from "@/components/coverageCopy"
 import { Button } from "@/components/ui/button"
+
+/** Per-leg driver intent for Save ride plan. */
+export type DriverPickerLegChoice =
+  | { action: "HOUSEHOLD"; assigneeAdultId: string }
+  | { action: "ASK_TEAM" }
+  | { action: "NEEDS_RIDE" }
+
+export type DriverPickerSavePlanLegs = {
+  to: DriverPickerLegChoice
+  from: DriverPickerLegChoice
+}
 
 export type DriverPickerProps = {
   members: FamilyMember[]
@@ -19,6 +34,11 @@ export type DriverPickerProps = {
   loading?: boolean
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onAskTeam: () => void
+  /**
+   * When set, Different plans opens the split editor and Save ride plan calls
+   * this with both leg choices. Omit to keep the link inert (no carpool space).
+   */
+  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   /** Hero Focus card styling (needsDecision). */
   hero?: boolean
   /** When false, hides the Ask the team chip (e.g. no carpool ride event). */
@@ -50,6 +70,22 @@ export function confirmDriverLabel(
     currentAdultId,
     leaveFromLabel: leaveFromLabel ?? "",
   })
+}
+
+type LegChipSelection = string | "ASK_TEAM" | null
+
+function choiceFromSelection(selection: LegChipSelection): DriverPickerLegChoice {
+  if (selection === "ASK_TEAM") {
+    return { action: "ASK_TEAM" }
+  }
+  if (selection == null || selection === "") {
+    return { action: "NEEDS_RIDE" }
+  }
+  return { action: "HOUSEHOLD", assigneeAdultId: selection }
+}
+
+function selectionIsHousehold(selection: LegChipSelection): boolean {
+  return selection != null && selection !== "ASK_TEAM"
 }
 
 type DriverMemberChipProps = {
@@ -119,10 +155,76 @@ function DriverMemberChip({
   )
 }
 
+type DriverChipRowProps = {
+  members: FamilyMember[]
+  currentAdultId: string
+  selection: LegChipSelection
+  onSelectionChange: (next: LegChipSelection) => void
+  loading: boolean
+  hero: boolean
+  showTeamSection: boolean
+  ariaLabel: string
+  testIdPrefix: string
+}
+
+function DriverChipRow({
+  members,
+  currentAdultId,
+  selection,
+  onSelectionChange,
+  loading,
+  hero,
+  showTeamSection,
+  ariaLabel,
+  testIdPrefix,
+}: DriverChipRowProps) {
+  const teamSelected = showTeamSection && selection === "ASK_TEAM"
+
+  return (
+    <div
+      className={`flex flex-wrap ${hero ? "gap-[var(--fc-space-sm)]" : "gap-[var(--fc-space-xs)]"} min-w-0 max-w-full`}
+      role="group"
+      aria-label={ariaLabel}
+      data-testid={`${testIdPrefix}-chips`}
+    >
+      {members.map((member) => {
+        const selected = !teamSelected && selection === member.adultId
+        return (
+          <DriverMemberChip
+            key={member.adultId}
+            label={householdDriverChipLabel(member, currentAdultId)}
+            selected={selected}
+            disabled={loading}
+            hero={hero}
+            testId={`${testIdPrefix}-chip-${member.adultId}`}
+            onClick={() => {
+              // Toggle off → Needs ride (allowed open leg).
+              onSelectionChange(selected ? null : member.adultId)
+            }}
+          />
+        )
+      })}
+      {showTeamSection ? (
+        <DriverMemberChip
+          label={ASK_THE_TEAM}
+          selected={teamSelected}
+          disabled={loading}
+          hero={hero}
+          testId={`${testIdPrefix}-ask-team-chip`}
+          onClick={() => {
+            onSelectionChange(teamSelected ? null : "ASK_TEAM")
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * Household driver selection: member chips + trailing Ask the team chip,
- * optional leave-from slot, Confirm / Post primary, and inert Different plans
- * link. Kid-subset checkboxes stay outside this component (see AgendaFocusCard).
+ * optional leave-from slot, Confirm / Post primary, and Different plans →
+ * split editor (Save ride plan / Back to simple view). Kid-subset checkboxes
+ * stay outside this component (see AgendaFocusCard).
  */
 export function DriverPicker({
   members,
@@ -133,6 +235,7 @@ export function DriverPicker({
   loading = false,
   onAssignCoverage,
   onAskTeam,
+  onSaveRidePlan,
   hero = false,
   showTeamSection = true,
   leaveFromSlot,
@@ -140,8 +243,13 @@ export function DriverPicker({
   confirmLabel: confirmLabelProp,
 }: DriverPickerProps) {
   const [askTeamSelected, setAskTeamSelected] = useState(false)
+  const [splitMode, setSplitMode] = useState(false)
+  const [toSelection, setToSelection] = useState<LegChipSelection>(currentAdultId)
+  const [fromSelection, setFromSelection] = useState<LegChipSelection>(currentAdultId)
+
   const teamChipVisible = showTeamSection
   const teamSelected = teamChipVisible && askTeamSelected
+  const splitEnabled = onSaveRidePlan != null
 
   const primaryLabel = teamSelected
     ? POST_TO_TEAM_ROUND_TRIP
@@ -151,6 +259,10 @@ export function DriverPicker({
   const primaryDisabled =
     loading || kidIds.length === 0 || (!teamSelected && !selectedAdultId)
 
+  const splitLeaveFromVisible =
+    selectionIsHousehold(toSelection) || selectionIsHousehold(fromSelection)
+  const splitPrimaryDisabled = loading || kidIds.length === 0
+
   function handlePrimaryClick() {
     if (teamSelected) {
       onAskTeam()
@@ -159,97 +271,166 @@ export function DriverPicker({
     onAssignCoverage(selectedAdultId, kidIds)
   }
 
-  const chips = (
-    <div
-      className={`flex flex-wrap ${hero ? "gap-[var(--fc-space-sm)]" : "gap-[var(--fc-space-xs)]"} min-w-0 max-w-full`}
-      role="group"
-      aria-label="Household driver"
-    >
-      {members.map((member) => (
-        <DriverMemberChip
-          key={member.adultId}
-          label={householdDriverChipLabel(member, currentAdultId)}
-          selected={!teamSelected && member.adultId === selectedAdultId}
-          disabled={loading}
-          hero={hero}
-          onClick={() => {
-            setAskTeamSelected(false)
-            onSelectedAdultChange(member.adultId)
+  function openSplitEditor() {
+    if (!splitEnabled) {
+      return
+    }
+    const initial: LegChipSelection = teamSelected
+      ? "ASK_TEAM"
+      : selectedAdultId || currentAdultId
+    setToSelection(initial)
+    setFromSelection(initial)
+    setSplitMode(true)
+  }
+
+  function handleSaveRidePlan() {
+    if (onSaveRidePlan == null) {
+      return
+    }
+    onSaveRidePlan({
+      to: choiceFromSelection(toSelection),
+      from: choiceFromSelection(fromSelection),
+    })
+  }
+
+  const linkClass = hero
+    ? "text-left text-xs underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current"
+    : "text-left text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)] underline-offset-2 underline decoration-transparent hover:decoration-current"
+
+  const sectionLabelClass = hero
+    ? "text-xs font-semibold uppercase tracking-wide opacity-90"
+    : "text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]"
+
+  function renderPrimaryButton(label: string, onClick: () => void, disabled: boolean) {
+    if (hero) {
+      return (
+        <button
+          type="button"
+          data-testid="driver-picker-confirm"
+          className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          style={{
+            backgroundColor: "var(--fc-hero-on)",
+            color: HERO_ON_INVERSE,
           }}
-        />
-      ))}
-      {teamChipVisible ? (
-        <DriverMemberChip
-          label={ASK_THE_TEAM}
-          selected={teamSelected}
-          disabled={loading}
-          hero={hero}
-          testId="driver-picker-ask-team-chip"
-          onClick={() => setAskTeamSelected(true)}
-        />
-      ) : null}
-    </div>
-  )
+          onClick={onClick}
+          disabled={disabled}
+        >
+          {label}
+        </button>
+      )
+    }
+    return (
+      <Button
+        type="button"
+        size="sm"
+        data-testid="driver-picker-confirm"
+        className="w-full text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {label}
+      </Button>
+    )
+  }
 
-  const primaryButton = hero ? (
-    <button
-      type="button"
-      data-testid="driver-picker-confirm"
-      className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-      style={{
-        backgroundColor: "var(--fc-hero-on)",
-        color: HERO_ON_INVERSE,
+  if (splitMode && splitEnabled) {
+    return (
+      <div data-testid="driver-picker" data-mode="split" className="w-full min-w-0 max-w-full">
+        <div className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)]">
+          <div data-testid="driver-picker-leg-to" className="flex flex-col gap-[var(--fc-space-sm)]">
+            <span className={sectionLabelClass}>{LEG_GETTING_THERE}</span>
+            <DriverChipRow
+              members={members}
+              currentAdultId={currentAdultId}
+              selection={toSelection}
+              onSelectionChange={setToSelection}
+              loading={loading}
+              hero={hero}
+              showTeamSection={teamChipVisible}
+              ariaLabel={LEG_GETTING_THERE}
+              testIdPrefix="driver-picker-to"
+            />
+          </div>
+          <div data-testid="driver-picker-leg-from" className="flex flex-col gap-[var(--fc-space-sm)]">
+            <span className={sectionLabelClass}>{LEG_COMING_BACK}</span>
+            <DriverChipRow
+              members={members}
+              currentAdultId={currentAdultId}
+              selection={fromSelection}
+              onSelectionChange={setFromSelection}
+              loading={loading}
+              hero={hero}
+              showTeamSection={teamChipVisible}
+              ariaLabel={LEG_COMING_BACK}
+              testIdPrefix="driver-picker-from"
+            />
+          </div>
+          {splitLeaveFromVisible ? leaveFromSlot : null}
+          {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
+          <button
+            type="button"
+            data-testid="driver-picker-back-to-simple"
+            className={linkClass}
+            style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+            disabled={loading}
+            onClick={() => setSplitMode(false)}
+          >
+            {BACK_TO_SIMPLE_VIEW}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const chips = (
+    <DriverChipRow
+      members={members}
+      currentAdultId={currentAdultId}
+      selection={teamSelected ? "ASK_TEAM" : selectedAdultId}
+      onSelectionChange={(next) => {
+        if (next === "ASK_TEAM") {
+          setAskTeamSelected(true)
+          return
+        }
+        setAskTeamSelected(false)
+        if (next != null) {
+          onSelectedAdultChange(next)
+        }
       }}
-      onClick={handlePrimaryClick}
-      disabled={primaryDisabled}
-    >
-      {primaryLabel}
-    </button>
-  ) : (
-    <Button
-      type="button"
-      size="sm"
-      data-testid="driver-picker-confirm"
-      className="w-full text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-      onClick={handlePrimaryClick}
-      disabled={primaryDisabled}
-    >
-      {primaryLabel}
-    </Button>
+      loading={loading}
+      hero={hero}
+      showTeamSection={teamChipVisible}
+      ariaLabel="Household driver"
+      testIdPrefix="driver-picker"
+    />
   )
-
-  const differentPlansClass = hero
-    ? "text-left text-xs underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current cursor-not-allowed"
-    : "text-left text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)] underline-offset-2 underline decoration-transparent hover:decoration-current cursor-not-allowed"
 
   return (
-    <div data-testid="driver-picker" className="w-full min-w-0 max-w-full">
+    <div data-testid="driver-picker" data-mode="simple" className="w-full min-w-0 max-w-full">
       <div
         data-testid="driver-picker-household-section"
         className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)]"
       >
-        <span
-          className={
-            hero
-              ? "text-xs font-semibold uppercase tracking-wide opacity-90"
-              : "text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]"
-          }
-          data-testid="driver-picker-driver-label"
-        >
+        <span className={sectionLabelClass} data-testid="driver-picker-driver-label">
           Driver
         </span>
         {chips}
         {leaveFromSlot}
-        {primaryButton}
+        {renderPrimaryButton(primaryLabel, handlePrimaryClick, primaryDisabled)}
         <button
           type="button"
           data-testid="driver-picker-different-plans"
-          className={differentPlansClass}
+          className={`${linkClass}${splitEnabled ? "" : " cursor-not-allowed"}`}
           style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
-          aria-disabled="true"
-          tabIndex={-1}
+          aria-disabled={splitEnabled ? undefined : "true"}
+          tabIndex={splitEnabled ? undefined : -1}
+          disabled={loading}
           onClick={(event) => {
-            event.preventDefault()
+            if (!splitEnabled) {
+              event.preventDefault()
+              return
+            }
+            openSplitEditor()
           }}
         >
           {DIFFERENT_PLANS_FOR_EACH_LEG}

@@ -8,7 +8,9 @@ import {
   coverageGameEventKey,
   filterQueueWithinHorizon,
   getQueue,
+  hasNeedsRideOwnLeg,
   isConfirmedDriver,
+  isOwnRideGap,
   isPendingHouseholdConfirm,
   isUnassigned,
   mapCalendarItemToCoverageGames,
@@ -17,7 +19,7 @@ import {
   type CarpoolRequest,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function request(partial: Partial<CarpoolRequest> & Pick<CarpoolRequest, "id">): CarpoolRequest {
   return {
@@ -243,6 +245,50 @@ describe("getQueue", () => {
     ])
 
     expect(queue.map((item) => item.game.id)).toEqual(["unassigned", "confirm-you"])
+  })
+
+  it("queues when any ownLegs phase is NEEDS_RIDE even if rollup ownRide looks covered or asked", () => {
+    const mixedConfirmed = game({
+      id: "mixed-confirmed",
+      order: 100,
+      ownRide: { driver: "You", confirmed: true },
+      ownLegs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Alex",
+        }),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ],
+    })
+    const mixedAsked = game({
+      id: "mixed-asked",
+      order: 110,
+      ownRide: "requested",
+      ownLegs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
+    })
+    const bothAsked = game({
+      id: "both-asked",
+      order: 120,
+      ownRide: "requested",
+      ownLegs: carpoolLegsBoth("ASKED_TEAM"),
+    })
+
+    expect(hasNeedsRideOwnLeg(mixedConfirmed)).toBe(true)
+    expect(isOwnRideGap(mixedConfirmed)).toBe(true)
+    expect(isOwnRideGap(mixedAsked)).toBe(true)
+    expect(isOwnRideGap(bothAsked)).toBe(false)
+
+    const blankNeedsBoth = game({
+      id: "blank-needs",
+      order: 105,
+      ownRide: { driver: "You", confirmed: true },
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+    })
+    expect(hasNeedsRideOwnLeg(blankNeedsBoth)).toBe(false)
+    expect(isOwnRideGap(blankNeedsBoth)).toBe(false)
+
+    const queue = getQueue([mixedConfirmed, blankNeedsBoth, mixedAsked, bothAsked])
+    expect(queue.map((item) => item.game.id)).toEqual(["mixed-confirmed", "mixed-asked"])
   })
 
   it("returns an empty queue when every game is resolved", () => {
@@ -680,6 +726,42 @@ describe("mapCalendarItemToCoverageGames", () => {
       mapOptions,
     )
     expect(riding[0]?.ownRide).toEqual({ driver: "Sharks", confirmed: true })
+  })
+
+  it("copies ownLegs onto coverage games so mixed NEEDS_RIDE re-enters getQueue", () => {
+    const mixedLegs = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+      carpoolLeg("FROM", "NEEDS_RIDE"),
+    ]
+    const rows = mapCalendarItemToCoverageGames(
+      calendarItem({
+        coverages: [
+          {
+            id: "c-self",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      rideEvent({ ownRequest: null, ownLegs: mixedLegs }),
+      mapOptions,
+    )
+
+    expect(rows[0]?.ownRide).toBe("unassigned")
+    expect(rows[0]?.ownLegs).toEqual(mixedLegs)
+    expect(getQueue(rows).map((item) => item.game.id)).toEqual(["MANUAL-e1:k1"])
   })
 
   it("maps inbound otherRequests onto each kid row", () => {

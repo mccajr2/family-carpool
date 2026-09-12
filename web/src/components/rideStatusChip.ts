@@ -12,6 +12,7 @@ import type {
 import {
   acceptedRiders,
   isConfirmedDriver,
+  isOwnRideGap,
   isPendingHouseholdConfirm,
   isUnassigned,
   pendingRequests,
@@ -27,6 +28,7 @@ import {
   OVERLAPS_CHIP,
   RIDE_NEEDED,
   RIDING_WITH_TEAMMATE,
+  YOURE_DRIVING,
   carpoolAskCountLabel,
   drivingChipLabel,
   legConfirmedStatusLabel,
@@ -38,6 +40,11 @@ import {
   rideCommitmentConflict,
   rideCommitmentConflictChipLabel,
 } from "@/components/rideCommitmentConflict"
+import {
+  collapseMatchingLegChips,
+  inboundConfirmedCountByKind,
+  nonBlankTransportLegs,
+} from "@/components/transportPlan"
 
 export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
 
@@ -54,24 +61,6 @@ export type RideLegChipOptions = {
 
 function isInPlay(game: CoverageGameEvent): boolean {
   return game.attendance !== "not_going"
-}
-
-function isOwnRideGap(game: CoverageGameEvent): boolean {
-  if (!isInPlay(game)) {
-    return false
-  }
-  if (isConfirmedDriver(game.ownRide)) {
-    return false
-  }
-  if (isUnassigned(game.ownRide)) {
-    return true
-  }
-  return (
-    typeof game.ownRide === "object" &&
-    "driver" in game.ownRide &&
-    !game.ownRide.confirmed &&
-    game.ownRide.driver === "You"
-  )
 }
 
 function sortByOrder(games: readonly CoverageGameEvent[]): CoverageGameEvent[] {
@@ -128,6 +117,65 @@ function drivingLabel(
   }
 }
 
+/** Dual Getting there / Coming back chips: household driving + inbound Accept count per leg. */
+function combinedHouseholdInboundLegChips(
+  driver: string,
+  inboundCounts: { TO: number; FROM: number },
+): RideStatusChipDescriptor[] {
+  return collapseMatchingLegChips([
+    {
+      label: legStatusChipLabel("TO", drivingChipLabel(driver, inboundCounts.TO)),
+      tone: inboundCounts.TO > 0 ? "route" : "mint",
+    },
+    {
+      label: legStatusChipLabel("FROM", drivingChipLabel(driver, inboundCounts.FROM)),
+      tone: inboundCounts.FROM > 0 ? "route" : "mint",
+    },
+  ])
+}
+
+/**
+ * Overlay inbound · +n onto household CONFIRMED "You're driving" / name bodies
+ * for each kind, then collapse matching bodies.
+ */
+function legChipsWithInboundOverlay(
+  legs: readonly CarpoolRideLeg[],
+  inboundCounts: { TO: number; FROM: number },
+  options?: RideLegChipOptions,
+): RideStatusChipDescriptor[] {
+  const chips = orderedLegs(legs).map((leg) => {
+    let body = legPhaseStatusLabel(leg, options)
+    // Overlay inbound · +n only onto household CONFIRMED bodies (adult assignee,
+    // no accepting circle). Teammate CONFIRMED legs keep plain riding-with copy.
+    if (leg.phase === "CONFIRMED" && leg.assigneeCircleId == null) {
+      const plus = inboundCounts[leg.kind]
+      if (plus > 0) {
+        if (body === YOURE_DRIVING || body.endsWith(" driving")) {
+          body = drivingChipLabel(
+            body === YOURE_DRIVING ? "You" : body.replace(/ driving$/, ""),
+            plus,
+          )
+        } else if (body.endsWith(" confirmed")) {
+          const who = body.replace(/ confirmed$/, "")
+          body = `${who} confirmed · +${plus}`
+        } else {
+          body = `${body} · +${plus}`
+        }
+      }
+    }
+    return {
+      label: legStatusChipLabel(leg.kind, body),
+      tone:
+        leg.phase === "CONFIRMED" &&
+        leg.assigneeCircleId == null &&
+        inboundCounts[leg.kind] > 0
+          ? ("route" as const)
+          : legChipTone(leg),
+    }
+  })
+  return collapseMatchingLegChips(chips)
+}
+
 function assigneeLabelForLeg(
   leg: CarpoolRideLeg,
   options?: RideLegChipOptions,
@@ -153,6 +201,13 @@ export function legPhaseStatusLabel(
     case "NEEDS_RIDE":
       return LEG_NEEDS_RIDE
     case "WAITING_HOUSEHOLD": {
+      if (
+        options?.currentAdultId != null &&
+        leg.assigneeAdultId != null &&
+        leg.assigneeAdultId === options.currentAdultId
+      ) {
+        return CONFIRM_YOU_WILL_DRIVE
+      }
       const who = assigneeLabelForLeg(leg, options) ?? "someone"
       return waitingOnDriverLabel(who)
     }
@@ -198,29 +253,12 @@ export function rideLegStatusChips(
   legs: readonly CarpoolRideLeg[] | null | undefined,
   options?: RideLegChipOptions,
 ): RideStatusChipDescriptor[] {
-  const ordered = orderedLegs(legs)
-  if (ordered.length === 0) {
-    return []
-  }
-
-  const labeled = ordered.map((leg) => ({
-    leg,
-    body: legPhaseStatusLabel(leg, options),
-  }))
-
-  if (labeled.length === 2 && labeled[0]!.body === labeled[1]!.body) {
-    return [
-      {
-        label: labeled[0]!.body,
-        tone: legChipTone(labeled[0]!.leg),
-      },
-    ]
-  }
-
-  return labeled.map(({ leg, body }) => ({
-    label: legStatusChipLabel(leg.kind, body),
-    tone: legChipTone(leg),
-  }))
+  return collapseMatchingLegChips(
+    orderedLegs(legs).map((leg) => ({
+      label: legStatusChipLabel(leg.kind, legPhaseStatusLabel(leg, options)),
+      tone: legChipTone(leg),
+    })),
+  )
 }
 
 /**
@@ -254,20 +292,7 @@ function transportLegsForItem(
   ownRequest: CarpoolRide | null | undefined,
   rideEvent: CarpoolRideEvent | null | undefined,
 ): CarpoolRideLeg[] | null {
-  const fromRequest =
-    ownRequest?.legs != null && ownRequest.legs.length > 0 ? ownRequest.legs : null
-  const fromEvent =
-    rideEvent?.ownLegs != null && rideEvent.ownLegs.length > 0 ? rideEvent.ownLegs : null
-  const legs = fromRequest ?? fromEvent
-  if (legs == null) {
-    return null
-  }
-  // Household coverage Confirm/Assign still writes coverage rows, not leg slots
-  // yet — keep the coverage chip when legs are still blank NEEDS_RIDE.
-  if (ownRequest == null && legs.every((leg) => leg.phase === "NEEDS_RIDE")) {
-    return null
-  }
-  return legs
+  return nonBlankTransportLegs(ownRequest, rideEvent)
 }
 
 /**
@@ -353,12 +378,30 @@ export function rideStatusChipsForItem(
     urgent != null &&
     isOwnRideGap(urgent) &&
     !ownRequest.kidIds.includes(urgent.kidId)
+  const inboundCounts = inboundConfirmedCountByKind(
+    options?.rideEvent?.otherRequests,
+    circleId,
+  )
+  const hasInboundPlus = inboundCounts.TO > 0 || inboundCounts.FROM > 0
 
-  if (remainingGapBesideOwnPlan) {
+  if (remainingGapBesideOwnPlan && urgent != null) {
     chips.push(rideStatusChipForGameRow(urgent, ownRequest))
-  } else if (legs != null) {
+  } else if (
+    urgent != null &&
+    isConfirmedDriver(urgent.ownRide) &&
+    legs == null &&
+    hasInboundPlus
+  ) {
     chips.push(
-      ...rideLegStatusChips(legs, {
+      ...combinedHouseholdInboundLegChips(urgent.ownRide.driver, inboundCounts),
+    )
+  } else if (legs != null) {
+    const overlayCounts =
+      ownRequest?.status === "ACCEPTED"
+        ? { TO: 0, FROM: 0 }
+        : inboundCounts
+    chips.push(
+      ...legChipsWithInboundOverlay(legs, overlayCounts, {
         currentAdultId: options?.currentAdultId,
         confirmedNameFallback:
           ownRequest?.status === "ACCEPTED"

@@ -62,5 +62,9 @@ export type {
   CarpoolSummary,
   CancelCarpoolRideRequest,
   CreateCarpoolRideRequest,
+  SaveCarpoolRidePlanLeg,
+  SaveCarpoolRidePlanRequest,
+  SaveCarpoolRidePlanResponse,
+  CarpoolRidePlanLegAction,
   WithdrawCarpoolRideRequest,
 } from "@/api/types"

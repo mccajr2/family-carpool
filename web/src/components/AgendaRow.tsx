@@ -28,14 +28,15 @@ import {
 } from "@/components/canRoute"
 import {
   applyAutoDeclinedViewModel,
+  hasWaitingHouseholdForAdult,
   isConfirmedDriver,
+  isOwnRideGap,
   isPendingHouseholdConfirm,
   isUnassigned,
   mapCalendarItemToCoverageGames,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
-import { DriverPicker } from "@/components/DriverPicker"
-import { revertOwnRideLabel } from "@/components/revertRideCopy"
+import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
 import {
   activeCoverageForAdult,
   activeCoverages,
@@ -43,12 +44,10 @@ import {
   coverageAdultLabel,
   eventKidNames,
   pendingCoverageForAdult,
-  remainingCoverageGapKidIds,
 } from "@/components/coverageDisplay"
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
-  cancelRequestToDriverLabel,
   markAsNotGoingLabel,
   needsCoverageWithKids,
 } from "@/components/coverageCopy"
@@ -63,6 +62,13 @@ import {
 import { ridersForItem } from "@/components/riderChips"
 import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
+import {
+  decidedAssigneeRevertLabel,
+  decidedAssigneesFromLegs,
+  nonBlankTransportLegs,
+  transportGapKidIds,
+  type DecidedAssignee,
+} from "@/components/transportPlan"
 
 /** Team/feed label for GameCard header — omit for manual events without a feed name. */
 function agendaRowTeamLabel(item: CalendarItem): string | null {
@@ -83,7 +89,11 @@ function agendaRowTeamLabel(item: CalendarItem): string | null {
  * (ADR-0003). Pending confirm-for-self keeps Confirm/Decline.
  */
 function showDriverPickerForKid(game: CoverageGameEvent): boolean {
-  return isUnassigned(game.ownRide) || game.ownRide === "requested"
+  return isOwnRideGap(game) || game.ownRide === "requested"
+}
+
+function hasInPlayOwnRideGap(games: readonly CoverageGameEvent[]): boolean {
+  return games.some((game) => game.attendance !== "not_going" && isOwnRideGap(game))
 }
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
@@ -102,16 +112,21 @@ type AgendaRowProps = {
   /** Session-local auto-decline ids — inbound chip + Reconsider until Accept. */
   autoDeclinedRideIds?: ReadonlySet<string>
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
+  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs, kidIds?: string[]) => void
   onCancelRide?: (rideId: string) => void
-  onWithdrawRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   /** Own-ride revert; when omitted, maps to onRemoveCoverage / onCancelRide. */
   onCantMakeIt?: (game: CoverageGameEvent) => void
+  /** Per-assignee revert from decided ownLegs (preferred over rollup onCantMakeIt). */
+  onRevertDecidedAssignee?: (assignee: DecidedAssignee) => void
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
+  onConfirmHouseholdPlan?: () => void
+  onDeclineHouseholdPlan?: () => void
   onRemoveCoverage: (assignmentId: string) => void
   onSetLeaveFrom: (body: SetCalendarLeaveFromRequest) => void
   onSetCoverageLeaveFrom: (
@@ -154,15 +169,19 @@ export function AgendaRow({
   recentlyWithdrawnRideIds,
   autoDeclinedRideIds,
   onCreateRide,
+  onSaveRidePlan,
   onCancelRide,
   onWithdrawRide,
   onAcceptRide,
   onPassRide,
   onCantMakeIt,
+  onRevertDecidedAssignee,
   onUpdateAssignDraft,
   onAssignCoverage,
   onConfirmCoverage,
   onDeclineCoverage,
+  onConfirmHouseholdPlan,
+  onDeclineHouseholdPlan,
   onRemoveCoverage,
   onSetLeaveFrom,
   onSetCoverageLeaveFrom,
@@ -179,6 +198,11 @@ export function AgendaRow({
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
+  const pendingHouseholdPlan =
+    pendingForSelf == null &&
+    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    onConfirmHouseholdPlan != null &&
+    onDeclineHouseholdPlan != null
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const ownRequest = rideEvent?.ownRequest ?? null
@@ -189,20 +213,28 @@ export function AgendaRow({
     }),
     autoDeclinedRideIds ?? new Set(),
   )
-  const gapKidIds = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKidIds = transportGapKidIds(
+    item.uncoveredKidIds,
+    ownRequest,
+    rideEvent?.ownLegs,
+  )
   // Gap copy only for true unassigned kids — team ask / teammate ride use chips + revert.
   const unassignedGapKidIds = gapKidIds.filter((kidId) => {
     const game = coverageGames.find((row) => row.kidId === kidId)
-    return game == null || isUnassigned(game.ownRide)
+    return game == null || isUnassigned(game.ownRide) || isOwnRideGap(game)
   })
   // Assign is available for unassigned gaps and open team asks (Assign cancels the ask).
   const assignableGapKidIds = gapKidIds.filter((kidId) => {
     const game = coverageGames.find((row) => row.kidId === kidId)
     return (
-      game == null || isUnassigned(game.ownRide) || game.ownRide === "requested"
+      game == null ||
+      isUnassigned(game.ownRide) ||
+      game.ownRide === "requested" ||
+      isOwnRideGap(game)
     )
   })
   const uncoveredKidNames = eventKidNames(unassignedGapKidIds, circle.kids)
+  const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
   const canAskTeam =
     rideEvent != null &&
     rideEvent.ownRequest == null &&
@@ -211,10 +243,12 @@ export function AgendaRow({
   const showAssign =
     !outOfPlay &&
     !pendingForSelf &&
+    !pendingHouseholdPlan &&
     assignableGapKidIds.length > 0 &&
     circle.members.length > 0
-  const showRequestInCarpool = canAskTeam && !showAssign
-  const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
+  const hasOwnRideGap = hasInPlayOwnRideGap(coverageGames)
+  // Request is recovery after a gap re-opens — not a default when transport is settled.
+  const showRequestInCarpool = canAskTeam && hasOwnRideGap && !showAssign
   const canOffer = inPlayGames.some((game) => isHouseholdConfirmedDriver(game, rideEvent))
   // Entry only when gate passes and a handler exists — never a dead-end control.
   const routable =
@@ -250,13 +284,22 @@ export function AgendaRow({
     showRequestInCarpool &&
     defaultRideKids.length > 0 &&
     onCreateRide != null
+  const transportLegs = nonBlankTransportLegs(ownRequest, rideEvent)
+  const decidedAssignees = decidedAssigneesFromLegs(transportLegs ?? rideEvent?.ownLegs, {
+    currentAdultId,
+    teammateCircleId: ownRequest?.acceptingCircleId,
+    teammateCircleName: ownRequest?.acceptingCircleName,
+  }).filter((assignee) => assignee.kind !== "team_ask")
   const confirmedGames = inPlayGames.filter((game) => isConfirmedDriver(game.ownRide))
   const waitingOnOtherGames = inPlayGames.filter(
     (game) =>
       isPendingHouseholdConfirm(game.ownRide) && game.ownRide.driver !== "You",
   )
   const showOverrideLinks =
-    !outOfPlay && (confirmedGames.length > 0 || waitingOnOtherGames.length > 0)
+    !outOfPlay &&
+    (decidedAssignees.length > 0 ||
+      confirmedGames.length > 0 ||
+      waitingOnOtherGames.length > 0)
   /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
   const leaveFromInPicker = showAssign && active.length === 0
   const firstPickerKidId =
@@ -495,16 +538,59 @@ export function AgendaRow({
                   className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
                 >
                   {(() => {
-                    const seenLabels = new Set<string>()
+                    const seenKeys = new Set<string>()
+                    if (decidedAssignees.length > 0) {
+                      return decidedAssignees.map((assignee) => {
+                        if (seenKeys.has(assignee.key)) {
+                          return null
+                        }
+                        seenKeys.add(assignee.key)
+                        const label = decidedAssigneeRevertLabel(assignee)
+                        return (
+                          <button
+                            key={`revert-${assignee.key}`}
+                            type="button"
+                            disabled={loading}
+                            className={overrideLinkClass}
+                            data-testid={
+                              assignee.waiting
+                                ? "agenda-cancel-request-link"
+                                : "agenda-reassign-link"
+                            }
+                            onClick={() => {
+                              if (onRevertDecidedAssignee != null) {
+                                onRevertDecidedAssignee(assignee)
+                                return
+                              }
+                              const game =
+                                inPlayGames.find((row) => isConfirmedDriver(row.ownRide)) ??
+                                inPlayGames.find((row) =>
+                                  isPendingHouseholdConfirm(row.ownRide),
+                                ) ??
+                                inPlayGames[0]
+                              if (game != null) {
+                                if (assignee.waiting) {
+                                  cancelPendingRequestForGame(game)
+                                } else {
+                                  handleCantMakeIt(game)
+                                }
+                              }
+                            }}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })
+                    }
                     const cancelLinks = waitingOnOtherGames.map((game) => {
                       if (!isPendingHouseholdConfirm(game.ownRide)) {
                         return null
                       }
-                      const label = cancelRequestToDriverLabel(game.ownRide.driver)
-                      if (seenLabels.has(label)) {
+                      const label = `Cancel request to ${game.ownRide.driver}`
+                      if (seenKeys.has(label)) {
                         return null
                       }
-                      seenLabels.add(label)
+                      seenKeys.add(label)
                       return (
                         <button
                           key={`cancel-request-${game.kidId}`}
@@ -519,13 +605,20 @@ export function AgendaRow({
                       )
                     })
                     const reassignLinks = confirmedGames.map((game) => {
-                      const label = revertOwnRideLabel(game.ownRide, {
-                        teammateRide: isTeammateOwnRide(game, rideEvent),
-                      })
-                      if (label == null || seenLabels.has(label)) {
+                      const label =
+                        game.ownRide === "requested"
+                          ? null
+                          : isConfirmedDriver(game.ownRide)
+                            ? game.ownRide.driver === "You"
+                              ? "Can't drive anymore? Reassign the ride"
+                              : isTeammateOwnRide(game, rideEvent)
+                                ? `${game.ownRide.driver} can't drive anymore? Find a new ride`
+                                : `${game.ownRide.driver} can't drive anymore? Reassign the ride`
+                            : null
+                      if (label == null || seenKeys.has(label)) {
                         return null
                       }
-                      seenLabels.add(label)
+                      seenKeys.add(label)
                       return (
                         <button
                           key={`reassign-${game.kidId}`}
@@ -605,10 +698,22 @@ export function AgendaRow({
                 const kidName = kid?.displayName?.trim() || "Kid"
                 const pendingSelfForKid =
                   pendingForSelf != null && pendingForSelf.kidIds.includes(game.kidId)
+                const firstInPlayKidId = coverageGames.find(
+                  (row) => row.attendance !== "not_going",
+                )?.kidId
+                const pendingHouseholdForKid =
+                  pendingHouseholdPlan &&
+                  game.attendance !== "not_going" &&
+                  game.kidId === firstInPlayKidId
                 const showKidChrome = !outOfPlay && game.attendance !== "not_going"
                 const showPicker = showKidChrome && showAssign && showDriverPickerForKid(game)
 
-                if (showOverrideLinks && !showPicker && !pendingSelfForKid) {
+                if (
+                  showOverrideLinks &&
+                  !showPicker &&
+                  !pendingSelfForKid &&
+                  !pendingHouseholdForKid
+                ) {
                   return null
                 }
 
@@ -636,6 +741,29 @@ export function AgendaRow({
                               size="sm"
                               variant="outline"
                               onClick={() => onDeclineCoverage(pendingForSelf.id)}
+                              disabled={loading}
+                            >
+                              {DECLINE_COVERAGE}
+                            </Button>
+                          </div>
+                        ) : null}
+
+                        {pendingHouseholdForKid ? (
+                          <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
+                            <Button
+                              type="button"
+                              size="sm"
+                              data-testid="agenda-cta-primary"
+                              onClick={() => onConfirmHouseholdPlan?.()}
+                              disabled={loading}
+                            >
+                              {CONFIRM_COVERAGE}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onDeclineHouseholdPlan?.()}
                               disabled={loading}
                             >
                               {DECLINE_COVERAGE}
@@ -671,6 +799,18 @@ export function AgendaRow({
                                   )
                                 }
                               }}
+                              onSaveRidePlan={
+                                onSaveRidePlan != null
+                                  ? (legs) => {
+                                      const onlyGap =
+                                        gapKidIds.length === 1 && gapKidIds[0] === game.kidId
+                                      onSaveRidePlan(
+                                        legs,
+                                        onlyGap ? undefined : [game.kidId],
+                                      )
+                                    }
+                                  : undefined
+                              }
                               showTeamSection={canAskTeam}
                             />
                           </div>
