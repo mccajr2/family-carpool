@@ -705,6 +705,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
     ownRequest: null,
+    ownRequests: [],
     otherRequests: [pendingAsk],
   }
 
@@ -889,7 +890,7 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(screen.queryByTestId("agenda-focus-incoming-ask")).not.toBeInTheDocument()
   })
 
-  it("keeps Ride needed chip and Assign while own ride is still PENDING", () => {
+  it("keeps Asked team chip and omits Assign while own ride is PENDING for the gap kid", () => {
     renderCard(
       item({
         id: "own-pending-gap",
@@ -919,10 +920,9 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     expect(within(chips).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(chips).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(chips).queryByText("Ride needed")).not.toBeInTheDocument()
-    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-MANUAL-own-pending-gap")).toHaveStyle({
-      backgroundColor: "var(--fc-hero-surface)",
+      backgroundColor: "var(--fc-surface-raised)",
     })
   })
 })
@@ -960,6 +960,7 @@ describe("AgendaFocusCard Cancel CTA", () => {
     ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
     ownRequest: ownPending,
+    ownRequests: [],
     otherRequests: [],
   }
 
@@ -1015,7 +1016,7 @@ describe("AgendaFocusCard Cancel CTA", () => {
     expect(onCancelRide).toHaveBeenCalledWith("own-ride")
   })
 
-  it("keeps Cancel outline beside Assign when own PENDING still has a coverage gap", () => {
+  it("keeps Cancel for own PENDING without Assign when the ask covers the gap kid", () => {
     renderCard(
       item({
         id: "cancel-with-assign",
@@ -1029,8 +1030,7 @@ describe("AgendaFocusCard Cancel CTA", () => {
         onCancelRide: vi.fn(),
       },
     )
-    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
-    expect(screen.getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
 })
@@ -1072,6 +1072,7 @@ describe("AgendaFocusCard Withdraw CTA", () => {
         ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
         ownRequest: null,
+        ownRequests: [],
         otherRequests: [acceptedByUsAsk],
       },
       onWithdrawRide,
@@ -1098,6 +1099,7 @@ describe("AgendaFocusCard Withdraw CTA", () => {
         defaultKidIds: [],
         ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         ownRequest: null,
+        ownRequests: [],
         otherRequests: [{ ...acceptedByUsAsk, acceptingCircleId: "c9", acceptingCircleName: "Them" }],
       },
       onWithdrawRide: vi.fn(),
@@ -1115,6 +1117,7 @@ describe("AgendaFocusCard Withdraw CTA", () => {
         defaultKidIds: [],
         ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
         ownRequest: null,
+        ownRequests: [],
         otherRequests: [
           acceptedByUsAsk,
           {
@@ -1147,6 +1150,7 @@ describe("AgendaFocusCard Request CTA", () => {
     ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
     ownRequest: null,
+    ownRequests: [],
     otherRequests: [],
   }
 
@@ -1228,6 +1232,7 @@ describe("AgendaFocusCard Request CTA", () => {
             acceptingCircleName: "Sharks Family",
     legs: carpoolLegsBoth("CONFIRMED"),
           },
+          ownRequests: [],
           otherRequests: [],
         },
         onAssignCoverage: vi.fn(),
@@ -1296,6 +1301,7 @@ describe("AgendaFocusCard Request CTA", () => {
             acceptingCircleName: "Sharks Family",
     legs: carpoolLegsBoth("CONFIRMED"),
           },
+          ownRequests: [],
           otherRequests: [],
         },
         assignDraft: { adultId: "a1", kidIds: ["k2"], soleAdult: true, soleKid: true },
@@ -1423,6 +1429,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [inboundAccepted],
         },
         onWithdrawRide,
@@ -1475,6 +1482,7 @@ describe("AgendaFocusCard ride commitment conflict", () => {
             acceptingCircleName: "House B",
     legs: carpoolLegsBoth("CONFIRMED"),
           },
+          ownRequests: [],
           otherRequests: [inboundAccepted],
         },
         onWithdrawRide: vi.fn(),
@@ -1490,5 +1498,87 @@ describe("AgendaFocusCard ride commitment conflict", () => {
     expect(screen.getByTestId("agenda-focus-ride-conflict")).toHaveTextContent(
       "You're driving Mia and Sam rides with them — pick one plan.",
     )
+  })
+})
+
+describe("AgendaFocusCard kid-split DriverPicker", () => {
+  const twoKidCircle: FamilyCircle = {
+    ...circle,
+    kids: [
+      { id: "k1", displayName: "Sam" },
+      { id: "k2", displayName: "Mia" },
+    ],
+  }
+
+  const gapRide = {
+    eventKey: "UID:practice",
+    title: "Practice",
+    startsAt: "2030-08-15T17:00:00.000Z",
+    endsAt: null,
+    defaultKidIds: ["k1", "k2"],
+    ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+    ownRequest: null,
+    ownRequests: [],
+    otherRequests: [],
+  }
+
+  it("shows Different plans for each kid and opens kid-split with onSaveKidPlans", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    renderCard(
+      item({
+        id: "kid-split-focus",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "Soccer",
+        kidIds: ["k1", "k2"],
+        uncoveredKidIds: ["k1", "k2"],
+        rsvps: [
+          { kidId: "k1", status: "YES" },
+          { kidId: "k2", status: "YES" },
+        ],
+      }),
+      {
+        circle: twoKidCircle,
+        rideEvent: gapRide,
+        onCreateRide: vi.fn(),
+        onSaveKidPlans,
+        assignDraft: {
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: true,
+          soleKid: false,
+        },
+      },
+    )
+
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-different-plans-kid")).toBeInTheDocument()
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(screen.getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
+    expect(screen.getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
+  })
+
+  it("omits the kid-split link for a single going kid", () => {
+    renderCard(
+      item({
+        id: "one-kid-focus",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "Soccer",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: { ...gapRide, defaultKidIds: ["k1"] },
+        onCreateRide: vi.fn(),
+        onSaveKidPlans: vi.fn(),
+      },
+    )
+
+    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.queryByTestId("driver-picker-different-plans-kid")).not.toBeInTheDocument()
   })
 })

@@ -119,6 +119,7 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownRequests: partial.ownRequests ?? (partial.ownRequest != null ? [partial.ownRequest] : []),
     ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
@@ -762,6 +763,51 @@ describe("mapCalendarItemToCoverageGames", () => {
     expect(rows[0]?.ownRide).toBe("unassigned")
     expect(rows[0]?.ownLegs).toEqual(mixedLegs)
     expect(getQueue(rows).map((item) => item.game.id)).toEqual(["MANUAL-e1:k1"])
+  })
+
+  it("queues only the open kid when ownRequests split household and ask plans", () => {
+    const household = ownRide({
+      id: "plan-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+    })
+    const open = ownRide({
+      id: "plan-b",
+      status: "PLAN",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Alex",
+        }),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ],
+    })
+    const rows = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: [] }),
+      rideEvent({
+        ownRequests: [household, open],
+        ownRequest: null,
+        ownLegs: null,
+        defaultKidIds: ["k1", "k2"],
+      }),
+      mapOptions,
+    )
+
+    expect(rows.find((row) => row.kidId === "k1")?.ownRide).toEqual({
+      driver: "You",
+      confirmed: true,
+    })
+    expect(rows.find((row) => row.kidId === "k2")?.ownRide).toBe("unassigned")
+    expect(isOwnRideGap(rows.find((row) => row.kidId === "k2")!)).toBe(true)
+    expect(isOwnRideGap(rows.find((row) => row.kidId === "k1")!)).toBe(false)
+    expect(getQueue(rows).map((item) => item.game.kidId)).toEqual(["k2"])
   })
 
   it("maps inbound otherRequests onto each kid row", () => {

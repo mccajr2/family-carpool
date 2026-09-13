@@ -97,6 +97,7 @@ describe("transportPlan dogfood batch 2", () => {
         defaultKidIds: ["k1"],
         ownLegs: legs,
         ownRequest: null,
+        ownRequests: [],
         otherRequests: [],
       } satisfies CarpoolRideEvent,
       { currentAdultId: "a1", members },

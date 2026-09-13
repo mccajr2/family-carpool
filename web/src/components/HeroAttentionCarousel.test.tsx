@@ -71,6 +71,7 @@ const rideEvent: CarpoolRideEvent = {
   defaultKidIds: ["k1"],
   ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
   ownRequest: null,
+  ownRequests: [],
   otherRequests: [
     {
       id: "ride-1",

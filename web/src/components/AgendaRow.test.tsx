@@ -647,6 +647,7 @@ describe("AgendaRow", () => {
           defaultKidIds: [],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "accepted-1",
@@ -842,6 +843,7 @@ describe("AgendaRow", () => {
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1021,6 +1023,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: "Sharks Family",
     legs: carpoolLegsBoth("CONFIRMED"),
       },
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1108,6 +1111,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: "House B",
     legs: carpoolLegsBoth("CONFIRMED"),
       },
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1143,7 +1147,7 @@ describe("AgendaRow", () => {
     ).toBeInTheDocument()
   })
 
-  it("shows Assign and Cancel ask while own ride is PENDING", async () => {
+  it("shows Cancel ask without Assign while own ride is PENDING", async () => {
     const user = userEvent.setup()
     const feedItem = item({
       id: "feed-pending",
@@ -1182,6 +1186,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: null,
     legs: carpoolLegsBoth("ASKED_TEAM"),
       },
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1206,9 +1211,8 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText(RIDE_NEEDED)).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
-    // Assign cancels the open ask (auto-decline-unofferable); Cancel ask still available.
-    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(row).getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    // Fully asked PENDING covers the kid — no Assign; Cancel ask stays.
+    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(within(row).queryByText("Needs coverage: Sam")).not.toBeInTheDocument()
     expect(
       within(row).getByRole("button", {
@@ -1240,6 +1244,7 @@ describe("AgendaRow", () => {
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1308,6 +1313,7 @@ describe("AgendaRow", () => {
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -1356,6 +1362,7 @@ describe("AgendaRow", () => {
       defaultKidIds: [],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [
         {
           id: "ask-accepted",
@@ -1438,6 +1445,7 @@ describe("AgendaRow", () => {
           defaultKidIds: ["k1"],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "pending-other",
@@ -1529,6 +1537,7 @@ describe("AgendaRow", () => {
             acceptingCircleName: null,
     legs: carpoolLegsBoth("ASKED_TEAM"),
           },
+          ownRequests: [],
           otherRequests: [
             {
               id: "inbound-ask",
@@ -1597,6 +1606,7 @@ describe("AgendaRow", () => {
           defaultKidIds: ["k1"],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "still-pending",
@@ -1680,6 +1690,7 @@ describe("AgendaRow", () => {
           defaultKidIds: ["k1"],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "still-pending",
@@ -1747,6 +1758,7 @@ describe("AgendaRow", () => {
           defaultKidIds: ["k1"],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "sticky-ask",
@@ -1814,6 +1826,7 @@ describe("AgendaRow", () => {
           defaultKidIds: ["k1"],
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [
             {
               id: "pending-other",
@@ -1885,6 +1898,7 @@ describe("AgendaRow", () => {
             assigneeDisplayName: "Alex",
           }),
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [],
         }}
         onCreateRide={vi.fn()}
@@ -2142,6 +2156,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: "Sharks",
     legs: carpoolLegsBoth("ASKED_TEAM"),
       },
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -2303,6 +2318,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: null,
     legs: carpoolLegsBoth("ASKED_TEAM"),
       },
+      ownRequests: [],
       otherRequests: [],
     }
 
@@ -2408,6 +2424,7 @@ describe("AgendaRow", () => {
       defaultKidIds: ["k1"],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [
         {
           id: "ask-accepted",
@@ -2505,6 +2522,7 @@ describe("AgendaRow", () => {
         acceptingCircleName: "House B",
     legs: carpoolLegsBoth("CONFIRMED"),
       },
+      ownRequests: [],
       otherRequests: [
         {
           id: "ask-accepted",
@@ -2635,6 +2653,7 @@ describe("AgendaRow", () => {
           ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
 
           ownRequest: null,
+          ownRequests: [],
           otherRequests: [],
         }}
         onOpenRide={onOpenRide}
@@ -2760,6 +2779,7 @@ describe("AgendaRow", () => {
             acceptingCircleName: "The Patels",
     legs: carpoolLegsBoth("ASKED_TEAM"),
           },
+          ownRequests: [],
           otherRequests: [],
         }}
         onOpenRide={onOpenRide}
@@ -2770,5 +2790,65 @@ describe("AgendaRow", () => {
     expect(within(row).getByTestId("agenda-row-open-ride")).toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByTestId("agenda-row-open-ride-cta")).toBeInTheDocument()
+  })
+
+  it("shows Different plans for each kid on expanded uncovered DriverPicker", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    const twoKidCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Mia" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-kid-split",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    const rideEvent = {
+      eventKey: "UID:kid-split",
+      title: "Practice",
+      startsAt: feedItem.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+      ownRequest: null,
+      ownRequests: [],
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKidCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: true, soleKid: false }}
+        rideEvent={rideEvent}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        onSaveKidPlans={onSaveKidPlans}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-kid-split")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const firstKid = within(row).getByTestId("agenda-kid-row-k1")
+    expect(within(firstKid).getByTestId("driver-picker-different-plans-kid")).toBeInTheDocument()
+    await user.click(within(firstKid).getByTestId("driver-picker-different-plans-kid"))
+    expect(within(firstKid).getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(within(firstKid).getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
+    expect(within(firstKid).getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
   })
 })

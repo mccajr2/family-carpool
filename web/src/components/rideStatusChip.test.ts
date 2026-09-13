@@ -362,6 +362,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: ["k1"],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [inbound],
     }
     const item = calendarItem()
@@ -418,6 +419,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: ["k1"],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [inbound],
     }
     const item = calendarItem({
@@ -464,6 +466,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: [],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: accepted,
+      ownRequests: [],
       otherRequests: [inbound],
     }
     const item = calendarItem({ kidIds: ["k1"] })
@@ -504,6 +507,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: ["k1"],
       ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
       ownRequest: null,
+      ownRequests: [],
       otherRequests: [inbound],
     }
     const item = calendarItem({ kidIds: ["k1"], uncoveredKidIds: ["k1"] })
@@ -530,6 +534,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: ["k1"],
       ownLegs: carpoolLegsBoth("ASKED_TEAM"),
       ownRequest: pending,
+      ownRequests: [],
       otherRequests: [],
     }
     const item = calendarItem({ kidIds: ["k1"] })
@@ -558,6 +563,7 @@ describe("rideStatusChipsForItem", () => {
       defaultKidIds: ["k1", "k2"],
       ownLegs: carpoolLegsBoth("CONFIRMED"),
       ownRequest: accepted,
+      ownRequests: [],
       otherRequests: [],
     }
     const item = calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: ["k2"] })

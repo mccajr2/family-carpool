@@ -22,6 +22,7 @@ function rideEvent(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownRequests: partial.ownRequests ?? (partial.ownRequest != null ? [partial.ownRequest] : []),
     ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }

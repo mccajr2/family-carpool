@@ -1,9 +1,9 @@
 # Spec: carpool-kid-split-plans
 
-Status: draft
+Status: archived
 Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-09-10
-Updated: 2026-09-13 (`/implement` — multi-plan gaps/chips)
+Updated: 2026-09-13 (`/pr` — archive after ship)
 Added: 2026-09-10 · re-rank split
 Branch: `carpool-kid-split-plans`
 
@@ -236,7 +236,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
       grouping + per-kid gaps/chips; architecture Team carpool Rides /
       Clients / Out of scope updated (per-kid plans in; partial accept and
       locations still out).
-- [ ] Backend unit + integration coverage for split/merge Save, mixed
+- [x] Backend unit + integration coverage for split/merge Save, mixed
       household+Ask, unique-index change, RSVP-NO sibling isolation;
       web tests for kid-split toggle, Save grouping, Back, and queue gap
       with two `ownRequests`. Relevant suites pass; `ModularityTests` still
@@ -258,7 +258,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
       Focus/Hero + Agenda expanded call sites; `coverageCopy` string
 - [x] Web: `transportPlan` / chips / `coverageQueue` / Focus gap helpers
       read all own plans (not singular `ownRequest` / event `ownLegs` only)
-- [ ] Tests: DriverPicker / Focus / AgendaRow / transportPlan / coverageQueue
+- [x] Tests: DriverPicker / Focus / AgendaRow / transportPlan / coverageQueue
       (+ backend as above); run relevant web + carpool tests; report results
 
 ## Open questions

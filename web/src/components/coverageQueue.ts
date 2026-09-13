@@ -363,6 +363,8 @@ function mapCarpoolRideStatus(
     case "ACCEPTED":
       return "accepted"
     case "CANCELLED":
+    case "PLAN":
+      // PLAN is own-plan only; inbound otherRequests never use it.
       return "declined"
   }
 }
