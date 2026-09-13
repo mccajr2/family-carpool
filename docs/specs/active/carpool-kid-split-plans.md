@@ -3,7 +3,7 @@
 Status: draft
 Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-09-10
-Updated: 2026-09-13 (`/implement` — docs task)
+Updated: 2026-09-13 (`/implement` — contract task)
 Added: 2026-09-10 · re-rank split
 Branch: `carpool-kid-split-plans`
 
@@ -215,7 +215,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [ ] **Back to simple view** restores collapsed shared round-trip chrome
       without merging. Confirm / Post from simple view still writes one
       shared plan for all going kids.
-- [ ] OpenAPI documents the multi-plan list + Save replace semantics (version
+- [x] OpenAPI documents the multi-plan list + Save replace semantics (version
       bump); web clients updated in the same change; **no** per-leg location
       schema; **no** PR #107-only need-row remodel.
 - [ ] Unique DB indexes no longer forbid multiple active plans per
@@ -248,7 +248,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
       `docs/agenda-coverage-web-contract.md`; architecture Team carpool
       Rides / Clients / Out of scope; note on `carpool-meet-at` stub
       (locations still owned there; point archived leg-split spec)
-- [ ] Contract: OpenAPI multi-plan list + Save replace / grouping; version
+- [x] Contract: OpenAPI multi-plan list + Save replace / grouping; version
       bump; web `types` + `carpoolClient`
 - [ ] Backend: drop one-plan-per-event unique indexes; kid-exclusive
       invariant; atomic Save split/merge; RSVP-NO / confirm / clear scoped
@@ -263,10 +263,13 @@ above. Do not implement meet-at places or PR #107 need-rows.
 
 ## Open questions
 
-- Exact OpenAPI names (`ownRequests` vs wrapping `ownKidPlans`) and whether
+- ~~Exact OpenAPI names (`ownRequests` vs wrapping `ownKidPlans`) and whether
   Save sends already-grouped `plans[]` or per-kid rows the server groups —
   implementer picks the **smallest correct** surface; do not block on
-  inventing per-leg places or need-rows.
+  inventing per-leg places or need-rows.~~ **Locked:** `ownRequests` on list /
+  save response; Save body is `plans[]` of `{ kidIds, legs }` (server merges
+  identical TO/FROM outcomes). Singular `ownRequest` / `ownLegs` only when
+  exactly one plan.
 - Chip label when two plan groups exist (e.g. `{Kid} · {body}` vs coverage-
   style `{Kid} & {Kid}`) — follow existing name-join helpers; lock in PR if
   review wants different punctuation.

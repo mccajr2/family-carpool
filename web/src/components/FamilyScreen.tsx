@@ -1328,7 +1328,7 @@ export function FamilyScreen({
         : undefined
     const resolvedKidIds =
       kidIds != null && kidIds.length > 0 ? kidIds : item.kidIds
-    if (spaceId == null && resolvedKidIds.length === 0) {
+    if (resolvedKidIds.length === 0) {
       return
     }
     setStatus({ kind: "loading" })
@@ -1341,14 +1341,22 @@ export function FamilyScreen({
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
           eventKey: resolvedEventKey,
-          ...(kidIds != null ? { kidIds } : {}),
-          legs: planLegs,
+          plans: [
+            {
+              kidIds: resolvedKidIds,
+              legs: planLegs,
+            },
+          ],
         })
       } else {
         await carpoolClient.saveCircleRidePlan(token, {
           eventKey: resolvedEventKey,
-          kidIds: resolvedKidIds,
-          legs: planLegs,
+          plans: [
+            {
+              kidIds: resolvedKidIds,
+              legs: planLegs,
+            },
+          ],
         })
       }
       const itemKey = calendarItemKey(item)
