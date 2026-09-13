@@ -5758,13 +5758,15 @@ components:
 
     CarpoolRideStatus:
       type: string
-      enum: [PENDING, ACCEPTED, CANCELLED]
+      enum: [PENDING, ACCEPTED, CANCELLED, PLAN]
       description: >
-        Team-request rollup. PENDING — at least one asked leg still open
+        Team-request / plan rollup. PENDING — at least one asked leg still open
         (ASKED_TEAM). ACCEPTED — a member circle accepted; asked legs are
         CONFIRMED. CANCELLED — requesting circle cancelled (may request
-        again). Per-leg detail is on `legs` / `ownRequests` / singular
-        `ownLegs` when one plan.
+        again). PLAN — household-only active plan (no open team ask). Appears
+        on `ownRequests` entries; singular `ownRequest` stays null for PLAN.
+        Per-leg detail is on `legs` / `ownRequests` / singular `ownLegs` when
+        one plan.
 
     CarpoolRide:
       type: object

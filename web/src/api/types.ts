@@ -362,7 +362,7 @@ export type CarpoolSummary = {
   spaces: CarpoolSpace[]
 }
 
-export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED"
+export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED" | "PLAN"
 
 export type CarpoolLegKind = "TO" | "FROM"
 

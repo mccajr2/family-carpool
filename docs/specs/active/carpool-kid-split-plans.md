@@ -3,7 +3,7 @@
 Status: draft
 Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-09-10
-Updated: 2026-09-13 (`/implement` — contract task)
+Updated: 2026-09-13 (`/implement` — backend task)
 Added: 2026-09-10 · re-rank split
 Branch: `carpool-kid-split-plans`
 
@@ -205,11 +205,11 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [ ] Kid-split editor shows **one shared** Leave from control when any kid
       section is household; does **not** persist or show per-kid or per-leg
       place fields.
-- [ ] **Save ride plan** applies every going kid atomically. Identical
+- [x] **Save ride plan** applies every going kid atomically. Identical
       TO/FROM outcomes **group** onto one RideRequest (seats = grouped kid
       count). Divergent outcomes persist as separate requests. A kid is on
       at most one non-cancelled plan per circle+event.
-- [ ] Mixed matrix works end-to-end: e.g. kid A household TO-only (FROM
+- [x] Mixed matrix works end-to-end: e.g. kid A household TO-only (FROM
       Needs ride) + kid B Ask round-trip → household PLAN (or equivalent) for
       A and a 1-seat team ask for B; teammate Accept confirms B only.
 - [ ] **Back to simple view** restores collapsed shared round-trip chrome
@@ -218,7 +218,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [x] OpenAPI documents the multi-plan list + Save replace semantics (version
       bump); web clients updated in the same change; **no** per-leg location
       schema; **no** PR #107-only need-row remodel.
-- [ ] Unique DB indexes no longer forbid multiple active plans per
+- [x] Unique DB indexes no longer forbid multiple active plans per
       circle+event; tests cover the kid-exclusive invariant (409/400 if a
       kid would appear on two active plans).
 - [ ] `transportGapKidIds` / `getQueue` / Focus own-ride gap detection treat
@@ -227,10 +227,10 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [ ] Collapsed chips: shared (no per-kid prefix) while plans match; when
       they diverge, one chip group per distinct plan (names joined) with
       existing matching-leg collapse inside the group.
-- [ ] RSVP NO still removes that kid (and cancels an emptied plan) without
+- [x] RSVP NO still removes that kid (and cancels an emptied plan) without
       clearing siblings’ plans. `confirm-household` / `decline-household` /
       `clear-legs` stay scoped to the assignee’s plan(s), not every sibling.
-- [ ] Circle-local `GET/POST /api/carpool/ride-plans` allows multiple PLANs
+- [x] Circle-local `GET/POST /api/carpool/ride-plans` allows multiple PLANs
       per event; Enable attaches all matching null-space plans.
 - [x] `docs/agenda-coverage-web-contract.md` documents kid-split editor +
       grouping + per-kid gaps/chips; architecture Team carpool Rides /
@@ -250,7 +250,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
       (locations still owned there; point archived leg-split spec)
 - [x] Contract: OpenAPI multi-plan list + Save replace / grouping; version
       bump; web `types` + `carpoolClient`
-- [ ] Backend: drop one-plan-per-event unique indexes; kid-exclusive
+- [x] Backend: drop one-plan-per-event unique indexes; kid-exclusive
       invariant; atomic Save split/merge; RSVP-NO / confirm / clear scoped
       per plan; Enable attaches all PLANs; unit + integration tests
 - [ ] Web: **Different plans for each kid.** link + nested per-kid

@@ -694,24 +694,10 @@ class CarpoolRideControllerIntegrationTest {
                                 .param("from", FROM)
                                 .param("to", TO))
                 .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[0].kind")
-                                .value("TO"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[0].phase")
-                                .value("NEEDS_RIDE"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[1].phase")
-                                .value("NEEDS_RIDE"));
+                .andExpect(jsonPath("$[0].eventKey").value(EVENT_KEY))
+                .andExpect(jsonPath("$[0].ownRequests").isEmpty())
+                .andExpect(jsonPath("$[0].ownLegs").value((Object) null))
+                .andExpect(jsonPath("$[0].ownRequest").value((Object) null));
 
         MvcResult toOnly =
                 mockMvc.perform(
@@ -889,13 +875,16 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + EVENT_KEY
-                                                + "\",\"legs\":["
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + alexAdultId
                                                 + "\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownLegs[0].assigneeAdultId").value(alexAdultId))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("ASKED_TEAM"))
@@ -953,13 +942,16 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + EVENT_KEY
-                                                + "\",\"legs\":["
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + blakeAdultId
                                                 + "\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"NEEDS_RIDE\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("WAITING_HOUSEHOLD"))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("NEEDS_RIDE"))
                 .andExpect(jsonPath("$.ownRequest").value((Object) null));
@@ -1025,7 +1017,7 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + eventKey
-                                                + "\",\"kidIds\":[\""
+                                                + "\",\"plans\":[{\"kidIds\":[\""
                                                 + kidA
                                                 + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
@@ -1034,8 +1026,9 @@ class CarpoolRideControllerIntegrationTest {
                                                 + "{\"kind\":\"FROM\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + alexAdultId
                                                 + "\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownRequest").value((Object) null));
@@ -1045,6 +1038,7 @@ class CarpoolRideControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].eventKey").value(eventKey))
+                .andExpect(jsonPath("$[0].ownRequests.length()").value(1))
                 .andExpect(jsonPath("$[0].ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$[0].ownRequest").value((Object) null));
 
@@ -1055,12 +1049,12 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + eventKey
-                                                + "\",\"kidIds\":[\""
+                                                + "\",\"plans\":[{\"kidIds\":[\""
                                                 + kidA
                                                 + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"NEEDS_RIDE\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isBadRequest());
     }
 
