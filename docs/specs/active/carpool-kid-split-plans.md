@@ -3,7 +3,7 @@
 Status: draft
 Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-09-10
-Updated: 2026-09-13 (`/spec` — promote)
+Updated: 2026-09-13 (`/implement` — docs task)
 Added: 2026-09-10 · re-rank split
 Branch: `carpool-kid-split-plans`
 
@@ -232,7 +232,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
       `clear-legs` stay scoped to the assignee’s plan(s), not every sibling.
 - [ ] Circle-local `GET/POST /api/carpool/ride-plans` allows multiple PLANs
       per event; Enable attaches all matching null-space plans.
-- [ ] `docs/agenda-coverage-web-contract.md` documents kid-split editor +
+- [x] `docs/agenda-coverage-web-contract.md` documents kid-split editor +
       grouping + per-kid gaps/chips; architecture Team carpool Rides /
       Clients / Out of scope updated (per-kid plans in; partial accept and
       locations still out).
@@ -244,7 +244,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
 
 ## Tasks
 
-- [ ] Docs: this spec; roadmap Active row; update
+- [x] Docs: this spec; roadmap Active row; update
       `docs/agenda-coverage-web-contract.md`; architecture Team carpool
       Rides / Clients / Out of scope; note on `carpool-meet-at` stub
       (locations still owned there; point archived leg-split spec)

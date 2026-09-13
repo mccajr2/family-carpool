@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-13 (`/spec carpool-kid-split-plans` — promote)
+Updated: 2026-09-13 (`/implement carpool-kid-split-plans` — docs)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -288,6 +288,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-13 | `/implement carpool-kid-split-plans` docs: agenda contract kid-split + per-kid gaps/chips; architecture Team carpool Rides/Clients (per-kid in); Out of scope keeps partial accept + meet-at locations; `carpool-meet-at` stub points archived leg-split. |
 | 2026-09-13 | `/spec carpool-kid-split-plans`: promote — progressive per-kid DriverPicker; multiple RideRequests grouped by identical TO/FROM; per-kid hero gaps. Branch `carpool-kid-split-plans`. |
 | 2026-09-11 | `/pr carpool-leg-split-plans`: split editor + Save ride plan + per-leg hero gaps; circle-local PLAN; waiting-household confirm; reuses chip-collapse plain matching bodies. Spec archived. Next up `carpool-kid-split-plans`. |
 | 2026-09-11 | `/spec carpool-leg-split-plans`: promote — split editor + per-leg drivers + hero queue gaps; defer true per-leg locations into `carpool-meet-at` (no new id). Branch `carpool-leg-split-plans`. |
