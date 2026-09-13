@@ -58,7 +58,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
-import type { DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import type { DriverPickerKidPlan, DriverPickerSavePlanLegs } from "@/components/DriverPicker"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
@@ -1383,6 +1383,66 @@ export function FamilyScreen({
     }
   }
 
+  async function onSaveAgendaKidPlans(
+    item: CalendarItem,
+    eventKey: string,
+    plans: DriverPickerKidPlan[],
+  ) {
+    const resolvedEventKey = eventKey || circleLocalEventKey(item)
+    if (resolvedEventKey == null || plans.length === 0) {
+      return
+    }
+    const spaceId =
+      item.feedId != null && calendarCarpoolSummary != null
+        ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
+        : undefined
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const planGroups = plans.map((plan) => ({
+        kidIds: [plan.kidId],
+        legs: [
+          toSavePlanLeg("TO", plan.legs.to),
+          toSavePlanLeg("FROM", plan.legs.from),
+        ] as SaveCarpoolRidePlanLeg[],
+      }))
+      if (spaceId != null) {
+        await carpoolClient.saveRidePlan(token, spaceId, {
+          eventKey: resolvedEventKey,
+          plans: planGroups,
+        })
+      } else {
+        await carpoolClient.saveCircleRidePlan(token, {
+          eventKey: resolvedEventKey,
+          plans: planGroups,
+        })
+      }
+      const itemKey = calendarItemKey(item)
+      const draft = leaveFromDrafts[itemKey]
+      const anyHousehold = plans.some(
+        (plan) =>
+          plan.legs.to.action === "HOUSEHOLD" || plan.legs.from.action === "HOUSEHOLD",
+      )
+      if (anyHousehold && draft != null) {
+        const updated = await familyClient.setCalendarLeaveFrom(
+          token,
+          item.source,
+          item.id,
+          draft,
+        )
+        replaceCalendarItem(updated)
+        clearLeaveFromDraft(itemKey)
+      }
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   async function onCancelAgendaRide(
     item: CalendarItem,
     rideId: string,
@@ -2654,6 +2714,15 @@ export function FamilyScreen({
                 [queueItem.game.kidId],
               )
           : undefined,
+      onSaveKidPlans:
+        rideEvent != null || circle.members.length > 1
+          ? (plans) =>
+              void onSaveAgendaKidPlans(
+                calendarItemForSlide,
+                rideEvent?.eventKey ?? circleLocalEventKey(calendarItemForSlide) ?? "",
+                plans,
+              )
+          : undefined,
       onAcceptRide: (rideId) =>
         void onAcceptAgendaRide(calendarItemForSlide, rideId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
@@ -3367,6 +3436,19 @@ export function FamilyScreen({
                                         "",
                                       legs,
                                       kidIds,
+                                    )
+                                : undefined
+                            }
+                            onSaveKidPlans={
+                              calendarRideByItemKey.get(itemKey) != null ||
+                              circle.members.length > 1
+                                ? (plans) =>
+                                    void onSaveAgendaKidPlans(
+                                      item,
+                                      calendarRideByItemKey.get(itemKey)?.eventKey ??
+                                        circleLocalEventKey(item) ??
+                                        "",
+                                      plans,
                                     )
                                 : undefined
                             }

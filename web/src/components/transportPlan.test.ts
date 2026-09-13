@@ -204,4 +204,90 @@ describe("transportPlan dogfood batch 2", () => {
     })
     expect(status).toEqual({ driver: "Katy", confirmed: true })
   })
+
+  it("treats a sibling NEEDS_RIDE plan as a gap when another ownRequest is settled", () => {
+    const household = ownRide({
+      id: "plan-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Jay",
+      }),
+    })
+    const open = ownRide({
+      id: "plan-b",
+      status: "PLAN",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Jay",
+        }),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ],
+    })
+    expect(
+      transportGapKidIds(["k1", "k2"], null, null, [household, open]),
+    ).toEqual(["k2"])
+
+    const games = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: [] }),
+      {
+        eventKey: "UID:game",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1", "k2"],
+        ownRequests: [household, open],
+        ownLegs: null,
+        ownRequest: null,
+        otherRequests: [],
+      },
+      { currentAdultId: "a1", members },
+    )
+    expect(games.find((row) => row.kidId === "k1")?.ownRide).toEqual({
+      driver: "You",
+      confirmed: true,
+    })
+    expect(games.find((row) => row.kidId === "k2")?.ownRide).toBe("unassigned")
+    expect(getQueue(games).map((item) => item.game.kidId)).toEqual(["k2"])
+  })
+
+  it("queues a blank-plan kid even when a sibling ask is PENDING", () => {
+    const asked = ownRide({
+      id: "ask-b",
+      status: "PENDING",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    })
+    const blank = ownRide({
+      id: "blank-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("NEEDS_RIDE"),
+    })
+    expect(transportGapKidIds([], null, null, [blank, asked])).toEqual(["k1"])
+
+    const games = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: [] }),
+      {
+        eventKey: "UID:game",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1", "k2"],
+        ownRequests: [blank, asked],
+        ownLegs: null,
+        ownRequest: null,
+        otherRequests: [],
+      },
+      { currentAdultId: "a1", members },
+    )
+    expect(getQueue(games).map((item) => item.game.kidId)).toEqual(["k1"])
+  })
 })

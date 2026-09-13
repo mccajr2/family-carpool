@@ -35,6 +35,8 @@ export const ASK_THE_TEAM = "Ask the team" as const
 export const POST_TO_TEAM_ROUND_TRIP = "Post to team — round trip" as const
 /** Progressive disclosure under Confirm / Post — opens the split editor. */
 export const DIFFERENT_PLANS_FOR_EACH_LEG = "Different plans for each leg." as const
+/** Progressive disclosure — opens per-kid nested DriverPicker sections. */
+export const DIFFERENT_PLANS_FOR_EACH_KID = "Different plans for each kid." as const
 /** Split-editor primary CTA (applies both legs). */
 export const SAVE_RIDE_PLAN = "Save ride plan" as const
 /** Split-editor link back to collapsed round-trip DriverPicker chrome. */

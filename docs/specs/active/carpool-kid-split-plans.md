@@ -3,7 +3,7 @@
 Status: draft
 Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-09-10
-Updated: 2026-09-13 (`/implement` — backend task)
+Updated: 2026-09-13 (`/implement` — multi-plan gaps/chips)
 Added: 2026-09-10 · re-rank split
 Branch: `carpool-kid-split-plans`
 
@@ -196,13 +196,13 @@ above. Do not implement meet-at places or PR #107 need-rows.
 
 ## Acceptance criteria
 
-- [ ] **“Different plans for each kid.”** appears on Focus/Hero and Agenda
+- [x] **“Different plans for each kid.”** appears on Focus/Hero and Agenda
       expanded uncovered own-ride DriverPicker surfaces when the event has
       **2+ going** kids; it is omitted for a single going kid.
-- [ ] Activating the link shows one nested DriverPicker section per going kid
+- [x] Activating the link shows one nested DriverPicker section per going kid
       (first-name header). Each section supports round-trip chips and nested
       **“Different plans for each leg.”** (household / Ask / Needs ride).
-- [ ] Kid-split editor shows **one shared** Leave from control when any kid
+- [x] Kid-split editor shows **one shared** Leave from control when any kid
       section is household; does **not** persist or show per-kid or per-leg
       place fields.
 - [x] **Save ride plan** applies every going kid atomically. Identical
@@ -212,7 +212,7 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [x] Mixed matrix works end-to-end: e.g. kid A household TO-only (FROM
       Needs ride) + kid B Ask round-trip → household PLAN (or equivalent) for
       A and a 1-seat team ask for B; teammate Accept confirms B only.
-- [ ] **Back to simple view** restores collapsed shared round-trip chrome
+- [x] **Back to simple view** restores collapsed shared round-trip chrome
       without merging. Confirm / Post from simple view still writes one
       shared plan for all going kids.
 - [x] OpenAPI documents the multi-plan list + Save replace semantics (version
@@ -221,10 +221,10 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [x] Unique DB indexes no longer forbid multiple active plans per
       circle+event; tests cover the kid-exclusive invariant (409/400 if a
       kid would appear on two active plans).
-- [ ] `transportGapKidIds` / `getQueue` / Focus own-ride gap detection treat
+- [x] `transportGapKidIds` / `getQueue` / Focus own-ride gap detection treat
       any going kid with an in-play `NEEDS_RIDE` (or blank plan) as a gap
       even when a sibling is asked or confirmed.
-- [ ] Collapsed chips: shared (no per-kid prefix) while plans match; when
+- [x] Collapsed chips: shared (no per-kid prefix) while plans match; when
       they diverge, one chip group per distinct plan (names joined) with
       existing matching-leg collapse inside the group.
 - [x] RSVP NO still removes that kid (and cancels an emptied plan) without
@@ -253,10 +253,10 @@ above. Do not implement meet-at places or PR #107 need-rows.
 - [x] Backend: drop one-plan-per-event unique indexes; kid-exclusive
       invariant; atomic Save split/merge; RSVP-NO / confirm / clear scoped
       per plan; Enable attaches all PLANs; unit + integration tests
-- [ ] Web: **Different plans for each kid.** link + nested per-kid
+- [x] Web: **Different plans for each kid.** link + nested per-kid
       DriverPicker (reuse leg-split); shared leave-from; Save; Back; wire
       Focus/Hero + Agenda expanded call sites; `coverageCopy` string
-- [ ] Web: `transportPlan` / chips / `coverageQueue` / Focus gap helpers
+- [x] Web: `transportPlan` / chips / `coverageQueue` / Focus gap helpers
       read all own plans (not singular `ownRequest` / event `ownLegs` only)
 - [ ] Tests: DriverPicker / Focus / AgendaRow / transportPlan / coverageQueue
       (+ backend as above); run relevant web + carpool tests; report results

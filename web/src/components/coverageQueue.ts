@@ -20,7 +20,11 @@ import {
 } from "@/components/coverageDisplay"
 import { rsvpStatusForKid } from "@/components/rsvpDisplay"
 import { agendaDayBoundaries } from "@/components/agendaDayGroups"
-import { ownRideStatusFromTransportPlan } from "@/components/transportPlan"
+import {
+  ownRidePlanForKid,
+  ownRideStatusFromTransportPlan,
+  resolveOwnRidePlans,
+} from "@/components/transportPlan"
 
 export type Attendance = "going" | "not_going"
 
@@ -388,11 +392,22 @@ function mapOwnRideStatusForKid(
   rideEvent: CarpoolRideEvent | null | undefined,
   options: MapCoverageGamesOptions,
 ): OwnRideStatus {
+  const plans = resolveOwnRidePlans(rideEvent)
+  const plan = ownRidePlanForKid(plans, kidId)
+  const ownRequest =
+    plan ?? (plans.length <= 1 ? (rideEvent?.ownRequest ?? null) : null)
+  const ownLegs =
+    plan?.legs ??
+    (plans.length === 0
+      ? rideEvent?.ownLegs
+      : plans.length === 1
+        ? (plan?.legs ?? rideEvent?.ownLegs)
+        : null)
   return ownRideStatusFromTransportPlan({
     kidId,
     item,
-    ownRequest: rideEvent?.ownRequest ?? null,
-    ownLegs: rideEvent?.ownLegs,
+    ownRequest,
+    ownLegs,
     currentAdultId: options.currentAdultId,
     householdDriverLabel: (coveringAdultId, coveringAdultDisplayName) =>
       householdDriverLabel(coveringAdultId, coveringAdultDisplayName, options),
@@ -411,18 +426,29 @@ export function mapCalendarItemToCoverageGames(
   const eventKey = calendarItemKey(item)
   const order = orderFromStartsAt(item.startsAt)
   const requests = inboundRequests(rideEvent)
+  const plans = resolveOwnRidePlans(rideEvent)
 
-  return item.kidIds.map((kidId) => ({
-    id: `${eventKey}:${kidId}`,
-    kidId,
-    title: item.title,
-    startsAt: item.startsAt,
-    order,
-    attendance: mapRsvpToAttendance(rsvpStatusForKid(item, kidId)),
-    ownRide: mapOwnRideStatusForKid(kidId, item, rideEvent, options),
-    requests,
-    ...(rideEvent?.ownLegs != null ? { ownLegs: rideEvent.ownLegs } : {}),
-  }))
+  return item.kidIds.map((kidId) => {
+    const plan = ownRidePlanForKid(plans, kidId)
+    const ownLegs =
+      plan?.legs ??
+      (plans.length === 0
+        ? rideEvent?.ownLegs
+        : plans.length === 1
+          ? (plan?.legs ?? rideEvent?.ownLegs)
+          : undefined)
+    return {
+      id: `${eventKey}:${kidId}`,
+      kidId,
+      title: item.title,
+      startsAt: item.startsAt,
+      order,
+      attendance: mapRsvpToAttendance(rsvpStatusForKid(item, kidId)),
+      ownRide: mapOwnRideStatusForKid(kidId, item, rideEvent, options),
+      requests,
+      ...(ownLegs != null ? { ownLegs } : {}),
+    }
+  })
 }
 
 export function mapCalendarItemsToCoverageGames(

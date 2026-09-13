@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { FamilyMember } from "@/api/types"
 import {
   ASK_THE_TEAM,
+  DIFFERENT_PLANS_FOR_EACH_KID,
   DIFFERENT_PLANS_FOR_EACH_LEG,
   LEAVE_FROM_ADDRESS_PLACEHOLDER,
   POST_TO_TEAM_ROUND_TRIP,
@@ -316,6 +317,137 @@ describe("DriverPicker", () => {
     expect(screen.getByTestId("driver-picker-household-section").className).toMatch(
       /max-w-full/,
     )
+  })
+
+  it("omits Different plans for each kid when only one going kid", () => {
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={vi.fn()}
+        goingKids={[{ id: "k1", firstName: "Sam" }]}
+      />,
+    )
+
+    expect(screen.queryByTestId("driver-picker-different-plans-kid")).not.toBeInTheDocument()
+  })
+
+  it("shows a non-activating kid-split link without onSaveKidPlans", async () => {
+    const user = userEvent.setup()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Mia" },
+        ]}
+      />,
+    )
+
+    const link = screen.getByTestId("driver-picker-different-plans-kid")
+    expect(link).toHaveTextContent(DIFFERENT_PLANS_FOR_EACH_KID)
+    expect(link).toHaveAttribute("aria-disabled", "true")
+    await user.click(link)
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+  })
+
+  it("opens kid-split, saves per-kid plans, and returns to simple view", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        leaveFromSlot={<div data-testid="leave-from-slot">Leave from</div>}
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={onSaveKidPlans}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Mia" },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(screen.getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
+    expect(screen.getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
+    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-kid-k2-ask-team-chip"))
+    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-kid-k1-ask-team-chip"))
+    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+    expect(onSaveKidPlans).toHaveBeenCalledWith([
+      {
+        kidId: "k1",
+        legs: {
+          to: { action: "ASK_TEAM" },
+          from: { action: "ASK_TEAM" },
+        },
+      },
+      {
+        kidId: "k2",
+        legs: {
+          to: { action: "ASK_TEAM" },
+          from: { action: "ASK_TEAM" },
+        },
+      },
+    ])
+
+    await user.click(screen.getByTestId("driver-picker-back-to-simple"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+  })
+
+  it("supports nested leg-split per kid and jumps from shared leg editor", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={onSaveKidPlans}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Mia" },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "split")
+    await user.click(screen.getByTestId("driver-picker-from-ask-team-chip"))
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+
+    await user.click(screen.getByTestId("driver-picker-kid-k1-different-plans-leg"))
+    expect(screen.getByTestId("driver-picker-kid-k1-leg-to")).toBeInTheDocument()
+    await user.click(screen.getByTestId("driver-picker-kid-k1-from-ask-team-chip"))
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+
+    expect(onSaveKidPlans).toHaveBeenCalledWith([
+      {
+        kidId: "k1",
+        legs: {
+          to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          from: { action: "ASK_TEAM" },
+        },
+      },
+      {
+        kidId: "k2",
+        legs: {
+          to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+        },
+      },
+    ])
   })
 })
 

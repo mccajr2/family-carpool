@@ -6,11 +6,25 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import type { QueueItem } from "@/components/coverageQueue"
-import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import {
+  hasWaitingHouseholdForAdult,
+  mapCalendarItemToCoverageGames,
+} from "@/components/coverageQueue"
+import {
+  DriverPicker,
+  type DriverPickerKidPlan,
+  type DriverPickerSavePlanLegs,
+} from "@/components/DriverPicker"
+import {
+  heroAdultFirstName,
+  heroKidFirstName,
+  heroOwnRideTitle,
+  heroRequestTitle,
+  heroVenueLine,
+} from "@/components/heroAttentionCopy"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
-import { hasWaitingHouseholdForAdult } from "@/components/coverageQueue"
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
@@ -28,15 +42,8 @@ import {
 } from "@/components/leaveFromDisplay"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
-import {
-  heroAdultFirstName,
-  heroKidFirstName,
-  heroOwnRideTitle,
-  heroRequestTitle,
-  heroVenueLine,
-} from "@/components/heroAttentionCopy"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
-import { ridePlaceLineKind } from "@/components/transportPlan"
+import { allOwnPlanLegs, ridePlaceLineKind } from "@/components/transportPlan"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -52,6 +59,7 @@ export type HeroAttentionSlideProps = {
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
   onAskTeam: () => void
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
+  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
   /** Confirm WAITING_HOUSEHOLD legs assigned to the signed-in adult. */
@@ -86,6 +94,7 @@ export function HeroAttentionSlide({
   onAssignCoverage,
   onAskTeam,
   onSaveRidePlan,
+  onSaveKidPlans,
   onConfirmCoverage,
   onDeclineCoverage,
   onConfirmHouseholdPlan,
@@ -103,7 +112,7 @@ export function HeroAttentionSlide({
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
-    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
     onDeclineHouseholdPlan != null
   const showConfirmChrome = pendingForSelf != null || pendingHouseholdPlan
@@ -159,6 +168,20 @@ export function HeroAttentionSlide({
   }, [item, rideEvent])
   const inboundLegChips =
     requestAccept != null ? inboundAskLegChips(requestAccept) : []
+
+  const goingKids = useMemo(
+    () =>
+      mapCalendarItemToCoverageGames(calendarItem, rideEvent, {
+        currentAdultId,
+        members: circle.members,
+      })
+        .filter((game) => game.attendance !== "not_going")
+        .map((game) => ({
+          id: game.kidId,
+          firstName: heroKidFirstName(game.kidId, circle.kids),
+        })),
+    [calendarItem, rideEvent, currentAdultId, circle.members, circle.kids],
+  )
 
   return (
     <div
@@ -285,6 +308,8 @@ export function HeroAttentionSlide({
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={onAskTeam}
                     onSaveRidePlan={onSaveRidePlan}
+                    goingKids={goingKids}
+                    onSaveKidPlans={onSaveKidPlans}
                   />
                 </div>
               )}

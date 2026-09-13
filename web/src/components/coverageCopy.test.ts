@@ -8,6 +8,7 @@ import {
   BACK_TO_SIMPLE_VIEW,
   CONFIRM_ILL_DRIVE,
   CONFIRM_YOU_WILL_DRIVE,
+  DIFFERENT_PLANS_FOR_EACH_KID,
   DIFFERENT_PLANS_FOR_EACH_LEG,
   HERO_ALL_CAUGHT_UP,
   HERO_ON_INVERSE,
@@ -101,6 +102,7 @@ describe("coverageCopy", () => {
     expect(ASK_THE_TEAM).toBe("Ask the team")
     expect(POST_TO_TEAM_ROUND_TRIP).toBe("Post to team — round trip")
     expect(DIFFERENT_PLANS_FOR_EACH_LEG).toBe("Different plans for each leg.")
+    expect(DIFFERENT_PLANS_FOR_EACH_KID).toBe("Different plans for each kid.")
     expect(SAVE_RIDE_PLAN).toBe("Save ride plan")
     expect(BACK_TO_SIMPLE_VIEW).toBe("Back to simple view")
   })

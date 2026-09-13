@@ -43,7 +43,9 @@ import {
 import {
   collapseMatchingLegChips,
   inboundConfirmedCountByKind,
+  isBlankTransportPlan,
   nonBlankTransportLegs,
+  resolveOwnRidePlans,
 } from "@/components/transportPlan"
 
 export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
@@ -280,6 +282,76 @@ export function agendaOwnRideLegChips(
   })
 }
 
+/** First names for a plan group prefix (API kidFirstNames, comma-joined). */
+export function planGroupKidPrefix(kidFirstNames: readonly string[]): string {
+  return kidFirstNames
+    .map((name) => name.trim().split(/\s+/)[0] ?? name.trim())
+    .filter((name) => name.length > 0)
+    .join(", ")
+}
+
+function prefixPlanGroupChips(
+  prefix: string,
+  chips: readonly RideStatusChipDescriptor[],
+): RideStatusChipDescriptor[] {
+  if (prefix === "") {
+    return [...chips]
+  }
+  return chips.map((chip) => ({
+    ...chip,
+    label: `${prefix} · ${chip.label}`,
+  }))
+}
+
+/**
+ * One chip group per distinct own plan when plans diverge; shared (unprefixed)
+ * chrome when there is a single plan.
+ */
+export function ownPlanGroupChips(
+  ownRequests: readonly CarpoolRide[],
+  options?: RideLegChipOptions & {
+    inboundCounts?: Record<"TO" | "FROM", number>
+  },
+): RideStatusChipDescriptor[] {
+  if (ownRequests.length === 0) {
+    return []
+  }
+  if (ownRequests.length === 1) {
+    const plan = ownRequests[0]!
+    const inboundCounts = options?.inboundCounts ?? { TO: 0, FROM: 0 }
+    const overlayCounts =
+      plan.status === "ACCEPTED" ? { TO: 0, FROM: 0 } : inboundCounts
+    if (isBlankTransportPlan(plan.legs)) {
+      return []
+    }
+    return legChipsWithInboundOverlay(plan.legs, overlayCounts, {
+      currentAdultId: options?.currentAdultId,
+      confirmedNameFallback:
+        plan.status === "ACCEPTED" ? plan.acceptingCircleName : null,
+    })
+  }
+
+  const chips: RideStatusChipDescriptor[] = []
+  for (const plan of ownRequests) {
+    const prefix = planGroupKidPrefix(plan.kidFirstNames)
+    if (isBlankTransportPlan(plan.legs)) {
+      const blankChips =
+        plan.legs != null && plan.legs.length > 0
+          ? rideLegStatusChips(plan.legs, { currentAdultId: options?.currentAdultId })
+          : [{ label: LEG_NEEDS_RIDE, tone: "amber" as const }]
+      chips.push(...prefixPlanGroupChips(prefix, blankChips))
+      continue
+    }
+    const group = rideLegStatusChips(plan.legs, {
+      currentAdultId: options?.currentAdultId,
+      confirmedNameFallback:
+        plan.status === "ACCEPTED" ? plan.acceptingCircleName : null,
+    })
+    chips.push(...prefixPlanGroupChips(prefix, group))
+  }
+  return chips
+}
+
 /** Inbound Accept / Pass clarity — which leg(s) the teammate asked for. */
 export function inboundAskLegChips(
   request: Pick<CarpoolRide, "legs">,
@@ -370,6 +442,7 @@ export function rideStatusChipsForItem(
     }
   }
 
+  const plans = resolveOwnRidePlans(options?.rideEvent ?? { ownRequest })
   const legs = transportLegsForItem(ownRequest, options?.rideEvent)
   const urgent = pickMostUrgentGameRow(games)
   const remainingGapBesideOwnPlan =
@@ -384,7 +457,22 @@ export function rideStatusChipsForItem(
   )
   const hasInboundPlus = inboundCounts.TO > 0 || inboundCounts.FROM > 0
 
-  if (remainingGapBesideOwnPlan && urgent != null) {
+  if (plans.length >= 2) {
+    chips.push(
+      ...ownPlanGroupChips(plans, {
+        currentAdultId: options?.currentAdultId,
+        inboundCounts,
+      }),
+    )
+    // Sibling with no plan still needs a Ride needed chip when not covered by a group.
+    if (
+      urgent != null &&
+      isOwnRideGap(urgent) &&
+      !plans.some((plan) => plan.kidIds.includes(urgent.kidId))
+    ) {
+      chips.push(rideStatusChipForGameRow(urgent, ownRequest))
+    }
+  } else if (remainingGapBesideOwnPlan && urgent != null) {
     chips.push(rideStatusChipForGameRow(urgent, ownRequest))
   } else if (
     urgent != null &&

@@ -36,7 +36,12 @@ import {
   mapCalendarItemToCoverageGames,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
-import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import {
+  DriverPicker,
+  type DriverPickerKidPlan,
+  type DriverPickerSavePlanLegs,
+} from "@/components/DriverPicker"
+import { heroKidFirstName } from "@/components/heroAttentionCopy"
 import {
   activeCoverageForAdult,
   activeCoverages,
@@ -63,9 +68,10 @@ import { ridersForItem } from "@/components/riderChips"
 import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 import {
+  allOwnPlanLegs,
   decidedAssigneeRevertLabel,
-  decidedAssigneesFromLegs,
-  nonBlankTransportLegs,
+  decidedAssigneesFromOwnPlans,
+  resolveOwnRidePlans,
   transportGapKidIds,
   type DecidedAssignee,
 } from "@/components/transportPlan"
@@ -113,6 +119,7 @@ type AgendaRowProps = {
   autoDeclinedRideIds?: ReadonlySet<string>
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs, kidIds?: string[]) => void
+  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onAcceptRide?: (rideId: string) => void
@@ -170,6 +177,7 @@ export function AgendaRow({
   autoDeclinedRideIds,
   onCreateRide,
   onSaveRidePlan,
+  onSaveKidPlans,
   onCancelRide,
   onWithdrawRide,
   onAcceptRide,
@@ -200,12 +208,13 @@ export function AgendaRow({
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
-    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
     onDeclineHouseholdPlan != null
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
-  const ownRequest = rideEvent?.ownRequest ?? null
+  const ownPlans = resolveOwnRidePlans(rideEvent)
+  const ownRequest = rideEvent?.ownRequest ?? (ownPlans.length === 1 ? ownPlans[0]! : null)
   const { games: coverageGames } = applyAutoDeclinedViewModel(
     mapCalendarItemToCoverageGames(item, rideEvent, {
       currentAdultId,
@@ -215,8 +224,9 @@ export function AgendaRow({
   )
   const gapKidIds = transportGapKidIds(
     item.uncoveredKidIds,
-    ownRequest,
+    rideEvent?.ownRequest,
     rideEvent?.ownLegs,
+    rideEvent?.ownRequests,
   )
   // Gap copy only for true unassigned kids — team ask / teammate ride use chips + revert.
   const unassignedGapKidIds = gapKidIds.filter((kidId) => {
@@ -235,9 +245,13 @@ export function AgendaRow({
   })
   const uncoveredKidNames = eventKidNames(unassignedGapKidIds, circle.kids)
   const inPlayGames = coverageGames.filter((game) => game.attendance !== "not_going")
+  const goingKids = inPlayGames.map((game) => ({
+    id: game.kidId,
+    firstName: heroKidFirstName(game.kidId, circle.kids),
+  }))
   const canAskTeam =
     rideEvent != null &&
-    rideEvent.ownRequest == null &&
+    ownPlans.length === 0 &&
     rideEvent.defaultKidIds.length > 0 &&
     onCreateRide != null
   const showAssign =
@@ -284,8 +298,7 @@ export function AgendaRow({
     showRequestInCarpool &&
     defaultRideKids.length > 0 &&
     onCreateRide != null
-  const transportLegs = nonBlankTransportLegs(ownRequest, rideEvent)
-  const decidedAssignees = decidedAssigneesFromLegs(transportLegs ?? rideEvent?.ownLegs, {
+  const decidedAssignees = decidedAssigneesFromOwnPlans(rideEvent, {
     currentAdultId,
     teammateCircleId: ownRequest?.acceptingCircleId,
     teammateCircleName: ownRequest?.acceptingCircleName,
@@ -810,6 +823,12 @@ export function AgendaRow({
                                       )
                                     }
                                   : undefined
+                              }
+                              goingKids={
+                                game.kidId === firstPickerKidId ? goingKids : undefined
+                              }
+                              onSaveKidPlans={
+                                game.kidId === firstPickerKidId ? onSaveKidPlans : undefined
                               }
                               showTeamSection={canAskTeam}
                             />

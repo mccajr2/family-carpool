@@ -1,7 +1,9 @@
 /**
  * Shared per-leg transport view-model for Agenda / Hero / chips.
- * Non-blank `ownLegs` win over calendar `uncoveredKidIds` and a single
- * `ownRide` rollup so mixed plans stay truthful on every surface.
+ * Non-blank `ownLegs` / per-kid plans win over calendar `uncoveredKidIds` and
+ * a single `ownRide` rollup so mixed plans stay truthful on every surface.
+ * Prefer `ownRequests` once plans diverge (singular `ownRequest` / `ownLegs`
+ * are null when there are 0 or 2+ plans).
  */
 
 import type {
@@ -57,15 +59,67 @@ export function isBlankTransportPlan(
 }
 
 /**
+ * All active own plans for an event. Prefers `ownRequests`; falls back to
+ * singular `ownRequest` for fixtures that only set that field.
+ */
+export function resolveOwnRidePlans(
+  rideEvent: CarpoolRideEvent | null | undefined,
+): CarpoolRide[]
+export function resolveOwnRidePlans(options: {
+  ownRequests?: readonly CarpoolRide[] | null
+  ownRequest?: CarpoolRide | null
+}): CarpoolRide[]
+export function resolveOwnRidePlans(
+  rideEventOrOptions:
+    | CarpoolRideEvent
+    | null
+    | undefined
+    | {
+        ownRequests?: readonly CarpoolRide[] | null
+        ownRequest?: CarpoolRide | null
+      },
+): CarpoolRide[] {
+  if (rideEventOrOptions == null) {
+    return []
+  }
+  const ownRequests =
+    "eventKey" in rideEventOrOptions
+      ? rideEventOrOptions.ownRequests
+      : rideEventOrOptions.ownRequests
+  if (ownRequests != null && ownRequests.length > 0) {
+    return [...ownRequests]
+  }
+  const ownRequest =
+    "eventKey" in rideEventOrOptions
+      ? rideEventOrOptions.ownRequest
+      : rideEventOrOptions.ownRequest
+  return ownRequest != null ? [ownRequest] : []
+}
+
+/** Plan that includes this kid, or null when the kid is not on any own plan. */
+export function ownRidePlanForKid(
+  plans: readonly CarpoolRide[],
+  kidId: string,
+): CarpoolRide | null {
+  return plans.find((plan) => plan.kidIds.includes(kidId)) ?? null
+}
+
+/**
  * Non-blank transport legs for chip / gap chrome, or null when coverage owns
- * the row (blank NEEDS_RIDE plan).
+ * the row (blank NEEDS_RIDE plan). With 2+ own plans, returns null — callers
+ * should use per-plan chip groups instead of a single shared leg strip.
  */
 export function nonBlankTransportLegs(
   ownRequest: CarpoolRide | null | undefined,
   rideEvent: CarpoolRideEvent | null | undefined,
 ): CarpoolRideLeg[] | null {
+  const plans = resolveOwnRidePlans(rideEvent ?? { ownRequest })
+  if (plans.length >= 2) {
+    return null
+  }
+  const single = plans[0] ?? ownRequest ?? null
   const fromRequest =
-    ownRequest?.legs != null && ownRequest.legs.length > 0 ? ownRequest.legs : null
+    single?.legs != null && single.legs.length > 0 ? single.legs : null
   const fromEvent =
     rideEvent?.ownLegs != null && rideEvent.ownLegs.length > 0 ? rideEvent.ownLegs : null
   const legs = fromRequest ?? fromEvent
@@ -73,6 +127,56 @@ export function nonBlankTransportLegs(
     return null
   }
   return [...legs]
+}
+
+/** Flatten legs from every own plan (waiting-on-me / assignee scans). */
+export function allOwnPlanLegs(
+  rideEvent: CarpoolRideEvent | null | undefined,
+): CarpoolRideLeg[] | null {
+  const plans = resolveOwnRidePlans(rideEvent)
+  if (plans.length === 0) {
+    return rideEvent?.ownLegs ?? null
+  }
+  const legs = plans.flatMap((plan) => plan.legs ?? [])
+  return legs.length > 0 ? legs : null
+}
+
+/**
+ * Revert targets across every own plan (dedupe by assignee key, merge legs).
+ */
+export function decidedAssigneesFromOwnPlans(
+  rideEvent: CarpoolRideEvent | null | undefined,
+  options: {
+    currentAdultId?: string | null
+    teammateCircleId?: string | null
+    teammateCircleName?: string | null
+  } = {},
+): DecidedAssignee[] {
+  const plans = resolveOwnRidePlans(rideEvent)
+  if (plans.length === 0) {
+    return decidedAssigneesFromLegs(rideEvent?.ownLegs, options)
+  }
+  const byKey = new Map<string, DecidedAssignee>()
+  for (const plan of plans) {
+    for (const assignee of decidedAssigneesFromLegs(plan.legs, {
+      currentAdultId: options.currentAdultId,
+      teammateCircleId: plan.acceptingCircleId ?? options.teammateCircleId,
+      teammateCircleName: plan.acceptingCircleName ?? options.teammateCircleName,
+    })) {
+      const existing = byKey.get(assignee.key)
+      if (existing == null) {
+        byKey.set(assignee.key, { ...assignee, legKinds: [...assignee.legKinds] })
+        continue
+      }
+      const kinds = new Set([...existing.legKinds, ...assignee.legKinds])
+      byKey.set(assignee.key, {
+        ...existing,
+        legKinds: (["TO", "FROM"] as const).filter((kind) => kinds.has(kind)),
+        waiting: existing.waiting && assignee.waiting,
+      })
+    }
+  }
+  return [...byKey.values()]
 }
 
 export function orderedTransportLegs(
@@ -321,32 +425,90 @@ export function decidedAssigneeRevertLabel(assignee: DecidedAssignee): string {
  * Gap kids for Assign / Needs coverage: calendar uncovered, minus ACCEPTED
  * riders — unless a non-blank plan still has NEEDS_RIDE (keep those kids) or a
  * settled non-blank plan covers the row (drop uncovered owned by that plan).
+ * Pass `ownRequests` (or a ride event that lists them) so a sibling's settled
+ * plan does not hide another kid's NEEDS_RIDE / blank plan gap.
  */
 export function transportGapKidIds(
   uncoveredKidIds: readonly string[],
   ownRequest: CarpoolRide | null | undefined,
   ownLegs: readonly CarpoolRideLeg[] | null | undefined,
+  ownRequests?: readonly CarpoolRide[] | null,
 ): string[] {
-  const blank = isBlankTransportPlan(ownLegs)
-  if (!blank && ownLegs != null) {
-    const openNeedsRide = ownLegs.some((leg) => leg.phase === "NEEDS_RIDE")
+  const plans = resolveOwnRidePlans({ ownRequests, ownRequest })
+  if (plans.length >= 2) {
+    return transportGapKidIdsForPlans(uncoveredKidIds, plans)
+  }
+
+  const single = plans[0] ?? ownRequest ?? null
+  const legs = single?.legs ?? ownLegs
+  const blank = isBlankTransportPlan(legs)
+  if (!blank && legs != null) {
+    const openNeedsRide = legs.some((leg) => leg.phase === "NEEDS_RIDE")
     if (openNeedsRide) {
       const ids = new Set(uncoveredKidIds)
-      if (ownRequest != null) {
-        for (const kidId of ownRequest.kidIds) {
+      if (single != null) {
+        for (const kidId of single.kidIds) {
           ids.add(kidId)
         }
       }
       return [...ids]
     }
     // Settled non-blank plan — calendar uncovered is stale for plan kids.
-    if (ownRequest == null) {
+    if (single == null) {
       return []
     }
-    const onRide = new Set(ownRequest.kidIds)
+    const onRide = new Set(single.kidIds)
     return uncoveredKidIds.filter((kidId) => !onRide.has(kidId))
   }
-  return remainingCoverageGapKidIds([...uncoveredKidIds], ownRequest)
+  return remainingCoverageGapKidIds([...uncoveredKidIds], single)
+}
+
+function transportGapKidIdsForPlans(
+  uncoveredKidIds: readonly string[],
+  plans: readonly CarpoolRide[],
+): string[] {
+  const gaps = new Set<string>()
+  const settledKids = new Set<string>()
+
+  for (const plan of plans) {
+    const legs = plan.legs
+    const blank = isBlankTransportPlan(legs)
+    if (blank) {
+      for (const kidId of plan.kidIds) {
+        gaps.add(kidId)
+      }
+      continue
+    }
+    if (legs != null && legs.some((leg) => leg.phase === "NEEDS_RIDE")) {
+      for (const kidId of plan.kidIds) {
+        gaps.add(kidId)
+      }
+      continue
+    }
+    for (const kidId of plan.kidIds) {
+      settledKids.add(kidId)
+    }
+  }
+
+  for (const kidId of uncoveredKidIds) {
+    if (!settledKids.has(kidId)) {
+      gaps.add(kidId)
+    }
+  }
+
+  return [...gaps]
+}
+
+export function transportGapKidIdsForRideEvent(
+  uncoveredKidIds: readonly string[],
+  rideEvent: CarpoolRideEvent | null | undefined,
+): string[] {
+  return transportGapKidIds(
+    uncoveredKidIds,
+    rideEvent?.ownRequest,
+    rideEvent?.ownLegs,
+    rideEvent?.ownRequests,
+  )
 }
 
 export function transportPlanForItem(options: {
@@ -357,13 +519,27 @@ export function transportPlanForItem(options: {
   kidId?: string
 }): TransportPlanSlots {
   const { item, rideEvent, currentAdultId, kidId } = options
-  const ownRequest = rideEvent?.ownRequest ?? null
-  const legs = nonBlankTransportLegs(ownRequest, rideEvent)
-  const waitingOnMe = waitingHouseholdForAdult(rideEvent?.ownLegs ?? legs, currentAdultId)
-  const gapKids = transportGapKidIds(item.uncoveredKidIds, ownRequest, rideEvent?.ownLegs)
+  const plans = resolveOwnRidePlans(rideEvent)
+  const plan =
+    kidId != null ? ownRidePlanForKid(plans, kidId) : (plans[0] ?? null)
+  const ownRequest = plan ?? rideEvent?.ownRequest ?? null
+  const legs =
+    kidId != null && plans.length >= 2
+      ? plan != null && !isBlankTransportPlan(plan.legs)
+        ? [...(plan.legs ?? [])]
+        : null
+      : nonBlankTransportLegs(ownRequest, rideEvent)
+  const legsForWaiting = allOwnPlanLegs(rideEvent)
+  const waitingOnMe = waitingHouseholdForAdult(
+    legsForWaiting ?? rideEvent?.ownLegs ?? legs,
+    currentAdultId,
+  )
+  const gapKids = transportGapKidIdsForRideEvent(item.uncoveredKidIds, rideEvent)
 
   let isGap = false
-  if (legs == null) {
+  if (kidId != null && plans.length >= 2) {
+    isGap = gapKids.includes(kidId) || waitingOnMe
+  } else if (legs == null) {
     isGap =
       (kidId != null ? gapKids.includes(kidId) : gapKids.length > 0) || waitingOnMe
   } else {
@@ -375,7 +551,7 @@ export function transportPlanForItem(options: {
     isBlank: legs == null,
     isGap,
     waitingOnMe,
-    decidedAssignees: decidedAssigneesFromLegs(legs ?? rideEvent?.ownLegs, {
+    decidedAssignees: decidedAssigneesFromOwnPlans(rideEvent, {
       currentAdultId,
     }),
   }
@@ -495,6 +671,10 @@ export function ownRideStatusFromTransportPlan(options: {
     }
     if (ownRequest.status === "PENDING") {
       return "requested"
+    }
+    // Blank PLAN (or other non-accepted) still covers this kid as an open gap.
+    if (blank) {
+      return "unassigned"
     }
   }
 

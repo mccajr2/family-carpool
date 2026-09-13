@@ -578,6 +578,58 @@ describe("rideStatusChipsForItem", () => {
       }),
     ).toEqual([{ label: RIDE_NEEDED, tone: "amber" }])
   })
+
+  it("renders one prefixed chip group per divergent ownRequest", () => {
+    const household = ownRide({
+      id: "plan-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+    })
+    const asked = ownRide({
+      id: "plan-b",
+      status: "PENDING",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownRequests: [household, asked],
+      ownLegs: null,
+      ownRequest: null,
+      otherRequests: [],
+    }
+    const item = calendarItem({ kidIds: ["k1", "k2"] })
+    const games = [
+      game({
+        id: "g1",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+      }),
+      game({ id: "g2", kidId: "k2", order: 200, ownRide: "requested" }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, null, {
+        rideEvent,
+        circleId: "c1",
+        currentAdultId: "a1",
+      }),
+    ).toEqual([
+      { label: "Sam · You're driving", tone: "mint" },
+      { label: "Mia · Asked team", tone: "amber" },
+    ])
+  })
 })
 
 describe("rideLegStatusChips", () => {
