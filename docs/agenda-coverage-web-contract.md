@@ -5,7 +5,9 @@ presentation hierarchy via [`calendar-ux-flow`](specs/archive/calendar-ux-flow.m
 conflict amber via [`conflict-detection`](specs/archive/conflict-detection.md);
 DriverPicker default chrome via [`carpool-ride-coverage-card`](specs/archive/carpool-ride-coverage-card.md)
 — 2026-09-11; split editor + per-leg hero gaps via
-[`carpool-leg-split-plans`](specs/active/carpool-leg-split-plans.md) — in progress)  
+[`carpool-leg-split-plans`](specs/archive/carpool-leg-split-plans.md) — Done;
+kid-split editor + per-kid gaps/chips via
+[`carpool-kid-split-plans`](specs/active/carpool-kid-split-plans.md) — in progress)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -61,8 +63,8 @@ the signed-in adult no longer has a decision on that kid row:
 | `unassigned` | Yes — pick a driver or ask the team |
 | `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline (calendar coverage **or** split-plan `WAITING_HOUSEHOLD` assigned to you) |
 | `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
-| `"requested"` (asked the team) | No — waiting on teammates *(unless a per-leg gap below, or waiting-on-you household leg)* |
-| `{ driver, confirmed: true }` | No — covered *(unless a per-leg gap below)* |
+| `"requested"` (asked the team) | No — waiting on teammates *(unless a per-leg / per-kid gap below, or waiting-on-you household leg)* |
+| `{ driver, confirmed: true }` | No — covered *(unless a per-leg / per-kid gap below)* |
 | Pending inbound carpool request (actionable) | Yes — Accept / Decline |
 
 **Waiting-on-you household leg (must):** when `ownLegs` has
@@ -85,23 +87,39 @@ ride-status chips). When `ownLegs` are **non-blank and settled** (no
 `uncoveredKidIds` — no Hero / Needs coverage / Assign / Request. ADR-0001
 ordering is unchanged; only gap *detection* widens to divergent `ownLegs`.
 
+**Per-kid own-ride gap (must):** when this circle has **multiple** active own
+plans for the event (`ownRequests` / equivalent), treat any **going** kid with
+an in-play `NEEDS_RIDE` (or blank plan) as a gap even when a sibling’s plan is
+asked or confirmed. Read **all** own plans for gap / queue / chip helpers —
+do not key only off singular `ownRequest` / event-level `ownLegs` once plans
+diverge (those singular fields stay valid only when there is exactly one plan;
+`null` when 0 or 2+). Waiting-on-you / per-assignee revert stay scoped to the
+assignee’s plan(s), not every sibling’s plan.
+
 **Request CTA (must):** show **Request** only when `canAskTeam` and some
 in-play kid is still an own-ride gap. Hide when every in-play kid's transport
 is settled (CONFIRMED / ASKED_TEAM / waiting-on-someone-else). After can't-drive
 clears a leg to `NEEDS_RIDE`, Request (and DriverPicker) return.
 
 **Per-assignee revert (must):** emit one can't-drive / cancel-request link per
-distinct decided assignee from `ownLegs` (dedupe by assignee, not by kid).
-Include the leg when they only own one (`… for getting there` / `… for coming
-back`). Writes clear those legs only (`cancel` / `withdraw` with `legs`, or
-`…/ride-plans/clear-legs` for PLAN / circle-local) — do not rewrite remaining
-CONFIRMED household legs to WAITING.
+distinct decided assignee from `ownLegs` / each own plan (dedupe by assignee,
+not by kid). Include the leg when they only own one (`… for getting there` /
+`… for coming back`). Writes clear those legs only (`cancel` / `withdraw` with
+`legs`, or `…/ride-plans/clear-legs` for PLAN / circle-local) — do not rewrite
+remaining CONFIRMED household legs to WAITING.
 
 **Matching-leg chip collapse (must):** when both slot bodies match, one
 **unprefixed** chip with that body (e.g. `Asked team`, `You're driving · +1`,
 even matching `Needs ride`) — never `Round trip: …`. When they differ, keep
 dual Getting there / Coming back. True single-leg plans keep one prefixed chip.
 Inbound `· +n` overlays household CONFIRMED bodies per leg kind, then collapse.
+
+**Per-plan chip groups (must):** while every going kid shares the same
+TO/FROM outcome, collapsed chips stay **shared** (no per-kid prefix) — same
+as today’s single-plan chrome. When plans diverge, render **one chip group
+per distinct plan** (kid first names joined like coverage copy), then reuse
+matching-leg collapse **inside** that group. Do not render N kids × 2 legs as
+six chips.
 
 **FROM-only place copy (must):** inbound accepted FROM-only rows say **Drop off
 in {town}** (display-only); withdraw passes `{ legs: ["FROM"] }` with
@@ -316,8 +334,8 @@ Origin modes (locked with `coverage-leave-from`):
      primary button. Available whenever the circle has **2+ adults** (family-
      only split) **or** a carpool space/`rideEvent` exists. Ask chips stay
      hidden until a space exists (`showTeamSection`). Activating the link
-     replaces the collapsed round-trip form with the **split editor** (same
-     Focus / hero / expanded Agenda surfaces):
+     replaces the collapsed round-trip form with the **shared leg-split
+     editor** (same Focus / hero / expanded Agenda surfaces):
 
      1. **Getting there** — independent driver row (household adults +
         trailing **Ask the team** when a space exists), same chip rules as
@@ -335,10 +353,41 @@ Origin modes (locked with `coverage-leave-from`):
      5. **Back to simple view** — restores collapsed round-trip DriverPicker
         chrome without forcing legs to re-sync; Confirm / Post round-trip
         from simple view still work as above.
+     6. While the shared leg-split editor is open and the event has **2+
+        going** kids, also show **“Different plans for each kid.”** so the
+        adult can jump to per-kid without going back first. Jumping
+        pre-fills each kid from the current shared TO/FROM selection (or
+        the saved shared plan).
 
      Ask-the-team + Ask-the-team may stay on the simple Post path. Matching-leg
      chip collapse is display-only (`carpool-leg-chip-collapse`) — not required
      for this editor.
+
+  5. **“Different plans for each kid.”** — plain text link on simple view
+     (below the leg link when both are eligible) **only** when the event has
+     **2+ going** kids (feed-linked / on the item, not RSVP NO). One going
+     kid → omit the link. Do **not** run the shared leg-split editor and the
+     kid-split editor at once — opening kid-split **replaces** simple (or
+     shared leg-split) chrome. Activating the link shows **one nested
+     DriverPicker section per going kid** (first-name header):
+
+     1. Default per kid: collapsed round-trip driver row (household + trailing
+        Ask the team when a space exists).
+     2. Nested **“Different plans for each leg.”** per kid — same Getting
+        there / Coming back editor already shipped (independent household /
+        Ask / Needs ride per leg).
+     3. **One shared Leave from** combobox for the whole editor when **any**
+        kid section selects a household adult. Still **not** per-kid or
+        per-leg places (`carpool-meet-at`).
+     4. Primary **Save ride plan** applies **every** going kid in one user
+        action. Server groups kids with identical TO/FROM outcomes onto one
+        RideRequest (seats = grouped kid count); divergent outcomes persist
+        as separate requests. A kid appears on at most one non-cancelled plan
+        per circle+event.
+     5. **Back to simple view** restores collapsed shared round-trip chrome
+        without forcing plans to re-merge. Confirm / Post round-trip from
+        simple view still writes **one shared plan for all going kids**
+        (merge).
 
   **Settled driver + inbound Accept:** when the signed-in adult is a confirmed
   household driver and has accepted an inbound ask, collapsed chips are dual
@@ -376,9 +425,9 @@ Origin modes (locked with `coverage-leave-from`):
 - Uncovered kids (API `uncoveredKidIds`): **Needs coverage** /
   **Needs coverage: {names}** (in-play only — not-going kids are never
   uncovered). Calendar chrome uses **remaining gap kids** =
-  `uncoveredKidIds` minus kids on this circle’s **`ACCEPTED` `ownRequest`**
-  (PENDING ride does not clear the gap). Names on the row copy are remaining
-  gap kids only.
+  `uncoveredKidIds` minus kids on this circle’s **`ACCEPTED` own plan(s)**
+  (`ownRequest` when singular, or all `ownRequests` when split — PENDING does
+  not clear the gap). Names on the row copy are remaining gap kids only.
 - Pending for signed-in adult: **Confirm coverage** and **Decline coverage**.
 - **Collapsed status tags** (Focus + collapsed `AgendaRow`) share
   one precedence via `rideStatusChipsForItem` + `insertOwnRideStatusChip`
@@ -433,11 +482,17 @@ expanded Agenda — uncovered own-ride** above. Summary:
   (assigns / confirms coverage + leave-from draft).
 - Ask the team → live **Post to team — round trip** (plain round-trip team
   ask; meet-at deferred to `carpool-meet-at`).
-- **Different plans for each leg.** under the primary button opens the split
-  editor (Getting there / Coming back, one shared Leave from, **Save ride
-  plan**, **Back to simple view**) — see Leave-from → uncovered own-ride
-  above. Hero queue treats in-play `NEEDS_RIDE` legs as gaps (see Hero
-  carousel queue).
+- **Different plans for each leg.** under the primary button opens the shared
+  leg-split editor (Getting there / Coming back, one shared Leave from,
+  **Save ride plan**, **Back to simple view**) — see Leave-from → uncovered
+  own-ride above. Hero queue treats in-play `NEEDS_RIDE` legs as gaps (see
+  Hero carousel queue).
+- **Different plans for each kid.** under the leg link (2+ going kids only)
+  opens the kid-split editor (one nested DriverPicker per kid, nested
+  leg-split, one shared Leave from, atomic **Save ride plan** with
+  identical-outcome grouping, **Back to simple view**) — see Leave-from →
+  uncovered own-ride above. Hero queue / chips read all own plans (per-kid
+  gaps + per-plan chip groups).
 - No separate “Nobody in the household free?” / outline Ask-the-team footer
   on these surfaces.
 
@@ -518,7 +573,7 @@ First match:
 | Condition | Copy | Flag |
 |-----------|------|------|
 | Zero items that local day | **No events** | none |
-| `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids on this circle’s **ACCEPTED** `ownRequest`; PENDING does not clear) | **1 needs coverage** / **{n} need coverage** | amber |
+| `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids on this circle’s **ACCEPTED** own plan(s); PENDING does not clear) | **1 needs coverage** / **{n} need coverage** | amber |
 | else `n` in-play with `conflicts.length > 0` | **1 overlaps** / **{n} overlap** | amber |
 | else `n` in-play pending-for-self | **1 to confirm** / **{n} to confirm** | amber |
 | else (in-play all-set, pending-for-others, out-of-play only) | **All set** | none |

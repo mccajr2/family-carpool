@@ -49,8 +49,14 @@ function slideAriaLabel(
   item: QueueItem,
   slideProps: HeroAttentionSlideProps,
 ): string {
+  const kidFirstNames =
+    item.kind === "ownRide" && slideProps.assignDraft.kidIds.length > 0
+      ? slideProps.assignDraft.kidIds.map((kidId) =>
+          heroKidFirstName(kidId, slideProps.circle.kids),
+        )
+      : [heroKidFirstName(item.game.kidId, slideProps.circle.kids)]
   return heroAttentionSlideAriaLabel(item, {
-    kidFirstName: heroKidFirstName(item.game.kidId, slideProps.circle.kids),
+    kidFirstNames,
     pendingConfirm: Boolean(
       pendingCoverageForAdult(slideProps.calendarItem, slideProps.currentAdultId),
     ),

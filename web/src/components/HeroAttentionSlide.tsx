@@ -6,11 +6,26 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import type { QueueItem } from "@/components/coverageQueue"
-import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import {
+  hasWaitingHouseholdForAdult,
+  isOwnRideGap,
+  mapCalendarItemToCoverageGames,
+} from "@/components/coverageQueue"
+import {
+  DriverPicker,
+  type DriverPickerKidPlan,
+  type DriverPickerSavePlanLegs,
+} from "@/components/DriverPicker"
+import {
+  heroAdultFirstName,
+  heroKidFirstName,
+  heroOwnRideTitle,
+  heroRequestTitle,
+  heroVenueLine,
+} from "@/components/heroAttentionCopy"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
-import { hasWaitingHouseholdForAdult } from "@/components/coverageQueue"
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
@@ -28,15 +43,8 @@ import {
 } from "@/components/leaveFromDisplay"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
-import {
-  heroAdultFirstName,
-  heroKidFirstName,
-  heroOwnRideTitle,
-  heroRequestTitle,
-  heroVenueLine,
-} from "@/components/heroAttentionCopy"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
-import { ridePlaceLineKind } from "@/components/transportPlan"
+import { allOwnPlanLegs, ridePlaceLineKind } from "@/components/transportPlan"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -50,8 +58,10 @@ export type HeroAttentionSlideProps = {
   assignDraft: { adultId: string; kidIds: string[] }
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
-  onAskTeam: () => void
+  /** Omit when the feed has no MEMBER/OWNER carpool space — hides Ask the team. */
+  onAskTeam?: () => void
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
+  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
   /** Confirm WAITING_HOUSEHOLD legs assigned to the signed-in adult. */
@@ -62,6 +72,13 @@ export type HeroAttentionSlideProps = {
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
+  /** Inline error near Assign/Save (e.g. missing pickup for Ask the team). */
+  actionError?: string
+  /**
+   * When false, Ask the team / Post is blocked with inline copy — circle has
+   * no addressed place for pickup snapshot.
+   */
+  hasPickupPlace?: boolean
   now?: Date
 }
 
@@ -86,6 +103,7 @@ export function HeroAttentionSlide({
   onAssignCoverage,
   onAskTeam,
   onSaveRidePlan,
+  onSaveKidPlans,
   onConfirmCoverage,
   onDeclineCoverage,
   onConfirmHouseholdPlan,
@@ -94,16 +112,33 @@ export function HeroAttentionSlide({
   onPassRide,
   leaveFromValue,
   onSetLeaveFrom,
+  actionError,
+  hasPickupPlace = true,
   now = new Date(),
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
-  const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
+  const coverageGames = useMemo(
+    () =>
+      mapCalendarItemToCoverageGames(calendarItem, rideEvent, {
+        currentAdultId,
+        members: circle.members,
+      }),
+    [calendarItem, rideEvent, currentAdultId, circle.members],
+  )
+  const gapKidFirstNames = coverageGames
+    .filter((game) => game.attendance !== "not_going" && isOwnRideGap(game))
+    .map((game) => heroKidFirstName(game.kidId, circle.kids))
+  const titleKidFirstNames =
+    gapKidFirstNames.length > 0
+      ? gapKidFirstNames
+      : [heroKidFirstName(item.game.kidId, circle.kids)]
+  const kidFirstName = titleKidFirstNames[0] ?? "Kid"
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
-    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
     onDeclineHouseholdPlan != null
   const showConfirmChrome = pendingForSelf != null || pendingHouseholdPlan
@@ -115,7 +150,10 @@ export function HeroAttentionSlide({
       )
     : null
   const ownRideTitle = heroOwnRideTitle({
-    kidFirstName,
+    kidFirstNames:
+      pendingForSelf != null && pendingForSelf.kidIds.length > 0
+        ? pendingForSelf.kidIds.map((kidId) => heroKidFirstName(kidId, circle.kids))
+        : titleKidFirstNames,
     pendingConfirm: showConfirmChrome,
     assignerFirstName,
   })
@@ -159,6 +197,17 @@ export function HeroAttentionSlide({
   }, [item, rideEvent])
   const inboundLegChips =
     requestAccept != null ? inboundAskLegChips(requestAccept) : []
+
+  const goingKids = useMemo(
+    () =>
+      coverageGames
+        .filter((game) => game.attendance !== "not_going")
+        .map((game) => ({
+          id: game.kidId,
+          firstName: heroKidFirstName(game.kidId, circle.kids),
+        })),
+    [coverageGames, circle.kids],
+  )
 
   return (
     <div
@@ -276,15 +325,23 @@ export function HeroAttentionSlide({
                     currentAdultId={currentAdultId}
                     selectedAdultId={assignDraft.adultId}
                     onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
-                    kidIds={assignDraft.kidIds}
+                    kidIds={
+                      goingKids.length > 0
+                        ? goingKids.map((kid) => kid.id)
+                        : assignDraft.kidIds
+                    }
                     loading={loading}
                     hero
-                    showTeamSection={rideEvent != null}
+                    showTeamSection={onAskTeam != null}
                     leaveFromSlot={leaveFromSlot}
                     leaveFromLabel={originForConfirm}
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={onAskTeam}
                     onSaveRidePlan={onSaveRidePlan}
+                    goingKids={goingKids}
+                    onSaveKidPlans={onSaveKidPlans}
+                    hasPickupPlace={hasPickupPlace}
+                    actionError={actionError}
                   />
                 </div>
               )}

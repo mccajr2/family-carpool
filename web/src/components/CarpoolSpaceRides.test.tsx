@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { CarpoolRide, CarpoolRideEvent, Kid } from "@/api/types"
 import { CarpoolSpaceRides } from "@/components/CarpoolSpaceRides"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 const kids: Kid[] = [{ id: "k1", displayName: "Mia" }]
 
@@ -45,6 +45,7 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownRequests: partial.ownRequests ?? (partial.ownRequest != null ? [partial.ownRequest] : []),
     ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
@@ -201,5 +202,44 @@ describe("CarpoolSpaceRides request defaults", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByText("No kids need a ride for this event.")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
+  })
+
+  it("withdraws only FROM on a mixed household-TO team-FROM accept", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    render(
+      <CarpoolSpaceRides
+        events={[
+          event({
+            otherRequests: [
+              ride({
+                status: "ACCEPTED",
+                acceptedByAdultId: "a1",
+                acceptingCircleId: "c1",
+                acceptingCircleName: "Ours",
+                legs: [
+                  carpoolLeg("TO", "CONFIRMED", {
+                    assigneeAdultId: "a2",
+                    assigneeDisplayName: "Jason",
+                  }),
+                  carpoolLeg("FROM", "CONFIRMED", {
+                    assigneeAdultId: "a1",
+                    assigneeCircleId: "c1",
+                    assigneeCircleName: "Ours",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ]}
+        circleId="c1"
+        kids={kids}
+        busy={false}
+        {...noop}
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: "Withdraw" }))
+    expect(onWithdrawRide).toHaveBeenCalledWith("ride-1", ["FROM"])
   })
 })

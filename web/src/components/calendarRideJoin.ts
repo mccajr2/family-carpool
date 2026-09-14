@@ -14,6 +14,17 @@ export function feedSpaceIdsFromSummary(summary: CarpoolSummary): Map<string, st
   return map
 }
 
+/** True when this feed has an enabled carpool space the circle belongs to. */
+export function feedHasCarpoolSpace(
+  summary: CarpoolSummary | null | undefined,
+  feedId: string | null | undefined,
+): boolean {
+  if (summary == null || feedId == null || feedId === "") {
+    return false
+  }
+  return feedSpaceIdsFromSummary(summary).has(feedId)
+}
+
 /**
  * Resolve carpool space for a ride action — prefer the ride payload's spaceId
  * (always correct for inbound accepts) over feed→space summary mapping.

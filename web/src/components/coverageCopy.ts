@@ -14,6 +14,11 @@ export function markAsNotGoingLabel(displayName: string): string {
   return `Mark ${displayName} as not going`
 }
 
+/** Simple-view attendance — one control for every going kid on the event. */
+export function markKidsAsNotGoingLabel(kidFirstNames: readonly string[]): string {
+  return `Mark ${joinKidFirstNames(kidFirstNames)} as not going`
+}
+
 export function markedNotGoingMessage(displayName: string): string {
   return `${displayName} is marked not going.`
 }
@@ -35,12 +40,18 @@ export const ASK_THE_TEAM = "Ask the team" as const
 export const POST_TO_TEAM_ROUND_TRIP = "Post to team — round trip" as const
 /** Progressive disclosure under Confirm / Post — opens the split editor. */
 export const DIFFERENT_PLANS_FOR_EACH_LEG = "Different plans for each leg." as const
+/** Progressive disclosure — opens per-kid nested DriverPicker sections. */
+export const DIFFERENT_PLANS_FOR_EACH_KID = "Different plans for each kid." as const
 /** Split-editor primary CTA (applies both legs). */
 export const SAVE_RIDE_PLAN = "Save ride plan" as const
 /** Split-editor link back to collapsed round-trip DriverPicker chrome. */
 export const BACK_TO_SIMPLE_VIEW = "Back to simple view" as const
 /** One-time leave-from still empty in the draft field. */
 export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
+
+/** Ask the team needs a pickup snapshot — shown next to Save / Post. */
+export const ASK_TEAM_NEEDS_PLACE =
+  "Add a home address in Places before asking the team." as const
 export const OVERLAPS_CHIP = "Overlaps" as const
 export const RIDE_CONFLICT_CHIP = "Ride conflict" as const
 export const RIDING_WITH_TEAMMATE = "Riding with a teammate" as const
@@ -129,8 +140,32 @@ export function confirmDriveFromLabel(options: {
   return `Confirm — ${first}'ll drive round trip from ${origin}`
 }
 
+/** "Luke", "Luke and Graham", "Luke, Graham, and Mia". */
+export function joinKidFirstNames(kidFirstNames: readonly string[]): string {
+  const names = kidFirstNames.map((name) => name.trim()).filter(Boolean)
+  if (names.length === 0) {
+    return "Kids"
+  }
+  if (names.length === 1) {
+    return names[0]!
+  }
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]}`
+  }
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+}
+
 export function kidNeedsRideTitle(kidFirstName: string): string {
-  return `${kidFirstName} needs a ride`
+  return kidsNeedRideTitle([kidFirstName])
+}
+
+/** One or more kids needing a ride — singular/plural verb. */
+export function kidsNeedRideTitle(kidFirstNames: readonly string[]): string {
+  const joined = joinKidFirstNames(kidFirstNames)
+  if (kidFirstNames.map((n) => n.trim()).filter(Boolean).length <= 1) {
+    return `${joined} needs a ride`
+  }
+  return `${joined} need a ride`
 }
 
 /** Pending household assign — assigner asked the viewer to drive this kid. */
@@ -138,12 +173,23 @@ export function assignedYouToDriveTitle(
   assignerFirstName: string,
   kidFirstName: string,
 ): string {
-  return `${assignerFirstName} assigned you to drive ${kidFirstName}`
+  return assignedYouToDriveKidsTitle(assignerFirstName, [kidFirstName])
+}
+
+export function assignedYouToDriveKidsTitle(
+  assignerFirstName: string,
+  kidFirstNames: readonly string[],
+): string {
+  return `${assignerFirstName} assigned you to drive ${joinKidFirstNames(kidFirstNames)}`
 }
 
 /** Fallback when assigner is unknown on a pending confirm-for-self slide. */
 export function confirmYoullDriveKidTitle(kidFirstName: string): string {
-  return `Confirm you'll drive ${kidFirstName}`
+  return confirmYoullDriveKidsTitle([kidFirstName])
+}
+
+export function confirmYoullDriveKidsTitle(kidFirstNames: readonly string[]): string {
+  return `Confirm you'll drive ${joinKidFirstNames(kidFirstNames)}`
 }
 
 export function kidAlreadyGoingSuffix(kidFirstName: string): string {

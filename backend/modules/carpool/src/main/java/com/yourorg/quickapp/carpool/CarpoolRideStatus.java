@@ -5,8 +5,8 @@ public enum CarpoolRideStatus {
     ACCEPTED,
     CANCELLED,
     /**
-     * Circle-local plan (household legs only). Never returned as
-     * {@code ownRequest} / {@code otherRequests}; backs {@code ownLegs} only.
+     * Circle-local or household-only plan (no open team ask). Returned on
+     * {@code ownRequests}; singular {@code ownRequest} stays null for PLAN.
      */
     PLAN
 }

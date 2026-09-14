@@ -63,6 +63,7 @@ export type {
   CancelCarpoolRideRequest,
   CreateCarpoolRideRequest,
   SaveCarpoolRidePlanLeg,
+  SaveCarpoolRidePlanGroup,
   SaveCarpoolRidePlanRequest,
   SaveCarpoolRidePlanResponse,
   CarpoolRidePlanLegAction,

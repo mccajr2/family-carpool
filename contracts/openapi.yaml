@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.30.0
+  version: 0.31.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -55,35 +55,41 @@ info:
     defaults to feed-linked kids who are not RSVP NO (YES and NO_RESPONSE both qualify)
     and not already on this circle's ACCEPTED ride; create does not change RSVP.
     Create defaults to a round-trip ask (both TO and FROM legs ASKED_TEAM); optional
-    `legs` may request a single leg. Save ride plan
-    (`POST /api/carpool/spaces/{spaceId}/ride-plans`) applies independent
-    driver outcomes to both TO and FROM in one atomic write (household,
-    Ask the team, and/or leave Needs ride) so mixed plans stay correct under
-    concurrent cancel — leave-from stays ride/coverage-level (no per-leg place
-    columns). Household-only plans before Enable carpool use
-    `GET/POST /api/carpool/ride-plans` (null `space_id`; ASK_TEAM is 400).
-    Enabling a space attaches matching circle-local plans onto it. The
-    assigned household adult confirms or declines their WAITING_HOUSEHOLD
-    legs via `POST …/ride-plans/confirm-household` and
-    `POST …/ride-plans/decline-household` (space-scoped or circle-local;
-    eventKey only; other legs and pickup stay unchanged). Each ride and each
-    list event's `ownLegs`
-    expose TO/FROM phases (`NEEDS_RIDE` | `WAITING_HOUSEHOLD` | `ASKED_TEAM` |
-    `CONFIRMED`). Accept is empty-body (like Pass): any space-member adult from
-    another circle may Accept; own-circle request returns 409; ride not PENDING
-    returns 409; non-member or unknown ride returns 404. No drives=false 403 and
-    no seat or vehicle checks. Accept confirms every still-open asked leg on that
-    request (both for round-trip; one for a single-leg ask) and sets RSVP YES for
-    the kids on that ride (requesting circle). Cancel / Withdraw may omit `legs`
-    to clear every leg this action covers when assignees match, or pass specific
-    leg(s) when assignees differ. An Organizer whose circle already has the feed
-    may enable a space (that circle owns it). Other families join by invite code
-    (admits the circle immediately and ensureFeed if the URL is missing) or
-    request to join (same-URL subscriber; owner-circle adults admit or decline
-    in-app — no email/push). Membership is the family circle. Magic links,
-    passwords, multi-circle membership, invite deep links, email/push invite
-    delivery, HTTP-only web cookies, Spotify Connect / remote playback, and paid
-    live-traffic routing are out of scope for this revision.
+    `legs` may request a single leg. A circle may have **multiple active
+    RideRequests per event** when kids have divergent TO/FROM plans; identical
+    outcomes group onto one request (seats = grouped kid count). A kid appears
+    on at most one non-cancelled plan for (requesting circle, event). Save ride
+    plan (`POST /api/carpool/spaces/{spaceId}/ride-plans` and circle-local
+    `POST /api/carpool/ride-plans`) is an atomic replace of this circle's active
+    plans for the event: body `plans[]` groups (`kidIds` + TO/FROM leg actions);
+    the server merges groups with identical TO/FROM outcomes. Leave-from stays
+    ride/coverage-level (no per-leg place columns). List/detail expose
+    `ownRequests` (all active own plans); singular `ownRequest` / `ownLegs` are
+    set only when there is exactly one plan, otherwise null. Household-only
+    plans before Enable carpool use `GET/POST /api/carpool/ride-plans` (null
+    `space_id`; ASK_TEAM is 400). Enabling a space attaches **all** matching
+    circle-local plans onto it. The assigned household adult confirms or
+    declines their WAITING_HOUSEHOLD legs via `POST …/ride-plans/confirm-household`
+    and `POST …/ride-plans/decline-household` (space-scoped or circle-local;
+    eventKey only; other legs and pickup stay unchanged; scoped to the
+    assignee's plan(s)). Each ride exposes TO/FROM phases (`NEEDS_RIDE` |
+    `WAITING_HOUSEHOLD` | `ASKED_TEAM` | `CONFIRMED`). Accept is empty-body
+    (like Pass): any space-member adult from another circle may Accept;
+    own-circle request returns 409; ride not PENDING returns 409; non-member or
+    unknown ride returns 404. No drives=false 403 and no seat or vehicle checks.
+    Accept confirms every still-open asked leg on **that** request (both for
+    round-trip; one for a single-leg ask) and sets RSVP YES for the kids on that
+    ride (requesting circle) — not siblings on a different plan. Cancel /
+    Withdraw may omit `legs` to clear every leg this action covers when
+    assignees match, or pass specific leg(s) when assignees differ. An Organizer
+    whose circle already has the feed may enable a space (that circle owns it).
+    Other families join by invite code (admits the circle immediately and
+    ensureFeed if the URL is missing) or request to join (same-URL subscriber;
+    owner-circle adults admit or decline in-app — no email/push). Membership is
+    the family circle. Magic links, passwords, multi-circle membership, invite
+    deep links, email/push invite delivery, HTTP-only web cookies, Spotify
+    Connect / remote playback, and paid live-traffic routing are out of scope
+    for this revision.
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -128,15 +134,17 @@ tags:
       Member circles may leave anytime; the owner may leave only as the sole
       member circle (space is then removed). Space members may list upcoming
       feed events with ride overlays (each event includes this circle's
-      `ownLegs` TO/FROM plan phases), create ride requests (default round-trip
-      both legs; optional single-leg via `legs`; pickup at the requester's
-      house; default kids = not RSVP NO and still need a ride; create leaves
-      RSVP unchanged), save a ride plan for both legs atomically
-      (household / Ask the team / Needs ride per leg; no per-leg places),
-      accept another circle's pending request with an empty
-      body (like Pass; confirms every still-open asked leg; any space-member
-      adult from another circle; no vehicle, drives, or seat gating; sets RSVP
-      YES for kids on the ride; allowed after Pass while still PENDING), pass
+      `ownRequests` — all active own plans — plus singular `ownRequest` /
+      `ownLegs` only when there is exactly one plan), create ride requests
+      (default round-trip both legs; optional single-leg via `legs`; pickup at
+      the requester's house; default kids = not RSVP NO and still need a ride;
+      create leaves RSVP unchanged), save ride plan(s) atomically via `plans[]`
+      (household / Ask the team / Needs ride per leg; identical TO/FROM groups
+      merge; no per-leg places), accept another circle's pending request with
+      an empty body (like Pass; confirms every still-open asked leg on that
+      request only; any space-member adult from another circle; no vehicle,
+      drives, or seat gating; sets RSVP YES for kids on the ride; allowed after
+      Pass while still PENDING), pass
       on another circle's pending request (per-adult soft decline; request
       stays PENDING; Focus clients may skip passed asks), cancel their own
       request (optional per-leg when assignees differ), or withdraw an
@@ -2996,9 +3004,12 @@ paths:
         Any circle member. Returns household-only plans persisted with null
         `space_id` (before Enable carpool, or for manual events that never
         attach to a feed space) as `CarpoolRideEvent` rows for Agenda join.
-        `ownRequest` / `otherRequests` are empty; `ownLegs` carry TO/FROM
-        phases. Rows with no kids are omitted. Does not list space-scoped
-        rides — those stay on GET /api/carpool/spaces/{spaceId}/rides.
+        `ownRequests` lists every active circle-local plan for the event
+        (multiple allowed when kids diverge). Singular `ownRequest` /
+        `ownLegs` follow the one-plan rule (null when 0 or 2+).
+        `otherRequests` are empty. Rows with no kids are omitted. Does not
+        list space-scoped rides — those stay on GET
+        /api/carpool/spaces/{spaceId}/rides.
       security:
         - bearerAuth: []
       responses:
@@ -3027,13 +3038,14 @@ paths:
       tags: [carpool]
       summary: Save a household-only ride plan without a carpool space
       description: >
-        Any circle member. Same body as saveCarpoolRidePlan, but persists a
-        PLAN row with null `space_id`. ASK_TEAM is 400 (Ask the team requires
-        an enabled space). `eventKey` and `kidIds` are required. Mixed
-        household + Needs ride is allowed. Does **not** accept per-leg place
-        / leave-from fields. Caregiver save is allowed. Empty kidIds, missing
-        eventKey, invalid legs, unknown / non-circle household assignee
-        returns 400.
+        Any circle member. Same body as saveCarpoolRidePlan (`plans[]` atomic
+        replace), but persists PLAN row(s) with null `space_id`. ASK_TEAM is
+        400 (Ask the team requires an enabled space). Each plan group requires
+        `kidIds`. Mixed household + Needs ride is allowed. Does **not** accept
+        per-leg place / leave-from fields. Caregiver save is allowed. Empty
+        plans or kidIds, missing eventKey, invalid legs, unknown / non-circle
+        household assignee, or a kid on more than one submitted group returns
+        400.
       security:
         - bearerAuth: []
       requestBody:
@@ -3045,16 +3057,19 @@ paths:
       responses:
         "200":
           description: >
-            Plan applied; `ownLegs` reflect both legs. `ownRequest` is always
-            null (no team ask without a space).
+            Plan(s) applied; `ownRequests` lists every active circle-local
+            plan. Singular `ownRequest` / `ownLegs` follow the one-plan rule
+            (null when 0 or 2+). `ownRequest` is always null for circle-local
+            (no team ask without a space).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
         "400":
           description: >
-            ASK_TEAM selected, missing eventKey or kidIds, invalid legs, or
-            unknown / non-circle household assignee
+            ASK_TEAM selected, missing eventKey or plans/kidIds, invalid legs,
+            unknown / non-circle household assignee, or kid appears in more
+            than one group
           content:
             application/json:
               schema:
@@ -3094,7 +3109,7 @@ paths:
               $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
       responses:
         "200":
-          description: Waiting legs confirmed; `ownLegs` updated
+          description: Waiting legs confirmed; `ownRequests` / singular fields updated
           content:
             application/json:
               schema:
@@ -3146,7 +3161,7 @@ paths:
               $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
       responses:
         "200":
-          description: Waiting legs declined; `ownLegs` updated
+          description: Waiting legs declined; `ownRequests` / singular fields updated
           content:
             application/json:
               schema:
@@ -3531,20 +3546,20 @@ paths:
         includes event identity (iCal UID when present, else a title/start/
         location fingerprint), title, start/end, defaultKidIds (this circle's
         feed-linked kids who are not RSVP NO and still need a ride —
-        YES and NO_RESPONSE both qualify; for Request pre-fill), ownLegs
-        (this circle's TO/FROM transport plan phases, always present), this
-        circle's active ride request if any (PENDING or ACCEPTED), and other
-        member circles' PENDING/ACCEPTED requests (circle name, kid first
-        names, seat count, pickup name+address, pickupTown, legs, and on
-        otherRequests viewer-specific detourMinutes (null when routing
-        unavailable), passedByAdultNames). Passed
-        asks remain in otherRequests with passedByMe true for the calling
-        adult (still PENDING for everyone else). Pass is a soft decline:
-        non-Focus surfaces may still offer Accept while the ride is PENDING;
-        Focus ranking/CTAs may skip asks the caller has passed. Empty array
-        when no upcoming feed events match. from must be strictly before to
-        and the window must not exceed 31 days (400 otherwise). Non-member or
-        unknown space returns 404.
+        YES and NO_RESPONSE both qualify; for Request pre-fill), `ownRequests`
+        (all of this circle's active plans for the event; may be multiple when
+        kids diverge), singular `ownRequest` / `ownLegs` only when there is
+        exactly one own plan (otherwise null), and other member circles'
+        PENDING/ACCEPTED requests (circle name, kid first names, seat count,
+        pickup name+address, pickupTown, legs, and on otherRequests
+        viewer-specific detourMinutes (null when routing unavailable),
+        passedByAdultNames). Passed asks remain in otherRequests with
+        passedByMe true for the calling adult (still PENDING for everyone
+        else). Pass is a soft decline: non-Focus surfaces may still offer
+        Accept while the ride is PENDING; Focus ranking/CTAs may skip asks the
+        caller has passed. Empty array when no upcoming feed events match.
+        from must be strictly before to and the window must not exceed 31 days
+        (400 otherwise). Non-member or unknown space returns 404.
       security:
         - bearerAuth: []
       parameters:
@@ -3850,13 +3865,15 @@ paths:
       summary: Withdraw an acceptance from the accepting circle
       description: >
         Any adult in the accepting circle. Optional body may name specific
-        leg(s) to withdraw. When `legs` is omitted and both legs share the
-        same assignee adult identity, withdraws every confirmed leg this
-        acceptance covers — combined withdraw. When assignees differ, omit
-        returns 409; pass the specific leg(s). Withdrawing the last confirmed
-        team leg transitions ACCEPTED to PENDING and clears accepter fields
-        when no confirmed team legs remain. Wrong circle returns 403.
-        Non-member or unknown ride returns 404. Not ACCEPTED returns 409.
+        confirmed team leg(s) to withdraw. When `legs` is omitted, withdraws
+        every CONFIRMED leg this circle owns (`assigneeCircleId` matches the
+        accepting circle) — household CONFIRMED legs on the same ride (for
+        example the requester driving TO while this circle accepted FROM)
+        stay put. Named `legs` must each be a confirmed team leg; household
+        or open legs return 409. Withdrawing the last confirmed team leg
+        transitions ACCEPTED to PENDING and clears accepter fields when no
+        confirmed team legs remain. Wrong circle returns 403. Non-member or
+        unknown ride returns 404. Not ACCEPTED returns 409.
       security:
         - bearerAuth: []
       parameters:
@@ -3905,8 +3922,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: >
-            Ride is not ACCEPTED, or `legs` omitted when assignees differ
-            across legs
+            Ride is not ACCEPTED, or named `legs` include a non-confirmed or
+            household (non-team) leg
           content:
             application/json:
               schema:
@@ -3916,24 +3933,27 @@ paths:
     post:
       operationId: saveCarpoolRidePlan
       tags: [carpool]
-      summary: Save independent driver plans for Getting there and Coming back
+      summary: Save ride plan group(s) for Getting there and Coming back
       description: >
-        Any space-member adult. Atomically applies the desired TO and FROM
-        driver outcomes for this circle on a feed event (web **Save ride
-        plan**). Body must include exactly one TO and one FROM leg. Each leg
-        action is HOUSEHOLD (circle adult — `assigneeAdultId` required; server
-        sets CONFIRMED when the assignee is the caller, WAITING_HOUSEHOLD when
-        another household adult), ASK_TEAM (post that leg; pickup stays the
-        requester's house), or NEEDS_RIDE (leave or clear that leg open). Mixed
-        household + Ask combinations upsert or clear the circle's team ask so
-        `ownLegs` match the plan without a multi-call race against cancel.
-        Optional `kidIds` follows createCarpoolRide rules when any leg is
-        ASK_TEAM (omit → default going kids who still need a ride). Does not
-        change RSVP. Does **not** accept per-leg place / leave-from fields —
-        leave-from stays on existing item / coverage leave-from writes. Caregiver
-        save is allowed. Unknown event, invalid legs, missing household
-        assignee, unknown / non-circle assignee, or ASK_TEAM without pickup
-        address returns 400. Non-member or unknown space returns 404.
+        Any space-member adult. Atomically **replaces** this circle's active
+        plans for a feed event with the submitted `plans[]` (web **Save ride
+        plan**, including kid-split). Each group has `kidIds` plus exactly one
+        TO and one FROM leg. Leg actions are HOUSEHOLD (circle adult —
+        `assigneeAdultId` required; server sets CONFIRMED when the assignee is
+        the caller, WAITING_HOUSEHOLD when another household adult), ASK_TEAM
+        (post that leg; pickup stays the requester's house), or NEEDS_RIDE
+        (leave or clear that leg open). Groups with identical TO/FROM outcomes
+        (same phase + assignee adult / circle per leg) are merged into one
+        RideRequest (seats = grouped kid count). Submitted groups must cover
+        every going kid for the event with no kid on two groups. A kid already
+        on another active plan is moved (`removeKid`; empty bag cancels that
+        request) before the new groups are created. Does not change RSVP.
+        Does **not** accept per-leg place / leave-from fields — leave-from
+        stays on existing item / coverage leave-from writes. Caregiver save is
+        allowed. Unknown event, empty plans, invalid legs, missing household
+        assignee, unknown / non-circle assignee, overlapping kidIds, or
+        ASK_TEAM without pickup address returns 400. Non-member or unknown
+        space returns 404.
       security:
         - bearerAuth: []
       parameters:
@@ -3952,17 +3972,18 @@ paths:
       responses:
         "200":
           description: >
-            Plan applied; `ownLegs` reflect both legs. `ownRequest` is the
-            circle's active team ask when any leg is ASKED_TEAM or an ACCEPTED
-            ask remains; null for household-only / all Needs ride plans.
+            Plan(s) applied; `ownRequests` lists every active own plan after
+            the replace. Singular `ownRequest` / `ownLegs` follow the one-plan
+            rule (set when exactly one plan; null when 0 or 2+).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
         "400":
           description: >
-            Invalid eventKey, legs (not exactly TO+FROM), household assignee,
-            kids, or no pickup address when Ask the team is selected
+            Invalid eventKey, empty plans, legs (not exactly TO+FROM per
+            group), household assignee, kids, overlapping kidIds across
+            groups, or no pickup address when Ask the team is selected
           content:
             application/json:
               schema:
@@ -4018,7 +4039,7 @@ paths:
               $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
       responses:
         "200":
-          description: Waiting legs confirmed; `ownLegs` updated
+          description: Waiting legs confirmed; `ownRequests` / singular fields updated
           content:
             application/json:
               schema:
@@ -4079,7 +4100,7 @@ paths:
               $ref: "#/components/schemas/HouseholdRidePlanActionRequest"
       responses:
         "200":
-          description: Waiting legs declined; `ownLegs` updated
+          description: Waiting legs declined; `ownRequests` / singular fields updated
           content:
             application/json:
               schema:
@@ -5739,12 +5760,15 @@ components:
 
     CarpoolRideStatus:
       type: string
-      enum: [PENDING, ACCEPTED, CANCELLED]
+      enum: [PENDING, ACCEPTED, CANCELLED, PLAN]
       description: >
-        Team-request rollup. PENDING — at least one asked leg still open
+        Team-request / plan rollup. PENDING — at least one asked leg still open
         (ASKED_TEAM). ACCEPTED — a member circle accepted; asked legs are
         CONFIRMED. CANCELLED — requesting circle cancelled (may request
-        again). Per-leg detail is on `legs` / `ownLegs`.
+        again). PLAN — household-only active plan (no open team ask). Appears
+        on `ownRequests` entries; singular `ownRequest` stays null for PLAN.
+        Per-leg detail is on `legs` / `ownRequests` / singular `ownLegs` when
+        one plan.
 
     CarpoolRide:
       type: object
@@ -5822,8 +5846,8 @@ components:
             Viewer-specific extra driving minutes vs going straight to the
             event. Set only on otherRequests rows in listCarpoolRides when
             origin, pickup, event location, and routing all resolve; null on
-            ownRequest, on create/accept/pass/cancel/withdraw responses, and
-            when routing is unavailable (soft-fail).
+            ownRequests entries, on create/accept/pass/cancel/withdraw
+            responses, and when routing is unavailable (soft-fail).
         status:
           $ref: "#/components/schemas/CarpoolRideStatus"
         legs:
@@ -5841,11 +5865,12 @@ components:
           type: boolean
           description: >
             True when the calling adult has passed on this PENDING request.
-            Always false on ownRequest, on ACCEPTED/CANCELLED rides, and on
-            create/accept/cancel/withdraw responses. On list rides, true only
-            for otherRequests entries the caller has passed; those rows stay
-            visible. Soft decline: non-Focus surfaces may still offer Accept
-            while status is PENDING; Focus ranking/CTAs may skip passed asks.
+            Always false on ownRequests entries, on ACCEPTED/CANCELLED rides,
+            and on create/accept/cancel/withdraw responses. On list rides,
+            true only for otherRequests entries the caller has passed; those
+            rows stay visible. Soft decline: non-Focus surfaces may still
+            offer Accept while status is PENDING; Focus ranking/CTAs may skip
+            passed asks.
         passedByAdultNames:
           type: array
           description: >
@@ -5877,7 +5902,7 @@ components:
         - title
         - startsAt
         - defaultKidIds
-        - ownLegs
+        - ownRequests
         - otherRequests
       properties:
         eventKey:
@@ -5902,15 +5927,28 @@ components:
           items:
             type: string
             format: uuid
+        ownRequests:
+          type: array
+          description: >
+            All of this circle's active (non-cancelled) ride plans for the
+            event. Empty when none. May contain multiple entries when kids
+            have divergent TO/FROM outcomes; identical outcomes are already
+            grouped (one request, seats = kid count). A kid appears on at
+            most one entry. Prefer this list over singular fields whenever
+            length is not exactly 1.
+          items:
+            $ref: "#/components/schemas/CarpoolRide"
         ownLegs:
           type: array
           minItems: 2
           maxItems: 2
+          nullable: true
           description: >
-            This circle's transport plan for the event (TO then FROM), merging
-            household coverage and team asks. Both NEEDS_RIDE when no active
-            plan. Present even when ownRequest is null (e.g. household-only
-            WAITING_HOUSEHOLD / CONFIRMED).
+            Convenience for the single-plan case: TO then FROM of the sole
+            entry in `ownRequests`. Set only when `ownRequests.length === 1`.
+            Null when there are 0 or 2+ own plans so clients cannot pick an
+            arbitrary bag. When set, may be a household-only PLAN even if
+            `ownRequest` is null (circle-local before Enable).
           items:
             $ref: "#/components/schemas/CarpoolRideLeg"
         requestedByAdultId:
@@ -5918,9 +5956,9 @@ components:
           format: uuid
           nullable: true
           description: >
-            Adult who last saved / created this circle's active plan for the
-            event. Null when there is no active plan. Used for hero assigner
-            copy when ownRequest is null (PLAN).
+            Adult who last saved / created this circle's active plan(s) for
+            the event. Null when there is no active plan. Used for hero
+            assigner copy when singular ownRequest is null (PLAN).
         requestedByDisplayName:
           type: string
           nullable: true
@@ -5930,10 +5968,14 @@ components:
             - $ref: "#/components/schemas/CarpoolRide"
           nullable: true
           description: >
-            This circle's active request (PENDING or ACCEPTED), if any. Null
-            when none or last request was CANCELLED. passedByMe is always
-            false here; passedByAdultNames lists adults from other circles
-            who passed (for requester visibility).
+            Convenience for the single-plan case: the sole entry in
+            `ownRequests` when `ownRequests.length === 1`. Null when there
+            are 0 or 2+ own plans (use `ownRequests`). Also null for
+            circle-local household-only PLAN rows in listCircleRidePlans
+            (no team ask without a space) even when `ownLegs` is set for the
+            one-plan case. passedByMe is always false here;
+            passedByAdultNames lists adults from other circles who passed
+            (for requester visibility).
         otherRequests:
           type: array
           description: >
@@ -6028,22 +6070,19 @@ components:
             Required when action is HOUSEHOLD (must be an adult in the caller's
             circle). Must be null / omitted for ASK_TEAM and NEEDS_RIDE.
 
-    SaveCarpoolRidePlanRequest:
+    SaveCarpoolRidePlanGroup:
       type: object
       required:
-        - eventKey
+        - kidIds
         - legs
       properties:
-        eventKey:
-          type: string
-          description: Target feed event identity (must match a listed event)
         kidIds:
           type: array
           minItems: 1
           description: >
-            Non-empty subset of defaultKidIds when any leg uses ASK_TEAM. When
-            omitted and Ask is selected, server defaults like createCarpoolRide.
-            Ignored when no leg is ASK_TEAM. Does not change RSVP.
+            Kids covered by this group. Must not overlap other groups in the
+            same save. Together with sibling groups, must cover every going
+            kid for the event. Does not change RSVP.
           items:
             type: string
             format: uuid
@@ -6056,6 +6095,28 @@ components:
           items:
             $ref: "#/components/schemas/SaveCarpoolRidePlanLeg"
 
+    SaveCarpoolRidePlanRequest:
+      type: object
+      required:
+        - eventKey
+        - plans
+      properties:
+        eventKey:
+          type: string
+          description: Target feed event identity (must match a listed event)
+        plans:
+          type: array
+          minItems: 1
+          description: >
+            Atomic replace of this circle's active plans for the event. Each
+            entry is a kid bag + TO/FROM outcomes. The server merges groups
+            that share identical TO/FROM driver outcomes (same phase +
+            assignee adult / circle per leg) into one RideRequest. Clients may
+            send already-grouped bags or one kid per group. No per-leg place
+            fields.
+          items:
+            $ref: "#/components/schemas/SaveCarpoolRidePlanGroup"
+
     ClearCarpoolRidePlanRequest:
       type: object
       required:
@@ -6063,7 +6124,7 @@ components:
       properties:
         eventKey:
           type: string
-          description: Target event identity for this circle's active plan
+          description: Target event identity for this circle's active plan(s)
         legs:
           type: array
           minItems: 1
@@ -6081,21 +6142,29 @@ components:
         eventKey:
           type: string
           description: >
-            Target feed event identity for this circle's active plan (same key
-            as list rides / save ride plan)
+            Target feed event identity for this circle's active plan(s) (same
+            key as list rides / save ride plan)
 
     SaveCarpoolRidePlanResponse:
       type: object
       required:
-        - ownLegs
+        - ownRequests
       properties:
+        ownRequests:
+          type: array
+          description: >
+            All of this circle's active plans for the event after the write
+            (same shape as CarpoolRideEvent.ownRequests).
+          items:
+            $ref: "#/components/schemas/CarpoolRide"
         ownLegs:
           type: array
           minItems: 2
           maxItems: 2
+          nullable: true
           description: >
-            Resulting TO then FROM plan phases after the save (same shape as
-            CarpoolRideEvent.ownLegs).
+            Singular convenience: set only when `ownRequests.length === 1`
+            (that plan's TO/FROM). Null when 0 or 2+ plans.
           items:
             $ref: "#/components/schemas/CarpoolRideLeg"
         ownRequest:
@@ -6103,9 +6172,10 @@ components:
             - $ref: "#/components/schemas/CarpoolRide"
           nullable: true
           description: >
-            This circle's active team ask (PENDING or ACCEPTED) when the plan
-            includes or retains asked legs; null for household-only or all
-            Needs ride.
+            Singular convenience: set only when `ownRequests.length === 1`.
+            Null when 0 or 2+ plans, and null for circle-local household-only
+            PLAN responses (no team ask without a space) even in the one-plan
+            case — then `ownLegs` may still be set.
 
     ErrorResponse:
       type: object
@@ -6143,7 +6213,7 @@ components:
               $ref: "#/components/schemas/ClearCarpoolRidePlanRequest"
       responses:
         "200":
-          description: Legs cleared; `ownLegs` / `ownRequest` updated
+          description: Legs cleared; `ownRequests` / singular fields updated
           content:
             application/json:
               schema:

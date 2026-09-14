@@ -23,6 +23,12 @@ import {
 } from "@/components/carpoolDisplay"
 import { hasWaitingHouseholdForAdult, isOwnRideGap, mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
+  allOwnPlanLegs,
+  inboundWithdrawLegs,
+  resolveOwnRidePlans,
+  transportGapKidIds,
+} from "@/components/transportPlan"
+import {
   activeCoverageForAdult,
   activeCoverages,
   coverageAdultLabel,
@@ -30,7 +36,12 @@ import {
   memberLabel,
   pendingCoverageForAdult,
 } from "@/components/coverageDisplay"
-import { DriverPicker, type DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import {
+  DriverPicker,
+  type DriverPickerKidPlan,
+  type DriverPickerSavePlanLegs,
+} from "@/components/DriverPicker"
+import { heroKidFirstName } from "@/components/heroAttentionCopy"
 import { formatFocusEventWhen } from "@/components/eventTimes"
 import {
   carpoolAskChipForRideEvent,
@@ -41,7 +52,6 @@ import {
   rideCommitmentConflict,
   rideCommitmentConflictLine,
 } from "@/components/rideCommitmentConflict"
-import { transportGapKidIds } from "@/components/transportPlan"
 
 type AssignDraft = { adultId: string; kidIds: string[]; soleAdult: boolean; soleKid: boolean }
 
@@ -65,8 +75,9 @@ type AgendaFocusCardProps = {
   onPassRide?: (rideId: string) => void
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
+  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onCancelRide?: (rideId: string) => void
-  onWithdrawRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onOpenPlaces: () => void
   onEdit: () => void
   /** Item or coverage leave-from write (Focus subtle override). */
@@ -129,6 +140,7 @@ export function AgendaFocusCard({
   onPassRide,
   onCreateRide,
   onSaveRidePlan,
+  onSaveKidPlans,
   onCancelRide,
   onWithdrawRide,
   onOpenPlaces,
@@ -140,21 +152,23 @@ export function AgendaFocusCard({
   const eligibleRide = eligiblePendingRideAccept(rideEvent, {
     adultId: currentAdultId,
   })
-  const ownRequest = rideEvent?.ownRequest ?? null
+  const ownPlans = resolveOwnRidePlans(rideEvent)
+  const ownRequest = rideEvent?.ownRequest ?? (ownPlans.length === 1 ? ownPlans[0]! : null)
   const acceptedByUs = acceptedByUsRequest(rideEvent, circle.id)
   const needsDecision = focusItemNeedsDecision(
     item,
     currentAdultId,
     eligibleRide,
     ownRequest,
-    rideEvent?.ownLegs,
+    allOwnPlanLegs(rideEvent),
+    rideEvent,
   )
 
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
-    hasWaitingHouseholdForAdult(rideEvent?.ownLegs, currentAdultId) &&
+    hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
     onDeclineHouseholdPlan != null
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
@@ -187,8 +201,9 @@ export function AgendaFocusCard({
   }, [item, rideEvent, currentAdultId, circle.id, circle.members, circle.kids])
   const gapKidIds = transportGapKidIds(
     item.uncoveredKidIds,
-    ownRequest,
+    rideEvent?.ownRequest,
     rideEvent?.ownLegs,
+    rideEvent?.ownRequests,
   )
   const focusGames = mapCalendarItemToCoverageGames(item, rideEvent, {
     currentAdultId,
@@ -197,6 +212,12 @@ export function AgendaFocusCard({
   const hasOwnRideGap = focusGames.some(
     (game) => game.attendance !== "not_going" && isOwnRideGap(game),
   )
+  const goingKids = focusGames
+    .filter((game) => game.attendance !== "not_going")
+    .map((game) => ({
+      id: game.kidId,
+      firstName: heroKidFirstName(game.kidId, circle.kids),
+    }))
   const activeCoverage = active[0]
   // CTA precedence: pending Confirm → ride Accept/Pass → Request (+ Assign
   // secondary if remaining gap) → Assign → calm Edit. Outline Cancel /
@@ -205,7 +226,7 @@ export function AgendaFocusCard({
     !pendingForSelf && eligibleRide != null && onAcceptRide != null && onPassRide != null
   const canAskTeam =
     rideEvent != null &&
-    rideEvent.ownRequest == null &&
+    ownPlans.length === 0 &&
     rideEvent.defaultKidIds.length > 0 &&
     onCreateRide != null
   const showAssign =
@@ -577,53 +598,16 @@ export function AgendaFocusCard({
         ) : null}
         {showAssign ? (
           <div className="flex w-full flex-col gap-[var(--fc-space-md)]">
-            {!assignDraft.soleKid ? (
-              <fieldset
-                className="flex flex-col gap-[var(--fc-space-xs)]"
-                data-testid="agenda-focus-kid-subset"
-              >
-                <legend
-                  className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
-                  style={{ color: onSecondaryVar }}
-                >
-                  Uncovered kids
-                </legend>
-                {gapKidIds.map((kidId) => {
-                  const kid = circle.kids.find((entry) => entry.id === kidId)
-                  if (!kid) {
-                    return null
-                  }
-                  return (
-                    <label
-                      key={kidId}
-                      className="flex items-center gap-[var(--fc-space-sm)] text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
-                      style={{ color: onVar }}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label={`Cover ${kid.displayName} for ${item.title}`}
-                        checked={assignDraft.kidIds.includes(kidId)}
-                        onChange={() =>
-                          onUpdateAssignDraft({
-                            kidIds: assignDraft.kidIds.includes(kidId)
-                              ? assignDraft.kidIds.filter((id) => id !== kidId)
-                              : [...assignDraft.kidIds, kidId],
-                          })
-                        }
-                        disabled={loading}
-                      />
-                      {kid.displayName}
-                    </label>
-                  )
-                })}
-              </fieldset>
-            ) : null}
             <DriverPicker
               members={circle.members}
               currentAdultId={currentAdultId}
               selectedAdultId={assignDraft.adultId}
               onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
-              kidIds={assignDraft.kidIds}
+              kidIds={
+                goingKids.length > 0
+                  ? goingKids.map((kid) => kid.id)
+                  : assignDraft.kidIds
+              }
               loading={loading}
               onAssignCoverage={onAssignCoverage}
               onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
@@ -633,10 +617,21 @@ export function AgendaFocusCard({
                   ? onSaveRidePlan
                   : undefined
               }
+              goingKids={goingKids}
+              onSaveKidPlans={
+                onSaveKidPlans != null &&
+                (canAskTeam || circle.members.length > 1)
+                  ? onSaveKidPlans
+                  : undefined
+              }
               showTeamSection={canAskTeam}
               hero={needsDecision}
               leaveFromSlot={assignLeaveFromSlot}
               leaveFromLabel={originForConfirm}
+              hasPickupPlace={circle.places.some(
+                (place) => place.address.trim().length > 0,
+              )}
+              actionError={coverageActionError}
             />
           </div>
         ) : null}
@@ -675,7 +670,12 @@ export function AgendaFocusCard({
               size="sm"
               variant={needsDecision ? "secondary" : "outline"}
               className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-              onClick={() => onWithdrawRide?.(acceptedByUs.id)}
+              onClick={() =>
+                onWithdrawRide?.(
+                  acceptedByUs.id,
+                  inboundWithdrawLegs(acceptedByUs.legs, circle.id),
+                )
+              }
               disabled={loading}
             >
               Withdraw

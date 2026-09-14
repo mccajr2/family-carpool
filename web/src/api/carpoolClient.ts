@@ -9,6 +9,7 @@ import type {
   CarpoolSummary,
   ClearCarpoolRidePlanRequest,
   CreateCarpoolRideRequest,
+  SaveCarpoolRidePlanGroup,
   SaveCarpoolRidePlanLeg,
   SaveCarpoolRidePlanRequest,
   SaveCarpoolRidePlanResponse,
@@ -211,19 +212,7 @@ export class CarpoolClient {
   ): Promise<SaveCarpoolRidePlanResponse> {
     const body: SaveCarpoolRidePlanRequest = {
       eventKey: request.eventKey,
-      legs: request.legs.map((leg) => {
-        const entry: SaveCarpoolRidePlanLeg = {
-          kind: leg.kind,
-          action: leg.action,
-        }
-        if (leg.assigneeAdultId != null) {
-          entry.assigneeAdultId = leg.assigneeAdultId
-        }
-        return entry
-      }),
-    }
-    if (request.kidIds != null) {
-      body.kidIds = request.kidIds
+      plans: request.plans.map(serializePlanGroup),
     }
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/ride-plans`),
@@ -302,19 +291,7 @@ export class CarpoolClient {
   ): Promise<SaveCarpoolRidePlanResponse> {
     const body: SaveCarpoolRidePlanRequest = {
       eventKey: request.eventKey,
-      legs: request.legs.map((leg) => {
-        const entry: SaveCarpoolRidePlanLeg = {
-          kind: leg.kind,
-          action: leg.action,
-        }
-        if (leg.assigneeAdultId != null) {
-          entry.assigneeAdultId = leg.assigneeAdultId
-        }
-        return entry
-      }),
-    }
-    if (request.kidIds != null) {
-      body.kidIds = request.kidIds
+      plans: request.plans.map(serializePlanGroup),
     }
     const response = await this.fetchFn(authUrl(this.baseUrl, "/api/carpool/ride-plans"), {
       method: "POST",
@@ -506,4 +483,20 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
     // ignore non-JSON error bodies
   }
   return `${fallback} (${response.status})`
+}
+
+function serializePlanGroup(group: SaveCarpoolRidePlanGroup): SaveCarpoolRidePlanGroup {
+  return {
+    kidIds: [...group.kidIds],
+    legs: group.legs.map((leg) => {
+      const entry: SaveCarpoolRidePlanLeg = {
+        kind: leg.kind,
+        action: leg.action,
+      }
+      if (leg.assigneeAdultId != null) {
+        entry.assigneeAdultId = leg.assigneeAdultId
+      }
+      return entry
+    }),
+  }
 }

@@ -46,6 +46,44 @@ class CarpoolRideLegsSchemaTest {
     }
 
     @Test
+    void multiPlanMigrationDropsOneActivePlanUniqueIndexes() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(indexExists(connection, "carpool_ride_requests_active_space_unique"))
+                    .isFalse();
+            assertThat(indexExists(connection, "carpool_ride_requests_active_circle_unique"))
+                    .isFalse();
+
+            UUID spaceId = insertMinimalSpace(connection);
+            UUID circleId = insertMinimalCircle(connection, "Multi Plan House");
+            UUID adultId =
+                    insertMinimalAdult(
+                            connection, "multi-plan-" + UUID.randomUUID() + "@example.com");
+            String eventKey = "UID:multi-plan-" + UUID.randomUUID();
+
+            insertRideWithoutLegs(
+                    connection, spaceId, circleId, adultId, "PLAN", null, null, eventKey);
+            insertRideWithoutLegs(
+                    connection, spaceId, circleId, adultId, "PENDING", null, null, eventKey);
+
+            try (PreparedStatement ps =
+                    connection.prepareStatement(
+                            """
+                            SELECT COUNT(*) FROM carpool_ride_requests
+                            WHERE space_id = ? AND event_key = ? AND requesting_circle_id = ?
+                              AND status IN ('PENDING', 'ACCEPTED', 'PLAN')
+                            """)) {
+                ps.setObject(1, spaceId);
+                ps.setString(2, eventKey);
+                ps.setObject(3, circleId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isEqualTo(2);
+                }
+            }
+        }
+    }
+
+    @Test
     void migratedPendingAndAcceptedRowsExposeBothLegPhases() throws Exception {
         try (Connection connection = dataSource.getConnection()) {
             UUID spaceId = insertMinimalSpace(connection);
@@ -186,6 +224,27 @@ class CarpoolRideLegsSchemaTest {
             UUID acceptedByAdultId,
             UUID acceptingCircleId)
             throws Exception {
+        return insertRideWithoutLegs(
+                connection,
+                spaceId,
+                circleId,
+                adultId,
+                status,
+                acceptedByAdultId,
+                acceptingCircleId,
+                "UID:legs-migrate-" + UUID.randomUUID());
+    }
+
+    private static UUID insertRideWithoutLegs(
+            Connection connection,
+            UUID spaceId,
+            UUID circleId,
+            UUID adultId,
+            String status,
+            UUID acceptedByAdultId,
+            UUID acceptingCircleId,
+            String eventKey)
+            throws Exception {
         UUID id = UUID.randomUUID();
         try (PreparedStatement ps =
                 connection.prepareStatement(
@@ -198,7 +257,7 @@ class CarpoolRideLegsSchemaTest {
                         """)) {
             ps.setObject(1, id);
             ps.setObject(2, spaceId);
-            ps.setString(3, "UID:legs-migrate-" + id);
+            ps.setString(3, eventKey);
             ps.setObject(4, circleId);
             ps.setObject(5, adultId);
             ps.setString(6, status);
@@ -207,6 +266,20 @@ class CarpoolRideLegsSchemaTest {
             ps.executeUpdate();
         }
         return id;
+    }
+
+    private static boolean indexExists(Connection connection, String indexName) throws Exception {
+        try (PreparedStatement ps =
+                connection.prepareStatement(
+                        """
+                        SELECT 1 FROM pg_indexes
+                        WHERE schemaname = 'public' AND indexname = ?
+                        """)) {
+            ps.setString(1, indexName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
     }
 
     private static String uniqueCode() {

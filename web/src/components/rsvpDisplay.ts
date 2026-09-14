@@ -16,6 +16,11 @@ export function rsvpStatusForKid(item: CalendarItem, kidId: string): RsvpStatus 
   return (item.rsvps ?? []).find((row) => row.kidId === kidId)?.status ?? "NO_RESPONSE"
 }
 
+/** In-play kids on the item (not RSVP NO). Simple coverage/attendance uses this bag. */
+export function goingKidIdsForItem(item: CalendarItem): string[] {
+  return item.kidIds.filter((kidId) => rsvpStatusForKid(item, kidId) !== "NO")
+}
+
 /** Out of play when every kid on the item is RSVP No (includes one-kid No). */
 export function isAgendaItemOutOfPlay(item: CalendarItem): boolean {
   if (item.kidIds.length === 0) {

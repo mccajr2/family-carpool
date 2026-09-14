@@ -415,8 +415,77 @@ public class FamilyService {
         geocodeService
                 .resolve(address)
                 .ifPresentOrElse(
-                        coords -> place.setCoordinates(coords.latitude(), coords.longitude()),
+                        coords -> {
+                            place.setCoordinates(coords.latitude(), coords.longitude());
+                            maybeTitleCasePlaceFields(place);
+                        },
                         () -> place.setCoordinates(null, null));
+    }
+
+    /**
+     * When geocode succeeds and the user typed all-lowercase name/address,
+     * store Title Case so Places list reads as a normal address label.
+     */
+    private static void maybeTitleCasePlaceFields(FamilyPlaceEntity place) {
+        String name = place.name();
+        String address = place.address();
+        boolean nameNeedsCase = isAllLowercaseLetters(name);
+        boolean addressNeedsCase = isAllLowercaseLetters(address);
+        if (!nameNeedsCase && !addressNeedsCase) {
+            return;
+        }
+        String nextName = nameNeedsCase ? toTitleCaseWords(name) : name;
+        String nextAddress = addressNeedsCase ? toTitleCaseWords(address) : address;
+        place.setName(nextName, normalizePlaceNameKey(nextName));
+        place.setAddress(nextAddress);
+    }
+
+    /** True when the string has letters and every letter is lowercase. */
+    static boolean isAllLowercaseLetters(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return false;
+        }
+        boolean sawLetter = false;
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (Character.isLetter(c)) {
+                sawLetter = true;
+                if (!Character.isLowerCase(c)) {
+                    return false;
+                }
+            }
+        }
+        return sawLetter;
+    }
+
+    /** Title-cases whitespace-separated words; keeps digits/punctuation in place. */
+    static String toTitleCaseWords(String raw) {
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        StringBuilder out = new StringBuilder(trimmed.length());
+        boolean capitalizeNext = true;
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            if (Character.isWhitespace(c) || c == '-' || c == '/') {
+                out.append(c);
+                capitalizeNext = true;
+                continue;
+            }
+            if (capitalizeNext && Character.isLetter(c)) {
+                out.append(Character.toTitleCase(c));
+                capitalizeNext = false;
+            } else if (Character.isLetter(c)) {
+                out.append(Character.toLowerCase(c));
+                capitalizeNext = false;
+            } else {
+                out.append(c);
+                // Keep capitalizing after digit sequences like "12 oak" → "12 Oak"
+                capitalizeNext = !Character.isLetterOrDigit(c);
+            }
+        }
+        return out.toString();
     }
 
     private PlaceResponse toPlaceResponse(FamilyPlaceEntity place) {

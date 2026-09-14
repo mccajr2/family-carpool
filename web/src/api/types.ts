@@ -362,7 +362,7 @@ export type CarpoolSummary = {
   spaces: CarpoolSpace[]
 }
 
-export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED"
+export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED" | "PLAN"
 
 export type CarpoolLegKind = "TO" | "FROM"
 
@@ -383,7 +383,7 @@ export type CarpoolRideLeg = {
 
 export type CarpoolRide = {
   id: string
-  spaceId: string
+  spaceId: string | null
   eventKey: string
   requestingCircleId: string
   requestingCircleName: string | null
@@ -410,10 +410,19 @@ export type CarpoolRideEvent = {
   startsAt: string
   endsAt: string | null
   defaultKidIds: string[]
-  ownLegs: CarpoolRideLeg[]
-  /** Adult who saved/created the active plan; null when no plan. */
+  /** All active own plans for the event (prefer over singular fields). */
+  ownRequests: CarpoolRide[]
+  /**
+   * Sole plan's legs when `ownRequests.length === 1`; null when 0 or 2+.
+   */
+  ownLegs: CarpoolRideLeg[] | null
+  /** Adult who saved/created the active plan(s); null when no plan. */
   requestedByAdultId?: string | null
   requestedByDisplayName?: string | null
+  /**
+   * Sole entry when `ownRequests.length === 1`; null when 0 or 2+
+   * (and null for circle-local PLAN-only rows).
+   */
   ownRequest: CarpoolRide | null
   otherRequests: CarpoolRide[]
 }
@@ -448,15 +457,24 @@ export type SaveCarpoolRidePlanLeg = {
   assigneeAdultId?: string | null
 }
 
-export type SaveCarpoolRidePlanRequest = {
-  eventKey: string
-  kidIds?: string[]
+/** One kid bag + TO/FROM outcomes; server may merge identical groups. */
+export type SaveCarpoolRidePlanGroup = {
+  kidIds: string[]
   /** Exactly one TO and one FROM. */
   legs: SaveCarpoolRidePlanLeg[]
 }
 
+export type SaveCarpoolRidePlanRequest = {
+  eventKey: string
+  /** Atomic replace of this circle's active plans for the event. */
+  plans: SaveCarpoolRidePlanGroup[]
+}
+
 export type SaveCarpoolRidePlanResponse = {
-  ownLegs: CarpoolRideLeg[]
+  ownRequests: CarpoolRide[]
+  /** Set only when `ownRequests.length === 1`; otherwise null. */
+  ownLegs: CarpoolRideLeg[] | null
+  /** Set only when `ownRequests.length === 1`; otherwise null. */
   ownRequest: CarpoolRide | null
 }
 

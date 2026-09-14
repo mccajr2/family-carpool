@@ -100,6 +100,12 @@ describe("heroAttentionCopy", () => {
       heroAttentionSlideAriaLabel(ownRide, { kidFirstName: "Declan", pendingConfirm: false }),
     ).toBe("Declan needs a ride")
     expect(
+      heroAttentionSlideAriaLabel(ownRide, {
+        kidFirstNames: ["Luke", "Graham"],
+        pendingConfirm: false,
+      }),
+    ).toBe("Luke and Graham need a ride")
+    expect(
       heroAttentionSlideAriaLabel(ownRide, { kidFirstName: "Declan", pendingConfirm: true }),
     ).toBe("Confirm you'll drive Declan")
     expect(

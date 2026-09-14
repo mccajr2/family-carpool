@@ -103,6 +103,7 @@ function event(partial: Partial<CarpoolRideEvent> = {}): CarpoolRideEvent {
     ownRequest: null,
     otherRequests: [],
     ...partial,
+    ownRequests: partial.ownRequests ?? (partial.ownRequest != null ? [partial.ownRequest] : []),
     ownLegs: partial.ownLegs ?? carpoolLegsBoth("NEEDS_RIDE"),
   }
 }
@@ -383,7 +384,7 @@ describe("CarpoolPanel", () => {
     expect(await screen.findByRole("button", { name: "Withdraw" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Withdraw" }))
-    expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ride-1")
+    expect(withdrawRide).toHaveBeenCalledWith("tok", "s1", "ride-1", {})
     expect(await screen.findByRole("button", { name: "Cancel" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Cancel" }))
