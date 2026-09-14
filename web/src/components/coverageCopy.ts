@@ -14,6 +14,11 @@ export function markAsNotGoingLabel(displayName: string): string {
   return `Mark ${displayName} as not going`
 }
 
+/** Simple-view attendance — one control for every going kid on the event. */
+export function markKidsAsNotGoingLabel(kidFirstNames: readonly string[]): string {
+  return `Mark ${joinKidFirstNames(kidFirstNames)} as not going`
+}
+
 export function markedNotGoingMessage(displayName: string): string {
   return `${displayName} is marked not going.`
 }

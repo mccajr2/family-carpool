@@ -540,6 +540,22 @@ describe("HeroAttentionSlide", () => {
     expect(within(firstSlide).getByText("· 2 things need you")).toBeInTheDocument()
   })
 
+  it("hides Ask the team when onAskTeam is omitted", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, { queueLength: 1, onAskTeam: undefined })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(slide).queryByRole("button", { name: "Ask the team" })).not.toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker-ask-team-chip")).not.toBeInTheDocument()
+  })
+
   it("wraps hero CTAs inside a 390px slide without horizontal overflow classes", () => {
     render(
       <div style={{ width: "390px" }}>

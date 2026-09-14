@@ -104,6 +104,38 @@ export function ownRidePlanForKid(
   return plans.find((plan) => plan.kidIds.includes(kidId)) ?? null
 }
 
+/** Plans that include any of these kids (simple shared coverage reversal). */
+export function ownPlansCoveringKids(
+  plans: readonly CarpoolRide[],
+  kidIds: readonly string[],
+): CarpoolRide[] {
+  const wanted = new Set(kidIds)
+  return plans.filter((plan) => plan.kidIds.some((kidId) => wanted.has(kidId)))
+}
+
+/** Plans whose legs match this revert target — not every sibling plan. */
+export function ownPlansMatchingAssignee(
+  plans: readonly CarpoolRide[],
+  assignee: DecidedAssignee,
+): CarpoolRide[] {
+  return plans.filter((plan) =>
+    plan.legs.some((leg) => {
+      if (assignee.kind === "team_ask") {
+        return leg.phase === "ASKED_TEAM"
+      }
+      if (assignee.kind === "teammate") {
+        return (
+          (assignee.circleId != null &&
+            (leg.assigneeCircleId === assignee.circleId ||
+              plan.acceptingCircleId === assignee.circleId)) ||
+          (assignee.adultId != null && plan.acceptedByAdultId === assignee.adultId)
+        )
+      }
+      return assignee.adultId != null && leg.assigneeAdultId === assignee.adultId
+    }),
+  )
+}
+
 /**
  * Non-blank transport legs for chip / gap chrome, or null when coverage owns
  * the row (blank NEEDS_RIDE plan). With 2+ own plans, returns null — callers
@@ -197,6 +229,26 @@ export function orderedTransportLegs(
   return ordered
 }
 
+/**
+ * True when this CONFIRMED leg is one this circle drives after Accept.
+ * Team accepts stamp assigneeCircleId; household legs on the same ride keep
+ * adult-only assignees (null circle) and must not inflate inbound · +n.
+ * Legacy fixtures with blank assignees still count for the accepting circle.
+ */
+function inboundLegOwnedByCircle(
+  leg: CarpoolRideLeg,
+  circleId: string,
+): boolean {
+  if (leg.phase !== "CONFIRMED") {
+    return false
+  }
+  if (leg.assigneeCircleId === circleId) {
+    return true
+  }
+  // Legacy / incomplete fixtures: no assignee stamped on a team CONFIRMED leg.
+  return leg.assigneeCircleId == null && leg.assigneeAdultId == null
+}
+
 /** ACCEPTED inbound asks this circle drives, counted per CONFIRMED leg kind. */
 export function inboundConfirmedCountByKind(
   otherRequests: readonly CarpoolRide[] | null | undefined,
@@ -211,7 +263,7 @@ export function inboundConfirmedCountByKind(
       continue
     }
     for (const leg of orderedTransportLegs(request.legs)) {
-      if (leg.phase === "CONFIRMED") {
+      if (inboundLegOwnedByCircle(leg, circleId)) {
         counts[leg.kind] += 1
       }
     }
@@ -728,20 +780,31 @@ export function ridePlaceLineKind(
   return "pickup"
 }
 
+/**
+ * Legs this circle should name on withdraw. Omit when we own none or both
+ * (combined round-trip withdraw). Mixed household + team rides own one leg.
+ */
 export function inboundWithdrawLegs(
   legs: readonly CarpoolRideLeg[] | null | undefined,
+  circleId: string | null | undefined,
 ): CarpoolLegKind[] | undefined {
-  const confirmed = orderedTransportLegs(legs).filter((leg) => leg.phase === "CONFIRMED")
-  if (confirmed.length === 0 || confirmed.length === 2) {
+  if (circleId == null || circleId === "") {
     return undefined
   }
-  return confirmed.map((leg) => leg.kind)
+  const owned = orderedTransportLegs(legs).filter((leg) =>
+    inboundLegOwnedByCircle(leg, circleId),
+  )
+  if (owned.length === 0 || owned.length === 2) {
+    return undefined
+  }
+  return owned.map((leg) => leg.kind)
 }
 
 export function inboundWithdrawLabel(
   legs: readonly CarpoolRideLeg[] | null | undefined,
+  circleId: string | null | undefined,
 ): string {
-  const kinds = inboundWithdrawLegs(legs)
+  const kinds = inboundWithdrawLegs(legs, circleId)
   if (kinds?.length === 1 && kinds[0] === "FROM") {
     return "Can't drive them home anymore?"
   }

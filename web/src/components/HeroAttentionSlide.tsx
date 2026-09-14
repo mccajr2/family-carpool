@@ -58,7 +58,8 @@ export type HeroAttentionSlideProps = {
   assignDraft: { adultId: string; kidIds: string[] }
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
-  onAskTeam: () => void
+  /** Omit when the feed has no MEMBER/OWNER carpool space — hides Ask the team. */
+  onAskTeam?: () => void
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onConfirmCoverage?: (assignmentId: string) => void
@@ -324,10 +325,14 @@ export function HeroAttentionSlide({
                     currentAdultId={currentAdultId}
                     selectedAdultId={assignDraft.adultId}
                     onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
-                    kidIds={assignDraft.kidIds}
+                    kidIds={
+                      goingKids.length > 0
+                        ? goingKids.map((kid) => kid.id)
+                        : assignDraft.kidIds
+                    }
                     loading={loading}
                     hero
-                    showTeamSection={rideEvent != null}
+                    showTeamSection={onAskTeam != null}
                     leaveFromSlot={leaveFromSlot}
                     leaveFromLabel={originForConfirm}
                     onAssignCoverage={onAssignCoverage}

@@ -1341,6 +1341,38 @@ describe("AgendaRow", () => {
     expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", ["k1"])
   })
 
+  it("hides Ask the team when onCreateRide is omitted (no carpool space)", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "feed-no-space",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:practice-ns",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-no-space")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Ask the team" })).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("driver-picker-ask-team-chip")).not.toBeInTheDocument()
+  })
+
   it("shows accepted-by-us ride density and Can't take them anymore when expanded", async () => {
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()
@@ -2903,5 +2935,110 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByRole("button", { expanded: false }))
     await user.click(within(row).getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1", "k2"])
+  })
+
+  it("marks every going kid not attending with one click", async () => {
+    const user = userEvent.setup()
+    const onSetNotGoing = vi.fn()
+    const twoKidCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Graham" },
+        { id: "k2", displayName: "Luke" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-not-going-all",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKidCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: true, soleKid: false }}
+        {...noopHandlers}
+        onSetNotGoing={onSetNotGoing}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-not-going-all")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByRole("button", { name: "Mark Graham as not going" })).not.toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Mark Luke as not going" })).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { name: "Mark Graham and Luke as not going" }))
+    expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
+  })
+
+  it("marks every covered twin not attending from override links", async () => {
+    const user = userEvent.setup()
+    const onSetNotGoing = vi.fn()
+    const twoKidCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Graham" },
+        { id: "k2", displayName: "Luke" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-covered-twins",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: [],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a1",
+          kidIds: ["k1", "k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKidCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: true, soleKid: false }}
+        {...noopHandlers}
+        onSetNotGoing={onSetNotGoing}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-covered-twins")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-override-links")).toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Mark Graham as not going" })).not.toBeInTheDocument()
+    expect(within(row).queryByRole("button", { name: "Mark Luke as not going" })).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { name: "Mark Graham and Luke as not going" }))
+    expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
   })
 })

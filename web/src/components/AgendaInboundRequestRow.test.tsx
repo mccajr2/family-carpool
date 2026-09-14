@@ -220,6 +220,41 @@ describe("AgendaInboundRequestRow", () => {
     expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted", ["FROM"])
   })
 
+  it("scopes Can't take them anymore to FROM when household TO stays on the same ride", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    render(
+      <AgendaInboundRequestRow
+        request={{
+          ...acceptedByUs,
+          legs: [
+            {
+              kind: "TO",
+              phase: "CONFIRMED",
+              assigneeAdultId: "a-jason",
+              assigneeDisplayName: "Jason",
+              assigneeCircleId: null,
+              assigneeCircleName: null,
+            },
+            {
+              kind: "FROM",
+              phase: "CONFIRMED",
+              assigneeAdultId: "a1",
+              assigneeDisplayName: "Alex",
+              assigneeCircleId: "c1",
+              assigneeCircleName: "Ours",
+            },
+          ],
+        }}
+        circleId="c1"
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+    const link = screen.getByRole("button", { name: "Can't drive them home anymore?" })
+    await user.click(link)
+    expect(onWithdrawRide).toHaveBeenCalledWith("ask-accepted", ["FROM"])
+  })
+
   it("shows Reconsider when autoDeclined and canOffer", async () => {
     const user = userEvent.setup()
     const onAcceptRide = vi.fn()

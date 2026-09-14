@@ -24,6 +24,7 @@ import {
 import { hasWaitingHouseholdForAdult, isOwnRideGap, mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
   allOwnPlanLegs,
+  inboundWithdrawLegs,
   resolveOwnRidePlans,
   transportGapKidIds,
 } from "@/components/transportPlan"
@@ -76,7 +77,7 @@ type AgendaFocusCardProps = {
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
   onCancelRide?: (rideId: string) => void
-  onWithdrawRide?: (rideId: string) => void
+  onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onOpenPlaces: () => void
   onEdit: () => void
   /** Item or coverage leave-from write (Focus subtle override). */
@@ -597,53 +598,16 @@ export function AgendaFocusCard({
         ) : null}
         {showAssign ? (
           <div className="flex w-full flex-col gap-[var(--fc-space-md)]">
-            {!assignDraft.soleKid ? (
-              <fieldset
-                className="flex flex-col gap-[var(--fc-space-xs)]"
-                data-testid="agenda-focus-kid-subset"
-              >
-                <legend
-                  className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
-                  style={{ color: onSecondaryVar }}
-                >
-                  Uncovered kids
-                </legend>
-                {gapKidIds.map((kidId) => {
-                  const kid = circle.kids.find((entry) => entry.id === kidId)
-                  if (!kid) {
-                    return null
-                  }
-                  return (
-                    <label
-                      key={kidId}
-                      className="flex items-center gap-[var(--fc-space-sm)] text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
-                      style={{ color: onVar }}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label={`Cover ${kid.displayName} for ${item.title}`}
-                        checked={assignDraft.kidIds.includes(kidId)}
-                        onChange={() =>
-                          onUpdateAssignDraft({
-                            kidIds: assignDraft.kidIds.includes(kidId)
-                              ? assignDraft.kidIds.filter((id) => id !== kidId)
-                              : [...assignDraft.kidIds, kidId],
-                          })
-                        }
-                        disabled={loading}
-                      />
-                      {kid.displayName}
-                    </label>
-                  )
-                })}
-              </fieldset>
-            ) : null}
             <DriverPicker
               members={circle.members}
               currentAdultId={currentAdultId}
               selectedAdultId={assignDraft.adultId}
               onSelectedAdultChange={(adultId) => onUpdateAssignDraft({ adultId })}
-              kidIds={assignDraft.kidIds}
+              kidIds={
+                goingKids.length > 0
+                  ? goingKids.map((kid) => kid.id)
+                  : assignDraft.kidIds
+              }
               loading={loading}
               onAssignCoverage={onAssignCoverage}
               onAskTeam={() => onCreateRide?.(rideEvent!.eventKey)}
@@ -706,7 +670,12 @@ export function AgendaFocusCard({
               size="sm"
               variant={needsDecision ? "secondary" : "outline"}
               className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-              onClick={() => onWithdrawRide?.(acceptedByUs.id)}
+              onClick={() =>
+                onWithdrawRide?.(
+                  acceptedByUs.id,
+                  inboundWithdrawLegs(acceptedByUs.legs, circle.id),
+                )
+              }
               disabled={loading}
             >
               Withdraw

@@ -54,6 +54,7 @@ import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
   markAsNotGoingLabel,
+  markKidsAsNotGoingLabel,
   needsCoverageWithKids,
 } from "@/components/coverageCopy"
 import {
@@ -135,6 +136,8 @@ type AgendaRowProps = {
     body: SetCalendarLeaveFromRequest,
   ) => void
   onSetRsvp: (kidId: string, status: RsvpStatus) => void
+  /** Simple-view not-going for every going kid on the event. */
+  onSetNotGoing?: (kidIds: string[]) => void
   onOpenPlaces: () => void
   /** Opens ride-detail overlay when `canRoute` for at least one in-play kid. */
   onOpenRide?: () => void
@@ -188,6 +191,7 @@ export function AgendaRow({
   onSetLeaveFrom,
   onSetCoverageLeaveFrom,
   onSetRsvp,
+  onSetNotGoing,
   onOpenPlaces,
   onOpenRide,
   onEdit,
@@ -243,11 +247,26 @@ export function AgendaRow({
     id: game.kidId,
     firstName: heroKidFirstName(game.kidId, circle.kids),
   }))
+  function markGoingKidsNotAttending() {
+    const ids = goingKids.map((kid) => kid.id)
+    if (ids.length === 0) {
+      return
+    }
+    if (onSetNotGoing != null) {
+      onSetNotGoing(ids)
+      return
+    }
+    for (const id of ids) {
+      onSetRsvp(id, "NO")
+    }
+  }
   const canAskTeam =
-    rideEvent != null &&
+    (rideEvent?.eventKey ?? item.eventKey) != null &&
+    item.feedId != null &&
     ownPlans.length === 0 &&
-    rideEvent.defaultKidIds.length > 0 &&
-    onCreateRide != null
+    goingKids.length > 0 &&
+    onCreateRide != null &&
+    (rideEvent == null || rideEvent.defaultKidIds.length > 0)
   const showAssign =
     !outOfPlay &&
     !pendingForSelf &&
@@ -633,41 +652,73 @@ export function AgendaRow({
                     })
                     return [...cancelLinks, ...reassignLinks]
                   })()}
-                  {coverageGames.map((game) => {
-                    if (game.attendance === "not_going") {
+                  {goingKids.length >= 2 ? (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={overrideLinkClass}
+                      data-testid={`rsvp-${item.source}-${item.id}-all`}
+                      data-attendance="going"
+                      onClick={() => markGoingKidsNotAttending()}
+                    >
+                      {markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))}
+                    </button>
+                  ) : (
+                    coverageGames.map((game) => {
+                      if (game.attendance === "not_going") {
+                        return (
+                          <AttendanceToggle
+                            key={`att-${game.kidId}`}
+                            displayName={
+                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                              "Kid"
+                            }
+                            attendance={game.attendance}
+                            disabled={loading}
+                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                            onSetAttendance={(next) =>
+                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                            }
+                          />
+                        )
+                      }
+                      const kidName =
+                        circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                        "Kid"
                       return (
-                        <AttendanceToggle
-                          key={`att-${game.kidId}`}
-                          displayName={
-                            circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
-                            "Kid"
-                          }
-                          attendance={game.attendance}
+                        <button
+                          key={`not-going-${game.kidId}`}
+                          type="button"
                           disabled={loading}
+                          className={overrideLinkClass}
                           data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                          onSetAttendance={(next) =>
-                            onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
-                          }
-                        />
+                          data-attendance="going"
+                          onClick={() => onSetRsvp(game.kidId, "NO")}
+                        >
+                          {markAsNotGoingLabel(kidName)}
+                        </button>
                       )
-                    }
-                    const kidName =
-                      circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
-                      "Kid"
-                    return (
-                      <button
-                        key={`not-going-${game.kidId}`}
-                        type="button"
-                        disabled={loading}
-                        className={overrideLinkClass}
-                        data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                        data-attendance="going"
-                        onClick={() => onSetRsvp(game.kidId, "NO")}
-                      >
-                        {markAsNotGoingLabel(kidName)}
-                      </button>
-                    )
-                  })}
+                    })
+                  )}
+                  {goingKids.length >= 2
+                    ? coverageGames
+                        .filter((game) => game.attendance === "not_going")
+                        .map((game) => (
+                          <AttendanceToggle
+                            key={`att-${game.kidId}`}
+                            displayName={
+                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                              "Kid"
+                            }
+                            attendance={game.attendance}
+                            disabled={loading}
+                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                            onSetAttendance={(next) =>
+                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                            }
+                          />
+                        ))
+                    : null}
                 </div>
               ) : null}
 
@@ -702,18 +753,21 @@ export function AgendaRow({
                       onUpdateAssignDraft({ adultId })
                     }
                     kidIds={
-                      assignDraft.kidIds.length > 0
-                        ? assignDraft.kidIds
-                        : assignableGapKidIds
+                      goingKids.length > 0
+                        ? goingKids.map((kid) => kid.id)
+                        : assignDraft.kidIds.length > 0
+                          ? assignDraft.kidIds
+                          : assignableGapKidIds
                     }
                     loading={loading}
                     leaveFromSlot={leaveFromInPicker ? leaveFromSlotForPicker : undefined}
                     leaveFromLabel={originForConfirm}
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={() => {
-                      if (rideEvent?.eventKey && onCreateRide) {
+                      const eventKey = rideEvent?.eventKey ?? item.eventKey
+                      if (eventKey && onCreateRide) {
                         onCreateRide(
-                          rideEvent.eventKey,
+                          eventKey,
                           goingKids.map((kid) => kid.id),
                         )
                       }
@@ -738,25 +792,74 @@ export function AgendaRow({
                 </div>
               ) : null}
 
+              {pendingForSelf != null && !showOverrideLinks ? (
+                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="agenda-cta-primary"
+                    onClick={() => onConfirmCoverage(pendingForSelf.id)}
+                    disabled={loading}
+                  >
+                    {CONFIRM_COVERAGE}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDeclineCoverage(pendingForSelf.id)}
+                    disabled={loading}
+                  >
+                    {DECLINE_COVERAGE}
+                  </Button>
+                </div>
+              ) : null}
+
+              {pendingHouseholdPlan && !showOverrideLinks && pendingForSelf == null ? (
+                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="agenda-cta-primary"
+                    onClick={() => onConfirmHouseholdPlan?.()}
+                    disabled={loading}
+                  >
+                    {CONFIRM_COVERAGE}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDeclineHouseholdPlan?.()}
+                    disabled={loading}
+                  >
+                    {DECLINE_COVERAGE}
+                  </Button>
+                </div>
+              ) : null}
+
+              {!showOverrideLinks && goingKids.length >= 2 ? (
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="mt-2 text-left text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid={`rsvp-${item.source}-${item.id}-all`}
+                  data-attendance="going"
+                  onClick={() => markGoingKidsNotAttending()}
+                >
+                  {markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))}
+                </button>
+              ) : null}
+
               {coverageGames.map((game) => {
                 const kid = circle.kids.find((row) => row.id === game.kidId)
                 const kidName = kid?.displayName?.trim() || "Kid"
-                const pendingSelfForKid =
-                  pendingForSelf != null && pendingForSelf.kidIds.includes(game.kidId)
-                const firstInPlayKidId = coverageGames.find(
-                  (row) => row.attendance !== "not_going",
-                )?.kidId
-                const pendingHouseholdForKid =
-                  pendingHouseholdPlan &&
-                  game.attendance !== "not_going" &&
-                  game.kidId === firstInPlayKidId
-                const showKidChrome = !outOfPlay && game.attendance !== "not_going"
-
-                if (
-                  showOverrideLinks &&
-                  !pendingSelfForKid &&
-                  !pendingHouseholdForKid
-                ) {
+                if (showOverrideLinks) {
+                  return null
+                }
+                const showPerKidAttendance =
+                  goingKids.length < 2 || game.attendance === "not_going"
+                if (!showPerKidAttendance) {
                   return null
                 }
 
@@ -766,67 +869,15 @@ export function AgendaRow({
                     data-testid={`agenda-kid-row-${game.kidId}`}
                     className="flex flex-col"
                   >
-                    {showKidChrome ? (
-                      <>
-                        {pendingSelfForKid && pendingForSelf != null ? (
-                          <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
-                            <Button
-                              type="button"
-                              size="sm"
-                              data-testid="agenda-cta-primary"
-                              onClick={() => onConfirmCoverage(pendingForSelf.id)}
-                              disabled={loading}
-                            >
-                              {CONFIRM_COVERAGE}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onDeclineCoverage(pendingForSelf.id)}
-                              disabled={loading}
-                            >
-                              {DECLINE_COVERAGE}
-                            </Button>
-                          </div>
-                        ) : null}
-
-                        {pendingHouseholdForKid ? (
-                          <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
-                            <Button
-                              type="button"
-                              size="sm"
-                              data-testid="agenda-cta-primary"
-                              onClick={() => onConfirmHouseholdPlan?.()}
-                              disabled={loading}
-                            >
-                              {CONFIRM_COVERAGE}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onDeclineHouseholdPlan?.()}
-                              disabled={loading}
-                            >
-                              {DECLINE_COVERAGE}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
-
-                    {!showOverrideLinks ? (
-                      <AttendanceToggle
-                        displayName={kidName}
-                        attendance={game.attendance}
-                        disabled={loading}
-                        data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                        onSetAttendance={(next) =>
-                          onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
-                        }
-                      />
-                    ) : null}
+                    <AttendanceToggle
+                      displayName={kidName}
+                      attendance={game.attendance}
+                      disabled={loading}
+                      data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                      onSetAttendance={(next) =>
+                        onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                      }
+                    />
                   </div>
                 )
               })}

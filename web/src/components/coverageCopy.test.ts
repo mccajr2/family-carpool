@@ -33,6 +33,7 @@ import {
   legStatusChipLabel,
   markAsGoingAgainLabel,
   markAsNotGoingLabel,
+  markKidsAsNotGoingLabel,
   needsCoverageWithKids,
   waitingOnDriverLabel,
   weekGlanceCountCopy,
@@ -123,6 +124,12 @@ describe("coverageCopy", () => {
     expect(markAsNotGoingLabel("Sam")).toMatch(/not going/)
     expect(markAsGoingAgainLabel()).toMatch(/going/)
     expect(markAsNotGoingLabel("Sam")).not.toMatch(/drive|ride/i)
+    expect(markKidsAsNotGoingLabel(["Graham", "Luke"])).toBe(
+      "Mark Graham and Luke as not going",
+    )
+    expect(markKidsAsNotGoingLabel(["Graham", "Luke", "Mia"])).toBe(
+      "Mark Graham, Luke, and Mia as not going",
+    )
     expect(CONFIRM_ILL_DRIVE).toMatch(/drive/)
     expect(CONFIRM_ILL_DRIVE).not.toMatch(/going/i)
     expect(REVERT_CANCEL_TEAM_ASK).toMatch(/ride/)

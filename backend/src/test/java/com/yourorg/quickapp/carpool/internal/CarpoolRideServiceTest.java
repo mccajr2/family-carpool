@@ -703,6 +703,78 @@ class CarpoolRideServiceTest {
     }
 
     @Test
+    void withdrawOmitOnMixedHouseholdToTeamFromClearsOnlyOwnedFrom() {
+        CarpoolRideRequestEntity mixed = pendingOtherRide(List.of(kidA));
+        mixed.leg(CarpoolLegKind.TO)
+                .setPhase(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        mixed.leg(CarpoolLegKind.TO).setAssignee(otherAdultId, null);
+        mixed.accept(adultId, circleId);
+        stubMemberSpace();
+        when(rides.findByIdAndSpaceId(mixed.id(), spaceId)).thenReturn(Optional.of(mixed));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(otherCircleId, circleId)))
+                .thenReturn(
+                        List.of(
+                                new FamilyCircleName(otherCircleId, "House B"),
+                                new FamilyCircleName(circleId, "House A")));
+        org.mockito.Mockito.lenient()
+                .when(adultSessionApi.requireAdult(otherAdultId))
+                .thenReturn(new AdultResponse(otherAdultId, "b@example.com", "Jason"));
+        org.mockito.Mockito.lenient()
+                .when(adultSessionApi.requireAdult(adultId))
+                .thenReturn(new AdultResponse(adultId, "a@example.com", "Chris"));
+
+        var withdrawn = service.withdraw(adult, spaceId, mixed.id());
+
+        assertThat(withdrawn.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(withdrawn.acceptedByAdultId()).isNull();
+        assertThat(withdrawn.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(withdrawn.legs().get(0).assigneeAdultId()).isEqualTo(otherAdultId);
+        assertThat(withdrawn.legs().get(0).assigneeCircleId()).isNull();
+        assertThat(withdrawn.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        assertThat(withdrawn.legs().get(1).assigneeCircleId()).isNull();
+    }
+
+    @Test
+    void withdrawNamedFromOnMixedSucceedsAndNamedToConflicts() {
+        CarpoolRideRequestEntity mixed = pendingOtherRide(List.of(kidA));
+        mixed.leg(CarpoolLegKind.TO)
+                .setPhase(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        mixed.leg(CarpoolLegKind.TO).setAssignee(otherAdultId, null);
+        mixed.accept(adultId, circleId);
+        stubMemberSpace();
+        when(rides.findByIdAndSpaceId(mixed.id(), spaceId)).thenReturn(Optional.of(mixed));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(otherCircleId, circleId)))
+                .thenReturn(
+                        List.of(
+                                new FamilyCircleName(otherCircleId, "House B"),
+                                new FamilyCircleName(circleId, "House A")));
+        org.mockito.Mockito.lenient()
+                .when(adultSessionApi.requireAdult(otherAdultId))
+                .thenReturn(new AdultResponse(otherAdultId, "b@example.com", "Jason"));
+        org.mockito.Mockito.lenient()
+                .when(adultSessionApi.requireAdult(adultId))
+                .thenReturn(new AdultResponse(adultId, "a@example.com", "Chris"));
+
+        assertThatThrownBy(
+                        () ->
+                                service.withdraw(
+                                        adult, spaceId, mixed.id(), List.of(CarpoolLegKind.TO)))
+                .isInstanceOf(CarpoolException.class)
+                .hasMessageContaining("confirmed team legs");
+
+        var withdrawn =
+                service.withdraw(adult, spaceId, mixed.id(), List.of(CarpoolLegKind.FROM));
+        assertThat(withdrawn.legs().get(0).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(withdrawn.legs().get(1).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+    }
+
+    @Test
     void createRoundTripThenCancelOneLegLeavesOtherAsked() {
         stubMemberSpace();
         stubSpaceEvent(practiceEvent(List.of(kidA)));
@@ -904,6 +976,44 @@ class CarpoolRideServiceTest {
         verify(rides).save(inbound);
         verify(rides).save(second);
         verify(rsvpApi, never()).setStatus(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void withdrawAcceptedInboundForFeedEventLeavesHouseholdToOnMixedRide() {
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, eventId))
+                .thenReturn(Optional.of(practiceEvent(List.of(kidA))));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity mixed = pendingOtherRide(List.of(kidB));
+        mixed.leg(CarpoolLegKind.TO)
+                .setPhase(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        mixed.leg(CarpoolLegKind.TO).setAssignee(otherAdultId, null);
+        mixed.accept(adultId, circleId);
+        when(rides.findBySpaceIdInAndEventKeyAndAcceptingCircleIdAndStatus(
+                        List.of(spaceId),
+                        "UID:game-1",
+                        circleId,
+                        CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of(mixed));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.withdrawAcceptedInboundForFeedEvent(adultId, eventId);
+
+        assertThat(mixed.status()).isEqualTo(CarpoolRideStatus.PENDING);
+        assertThat(mixed.leg(CarpoolLegKind.TO).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.CONFIRMED);
+        assertThat(mixed.leg(CarpoolLegKind.TO).assigneeAdultId()).isEqualTo(otherAdultId);
+        assertThat(mixed.leg(CarpoolLegKind.FROM).phase())
+                .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        verify(rides).save(mixed);
     }
 
     @Test

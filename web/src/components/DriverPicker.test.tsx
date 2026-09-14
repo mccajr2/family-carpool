@@ -123,6 +123,33 @@ describe("DriverPicker", () => {
     expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1", "k2"])
   })
 
+  it("Confirm uses goingKids rather than a stale kidIds subset", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+
+    render(
+      <DriverPicker
+        {...defaultProps}
+        selectedAdultId="a1"
+        kidIds={["k1"]}
+        goingKids={[
+          { id: "k1", firstName: "Graham" },
+          { id: "k2", firstName: "Luke" },
+        ]}
+        leaveFromLabel="Home"
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Confirm — You'll drive round trip from Home",
+      }),
+    )
+
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1", "k2"])
+  })
+
   it("puts Ask the team as a trailing chip in the driver row", () => {
     render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
 

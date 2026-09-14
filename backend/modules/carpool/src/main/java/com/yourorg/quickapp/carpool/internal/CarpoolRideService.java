@@ -1586,11 +1586,18 @@ public class CarpoolRideService {
 
     /**
      * @param cancelMode true for cancel (ASKED_TEAM or CONFIRMED); false for withdraw
-     *     (CONFIRMED only when choosing combined/per-leg)
+     *     (CONFIRMED team legs only)
      */
     private Set<CarpoolLegKind> resolveClearLegs(
             CarpoolRideRequestEntity ride, List<CarpoolLegKind> requestedLegs, boolean cancelMode) {
         if (requestedLegs == null || requestedLegs.isEmpty()) {
+            if (!cancelMode) {
+                Set<CarpoolLegKind> owned =
+                        ride.confirmedTeamLegKinds(ride.acceptingCircleId());
+                if (!owned.isEmpty()) {
+                    return owned;
+                }
+            }
             if (!ride.assigneesMatchForCombinedClear()) {
                 throw new CarpoolException(
                         HttpStatus.CONFLICT,
@@ -1610,9 +1617,11 @@ public class CarpoolRideService {
         }
         if (!cancelMode) {
             for (CarpoolLegKind kind : unique) {
-                if (ride.leg(kind).phase() != CarpoolLegPhase.CONFIRMED) {
+                RideLegSlot leg = ride.leg(kind);
+                if (leg.phase() != CarpoolLegPhase.CONFIRMED
+                        || leg.assigneeCircleId() == null) {
                     throw new CarpoolException(
-                            HttpStatus.CONFLICT, "Can only withdraw confirmed legs");
+                            HttpStatus.CONFLICT, "Can only withdraw confirmed team legs");
                 }
             }
         }

@@ -352,7 +352,13 @@ describe("rideStatusChipsForItem", () => {
       acceptingCircleName: "Ours",
       kidIds: ["k-them"],
       kidFirstNames: ["Mia"],
-      legs: [carpoolLeg("TO", "NEEDS_RIDE"), carpoolLeg("FROM", "CONFIRMED")],
+      legs: [
+        carpoolLeg("TO", "NEEDS_RIDE"),
+        carpoolLeg("FROM", "CONFIRMED", {
+          assigneeCircleId: "c1",
+          assigneeCircleName: "Ours",
+        }),
+      ],
     })
     const rideEvent: CarpoolRideEvent = {
       eventKey: "UID:game",
@@ -386,6 +392,77 @@ describe("rideStatusChipsForItem", () => {
     ])
     expect(rideStatusChipsForItem(item, games, null, { rideEvent, circleId: "c1" })).not.toEqual([
       { label: "You're driving · +1", tone: "route" },
+    ])
+  })
+
+  it("does not collapse · +n when inbound Accept only owns the return leg", () => {
+    const inbound = ownRide({
+      id: "inbound-mixed",
+      requestingCircleId: "c2",
+      requestingCircleName: "Jason house",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Chris house",
+      kidIds: ["k-declan"],
+      kidFirstNames: ["Declan"],
+      legs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a-jason",
+          assigneeDisplayName: "Jason",
+        }),
+        carpoolLeg("FROM", "CONFIRMED", {
+          assigneeAdultId: "a-chris",
+          assigneeCircleId: "c1",
+          assigneeCircleName: "Chris house",
+        }),
+      ],
+    })
+    const ownPlan = ownRide({
+      id: "chris-plan",
+      status: "PLAN",
+      kidIds: ["k1", "k2"],
+      kidFirstNames: ["Luke", "Graham"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a-chris",
+        assigneeDisplayName: "You",
+      }),
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:mixed",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["k1", "k2"],
+      ownLegs: ownPlan.legs,
+      ownRequest: ownPlan,
+      ownRequests: [ownPlan],
+      otherRequests: [inbound],
+    }
+    const item = calendarItem({ kidIds: ["k1", "k2"] })
+    const games = [
+      game({
+        id: "luke",
+        kidId: "k1",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+      }),
+      game({
+        id: "graham",
+        kidId: "k2",
+        order: 200,
+        ownRide: { driver: "You", confirmed: true },
+      }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, ownPlan, {
+        rideEvent,
+        circleId: "c1",
+        currentAdultId: "a-chris",
+      }),
+    ).toEqual([
+      { label: legStatusChipLabel("TO", YOURE_DRIVING), tone: "mint" },
+      { label: legStatusChipLabel("FROM", drivingChipLabel("You", 1)), tone: "route" },
     ])
   })
 

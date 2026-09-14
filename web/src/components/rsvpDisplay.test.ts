@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarItem } from "@/api/types"
 import {
+  goingKidIdsForItem,
   isAgendaItemOutOfPlay,
   kidHasActiveCoverage,
   rsvpCoverageReleaseMessage,
@@ -48,6 +49,22 @@ describe("rsvpDisplay", () => {
     expect(
       rsvpStatusForKid(item({ id: "e1", kidIds: ["k1"], rsvps: [] }), "k1"),
     ).toBe("NO_RESPONSE")
+  })
+
+  it("lists going kids excluding RSVP NO", () => {
+    expect(
+      goingKidIdsForItem(
+        item({
+          id: "e1",
+          kidIds: ["k1", "k2", "k3"],
+          rsvps: [
+            { kidId: "k1", status: "YES" },
+            { kidId: "k2", status: "NO" },
+            { kidId: "k3", status: "NO_RESPONSE" },
+          ],
+        }),
+      ),
+    ).toEqual(["k1", "k3"])
   })
 
   it("treats omitted rsvps array (stale cache) as NO_RESPONSE", () => {

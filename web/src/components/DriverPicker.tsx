@@ -47,7 +47,8 @@ export type DriverPickerProps = {
   kidIds: string[]
   loading?: boolean
   onAssignCoverage: (adultId: string, kidIds: string[]) => void
-  onAskTeam: () => void
+  /** Required when showTeamSection is true; unused when the Ask chip is hidden. */
+  onAskTeam?: () => void
   /**
    * When set, Different plans for each leg opens the shared split editor and
    * Save ride plan calls this with both leg choices for `kidIds`.
@@ -317,6 +318,8 @@ export function DriverPicker({
   const legSplitEnabled = onSaveRidePlan != null
   const kidSplitEligible = goingKids.length >= 2
   const kidSplitEnabled = kidSplitEligible && onSaveKidPlans != null
+  const actionKidIds =
+    goingKids.length > 0 ? goingKids.map((kid) => kid.id) : kidIds
 
   const primaryLabel = teamSelected
     ? POST_TO_TEAM_ROUND_TRIP
@@ -326,7 +329,7 @@ export function DriverPicker({
   const askBlockedByMissingPlace = teamSelected && !hasPickupPlace
   const primaryDisabled =
     loading ||
-    kidIds.length === 0 ||
+    actionKidIds.length === 0 ||
     (!teamSelected && !selectedAdultId) ||
     askBlockedByMissingPlace
 
@@ -335,7 +338,7 @@ export function DriverPicker({
   const splitAsksTeam =
     toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM"
   const splitPrimaryDisabled =
-    loading || kidIds.length === 0 || (splitAsksTeam && !hasPickupPlace)
+    loading || actionKidIds.length === 0 || (splitAsksTeam && !hasPickupPlace)
 
   function kidSplitAsksTeam(): boolean {
     return goingKids.some((kid) => {
@@ -421,10 +424,10 @@ export function DriverPicker({
 
   function handlePrimaryClick() {
     if (teamSelected) {
-      onAskTeam()
+      onAskTeam?.()
       return
     }
-    onAssignCoverage(selectedAdultId, kidIds)
+    onAssignCoverage(selectedAdultId, actionKidIds)
   }
 
   function handleSaveRidePlan() {

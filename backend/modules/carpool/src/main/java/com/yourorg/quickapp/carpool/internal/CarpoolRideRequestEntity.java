@@ -225,18 +225,37 @@ class CarpoolRideRequestEntity {
     }
 
     /**
-     * Reopens confirmed team legs to ASKED_TEAM. Returns true when no confirmed
-     * team legs remain (status becomes PENDING).
+     * Reopens confirmed team legs to ASKED_TEAM. Household CONFIRMED legs
+     * (null assigneeCircleId) stay put so a mixed TO-household / FROM-team
+     * ride does not turn the requester's drive into an ask. Returns true when
+     * no confirmed team legs remain (status becomes PENDING).
      */
     boolean withdrawLegs(Set<CarpoolLegKind> kinds) {
         for (RideLegSlot leg : legs) {
-            if (kinds.contains(leg.kind()) && leg.phase() == CarpoolLegPhase.CONFIRMED) {
+            if (kinds.contains(leg.kind())
+                    && leg.phase() == CarpoolLegPhase.CONFIRMED
+                    && leg.assigneeCircleId() != null) {
                 leg.setPhase(CarpoolLegPhase.ASKED_TEAM);
                 leg.clearAssignee();
             }
         }
         syncRollupAfterWithdraw();
         return status == CarpoolRideStatus.PENDING;
+    }
+
+    /** CONFIRMED legs this circle accepted (team stamp), in TO then FROM order. */
+    Set<CarpoolLegKind> confirmedTeamLegKinds(UUID circleId) {
+        Set<CarpoolLegKind> kinds = EnumSet.noneOf(CarpoolLegKind.class);
+        if (circleId == null) {
+            return kinds;
+        }
+        for (RideLegSlot leg : legs) {
+            if (leg.phase() == CarpoolLegPhase.CONFIRMED
+                    && circleId.equals(leg.assigneeCircleId())) {
+                kinds.add(leg.kind());
+            }
+        }
+        return kinds;
     }
 
     void cancel() {

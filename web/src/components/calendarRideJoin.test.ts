@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CalendarItem, CarpoolRideEvent, CarpoolSummary } from "@/api/types"
 import {
   circleLocalEventKey,
+  feedHasCarpoolSpace,
   feedSpaceIdsFromSummary,
   matchCalendarItemToRideEvent,
   normalizeRideMatchText,
@@ -72,6 +73,17 @@ describe("feedSpaceIdsFromSummary", () => {
       f1: "s1",
       f3: "s3",
     })
+  })
+})
+
+describe("feedHasCarpoolSpace", () => {
+  it("is true only for MEMBER/OWNER feeds with a space", () => {
+    expect(feedHasCarpoolSpace(summary, "f1")).toBe(true)
+    expect(feedHasCarpoolSpace(summary, "f3")).toBe(true)
+    expect(feedHasCarpoolSpace(summary, "f2")).toBe(false)
+    expect(feedHasCarpoolSpace(summary, "missing")).toBe(false)
+    expect(feedHasCarpoolSpace(null, "f1")).toBe(false)
+    expect(feedHasCarpoolSpace(summary, null)).toBe(false)
   })
 })
 

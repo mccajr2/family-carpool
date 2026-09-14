@@ -465,13 +465,19 @@ describe("AgendaFocusCard assign", () => {
     expect(onUpdateAssignDraft).toHaveBeenCalledWith({ adultId: "a2" })
   })
 
-  it("shows kid subset checkboxes above DriverPicker when multiple kids need coverage", () => {
+  it("covers all going kids from DriverPicker with no uncovered-kids checkboxes", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
     renderCard(
       item({
         id: "assign-multi",
         title: "Practice",
         kidIds: ["k1", "k2"],
         uncoveredKidIds: ["k1", "k2"],
+        rsvps: [
+          { kidId: "k1", status: "YES" },
+          { kidId: "k2", status: "YES" },
+        ],
       }),
       {
         circle: {
@@ -483,52 +489,18 @@ describe("AgendaFocusCard assign", () => {
         },
         assignDraft: {
           adultId: "a1",
-          kidIds: ["k1", "k2"],
-          soleAdult: false,
-          soleKid: false,
-        },
-      },
-    )
-
-    const subset = screen.getByTestId("agenda-focus-kid-subset")
-    expect(subset).toHaveTextContent("Uncovered kids")
-    expect(screen.getByLabelText("Cover Sam for Practice")).toBeChecked()
-    expect(screen.getByLabelText("Cover Riley for Practice")).toBeChecked()
-    expect(subset.compareDocumentPosition(screen.getByTestId("driver-picker")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it("assigns only selected kids after deselecting a subset checkbox", async () => {
-    const user = userEvent.setup()
-    const onAssignCoverage = vi.fn()
-    const onUpdateAssignDraft = vi.fn()
-    renderCard(
-      item({
-        id: "assign-subset",
-        title: "Practice",
-        kidIds: ["k1", "k2"],
-        uncoveredKidIds: ["k1", "k2"],
-      }),
-      {
-        circle: {
-          ...twoAdultCircle,
-          kids: [
-            { id: "k1", displayName: "Sam" },
-            { id: "k2", displayName: "Riley" },
-          ],
-        },
-        assignDraft: {
-          adultId: "a1",
-          kidIds: ["k1", "k2"],
+          kidIds: ["k1"],
           soleAdult: false,
           soleKid: false,
         },
         onAssignCoverage,
-        onUpdateAssignDraft,
       },
     )
 
-    await user.click(screen.getByLabelText("Cover Riley for Practice"))
-    expect(onUpdateAssignDraft).toHaveBeenCalledWith({ kidIds: ["k1"] })
+    expect(screen.queryByTestId("agenda-focus-kid-subset")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Cover Sam for Practice")).not.toBeInTheDocument()
+    await user.click(screen.getByTestId("driver-picker-confirm"))
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1", "k2"])
   })
 })
 
@@ -1086,7 +1058,7 @@ describe("AgendaFocusCard Withdraw CTA", () => {
       backgroundColor: "var(--fc-surface-raised)",
     })
     await user.click(withdraw)
-    expect(onWithdrawRide).toHaveBeenCalledWith("accepted-ask")
+    expect(onWithdrawRide).toHaveBeenCalledWith("accepted-ask", undefined)
   })
 
   it("does not show Withdraw for an ACCEPTED ask accepted by another circle", () => {

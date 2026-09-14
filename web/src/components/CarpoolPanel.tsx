@@ -224,9 +224,16 @@ export function CarpoolPanel({
                     carpoolClient.cancelRide(accessToken, space.id, rideId).then(() => undefined),
                   )
                 }
-                onWithdrawRide={(rideId) =>
+                onWithdrawRide={(rideId, legs) =>
                   void run(() =>
-                    carpoolClient.withdrawRide(accessToken, space.id, rideId).then(() => undefined),
+                    carpoolClient
+                      .withdrawRide(
+                        accessToken,
+                        space.id,
+                        rideId,
+                        legs != null ? { legs } : {},
+                      )
+                      .then(() => undefined),
                   )
                 }
               />

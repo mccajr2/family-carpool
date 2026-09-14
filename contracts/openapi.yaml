@@ -3865,13 +3865,15 @@ paths:
       summary: Withdraw an acceptance from the accepting circle
       description: >
         Any adult in the accepting circle. Optional body may name specific
-        leg(s) to withdraw. When `legs` is omitted and both legs share the
-        same assignee adult identity, withdraws every confirmed leg this
-        acceptance covers — combined withdraw. When assignees differ, omit
-        returns 409; pass the specific leg(s). Withdrawing the last confirmed
-        team leg transitions ACCEPTED to PENDING and clears accepter fields
-        when no confirmed team legs remain. Wrong circle returns 403.
-        Non-member or unknown ride returns 404. Not ACCEPTED returns 409.
+        confirmed team leg(s) to withdraw. When `legs` is omitted, withdraws
+        every CONFIRMED leg this circle owns (`assigneeCircleId` matches the
+        accepting circle) — household CONFIRMED legs on the same ride (for
+        example the requester driving TO while this circle accepted FROM)
+        stay put. Named `legs` must each be a confirmed team leg; household
+        or open legs return 409. Withdrawing the last confirmed team leg
+        transitions ACCEPTED to PENDING and clears accepter fields when no
+        confirmed team legs remain. Wrong circle returns 403. Non-member or
+        unknown ride returns 404. Not ACCEPTED returns 409.
       security:
         - bearerAuth: []
       parameters:
@@ -3920,8 +3922,8 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: >
-            Ride is not ACCEPTED, or `legs` omitted when assignees differ
-            across legs
+            Ride is not ACCEPTED, or named `legs` include a non-confirmed or
+            household (non-team) leg
           content:
             application/json:
               schema:
