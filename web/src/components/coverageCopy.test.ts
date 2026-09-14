@@ -8,6 +8,7 @@ import {
   BACK_TO_SIMPLE_VIEW,
   CONFIRM_ILL_DRIVE,
   CONFIRM_YOU_WILL_DRIVE,
+  DIFFERENT_PLANS_FOR_EACH_KID,
   DIFFERENT_PLANS_FOR_EACH_LEG,
   HERO_ALL_CAUGHT_UP,
   HERO_ON_INVERSE,
@@ -32,6 +33,7 @@ import {
   legStatusChipLabel,
   markAsGoingAgainLabel,
   markAsNotGoingLabel,
+  markKidsAsNotGoingLabel,
   needsCoverageWithKids,
   waitingOnDriverLabel,
   weekGlanceCountCopy,
@@ -101,6 +103,7 @@ describe("coverageCopy", () => {
     expect(ASK_THE_TEAM).toBe("Ask the team")
     expect(POST_TO_TEAM_ROUND_TRIP).toBe("Post to team — round trip")
     expect(DIFFERENT_PLANS_FOR_EACH_LEG).toBe("Different plans for each leg.")
+    expect(DIFFERENT_PLANS_FOR_EACH_KID).toBe("Different plans for each kid.")
     expect(SAVE_RIDE_PLAN).toBe("Save ride plan")
     expect(BACK_TO_SIMPLE_VIEW).toBe("Back to simple view")
   })
@@ -121,6 +124,12 @@ describe("coverageCopy", () => {
     expect(markAsNotGoingLabel("Sam")).toMatch(/not going/)
     expect(markAsGoingAgainLabel()).toMatch(/going/)
     expect(markAsNotGoingLabel("Sam")).not.toMatch(/drive|ride/i)
+    expect(markKidsAsNotGoingLabel(["Graham", "Luke"])).toBe(
+      "Mark Graham and Luke as not going",
+    )
+    expect(markKidsAsNotGoingLabel(["Graham", "Luke", "Mia"])).toBe(
+      "Mark Graham, Luke, and Mia as not going",
+    )
     expect(CONFIRM_ILL_DRIVE).toMatch(/drive/)
     expect(CONFIRM_ILL_DRIVE).not.toMatch(/going/i)
     expect(REVERT_CANCEL_TEAM_ASK).toMatch(/ride/)

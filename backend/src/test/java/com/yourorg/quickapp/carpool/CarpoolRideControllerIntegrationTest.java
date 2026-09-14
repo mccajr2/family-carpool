@@ -694,24 +694,10 @@ class CarpoolRideControllerIntegrationTest {
                                 .param("from", FROM)
                                 .param("to", TO))
                 .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[0].kind")
-                                .value("TO"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[0].phase")
-                                .value("NEEDS_RIDE"))
-                .andExpect(
-                        jsonPath(
-                                        "$.[?(@.eventKey=='"
-                                                + EVENT_KEY
-                                                + "')].ownLegs[1].phase")
-                                .value("NEEDS_RIDE"));
+                .andExpect(jsonPath("$[0].eventKey").value(EVENT_KEY))
+                .andExpect(jsonPath("$[0].ownRequests").isEmpty())
+                .andExpect(jsonPath("$[0].ownLegs").value((Object) null))
+                .andExpect(jsonPath("$[0].ownRequest").value((Object) null));
 
         MvcResult toOnly =
                 mockMvc.perform(
@@ -889,13 +875,16 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + EVENT_KEY
-                                                + "\",\"legs\":["
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + alexAdultId
                                                 + "\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownLegs[0].assigneeAdultId").value(alexAdultId))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("ASKED_TEAM"))
@@ -953,13 +942,16 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + EVENT_KEY
-                                                + "\",\"legs\":["
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + blakeAdultId
                                                 + "\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"NEEDS_RIDE\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("WAITING_HOUSEHOLD"))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("NEEDS_RIDE"))
                 .andExpect(jsonPath("$.ownRequest").value((Object) null));
@@ -1025,7 +1017,7 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + eventKey
-                                                + "\",\"kidIds\":[\""
+                                                + "\",\"plans\":[{\"kidIds\":[\""
                                                 + kidA
                                                 + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
@@ -1034,8 +1026,9 @@ class CarpoolRideControllerIntegrationTest {
                                                 + "{\"kind\":\"FROM\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
                                                 + alexAdultId
                                                 + "\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownLegs[1].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$.ownRequest").value((Object) null));
@@ -1045,6 +1038,7 @@ class CarpoolRideControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].eventKey").value(eventKey))
+                .andExpect(jsonPath("$[0].ownRequests.length()").value(1))
                 .andExpect(jsonPath("$[0].ownLegs[0].phase").value("CONFIRMED"))
                 .andExpect(jsonPath("$[0].ownRequest").value((Object) null));
 
@@ -1055,13 +1049,151 @@ class CarpoolRideControllerIntegrationTest {
                                 .content(
                                         "{\"eventKey\":\""
                                                 + eventKey
-                                                + "\",\"kidIds\":[\""
+                                                + "\",\"plans\":[{\"kidIds\":[\""
                                                 + kidA
                                                 + "\"],\"legs\":["
                                                 + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\"},"
                                                 + "{\"kind\":\"FROM\",\"action\":\"NEEDS_RIDE\"}"
-                                                + "]}"))
+                                                + "]}]}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void saveRidePlanSplitsKidsAndAcceptConfirmsAskOnly() throws Exception {
+        String orgA = signIn("carpool-split-plan-org-a@example.com");
+        String orgB = signIn("carpool-split-plan-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Split Plan House A");
+        createCircle(orgB, "Sam", "Split Plan House B");
+
+        String kidA = addKid(orgA, "Maya");
+        String kidB = addKid(orgA, "Noah");
+        String kidOther = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(
+                        orgA,
+                        "Soccer",
+                        "https://example.com/carpool-split-plan.ics",
+                        kidA,
+                        kidB);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-split-plan.ics", kidOther);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(orgA, "Practice");
+        setRsvpYes(orgA, practiceA, kidA);
+        setRsvpYes(orgA, practiceA, kidB);
+        addPlace(orgA, "Home A", "12 Oak St");
+
+        String alexAdultId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        get("/api/family/circle")
+                                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.members[0].adultId");
+
+        MvcResult saved =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"plans\":["
+                                                        + "{\"kidIds\":[\""
+                                                        + kidA
+                                                        + "\"],\"legs\":["
+                                                        + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
+                                                        + alexAdultId
+                                                        + "\"},"
+                                                        + "{\"kind\":\"FROM\",\"action\":\"NEEDS_RIDE\"}"
+                                                        + "]},"
+                                                        + "{\"kidIds\":[\""
+                                                        + kidB
+                                                        + "\"],\"legs\":["
+                                                        + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\"},"
+                                                        + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\"}"
+                                                        + "]}"
+                                                        + "]}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.ownRequests.length()").value(2))
+                        .andExpect(jsonPath("$.ownRequest").value((Object) null))
+                        .andExpect(jsonPath("$.ownLegs").value((Object) null))
+                        .andReturn();
+
+        String savedJson = saved.getResponse().getContentAsString();
+        @SuppressWarnings("unchecked")
+        List<String> statuses = JsonPath.read(savedJson, "$.ownRequests[*].status");
+        assertThat(statuses).containsExactlyInAnyOrder("PLAN", "PENDING");
+        @SuppressWarnings("unchecked")
+        List<String> askIds =
+                JsonPath.read(savedJson, "$.ownRequests[?(@.status=='PENDING')].id");
+        assertThat(askIds).hasSize(1);
+        String askRideId = askIds.getFirst();
+        @SuppressWarnings("unchecked")
+        List<List<String>> askKidIds =
+                JsonPath.read(savedJson, "$.ownRequests[?(@.status=='PENDING')].kidIds");
+        assertThat(askKidIds.getFirst()).containsExactly(kidB);
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + askRideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.kidIds.length()").value(1))
+                .andExpect(jsonPath("$.kidIds[0]").value(kidB));
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceA + "/rsvps/" + kidA)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"NO\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequests.length()")
+                                .value(1))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequests[0].status")
+                                .value("ACCEPTED"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequests[0].kidIds[0]")
+                                .value(kidB));
     }
 
     private String feedEventId(String token, String title) throws Exception {

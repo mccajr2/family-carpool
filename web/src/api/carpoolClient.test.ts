@@ -160,24 +160,6 @@ describe("CarpoolClient", () => {
         assigneeCircleName: null,
       },
     ]
-    const needsRideLegs = [
-      {
-        kind: "TO",
-        phase: "NEEDS_RIDE",
-        assigneeAdultId: null,
-        assigneeDisplayName: null,
-        assigneeCircleId: null,
-        assigneeCircleName: null,
-      },
-      {
-        kind: "FROM",
-        phase: "NEEDS_RIDE",
-        assigneeAdultId: null,
-        assigneeDisplayName: null,
-        assigneeCircleId: null,
-        assigneeCircleName: null,
-      },
-    ]
     const ride = {
       id: "ride-1",
       spaceId: "s1",
@@ -206,7 +188,8 @@ describe("CarpoolClient", () => {
       startsAt: "2026-08-21T16:00:00Z",
       endsAt: null,
       defaultKidIds: ["k1"],
-      ownLegs: needsRideLegs,
+      ownRequests: [],
+      ownLegs: null,
       ownRequest: null,
       otherRequests: [ride],
     }
@@ -252,7 +235,7 @@ describe("CarpoolClient", () => {
 
     await expect(
       client.listRides("tok", "s1", "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z"),
-    ).resolves.toMatchObject([{ title: "Practice", ownLegs: needsRideLegs }])
+    ).resolves.toMatchObject([{ title: "Practice", ownRequests: [], ownLegs: null }])
     await expect(
       client.createRide("tok", "s1", { eventKey: "UID:practice" }),
     ).resolves.toMatchObject({ id: "ride-1", passedByMe: false, legs: askedTeamLegs })
@@ -437,7 +420,7 @@ describe("CarpoolClient", () => {
       acceptingCircleName: null,
     }
     const fetchFn = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ownLegs, ownRequest }), {
+      new Response(JSON.stringify({ ownRequests: [ownRequest], ownLegs, ownRequest }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -447,13 +430,17 @@ describe("CarpoolClient", () => {
     await expect(
       client.saveRidePlan("tok", "s1", {
         eventKey: "UID:practice",
-        kidIds: ["k1"],
-        legs: [
-          { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
-          { kind: "FROM", action: "ASK_TEAM" },
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "ASK_TEAM" },
+            ],
+          },
         ],
       }),
-    ).resolves.toMatchObject({ ownLegs, ownRequest })
+    ).resolves.toMatchObject({ ownRequests: [ownRequest], ownLegs, ownRequest })
 
     const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("http://localhost:8080/api/carpool/spaces/s1/ride-plans")
@@ -461,11 +448,139 @@ describe("CarpoolClient", () => {
     expect(init.body).toBe(
       JSON.stringify({
         eventKey: "UID:practice",
-        legs: [
-          { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
-          { kind: "FROM", action: "ASK_TEAM" },
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "ASK_TEAM" },
+            ],
+          },
         ],
-        kidIds: ["k1"],
+      }),
+    )
+  })
+
+  it("saves divergent kid plans as multiple groups", async () => {
+    const planA = {
+      id: "ride-a",
+      spaceId: "s1",
+      eventKey: "UID:practice",
+      requestingCircleId: "c1",
+      requestingCircleName: null,
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Mia"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main St",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [
+        {
+          kind: "TO",
+          phase: "CONFIRMED",
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "You",
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+        },
+        {
+          kind: "FROM",
+          phase: "NEEDS_RIDE",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const planB = {
+      ...planA,
+      id: "ride-b",
+      kidIds: ["k2"],
+      kidFirstNames: ["Leo"],
+      legs: [
+        {
+          kind: "TO",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+        },
+        {
+          kind: "FROM",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+        },
+      ],
+    }
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ ownRequests: [planA, planB], ownLegs: null, ownRequest: null }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    )
+    const client = new CarpoolClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.saveRidePlan("tok", "s1", {
+        eventKey: "UID:practice",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "NEEDS_RIDE" },
+            ],
+          },
+          {
+            kidIds: ["k2"],
+            legs: [
+              { kind: "TO", action: "ASK_TEAM" },
+              { kind: "FROM", action: "ASK_TEAM" },
+            ],
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({
+      ownRequests: [planA, planB],
+      ownLegs: null,
+      ownRequest: null,
+    })
+
+    expect((fetchFn.mock.calls[0] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({
+        eventKey: "UID:practice",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "NEEDS_RIDE" },
+            ],
+          },
+          {
+            kidIds: ["k2"],
+            legs: [
+              { kind: "TO", action: "ASK_TEAM" },
+              { kind: "FROM", action: "ASK_TEAM" },
+            ],
+          },
+        ],
       }),
     )
   })
@@ -489,6 +604,28 @@ describe("CarpoolClient", () => {
         assigneeCircleName: null,
       },
     ]
+    const plan = {
+      id: "plan-1",
+      spaceId: null,
+      eventKey: "CAL:MANUAL:e1",
+      requestingCircleId: "c1",
+      requestingCircleName: null,
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Mia"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main St",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      legs: ownLegs,
+      passedByMe: false,
+      passedByAdultNames: [] as string[],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
     const listed = [
       {
         eventKey: "CAL:MANUAL:e1",
@@ -496,11 +633,13 @@ describe("CarpoolClient", () => {
         startsAt: "1970-01-01T00:00:00Z",
         endsAt: null,
         defaultKidIds: ["k1"],
+        ownRequests: [plan],
         ownLegs,
         ownRequest: null,
         otherRequests: [],
       },
     ]
+    const saveResponse = { ownRequests: [plan], ownLegs, ownRequest: null }
     const fetchFn = vi
       .fn()
       .mockResolvedValueOnce(
@@ -510,19 +649,19 @@ describe("CarpoolClient", () => {
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ownLegs, ownRequest: null }), {
+        new Response(JSON.stringify(saveResponse), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ownLegs, ownRequest: null }), {
+        new Response(JSON.stringify(saveResponse), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ownLegs, ownRequest: null }), {
+        new Response(JSON.stringify(saveResponse), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
@@ -533,19 +672,23 @@ describe("CarpoolClient", () => {
     await expect(
       client.saveCircleRidePlan("tok", {
         eventKey: "CAL:MANUAL:e1",
-        kidIds: ["k1"],
-        legs: [
-          { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
-          { kind: "FROM", action: "HOUSEHOLD", assigneeAdultId: "a2" },
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "HOUSEHOLD", assigneeAdultId: "a2" },
+            ],
+          },
         ],
       }),
-    ).resolves.toMatchObject({ ownLegs, ownRequest: null })
+    ).resolves.toMatchObject({ ownRequests: [plan], ownLegs, ownRequest: null })
     await expect(
       client.confirmCircleHouseholdRidePlan("tok", { eventKey: "CAL:MANUAL:e1" }),
-    ).resolves.toMatchObject({ ownLegs })
+    ).resolves.toMatchObject({ ownRequests: [plan], ownLegs })
     await expect(
       client.declineCircleHouseholdRidePlan("tok", { eventKey: "CAL:MANUAL:e1" }),
-    ).resolves.toMatchObject({ ownLegs })
+    ).resolves.toMatchObject({ ownRequests: [plan], ownLegs })
 
     expect((fetchFn.mock.calls[0] as [string, RequestInit])[0]).toBe(
       "http://localhost:8080/api/carpool/ride-plans",
@@ -554,6 +697,20 @@ describe("CarpoolClient", () => {
       "http://localhost:8080/api/carpool/ride-plans",
     )
     expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].method).toBe("POST")
+    expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({
+        eventKey: "CAL:MANUAL:e1",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "HOUSEHOLD", assigneeAdultId: "a1" },
+              { kind: "FROM", action: "HOUSEHOLD", assigneeAdultId: "a2" },
+            ],
+          },
+        ],
+      }),
+    )
     expect((fetchFn.mock.calls[2] as [string, RequestInit])[0]).toBe(
       "http://localhost:8080/api/carpool/ride-plans/confirm-household",
     )

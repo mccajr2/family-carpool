@@ -6,12 +6,14 @@ import type {
 } from "@/api/types"
 import { agendaDayBucketForStartsAt } from "@/components/agendaDayGroups"
 import { eligiblePendingRideAccept } from "@/components/carpoolDisplay"
-import {
-  pendingCoverageForAdult,
-  remainingCoverageGapKidIds,
-} from "@/components/coverageDisplay"
+import { pendingCoverageForAdult, remainingCoverageGapKidIds } from "@/components/coverageDisplay"
 import { hasWaitingHouseholdForAdult } from "@/components/coverageQueue"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
+import {
+  allOwnPlanLegs,
+  resolveOwnRidePlans,
+  transportGapKidIdsForRideEvent,
+} from "@/components/transportPlan"
 
 export type FocusRideOptions = {
   rideEventForItem: (item: CalendarItem) => CarpoolRideEvent | null | undefined
@@ -29,21 +31,53 @@ function hasNeedsRideOwnLeg(ownLegs?: CarpoolRideLeg[] | null): boolean {
   return ownLegs.some((leg) => leg.phase !== "NEEDS_RIDE")
 }
 
+function hasNeedsRideOnAnyOwnPlan(rideEvent?: CarpoolRideEvent | null): boolean {
+  const plans = resolveOwnRidePlans(rideEvent)
+  if (plans.length >= 2) {
+    return plans.some((plan) => {
+      const planLegs = plan.legs
+      if (planLegs == null || planLegs.length === 0) {
+        return true
+      }
+      return planLegs.some((leg) => leg.phase === "NEEDS_RIDE")
+    })
+  }
+  return hasNeedsRideOwnLeg(allOwnPlanLegs(rideEvent))
+}
+
 /**
  * Family decisions only — remaining coverage gap, conflict, pending Confirm
  * for self, or any transport leg still in `NEEDS_RIDE`. Pass ACCEPTED
- * `ownRequest` so ride kids are not treated as a coverage gap.
+ * `ownRequest` so ride kids are not treated as a coverage gap. Prefer
+ * `rideEvent` so multi-plan `ownRequests` are read.
  */
 export function focusItemNeedsFamilyDecision(
   item: CalendarItem,
   currentAdultId: string,
   ownRequest?: CarpoolRide | null,
   ownLegs?: CarpoolRideLeg[] | null,
+  rideEvent?: CarpoolRideEvent | null,
 ): boolean {
+  if (rideEvent != null) {
+    if (hasNeedsRideOnAnyOwnPlan(rideEvent)) {
+      return true
+    }
+    const gapKids = transportGapKidIdsForRideEvent(item.uncoveredKidIds, rideEvent)
+    if (gapKids.length > 0 || item.conflicts.length > 0) {
+      return true
+    }
+    if (currentAdultId && pendingCoverageForAdult(item, currentAdultId)) {
+      return true
+    }
+    if (hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId)) {
+      return true
+    }
+    return false
+  }
   if (hasNeedsRideOwnLeg(ownLegs)) {
     return true
   }
-  const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
+  const gapKids = remainingCoverageGapKidIds([...item.uncoveredKidIds], ownRequest)
   if (gapKids.length > 0 || item.conflicts.length > 0) {
     return true
   }
@@ -67,8 +101,17 @@ export function focusItemNeedsDecision(
   eligibleRideAccept: CarpoolRide | null = null,
   ownRequest?: CarpoolRide | null,
   ownLegs?: CarpoolRideLeg[] | null,
+  rideEvent?: CarpoolRideEvent | null,
 ): boolean {
-  if (focusItemNeedsFamilyDecision(item, currentAdultId, ownRequest, ownLegs)) {
+  if (
+    focusItemNeedsFamilyDecision(
+      item,
+      currentAdultId,
+      ownRequest,
+      ownLegs,
+      rideEvent,
+    )
+  ) {
     return true
   }
   return eligibleRideAccept != null
@@ -108,7 +151,9 @@ export function selectFocusItem(
   const ownRequestFor = (item: CalendarItem) =>
     rideOptions?.rideEventForItem(item)?.ownRequest ?? null
   const ownLegsFor = (item: CalendarItem) =>
-    rideOptions?.rideEventForItem(item)?.ownLegs ?? null
+    allOwnPlanLegs(rideOptions?.rideEventForItem(item) ?? null)
+  const rideEventFor = (item: CalendarItem) =>
+    rideOptions?.rideEventForItem(item) ?? null
 
   const earliestNeedsDecisionIn = (bucket: "today" | "tomorrow") => {
     const inBucket = inPlay.filter(
@@ -120,6 +165,7 @@ export function selectFocusItem(
         currentAdultId,
         ownRequestFor(item),
         ownLegsFor(item),
+        rideEventFor(item),
       ),
     )
     if (family) {

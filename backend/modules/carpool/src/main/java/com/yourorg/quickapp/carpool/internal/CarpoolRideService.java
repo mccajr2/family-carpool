@@ -10,6 +10,7 @@ import com.yourorg.quickapp.carpool.CarpoolRideResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CreateCarpoolRideRequest;
 import com.yourorg.quickapp.carpool.CarpoolRidePlanLegAction;
+import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanGroup;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanLeg;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanRequest;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanResponse;
@@ -169,8 +170,8 @@ public class CarpoolRideService {
         for (FeedCalendarEventDto event : events) {
             String eventKey = RideEventKey.of(event);
             List<CarpoolRideRequestEntity> overlay = ridesByKey.getOrDefault(eventKey, List.of());
-            CarpoolRideResponse own = null;
-            CarpoolRideRequestEntity ownPlanRide = null;
+            List<CarpoolRideResponse> ownRequests = new ArrayList<>();
+            List<CarpoolRideRequestEntity> ownPlanRides = new ArrayList<>();
             List<CarpoolRideResponse> others = new ArrayList<>();
             for (CarpoolRideRequestEntity ride : overlay) {
                 List<CarpoolRidePassEntity> ridePasses =
@@ -195,26 +196,17 @@ public class CarpoolRideService {
                     if (ride.kids().isEmpty()) {
                         continue;
                     }
-                    own = dto;
-                    ownPlanRide = ride;
+                    ownRequests.add(dto);
+                    ownPlanRides.add(ride);
                 } else if (ride.status() == CarpoolRideStatus.PENDING
                         || ride.status() == CarpoolRideStatus.ACCEPTED) {
                     others.add(dto);
                 }
             }
-            List<CarpoolRideLegResponse> ownLegs =
-                    ownPlanRide == null
-                            ? needsRideOwnLegs()
-                            : toLegResponses(
-                                    ownPlanRide, circleNames, adultDisplayNames);
-            CarpoolRideResponse ownRequest =
-                    own != null
-                                    && (own.status() == CarpoolRideStatus.PENDING
-                                            || own.status() == CarpoolRideStatus.ACCEPTED)
-                            ? own
-                            : null;
+            List<CarpoolRideLegResponse> ownLegs = singularOwnLegs(ownPlanRides, circleNames, adultDisplayNames);
+            CarpoolRideResponse ownRequest = singularOwnRequest(ownRequests);
             UUID requestedBy =
-                    ownPlanRide == null ? null : ownPlanRide.requestedByAdultId();
+                    ownPlanRides.isEmpty() ? null : ownPlanRides.getFirst().requestedByAdultId();
             String requestedByName =
                     requestedBy == null ? null : adultDisplayNames.get(requestedBy);
             if (requestedBy != null && requestedByName == null) {
@@ -230,6 +222,7 @@ public class CarpoolRideService {
                             event.startsAt(),
                             event.endsAt(),
                             defaultKidIds(circleId, spaceId, event),
+                            List.copyOf(ownRequests),
                             ownLegs,
                             ownRequest,
                             others,
@@ -253,8 +246,9 @@ public class CarpoolRideService {
         String eventKey = RideEventKey.of(event);
         List<UUID> defaultKids = defaultKidIds(circleId, spaceId, event);
         List<UUID> kidIds = resolveCreateKids(request.kidIds(), defaultKids);
-        CarpoolRideRequestEntity existingPlan = findOwnActivePlan(spaceId, eventKey, circleId);
-        if (existingPlan != null) {
+        List<CarpoolRideRequestEntity> existingPlans =
+                findOwnActivePlans(spaceId, eventKey, circleId);
+        for (CarpoolRideRequestEntity existingPlan : existingPlans) {
             if (existingPlan.status() == CarpoolRideStatus.PLAN) {
                 existingPlan.cancel();
                 rides.save(existingPlan);
@@ -317,18 +311,13 @@ public class CarpoolRideService {
                                         new CarpoolException(
                                                 HttpStatus.BAD_REQUEST, "Unknown event"));
         String eventKey = RideEventKey.of(event);
-        Map<CarpoolLegKind, SaveCarpoolRidePlanLeg> byKind = resolvePlanLegs(request.legs());
+        List<UUID> goingKids = defaultKidIds(circleId, spaceId, event);
+        List<MergedPlanGroup> groups =
+                resolveMergedPlanGroups(request.plans(), adult.id(), circleId, goingKids, true);
         boolean anyAsk =
-                byKind.values().stream()
-                        .anyMatch(leg -> leg.action() == CarpoolRidePlanLegAction.ASK_TEAM);
-        List<UUID> defaultKids = defaultKidIds(circleId, spaceId, event);
-        List<UUID> kidIds =
-                anyAsk
-                        ? resolveCreateKids(request.kidIds(), defaultKids)
-                        : (request.kidIds() == null || request.kidIds().isEmpty()
-                                ? defaultKids
-                                : resolveCreateKids(request.kidIds(), defaultKids));
-        List<RideKidSnapshot> snapshots = kidSnapshots(circleId, kidIds);
+                groups.stream()
+                        .flatMap(g -> g.legs().stream())
+                        .anyMatch(leg -> leg.phase() == CarpoolLegPhase.ASKED_TEAM);
         CirclePlaceDto pickup = null;
         if (anyAsk) {
             pickup =
@@ -344,140 +333,55 @@ public class CarpoolRideService {
         }
         String pickupName = pickup == null ? "Home" : pickup.name();
         String pickupAddress = pickup == null ? "" : pickup.address();
-
-        CarpoolRideRequestEntity ride = findOwnActivePlan(spaceId, eventKey, circleId);
-        if (ride != null && ride.status() == CarpoolRideStatus.ACCEPTED) {
-            throw new CarpoolException(
-                    HttpStatus.CONFLICT,
-                    "Cannot save plan while a team acceptance is active; withdraw first");
-        }
-
-        List<RideLegSlot> nextLegs = new ArrayList<>(2);
-        nextLegs.add(buildPlanSlot(byKind.get(CarpoolLegKind.TO), adult.id(), circleId));
-        nextLegs.add(buildPlanSlot(byKind.get(CarpoolLegKind.FROM), adult.id(), circleId));
-
-        if (ride == null) {
-            if (nextLegs.stream().allMatch(leg -> leg.phase() == CarpoolLegPhase.NEEDS_RIDE)) {
-                return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
-            }
-            Set<CarpoolLegKind> asked = EnumSet.noneOf(CarpoolLegKind.class);
-            for (RideLegSlot leg : nextLegs) {
-                if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
-                    asked.add(leg.kind());
-                }
-            }
-            ride =
-                    new CarpoolRideRequestEntity(
-                            UUID.randomUUID(),
-                            spaceId,
-                            eventKey,
-                            circleId,
-                            adult.id(),
-                            pickupName,
-                            pickupAddress,
-                            snapshots,
-                            asked.isEmpty() ? EnumSet.noneOf(CarpoolLegKind.class) : asked,
-                            Instant.now());
-            ride.replaceLegs(nextLegs);
-        } else {
-            if (nextLegs.stream().allMatch(leg -> leg.phase() == CarpoolLegPhase.NEEDS_RIDE)) {
-                ride.cancel();
-                rides.save(ride);
-                passes.deleteByRideId(ride.id());
-                return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
-            }
-            ride.replaceKids(snapshots);
-            ride.updatePickup(pickupName, pickupAddress);
-            ride.markRequestedBy(adult.id());
-            ride.replaceLegs(nextLegs);
-        }
-        rides.save(ride);
-
-        Map<UUID, String> names = circleNames(List.of(circleId));
-        Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
-        List<CarpoolRideLegResponse> ownLegs = toLegResponses(ride, names, assigneeNames);
-        CarpoolRideResponse ownRequest =
-                ride.status() == CarpoolRideStatus.PENDING
-                                || ride.status() == CarpoolRideStatus.ACCEPTED
-                        ? toRideResponse(ride, names, false, List.of(), null, assigneeNames)
-                        : null;
-        return new SaveCarpoolRidePlanResponse(ownLegs, ownRequest);
+        replaceOwnPlans(
+                adult.id(),
+                circleId,
+                spaceId,
+                eventKey,
+                groups,
+                pickupName,
+                pickupAddress);
+        return saveResponseForOwnPlans(
+                findOwnActivePlans(spaceId, eventKey, circleId), circleId);
     }
 
     /**
      * Household-only Save ride plan when the feed has no carpool space yet.
-     * Rejects ASK_TEAM. Persists a PLAN row with null space_id.
+     * Rejects ASK_TEAM. Persists PLAN row(s) with null space_id.
      */
     @Transactional
     public SaveCarpoolRidePlanResponse saveCirclePlan(
             AdultResponse adult, SaveCarpoolRidePlanRequest request) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
-        Map<CarpoolLegKind, SaveCarpoolRidePlanLeg> byKind = resolvePlanLegs(request.legs());
+        String eventKey = request.eventKey() == null ? "" : request.eventKey().trim();
+        if (eventKey.isEmpty()) {
+            throw new CarpoolException(HttpStatus.BAD_REQUEST, "eventKey is required");
+        }
+        List<MergedPlanGroup> groups =
+                resolveMergedPlanGroups(request.plans(), adult.id(), circleId, null, false);
         boolean anyAsk =
-                byKind.values().stream()
-                        .anyMatch(leg -> leg.action() == CarpoolRidePlanLegAction.ASK_TEAM);
+                groups.stream()
+                        .flatMap(g -> g.legs().stream())
+                        .anyMatch(leg -> leg.phase() == CarpoolLegPhase.ASKED_TEAM);
         if (anyAsk) {
             throw new CarpoolException(
                     HttpStatus.BAD_REQUEST,
                     "Ask the team requires an enabled carpool space");
         }
-        String eventKey = request.eventKey() == null ? "" : request.eventKey().trim();
-        if (eventKey.isEmpty()) {
-            throw new CarpoolException(HttpStatus.BAD_REQUEST, "eventKey is required");
-        }
-        List<UUID> kidIds =
-                request.kidIds() == null || request.kidIds().isEmpty()
-                        ? List.of()
-                        : List.copyOf(request.kidIds());
-        if (kidIds.isEmpty()) {
-            throw new CarpoolException(
-                    HttpStatus.BAD_REQUEST, "kidIds is required for household plans without a space");
-        }
-        List<RideKidSnapshot> snapshots = kidSnapshots(circleId, kidIds);
         CirclePlaceDto pickup =
                 familyPlaceApi.findPickupPlaceForMember(adult.id()).orElse(null);
         String pickupName = pickup == null ? "Home" : pickup.name();
         String pickupAddress = pickup == null ? "" : pickup.address();
-
-        CarpoolRideRequestEntity ride = findOwnCircleLocalPlan(eventKey, circleId);
-        List<RideLegSlot> nextLegs = new ArrayList<>(2);
-        nextLegs.add(buildPlanSlot(byKind.get(CarpoolLegKind.TO), adult.id(), circleId));
-        nextLegs.add(buildPlanSlot(byKind.get(CarpoolLegKind.FROM), adult.id(), circleId));
-
-        if (ride == null) {
-            if (nextLegs.stream().allMatch(leg -> leg.phase() == CarpoolLegPhase.NEEDS_RIDE)) {
-                return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
-            }
-            ride =
-                    new CarpoolRideRequestEntity(
-                            UUID.randomUUID(),
-                            null,
-                            eventKey,
-                            circleId,
-                            adult.id(),
-                            pickupName,
-                            pickupAddress,
-                            snapshots,
-                            EnumSet.noneOf(CarpoolLegKind.class),
-                            Instant.now());
-            ride.replaceLegs(nextLegs);
-        } else {
-            if (nextLegs.stream().allMatch(leg -> leg.phase() == CarpoolLegPhase.NEEDS_RIDE)) {
-                ride.cancel();
-                rides.save(ride);
-                passes.deleteByRideId(ride.id());
-                return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
-            }
-            ride.replaceKids(snapshots);
-            ride.updatePickup(pickupName, pickupAddress);
-            ride.markRequestedBy(adult.id());
-            ride.replaceLegs(nextLegs);
-        }
-        rides.save(ride);
-        Map<UUID, String> names = circleNames(List.of(circleId));
-        Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
-        return new SaveCarpoolRidePlanResponse(
-                toLegResponses(ride, names, assigneeNames), null);
+        replaceOwnPlans(
+                adult.id(),
+                circleId,
+                null,
+                eventKey,
+                groups,
+                pickupName,
+                pickupAddress);
+        return saveResponseForOwnPlans(
+                findOwnCircleLocalPlans(eventKey, circleId), circleId);
     }
 
     /**
@@ -491,29 +395,48 @@ public class CarpoolRideService {
                 rides.findByRequestingCircleIdAndSpaceIdIsNullAndStatusIn(
                         circleId, OWN_PLAN_STATUSES);
         Map<UUID, String> names = circleNames(List.of(circleId));
-        List<CarpoolRideEventResponse> result = new ArrayList<>();
+        Map<String, List<CarpoolRideRequestEntity>> byEvent = new HashMap<>();
         for (CarpoolRideRequestEntity ride : plans) {
             if (ride.kids().isEmpty()) {
                 continue;
             }
-            Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
+            byEvent.computeIfAbsent(ride.eventKey(), key -> new ArrayList<>()).add(ride);
+        }
+        List<CarpoolRideEventResponse> result = new ArrayList<>();
+        for (Map.Entry<String, List<CarpoolRideRequestEntity>> entry : byEvent.entrySet()) {
+            List<CarpoolRideRequestEntity> eventPlans = entry.getValue();
+            Map<UUID, String> assigneeNames = new HashMap<>();
+            for (CarpoolRideRequestEntity ride : eventPlans) {
+                assigneeNames.putAll(assigneeDisplayNames(ride));
+            }
+            List<CarpoolRideResponse> ownRequests = new ArrayList<>();
+            for (CarpoolRideRequestEntity ride : eventPlans) {
+                ownRequests.add(
+                        toRideResponse(ride, names, false, List.of(), null, assigneeNames));
+            }
+            LinkedHashSet<UUID> defaultKids = new LinkedHashSet<>();
+            for (CarpoolRideRequestEntity ride : eventPlans) {
+                for (RideKidSnapshot kid : ride.kids()) {
+                    defaultKids.add(kid.kidId());
+                }
+            }
+            UUID requestedBy = eventPlans.getFirst().requestedByAdultId();
             String requesterName =
-                    ride.requestedByAdultId() == null
+                    requestedBy == null
                             ? null
-                            : adultSessionApi.requireAdult(ride.requestedByAdultId()).displayName();
-            List<UUID> defaultKids =
-                    ride.kids().stream().map(RideKidSnapshot::kidId).toList();
+                            : adultSessionApi.requireAdult(requestedBy).displayName();
             result.add(
                     new CarpoolRideEventResponse(
-                            ride.eventKey(),
-                            ride.eventKey(),
+                            entry.getKey(),
+                            entry.getKey(),
                             Instant.EPOCH,
                             null,
-                            defaultKids,
-                            toLegResponses(ride, names, assigneeNames),
-                            null,
+                            List.copyOf(defaultKids),
+                            List.copyOf(ownRequests),
+                            singularOwnLegs(eventPlans, names, assigneeNames),
+                            singularOwnRequest(ownRequests),
                             List.of(),
-                            ride.requestedByAdultId(),
+                            requestedBy,
                             requesterName));
         }
         return result;
@@ -558,33 +481,38 @@ public class CarpoolRideService {
         if (eventKey == null || eventKey.isBlank()) {
             throw new CarpoolException(HttpStatus.BAD_REQUEST, "eventKey is required");
         }
-        CarpoolRideRequestEntity ride = findOwnCircleLocalPlan(eventKey.trim(), circleId);
-        if (ride == null) {
+        String key = eventKey.trim();
+        List<CarpoolRideRequestEntity> plans = findOwnCircleLocalPlans(key, circleId);
+        if (plans.isEmpty()) {
             throw new CarpoolException(HttpStatus.NOT_FOUND, "No active ride plan for this event");
         }
-        int changed =
-                confirm
-                        ? ride.confirmWaitingHouseholdFor(adult.id())
-                        : ride.declineWaitingHouseholdFor(adult.id());
+        int changed = 0;
+        for (CarpoolRideRequestEntity ride : plans) {
+            int rideChanged =
+                    confirm
+                            ? ride.confirmWaitingHouseholdFor(adult.id())
+                            : ride.declineWaitingHouseholdFor(adult.id());
+            if (rideChanged == 0) {
+                continue;
+            }
+            changed += rideChanged;
+            if (ride.status() == CarpoolRideStatus.CANCELLED) {
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+            } else {
+                rides.save(ride);
+            }
+        }
         if (changed == 0) {
             throw new CarpoolException(
                     HttpStatus.CONFLICT, "No waiting household leg assigned to you");
         }
-        if (ride.status() == CarpoolRideStatus.CANCELLED) {
-            rides.save(ride);
-            passes.deleteByRideId(ride.id());
-            return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
-        }
-        rides.save(ride);
-        Map<UUID, String> names = circleNames(List.of(circleId));
-        Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
-        return new SaveCarpoolRidePlanResponse(
-                toLegResponses(ride, names, assigneeNames), null);
+        return saveResponseForOwnPlans(findOwnCircleLocalPlans(key, circleId), circleId);
     }
 
     /**
      * Confirms WAITING_HOUSEHOLD legs assigned to the caller on this circle's
-     * active plan for {@code eventKey}. Leaves other legs (Ask / other adults)
+     * active plan(s) for {@code eventKey}. Leaves other legs (Ask / other adults)
      * and pickup unchanged.
      */
     @Transactional
@@ -604,7 +532,7 @@ public class CarpoolRideService {
     }
 
     /**
-     * Clears named legs on this circle's active plan for {@code eventKey}
+     * Clears named legs on this circle's active plan(s) for {@code eventKey}
      * (PENDING / ACCEPTED / PLAN), including circle-local null-space plans.
      * Does not rewrite remaining CONFIRMED household legs to WAITING.
      */
@@ -633,57 +561,85 @@ public class CarpoolRideService {
             throw new CarpoolException(HttpStatus.BAD_REQUEST, "eventKey is required");
         }
         String key = eventKey.trim();
-        CarpoolRideRequestEntity ride =
-                spaceId != null ? findOwnActivePlan(spaceId, key, circleId) : null;
-        if (ride == null) {
-            ride = findOwnCircleLocalPlan(key, circleId);
-            if (ride != null && spaceId != null) {
+        List<CarpoolRideRequestEntity> plans =
+                spaceId != null
+                        ? findOwnActivePlans(spaceId, key, circleId)
+                        : findOwnCircleLocalPlans(key, circleId);
+        if (plans.isEmpty() && spaceId != null) {
+            plans = findOwnCircleLocalPlans(key, circleId);
+            for (CarpoolRideRequestEntity ride : plans) {
                 ride.attachSpaceId(spaceId);
             }
         }
-        if (ride == null) {
+        if (plans.isEmpty()) {
             throw new CarpoolException(HttpStatus.NOT_FOUND, "No active ride plan for this event");
         }
-        if (ride.status() != CarpoolRideStatus.PENDING
-                && ride.status() != CarpoolRideStatus.ACCEPTED
-                && ride.status() != CarpoolRideStatus.PLAN) {
-            throw new CarpoolException(
-                    HttpStatus.CONFLICT, "Ride is not PENDING, ACCEPTED, or PLAN");
-        }
-        Set<CarpoolLegKind> legsToClear = resolveClearLegs(ride, requestedLegs, true);
-        UUID previousDriverId = ride.acceptedByAdultId();
-        boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
-        ride.cancelLegs(legsToClear);
-        if (ride.status() == CarpoolRideStatus.CANCELLED) {
+        boolean anyCleared = false;
+        for (CarpoolRideRequestEntity ride : plans) {
+            if (ride.status() != CarpoolRideStatus.PENDING
+                    && ride.status() != CarpoolRideStatus.ACCEPTED
+                    && ride.status() != CarpoolRideStatus.PLAN) {
+                continue;
+            }
+            if (!planTouchesClear(ride, adult.id(), requestedLegs)) {
+                continue;
+            }
+            Set<CarpoolLegKind> legsToClear = resolveClearLegs(ride, requestedLegs, true);
+            UUID previousDriverId = ride.acceptedByAdultId();
+            boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
+            ride.cancelLegs(legsToClear);
+            anyCleared = true;
+            if (ride.status() == CarpoolRideStatus.CANCELLED) {
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+                if (wasAccepted && previousDriverId != null && spaceId != null) {
+                    refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
+                }
+                continue;
+            }
             rides.save(ride);
-            passes.deleteByRideId(ride.id());
-            if (wasAccepted && previousDriverId != null && spaceId != null) {
+            if (wasAccepted
+                    && previousDriverId != null
+                    && spaceId != null
+                    && (ride.status() != CarpoolRideStatus.ACCEPTED
+                            || !previousDriverId.equals(ride.acceptedByAdultId()))) {
                 refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
             }
-            return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
+            if (ride.status() == CarpoolRideStatus.ACCEPTED
+                    && ride.acceptedByAdultId() != null
+                    && spaceId != null) {
+                upsertAcceptedDriverRoute(ride, spaceId);
+            }
         }
-        rides.save(ride);
-        if (wasAccepted
-                && previousDriverId != null
-                && spaceId != null
-                && (ride.status() != CarpoolRideStatus.ACCEPTED
-                        || !previousDriverId.equals(ride.acceptedByAdultId()))) {
-            refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, ride.eventKey());
+        if (!anyCleared) {
+            throw new CarpoolException(HttpStatus.NOT_FOUND, "No active ride plan for this event");
         }
-        if (ride.status() == CarpoolRideStatus.ACCEPTED
-                && ride.acceptedByAdultId() != null
-                && spaceId != null) {
-            upsertAcceptedDriverRoute(ride, spaceId);
+        List<CarpoolRideRequestEntity> remaining =
+                spaceId != null
+                        ? findOwnActivePlans(spaceId, key, circleId)
+                        : findOwnCircleLocalPlans(key, circleId);
+        return saveResponseForOwnPlans(remaining, circleId);
+    }
+
+    private boolean planTouchesClear(
+            CarpoolRideRequestEntity ride, UUID adultId, List<CarpoolLegKind> requestedLegs) {
+        Set<CarpoolLegKind> kinds =
+                requestedLegs == null || requestedLegs.isEmpty()
+                        ? EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM)
+                        : EnumSet.copyOf(requestedLegs);
+        for (RideLegSlot leg : ride.legs()) {
+            if (!kinds.contains(leg.kind())) {
+                continue;
+            }
+            if (adultId.equals(leg.assigneeAdultId())) {
+                return true;
+            }
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                    && adultId.equals(ride.requestedByAdultId())) {
+                return true;
+            }
         }
-        Map<UUID, String> names = circleNames(List.of(circleId));
-        Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
-        List<CarpoolRideLegResponse> ownLegs = toLegResponses(ride, names, assigneeNames);
-        CarpoolRideResponse ownRequest =
-                ride.status() == CarpoolRideStatus.PENDING
-                                || ride.status() == CarpoolRideStatus.ACCEPTED
-                        ? toRideResponse(ride, names, false, List.of(), null, assigneeNames)
-                        : null;
-        return new SaveCarpoolRidePlanResponse(ownLegs, ownRequest);
+        return false;
     }
 
     private SaveCarpoolRidePlanResponse mutateWaitingHousehold(
@@ -693,60 +649,285 @@ public class CarpoolRideService {
         if (eventKey == null || eventKey.isBlank()) {
             throw new CarpoolException(HttpStatus.BAD_REQUEST, "eventKey is required");
         }
-        CarpoolRideRequestEntity ride = findOwnActivePlan(spaceId, eventKey.trim(), circleId);
-        if (ride == null) {
-            // Fall back to circle-local plan and attach to this space on confirm.
-            ride = findOwnCircleLocalPlan(eventKey.trim(), circleId);
-            if (ride != null) {
+        String key = eventKey.trim();
+        List<CarpoolRideRequestEntity> plans = findOwnActivePlans(spaceId, key, circleId);
+        if (plans.isEmpty()) {
+            plans = findOwnCircleLocalPlans(key, circleId);
+            for (CarpoolRideRequestEntity ride : plans) {
                 ride.attachSpaceId(spaceId);
             }
         }
-        if (ride == null) {
+        if (plans.isEmpty()) {
             throw new CarpoolException(HttpStatus.NOT_FOUND, "No active ride plan for this event");
         }
-        int changed =
-                confirm
-                        ? ride.confirmWaitingHouseholdFor(adult.id())
-                        : ride.declineWaitingHouseholdFor(adult.id());
+        int changed = 0;
+        for (CarpoolRideRequestEntity ride : plans) {
+            int rideChanged =
+                    confirm
+                            ? ride.confirmWaitingHouseholdFor(adult.id())
+                            : ride.declineWaitingHouseholdFor(adult.id());
+            changed += rideChanged;
+            if (rideChanged == 0) {
+                continue;
+            }
+            if (ride.status() == CarpoolRideStatus.CANCELLED) {
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+            } else {
+                rides.save(ride);
+            }
+        }
         if (changed == 0) {
             throw new CarpoolException(
                     HttpStatus.CONFLICT, "No waiting household leg assigned to you");
         }
-        if (ride.status() == CarpoolRideStatus.CANCELLED) {
-            rides.save(ride);
-            passes.deleteByRideId(ride.id());
-            return new SaveCarpoolRidePlanResponse(needsRideOwnLegs(), null);
+        return saveResponseForOwnPlans(findOwnActivePlans(spaceId, key, circleId), circleId);
+    }
+
+    private List<CarpoolRideRequestEntity> findOwnActivePlans(
+            UUID spaceId, String eventKey, UUID circleId) {
+        List<CarpoolRideRequestEntity> found = new ArrayList<>();
+        for (CarpoolRideStatus status : OWN_PLAN_STATUSES) {
+            found.addAll(
+                    rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                            spaceId, eventKey, circleId, status));
         }
-        rides.save(ride);
-        Map<UUID, String> names = circleNames(List.of(circleId));
-        Map<UUID, String> assigneeNames = assigneeDisplayNames(ride);
-        List<CarpoolRideLegResponse> ownLegs = toLegResponses(ride, names, assigneeNames);
-        CarpoolRideResponse ownRequest =
-                ride.status() == CarpoolRideStatus.PENDING
-                                || ride.status() == CarpoolRideStatus.ACCEPTED
-                        ? toRideResponse(ride, names, false, List.of(), null, assigneeNames)
-                        : null;
-        return new SaveCarpoolRidePlanResponse(ownLegs, ownRequest);
+        return found;
+    }
+
+    private List<CarpoolRideRequestEntity> findOwnCircleLocalPlans(
+            String eventKey, UUID circleId) {
+        return rides.findByRequestingCircleIdAndEventKeyAndSpaceIdIsNullAndStatusIn(
+                circleId, eventKey, OWN_PLAN_STATUSES);
     }
 
     private CarpoolRideRequestEntity findOwnActivePlan(
             UUID spaceId, String eventKey, UUID circleId) {
-        for (CarpoolRideStatus status : OWN_PLAN_STATUSES) {
-            List<CarpoolRideRequestEntity> found =
-                    rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
-                            spaceId, eventKey, circleId, status);
-            if (!found.isEmpty()) {
-                return found.get(0);
-            }
-        }
-        return null;
+        List<CarpoolRideRequestEntity> found = findOwnActivePlans(spaceId, eventKey, circleId);
+        return found.isEmpty() ? null : found.getFirst();
     }
 
     private CarpoolRideRequestEntity findOwnCircleLocalPlan(String eventKey, UUID circleId) {
-        List<CarpoolRideRequestEntity> found =
-                rides.findByRequestingCircleIdAndEventKeyAndSpaceIdIsNullAndStatusIn(
-                        circleId, eventKey, OWN_PLAN_STATUSES);
-        return found.isEmpty() ? null : found.get(0);
+        List<CarpoolRideRequestEntity> found = findOwnCircleLocalPlans(eventKey, circleId);
+        return found.isEmpty() ? null : found.getFirst();
+    }
+
+    private record MergedPlanGroup(List<UUID> kidIds, List<RideLegSlot> legs) {}
+
+    private List<MergedPlanGroup> resolveMergedPlanGroups(
+            List<SaveCarpoolRidePlanGroup> plans,
+            UUID callerAdultId,
+            UUID circleId,
+            List<UUID> goingKidsOrNull,
+            boolean requireCoverGoingKids) {
+        if (plans == null || plans.isEmpty()) {
+            throw new CarpoolException(HttpStatus.BAD_REQUEST, "plans must not be empty");
+        }
+        Set<UUID> seenKids = new HashSet<>();
+        Map<String, MergedPlanGroup> merged = new java.util.LinkedHashMap<>();
+        for (SaveCarpoolRidePlanGroup group : plans) {
+            if (group == null || group.kidIds() == null || group.kidIds().isEmpty()) {
+                throw new CarpoolException(HttpStatus.BAD_REQUEST, "each plan requires kidIds");
+            }
+            Map<CarpoolLegKind, SaveCarpoolRidePlanLeg> byKind = resolvePlanLegs(group.legs());
+            List<RideLegSlot> slots = new ArrayList<>(2);
+            slots.add(buildPlanSlot(byKind.get(CarpoolLegKind.TO), callerAdultId, circleId));
+            slots.add(buildPlanSlot(byKind.get(CarpoolLegKind.FROM), callerAdultId, circleId));
+            List<UUID> kidIds = new ArrayList<>();
+            for (UUID kidId : group.kidIds()) {
+                if (kidId == null) {
+                    throw new CarpoolException(HttpStatus.BAD_REQUEST, "kidIds must not contain null");
+                }
+                if (!seenKids.add(kidId)) {
+                    throw new CarpoolException(
+                            HttpStatus.BAD_REQUEST, "A kid appears on more than one plan");
+                }
+                kidIds.add(kidId);
+            }
+            // Validate kids belong to circle via snapshots later per merged group
+            String outcomeKey = planOutcomeKey(slots);
+            MergedPlanGroup existing = merged.get(outcomeKey);
+            if (existing == null) {
+                merged.put(outcomeKey, new MergedPlanGroup(kidIds, slots));
+            } else {
+                List<UUID> combined = new ArrayList<>(existing.kidIds());
+                combined.addAll(kidIds);
+                merged.put(outcomeKey, new MergedPlanGroup(combined, existing.legs()));
+            }
+        }
+        if (requireCoverGoingKids && goingKidsOrNull != null) {
+            Set<UUID> going = new HashSet<>(goingKidsOrNull);
+            if (!seenKids.equals(going)) {
+                throw new CarpoolException(
+                        HttpStatus.BAD_REQUEST,
+                        "plans must cover every going kid exactly once");
+            }
+        }
+        if (!requireCoverGoingKids && seenKids.isEmpty()) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST, "kidIds is required for household plans without a space");
+        }
+        return List.copyOf(merged.values());
+    }
+
+    private static String planOutcomeKey(List<RideLegSlot> slots) {
+        StringBuilder key = new StringBuilder();
+        for (RideLegSlot leg : slots) {
+            key.append(leg.kind())
+                    .append(':')
+                    .append(leg.phase())
+                    .append(':')
+                    .append(leg.assigneeAdultId())
+                    .append(':')
+                    .append(leg.assigneeCircleId())
+                    .append('|');
+        }
+        return key.toString();
+    }
+
+    private void replaceOwnPlans(
+            UUID adultId,
+            UUID circleId,
+            UUID spaceId,
+            String eventKey,
+            List<MergedPlanGroup> groups,
+            String pickupName,
+            String pickupAddress) {
+        List<CarpoolRideRequestEntity> existing =
+                spaceId != null
+                        ? findOwnActivePlans(spaceId, eventKey, circleId)
+                        : findOwnCircleLocalPlans(eventKey, circleId);
+        Set<UUID> submittedKids = new HashSet<>();
+        for (MergedPlanGroup group : groups) {
+            submittedKids.addAll(group.kidIds());
+        }
+        for (CarpoolRideRequestEntity ride : existing) {
+            boolean removedAny = false;
+            for (UUID kidId : List.copyOf(
+                    ride.kids().stream().map(RideKidSnapshot::kidId).toList())) {
+                if (submittedKids.contains(kidId)) {
+                    ride.removeKid(kidId);
+                    removedAny = true;
+                }
+            }
+            if (ride.kids().isEmpty()) {
+                UUID previousDriverId = ride.acceptedByAdultId();
+                boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
+                ride.cancel();
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+                if (wasAccepted && previousDriverId != null && spaceId != null) {
+                    refreshDriverRouteAfterAcceptedChange(previousDriverId, spaceId, eventKey);
+                }
+            } else if (removedAny) {
+                if (ride.status() == CarpoolRideStatus.ACCEPTED) {
+                    // keep ACCEPTED bag without moved kids
+                    rides.save(ride);
+                } else {
+                    // Remaining kids were not in the save — cancel leftover plan
+                    ride.cancel();
+                    rides.save(ride);
+                    passes.deleteByRideId(ride.id());
+                }
+            } else if (ride.status() != CarpoolRideStatus.ACCEPTED) {
+                // Save replaces all non-accepted plans for submitted coverage
+                ride.cancel();
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+            }
+        }
+        // Re-check: ACCEPTED that still hold submitted kids with no remove means
+        // those kids weren't removed because... we remove submitted kids from existing.
+        // After loop, create new groups for non-blank outcomes.
+        for (MergedPlanGroup group : groups) {
+            if (group.legs().stream().allMatch(leg -> leg.phase() == CarpoolLegPhase.NEEDS_RIDE)) {
+                continue;
+            }
+            List<RideKidSnapshot> snapshots = kidSnapshots(circleId, group.kidIds());
+            Set<CarpoolLegKind> asked = EnumSet.noneOf(CarpoolLegKind.class);
+            for (RideLegSlot leg : group.legs()) {
+                if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                    asked.add(leg.kind());
+                }
+            }
+            CarpoolRideRequestEntity created =
+                    new CarpoolRideRequestEntity(
+                            UUID.randomUUID(),
+                            spaceId,
+                            eventKey,
+                            circleId,
+                            adultId,
+                            pickupName,
+                            pickupAddress,
+                            snapshots,
+                            asked.isEmpty() ? EnumSet.noneOf(CarpoolLegKind.class) : asked,
+                            Instant.now());
+            created.replaceLegs(group.legs());
+            rides.save(created);
+        }
+        assertKidExclusive(
+                spaceId != null
+                        ? findOwnActivePlans(spaceId, eventKey, circleId)
+                        : findOwnCircleLocalPlans(eventKey, circleId));
+    }
+
+    private void assertKidExclusive(List<CarpoolRideRequestEntity> plans) {
+        Set<UUID> seen = new HashSet<>();
+        for (CarpoolRideRequestEntity ride : plans) {
+            if (ride.status() == CarpoolRideStatus.CANCELLED) {
+                continue;
+            }
+            for (RideKidSnapshot kid : ride.kids()) {
+                if (!seen.add(kid.kidId())) {
+                    throw new CarpoolException(
+                            HttpStatus.CONFLICT,
+                            "A kid appears on more than one active plan for this event");
+                }
+            }
+        }
+    }
+
+    private SaveCarpoolRidePlanResponse saveResponseForOwnPlans(
+            List<CarpoolRideRequestEntity> plans, UUID circleId) {
+        Map<UUID, String> names = circleNames(List.of(circleId));
+        Map<UUID, String> assigneeNames = new HashMap<>();
+        for (CarpoolRideRequestEntity ride : plans) {
+            assigneeNames.putAll(assigneeDisplayNames(ride));
+        }
+        List<CarpoolRideResponse> ownRequests = new ArrayList<>();
+        for (CarpoolRideRequestEntity ride : plans) {
+            if (ride.kids().isEmpty()) {
+                continue;
+            }
+            ownRequests.add(
+                    toRideResponse(ride, names, false, List.of(), null, assigneeNames));
+        }
+        return new SaveCarpoolRidePlanResponse(
+                List.copyOf(ownRequests),
+                singularOwnLegs(plans, names, assigneeNames),
+                singularOwnRequest(ownRequests));
+    }
+
+    private List<CarpoolRideLegResponse> singularOwnLegs(
+            List<CarpoolRideRequestEntity> plans,
+            Map<UUID, String> circleNames,
+            Map<UUID, String> adultDisplayNames) {
+        if (plans.size() != 1) {
+            return null;
+        }
+        return toLegResponses(plans.getFirst(), circleNames, adultDisplayNames);
+    }
+
+    private CarpoolRideResponse singularOwnRequest(List<CarpoolRideResponse> ownRequests) {
+        if (ownRequests.size() != 1) {
+            return null;
+        }
+        CarpoolRideResponse only = ownRequests.getFirst();
+        if (only.status() == CarpoolRideStatus.PENDING
+                || only.status() == CarpoolRideStatus.ACCEPTED) {
+            return only;
+        }
+        return null;
     }
 
     private Map<CarpoolLegKind, SaveCarpoolRidePlanLeg> resolvePlanLegs(
@@ -1405,11 +1586,18 @@ public class CarpoolRideService {
 
     /**
      * @param cancelMode true for cancel (ASKED_TEAM or CONFIRMED); false for withdraw
-     *     (CONFIRMED only when choosing combined/per-leg)
+     *     (CONFIRMED team legs only)
      */
     private Set<CarpoolLegKind> resolveClearLegs(
             CarpoolRideRequestEntity ride, List<CarpoolLegKind> requestedLegs, boolean cancelMode) {
         if (requestedLegs == null || requestedLegs.isEmpty()) {
+            if (!cancelMode) {
+                Set<CarpoolLegKind> owned =
+                        ride.confirmedTeamLegKinds(ride.acceptingCircleId());
+                if (!owned.isEmpty()) {
+                    return owned;
+                }
+            }
             if (!ride.assigneesMatchForCombinedClear()) {
                 throw new CarpoolException(
                         HttpStatus.CONFLICT,
@@ -1429,9 +1617,11 @@ public class CarpoolRideService {
         }
         if (!cancelMode) {
             for (CarpoolLegKind kind : unique) {
-                if (ride.leg(kind).phase() != CarpoolLegPhase.CONFIRMED) {
+                RideLegSlot leg = ride.leg(kind);
+                if (leg.phase() != CarpoolLegPhase.CONFIRMED
+                        || leg.assigneeCircleId() == null) {
                     throw new CarpoolException(
-                            HttpStatus.CONFLICT, "Can only withdraw confirmed legs");
+                            HttpStatus.CONFLICT, "Can only withdraw confirmed team legs");
                 }
             }
         }

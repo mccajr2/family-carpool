@@ -9,6 +9,8 @@ import {
   inboundConfirmedCountByKind,
   inboundWithdrawLabel,
   inboundWithdrawLegs,
+  ownPlansCoveringKids,
+  ownPlansMatchingAssignee,
   ownRideStatusFromTransportPlan,
   ridePlaceLineKind,
   transportGapKidIds,
@@ -97,6 +99,7 @@ describe("transportPlan dogfood batch 2", () => {
         defaultKidIds: ["k1"],
         ownLegs: legs,
         ownRequest: null,
+        ownRequests: [],
         otherRequests: [],
       } satisfies CarpoolRideEvent,
       { currentAdultId: "a1", members },
@@ -165,6 +168,31 @@ describe("transportPlan dogfood batch 2", () => {
     expect(counts).toEqual({ TO: 0, FROM: 1 })
   })
 
+  it("ignores requester household CONFIRMED legs on a mixed Accept", () => {
+    const counts = inboundConfirmedCountByKind(
+      [
+        ownRide({
+          id: "mixed",
+          status: "ACCEPTED",
+          acceptingCircleId: "c-chris",
+          legs: [
+            carpoolLeg("TO", "CONFIRMED", {
+              assigneeAdultId: "a-jason",
+              assigneeDisplayName: "Jason",
+            }),
+            carpoolLeg("FROM", "CONFIRMED", {
+              assigneeAdultId: "a-chris",
+              assigneeCircleId: "c-chris",
+              assigneeCircleName: "Chris house",
+            }),
+          ],
+        }),
+      ],
+      "c-chris",
+    )
+    expect(counts).toEqual({ TO: 0, FROM: 1 })
+  })
+
   it("collapses matching chip bodies to one unprefixed label", () => {
     expect(
       collapseMatchingLegChips([
@@ -186,8 +214,42 @@ describe("transportPlan dogfood batch 2", () => {
       carpoolLeg("FROM", "CONFIRMED", { assigneeCircleId: "c1" }),
     ]
     expect(ridePlaceLineKind(fromOnly)).toBe("dropoff")
-    expect(inboundWithdrawLegs(fromOnly)).toEqual(["FROM"])
-    expect(inboundWithdrawLabel(fromOnly)).toBe("Can't drive them home anymore?")
+    expect(inboundWithdrawLegs(fromOnly, "c1")).toEqual(["FROM"])
+    expect(inboundWithdrawLabel(fromOnly, "c1")).toBe("Can't drive them home anymore?")
+  })
+
+  it("scopes mixed household TO + team FROM withdraw to the owned return leg", () => {
+    const mixed = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: "a-jason",
+        assigneeDisplayName: "Jason",
+      }),
+      carpoolLeg("FROM", "CONFIRMED", {
+        assigneeAdultId: "a-chris",
+        assigneeCircleId: "c-chris",
+        assigneeCircleName: "Chris house",
+      }),
+    ]
+    expect(inboundWithdrawLegs(mixed, "c-chris")).toEqual(["FROM"])
+    expect(inboundWithdrawLabel(mixed, "c-chris")).toBe("Can't drive them home anymore?")
+    expect(inboundWithdrawLegs(mixed, "c-other")).toBeUndefined()
+    const roundTrip = carpoolLegsBoth("CONFIRMED", {
+      assigneeCircleId: "c-chris",
+    })
+    expect(inboundWithdrawLegs(roundTrip, "c-chris")).toBeUndefined()
+    expect(inboundWithdrawLabel(roundTrip, "c-chris")).toBe("Can't take them anymore")
+    const toOnly = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: "a-chris",
+        assigneeCircleId: "c-chris",
+      }),
+      carpoolLeg("FROM", "CONFIRMED", {
+        assigneeAdultId: "a-jason",
+        assigneeDisplayName: "Jason",
+      }),
+    ]
+    expect(inboundWithdrawLegs(toOnly, "c-chris")).toEqual(["TO"])
+    expect(inboundWithdrawLabel(toOnly, "c-chris")).toBe("Can't take them there anymore?")
   })
 
   it("ownRideStatusFromTransportPlan prefers settled legs over uncovered", () => {
@@ -203,5 +265,139 @@ describe("transportPlan dogfood batch 2", () => {
       householdDriverLabel: (id, name) => name?.trim() || id,
     })
     expect(status).toEqual({ driver: "Katy", confirmed: true })
+  })
+
+  it("treats a sibling NEEDS_RIDE plan as a gap when another ownRequest is settled", () => {
+    const household = ownRide({
+      id: "plan-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Jay",
+      }),
+    })
+    const open = ownRide({
+      id: "plan-b",
+      status: "PLAN",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Jay",
+        }),
+        carpoolLeg("FROM", "NEEDS_RIDE"),
+      ],
+    })
+    expect(
+      transportGapKidIds(["k1", "k2"], null, null, [household, open]),
+    ).toEqual(["k2"])
+
+    const games = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: [] }),
+      {
+        eventKey: "UID:game",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1", "k2"],
+        ownRequests: [household, open],
+        ownLegs: null,
+        ownRequest: null,
+        otherRequests: [],
+      },
+      { currentAdultId: "a1", members },
+    )
+    expect(games.find((row) => row.kidId === "k1")?.ownRide).toEqual({
+      driver: "You",
+      confirmed: true,
+    })
+    expect(games.find((row) => row.kidId === "k2")?.ownRide).toBe("unassigned")
+    expect(getQueue(games).map((item) => item.game.kidId)).toEqual(["k2"])
+  })
+
+  it("queues a blank-plan kid even when a sibling ask is PENDING", () => {
+    const asked = ownRide({
+      id: "ask-b",
+      status: "PENDING",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    })
+    const blank = ownRide({
+      id: "blank-a",
+      status: "PLAN",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      legs: carpoolLegsBoth("NEEDS_RIDE"),
+    })
+    expect(transportGapKidIds([], null, null, [blank, asked])).toEqual(["k1"])
+
+    const games = mapCalendarItemToCoverageGames(
+      calendarItem({ kidIds: ["k1", "k2"], uncoveredKidIds: [] }),
+      {
+        eventKey: "UID:game",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1", "k2"],
+        ownRequests: [blank, asked],
+        ownLegs: null,
+        ownRequest: null,
+        otherRequests: [],
+      },
+      { currentAdultId: "a1", members },
+    )
+    expect(getQueue(games).map((item) => item.game.kidId)).toEqual(["k1"])
+  })
+
+  it("ownPlansCoveringKids selects the shared bag and ownPlansMatchingAssignee stays per assignee", () => {
+    const household = ownRide({
+      id: "plan-you",
+      status: "PLAN",
+      kidIds: ["k1", "k2"],
+      kidFirstNames: ["Graham", "Luke"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Jay",
+      }),
+    })
+    const ask = ownRide({
+      id: "plan-ask",
+      status: "PENDING",
+      kidIds: ["k3"],
+      kidFirstNames: ["Mia"],
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    })
+    expect(ownPlansCoveringKids([household, ask], ["k1", "k2"]).map((row) => row.id)).toEqual([
+      "plan-you",
+    ])
+    expect(ownPlansCoveringKids([household, ask], ["k3"]).map((row) => row.id)).toEqual([
+      "plan-ask",
+    ])
+    expect(
+      ownPlansMatchingAssignee([household, ask], {
+        key: "adult:a1",
+        kind: "household",
+        label: "You",
+        adultId: "a1",
+        circleId: null,
+        legKinds: ["TO", "FROM"],
+        waiting: false,
+      }).map((row) => row.id),
+    ).toEqual(["plan-you"])
+    expect(
+      ownPlansMatchingAssignee([household, ask], {
+        key: "ask-team",
+        kind: "team_ask",
+        label: "the team",
+        adultId: null,
+        circleId: null,
+        legKinds: ["TO", "FROM"],
+        waiting: false,
+      }).map((row) => row.id),
+    ).toEqual(["plan-ask"])
   })
 })

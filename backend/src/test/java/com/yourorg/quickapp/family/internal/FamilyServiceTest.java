@@ -353,6 +353,44 @@ class FamilyServiceTest {
     }
 
     @Test
+    void addPlaceTitleCasesAllLowercaseWhenGeocodeHits() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "b@example.com", "Jordan");
+        FamilyMembershipEntity membership =
+                new FamilyMembershipEntity(
+                        UUID.randomUUID(), circleId, adultId, FamilyRole.CAREGIVER, Instant.now());
+        FamilyCircleEntity circle =
+                new FamilyCircleEntity(circleId, null, "AB12CD34", Instant.now());
+
+        when(memberships.findByAdultId(adultId)).thenReturn(Optional.of(membership));
+        when(circles.findById(circleId)).thenReturn(Optional.of(circle));
+        when(places.existsByCircleIdAndNameNormalized(circleId, "home")).thenReturn(false);
+        when(places.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(geocodeService.resolve("12 oak st, cambridge, ma"))
+                .thenReturn(Optional.of(new GeoCoordinates(40.1, -74.2)));
+
+        var response =
+                familyService.addPlace(
+                        adult,
+                        new com.yourorg.quickapp.family.CreatePlaceRequest(
+                                "home", "12 oak st, cambridge, ma"));
+
+        assertThat(response.name()).isEqualTo("Home");
+        assertThat(response.address()).isEqualTo("12 Oak St, Cambridge, Ma");
+        ArgumentCaptor<FamilyPlaceEntity> place = ArgumentCaptor.forClass(FamilyPlaceEntity.class);
+        verify(places).save(place.capture());
+        assertThat(place.getValue().nameNormalized()).isEqualTo("home");
+    }
+
+    @Test
+    void toTitleCaseWordsCapitalizesWhitespaceSeparatedWords() {
+        assertThat(FamilyService.toTitleCaseWords("12 oak st")).isEqualTo("12 Oak St");
+        assertThat(FamilyService.isAllLowercaseLetters("home")).isTrue();
+        assertThat(FamilyService.isAllLowercaseLetters("Home")).isFalse();
+    }
+
+    @Test
     void addPlaceSoftFailsWhenGeocodeMisses() {
         UUID adultId = UUID.randomUUID();
         UUID circleId = UUID.randomUUID();
@@ -502,7 +540,7 @@ class FamilyServiceTest {
                         new com.yourorg.quickapp.family.UpdatePlaceRequest(
                                 "school", "2 School Rd"));
 
-        assertThat(response.name()).isEqualTo("school");
+        assertThat(response.name()).isEqualTo("School");
         assertThat(response.address()).isEqualTo("2 School Rd");
         assertThat(response.latitude()).isEqualTo(40.2);
         assertThat(response.longitude()).isEqualTo(-74.3);

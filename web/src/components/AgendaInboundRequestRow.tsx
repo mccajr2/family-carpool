@@ -124,9 +124,11 @@ export function AgendaInboundRequestRow({
     onAcceptRide != null
   const canCantTakeThem =
     !showHeroHandoff && acceptedByUs && onWithdrawRide != null
-  const withdrawLegs = acceptedByUs ? inboundWithdrawLegs(request.legs) : undefined
+  const withdrawLegs = acceptedByUs
+    ? inboundWithdrawLegs(request.legs, circleId)
+    : undefined
   const withdrawLabel = acceptedByUs
-    ? inboundWithdrawLabel(request.legs)
+    ? inboundWithdrawLabel(request.legs, circleId)
     : REVERT_INBOUND_CANT_TAKE_THEM
   const placeKind = ridePlaceLineKind(
     acceptedByUs

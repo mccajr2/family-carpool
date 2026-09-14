@@ -12,6 +12,7 @@ import {
 import { formatIsoForDisplay } from "@/components/eventTimes"
 import { PickupLine } from "@/components/PickupLine"
 import { inboundAskLegChips, rideLegStatusChips } from "@/components/rideStatusChip"
+import { inboundWithdrawLegs } from "@/components/transportPlan"
 import { Button } from "@/components/ui/button"
 
 type CarpoolSpaceRidesProps = {
@@ -23,7 +24,7 @@ type CarpoolSpaceRidesProps = {
   onAcceptRide: (rideId: string) => void
   onPassRide: (rideId: string) => void
   onCancelRide: (rideId: string) => void
-  onWithdrawRide: (rideId: string) => void
+  onWithdrawRide: (rideId: string, legs?: ("TO" | "FROM")[]) => void
 }
 
 export function CarpoolSpaceRides({
@@ -94,7 +95,12 @@ export function CarpoolSpaceRides({
                 busy={busy}
                 onAccept={() => onAcceptRide(request.id)}
                 onPass={() => onPassRide(request.id)}
-                onWithdraw={() => onWithdrawRide(request.id)}
+                onWithdraw={() =>
+                  onWithdrawRide(
+                    request.id,
+                    inboundWithdrawLegs(request.legs, circleId),
+                  )
+                }
               />
             ))}
           </li>
