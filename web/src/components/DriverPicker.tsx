@@ -3,6 +3,7 @@ import type { FamilyMember } from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
 import {
   ASK_THE_TEAM,
+  ASK_TEAM_NEEDS_PLACE,
   BACK_TO_SIMPLE_VIEW,
   DIFFERENT_PLANS_FOR_EACH_KID,
   DIFFERENT_PLANS_FOR_EACH_LEG,
@@ -69,6 +70,13 @@ export type DriverPickerProps = {
   leaveFromLabel?: string
   /** Override confirm button text for household selection only. */
   confirmLabel?: string
+  /**
+   * When false, selecting Ask the team disables Post/Save with inline copy.
+   * Defaults to true (caller did not check).
+   */
+  hasPickupPlace?: boolean
+  /** Inline error under the primary button (near Save / Confirm). */
+  actionError?: string
 }
 
 export function householdDriverChipLabel(
@@ -295,6 +303,8 @@ export function DriverPicker({
   leaveFromSlot,
   leaveFromLabel,
   confirmLabel: confirmLabelProp,
+  hasPickupPlace = true,
+  actionError,
 }: DriverPickerProps) {
   const [askTeamSelected, setAskTeamSelected] = useState(false)
   const [mode, setMode] = useState<EditorMode>("simple")
@@ -313,18 +323,68 @@ export function DriverPicker({
     : (confirmLabelProp ??
       confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
 
+  const askBlockedByMissingPlace = teamSelected && !hasPickupPlace
   const primaryDisabled =
-    loading || kidIds.length === 0 || (!teamSelected && !selectedAdultId)
+    loading ||
+    kidIds.length === 0 ||
+    (!teamSelected && !selectedAdultId) ||
+    askBlockedByMissingPlace
 
   const splitLeaveFromVisible =
     selectionIsHousehold(toSelection) || selectionIsHousehold(fromSelection)
-  const splitPrimaryDisabled = loading || kidIds.length === 0
+  const splitAsksTeam =
+    toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM"
+  const splitPrimaryDisabled =
+    loading || kidIds.length === 0 || (splitAsksTeam && !hasPickupPlace)
+
+  function kidSplitAsksTeam(): boolean {
+    return goingKids.some((kid) => {
+      const state = kidStates[kid.id] ?? initialKidState(currentAdultId)
+      if (state.legSplit) {
+        return state.to === "ASK_TEAM" || state.from === "ASK_TEAM"
+      }
+      return state.roundTrip === "ASK_TEAM"
+    })
+  }
+
+  const kidSplitPrimaryDisabled =
+    loading ||
+    goingKids.length === 0 ||
+    (kidSplitAsksTeam() && !hasPickupPlace)
+
+  const pickupHint =
+    !hasPickupPlace &&
+    (askBlockedByMissingPlace ||
+      (mode === "legSplit" && splitAsksTeam) ||
+      (mode === "kidSplit" && kidSplitAsksTeam()))
+      ? ASK_TEAM_NEEDS_PLACE
+      : null
+  const inlineError = actionError ?? pickupHint
 
   const kidLeaveFromVisible = goingKids.some((kid) => {
     const state = kidStates[kid.id]
     return state != null && kidStateUsesHousehold(state)
   })
-  const kidPrimaryDisabled = loading || goingKids.length === 0
+
+  function renderInlineError() {
+    if (inlineError == null) {
+      return null
+    }
+    return (
+      <p
+        role="alert"
+        data-testid="driver-picker-action-error"
+        className={
+          hero
+            ? "text-xs opacity-90"
+            : "text-sm text-[var(--fc-danger)]"
+        }
+        style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+      >
+        {inlineError}
+      </p>
+    )
+  }
 
   function sharedSeedSelection(): LegChipSelection {
     if (mode === "legSplit") {
@@ -557,7 +617,8 @@ export function DriverPicker({
             )
           })}
           {kidLeaveFromVisible ? leaveFromSlot : null}
-          {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveKidPlans, kidPrimaryDisabled)}
+          {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveKidPlans, kidSplitPrimaryDisabled)}
+          {renderInlineError()}
           {renderDisclosureLink(
             "driver-picker-back-to-simple",
             BACK_TO_SIMPLE_VIEW,
@@ -603,6 +664,7 @@ export function DriverPicker({
           </div>
           {splitLeaveFromVisible ? leaveFromSlot : null}
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
+          {renderInlineError()}
           {kidSplitEligible
             ? renderDisclosureLink(
                 "driver-picker-different-plans-kid",
@@ -657,6 +719,7 @@ export function DriverPicker({
         {chips}
         {leaveFromSlot}
         {renderPrimaryButton(primaryLabel, handlePrimaryClick, primaryDisabled)}
+        {renderInlineError()}
         {renderDisclosureLink(
           "driver-picker-different-plans",
           DIFFERENT_PLANS_FOR_EACH_LEG,

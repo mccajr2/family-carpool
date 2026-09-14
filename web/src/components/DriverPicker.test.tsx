@@ -140,6 +140,28 @@ describe("DriverPicker", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("disables Post and shows inline error when Ask the team needs a place", async () => {
+    const user = userEvent.setup()
+    const onAskTeam = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        hasPickupPlace={false}
+        onAskTeam={onAskTeam}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-ask-team-chip"))
+    const post = screen.getByTestId("driver-picker-confirm")
+    expect(post).toBeDisabled()
+    expect(screen.getByTestId("driver-picker-action-error")).toHaveTextContent(
+      "Add a home address in Places before asking the team.",
+    )
+    await user.click(post)
+    expect(onAskTeam).not.toHaveBeenCalled()
+  })
+
   it("switches primary to Post and calls onAskTeam when Ask the team is selected", async () => {
     const user = userEvent.setup()
     const onAskTeam = vi.fn()

@@ -664,6 +664,10 @@ export function AgendaFocusCard({
               hero={needsDecision}
               leaveFromSlot={assignLeaveFromSlot}
               leaveFromLabel={originForConfirm}
+              hasPickupPlace={circle.places.some(
+                (place) => place.address.trim().length > 0,
+              )}
+              actionError={coverageActionError}
             />
           </div>
         ) : null}

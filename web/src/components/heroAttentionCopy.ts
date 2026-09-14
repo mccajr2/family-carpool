@@ -2,9 +2,9 @@ import type { CalendarItem, Kid } from "@/api/types"
 import { circleDisplayName } from "@/components/carpoolDisplay"
 import { calendarSourceLabel } from "@/components/coverageDisplay"
 import {
-  assignedYouToDriveTitle,
-  confirmYoullDriveKidTitle,
-  kidNeedsRideTitle,
+  assignedYouToDriveKidsTitle,
+  confirmYoullDriveKidsTitle,
+  kidsNeedRideTitle,
 } from "@/components/coverageCopy"
 import type { CarpoolRequest, QueueItem } from "@/components/coverageQueue"
 import { formatFocusEventWhen } from "@/components/eventTimes"
@@ -39,18 +39,26 @@ export function heroAdultFirstName(
 
 /** Own-ride hero title — pending confirm uses assigner copy when known. */
 export function heroOwnRideTitle(options: {
-  kidFirstName: string
+  /** @deprecated Prefer kidFirstNames for multi-kid events. */
+  kidFirstName?: string
+  kidFirstNames?: readonly string[]
   pendingConfirm: boolean
   assignerFirstName?: string | null
 }): string {
+  const names =
+    options.kidFirstNames != null && options.kidFirstNames.length > 0
+      ? options.kidFirstNames
+      : options.kidFirstName != null
+        ? [options.kidFirstName]
+        : []
   if (!options.pendingConfirm) {
-    return kidNeedsRideTitle(options.kidFirstName)
+    return kidsNeedRideTitle(names)
   }
   const assigner = options.assignerFirstName?.trim()
   if (assigner) {
-    return assignedYouToDriveTitle(assigner, options.kidFirstName)
+    return assignedYouToDriveKidsTitle(assigner, names)
   }
-  return confirmYoullDriveKidTitle(options.kidFirstName)
+  return confirmYoullDriveKidsTitle(names)
 }
 
 /** `{team/feed label} vs {title} · {formatted when}` */
@@ -84,7 +92,8 @@ export function heroPickupSummary(request: CarpoolRequest): string {
 export function heroAttentionSlideAriaLabel(
   item: QueueItem,
   options: {
-    kidFirstName: string
+    kidFirstName?: string
+    kidFirstNames?: readonly string[]
     pendingConfirm: boolean
     assignerFirstName?: string | null
   },
@@ -94,6 +103,7 @@ export function heroAttentionSlideAriaLabel(
   }
   return heroOwnRideTitle({
     kidFirstName: options.kidFirstName,
+    kidFirstNames: options.kidFirstNames,
     pendingConfirm: options.pendingConfirm,
     assignerFirstName: options.assignerFirstName,
   })

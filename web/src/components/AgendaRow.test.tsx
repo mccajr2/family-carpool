@@ -509,7 +509,8 @@ describe("AgendaRow", () => {
     expect(within(samRow).queryByText("Sam")).not.toBeInTheDocument()
 
     const rileyRow = within(row).getByTestId("agenda-kid-row-k2")
-    expect(within(rileyRow).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(rileyRow).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
     expect(within(rileyRow).getByTestId("rsvp-MANUAL-mixed-k2")).toHaveAttribute(
       "data-attendance",
       "going",
@@ -867,10 +868,9 @@ describe("AgendaRow", () => {
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
-    const kid = within(row).getByTestId("agenda-kid-row-k1")
-    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
-    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1"])
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(row).getByRole("button", { name: "Post to team — round trip" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice", ["k1", "k2"])
 
     const requestedEvent = {
       ...rideEvent,
@@ -1136,10 +1136,10 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).getByText("Needs coverage: Riley")).toBeInTheDocument()
     expect(within(row).queryByText(/Needs coverage:.*Sam/)).not.toBeInTheDocument()
-    const riley = within(row).getByTestId("agenda-kid-row-k2")
-    expect(within(riley).getByTestId("driver-picker")).toBeInTheDocument()
-    expect(within(riley).getByTestId("driver-picker-confirm")).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker-confirm")).toBeInTheDocument()
     expect(within(row).queryByTestId("agenda-kid-row-k1")).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-kid-row-k2")).not.toBeInTheDocument()
     expect(
       within(row).getByRole("button", {
         name: "House B can't drive anymore? Find a new ride",
@@ -1221,7 +1221,7 @@ describe("AgendaRow", () => {
     ).toBeInTheDocument()
   })
 
-  it("shows DriverPicker on the kid band when there is a coverage gap", async () => {
+  it("shows DriverPicker when there is a coverage gap", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const onAssignCoverage = vi.fn()
@@ -1265,9 +1265,8 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-feed-gap")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const kid = within(row).getByTestId("agenda-kid-row-k1")
-    expect(within(kid).getByTestId("driver-picker")).toBeInTheDocument()
-    const household = within(kid).getByTestId("driver-picker-household-section")
+    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    const household = within(row).getByTestId("driver-picker-household-section")
     const leaveFrom = within(household).getByTestId("leave-from-FEED-feed-gap-field-row")
     const confirm = within(household).getByTestId("driver-picker-confirm")
     expect(
@@ -1283,10 +1282,10 @@ describe("AgendaRow", () => {
     await user.type(oneTime, "Side gate")
     expect(confirm).toHaveTextContent("Confirm — You'll drive round trip from Side gate")
     expect(within(row).queryByRole("button", { name: "Request" })).not.toBeInTheDocument()
-    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
-    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:gap", undefined)
-    await user.click(within(kid).getByRole("button", { name: "You" }))
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(row).getByRole("button", { name: "Post to team — round trip" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:gap", ["k1"])
+    await user.click(within(row).getByRole("button", { name: "You" }))
     await user.click(within(household).getByTestId("driver-picker-confirm"))
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
@@ -1337,10 +1336,9 @@ describe("AgendaRow", () => {
     ).not.toBeInTheDocument()
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByTestId("agenda-band-carpool")).not.toBeInTheDocument()
-    const kid = within(row).getByTestId("agenda-kid-row-k1")
-    await user.click(within(kid).getByRole("button", { name: "Ask the team" }))
-    await user.click(within(kid).getByRole("button", { name: "Post to team — round trip" }))
-    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", undefined)
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(row).getByRole("button", { name: "Post to team — round trip" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:practice-nr", ["k1"])
   })
 
   it("shows accepted-by-us ride density and Can't take them anymore when expanded", async () => {
@@ -2844,11 +2842,66 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-feed-kid-split")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    const firstKid = within(row).getByTestId("agenda-kid-row-k1")
-    expect(within(firstKid).getByTestId("driver-picker-different-plans-kid")).toBeInTheDocument()
-    await user.click(within(firstKid).getByTestId("driver-picker-different-plans-kid"))
-    expect(within(firstKid).getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
-    expect(within(firstKid).getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
-    expect(within(firstKid).getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
+    expect(within(row).getByTestId("driver-picker-different-plans-kid")).toBeInTheDocument()
+    // One shared picker for the event — not one per kid row.
+    expect(within(row).getAllByTestId("driver-picker")).toHaveLength(1)
+    await user.click(within(row).getByTestId("driver-picker-different-plans-kid"))
+    expect(within(row).getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(within(row).getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
+    expect(within(row).getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
+  })
+
+  it("Confirms shared round-trip for all going kids with one click", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    const twoKidCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Mia" },
+      ],
+    }
+    const feedItem = item({
+      id: "feed-shared-confirm",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "Soccer",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={twoKidCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: true, soleKid: false }}
+        rideEvent={{
+          eventKey: "UID:shared",
+          title: "Practice",
+          startsAt: feedItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1", "k2"],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          ownRequest: null,
+          ownRequests: [],
+          otherRequests: [],
+        }}
+        onCreateRide={vi.fn()}
+        {...noopHandlers}
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-feed-shared-confirm")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByTestId("driver-picker-confirm"))
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1", "k2"])
   })
 })

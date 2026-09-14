@@ -8,6 +8,7 @@ import type {
 import type { QueueItem } from "@/components/coverageQueue"
 import {
   hasWaitingHouseholdForAdult,
+  isOwnRideGap,
   mapCalendarItemToCoverageGames,
 } from "@/components/coverageQueue"
 import {
@@ -70,6 +71,13 @@ export type HeroAttentionSlideProps = {
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
+  /** Inline error near Assign/Save (e.g. missing pickup for Ask the team). */
+  actionError?: string
+  /**
+   * When false, Ask the team / Post is blocked with inline copy — circle has
+   * no addressed place for pickup snapshot.
+   */
+  hasPickupPlace?: boolean
   now?: Date
 }
 
@@ -103,12 +111,29 @@ export function HeroAttentionSlide({
   onPassRide,
   leaveFromValue,
   onSetLeaveFrom,
+  actionError,
+  hasPickupPlace = true,
   now = new Date(),
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
-  const kidFirstName = heroKidFirstName(item.game.kidId, circle.kids)
+  const coverageGames = useMemo(
+    () =>
+      mapCalendarItemToCoverageGames(calendarItem, rideEvent, {
+        currentAdultId,
+        members: circle.members,
+      }),
+    [calendarItem, rideEvent, currentAdultId, circle.members],
+  )
+  const gapKidFirstNames = coverageGames
+    .filter((game) => game.attendance !== "not_going" && isOwnRideGap(game))
+    .map((game) => heroKidFirstName(game.kidId, circle.kids))
+  const titleKidFirstNames =
+    gapKidFirstNames.length > 0
+      ? gapKidFirstNames
+      : [heroKidFirstName(item.game.kidId, circle.kids)]
+  const kidFirstName = titleKidFirstNames[0] ?? "Kid"
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
@@ -124,7 +149,10 @@ export function HeroAttentionSlide({
       )
     : null
   const ownRideTitle = heroOwnRideTitle({
-    kidFirstName,
+    kidFirstNames:
+      pendingForSelf != null && pendingForSelf.kidIds.length > 0
+        ? pendingForSelf.kidIds.map((kidId) => heroKidFirstName(kidId, circle.kids))
+        : titleKidFirstNames,
     pendingConfirm: showConfirmChrome,
     assignerFirstName,
   })
@@ -171,16 +199,13 @@ export function HeroAttentionSlide({
 
   const goingKids = useMemo(
     () =>
-      mapCalendarItemToCoverageGames(calendarItem, rideEvent, {
-        currentAdultId,
-        members: circle.members,
-      })
+      coverageGames
         .filter((game) => game.attendance !== "not_going")
         .map((game) => ({
           id: game.kidId,
           firstName: heroKidFirstName(game.kidId, circle.kids),
         })),
-    [calendarItem, rideEvent, currentAdultId, circle.members, circle.kids],
+    [coverageGames, circle.kids],
   )
 
   return (
@@ -310,6 +335,8 @@ export function HeroAttentionSlide({
                     onSaveRidePlan={onSaveRidePlan}
                     goingKids={goingKids}
                     onSaveKidPlans={onSaveKidPlans}
+                    hasPickupPlace={hasPickupPlace}
+                    actionError={actionError}
                   />
                 </div>
               )}

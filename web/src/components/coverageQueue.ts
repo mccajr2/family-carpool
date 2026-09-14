@@ -210,10 +210,10 @@ export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
   for (const eventKey of eventKeys) {
     const eventGames = sortByOrder(byEvent.get(eventKey) ?? [])
 
-    for (const game of eventGames) {
-      if (isOwnRideGap(game)) {
-        queue.push({ kind: "ownRide", game })
-      }
+    // One own-ride slide per event — the slide already has per-kid coverage chrome.
+    const ownGaps = eventGames.filter(isOwnRideGap)
+    if (ownGaps.length > 0) {
+      queue.push({ kind: "ownRide", game: ownGaps[0]! })
     }
 
     for (const game of eventGames) {

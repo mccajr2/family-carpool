@@ -394,6 +394,29 @@ describe("getQueue", () => {
       game: { id: "EVENT-E:k1" },
     })
   })
+
+  it("collapses multi-kid same-event ownRide gaps to one slide", () => {
+    const queue = getQueue([
+      game({
+        id: "EVENT-E:k1",
+        kidId: "k1",
+        order: 100,
+        ownRide: "unassigned",
+      }),
+      game({
+        id: "EVENT-E:k2",
+        kidId: "k2",
+        order: 100,
+        ownRide: "unassigned",
+      }),
+    ])
+
+    expect(queue).toHaveLength(1)
+    expect(queue[0]).toMatchObject({
+      kind: "ownRide",
+      game: { id: "EVENT-E:k1", kidId: "k1" },
+    })
+  })
 })
 
 describe("filterQueueWithinHorizon", () => {

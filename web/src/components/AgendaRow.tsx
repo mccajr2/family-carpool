@@ -89,15 +89,9 @@ function agendaRowTeamLabel(item: CalendarItem): string | null {
 }
 
 /**
- * Unassigned gaps get DriverPicker. Open team ask ("requested") also gets
- * DriverPicker — Assign cancels the ask (auto-decline-unofferable). Not-going
- * kids hide driver/coverage chrome via showKidChrome but keep AttendanceToggle
- * (ADR-0003). Pending confirm-for-self keeps Confirm/Decline.
+ * Pending confirm-for-self keeps Confirm/Decline per kid. Assign / Save ride
+ * plan uses one shared DriverPicker for all going kids on the event.
  */
-function showDriverPickerForKid(game: CoverageGameEvent): boolean {
-  return isOwnRideGap(game) || game.ownRide === "requested"
-}
-
 function hasInPlayOwnRideGap(games: readonly CoverageGameEvent[]): boolean {
   return games.some((game) => game.attendance !== "not_going" && isOwnRideGap(game))
 }
@@ -315,14 +309,6 @@ export function AgendaRow({
       waitingOnOtherGames.length > 0)
   /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
   const leaveFromInPicker = showAssign && active.length === 0
-  const firstPickerKidId =
-    coverageGames.find(
-      (game) =>
-        !outOfPlay &&
-        game.attendance !== "not_going" &&
-        showAssign &&
-        showDriverPickerForKid(game),
-    )?.kidId ?? null
 
   const itemLeaveFromFields = {
     leaveFromPlaceId: item.leaveFromPlaceId,
@@ -706,6 +692,52 @@ export function AgendaRow({
                 </div>
               ) : null}
 
+              {showAssign ? (
+                <div className="mb-2">
+                  <DriverPicker
+                    members={circle.members}
+                    currentAdultId={currentAdultId}
+                    selectedAdultId={assignDraft.adultId}
+                    onSelectedAdultChange={(adultId) =>
+                      onUpdateAssignDraft({ adultId })
+                    }
+                    kidIds={
+                      assignDraft.kidIds.length > 0
+                        ? assignDraft.kidIds
+                        : assignableGapKidIds
+                    }
+                    loading={loading}
+                    leaveFromSlot={leaveFromInPicker ? leaveFromSlotForPicker : undefined}
+                    leaveFromLabel={originForConfirm}
+                    onAssignCoverage={onAssignCoverage}
+                    onAskTeam={() => {
+                      if (rideEvent?.eventKey && onCreateRide) {
+                        onCreateRide(
+                          rideEvent.eventKey,
+                          goingKids.map((kid) => kid.id),
+                        )
+                      }
+                    }}
+                    onSaveRidePlan={
+                      onSaveRidePlan != null
+                        ? (legs) =>
+                            onSaveRidePlan(
+                              legs,
+                              goingKids.map((kid) => kid.id),
+                            )
+                        : undefined
+                    }
+                    goingKids={goingKids}
+                    onSaveKidPlans={onSaveKidPlans}
+                    showTeamSection={canAskTeam}
+                    hasPickupPlace={circle.places.some(
+                      (place) => place.address.trim().length > 0,
+                    )}
+                    actionError={coverageActionError}
+                  />
+                </div>
+              ) : null}
+
               {coverageGames.map((game) => {
                 const kid = circle.kids.find((row) => row.id === game.kidId)
                 const kidName = kid?.displayName?.trim() || "Kid"
@@ -719,11 +751,9 @@ export function AgendaRow({
                   game.attendance !== "not_going" &&
                   game.kidId === firstInPlayKidId
                 const showKidChrome = !outOfPlay && game.attendance !== "not_going"
-                const showPicker = showKidChrome && showAssign && showDriverPickerForKid(game)
 
                 if (
                   showOverrideLinks &&
-                  !showPicker &&
                   !pendingSelfForKid &&
                   !pendingHouseholdForKid
                 ) {
@@ -781,57 +811,6 @@ export function AgendaRow({
                             >
                               {DECLINE_COVERAGE}
                             </Button>
-                          </div>
-                        ) : null}
-
-                        {showPicker ? (
-                          <div className="mb-2">
-                            <DriverPicker
-                              members={circle.members}
-                              currentAdultId={currentAdultId}
-                              selectedAdultId={assignDraft.adultId}
-                              onSelectedAdultChange={(adultId) =>
-                                onUpdateAssignDraft({ adultId })
-                              }
-                              kidIds={[game.kidId]}
-                              loading={loading}
-                              leaveFromSlot={
-                                leaveFromInPicker && game.kidId === firstPickerKidId
-                                  ? leaveFromSlotForPicker
-                                  : undefined
-                              }
-                              leaveFromLabel={originForConfirm}
-                              onAssignCoverage={onAssignCoverage}
-                              onAskTeam={() => {
-                                if (rideEvent?.eventKey && onCreateRide) {
-                                  const onlyGap =
-                                    gapKidIds.length === 1 && gapKidIds[0] === game.kidId
-                                  onCreateRide(
-                                    rideEvent.eventKey,
-                                    onlyGap ? undefined : [game.kidId],
-                                  )
-                                }
-                              }}
-                              onSaveRidePlan={
-                                onSaveRidePlan != null
-                                  ? (legs) => {
-                                      const onlyGap =
-                                        gapKidIds.length === 1 && gapKidIds[0] === game.kidId
-                                      onSaveRidePlan(
-                                        legs,
-                                        onlyGap ? undefined : [game.kidId],
-                                      )
-                                    }
-                                  : undefined
-                              }
-                              goingKids={
-                                game.kidId === firstPickerKidId ? goingKids : undefined
-                              }
-                              onSaveKidPlans={
-                                game.kidId === firstPickerKidId ? onSaveKidPlans : undefined
-                              }
-                              showTeamSection={canAskTeam}
-                            />
                           </div>
                         ) : null}
                       </>

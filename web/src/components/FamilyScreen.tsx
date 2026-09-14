@@ -84,6 +84,7 @@ import {
   getQueue,
   filterQueueWithinHorizon,
   isConfirmedDriver,
+  isOwnRideGap,
   mapCalendarItemToCoverageGames,
   mapCalendarItemsToCoverageGames,
   type CoverageGameEvent,
@@ -1332,6 +1333,8 @@ export function FamilyScreen({
       return
     }
     setStatus({ kind: "loading" })
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
     try {
       const token = await requireToken()
       const planLegs: SaveCarpoolRidePlanLeg[] = [
@@ -1359,7 +1362,6 @@ export function FamilyScreen({
           ],
         })
       }
-      const itemKey = calendarItemKey(item)
       const draft = leaveFromDrafts[itemKey]
       const anyHousehold =
         legs.to.action === "HOUSEHOLD" || legs.from.action === "HOUSEHOLD"
@@ -1376,10 +1378,9 @@ export function FamilyScreen({
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
+      const message = error instanceof Error ? error.message : "Something went wrong"
+      setCoverageActionError(itemKey, message)
+      setStatus({ kind: "idle" })
     }
   }
 
@@ -1397,6 +1398,8 @@ export function FamilyScreen({
         ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
         : undefined
     setStatus({ kind: "loading" })
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
     try {
       const token = await requireToken()
       const planGroups = plans.map((plan) => ({
@@ -1417,7 +1420,6 @@ export function FamilyScreen({
           plans: planGroups,
         })
       }
-      const itemKey = calendarItemKey(item)
       const draft = leaveFromDrafts[itemKey]
       const anyHousehold = plans.some(
         (plan) =>
@@ -1436,10 +1438,9 @@ export function FamilyScreen({
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
-      setStatus({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Something went wrong",
-      })
+      const message = error instanceof Error ? error.message : "Something went wrong"
+      setCoverageActionError(itemKey, message)
+      setStatus({ kind: "idle" })
     }
   }
 
@@ -2666,6 +2667,23 @@ export function FamilyScreen({
       itemKey,
       rideEvent?.ownRequest,
     )
+    const slideGames = mapCalendarItemToCoverageGames(calendarItemForSlide, rideEvent, {
+      currentAdultId: adult?.id ?? "",
+      members: circle.members,
+    })
+    const goingKidIds = slideGames
+      .filter((game) => game.attendance !== "not_going")
+      .map((game) => game.kidId)
+    const gapKidIds = slideGames
+      .filter((game) => game.attendance !== "not_going" && isOwnRideGap(game))
+      .map((game) => game.kidId)
+    const assignKidIds =
+      baseAssign.kidIds.length > 0
+        ? baseAssign.kidIds
+        : gapKidIds.length > 0
+          ? gapKidIds
+          : goingKidIds
+    const hasPickupPlace = circle.places.some((place) => place.address.trim().length > 0)
     return {
       item: queueItem,
       index,
@@ -2675,7 +2693,7 @@ export function FamilyScreen({
       currentAdultId: adult?.id ?? "",
       loading: status.kind === "loading",
       rideEvent,
-      assignDraft: { adultId: baseAssign.adultId, kidIds: [queueItem.game.kidId] },
+      assignDraft: { adultId: baseAssign.adultId, kidIds: assignKidIds },
       onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
       onAssignCoverage: (coveringAdultId, kidIds) =>
         void onAssignCoverage(calendarItemForSlide, coveringAdultId, kidIds),
@@ -2701,7 +2719,11 @@ export function FamilyScreen({
       onAskTeam: () => {
         const eventKey = rideEvent?.eventKey
         if (eventKey) {
-          void onCreateAgendaRide(calendarItemForSlide, eventKey, [queueItem.game.kidId])
+          void onCreateAgendaRide(
+            calendarItemForSlide,
+            eventKey,
+            goingKidIds.length > 0 ? goingKidIds : undefined,
+          )
         }
       },
       onSaveRidePlan:
@@ -2711,7 +2733,7 @@ export function FamilyScreen({
                 calendarItemForSlide,
                 rideEvent?.eventKey ?? circleLocalEventKey(calendarItemForSlide) ?? "",
                 legs,
-                [queueItem.game.kidId],
+                goingKidIds.length > 0 ? goingKidIds : undefined,
               )
           : undefined,
       onSaveKidPlans:
@@ -2758,6 +2780,8 @@ export function FamilyScreen({
         }
         setLeaveFromDrafts((current) => ({ ...current, [itemKey]: body }))
       },
+      actionError: coverageActionErrors[itemKey],
+      hasPickupPlace,
     }
   }
 
