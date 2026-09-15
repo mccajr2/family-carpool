@@ -1,5 +1,10 @@
 import { useState, type ReactNode } from "react"
-import type { FamilyCircle, FamilyMember, SetCalendarLeaveFromRequest } from "@/api/types"
+import type {
+  CarpoolMeetSide,
+  FamilyCircle,
+  FamilyMember,
+  SetCalendarLeaveFromRequest,
+} from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
 import {
   ASK_THE_TEAM,
@@ -10,6 +15,10 @@ import {
   HERO_ON_INVERSE,
   LEG_COMING_BACK,
   LEG_GETTING_THERE,
+  MEET_DRIVERS_PLACE,
+  MEET_DRIVERS_PLACE_HINT,
+  MEET_OUR_PLACE,
+  MEET_WHERE,
   PLACE_DROPPING_OFF_AT,
   PLACE_PICKING_UP_FROM,
   POST_TO_TEAM_ROUND_TRIP,
@@ -37,6 +46,8 @@ export type DriverPickerSavePlanLegs = {
   from: DriverPickerLegChoice
   toPlace: DriverPickerPlaceFields
   fromPlace: DriverPickerPlaceFields
+  toMeetSide: CarpoolMeetSide
+  fromMeetSide: CarpoolMeetSide
 }
 
 /** Going kid eligible for per-kid plan sections (first name for headers). */
@@ -149,6 +160,13 @@ export function confirmDriverLabel(
   })
 }
 
+const EMPTY_PLACE_FIELDS: DriverPickerPlaceFields = {
+  placeId: null,
+  placeAddress: null,
+}
+
+const DEFAULT_MEET: CarpoolMeetSide = "REQUESTER"
+
 type LegChipSelection = string | "ASK_TEAM" | null
 
 type KidSectionState = {
@@ -159,6 +177,8 @@ type KidSectionState = {
   roundTripPlace: DriverPickerPlaceFields
   toPlace: DriverPickerPlaceFields
   fromPlace: DriverPickerPlaceFields
+  toMeetSide: CarpoolMeetSide
+  fromMeetSide: CarpoolMeetSide
 }
 
 function choiceFromSelection(selection: LegChipSelection): DriverPickerLegChoice {
@@ -171,8 +191,29 @@ function choiceFromSelection(selection: LegChipSelection): DriverPickerLegChoice
   return { action: "HOUSEHOLD", assigneeAdultId: selection }
 }
 
-function selectionNeedsPlace(selection: LegChipSelection): boolean {
-  return selection === "ASK_TEAM" || (selection != null && selection !== "")
+function selectionNeedsPlace(
+  selection: LegChipSelection,
+  meetSide: CarpoolMeetSide = DEFAULT_MEET,
+): boolean {
+  if (selection === "ASK_TEAM") {
+    return meetSide === "REQUESTER"
+  }
+  return selection != null && selection !== ""
+}
+
+function placeForSelection(
+  selection: LegChipSelection,
+  meetSide: CarpoolMeetSide,
+  place: DriverPickerPlaceFields,
+): DriverPickerPlaceFields {
+  return selectionNeedsPlace(selection, meetSide) ? place : EMPTY_PLACE_FIELDS
+}
+
+function meetForSelection(
+  selection: LegChipSelection,
+  meetSide: CarpoolMeetSide,
+): CarpoolMeetSide {
+  return selection === "ASK_TEAM" ? meetSide : DEFAULT_MEET
 }
 
 function legsFromKidState(state: KidSectionState): DriverPickerSavePlanLegs {
@@ -180,19 +221,21 @@ function legsFromKidState(state: KidSectionState): DriverPickerSavePlanLegs {
     return {
       to: choiceFromSelection(state.to),
       from: choiceFromSelection(state.from),
-      toPlace: selectionNeedsPlace(state.to)
-        ? state.toPlace
-        : { placeId: null, placeAddress: null },
-      fromPlace: selectionNeedsPlace(state.from)
-        ? state.fromPlace
-        : { placeId: null, placeAddress: null },
+      toPlace: placeForSelection(state.to, state.toMeetSide, state.toPlace),
+      fromPlace: placeForSelection(state.from, state.fromMeetSide, state.fromPlace),
+      toMeetSide: meetForSelection(state.to, state.toMeetSide),
+      fromMeetSide: meetForSelection(state.from, state.fromMeetSide),
     }
   }
   const both = choiceFromSelection(state.roundTrip)
-  const place = selectionNeedsPlace(state.roundTrip)
-    ? state.roundTripPlace
-    : { placeId: null, placeAddress: null }
-  return { to: both, from: both, toPlace: place, fromPlace: place }
+  return {
+    to: both,
+    from: both,
+    toPlace: placeForSelection(state.roundTrip, state.toMeetSide, state.roundTripPlace),
+    fromPlace: placeForSelection(state.roundTrip, state.fromMeetSide, state.roundTripPlace),
+    toMeetSide: meetForSelection(state.roundTrip, state.toMeetSide),
+    fromMeetSide: meetForSelection(state.roundTrip, state.fromMeetSide),
+  }
 }
 
 function initialKidState(
@@ -207,7 +250,16 @@ function initialKidState(
     roundTripPlace: place,
     toPlace: place,
     fromPlace: place,
+    toMeetSide: DEFAULT_MEET,
+    fromMeetSide: DEFAULT_MEET,
   }
+}
+
+function askSelectionNeedsRequesterPlace(
+  selection: LegChipSelection,
+  meetSide: CarpoolMeetSide,
+): boolean {
+  return selection === "ASK_TEAM" && meetSide === "REQUESTER"
 }
 
 type DriverMemberChipProps = {
@@ -274,6 +326,73 @@ function DriverMemberChip({
     >
       {label}
     </button>
+  )
+}
+
+type MeetWhereControlProps = {
+  meetSide: CarpoolMeetSide
+  onMeetSideChange: (next: CarpoolMeetSide) => void
+  loading: boolean
+  hero: boolean
+  testIdPrefix: string
+  /** Optional leg label for aria (e.g. Getting there). */
+  legLabel?: string
+}
+
+function MeetWhereControl({
+  meetSide,
+  onMeetSideChange,
+  loading,
+  hero,
+  testIdPrefix,
+  legLabel,
+}: MeetWhereControlProps) {
+  const labelClass = hero
+    ? "text-xs font-semibold uppercase tracking-wide opacity-90"
+    : "text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]"
+  const hintClass = hero
+    ? "text-xs opacity-90"
+    : "text-xs text-[var(--fc-text-secondary)]"
+  const ariaLabel = legLabel != null ? `${MEET_WHERE} — ${legLabel}` : MEET_WHERE
+
+  return (
+    <div
+      data-testid={`${testIdPrefix}-meet-where`}
+      className="flex flex-col gap-[var(--fc-space-xs)]"
+    >
+      <span className={labelClass}>{MEET_WHERE}</span>
+      <div
+        className={`flex flex-wrap ${hero ? "gap-[var(--fc-space-sm)]" : "gap-[var(--fc-space-xs)]"}`}
+        role="group"
+        aria-label={ariaLabel}
+      >
+        <DriverMemberChip
+          label={MEET_OUR_PLACE}
+          selected={meetSide === "REQUESTER"}
+          disabled={loading}
+          hero={hero}
+          testId={`${testIdPrefix}-meet-our-place`}
+          onClick={() => onMeetSideChange("REQUESTER")}
+        />
+        <DriverMemberChip
+          label={MEET_DRIVERS_PLACE}
+          selected={meetSide === "ACCEPTOR"}
+          disabled={loading}
+          hero={hero}
+          testId={`${testIdPrefix}-meet-drivers-place`}
+          onClick={() => onMeetSideChange("ACCEPTOR")}
+        />
+      </div>
+      {meetSide === "ACCEPTOR" ? (
+        <p
+          data-testid={`${testIdPrefix}-meet-drivers-hint`}
+          className={hintClass}
+          style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+        >
+          {MEET_DRIVERS_PLACE_HINT}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -376,6 +495,12 @@ export function DriverPicker({
   const sharedPlaceSeed = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
   const [toPlace, setToPlace] = useState<DriverPickerPlaceFields>(sharedPlaceSeed)
   const [fromPlace, setFromPlace] = useState<DriverPickerPlaceFields>(sharedPlaceSeed)
+  const [toMeetSide, setToMeetSide] = useState<CarpoolMeetSide>(DEFAULT_MEET)
+  const [fromMeetSide, setFromMeetSide] = useState<CarpoolMeetSide>(DEFAULT_MEET)
+  const [simpleToMeetSide, setSimpleToMeetSide] =
+    useState<CarpoolMeetSide>(DEFAULT_MEET)
+  const [simpleFromMeetSide, setSimpleFromMeetSide] =
+    useState<CarpoolMeetSide>(DEFAULT_MEET)
 
   const teamChipVisible = showTeamSection
   const teamSelected = teamChipVisible && askTeamSelected
@@ -391,39 +516,54 @@ export function DriverPicker({
     : (confirmLabelProp ??
       confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
 
-  const askBlockedByMissingPlace = teamSelected && !hasPickupPlace
+  const simpleNeedsRequesterPlace =
+    askSelectionNeedsRequesterPlace("ASK_TEAM", simpleToMeetSide) ||
+    askSelectionNeedsRequesterPlace("ASK_TEAM", simpleFromMeetSide)
+  const askBlockedByMissingPlace =
+    teamSelected && simpleNeedsRequesterPlace && !hasPickupPlace
   const primaryDisabled =
     loading ||
     actionKidIds.length === 0 ||
     (!teamSelected && !selectedAdultId) ||
     askBlockedByMissingPlace
 
+  const splitNeedsRequesterPlace =
+    askSelectionNeedsRequesterPlace(toSelection, toMeetSide) ||
+    askSelectionNeedsRequesterPlace(fromSelection, fromMeetSide)
   const splitAsksTeam =
     toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM"
   const splitPrimaryDisabled =
-    loading || actionKidIds.length === 0 || (splitAsksTeam && !hasPickupPlace)
+    loading ||
+    actionKidIds.length === 0 ||
+    (splitNeedsRequesterPlace && !hasPickupPlace)
 
-  function kidSplitAsksTeam(): boolean {
+  function kidSplitNeedsRequesterPlace(): boolean {
     return goingKids.some((kid) => {
       const state =
         kidStates[kid.id] ?? initialKidState(currentAdultId, sharedPlaceSeed)
       if (state.legSplit) {
-        return state.to === "ASK_TEAM" || state.from === "ASK_TEAM"
+        return (
+          askSelectionNeedsRequesterPlace(state.to, state.toMeetSide) ||
+          askSelectionNeedsRequesterPlace(state.from, state.fromMeetSide)
+        )
       }
-      return state.roundTrip === "ASK_TEAM"
+      return (
+        askSelectionNeedsRequesterPlace(state.roundTrip, state.toMeetSide) ||
+        askSelectionNeedsRequesterPlace(state.roundTrip, state.fromMeetSide)
+      )
     })
   }
 
   const kidSplitPrimaryDisabled =
     loading ||
     goingKids.length === 0 ||
-    (kidSplitAsksTeam() && !hasPickupPlace)
+    (kidSplitNeedsRequesterPlace() && !hasPickupPlace)
 
   const pickupHint =
     !hasPickupPlace &&
     (askBlockedByMissingPlace ||
-      (mode === "legSplit" && splitAsksTeam) ||
-      (mode === "kidSplit" && kidSplitAsksTeam()))
+      (mode === "legSplit" && splitNeedsRequesterPlace) ||
+      (mode === "kidSplit" && kidSplitNeedsRequesterPlace()))
       ? ASK_TEAM_NEEDS_PLACE
       : null
   const inlineError = actionError ?? pickupHint
@@ -448,14 +588,37 @@ export function DriverPicker({
     )
   }
 
+  function renderMeetWhere(
+    selection: LegChipSelection,
+    meetSide: CarpoolMeetSide,
+    onMeetSideChange: (next: CarpoolMeetSide) => void,
+    testIdPrefix: string,
+    legLabel?: string,
+  ) {
+    if (selection !== "ASK_TEAM") {
+      return null
+    }
+    return (
+      <MeetWhereControl
+        meetSide={meetSide}
+        onMeetSideChange={onMeetSideChange}
+        loading={loading}
+        hero={hero}
+        testIdPrefix={testIdPrefix}
+        legLabel={legLabel}
+      />
+    )
+  }
+
   function renderLegPlaceControl(
     kind: "TO" | "FROM",
     selection: LegChipSelection,
     place: DriverPickerPlaceFields,
     onPlaceChange: (next: DriverPickerPlaceFields) => void,
     testIdPrefix: string,
+    meetSide: CarpoolMeetSide = DEFAULT_MEET,
   ) {
-    if (circle == null || !selectionNeedsPlace(selection)) {
+    if (circle == null || !selectionNeedsPlace(selection, meetSide)) {
       return null
     }
     const label = kind === "TO" ? PLACE_PICKING_UP_FROM : PLACE_DROPPING_OFF_AT
@@ -494,6 +657,8 @@ export function DriverPicker({
     setFromSelection(initial)
     setToPlace(seed)
     setFromPlace(seed)
+    setToMeetSide(teamSelected ? simpleToMeetSide : DEFAULT_MEET)
+    setFromMeetSide(teamSelected ? simpleFromMeetSide : DEFAULT_MEET)
     setMode("legSplit")
   }
 
@@ -508,7 +673,22 @@ export function DriverPicker({
         : placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
     const next: Record<string, KidSectionState> = {}
     for (const kid of goingKids) {
-      next[kid.id] = initialKidState(seed, place)
+      const base = initialKidState(seed, place)
+      if (mode === "legSplit") {
+        next[kid.id] = {
+          ...base,
+          toMeetSide,
+          fromMeetSide,
+        }
+      } else if (teamSelected) {
+        next[kid.id] = {
+          ...base,
+          toMeetSide: simpleToMeetSide,
+          fromMeetSide: simpleFromMeetSide,
+        }
+      } else {
+        next[kid.id] = base
+      }
     }
     setKidStates(next)
     setMode("kidSplit")
@@ -521,8 +701,10 @@ export function DriverPicker({
         onSaveRidePlan({
           to: { action: "ASK_TEAM" },
           from: { action: "ASK_TEAM" },
-          toPlace: place,
-          fromPlace: place,
+          toPlace: placeForSelection("ASK_TEAM", simpleToMeetSide, place),
+          fromPlace: placeForSelection("ASK_TEAM", simpleFromMeetSide, place),
+          toMeetSide: simpleToMeetSide,
+          fromMeetSide: simpleFromMeetSide,
         })
         return
       }
@@ -539,12 +721,10 @@ export function DriverPicker({
     onSaveRidePlan({
       to: choiceFromSelection(toSelection),
       from: choiceFromSelection(fromSelection),
-      toPlace: selectionNeedsPlace(toSelection)
-        ? toPlace
-        : { placeId: null, placeAddress: null },
-      fromPlace: selectionNeedsPlace(fromSelection)
-        ? fromPlace
-        : { placeId: null, placeAddress: null },
+      toPlace: placeForSelection(toSelection, toMeetSide, toPlace),
+      fromPlace: placeForSelection(fromSelection, fromMeetSide, fromPlace),
+      toMeetSide: meetForSelection(toSelection, toMeetSide),
+      fromMeetSide: meetForSelection(fromSelection, fromMeetSide),
     })
   }
 
@@ -670,13 +850,21 @@ export function DriverPicker({
                         ariaLabel={`${kid.firstName} ${LEG_GETTING_THERE}`}
                         testIdPrefix={`driver-picker-kid-${kid.id}-to`}
                       />
+                      {renderMeetWhere(
+                        state.to,
+                        state.toMeetSide,
+                        (next) => updateKidState(kid.id, { toMeetSide: next }),
+                        `driver-picker-kid-${kid.id}-to`,
+                        LEG_GETTING_THERE,
+                      )}
                       {renderLegPlaceControl(
-              "TO",
-              state.to,
-              state.toPlace,
-              (next) => updateKidState(kid.id, { toPlace: next }),
-              `driver-picker-kid-${kid.id}-to`,
-            )}
+                        "TO",
+                        state.to,
+                        state.toPlace,
+                        (next) => updateKidState(kid.id, { toPlace: next }),
+                        `driver-picker-kid-${kid.id}-to`,
+                        state.toMeetSide,
+                      )}
                     </div>
                     <div
                       data-testid={`driver-picker-kid-${kid.id}-leg-from`}
@@ -694,12 +882,20 @@ export function DriverPicker({
                         ariaLabel={`${kid.firstName} ${LEG_COMING_BACK}`}
                         testIdPrefix={`driver-picker-kid-${kid.id}-from`}
                       />
+                      {renderMeetWhere(
+                        state.from,
+                        state.fromMeetSide,
+                        (next) => updateKidState(kid.id, { fromMeetSide: next }),
+                        `driver-picker-kid-${kid.id}-from`,
+                        LEG_COMING_BACK,
+                      )}
                       {renderLegPlaceControl(
                         "FROM",
                         state.from,
                         state.fromPlace,
                         (next) => updateKidState(kid.id, { fromPlace: next }),
                         `driver-picker-kid-${kid.id}-from`,
+                        state.fromMeetSide,
                       )}
                     </div>
                     {renderDisclosureLink(
@@ -727,7 +923,27 @@ export function DriverPicker({
                       ariaLabel={`${kid.firstName} driver`}
                       testIdPrefix={`driver-picker-kid-${kid.id}`}
                     />
-                    {circle != null && selectionNeedsPlace(state.roundTrip) ? (
+                    {state.roundTrip === "ASK_TEAM" ? (
+                      <>
+                        {renderMeetWhere(
+                          "ASK_TEAM",
+                          state.toMeetSide,
+                          (next) => updateKidState(kid.id, { toMeetSide: next }),
+                          `driver-picker-kid-${kid.id}-to`,
+                          LEG_GETTING_THERE,
+                        )}
+                        {renderMeetWhere(
+                          "ASK_TEAM",
+                          state.fromMeetSide,
+                          (next) => updateKidState(kid.id, { fromMeetSide: next }),
+                          `driver-picker-kid-${kid.id}-from`,
+                          LEG_COMING_BACK,
+                        )}
+                      </>
+                    ) : null}
+                    {circle != null &&
+                    (selectionNeedsPlace(state.roundTrip, state.toMeetSide) ||
+                      selectionNeedsPlace(state.roundTrip, state.fromMeetSide)) ? (
                       <div data-testid={`driver-picker-kid-${kid.id}-place`}>
                         <LeaveFromControls
                           variant={placeVariant}
@@ -793,12 +1009,20 @@ export function DriverPicker({
               ariaLabel={LEG_GETTING_THERE}
               testIdPrefix="driver-picker-to"
             />
+            {renderMeetWhere(
+              toSelection,
+              toMeetSide,
+              setToMeetSide,
+              "driver-picker-to",
+              LEG_GETTING_THERE,
+            )}
             {renderLegPlaceControl(
               "TO",
               toSelection,
               toPlace,
               setToPlace,
               "driver-picker-to",
+              toMeetSide,
             )}
           </div>
           <div data-testid="driver-picker-leg-from" className="flex flex-col gap-[var(--fc-space-sm)]">
@@ -814,12 +1038,20 @@ export function DriverPicker({
               ariaLabel={LEG_COMING_BACK}
               testIdPrefix="driver-picker-from"
             />
+            {renderMeetWhere(
+              fromSelection,
+              fromMeetSide,
+              setFromMeetSide,
+              "driver-picker-from",
+              LEG_COMING_BACK,
+            )}
             {renderLegPlaceControl(
               "FROM",
               fromSelection,
               fromPlace,
               setFromPlace,
               "driver-picker-from",
+              fromMeetSide,
             )}
           </div>
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
@@ -876,7 +1108,25 @@ export function DriverPicker({
           Driver
         </span>
         {chips}
-        {leaveFromSlot}
+        {teamSelected ? (
+          <>
+            {renderMeetWhere(
+              "ASK_TEAM",
+              simpleToMeetSide,
+              setSimpleToMeetSide,
+              "driver-picker-simple-to",
+              LEG_GETTING_THERE,
+            )}
+            {renderMeetWhere(
+              "ASK_TEAM",
+              simpleFromMeetSide,
+              setSimpleFromMeetSide,
+              "driver-picker-simple-from",
+              LEG_COMING_BACK,
+            )}
+          </>
+        ) : null}
+        {!teamSelected || simpleNeedsRequesterPlace ? leaveFromSlot : null}
         {renderPrimaryButton(primaryLabel, handlePrimaryClick, primaryDisabled)}
         {renderInlineError()}
         {renderDisclosureLink(

@@ -116,7 +116,14 @@ export function ownRideStatusLine(ride: CarpoolRide): string {
 
 /** Kids · seats · pickup — shared field tail for ride detail lines. */
 export function rideKidsSeatsPickup(ride: CarpoolRide): string {
-  return `${ride.kidFirstNames.join(", ")} · ${rideSeatsLabel(ride.seats)} · ${ride.pickupPlaceName}, ${ride.pickupAddress}`
+  return `${ride.kidFirstNames.join(", ")} · ${rideSeatsLabel(ride.seats)} · ${ridePickupDisplay(ride)}`
+}
+
+/** Pickup label for summaries — omit empty address (e.g. Driver's place pending). */
+export function ridePickupDisplay(ride: Pick<CarpoolRide, "pickupPlaceName" | "pickupAddress">): string {
+  const name = ride.pickupPlaceName?.trim() || "Pickup"
+  const address = ride.pickupAddress?.trim()
+  return address ? `${name}, ${address}` : name
 }
 
 /**

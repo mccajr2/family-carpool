@@ -337,6 +337,8 @@ describe("DriverPicker", () => {
       from: { action: "ASK_TEAM" },
       toPlace: emptyPlace,
       fromPlace: emptyPlace,
+      toMeetSide: "REQUESTER",
+      fromMeetSide: "REQUESTER",
     })
 
     await user.click(screen.getByTestId("driver-picker-back-to-simple"))
@@ -400,6 +402,8 @@ describe("DriverPicker", () => {
       from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
       toPlace: { placeId: "p-grandma", placeAddress: null },
       fromPlace: emptyPlace,
+      toMeetSide: "REQUESTER",
+      fromMeetSide: "REQUESTER",
     })
   })
 
@@ -430,7 +434,65 @@ describe("DriverPicker", () => {
       from: { action: "ASK_TEAM" },
       toPlace: { placeId: "p-grandma", placeAddress: null },
       fromPlace: { placeId: "p-grandma", placeAddress: null },
+      toMeetSide: "REQUESTER",
+      fromMeetSide: "REQUESTER",
     })
+  })
+
+  it("shows Meet where? on Ask and hides leave-from when both are Driver's place", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        leaveFromSlot={<div data-testid="leave-from-slot">Leave from</div>}
+        onSaveRidePlan={onSaveRidePlan}
+        hasPickupPlace={false}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-ask-team-chip"))
+    expect(screen.getByTestId("driver-picker-simple-to-meet-where")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-simple-from-meet-where")).toBeInTheDocument()
+    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP })).toBeDisabled()
+
+    await user.click(screen.getByTestId("driver-picker-simple-to-meet-drivers-place"))
+    await user.click(screen.getByTestId("driver-picker-simple-from-meet-drivers-place"))
+    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-simple-to-meet-drivers-hint")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP })).toBeEnabled()
+
+    await user.click(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP }))
+    expect(onSaveRidePlan).toHaveBeenCalledWith({
+      to: { action: "ASK_TEAM" },
+      from: { action: "ASK_TEAM" },
+      toPlace: emptyPlace,
+      fromPlace: emptyPlace,
+      toMeetSide: "ACCEPTOR",
+      fromMeetSide: "ACCEPTOR",
+    })
+  })
+
+  it("hides place picker for Driver's place Ask legs in split mode", async () => {
+    const user = userEvent.setup()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    await user.click(screen.getByTestId("driver-picker-to-ask-team-chip"))
+    expect(screen.getByTestId("driver-picker-to-meet-where")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-to-place")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-to-meet-drivers-place"))
+    expect(screen.queryByTestId("driver-picker-to-place")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-to-meet-drivers-hint")).toBeInTheDocument()
   })
 
   it("disables chips and actions while loading", () => {
@@ -551,6 +613,8 @@ describe("DriverPicker", () => {
           from: { action: "ASK_TEAM" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
       {
@@ -560,6 +624,8 @@ describe("DriverPicker", () => {
           from: { action: "ASK_TEAM" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
     ])
@@ -609,6 +675,8 @@ describe("DriverPicker", () => {
           from: { action: "ASK_TEAM" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
       {
@@ -618,6 +686,8 @@ describe("DriverPicker", () => {
           from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
     ])
@@ -664,6 +734,8 @@ describe("DriverPicker", () => {
           from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
           toPlace: { placeId: "p-grandma", placeAddress: null },
           fromPlace: { placeId: null, placeAddress: "12 Oak St" },
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
       {
@@ -673,6 +745,8 @@ describe("DriverPicker", () => {
           from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
       },
     ])
