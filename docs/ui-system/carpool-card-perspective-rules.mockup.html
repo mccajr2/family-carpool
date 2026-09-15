@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup SoT — carpool card perspective &amp; wording rules</title>
+<style>
+  :root{
+    --bg:#f5f4f0; --surface:#ffffff; --border:#e5e3dd;
+    --text:#1a1a1a; --text2:#6b6b6b; --muted:#9a9a95;
+    --success-bg:#e6f4ea; --success:#1e7a34;
+    --warn-bg:#fdecd8; --warn:#b5651d;
+    --accent-bg:#eef0fd; --accent:#4338ca;
+    --radius:6px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+       padding:32px 16px 80px}
+  .wrap{max-width:640px;margin:0 auto}
+  header{margin-bottom:36px}
+  header h1{font-size:20px;margin:0 0 6px}
+  header p{color:var(--text2);font-size:13px;margin:0}
+  header .caveat{background:#fff7e6;border:1px solid #f0d9a8;border-radius:8px;
+                  padding:10px 12px;font-size:12px;color:#7a5b12;margin-top:14px}
+  nav{margin-top:14px;font-size:13px}
+  nav a{color:var(--accent);margin-right:14px;text-decoration:none}
+  nav a:hover{text-decoration:underline}
+  section{margin-bottom:56px}
+  section h2{font-size:16px;margin:0 0 4px}
+  .rule-ref{font-size:12px;color:var(--muted);margin:0 0 18px}
+  .label{font-size:12px;color:var(--muted);letter-spacing:.02em;margin-bottom:8px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+        padding:16px 20px;margin-bottom:20px}
+  .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .muted{color:var(--text2);font-size:13px}
+  .tiny{color:var(--muted);font-size:12px}
+  .chip{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px}
+  .chip.success{background:var(--success-bg);color:var(--success)}
+  .chip.warn{background:var(--warn-bg);color:var(--warn)}
+  .chip.accent{background:var(--accent-bg);color:var(--accent)}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-bg);
+          color:var(--accent);font-size:11px;font-weight:600;
+          display:inline-flex;align-items:center;justify-content:center}
+  .divider{border:none;border-top:1px solid var(--border);margin:12px 0}
+  a.link{color:var(--accent);font-size:12px;text-decoration:none}
+  a.link:hover{text-decoration:underline}
+  .btn{border:1px solid var(--border);border-radius:8px;padding:8px 16px;
+       font-size:14px;background:#fff;color:var(--text)}
+  .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+  .buttons{display:flex;gap:10px;margin-top:14px}
+  .info-box{background:var(--bg);border-radius:8px;padding:10px 12px;margin:12px 0}
+  .info-box .t{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px}
+  .hero{background:#12172b;border-radius:12px;padding:20px}
+  .hero .muted, .hero .tiny{color:#a8adc0}
+  .hero .avatar{background:rgba(255,255,255,.12);color:#fff}
+  .hero .chip.success{background:rgba(30,122,52,.25);color:#8fe3a6}
+  .hero .btn.primary{background:#fff;color:#12172b;border-color:#fff}
+  .hero .btn{background:transparent;color:#cfd3e6;border-color:#3a4060}
+  .hero, .hero * { color: #fff; }
+  .hero .muted, .hero .tiny { color:#a8adc0 !important; }
+  .hero .chip.success { color:#8fe3a6 !important; background:rgba(30,122,52,.3) !important; }
+  .hero .btn.primary { color:#12172b !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Mockup SoT — carpool card perspective &amp; wording rules</h1>
+  <p>Referenced by ADR-draft-carpool-card-perspective-rules.md. Each section demonstrates the
+     specific rules it validates; rule numbers match the ADR.</p>
+  <div class="caveat">⚠️ Source of truth for <b>wording, grouping, and layout only</b>. Surface
+    color is not locked here — the "Hero ask card" below uses this app's existing dark Hero
+    treatment (see the countdown card in your calendar view); the other two sections use the
+    existing light Agenda-card treatment. Don't take any color in this file as a proposal to
+    change your Hero/Agenda visual distinction.</div>
+  <nav>
+    <a href="#hero">1. Hero ask card</a>
+    <a href="#chris">2. Driving card, leg split</a>
+    <a href="#riding-with">3. "Riding with" label</a>
+  </nav>
+</header>
+
+<section id="hero">
+  <h2>1. Hero ask card — kid-first, leg-scoped, address-qualified</h2>
+  <p class="rule-ref">Demonstrates rules 1, 2, 3, 4, 5</p>
+
+  <div class="label">CURRENT</div>
+  <div class="card">
+    <div style="font-weight:500;font-size:16px;margin-bottom:4px">McCarthy need a ride for Declan</div>
+    <div class="muted" style="margin-bottom:2px">Sep 16, 5:30–6:20 PM · Veterans Memorial Rink</div>
+    <div class="muted" style="margin-bottom:10px">Luke is already going</div>
+    <div class="row" style="margin-bottom:12px">
+      <span class="chip success">Getting there: Jay confirmed</span>
+      <span class="chip warn">Coming back: asked team</span>
+    </div>
+    <div class="muted">📍 Pickup in Huron Ave. Cambridge, MA
+      <span class="chip accent">~11 min out of your way</span>
+    </div>
+  </div>
+
+  <div class="label">REDESIGNED — still your dark Hero treatment, not a light card</div>
+  <div class="card hero">
+    <div class="row" style="margin-bottom:2px">
+      <span class="avatar">D</span>
+      <div style="font-weight:500;font-size:16px">Declan needs a ride home from practice</div>
+    </div>
+    <div class="muted" style="margin:6px 0 2px 32px">Requested by Jay McCarthy</div>
+    <div class="muted" style="margin:0 0 10px 32px">Sep 16, 5:30–6:20 PM · Veterans Memorial Rink</div>
+
+    <div class="chip success" style="display:block;padding:8px 10px;margin-bottom:12px">
+      ✓ You're already driving Luke and Graham round trip — this only adds Declan
+    </div>
+
+    <hr class="divider" style="border-color:#2a3050">
+    <div class="tiny" style="margin-bottom:6px">THIS ASK · COMING BACK ONLY</div>
+    <div class="row" style="font-size:13px;margin-bottom:4px">
+      <span>📍 Veterans Memorial Rink</span> <span>→</span>
+      <span>390 Huron Ave, Cambridge, MA <span class="tiny">(Declan's home)</span></span>
+    </div>
+    <div class="tiny" style="margin-bottom:12px">Adds about 11 min to your drive home</div>
+    <div class="tiny" style="margin-bottom:14px">🚗 Jay is driving Declan to the rink himself — nothing needed from you for that leg</div>
+
+    <div class="buttons">
+      <button class="btn primary">Accept</button>
+      <button class="btn">Decline</button>
+    </div>
+  </div>
+</section>
+
+<section id="chris">
+  <h2>2. Driving card — split by leg, not lumped</h2>
+  <p class="rule-ref">Demonstrates rules 1, 3, 4, 6, 7</p>
+
+  <div class="label">CURRENT — looks like you're taking all 3 kids both ways</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="tiny">SHARKS</div>
+        <div style="font-weight:500;font-size:15px">2016/2017 (Bill) extra practice</div>
+      </div>
+      <span class="chip accent">You're driving · +1</span>
+    </div>
+    <div class="muted" style="margin:8px 0 6px">Sep 16, 5:30–6:20 PM</div>
+    <div class="row">
+      <span class="avatar">L</span><span class="avatar">G</span><span class="avatar">D</span>
+      <span class="muted" style="margin-left:4px">Luke, Graham, Declan</span>
+    </div>
+  </div>
+
+  <div class="label">REDESIGNED — same info, split by leg</div>
+  <div class="card">
+    <div class="tiny">SHARKS</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:2px">2016/2017 (Bill) extra practice</div>
+    <div class="muted" style="margin-bottom:12px">Sep 16, 5:30–6:20 PM · Veterans Memorial Rink</div>
+
+    <hr class="divider">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:500">To practice</div>
+      <span class="chip success">You're driving</span>
+    </div>
+    <div class="muted" style="margin-bottom:2px">Luke, Graham · leave from home ~5:15 PM</div>
+    <div class="tiny">Declan: Jay is driving him separately</div>
+    <div style="margin-top:6px"><a class="link" href="#">Can't drive Luke and Graham there? Reassign this leg</a></div>
+
+    <hr class="divider">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:500">From practice</div>
+      <span class="chip success">You're driving</span>
+    </div>
+    <div class="muted" style="margin-bottom:4px">Luke, Graham, Declan</div>
+    <div class="row tiny" style="margin-bottom:8px">
+      📍 Drop-off: 390 Huron Ave, Cambridge, MA <span class="tiny">(Declan's home)</span>
+      <span class="chip accent">~11 min detour</span>
+    </div>
+    <div class="row" style="gap:14px">
+      <a class="link" href="#">Can't drive the ride home? Find a new ride for all 3</a>
+      <a class="link" href="#">Can't take Declan specifically? Hand back to Jay</a>
+    </div>
+  </div>
+</section>
+
+<section id="riding-with">
+  <h2>3. "Riding with" label — name whose family, drop internal jargon</h2>
+  <p class="rule-ref">Demonstrates rules 1, 5</p>
+
+  <div class="label">CURRENT — Jay's card, "Edelman" is unexplained</div>
+  <div class="card">
+    <div class="tiny">SHARKS</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:2px">2016/2017 (Bill) extra-practice</div>
+    <div class="muted" style="margin-bottom:10px">Sep 16, 5:30–6:20 PM</div>
+    <div class="row" style="margin-bottom:10px">
+      <span class="chip success">Getting there: you're driving</span>
+      <span class="chip success">Coming back: Chris confirmed</span>
+    </div>
+    <hr class="divider">
+    <div class="muted">Riding with Edelman · Declan · 1 seat · Home, 390 Huron Ave. Cambridge, MA</div>
+  </div>
+
+  <div class="label">REDESIGNED — names whose family, plain route line</div>
+  <div class="card">
+    <div class="tiny">SHARKS</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:2px">2016/2017 (Bill) extra-practice</div>
+    <div class="muted" style="margin-bottom:10px">Sep 16, 5:30–6:20 PM</div>
+    <div class="row" style="margin-bottom:12px">
+      <span class="chip success">Getting there: you're driving</span>
+      <span class="chip success">Coming back: Chris confirmed</span>
+    </div>
+    <hr class="divider">
+    <div class="row" style="margin-bottom:6px">
+      <span class="avatar">D</span>
+      <span style="font-size:13px">Declan is riding home with the Edelman family</span>
+    </div>
+    <div class="row tiny" style="margin-bottom:8px">
+      📍 Rink → 390 Huron Ave, Cambridge, MA <span class="tiny">(your home)</span>
+    </div>
+    <a class="link" href="#">Chris can't drive anymore? Find a new ride home for Declan</a>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
