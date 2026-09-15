@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-14  
-**Governs:** [`day-block-domain`](../specs/planned/day-block-domain.md), [`day-block-agenda`](../specs/planned/day-block-agenda.md), [`day-block-route`](../specs/planned/day-block-route.md) — and any later spec that touches Hero, Agenda rows, DriverPicker, or Route stops
+**Governs:** [`day-block-domain`](../specs/active/day-block-domain.md), [`day-block-agenda`](../specs/planned/day-block-agenda.md), [`day-block-route`](../specs/planned/day-block-route.md) — and any later spec that touches Hero, Agenda rows, DriverPicker, or Route stops
 
 ## Context
 

@@ -104,7 +104,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | day-block-domain                | planned | 2026-09-14 · enhancement   | Driving **block** domain + API: group CalendarItems by shared driver + contiguous window; no UI yet ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
+| 1    | day-block-domain                | active  | 2026-09-14 · enhancement   | Driving **block** domain + API: drive-time-aware merge + merge/split override; interim Agenda link ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
 | 2    | day-block-agenda                | planned | 2026-09-14 · enhancement   | Agenda/Focus: one card per block; per-leg breakdown + quiet "not your job" rows; mockup SoT `docs/ui-system/day-block-grouping.mockup.html` |
 | 3    | day-block-route                 | planned | 2026-09-14 · enhancement   | Block Route spans full multi-event stop sequence; extend optimize to block stops ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
 | 4    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
@@ -199,7 +199,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| — | — | _(none)_ |
+| day-block-domain | `day-block-domain` | [active](specs/active/day-block-domain.md) |
 
 ## Done
 
@@ -292,6 +292,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-15 | `/spec day-block-domain`: promote — drive-time-aware merge (effective gap + round-trip + 15m buffer), FORCE_MERGE/SPLIT override, interim Agenda link (no block cards). Branch `day-block-domain`. |
 | 2026-09-15 | `/pr carpool-route-optimize`: reusable stop-sequence optimizer + single-event Route auto-order; driver drag until fingerprint rebuild; day-block stub notes reuse. Spec archived. Next up `day-block-domain`. |
 | 2026-09-15 | `/spec carpool-route-optimize` amend: defer There/Back Route chrome; consider at `day-block-route` (tabs/sections preferred). |
 | 2026-09-15 | `/spec carpool-route-optimize` amend: reusable waypoint optimizer (north-star day-block / per-leg riders); this PR still wires single-event only. |
