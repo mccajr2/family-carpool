@@ -44,7 +44,7 @@ import {
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
-import { allOwnPlanLegs, ridePlaceLineKind } from "@/components/transportPlan"
+import { allOwnPlanLegs, hasRequesterPickupStop, ridePlaceLineKind } from "@/components/transportPlan"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -375,15 +375,19 @@ export function HeroAttentionSlide({
               >
                 {kidAlreadyGoingSuffix(kidFirstName)}
               </p>
-              <PickupLine
-                data-testid="hero-attention-pickup-summary"
-                pickupTown={item.request.pickupTown}
-                detourMinutes={item.request.detourMinutes}
-                placeKind={ridePlaceLineKind(
-                  requestRideForSlide(rideEvent, item.request.id)?.legs,
-                )}
-                variant="hero"
-              />
+              {hasRequesterPickupStop(
+                requestRideForSlide(rideEvent, item.request.id),
+              ) ? (
+                <PickupLine
+                  data-testid="hero-attention-pickup-summary"
+                  pickupTown={item.request.pickupTown}
+                  detourMinutes={item.request.detourMinutes}
+                  placeKind={ridePlaceLineKind(
+                    requestRideForSlide(rideEvent, item.request.id)?.legs,
+                  )}
+                  variant="hero"
+                />
+              ) : null}
               {inboundLegChips.length > 0 ? (
                 <div
                   data-testid="hero-attention-incoming-leg-chips"

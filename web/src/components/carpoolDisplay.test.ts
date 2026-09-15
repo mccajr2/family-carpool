@@ -82,6 +82,16 @@ describe("carpoolDisplay", () => {
         }),
       ),
     ).toBe("Mia, Leo · 2 seats · Home, 1 Main St")
+    expect(
+      rideKidsSeatsPickup(
+        ride({
+          kidFirstNames: ["Mia"],
+          seats: 1,
+          pickupPlaceName: "Driver's place",
+          pickupAddress: "",
+        }),
+      ),
+    ).toBe("Mia · 1 seat · Driver's place")
   })
 
   it("summarizes an incoming ask with seats for Focus Accept/Pass", () => {

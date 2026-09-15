@@ -19,6 +19,7 @@ import { inboundAskLegChips } from "@/components/rideStatusChip"
 import {
   inboundWithdrawLabel,
   inboundWithdrawLegs,
+  hasRequesterPickupStop,
   ridePlaceLineKind,
 } from "@/components/transportPlan"
 import { Button } from "@/components/ui/button"
@@ -171,7 +172,7 @@ export function AgendaInboundRequestRow({
         </div>
       </div>
 
-      {!showHeroHandoff ? (
+      {!showHeroHandoff && hasRequesterPickupStop(request) ? (
         <PickupLine
           pickupTown={request.pickupTown}
           detourMinutes={request.detourMinutes}

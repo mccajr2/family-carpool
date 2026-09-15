@@ -18,6 +18,9 @@ import {
   LEG_GETTING_THERE,
   LEG_NEEDS_RIDE,
   LEAVE_FROM_ADDRESS_PLACEHOLDER,
+  MEET_DRIVERS_PLACE,
+  MEET_OUR_PLACE,
+  MEET_WHERE,
   NEEDS_COVERAGE,
   POST_TO_TEAM_ROUND_TRIP,
   REVERT_CANCEL_TEAM_ASK,
@@ -106,6 +109,9 @@ describe("coverageCopy", () => {
     expect(DIFFERENT_PLANS_FOR_EACH_KID).toBe("Different plans for each kid.")
     expect(SAVE_RIDE_PLAN).toBe("Save ride plan")
     expect(BACK_TO_SIMPLE_VIEW).toBe("Back to simple view")
+    expect(MEET_WHERE).toBe("Meet where?")
+    expect(MEET_OUR_PLACE).toBe("Our place")
+    expect(MEET_DRIVERS_PLACE).toBe("Driver's place")
   })
 
   it("names cancel-request and waiting-on copy for pending household drivers", () => {

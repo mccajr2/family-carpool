@@ -58,6 +58,7 @@ export type {
   CarpoolRideStatus,
   CarpoolLegKind,
   CarpoolLegPhase,
+  CarpoolMeetSide,
   CarpoolSpace,
   CarpoolSummary,
   CancelCarpoolRideRequest,

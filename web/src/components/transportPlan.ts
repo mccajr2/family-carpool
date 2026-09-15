@@ -761,7 +761,7 @@ export function ownRideStatusFromTransportPlan(options: {
   return { driver: "Assigned", confirmed: true }
 }
 
-/** TO-only / both → pickup; FROM-only → drop-off (display-only, no meet-at). */
+/** TO-only / both → pickup; FROM-only → drop-off (display-only). */
 export function ridePlaceLineKind(
   legs: readonly CarpoolRideLeg[] | null | undefined,
 ): "pickup" | "dropoff" {
@@ -778,6 +778,30 @@ export function ridePlaceLineKind(
     return "dropoff"
   }
   return "pickup"
+}
+
+/**
+ * Inbound PickupLine / detour when there is a requester family-side stop:
+ * TO `REQUESTER` (pickup), or FROM-only `REQUESTER` (drop-off). Soft-omit when
+ * the active meet side is Driver's place (`ACCEPTOR`).
+ */
+export function hasRequesterPickupStop(
+  ride: { legs?: readonly CarpoolRideLeg[] | null } | null | undefined,
+): boolean {
+  if (ride == null || ride.legs == null) {
+    return false
+  }
+  const to = ride.legs.find((leg) => leg.kind === "TO")
+  if (to != null && to.phase !== "NEEDS_RIDE") {
+    // Default REQUESTER when meetSide omitted (older payloads / mocks).
+    return to.meetSide !== "ACCEPTOR"
+  }
+  const from = ride.legs.find((leg) => leg.kind === "FROM")
+  return (
+    from != null &&
+    from.phase !== "NEEDS_RIDE" &&
+    from.meetSide !== "ACCEPTOR"
+  )
 }
 
 /**

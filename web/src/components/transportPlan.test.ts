@@ -9,6 +9,7 @@ import {
   inboundConfirmedCountByKind,
   inboundWithdrawLabel,
   inboundWithdrawLegs,
+  hasRequesterPickupStop,
   ownPlansCoveringKids,
   ownPlansMatchingAssignee,
   ownRideStatusFromTransportPlan,
@@ -399,5 +400,52 @@ describe("transportPlan dogfood batch 2", () => {
         waiting: false,
       }).map((row) => row.id),
     ).toEqual(["plan-ask"])
+  })
+})
+
+describe("hasRequesterPickupStop", () => {
+  it("is true for REQUESTER TO ask and false for ACCEPTOR", () => {
+    expect(
+      hasRequesterPickupStop({
+        legs: carpoolLegsBoth("ASKED_TEAM"),
+      }),
+    ).toBe(true)
+    expect(
+      hasRequesterPickupStop({
+        legs: [
+          carpoolLeg("TO", "ASKED_TEAM", { meetSide: "ACCEPTOR" }),
+          carpoolLeg("FROM", "ASKED_TEAM"),
+        ],
+      }),
+    ).toBe(false)
+  })
+
+  it("is true for FROM-only REQUESTER drop-off", () => {
+    expect(
+      hasRequesterPickupStop({
+        legs: [
+          carpoolLeg("TO", "NEEDS_RIDE"),
+          carpoolLeg("FROM", "CONFIRMED"),
+        ],
+      }),
+    ).toBe(true)
+  })
+
+  it("is false when ride or legs are missing", () => {
+    expect(hasRequesterPickupStop(null)).toBe(false)
+    expect(hasRequesterPickupStop(undefined)).toBe(false)
+    expect(hasRequesterPickupStop({})).toBe(false)
+    expect(hasRequesterPickupStop({ legs: undefined })).toBe(false)
+    expect(hasRequesterPickupStop({ legs: null })).toBe(false)
+  })
+
+  it("treats omitted meetSide as requester pickup", () => {
+    const to = { ...carpoolLeg("TO", "ASKED_TEAM") }
+    delete (to as { meetSide?: string }).meetSide
+    expect(
+      hasRequesterPickupStop({
+        legs: [to, carpoolLeg("FROM", "ASKED_TEAM")],
+      }),
+    ).toBe(true)
   })
 })

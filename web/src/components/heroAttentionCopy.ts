@@ -85,7 +85,9 @@ export function heroRequestTitle(request: CarpoolRequest): string {
 
 /** Pickup place + address only (no detour copy). */
 export function heroPickupSummary(request: CarpoolRequest): string {
-  return `${request.pickupPlaceName}, ${request.pickupAddress}`
+  const name = request.pickupPlaceName?.trim() || "Pickup"
+  const address = request.pickupAddress?.trim()
+  return address ? `${name}, ${address}` : name
 }
 
 /** Accessible name for a hero carousel slide shell (title-derived). */

@@ -147,6 +147,29 @@ describe("AgendaInboundRequestRow", () => {
     )
   })
 
+  it("omits PickupLine when TO meet side is Driver's place", () => {
+    render(
+      <AgendaInboundRequestRow
+        request={{
+          ...pendingAsk,
+          pickupPlaceName: "Driver's place",
+          pickupAddress: "",
+          pickupTown: null,
+          detourMinutes: 12,
+          legs: [
+            carpoolLeg("TO", "ASKED_TEAM", { meetSide: "ACCEPTOR", placeName: "Driver's place" }),
+            carpoolLeg("FROM", "ASKED_TEAM"),
+          ],
+        }}
+        circleId="c1"
+        onAcceptRide={vi.fn()}
+        onPassRide={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId("pickup-line")).not.toBeInTheDocument()
+  })
+
   it("replaces Withdraw with Can't take them anymore underlined link", async () => {
     const user = userEvent.setup()
     const onWithdrawRide = vi.fn()

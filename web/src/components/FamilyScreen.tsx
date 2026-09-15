@@ -1347,8 +1347,8 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       const planLegs: SaveCarpoolRidePlanLeg[] = [
-        toSavePlanLeg("TO", legs.to, legs.toPlace),
-        toSavePlanLeg("FROM", legs.from, legs.fromPlace),
+        toSavePlanLeg("TO", legs.to, legs.toPlace, legs.toMeetSide),
+        toSavePlanLeg("FROM", legs.from, legs.fromPlace, legs.fromMeetSide),
       ]
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
@@ -1416,8 +1416,13 @@ export function FamilyScreen({
       const planGroups = plans.map((plan) => ({
         kidIds: [plan.kidId],
         legs: [
-          toSavePlanLeg("TO", plan.legs.to, plan.legs.toPlace),
-          toSavePlanLeg("FROM", plan.legs.from, plan.legs.fromPlace),
+          toSavePlanLeg("TO", plan.legs.to, plan.legs.toPlace, plan.legs.toMeetSide),
+          toSavePlanLeg(
+            "FROM",
+            plan.legs.from,
+            plan.legs.fromPlace,
+            plan.legs.fromMeetSide,
+          ),
         ] as SaveCarpoolRidePlanLeg[],
       }))
       if (spaceId != null) {
@@ -2185,6 +2190,8 @@ export function FamilyScreen({
           from: { action: "HOUSEHOLD", assigneeAdultId: coveringAdultId },
           toPlace: place,
           fromPlace: place,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
         },
         going,
       )
@@ -4241,6 +4248,7 @@ function toSavePlanLeg(
   kind: "TO" | "FROM",
   choice: DriverPickerSavePlanLegs["to"],
   place: DriverPickerSavePlanLegs["toPlace"],
+  meetSide: DriverPickerSavePlanLegs["toMeetSide"] = "REQUESTER",
 ): SaveCarpoolRidePlanLeg {
   if (choice.action === "NEEDS_RIDE") {
     return { kind, action: "NEEDS_RIDE" }
@@ -4252,7 +4260,10 @@ function toSavePlanLeg(
           action: "HOUSEHOLD",
           assigneeAdultId: choice.assigneeAdultId,
         }
-      : { kind, action: choice.action }
+      : { kind, action: choice.action, meetSide }
+  if (choice.action === "ASK_TEAM" && meetSide === "ACCEPTOR") {
+    return entry
+  }
   if (place.placeId != null) {
     entry.placeId = place.placeId
   }

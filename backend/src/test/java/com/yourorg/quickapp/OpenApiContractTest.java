@@ -184,7 +184,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.32.0");
+        assertThat(yaml).contains("version: 0.33.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -242,7 +242,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.32.0");
+        assertThat(yaml).contains("version: 0.33.0");
     }
 
     @Test
@@ -299,7 +299,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.32.0");
+        assertThat(yaml).contains("version: 0.33.0");
     }
 
     @Test
@@ -352,9 +352,13 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CarpoolLegKind:");
         assertThat(yaml).contains("CarpoolLegPhase:");
         assertThat(yaml).contains("CarpoolRideLeg:");
+        assertThat(yaml).contains("CarpoolMeetSide:");
+        assertThat(yaml).contains("meetSide:");
+        assertThat(yaml).contains("[REQUESTER, ACCEPTOR]");
         assertThat(yaml).contains("family-side place triad");
         assertThat(yaml).contains("Picking up from");
         assertThat(yaml).contains("Dropping off at");
+        assertThat(yaml).contains("Driver's place");
         assertThat(yaml).contains("ownLegs:");
         assertThat(yaml).contains("CancelCarpoolRideRequest:");
         assertThat(yaml).contains("WithdrawCarpoolRideRequest:");
@@ -392,12 +396,12 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Create does not change RSVP");
         assertThat(yaml).contains("sets RSVP YES for the");
         assertThat(yaml).contains("requesting circle's kids on that ride");
-        assertThat(yaml).contains("Allowed even when the caller");
-        assertThat(yaml).contains("previously passed");
+        assertThat(yaml).contains("Allowed even");
+        assertThat(yaml).contains("when the caller previously passed");
         assertThat(yaml).contains("Save ride plan");
         assertThat(yaml).doesNotContain("no per-leg place");
         assertThat(yaml).contains("withdraw first");
-        assertThat(yaml).contains("version: 0.32.0");
+        assertThat(yaml).contains("version: 0.33.0");
     }
 
     /**

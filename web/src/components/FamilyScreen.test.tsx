@@ -2209,8 +2209,8 @@ describe("FamilyScreen", () => {
           {
             kidIds: ["k1"],
             legs: [
-              { kind: "TO", action: "ASK_TEAM" },
-              { kind: "FROM", action: "ASK_TEAM" },
+              { kind: "TO", action: "ASK_TEAM", meetSide: "REQUESTER" },
+              { kind: "FROM", action: "ASK_TEAM", meetSide: "REQUESTER" },
             ],
           },
         ],
@@ -9276,8 +9276,8 @@ detourMinutes: null,
             {
               kidIds: ["k1"],
               legs: [
-                { kind: "TO", action: "ASK_TEAM" },
-                { kind: "FROM", action: "ASK_TEAM" },
+                { kind: "TO", action: "ASK_TEAM", meetSide: "REQUESTER" },
+                { kind: "FROM", action: "ASK_TEAM", meetSide: "REQUESTER" },
               ],
             },
           ],

@@ -502,6 +502,9 @@ function serializePlanGroup(group: SaveCarpoolRidePlanGroup): SaveCarpoolRidePla
       if (leg.placeAddress != null && leg.placeAddress.trim() !== "") {
         entry.placeAddress = leg.placeAddress
       }
+      if (leg.meetSide != null) {
+        entry.meetSide = leg.meetSide
+      }
       return entry
     }),
   }

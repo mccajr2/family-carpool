@@ -52,6 +52,17 @@ export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 /** Ask the team needs a pickup snapshot — shown next to Save / Post. */
 export const ASK_TEAM_NEEDS_PLACE =
   "Add a home address in Places before asking the team." as const
+
+/** Meet-side control label on Ask the team legs. */
+export const MEET_WHERE = "Meet where?" as const
+/** Meet at the requesting circle's family-side place. */
+export const MEET_OUR_PLACE = "Our place" as const
+/** Meet at the accepting driver's place (bound on Accept). */
+export const MEET_DRIVERS_PLACE = "Driver's place" as const
+/** Helper under Driver's place while PENDING. */
+export const MEET_DRIVERS_PLACE_HINT =
+  "Address appears after someone accepts." as const
+
 export const OVERLAPS_CHIP = "Overlaps" as const
 export const RIDE_CONFLICT_CHIP = "Ride conflict" as const
 export const RIDING_WITH_TEAMMATE = "Riding with a teammate" as const

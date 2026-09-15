@@ -372,6 +372,9 @@ export type CarpoolLegPhase =
   | "ASKED_TEAM"
   | "CONFIRMED"
 
+/** Whose place is the meet point on an Ask-the-team leg. */
+export type CarpoolMeetSide = "REQUESTER" | "ACCEPTOR"
+
 export type CarpoolRideLeg = {
   kind: CarpoolLegKind
   phase: CarpoolLegPhase
@@ -385,6 +388,8 @@ export type CarpoolRideLeg = {
   placeName: string | null
   /** Display / one-time address of the family-side place. */
   placeAddress: string | null
+  /** Meet side; REQUESTER for household / NEEDS_RIDE. */
+  meetSide: CarpoolMeetSide
 }
 
 export type CarpoolRide = {
@@ -463,14 +468,20 @@ export type SaveCarpoolRidePlanLeg = {
   assigneeAdultId?: string | null
   /**
    * Named located circle place. Mutually exclusive with `placeAddress`.
-   * Both null/omitted = Default. Omit for NEEDS_RIDE.
+   * Both null/omitted = Default. Omit for NEEDS_RIDE and when meetSide is
+   * ACCEPTOR.
    */
   placeId?: string | null
   /**
    * One-time free-text family-side address. Mutually exclusive with `placeId`.
-   * Omit for NEEDS_RIDE.
+   * Omit for NEEDS_RIDE and when meetSide is ACCEPTOR.
    */
   placeAddress?: string | null
+  /**
+   * Meet side for ASK_TEAM. Omit/null = REQUESTER. Omit for HOUSEHOLD /
+   * NEEDS_RIDE. When ACCEPTOR, omit place fields.
+   */
+  meetSide?: CarpoolMeetSide | null
 }
 
 /** One kid bag + TO/FROM outcomes; server may merge identical groups. */
