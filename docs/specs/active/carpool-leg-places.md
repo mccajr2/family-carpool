@@ -178,7 +178,7 @@ Allowlist for `/implement`:
       Save/create/list/detail; derive ride pickup from TO; Default =
       membership default leave-from, then first-located-by-name fallback;
       Route stop uses TO/FROM places
-- [ ] Contract: OpenAPI leg + Save place fields; version bump; document
+- [x] Contract: OpenAPI leg + Save place fields; version bump; document
       pickup derivation and Ask **400** without TO pickup
 - [ ] Web: `carpoolClient` / types; DriverPicker simple shared Leave from →
       both legs; split + kid-split per-leg place controls; grouping includes

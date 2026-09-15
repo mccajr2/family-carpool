@@ -461,6 +461,51 @@ describe("CarpoolClient", () => {
     )
   })
 
+  it("serializes per-leg place fields on save ride plan", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ownRequests: [], ownLegs: null, ownRequest: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    const client = new CarpoolClient("http://localhost:8080", fetchFn)
+
+    await client.saveRidePlan("tok", "s1", {
+      eventKey: "UID:practice",
+      plans: [
+        {
+          kidIds: ["k1"],
+          legs: [
+            {
+              kind: "TO",
+              action: "ASK_TEAM",
+              placeId: "p-grandma",
+            },
+            {
+              kind: "FROM",
+              action: "ASK_TEAM",
+              placeAddress: "12 Oak St",
+            },
+          ],
+        },
+      ],
+    })
+
+    const [, init] = fetchFn.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({
+      eventKey: "UID:practice",
+      plans: [
+        {
+          kidIds: ["k1"],
+          legs: [
+            { kind: "TO", action: "ASK_TEAM", placeId: "p-grandma" },
+            { kind: "FROM", action: "ASK_TEAM", placeAddress: "12 Oak St" },
+          ],
+        },
+      ],
+    })
+  })
+
   it("saves divergent kid plans as multiple groups", async () => {
     const planA = {
       id: "ride-a",

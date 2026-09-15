@@ -379,6 +379,12 @@ export type CarpoolRideLeg = {
   assigneeDisplayName: string | null
   assigneeCircleId: string | null
   assigneeCircleName: string | null
+  /** Named place id when mode is named place; null for Default / one-time. */
+  placeId: string | null
+  /** Display name of the family-side place (snapshot or Default resolve). */
+  placeName: string | null
+  /** Display / one-time address of the family-side place. */
+  placeAddress: string | null
 }
 
 export type CarpoolRide = {
@@ -455,6 +461,16 @@ export type SaveCarpoolRidePlanLeg = {
   action: CarpoolRidePlanLegAction
   /** Required when action is HOUSEHOLD; omit/null otherwise. */
   assigneeAdultId?: string | null
+  /**
+   * Named located circle place. Mutually exclusive with `placeAddress`.
+   * Both null/omitted = Default. Omit for NEEDS_RIDE.
+   */
+  placeId?: string | null
+  /**
+   * One-time free-text family-side address. Mutually exclusive with `placeId`.
+   * Omit for NEEDS_RIDE.
+   */
+  placeAddress?: string | null
 }
 
 /** One kid bag + TO/FROM outcomes; server may merge identical groups. */

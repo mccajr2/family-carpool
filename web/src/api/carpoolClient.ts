@@ -496,6 +496,12 @@ function serializePlanGroup(group: SaveCarpoolRidePlanGroup): SaveCarpoolRidePla
       if (leg.assigneeAdultId != null) {
         entry.assigneeAdultId = leg.assigneeAdultId
       }
+      if (leg.placeId != null) {
+        entry.placeId = leg.placeId
+      }
+      if (leg.placeAddress != null && leg.placeAddress.trim() !== "") {
+        entry.placeAddress = leg.placeAddress
+      }
       return entry
     }),
   }
