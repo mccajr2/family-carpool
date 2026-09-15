@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,6 +38,9 @@ class CarpoolRideControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private CarpoolApi carpoolApi;
 
     @Test
     void requestAcceptCancelWithdrawAndAuthz() throws Exception {
@@ -1050,9 +1054,11 @@ class CarpoolRideControllerIntegrationTest {
                 .andExpect(jsonPath("$.ownRequests.length()").value(1))
                 .andExpect(jsonPath("$.ownRequest.pickupPlaceName").value("Grandma"))
                 .andExpect(jsonPath("$.ownRequest.pickupAddress").value("9 Elm St"))
+                .andExpect(jsonPath("$.ownLegs[0].meetSide").value("REQUESTER"))
                 .andExpect(jsonPath("$.ownLegs[0].placeId").value(grandmaId))
                 .andExpect(jsonPath("$.ownLegs[0].placeName").value("Grandma"))
                 .andExpect(jsonPath("$.ownLegs[0].placeAddress").value("9 Elm St"))
+                .andExpect(jsonPath("$.ownLegs[1].meetSide").value("REQUESTER"))
                 .andExpect(jsonPath("$.ownLegs[1].placeId").value((Object) null))
                 .andExpect(jsonPath("$.ownLegs[1].placeAddress").value("12 Oak St"));
 
@@ -1098,12 +1104,214 @@ class CarpoolRideControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ownRequest.pickupPlaceName").value("Home A"))
                 .andExpect(jsonPath("$.ownRequest.pickupAddress").value("12 Oak St"))
+                .andExpect(jsonPath("$.ownLegs[0].meetSide").value("REQUESTER"))
                 .andExpect(jsonPath("$.ownLegs[0].placeId").value((Object) null))
                 .andExpect(jsonPath("$.ownLegs[0].placeName").value("Home A"))
                 .andExpect(jsonPath("$.ownLegs[0].placeAddress").value("12 Oak St"))
+                .andExpect(jsonPath("$.ownLegs[1].meetSide").value("REQUESTER"))
                 .andExpect(jsonPath("$.ownLegs[1].placeId").value((Object) null))
                 .andExpect(jsonPath("$.ownLegs[1].placeName").value("Home A"))
                 .andExpect(jsonPath("$.ownLegs[1].placeAddress").value("12 Oak St"));
+    }
+
+    @Test
+    void saveAskMeetSideAcceptorPersistsAcceptBindsAndOmitsRequesterPickup() throws Exception {
+        String orgA = signIn("carpool-meet-at-org-a@example.com");
+        String orgB = signIn("carpool-meet-at-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Meet At House A");
+        createCircle(orgB, "Sam", "Meet At House B");
+
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(orgA, "Soccer", "https://example.com/carpool-meet-at.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-meet-at.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(orgA, "Practice");
+        String practiceB = feedEventId(orgB, "Practice");
+        setRsvpYes(orgA, practiceA, kidA);
+        setRsvpYes(orgB, practiceB, kidB);
+        addPlace(orgA, "Home A", "12 Oak St, Cambridge, MA 02139");
+        addPlace(orgB, "Home B", "100 Main St, Somerville, MA");
+
+        MvcResult saved =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"plans\":[{\"kidIds\":[\""
+                                                        + kidA
+                                                        + "\"],\"legs\":["
+                                                        + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\",\"meetSide\":\"ACCEPTOR\"},"
+                                                        + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\",\"meetSide\":\"REQUESTER\"}"
+                                                        + "]}]}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.ownRequest.status").value("PENDING"))
+                        .andExpect(jsonPath("$.ownRequest.pickupPlaceName").value("Driver's place"))
+                        .andExpect(jsonPath("$.ownRequest.pickupAddress").value(""))
+                        .andExpect(jsonPath("$.ownLegs[0].meetSide").value("ACCEPTOR"))
+                        .andExpect(jsonPath("$.ownLegs[0].placeAddress").value((Object) null))
+                        .andExpect(jsonPath("$.ownLegs[1].meetSide").value("REQUESTER"))
+                        .andExpect(jsonPath("$.ownLegs[1].placeName").value("Home A"))
+                        .andExpect(
+                                jsonPath("$.ownLegs[1].placeAddress")
+                                        .value("12 Oak St, Cambridge, MA 02139"))
+                        .andReturn();
+        String rideId = JsonPath.read(saved.getResponse().getContentAsString(), "$.ownRequest.id");
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].otherRequests[0].legs[0].meetSide")
+                                .value("ACCEPTOR"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].otherRequests[0].detourMinutes")
+                                .value((Object) null));
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.pickupPlaceName").value("Home B"))
+                .andExpect(jsonPath("$.pickupAddress").value("100 Main St, Somerville, MA"))
+                .andExpect(jsonPath("$.legs[0].meetSide").value("ACCEPTOR"))
+                .andExpect(jsonPath("$.legs[0].placeName").value("Home B"))
+                .andExpect(jsonPath("$.legs[0].placeAddress").value("100 Main St, Somerville, MA"))
+                .andExpect(jsonPath("$.legs[1].meetSide").value("REQUESTER"))
+                .andExpect(jsonPath("$.legs[1].placeName").value("Home A"))
+                .andExpect(
+                        jsonPath("$.legs[1].placeAddress").value("12 Oak St, Cambridge, MA 02139"));
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.pickupPlaceName")
+                                .value("Home B"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[0].placeAddress")
+                                .value("100 Main St, Somerville, MA"));
+
+        // Pickup list that feeds accepter Route building: TO ACCEPTOR → no
+        // requester-house stop (null name/address), even though FROM stays
+        // requester place for drop-off.
+        String circleBId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        get("/api/family/circle")
+                                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+        List<CarpoolAcceptedPickupDto> accepterPickups =
+                carpoolApi.listAcceptedPickupsForFeedEvent(
+                        UUID.fromString(circleBId), UUID.fromString(practiceB));
+        assertThat(accepterPickups).hasSize(1);
+        assertThat(accepterPickups.getFirst().pickupPlaceName()).isNull();
+        assertThat(accepterPickups.getFirst().pickupAddress()).isNull();
+        assertThat(accepterPickups.getFirst().kidIds()).containsExactly(UUID.fromString(kidA));
+    }
+
+    @Test
+    void acceptAcceptorMeet400WhenAccepterHasNoPlace() throws Exception {
+        String orgA = signIn("carpool-meet-at-400-org-a@example.com");
+        String orgB = signIn("carpool-meet-at-400-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Meet At 400 House A");
+        createCircle(orgB, "Sam", "Meet At 400 House B");
+
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(
+                        orgA, "Soccer", "https://example.com/carpool-meet-at-400.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-meet-at-400.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        setRsvpYes(orgA, feedEventId(orgA, "Practice"), kidA);
+
+        MvcResult saved =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"eventKey\":\""
+                                                        + EVENT_KEY
+                                                        + "\",\"plans\":[{\"kidIds\":[\""
+                                                        + kidA
+                                                        + "\"],\"legs\":["
+                                                        + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\",\"meetSide\":\"ACCEPTOR\"},"
+                                                        + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\",\"meetSide\":\"ACCEPTOR\"}"
+                                                        + "]}]}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.ownRequest.status").value("PENDING"))
+                        .andReturn();
+        String rideId = JsonPath.read(saved.getResponse().getContentAsString(), "$.ownRequest.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

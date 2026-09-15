@@ -1,6 +1,6 @@
 # Spec: carpool-meet-at
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-08-14  
 Added: 2026-08-14 · enhancement  
@@ -133,19 +133,19 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] Ask create / Save persists per-leg meet side (`REQUESTER` default);
+- [x] Ask create / Save persists per-leg meet side (`REQUESTER` default);
       re-GET list/detail returns it on asked legs.
-- [ ] `REQUESTER` Ask legs still require a resolvable family-side place (TO
+- [x] `REQUESTER` Ask legs still require a resolvable family-side place (TO
       Ask **400** when unresolved); `ACCEPTOR` Ask legs may post without a
       requester place.
-- [ ] Accept on a `PENDING` ask with TO and/or FROM `ACCEPTOR` binds those
+- [x] Accept on a `PENDING` ask with TO and/or FROM `ACCEPTOR` binds those
       legs’ place name/address from the accepting adult’s resolved leave-from;
       Accept **400** if that cannot resolve; re-GET shows the bound place to
       requester and accepter.
-- [ ] After Accept with TO `ACCEPTOR`, accepter Route / pickup list has **no**
+- [x] After Accept with TO `ACCEPTOR`, accepter Route / pickup list has **no**
       requester-house pickup stop for that ride; requester own-ride chrome
       shows the bound driver place as where to bring kids.
-- [ ] After Accept with FROM `REQUESTER`, drop-off stays at requester place;
+- [x] After Accept with FROM `REQUESTER`, drop-off stays at requester place;
       with FROM `ACCEPTOR`, FROM family-side stop is the bound accepter place.
 - [x] Inbound PickupLine / detour run only when there is a requester pickup
       (TO `REQUESTER`); driver’s-place asks do not show a fake pickup detour.
@@ -155,7 +155,7 @@ Allowlist for `/implement`:
       change; KMP untouched.
 - [x] Agenda coverage web contract + architecture Rides / Out of scope
       updated (meet side in; radius match still out).
-- [ ] Unit + integration tests cover Save/read meet side, Accept bind,
+- [x] Unit + integration tests cover Save/read meet side, Accept bind,
       Accept **400** without accepter place, and no requester pickup stop for
       TO `ACCEPTOR`; web component tests cover the Meet where? control
       (would fail if ignored).
@@ -171,7 +171,7 @@ Allowlist for `/implement`:
       own-ride + inbound copy for both sides; PickupLine gate
 - [x] Docs: `agenda-coverage-web-contract.md`; `architecture.md` Rides /
       Out of scope
-- [ ] Tests: `CarpoolRideServiceTest` + controller integration (meet side,
+- [x] Tests: `CarpoolRideServiceTest` + controller integration (meet side,
       Accept bind, **400**); DriverPicker / FamilyScreen (or Agenda)
       component tests for Meet where?
 

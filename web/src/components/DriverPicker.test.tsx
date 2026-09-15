@@ -495,6 +495,60 @@ describe("DriverPicker", () => {
     expect(screen.getByTestId("driver-picker-to-meet-drivers-hint")).toBeInTheDocument()
   })
 
+  it("shows Meet where? on kid-split Ask and hides leave-from for Driver's place", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={onSaveKidPlans}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Mia" },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    await user.click(screen.getByTestId("driver-picker-kid-k1-ask-team-chip"))
+    expect(screen.getByTestId("driver-picker-kid-k1-to-meet-where")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-kid-k1-from-meet-where")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-kid-k1-place")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("driver-picker-kid-k1-to-meet-drivers-place"))
+    await user.click(screen.getByTestId("driver-picker-kid-k1-from-meet-drivers-place"))
+    expect(screen.queryByTestId("driver-picker-kid-k1-place")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-kid-k1-to-meet-drivers-hint")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+    expect(onSaveKidPlans).toHaveBeenCalledWith([
+      {
+        kidId: "k1",
+        legs: {
+          to: { action: "ASK_TEAM" },
+          from: { action: "ASK_TEAM" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
+          toMeetSide: "ACCEPTOR",
+          fromMeetSide: "ACCEPTOR",
+        },
+      },
+      {
+        kidId: "k2",
+        legs: {
+          to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
+          toMeetSide: "REQUESTER",
+          fromMeetSide: "REQUESTER",
+        },
+      },
+    ])
+  })
+
   it("disables chips and actions while loading", () => {
     render(<DriverPicker {...defaultProps} leaveFromLabel="Home" loading />)
 
