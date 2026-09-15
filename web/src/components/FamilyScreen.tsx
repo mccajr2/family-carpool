@@ -1347,8 +1347,8 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       const planLegs: SaveCarpoolRidePlanLeg[] = [
-        toSavePlanLeg("TO", legs.to),
-        toSavePlanLeg("FROM", legs.from),
+        toSavePlanLeg("TO", legs.to, legs.toPlace),
+        toSavePlanLeg("FROM", legs.from, legs.fromPlace),
       ]
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
@@ -1416,8 +1416,8 @@ export function FamilyScreen({
       const planGroups = plans.map((plan) => ({
         kidIds: [plan.kidId],
         legs: [
-          toSavePlanLeg("TO", plan.legs.to),
-          toSavePlanLeg("FROM", plan.legs.from),
+          toSavePlanLeg("TO", plan.legs.to, plan.legs.toPlace),
+          toSavePlanLeg("FROM", plan.legs.from, plan.legs.fromPlace),
         ] as SaveCarpoolRidePlanLeg[],
       }))
       if (spaceId != null) {
@@ -4230,13 +4230,24 @@ export function FamilyScreen({
 function toSavePlanLeg(
   kind: "TO" | "FROM",
   choice: DriverPickerSavePlanLegs["to"],
+  place: DriverPickerSavePlanLegs["toPlace"],
 ): SaveCarpoolRidePlanLeg {
+  if (choice.action === "NEEDS_RIDE") {
+    return { kind, action: "NEEDS_RIDE" }
+  }
   if (choice.action === "HOUSEHOLD") {
     return {
       kind,
       action: "HOUSEHOLD",
       assigneeAdultId: choice.assigneeAdultId,
+      placeId: place.placeId,
+      placeAddress: place.placeAddress,
     }
   }
-  return { kind, action: choice.action }
+  return {
+    kind,
+    action: choice.action,
+    placeId: place.placeId,
+    placeAddress: place.placeAddress,
+  }
 }

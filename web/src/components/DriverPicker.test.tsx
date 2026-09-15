@@ -2,12 +2,14 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { FamilyMember } from "@/api/types"
+import type { FamilyCircle, FamilyMember } from "@/api/types"
 import {
   ASK_THE_TEAM,
   DIFFERENT_PLANS_FOR_EACH_KID,
   DIFFERENT_PLANS_FOR_EACH_LEG,
   LEAVE_FROM_ADDRESS_PLACEHOLDER,
+  PLACE_DROPPING_OFF_AT,
+  PLACE_PICKING_UP_FROM,
   POST_TO_TEAM_ROUND_TRIP,
 } from "@/components/coverageCopy"
 import {
@@ -31,6 +33,34 @@ const members: FamilyMember[] = [
   },
 ]
 
+const circle: FamilyCircle = {
+  id: "c1",
+  name: "House",
+  role: "ORGANIZER",
+  members,
+  kids: [],
+  places: [
+    {
+      id: "p-home",
+      name: "Home",
+      address: "1 Main St",
+      latitude: 42,
+      longitude: -71,
+    },
+    {
+      id: "p-grandma",
+      name: "Grandma",
+      address: "9 Elm St",
+      latitude: 42.1,
+      longitude: -71.1,
+    },
+  ],
+  defaultLeaveFromPlaceId: "p-home",
+  defaultLeaveFromPlaceName: "Home",
+}
+
+const emptyPlace = { placeId: null, placeAddress: null }
+
 const defaultProps = {
   members,
   currentAdultId: "a1",
@@ -39,6 +69,12 @@ const defaultProps = {
   kidIds: ["k1"],
   onAssignCoverage: vi.fn(),
   onAskTeam: vi.fn(),
+  circle,
+  sharedPlaceValue: {
+    leaveFromPlaceId: null as string | null,
+    leaveFromPlaceName: "Home",
+    leaveFromAddress: null as string | null,
+  },
 }
 
 describe("DriverPicker helpers", () => {
@@ -298,6 +334,8 @@ describe("DriverPicker", () => {
     expect(onSaveRidePlan).toHaveBeenCalledWith({
       to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
       from: { action: "ASK_TEAM" },
+      toPlace: emptyPlace,
+      fromPlace: emptyPlace,
     })
 
     await user.click(screen.getByTestId("driver-picker-back-to-simple"))
@@ -307,7 +345,7 @@ describe("DriverPicker", () => {
     ).toBeInTheDocument()
   })
 
-  it("hides shared Leave from in split mode until a household leg is selected", async () => {
+  it("shows per-leg place controls in split mode for household and Ask", async () => {
     const user = userEvent.setup()
     render(
       <DriverPicker
@@ -319,11 +357,79 @@ describe("DriverPicker", () => {
     )
 
     await user.click(screen.getByTestId("driver-picker-different-plans"))
-    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-to-label")).toHaveTextContent(
+      PLACE_PICKING_UP_FROM,
+    )
+    expect(screen.getByTestId("driver-picker-from-label")).toHaveTextContent(
+      PLACE_DROPPING_OFF_AT,
+    )
 
     await user.click(screen.getByTestId("driver-picker-to-ask-team-chip"))
     await user.click(screen.getByTestId("driver-picker-from-ask-team-chip"))
-    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-to-place")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-from-place")).toBeInTheDocument()
+  })
+
+  it("saves diverging per-leg places from the split editor", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={onSaveRidePlan}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    await user.selectOptions(
+      screen.getByTestId("driver-picker-to-place-select"),
+      "p-grandma",
+    )
+    await user.selectOptions(
+      screen.getByTestId("driver-picker-from-place-select"),
+      "p-home",
+    )
+    // Selecting the resolved default place stores Default (both null).
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+
+    expect(onSaveRidePlan).toHaveBeenCalledWith({
+      to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+      from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+      toPlace: { placeId: "p-grandma", placeAddress: null },
+      fromPlace: emptyPlace,
+    })
+  })
+
+  it("posts simple Ask through saveRidePlan with the shared place on both legs", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    const onAskTeam = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onAskTeam={onAskTeam}
+        onSaveRidePlan={onSaveRidePlan}
+        sharedPlaceValue={{
+          leaveFromPlaceId: "p-grandma",
+          leaveFromPlaceName: "Grandma",
+          leaveFromAddress: null,
+        }}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-ask-team-chip"))
+    await user.click(screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP }))
+
+    expect(onAskTeam).not.toHaveBeenCalled()
+    expect(onSaveRidePlan).toHaveBeenCalledWith({
+      to: { action: "ASK_TEAM" },
+      from: { action: "ASK_TEAM" },
+      toPlace: { placeId: "p-grandma", placeAddress: null },
+      fromPlace: { placeId: "p-grandma", placeAddress: null },
+    })
   })
 
   it("disables chips and actions while loading", () => {
@@ -424,13 +530,16 @@ describe("DriverPicker", () => {
     expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
     expect(screen.getByTestId("driver-picker-kid-header-k1")).toHaveTextContent("Sam")
     expect(screen.getByTestId("driver-picker-kid-header-k2")).toHaveTextContent("Mia")
-    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
+    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-kid-k1-place-label")).toHaveTextContent(
+      "Leave from",
+    )
+    expect(screen.getByTestId("driver-picker-kid-k2-place-label")).toHaveTextContent(
+      "Leave from",
+    )
 
     await user.click(screen.getByTestId("driver-picker-kid-k2-ask-team-chip"))
-    expect(screen.getByTestId("leave-from-slot")).toBeInTheDocument()
-
     await user.click(screen.getByTestId("driver-picker-kid-k1-ask-team-chip"))
-    expect(screen.queryByTestId("leave-from-slot")).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Save ride plan" }))
     expect(onSaveKidPlans).toHaveBeenCalledWith([
@@ -439,6 +548,8 @@ describe("DriverPicker", () => {
         legs: {
           to: { action: "ASK_TEAM" },
           from: { action: "ASK_TEAM" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
         },
       },
       {
@@ -446,6 +557,8 @@ describe("DriverPicker", () => {
         legs: {
           to: { action: "ASK_TEAM" },
           from: { action: "ASK_TEAM" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
         },
       },
     ])
@@ -478,6 +591,12 @@ describe("DriverPicker", () => {
 
     await user.click(screen.getByTestId("driver-picker-kid-k1-different-plans-leg"))
     expect(screen.getByTestId("driver-picker-kid-k1-leg-to")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-kid-k1-to-label")).toHaveTextContent(
+      PLACE_PICKING_UP_FROM,
+    )
+    expect(screen.getByTestId("driver-picker-kid-k1-from-label")).toHaveTextContent(
+      PLACE_DROPPING_OFF_AT,
+    )
     await user.click(screen.getByTestId("driver-picker-kid-k1-from-ask-team-chip"))
     await user.click(screen.getByRole("button", { name: "Save ride plan" }))
 
@@ -487,6 +606,8 @@ describe("DriverPicker", () => {
         legs: {
           to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
           from: { action: "ASK_TEAM" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
         },
       },
       {
@@ -494,6 +615,8 @@ describe("DriverPicker", () => {
         legs: {
           to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
           from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
         },
       },
     ])

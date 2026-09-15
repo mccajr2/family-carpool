@@ -180,7 +180,7 @@ Allowlist for `/implement`:
       Route stop uses TO/FROM places
 - [x] Contract: OpenAPI leg + Save place fields; version bump; document
       pickup derivation and Ask **400** without TO pickup
-- [ ] Web: `carpoolClient` / types; DriverPicker simple shared Leave from →
+- [x] Web: `carpoolClient` / types; DriverPicker simple shared Leave from →
       both legs; split + kid-split per-leg place controls; grouping includes
       places
 - [ ] Docs: `agenda-coverage-web-contract.md` place bullets;

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import type { FamilyMember } from "@/api/types"
+import type { FamilyCircle, FamilyMember, SetCalendarLeaveFromRequest } from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
 import {
   ASK_THE_TEAM,
@@ -10,10 +10,14 @@ import {
   HERO_ON_INVERSE,
   LEG_COMING_BACK,
   LEG_GETTING_THERE,
+  PLACE_DROPPING_OFF_AT,
+  PLACE_PICKING_UP_FROM,
   POST_TO_TEAM_ROUND_TRIP,
   SAVE_RIDE_PLAN,
   confirmDriveFromLabel,
 } from "@/components/coverageCopy"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import type { LeaveFromFields } from "@/components/leaveFromDisplay"
 import { Button } from "@/components/ui/button"
 
 /** Per-leg driver intent for Save ride plan. */
@@ -22,9 +26,17 @@ export type DriverPickerLegChoice =
   | { action: "ASK_TEAM" }
   | { action: "NEEDS_RIDE" }
 
+/** Family-side place triad for a leg (Default = both null). */
+export type DriverPickerPlaceFields = {
+  placeId: string | null
+  placeAddress: string | null
+}
+
 export type DriverPickerSavePlanLegs = {
   to: DriverPickerLegChoice
   from: DriverPickerLegChoice
+  toPlace: DriverPickerPlaceFields
+  fromPlace: DriverPickerPlaceFields
 }
 
 /** Going kid eligible for per-kid plan sections (first name for headers). */
@@ -39,6 +51,34 @@ export type DriverPickerKidPlan = {
   legs: DriverPickerSavePlanLegs
 }
 
+const EMPTY_PLACE: LeaveFromFields = {
+  leaveFromPlaceId: null,
+  leaveFromPlaceName: null,
+  leaveFromAddress: null,
+}
+
+export function placeFieldsFromLeaveFrom(fields: LeaveFromFields): DriverPickerPlaceFields {
+  return {
+    placeId: fields.leaveFromPlaceId,
+    placeAddress: fields.leaveFromAddress,
+  }
+}
+
+function leaveFromFromPlaceFields(place: DriverPickerPlaceFields): LeaveFromFields {
+  return {
+    leaveFromPlaceId: place.placeId,
+    leaveFromPlaceName: null,
+    leaveFromAddress: place.placeAddress,
+  }
+}
+
+function placeFromBody(body: SetCalendarLeaveFromRequest): DriverPickerPlaceFields {
+  return {
+    placeId: body.leaveFromPlaceId ?? null,
+    placeAddress: body.leaveFromAddress?.trim() || null,
+  }
+}
+
 export type DriverPickerProps = {
   members: FamilyMember[]
   currentAdultId: string
@@ -51,7 +91,8 @@ export type DriverPickerProps = {
   onAskTeam?: () => void
   /**
    * When set, Different plans for each leg opens the shared split editor and
-   * Save ride plan calls this with both leg choices for `kidIds`.
+   * Save ride plan calls this with both leg choices for `kidIds`. Simple Ask
+   * the team also prefers this (both legs ASK_TEAM + shared place) when set.
    */
   onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
   /**
@@ -65,10 +106,17 @@ export type DriverPickerProps = {
   hero?: boolean
   /** When false, hides the Ask the team chip (e.g. no carpool ride event). */
   showTeamSection?: boolean
-  /** Slot between driver chips and Confirm (Leave from). */
+  /** Slot between driver chips and Confirm (Leave from) — simple mode only. */
   leaveFromSlot?: ReactNode
   /** Origin label for dynamic Confirm — round trip from {origin}. */
   leaveFromLabel?: string
+  /**
+   * Circle places for per-leg LeaveFromControls in split / kid-split editors.
+   * Required to show Picking up from / Dropping off at.
+   */
+  circle?: FamilyCircle
+  /** Shared leave-from value (seeds split/kid places; used on simple Ask save). */
+  sharedPlaceValue?: LeaveFromFields
   /** Override confirm button text for household selection only. */
   confirmLabel?: string
   /**
@@ -108,6 +156,9 @@ type KidSectionState = {
   roundTrip: LegChipSelection
   to: LegChipSelection
   from: LegChipSelection
+  roundTripPlace: DriverPickerPlaceFields
+  toPlace: DriverPickerPlaceFields
+  fromPlace: DriverPickerPlaceFields
 }
 
 function choiceFromSelection(selection: LegChipSelection): DriverPickerLegChoice {
@@ -120,8 +171,8 @@ function choiceFromSelection(selection: LegChipSelection): DriverPickerLegChoice
   return { action: "HOUSEHOLD", assigneeAdultId: selection }
 }
 
-function selectionIsHousehold(selection: LegChipSelection): boolean {
-  return selection != null && selection !== "ASK_TEAM"
+function selectionNeedsPlace(selection: LegChipSelection): boolean {
+  return selection === "ASK_TEAM" || (selection != null && selection !== "")
 }
 
 function legsFromKidState(state: KidSectionState): DriverPickerSavePlanLegs {
@@ -129,25 +180,33 @@ function legsFromKidState(state: KidSectionState): DriverPickerSavePlanLegs {
     return {
       to: choiceFromSelection(state.to),
       from: choiceFromSelection(state.from),
+      toPlace: selectionNeedsPlace(state.to)
+        ? state.toPlace
+        : { placeId: null, placeAddress: null },
+      fromPlace: selectionNeedsPlace(state.from)
+        ? state.fromPlace
+        : { placeId: null, placeAddress: null },
     }
   }
   const both = choiceFromSelection(state.roundTrip)
-  return { to: both, from: both }
+  const place = selectionNeedsPlace(state.roundTrip)
+    ? state.roundTripPlace
+    : { placeId: null, placeAddress: null }
+  return { to: both, from: both, toPlace: place, fromPlace: place }
 }
 
-function kidStateUsesHousehold(state: KidSectionState): boolean {
-  if (state.legSplit) {
-    return selectionIsHousehold(state.to) || selectionIsHousehold(state.from)
-  }
-  return selectionIsHousehold(state.roundTrip)
-}
-
-function initialKidState(seed: LegChipSelection): KidSectionState {
+function initialKidState(
+  seed: LegChipSelection,
+  place: DriverPickerPlaceFields,
+): KidSectionState {
   return {
     legSplit: false,
     roundTrip: seed,
     to: seed,
     from: seed,
+    roundTripPlace: place,
+    toPlace: place,
+    fromPlace: place,
   }
 }
 
@@ -303,6 +362,8 @@ export function DriverPicker({
   showTeamSection = true,
   leaveFromSlot,
   leaveFromLabel,
+  circle,
+  sharedPlaceValue,
   confirmLabel: confirmLabelProp,
   hasPickupPlace = true,
   actionError,
@@ -312,6 +373,9 @@ export function DriverPicker({
   const [toSelection, setToSelection] = useState<LegChipSelection>(currentAdultId)
   const [fromSelection, setFromSelection] = useState<LegChipSelection>(currentAdultId)
   const [kidStates, setKidStates] = useState<Record<string, KidSectionState>>({})
+  const sharedPlaceSeed = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
+  const [toPlace, setToPlace] = useState<DriverPickerPlaceFields>(sharedPlaceSeed)
+  const [fromPlace, setFromPlace] = useState<DriverPickerPlaceFields>(sharedPlaceSeed)
 
   const teamChipVisible = showTeamSection
   const teamSelected = teamChipVisible && askTeamSelected
@@ -320,6 +384,7 @@ export function DriverPicker({
   const kidSplitEnabled = kidSplitEligible && onSaveKidPlans != null
   const actionKidIds =
     goingKids.length > 0 ? goingKids.map((kid) => kid.id) : kidIds
+  const placeVariant = hero ? "subtle" : "field-row"
 
   const primaryLabel = teamSelected
     ? POST_TO_TEAM_ROUND_TRIP
@@ -333,8 +398,6 @@ export function DriverPicker({
     (!teamSelected && !selectedAdultId) ||
     askBlockedByMissingPlace
 
-  const splitLeaveFromVisible =
-    selectionIsHousehold(toSelection) || selectionIsHousehold(fromSelection)
   const splitAsksTeam =
     toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM"
   const splitPrimaryDisabled =
@@ -342,7 +405,8 @@ export function DriverPicker({
 
   function kidSplitAsksTeam(): boolean {
     return goingKids.some((kid) => {
-      const state = kidStates[kid.id] ?? initialKidState(currentAdultId)
+      const state =
+        kidStates[kid.id] ?? initialKidState(currentAdultId, sharedPlaceSeed)
       if (state.legSplit) {
         return state.to === "ASK_TEAM" || state.from === "ASK_TEAM"
       }
@@ -364,11 +428,6 @@ export function DriverPicker({
       : null
   const inlineError = actionError ?? pickupHint
 
-  const kidLeaveFromVisible = goingKids.some((kid) => {
-    const state = kidStates[kid.id]
-    return state != null && kidStateUsesHousehold(state)
-  })
-
   function renderInlineError() {
     if (inlineError == null) {
       return null
@@ -389,9 +448,35 @@ export function DriverPicker({
     )
   }
 
+  function renderLegPlaceControl(
+    kind: "TO" | "FROM",
+    selection: LegChipSelection,
+    place: DriverPickerPlaceFields,
+    onPlaceChange: (next: DriverPickerPlaceFields) => void,
+    testIdPrefix: string,
+  ) {
+    if (circle == null || !selectionNeedsPlace(selection)) {
+      return null
+    }
+    const label = kind === "TO" ? PLACE_PICKING_UP_FROM : PLACE_DROPPING_OFF_AT
+    return (
+      <div data-testid={`${testIdPrefix}-place`}>
+        <LeaveFromControls
+          variant={placeVariant}
+          label={label}
+          value={leaveFromFromPlaceFields(place)}
+          circle={circle}
+          loading={loading}
+          ariaLabel={label}
+          onChange={(body) => onPlaceChange(placeFromBody(body))}
+          testIdPrefix={testIdPrefix}
+        />
+      </div>
+    )
+  }
+
   function sharedSeedSelection(): LegChipSelection {
     if (mode === "legSplit") {
-      // Prefer TO when opening kid-split from shared leg editor; fall back to FROM.
       return toSelection ?? fromSelection ?? (selectedAdultId || currentAdultId)
     }
     return teamSelected ? "ASK_TEAM" : (selectedAdultId || currentAdultId)
@@ -404,8 +489,11 @@ export function DriverPicker({
     const initial: LegChipSelection = teamSelected
       ? "ASK_TEAM"
       : selectedAdultId || currentAdultId
+    const seed = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
     setToSelection(initial)
     setFromSelection(initial)
+    setToPlace(seed)
+    setFromPlace(seed)
     setMode("legSplit")
   }
 
@@ -414,9 +502,13 @@ export function DriverPicker({
       return
     }
     const seed = sharedSeedSelection()
+    const place =
+      mode === "legSplit"
+        ? toPlace
+        : placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
     const next: Record<string, KidSectionState> = {}
     for (const kid of goingKids) {
-      next[kid.id] = initialKidState(seed)
+      next[kid.id] = initialKidState(seed, place)
     }
     setKidStates(next)
     setMode("kidSplit")
@@ -424,6 +516,16 @@ export function DriverPicker({
 
   function handlePrimaryClick() {
     if (teamSelected) {
+      if (onSaveRidePlan != null) {
+        const place = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
+        onSaveRidePlan({
+          to: { action: "ASK_TEAM" },
+          from: { action: "ASK_TEAM" },
+          toPlace: place,
+          fromPlace: place,
+        })
+        return
+      }
       onAskTeam?.()
       return
     }
@@ -437,6 +539,12 @@ export function DriverPicker({
     onSaveRidePlan({
       to: choiceFromSelection(toSelection),
       from: choiceFromSelection(fromSelection),
+      toPlace: selectionNeedsPlace(toSelection)
+        ? toPlace
+        : { placeId: null, placeAddress: null },
+      fromPlace: selectionNeedsPlace(fromSelection)
+        ? fromPlace
+        : { placeId: null, placeAddress: null },
     })
   }
 
@@ -445,7 +553,8 @@ export function DriverPicker({
       return
     }
     const plans: DriverPickerKidPlan[] = goingKids.map((kid) => {
-      const state = kidStates[kid.id] ?? initialKidState(currentAdultId)
+      const state =
+        kidStates[kid.id] ?? initialKidState(currentAdultId, sharedPlaceSeed)
       return { kidId: kid.id, legs: legsFromKidState(state) }
     })
     onSaveKidPlans(plans)
@@ -453,7 +562,8 @@ export function DriverPicker({
 
   function updateKidState(kidId: string, patch: Partial<KidSectionState>) {
     setKidStates((current) => {
-      const prev = current[kidId] ?? initialKidState(currentAdultId)
+      const prev =
+        current[kidId] ?? initialKidState(currentAdultId, sharedPlaceSeed)
       return { ...current, [kidId]: { ...prev, ...patch } }
     })
   }
@@ -531,7 +641,8 @@ export function DriverPicker({
       <div data-testid="driver-picker" data-mode="kid-split" className="w-full min-w-0 max-w-full">
         <div className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-lg)]">
           {goingKids.map((kid) => {
-            const state = kidStates[kid.id] ?? initialKidState(currentAdultId)
+            const state =
+              kidStates[kid.id] ?? initialKidState(currentAdultId, sharedPlaceSeed)
             return (
               <div
                 key={kid.id}
@@ -559,6 +670,13 @@ export function DriverPicker({
                         ariaLabel={`${kid.firstName} ${LEG_GETTING_THERE}`}
                         testIdPrefix={`driver-picker-kid-${kid.id}-to`}
                       />
+                      {renderLegPlaceControl(
+              "TO",
+              state.to,
+              state.toPlace,
+              (next) => updateKidState(kid.id, { toPlace: next }),
+              `driver-picker-kid-${kid.id}-to`,
+            )}
                     </div>
                     <div
                       data-testid={`driver-picker-kid-${kid.id}-leg-from`}
@@ -576,6 +694,13 @@ export function DriverPicker({
                         ariaLabel={`${kid.firstName} ${LEG_COMING_BACK}`}
                         testIdPrefix={`driver-picker-kid-${kid.id}-from`}
                       />
+                      {renderLegPlaceControl(
+                        "FROM",
+                        state.from,
+                        state.fromPlace,
+                        (next) => updateKidState(kid.id, { fromPlace: next }),
+                        `driver-picker-kid-${kid.id}-from`,
+                      )}
                     </div>
                     {renderDisclosureLink(
                       `driver-picker-kid-${kid.id}-back-to-round-trip`,
@@ -585,6 +710,7 @@ export function DriverPicker({
                         updateKidState(kid.id, {
                           legSplit: false,
                           roundTrip: state.to ?? state.from ?? currentAdultId,
+                          roundTripPlace: state.toPlace,
                         }),
                     )}
                   </>
@@ -601,6 +727,22 @@ export function DriverPicker({
                       ariaLabel={`${kid.firstName} driver`}
                       testIdPrefix={`driver-picker-kid-${kid.id}`}
                     />
+                    {circle != null && selectionNeedsPlace(state.roundTrip) ? (
+                      <div data-testid={`driver-picker-kid-${kid.id}-place`}>
+                        <LeaveFromControls
+                          variant={placeVariant}
+                          label="Leave from"
+                          value={leaveFromFromPlaceFields(state.roundTripPlace)}
+                          circle={circle}
+                          loading={loading}
+                          ariaLabel={`${kid.firstName} Leave from`}
+                          onChange={(body) =>
+                            updateKidState(kid.id, { roundTripPlace: placeFromBody(body) })
+                          }
+                          testIdPrefix={`driver-picker-kid-${kid.id}-place`}
+                        />
+                      </div>
+                    ) : null}
                     {renderDisclosureLink(
                       `driver-picker-kid-${kid.id}-different-plans-leg`,
                       DIFFERENT_PLANS_FOR_EACH_LEG,
@@ -611,6 +753,8 @@ export function DriverPicker({
                           legSplit: true,
                           to: seed,
                           from: seed,
+                          toPlace: state.roundTripPlace,
+                          fromPlace: state.roundTripPlace,
                         })
                       },
                     )}
@@ -619,7 +763,6 @@ export function DriverPicker({
               </div>
             )
           })}
-          {kidLeaveFromVisible ? leaveFromSlot : null}
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveKidPlans, kidSplitPrimaryDisabled)}
           {renderInlineError()}
           {renderDisclosureLink(
@@ -650,6 +793,13 @@ export function DriverPicker({
               ariaLabel={LEG_GETTING_THERE}
               testIdPrefix="driver-picker-to"
             />
+            {renderLegPlaceControl(
+              "TO",
+              toSelection,
+              toPlace,
+              setToPlace,
+              "driver-picker-to",
+            )}
           </div>
           <div data-testid="driver-picker-leg-from" className="flex flex-col gap-[var(--fc-space-sm)]">
             <span className={sectionLabelClass}>{LEG_COMING_BACK}</span>
@@ -664,8 +814,14 @@ export function DriverPicker({
               ariaLabel={LEG_COMING_BACK}
               testIdPrefix="driver-picker-from"
             />
+            {renderLegPlaceControl(
+              "FROM",
+              fromSelection,
+              fromPlace,
+              setFromPlace,
+              "driver-picker-from",
+            )}
           </div>
-          {splitLeaveFromVisible ? leaveFromSlot : null}
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
           {renderInlineError()}
           {kidSplitEligible

@@ -335,6 +335,8 @@ export function HeroAttentionSlide({
                     showTeamSection={onAskTeam != null}
                     leaveFromSlot={leaveFromSlot}
                     leaveFromLabel={originForConfirm}
+                    circle={circle}
+                    sharedPlaceValue={leaveFromFields}
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={onAskTeam}
                     onSaveRidePlan={onSaveRidePlan}

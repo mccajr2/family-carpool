@@ -16,6 +16,8 @@ export type LeaveFromControlsProps = {
   /** `field-row` = Agenda band; `subtle` = Focus / hero (same combobox, quieter chrome). */
   variant: "field-row" | "subtle"
   ariaLabel: string
+  /** Visible field label; defaults to "Leave from". */
+  label?: string
   onChange: (body: SetCalendarLeaveFromRequest) => void
   /**
    * Fires whenever the visible leave-from label for Confirm CTAs changes
@@ -40,6 +42,7 @@ export function LeaveFromControls({
   loading = false,
   variant,
   ariaLabel,
+  label = "Leave from",
   onChange,
   onConfirmOriginLabelChange,
   helperLine = null,
@@ -99,7 +102,7 @@ export function LeaveFromControls({
       }
     >
       <span className={labelClass} data-testid={`${testIdPrefix}-label`}>
-        Leave from
+        {label}
       </span>
       <select
         aria-label={ariaLabel}

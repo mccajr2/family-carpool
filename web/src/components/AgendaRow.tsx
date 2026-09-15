@@ -762,6 +762,8 @@ export function AgendaRow({
                     loading={loading}
                     leaveFromSlot={leaveFromInPicker ? leaveFromSlotForPicker : undefined}
                     leaveFromLabel={originForConfirm}
+                    circle={circle}
+                    sharedPlaceValue={itemLeaveFromFields}
                     onAssignCoverage={onAssignCoverage}
                     onAskTeam={() => {
                       const eventKey = rideEvent?.eventKey ?? item.eventKey
