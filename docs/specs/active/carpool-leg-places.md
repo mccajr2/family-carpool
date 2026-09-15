@@ -174,7 +174,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Backend: Flyway leg place columns (or equivalent); entity + service
+- [x] Backend: Flyway leg place columns (or equivalent); entity + service
       Save/create/list/detail; derive ride pickup from TO; Default =
       membership default leave-from, then first-located-by-name fallback;
       Route stop uses TO/FROM places
