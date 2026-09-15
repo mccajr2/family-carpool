@@ -346,6 +346,139 @@ class CalendarRouteIntegrationTest {
                 .andExpect(jsonPath("$.stops[0].address").value("2 School Rd"));
     }
 
+    @Test
+    void reorderRoutePersistsMiddleStopOrderForDrivingAdult() throws Exception {
+        String token = signIn("calendar-route-reorder@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/places")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Mom's house\",\"address\":\"1 Main Street\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult circle =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String adultId = JsonPath.read(circle.getResponse().getContentAsString(), "$.members[0].adultId");
+
+        String venue = "Route Reorder Rink " + java.util.UUID.randomUUID();
+        MvcResult eventResult =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Practice\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\""
+                                                        + venue
+                                                        + "\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String eventId = JsonPath.read(eventResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/calendar/MANUAL/" + eventId + "/coverages")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"coveringAdultId\":\""
+                                                + adultId
+                                                + "\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.stops", hasSize(2)));
+
+        // No middle stops — empty permutation is valid and returns the same shape.
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"middleStopIds\":[]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.stops", hasSize(2)))
+                .andExpect(jsonPath("$.legMinutes", hasSize(1)));
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"middleStopIds\":[\"unknown-stop\"]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void reorderRouteForbiddenWithoutConfirmedRide() throws Exception {
+        String token = signIn("calendar-route-reorder-forbidden@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult kidResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidId = JsonPath.read(kidResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult eventResult =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Dentist\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"location\":\"Clinic\",\"kidIds\":[\""
+                                                        + kidId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String eventId = JsonPath.read(eventResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/route")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"middleStopIds\":[]}"))
+                .andExpect(status().isForbidden());
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

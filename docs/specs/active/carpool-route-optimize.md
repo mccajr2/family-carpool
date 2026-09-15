@@ -192,7 +192,7 @@ Allowlist for `/implement`:
 - [x] Web: `familyClient` reorder method; wire Route tab drag for driving adult;
       refresh schedule/maps from response; `FamilyScreen` (or host) passes
       driver capability + save handler
-- [ ] Tests: helper unit (optimize + heuristic cap + north-star-shaped waypoint
+- [x] Tests: helper unit (optimize + heuristic cap + north-star-shaped waypoint
       list); calendar/leaveby integration (optimize on build, PUT reorder,
       fingerprint rebuild clears manual); web `RideRouteTab` / client tests
 - [ ] Docs: architecture Leave-by / route blurb — reusable optimizer; single-
