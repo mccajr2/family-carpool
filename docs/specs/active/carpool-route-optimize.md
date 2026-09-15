@@ -173,7 +173,7 @@ Allowlist for `/implement`:
       venue) without calendar/block fixtures — proves reuse without shipping
       block assembly. Integration: build-optimize + reorder write + rebuild
       clears manual. Web: drag success + non-driver / single-middle inert.
-- [ ] Architecture Leave-by / route blurb notes: stop order is optimized via
+- [x] Architecture Leave-by / route blurb notes: stop order is optimized via
       a reusable waypoint helper; today’s caller is single-event Route; block /
       per-leg FROM callers come later.
 
@@ -195,7 +195,7 @@ Allowlist for `/implement`:
 - [x] Tests: helper unit (optimize + heuristic cap + north-star-shaped waypoint
       list); calendar/leaveby integration (optimize on build, PUT reorder,
       fingerprint rebuild clears manual); web `RideRouteTab` / client tests
-- [ ] Docs: architecture Leave-by / route blurb — reusable optimizer; single-
+- [x] Docs: architecture Leave-by / route blurb — reusable optimizer; single-
       event wired now; day-block / FROM reuse later
 - [ ] Docs: note on [`day-block-route`](../planned/day-block-route.md) stub —
       consume this helper; do not reimplement permutation search
