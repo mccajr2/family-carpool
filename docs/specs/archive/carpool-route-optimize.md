@@ -1,6 +1,6 @@
 # Spec: carpool-route-optimize
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-08  
 Added: 2026-09-08 · enhancement  
@@ -197,7 +197,7 @@ Allowlist for `/implement`:
       fingerprint rebuild clears manual); web `RideRouteTab` / client tests
 - [x] Docs: architecture Leave-by / route blurb — reusable optimizer; single-
       event wired now; day-block / FROM reuse later
-- [ ] Docs: note on [`day-block-route`](../planned/day-block-route.md) stub —
+- [x] Docs: note on [`day-block-route`](../planned/day-block-route.md) stub —
       consume this helper; do not reimplement permutation search
 
 ## Open questions

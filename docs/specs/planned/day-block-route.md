@@ -37,6 +37,12 @@ exist.
 - **Must list [ADR-0004](../../decisions/ADR-0004-carpool-card-perspective-rules.md)
   in Context** (direction-correct pickup/drop-off, named addresses, single-stop
   multi-kid grouping apply to stop lists).
+- **Optimizer SoT:** reusable waypoint helper is already documented under
+  [`docs/architecture.md`](../../architecture.md) Leave-by → **Stop-sequence
+  optimize** (and shipped via `carpool-route-optimize`). At `/spec`, put that
+  heading + the leaveby helper in Context; this slice **assembles** block /
+  per-leg middle stops and calls the helper — **do not** reimplement
+  permutation / duration search.
 - Mockup SoT: [`docs/ui-system/day-block-grouping.mockup.html`](../../ui-system/day-block-grouping.mockup.html)
   (combined multi-stop Route section).
 - **Color:** leave-by / route blocks that map to existing Hero-type route chrome
