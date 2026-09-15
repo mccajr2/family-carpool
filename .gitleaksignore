@@ -1,0 +1,4 @@
+# Historical false positive on day-block-agenda planned stub (generic-api-key).
+5077e7ecda76abe3db4050fda0207a2d189f74e7:docs/specs/planned/day-block-agenda.md:generic-api-key:16
+# Prior ignore-file comment text also matched; fingerprint that commit.
+03f7a516dd4d5128fd674fcb696015310d2b9356:.gitleaksignore:generic-api-key:1

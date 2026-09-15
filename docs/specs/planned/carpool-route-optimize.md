@@ -34,4 +34,8 @@ turn-by-turn or a paid traffic product.
 - Cancelled `carpool-multi-stop` already absorbed ordered stops + maps link —
   this id is **optimize only**, not a second multi-stop product surface.
 - Manual reorder override? Decide at `/spec` (default: auto + optional drag).
+- **Day blocks come after this id** (`day-block-domain` → `day-block-agenda` →
+  `day-block-route`). Optimize here for the **current single-event** Route;
+  at `/spec day-block-route`, extend optimize to the block's full stop
+  sequence rather than redoing this slice. Do not absorb block grouping here.
 - Web first.

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup SoT — day/block grouping</title>
+<style>
+  :root{
+    --bg:#f5f4f0; --surface:#ffffff; --border:#e5e3dd;
+    --text:#1a1a1a; --text2:#6b6b6b; --muted:#9a9a95;
+    --success-bg:#e6f4ea; --success:#1e7a34;
+    --accent-bg:#eef0fd; --accent:#4338ca;
+    --hero-bg:#12172b; --hero-text2:#a8adc0; --hero-accent:#ffa94d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+       padding:32px 16px 80px}
+  .wrap{max-width:640px;margin:0 auto}
+  header{margin-bottom:36px}
+  header h1{font-size:20px;margin:0 0 6px}
+  header p{color:var(--text2);font-size:13px;margin:0}
+  nav{margin-top:14px;font-size:13px}
+  nav a{color:var(--accent);margin-right:14px;text-decoration:none}
+  nav a:hover{text-decoration:underline}
+  section{margin-bottom:56px}
+  section h2{font-size:16px;margin:0 0 4px}
+  .note{font-size:12px;color:var(--muted);margin:0 0 18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+        padding:16px 20px}
+  .tiny{color:var(--muted);font-size:12px}
+  .muted{color:var(--text2);font-size:13px}
+  .chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px}
+  .chip.success{background:var(--success-bg);color:var(--success)}
+  .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .between{display:flex;justify-content:space-between;align-items:center}
+  .subcard{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
+  a.link{color:var(--accent);font-size:12px;text-decoration:none}
+  a.link:hover{text-decoration:underline}
+  .info-box{background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+  .info-box .t{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-bg);
+          color:var(--accent);font-size:11px;font-weight:600;
+          display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .avatar.pair{margin-left:-8px}
+  .hero{background:var(--hero-bg);border-radius:12px;padding:24px;margin-bottom:24px}
+  .hero .tag{display:inline-block;background:rgba(255,169,77,.15);color:var(--hero-accent);
+             font-size:11px;letter-spacing:.04em;padding:4px 10px;border-radius:6px;margin-bottom:12px}
+  .hero .time{color:#fff;font-size:38px;font-weight:600;margin-bottom:8px}
+  .hero p{color:var(--hero-text2);font-size:13px;margin:0 0 16px}
+  .hero button{background:#fff;color:var(--hero-bg);border:none;border-radius:8px;
+               padding:10px 20px;font-size:14px;font-weight:500}
+  .stop{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .stop:last-child{border-bottom:none}
+  .stop .icon{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);
+              display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+  .stop .icon.done{background:var(--success-bg)}
+  .stop .main{flex:1}
+  .stop .main .title{font-size:14px;font-weight:500}
+  .stop .main .sub{font-size:12px;color:var(--text2)}
+  .stop .time{font-size:13px;color:var(--text2);text-align:right}
+  .stop .time b{color:var(--text);display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Mockup SoT — day / block grouping</h1>
+  <p>Referenced by day-block-grouping-intake.md. Same driving night, four kids, three
+     households — one card per perspective, plus the multi-stop route page for the
+     drop-off run.</p>
+  <div style="background:#fff7e6;border:1px solid #f0d9a8;border-radius:8px;
+              padding:10px 12px;font-size:12px;color:#7a5b12;margin-top:14px">
+    ⚠️ Source of truth for <b>wording, grouping, and layout only</b>. The three "today"
+    cards use your existing light Agenda-card treatment; the route page's leave-by block
+    uses your existing dark Hero treatment — consistent with the calendar screenshots,
+    not a proposal to change either.
+  </div>
+  <nav>
+    <a href="#you">Your card</a>
+    <a href="#wife">Wife's card</a>
+    <a href="#dad">Apollo's dad's card</a>
+    <a href="#route">Route page</a>
+  </nav>
+</header>
+
+<section id="you">
+  <h2>Your agenda card — both legs, plus what's not your job</h2>
+  <div class="card">
+    <div class="tiny">TODAY · SIMONI RINK</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:12px">Two practices tonight</div>
+
+    <div class="subcard">
+      <div class="between" style="margin-bottom:8px">
+        <div style="font-size:13px;font-weight:500">5:40 PM · Drop-off run</div>
+        <span class="chip success">You're driving · 4 riders</span>
+      </div>
+      <div class="row tiny" style="margin-bottom:8px">
+        🏠 Home → Declan · Russell Community Center → Kian · Haggerty School →
+        Apollo, Atlas · their house → Simoni Rink
+      </div>
+      <a class="link" href="#">View route</a>
+    </div>
+
+    <div class="tiny" style="padding:4px 2px 10px">
+      6:00–7:00 PM · Kian and Atlas practice · Declan and Apollo hang out<br>
+      7:00–8:00 PM · Declan and Apollo practice
+    </div>
+
+    <div class="info-box">
+      <div class="t">Not your job tonight</div>
+      <div class="tiny">
+        Kian → home with his mom at 7:00 PM<br>
+        Atlas → home with his mom at 7:00 PM<br>
+        Apollo → home with his dad at 8:00 PM
+      </div>
+    </div>
+
+    <div class="subcard" style="margin-bottom:0">
+      <div class="between" style="margin-bottom:6px">
+        <div style="font-size:13px;font-weight:500">8:00 PM · Pickup run</div>
+        <span class="chip success">You're driving · 1 rider</span>
+      </div>
+      <div class="tiny">Declan · Simoni Rink → home</div>
+    </div>
+  </div>
+</section>
+
+<section id="wife">
+  <h2>Wife's card — one action, one time</h2>
+  <div class="card">
+    <div class="tiny">TODAY · SIMONI RINK</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:12px">Kian's practice</div>
+    <div class="tiny" style="margin-bottom:12px">🚗 Chris is driving Kian to practice — nothing needed from you until pickup</div>
+    <div class="subcard" style="margin-bottom:0">
+      <div class="between" style="margin-bottom:8px">
+        <div style="font-size:13px;font-weight:500">7:00 PM · Pick up Kian</div>
+        <span class="chip success">You're driving · 1 rider</span>
+      </div>
+      <div class="tiny" style="margin-bottom:8px">Simoni Rink → home</div>
+      <a class="link" href="#">Can't do this pickup? Find another ride for Kian</a>
+    </div>
+  </div>
+</section>
+
+<section id="dad">
+  <h2>Apollo's dad's card — "already covered" vs. "this is on you"</h2>
+  <div class="card">
+    <div class="tiny">TODAY · SIMONI RINK</div>
+    <div style="font-weight:500;font-size:15px;margin-bottom:12px">Apollo's practice</div>
+
+    <div class="info-box">
+      <div class="t">Already covered</div>
+      <div class="tiny">Apollo is riding to practice with Declan and Kian's dad — leaves their
+        house 4:50 PM, arrives Simoni Rink 5:40 PM</div>
+    </div>
+
+    <div class="subcard">
+      <div style="font-size:13px;font-weight:500;margin-bottom:2px">7:00–8:00 PM · Watch Apollo's practice</div>
+      <div class="tiny">Simoni Rink</div>
+    </div>
+
+    <div class="subcard" style="margin-bottom:0">
+      <div class="between" style="margin-bottom:6px">
+        <div style="font-size:13px;font-weight:500">8:00 PM · Drive Apollo home</div>
+        <span class="chip success">You're driving · 1 rider</span>
+      </div>
+      <div class="tiny" style="margin-bottom:8px">Simoni Rink → home</div>
+      <a class="link" href="#">Can't make it tonight? Ask another parent to bring Apollo home</a>
+    </div>
+  </div>
+</section>
+
+<section id="route">
+  <h2>Route page — one drop-off run, four named stops</h2>
+  <div class="hero">
+    <div class="tag">4 STOPS · 20 MIN EARLY FOR PRACTICE</div>
+    <div class="time">4:50 PM</div>
+    <p>Leave home to pick up Declan, Kian, Apollo, and Atlas, and arrive at Simoni Rink
+       by 5:40 PM — 20 min before practice starts at 6:00 PM</p>
+    <button>↗ Start navigation</button>
+  </div>
+
+  <div class="tiny" style="letter-spacing:.02em;margin-bottom:12px">STOP BY STOP</div>
+  <div class="card" style="padding:0 20px">
+    <div class="stop">
+      <div class="icon">🏠</div>
+      <div class="main"><div class="title">Leave home</div><div class="sub">Your house</div></div>
+      <div class="time">Leave by<b>4:50 PM</b></div>
+    </div>
+    <div class="stop">
+      <div class="avatar">D</div>
+      <div class="main"><div class="title">Pick up Declan</div><div class="sub">Russell Community Center</div></div>
+      <div class="time">Be ready by<b>5:00 PM</b></div>
+    </div>
+    <div class="stop">
+      <div class="avatar">K</div>
+      <div class="main"><div class="title">Pick up Kian</div><div class="sub">Haggerty School</div></div>
+      <div class="time">Be ready by<b>5:10 PM</b></div>
+    </div>
+    <div class="stop">
+      <div style="display:flex;flex-shrink:0"><div class="avatar">A</div><div class="avatar pair">A</div></div>
+      <div class="main" style="margin-left:4px"><div class="title">Pick up Apollo and Atlas</div><div class="sub">Their house</div></div>
+      <div class="time">Be ready by<b>5:25 PM</b></div>
+    </div>
+    <div class="stop">
+      <div class="icon done">🏁</div>
+      <div class="main"><div class="title">Arrive · drop off all 4</div><div class="sub">Simoni Rink</div></div>
+      <div class="time">Arrive by<b>5:40 PM</b></div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
