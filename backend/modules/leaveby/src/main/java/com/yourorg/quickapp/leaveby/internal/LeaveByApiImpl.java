@@ -233,7 +233,10 @@ class LeaveByApiImpl implements LeaveByApi {
             Optional<ItineraryEntity> cached =
                     itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
                             drivingAdultId, source, itemId);
+            // Only reuse OK itineraries. UNAVAILABLE must rebuild so soft-skipped
+            // geocodes / transient OSRM gaps can recover without a fingerprint change.
             if (cached.isPresent()
+                    && cached.get().status() == CalendarRouteStatus.OK
                     && fingerprint.get().equals(cached.get().stopFingerprint())) {
                 return toDto(cached.get());
             }
@@ -821,35 +824,20 @@ class LeaveByApiImpl implements LeaveByApi {
         GeoPointDto homePoint = new GeoPointDto(home.latitude(), home.longitude());
 
         List<GeocodedPickup> geocodedPickups = new ArrayList<>();
+        int attemptedPickups = 0;
         for (CalendarRoutePickupInput pickup : pickups) {
             if (pickup == null || pickup.address() == null || pickup.address().isBlank()) {
                 continue;
             }
+            attemptedPickups++;
             Optional<GeoPointDto> point =
                     geocoded.computeIfAbsent(
                             normalizeLocation(pickup.address()),
                             ignored -> geocodeApi.resolveLocation(pickup.address()));
             if (point.isEmpty()) {
-                String fingerprint =
-                        ItineraryFingerprint.compute(
-                                home.placeId(),
-                                home.latitude(),
-                                home.longitude(),
-                                homeAddress,
-                                pickupAddresses(pickups),
-                                destinationAddress);
-                List<CalendarRouteStopDto> partial = new ArrayList<>();
-                partial.add(homeStop);
-                for (GeocodedPickup done : geocodedPickups) {
-                    partial.add(pickupStop(done.input()));
-                }
-                return persistRoute(
-                        drivingAdultId,
-                        source,
-                        itemId,
-                        fingerprint,
-                        CalendarRouteDto.unavailable(
-                                REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(partial)));
+                // Soft-skip: one free-text / ungeocoded pickup must not hide the
+                // rest of the route (home + other pickups + destination).
+                continue;
             }
             String waypointId = "pickup-" + geocodedPickups.size();
             geocodedPickups.add(new GeocodedPickup(pickup, point.get(), waypointId));
@@ -924,13 +912,15 @@ class LeaveByApiImpl implements LeaveByApi {
                                             durations));
             if (optimized.isEmpty()) {
                 String fingerprint =
-                        ItineraryFingerprint.compute(
+                        routeStopFingerprint(
                                 home.placeId(),
                                 home.latitude(),
                                 home.longitude(),
                                 homeAddress,
-                                pickupAddresses(pickups),
-                                destinationAddress);
+                                pickups,
+                                destinationAddress,
+                                geocodedPickups.size(),
+                                attemptedPickups);
                 return persistRoute(
                         drivingAdultId,
                         source,
@@ -973,13 +963,15 @@ class LeaveByApiImpl implements LeaveByApi {
                             durations);
             if (routed.isEmpty() && !allowFallbackLegs) {
                 String fingerprint =
-                        ItineraryFingerprint.compute(
+                        routeStopFingerprint(
                                 home.placeId(),
                                 home.latitude(),
                                 home.longitude(),
                                 homeAddress,
-                                pickupAddresses(pickups),
-                                destinationAddress);
+                                pickups,
+                                destinationAddress,
+                                geocodedPickups.size(),
+                                attemptedPickups);
                 return persistRoute(
                         drivingAdultId,
                         source,
@@ -993,19 +985,46 @@ class LeaveByApiImpl implements LeaveByApi {
         }
 
         String fingerprint =
-                ItineraryFingerprint.compute(
+                routeStopFingerprint(
                         home.placeId(),
                         home.latitude(),
                         home.longitude(),
                         homeAddress,
-                        pickupAddresses(pickups),
-                        destinationAddress);
+                        pickups,
+                        destinationAddress,
+                        geocodedPickups.size(),
+                        attemptedPickups);
         return persistRoute(
                 drivingAdultId,
                 source,
                 itemId,
                 fingerprint,
                 CalendarRouteDto.ok(bufferMinutes, stops, legMinutes));
+    }
+
+    /**
+     * Stop fingerprint that includes soft-skipped pickup geocodes (re-hashed so
+     * it still fits {@code leaveby_itineraries.stop_fingerprint} VARCHAR(64)).
+     */
+    private static String routeStopFingerprint(
+            UUID homePlaceId,
+            double homeLat,
+            double homeLng,
+            String homeAddress,
+            List<CalendarRoutePickupInput> pickups,
+            String destinationAddress,
+            int locatedPickups,
+            int attemptedPickups) {
+        return ItineraryFingerprint.withSoftSkippedPickups(
+                ItineraryFingerprint.compute(
+                        homePlaceId,
+                        homeLat,
+                        homeLng,
+                        homeAddress,
+                        pickupAddresses(pickups),
+                        destinationAddress),
+                locatedPickups,
+                attemptedPickups);
     }
 
     private Optional<String> currentFingerprint(

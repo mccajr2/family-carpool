@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarItem, CarpoolRide, CarpoolRideEvent, FamilyMember } from "@/api/types"
 import {
+  acceptedRiderKidCount,
   acceptedRiders,
   applyAutoDeclinedViewModel,
   autoDeclineUnofferable,
@@ -146,6 +147,28 @@ describe("coverageQueue helpers", () => {
     })
     expect(pendingRequests(event).map((row) => row.id)).toEqual(["p1"])
     expect(acceptedRiders(event).map((row) => row.id)).toEqual(["a1"])
+  })
+
+  it("counts accepted rider kids across multi-kid asks", () => {
+    const event = game({
+      id: "g1",
+      order: 1,
+      requests: [
+        request({
+          id: "edelman",
+          status: "accepted",
+          kidFirstNames: ["Luke", "Graham"],
+          seats: 2,
+        }),
+        request({
+          id: "sharks",
+          status: "accepted",
+          kidFirstNames: ["Apollo"],
+          seats: 1,
+        }),
+      ],
+    })
+    expect(acceptedRiderKidCount(event)).toBe(3)
   })
 })
 

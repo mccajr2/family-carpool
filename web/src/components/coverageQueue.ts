@@ -98,6 +98,17 @@ export function acceptedRiders(game: CoverageGameEvent): CarpoolRequest[] {
   return game.requests.filter((request) => request.status === "accepted")
 }
 
+/** Inbound accepted carpool **kids** on this game row (not request count). */
+export function acceptedRiderKidCount(game: CoverageGameEvent): number {
+  return acceptedRiders(game).reduce((sum, request) => {
+    const fromNames = request.kidFirstNames?.length ?? 0
+    if (fromNames > 0) {
+      return sum + fromNames
+    }
+    return sum + Math.max(0, request.seats)
+  }, 0)
+}
+
 export function pendingRequests(game: CoverageGameEvent): CarpoolRequest[] {
   return game.requests.filter((request) => request.status === "pending")
 }

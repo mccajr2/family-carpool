@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
@@ -1167,6 +1168,56 @@ class LeaveByApiImplTest {
     }
 
     @Test
+    void upsertCalendarRouteSkipsUngeocodedPickupAndKeepsOtherStops() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("50 broadway cambridge ma")).thenReturn(Optional.empty());
+        when(geocodeApi.resolveLocation("109 Fresh Pond Pkwy"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.15, -74.15))
+                .thenReturn(Optional.of(300.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.2, -74.2))
+                .thenReturn(Optional.of(480.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Tuesday Practice",
+                        List.of(
+                                new CalendarRoutePickupInput(
+                                        "Edelman", "50 broadway cambridge ma"),
+                                new CalendarRoutePickupInput(
+                                        "Sharks Family", "109 Fresh Pond Pkwy")),
+                        "Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops()).hasSize(3);
+        assertThat(route.stops().get(0).kind()).isEqualTo(CalendarRouteStopKind.HOME);
+        assertThat(route.stops().get(1).name()).isEqualTo("Sharks Family");
+        assertThat(route.stops().get(1).address()).isEqualTo("109 Fresh Pond Pkwy");
+        assertThat(route.stops().get(2).kind()).isEqualTo(CalendarRouteStopKind.DESTINATION);
+        assertThat(route.legMinutes()).containsExactly(5, 8);
+
+        ArgumentCaptor<ItineraryEntity> saved = ArgumentCaptor.forClass(ItineraryEntity.class);
+        verify(itineraryRepository).save(saved.capture());
+        // Soft-skip must not append past VARCHAR(64) (accept ride was 500ing).
+        assertThat(saved.getValue().stopFingerprint()).hasSize(64);
+        String baseOnly =
+                ItineraryFingerprint.compute(
+                        placeId,
+                        40.1,
+                        -74.1,
+                        "1 Main",
+                        List.of("50 broadway cambridge ma", "109 Fresh Pond Pkwy"),
+                        "65 Elm St");
+        assertThat(saved.getValue().stopFingerprint()).isNotEqualTo(baseOnly);
+    }
+
+    @Test
     void getOrRefreshCalendarRouteReturnsCachedWhenFingerprintMatches() {
         when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
         String fingerprint =
@@ -1216,6 +1267,66 @@ class LeaveByApiImplTest {
         verify(geocodeApi, never()).resolveLocation(any());
         verify(osrmPort, never()).drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble());
         verify(itineraryRepository, never()).save(any());
+    }
+
+    @Test
+    void getOrRefreshCalendarRouteRebuildsCachedUnavailableEvenWhenFingerprintMatches() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        String fingerprint =
+                ItineraryFingerprint.compute(
+                        placeId,
+                        40.1,
+                        -74.1,
+                        "1 Main",
+                        List.of("50 broadway cambridge ma", "109 Fresh Pond Pkwy"),
+                        "65 Elm St");
+        ItineraryEntity staleUnavailable =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteStatus.UNAVAILABLE,
+                        "GEOCODE_FAILED",
+                        20,
+                        fingerprint,
+                        ItineraryJson.writeStops(List.of()),
+                        ItineraryJson.writeLegMinutes(List.of()),
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(Optional.of(staleUnavailable));
+        when(geocodeApi.resolveLocation("50 broadway cambridge ma")).thenReturn(Optional.empty());
+        when(geocodeApi.resolveLocation("109 Fresh Pond Pkwy"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.15, -74.15))
+                .thenReturn(Optional.of(300.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.2, -74.2))
+                .thenReturn(Optional.of(480.0));
+
+        CalendarRouteDto route =
+                api.getOrRefreshCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Tuesday Practice",
+                        List.of(
+                                new CalendarRoutePickupInput(
+                                        "Edelman", "50 broadway cambridge ma"),
+                                new CalendarRoutePickupInput(
+                                        "Sharks Family", "109 Fresh Pond Pkwy")),
+                        "Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops()).hasSize(3);
+        assertThat(route.stops().get(1).address()).isEqualTo("109 Fresh Pond Pkwy");
+        verify(geocodeApi).resolveLocation("50 broadway cambridge ma");
+        verify(geocodeApi).resolveLocation("109 Fresh Pond Pkwy");
+        assertThat(staleUnavailable.status()).isEqualTo(CalendarRouteStatus.OK);
     }
 
     @Test

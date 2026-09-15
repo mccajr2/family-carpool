@@ -342,6 +342,106 @@ describe("rideStatusChipsForItem", () => {
     ])
   })
 
+  it("counts You're driving · +n as kids across multiple accepted asks", () => {
+    const item = calendarItem()
+    const games = [
+      game({
+        id: "host",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        requests: [
+          request({
+            id: "edelman",
+            status: "accepted",
+            kidFirstNames: ["Luke", "Graham"],
+            seats: 2,
+          }),
+          request({
+            id: "sharks",
+            status: "accepted",
+            kidFirstNames: ["Apollo"],
+            seats: 1,
+          }),
+        ],
+      }),
+    ]
+
+    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+      { label: "You're driving · +3", tone: "route" },
+    ])
+  })
+
+  it("counts inbound · +n as kids on household legs with multiple accepted asks", () => {
+    const edelman = ownRide({
+      id: "edelman",
+      requestingCircleId: "c-edelman",
+      requestingCircleName: "Edelman",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Ours",
+      kidIds: ["luke", "graham"],
+      kidFirstNames: ["Luke", "Graham"],
+      seats: 2,
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeCircleId: "c1",
+        assigneeCircleName: "Ours",
+      }),
+    })
+    const sharks = ownRide({
+      id: "sharks",
+      requestingCircleId: "c-sharks",
+      requestingCircleName: "Sharks Family",
+      status: "ACCEPTED",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "Ours",
+      kidIds: ["apollo"],
+      kidFirstNames: ["Apollo"],
+      seats: 1,
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeCircleId: "c1",
+        assigneeCircleName: "Ours",
+      }),
+    })
+    const own = ownRide({
+      id: "own",
+      status: "PLAN",
+      kidIds: ["declan"],
+      kidFirstNames: ["Declan"],
+      legs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "You",
+      }),
+    })
+    const rideEvent: CarpoolRideEvent = {
+      eventKey: "UID:game",
+      title: "Sharks",
+      startsAt: "2030-09-20T12:00:00.000Z",
+      endsAt: null,
+      defaultKidIds: ["declan"],
+      ownLegs: own.legs,
+      ownRequest: own,
+      ownRequests: [own],
+      otherRequests: [edelman, sharks],
+    }
+    const item = calendarItem({ kidIds: ["declan"] })
+    const games = [
+      game({
+        id: "host",
+        order: 100,
+        ownRide: { driver: "You", confirmed: true },
+        ownLegs: own.legs,
+      }),
+    ]
+
+    expect(
+      rideStatusChipsForItem(item, games, own, {
+        rideEvent,
+        circleId: "c1",
+        currentAdultId: "a1",
+      }),
+    ).toEqual([{ label: "You're driving · +3", tone: "route" }])
+  })
+
   it("splits confirmed household driving into dual chips for FROM-only inbound Accept", () => {
     const inbound = ownRide({
       id: "inbound",

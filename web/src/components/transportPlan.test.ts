@@ -155,6 +155,7 @@ describe("transportPlan dogfood batch 2", () => {
           id: "in-from",
           status: "ACCEPTED",
           acceptingCircleId: "c-ours",
+          kidIds: ["k1"],
           legs: [
             carpoolLeg("TO", "NEEDS_RIDE"),
             carpoolLeg("FROM", "CONFIRMED", {
@@ -167,6 +168,47 @@ describe("transportPlan dogfood batch 2", () => {
       "c-ours",
     )
     expect(counts).toEqual({ TO: 0, FROM: 1 })
+  })
+
+  it("counts inbound +n as kids not requests (siblings on one ask)", () => {
+    const counts = inboundConfirmedCountByKind(
+      [
+        ownRide({
+          id: "edelman",
+          status: "ACCEPTED",
+          acceptingCircleId: "c-ours",
+          kidIds: ["luke", "graham"],
+          legs: [
+            carpoolLeg("TO", "CONFIRMED", {
+              assigneeCircleId: "c-ours",
+              assigneeCircleName: "Ours",
+            }),
+            carpoolLeg("FROM", "CONFIRMED", {
+              assigneeCircleId: "c-ours",
+              assigneeCircleName: "Ours",
+            }),
+          ],
+        }),
+        ownRide({
+          id: "sharks",
+          status: "ACCEPTED",
+          acceptingCircleId: "c-ours",
+          kidIds: ["apollo"],
+          legs: [
+            carpoolLeg("TO", "CONFIRMED", {
+              assigneeCircleId: "c-ours",
+              assigneeCircleName: "Ours",
+            }),
+            carpoolLeg("FROM", "CONFIRMED", {
+              assigneeCircleId: "c-ours",
+              assigneeCircleName: "Ours",
+            }),
+          ],
+        }),
+      ],
+      "c-ours",
+    )
+    expect(counts).toEqual({ TO: 3, FROM: 3 })
   })
 
   it("ignores requester household CONFIRMED legs on a mixed Accept", () => {
