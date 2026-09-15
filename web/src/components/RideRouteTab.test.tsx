@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -9,8 +9,20 @@ import {
 import {
   RideRouteTab,
   eventStartClockFromIso,
+  reorderPickupStopsByAddress,
 } from "@/components/RideRouteTab"
 import { computeSchedule, navigationUrl, toTime } from "@/components/rideScheduleUtils"
+
+const TWO_PICKUP_ROUTE = {
+  bufferMinutes: 20,
+  stops: [
+    { name: "Home", address: "1 Main", kind: "home" as const },
+    { name: "Near kid", address: "Near St", kind: "pickup" as const },
+    { name: "Far kid", address: "Far St", kind: "pickup" as const },
+    { name: "Rink", address: "65 Elm", kind: "destination" as const },
+  ],
+  legMinutes: [2, 25, 5],
+}
 
 describe("eventStartClockFromIso", () => {
   it("formats local wall clock for schedule helpers", () => {
@@ -184,5 +196,90 @@ describe("RideRouteTab", () => {
     expect(
       screen.getByTestId("ride-route-notify-Kwame (the Oseis)"),
     ).toHaveAttribute("data-notify-status", "idle")
+  })
+
+  it("exposes drag handles for drivers with two+ pickups and saves on drop", async () => {
+    const onReorderMiddles = vi.fn().mockResolvedValue(undefined)
+    render(
+      <RideRouteTab
+        carpoolRoute={TWO_PICKUP_ROUTE}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        canReorderMiddles
+        onReorderMiddles={onReorderMiddles}
+      />,
+    )
+
+    expect(screen.getByTestId("ride-route-drag-handle-Near St")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-drag-handle-Far St")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-stop-Near kid")).toHaveAttribute(
+      "data-reorderable",
+      "true",
+    )
+    expect(screen.getByTestId("ride-route-stop-Home")).not.toHaveAttribute(
+      "data-reorderable",
+    )
+
+    const from = screen.getByTestId("ride-route-stop-Near kid")
+    const to = screen.getByTestId("ride-route-stop-Far kid")
+    const dataTransfer = {
+      effectAllowed: "none",
+      dropEffect: "none",
+      setData: vi.fn(),
+      getData: vi.fn().mockReturnValue("Near St"),
+    }
+    fireEvent.dragStart(from, { dataTransfer })
+    fireEvent.dragOver(to, { dataTransfer })
+    await act(async () => {
+      fireEvent.drop(to, { dataTransfer })
+    })
+
+    expect(onReorderMiddles).toHaveBeenCalledWith(["Far St", "Near St"])
+  })
+
+  it("keeps pickup drag inert for non-drivers and single-middle routes", () => {
+    const onReorderMiddles = vi.fn()
+    const { rerender } = render(
+      <RideRouteTab
+        carpoolRoute={TWO_PICKUP_ROUTE}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        canReorderMiddles={false}
+        onReorderMiddles={onReorderMiddles}
+      />,
+    )
+    expect(screen.queryByTestId("ride-route-drag-handle-Near St")).not.toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-stop-Near kid")).not.toHaveAttribute(
+      "data-reorderable",
+    )
+
+    rerender(
+      <RideRouteTab
+        carpoolRoute={GAME_CARPOOL_ROUTE_FIXTURE}
+        startsAt="2030-08-15T16:40:00.000"
+        mapsEmbedApiKey={null}
+        canReorderMiddles
+        onReorderMiddles={onReorderMiddles}
+      />,
+    )
+    expect(
+      screen.queryByTestId("ride-route-drag-handle-Somerville, MA"),
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe("reorderPickupStopsByAddress", () => {
+  it("swaps pickup order and keeps home/destination fixed", () => {
+    const next = reorderPickupStopsByAddress(
+      TWO_PICKUP_ROUTE.stops,
+      "Near St",
+      "Far St",
+    )
+    expect(next?.map((stop) => stop.address)).toEqual([
+      "1 Main",
+      "Far St",
+      "Near St",
+      "65 Elm",
+    ])
   })
 })

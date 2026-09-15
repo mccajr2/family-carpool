@@ -33,7 +33,7 @@ per-leg / coverage data. This slice owns the domain + API only; no UI yet.
 
 - Depends on true per-leg places from [`carpool-leg-places`](../archive/carpool-leg-places.md)
   — more valuable once legs aren't stuck at requester house.
-- After [`carpool-route-optimize`](carpool-route-optimize.md) so
+- After [`carpool-route-optimize`](../active/carpool-route-optimize.md) so
   optimize ships for today's single-event Route without a redo; block-wide
   optimize is deferred to `/spec day-block-route` (or a later re-scope).
 - **Must list [ADR-0004](../../decisions/ADR-0004-carpool-card-perspective-rules.md)

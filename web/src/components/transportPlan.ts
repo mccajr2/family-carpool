@@ -249,7 +249,11 @@ function inboundLegOwnedByCircle(
   return leg.assigneeCircleId == null && leg.assigneeAdultId == null
 }
 
-/** ACCEPTED inbound asks this circle drives, counted per CONFIRMED leg kind. */
+/**
+ * ACCEPTED inbound asks this circle drives, counted per CONFIRMED leg kind.
+ * `+n` is **kid** count (sum of `kidIds` on matching asks), not request count —
+ * one family ask for two siblings is `· +2`.
+ */
 export function inboundConfirmedCountByKind(
   otherRequests: readonly CarpoolRide[] | null | undefined,
   circleId: string | null | undefined,
@@ -262,9 +266,13 @@ export function inboundConfirmedCountByKind(
     if (request.status !== "ACCEPTED" || request.acceptingCircleId !== circleId) {
       continue
     }
+    const kidCount = request.kidIds?.length ?? 0
+    if (kidCount === 0) {
+      continue
+    }
     for (const leg of orderedTransportLegs(request.legs)) {
       if (inboundLegOwnedByCircle(leg, circleId)) {
-        counts[leg.kind] += 1
+        counts[leg.kind] += kidCount
       }
     }
   }

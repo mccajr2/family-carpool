@@ -184,17 +184,21 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.33.0");
+        assertThat(yaml).contains("version: 0.34.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
         assertThat(yaml).contains("estimated leave-by");
         assertThat(yaml).contains("confirmed-ride multi-stop route");
+        assertThat(yaml).contains("auto-optimized pickup order");
         assertThat(yaml).contains("resolved leave-from");
         assertThat(yaml).contains("operationId: getCalendarRoute");
+        assertThat(yaml).contains("operationId: reorderCalendarRoute");
         assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/route");
         assertThat(yaml).contains("CalendarRoute:");
         assertThat(yaml).contains("CalendarRouteStatus:");
+        assertThat(yaml).contains("ReorderCalendarRouteRequest:");
+        assertThat(yaml).contains("middleStopIds:");
         assertThat(yaml).contains("legMinutes:");
         assertThat(yaml).contains("bufferMinutes:");
         assertThat(yaml).contains("operationId: getCalendarPlaylist");
@@ -242,7 +246,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.33.0");
+        assertThat(yaml).contains("version: 0.34.0");
     }
 
     @Test
@@ -299,7 +303,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.33.0");
+        assertThat(yaml).contains("version: 0.34.0");
     }
 
     @Test
@@ -401,7 +405,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Save ride plan");
         assertThat(yaml).doesNotContain("no per-leg place");
         assertThat(yaml).contains("withdraw first");
-        assertThat(yaml).contains("version: 0.33.0");
+        assertThat(yaml).contains("version: 0.34.0");
     }
 
     /**

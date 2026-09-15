@@ -80,8 +80,11 @@ public interface LeaveByApi {
      * Build and persist a multi-stop itinerary (resolved leave-from → pickups →
      * destination) for the driving adult. Origin uses the same resolution as
      * Agenda (coverage → item override → default → first located). Soft-fail
-     * geocode → UNAVAILABLE. OSRM miss uses config fallback duration and remains
-     * OK — fallback is not written to the pairwise duration cache.
+     * geocode → UNAVAILABLE. With 2+ geocoded pickups, middle-stop order is
+     * auto-optimized by pairwise duration (missing any required duration →
+     * UNAVAILABLE / {@code OSRM_UNAVAILABLE}). With 0–1 pickup, OSRM miss uses
+     * config fallback duration and remains OK — fallback is not written to the
+     * pairwise duration cache.
      */
     CalendarRouteDto upsertCalendarRoute(
             UUID drivingAdultId,
@@ -104,6 +107,22 @@ public interface LeaveByApi {
             List<CalendarRoutePickupInput> pickups,
             String destinationName,
             String destinationAddress);
+
+    /**
+     * Persist a manual middle-stop order for an existing itinerary without
+     * changing the stop fingerprint. {@code middleStopIds} must be a
+     * permutation of the current pickup-stop identities (stop addresses as
+     * returned on the route). Recomputes {@code legMinutes} for the new
+     * sequence. Unknown / mismatched ids → 400; missing itinerary → 404.
+     *
+     * @throws com.yourorg.quickapp.family.FamilyAccessException 400 / 404 as
+     *     documented above
+     */
+    CalendarRouteDto reorderCalendarRouteMiddles(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            List<String> middleStopIds);
 
     /** Drop the cached itinerary for one driving adult + calendar item. */
     void invalidateCalendarRoute(UUID drivingAdultId, LeaveByItemSource source, UUID itemId);

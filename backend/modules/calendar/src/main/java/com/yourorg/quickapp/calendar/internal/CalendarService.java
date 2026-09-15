@@ -285,6 +285,41 @@ public class CalendarService {
     }
 
     @Transactional
+    public CalendarRouteResponse reorderRoute(
+            AdultResponse adult,
+            CalendarItemSource source,
+            UUID itemId,
+            List<String> middleStopIds) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        ItemSnapshot item = requireItemSnapshot(circleId, source, itemId);
+        List<CoverageAssignmentDto> coverages =
+                coverageApi.listForItem(circleId, toCoverageSource(source), itemId);
+        List<RsvpDto> rsvps =
+                rsvpApi.listForItems(circleId, toRsvpSource(source), List.of(itemId));
+        List<CarpoolAcceptedPickupDto> acceptedPickups =
+                source == CalendarItemSource.FEED
+                        ? carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId)
+                        : List.of();
+
+        UUID drivingAdultId =
+                resolveDrivingAdultId(adult.id(), circleId, item.kidIds(), coverages, rsvps, acceptedPickups)
+                        .orElseThrow(
+                                () ->
+                                        new CalendarException(
+                                                HttpStatus.FORBIDDEN,
+                                                "Not allowed to route this calendar item"));
+        if (!adult.id().equals(drivingAdultId)) {
+            throw new CalendarException(
+                    HttpStatus.FORBIDDEN, "Only the driving adult may reorder the route");
+        }
+
+        CalendarRouteDto route =
+                leaveByApi.reorderCalendarRouteMiddles(
+                        drivingAdultId, toLeaveBySource(source), itemId, middleStopIds);
+        return toRouteResponse(route);
+    }
+
+    @Transactional
     public CalendarPlaylistResponse getPlaylist(
             AdultResponse adult, CalendarItemSource source, UUID itemId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());

@@ -22,9 +22,13 @@ exist.
 ## Non-goals (sketch)
 
 - Inventing a new Route shell (reuse ride-route-tab)
-- Stop-order **algorithm** as a separate product (shipped earlier as
-  [`carpool-route-optimize`](carpool-route-optimize.md) for single-event; this
-  slice extends optimize to the block sequence if still single-event-only)
+- Stop-order **algorithm** as a separate product — consume the reusable
+  waypoint helper from
+  [`carpool-route-optimize`](../active/carpool-route-optimize.md); this slice
+  **assembles** the block’s full middle-stop list (household afterschool /
+  leave-from places + teammate riders on that leg + shared venue timing) and
+  calls the same optimize + drag/recompute pattern. Do not reimplement
+  permutation / duration search.
 - Playlist / music
 - Cross-family block merging
 
@@ -33,12 +37,24 @@ exist.
 - **Must list [ADR-0004](../../decisions/ADR-0004-carpool-card-perspective-rules.md)
   in Context** (direction-correct pickup/drop-off, named addresses, single-stop
   multi-kid grouping apply to stop lists).
+- **Optimizer SoT:** reusable waypoint helper is already documented under
+  [`docs/architecture.md`](../../architecture.md) Leave-by → **Stop-sequence
+  optimize** (and shipped via `carpool-route-optimize`). At `/spec`, put that
+  heading + the leaveby helper in Context; this slice **assembles** block /
+  per-leg middle stops and calls the helper — **do not** reimplement
+  permutation / duration search.
 - Mockup SoT: [`docs/ui-system/day-block-grouping.mockup.html`](../../ui-system/day-block-grouping.mockup.html)
   (combined multi-stop Route section).
 - **Color:** leave-by / route blocks that map to existing Hero-type route chrome
   keep the current dark Hero treatment.
 - **Density:** progressive disclosure for supporting detail; keep ADR-critical
   stop labels fully visible.
-- Ranked after `carpool-route-optimize` so single-event optimize ships first;
-  at `/spec`, wire optimize to the block's stop list when a block is present.
+- Ranked after `carpool-route-optimize` so the waypoint optimizer ships first;
+  at `/spec`, assemble the block stop list (TO and FROM independently from
+  riders on that leg) and call the same helper — e.g. home → kid1 community
+  center → kid2 school → teammate house → rink for earliest practice + buffer.
+- **There / Back Route chrome:** deferred from `carpool-route-optimize` (Route
+  stays TO-only until then). At `/spec`, consider tabs or dual sections so
+  both legs are planable (prefer over time-only auto-switch); wire each leg’s
+  stop list through the shared optimize + drag pattern.
 - Web first.

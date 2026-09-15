@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.33.0
+  version: 0.34.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -14,8 +14,10 @@ info:
     per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic; calendar list does not call
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
-    a confirmed-ride multi-stop route read (GET …/calendar/{source}/{itemId}/route
-    — resolved leave-from → pickups → destination; cached OSRM pairwise legs;
+    a confirmed-ride multi-stop route read/write (GET/PUT
+    …/calendar/{source}/{itemId}/route — resolved leave-from → pickups →
+    destination; auto-optimized pickup order on build when 2+ middles;
+    optional driving-adult middle-stop reorder; cached OSRM pairwise legs;
     estimate only),
     a confirmed-ride Playlist read and Open-in-Spotify handoff
     (GET/POST …/calendar/{source}/{itemId}/playlist[ /open ] — attending kids,
@@ -119,7 +121,8 @@ tags:
       unified calendar read (with per-adult leave-from, cheap leave-by status
       including PENDING, per-kid RSVPs, coverage assignments, uncovered kid
       ids, and server-computed conflicts), async leave-by fill-in,
-      confirmed-ride multi-stop route read (cached OSRM estimate),
+      confirmed-ride multi-stop route read/write (cached OSRM estimate;
+      auto-optimize on build; driving-adult middle-stop reorder),
       confirmed-ride Playlist read and Open-in-Spotify handoff, per-adult
       default leave-from, invite code, and memberships (one circle per adult
       in v1). Organizer-only writes for invite regen, roles, remove, kids,
@@ -130,7 +133,7 @@ tags:
       leave-from place per calendar item, set their default leave-from for the
       circle, set per-kid RSVPs on calendar items, and assign / reassign /
       remove coverage on calendar items (assignee confirm or decline).
-  - name: playlist
+      Driving adults may reorder middle stops on a routable item's itinerary.  - name: playlist
     description: >
       Adult Spotify OAuth (authorize URL, callback redirect, connection status,
       revoke), Spotify playlist picker list, and per-adult-per-kid designated
@@ -1641,14 +1644,17 @@ paths:
         kid is not RSVP NO. Returns a cached multi-stop itinerary: driving
         adult's resolved leave-from (active coverage leave-from → item override
         → membership default → first located) → ACCEPTED teammate pickup stop(s)
-        this driver is fulfilling → event destination. Durations come from
-        leaveby pairwise OSRM / leaveby_route_cache (estimate only — never
-        live traffic). status is OK when ordered stops and legMinutes are
-        available; UNAVAILABLE when geocode/OSRM soft-fail or the itinerary
-        cannot be built (optional reason). bufferMinutes is title-heuristic
-        only in this revision (game 45 / practice 20 / other 0). Does not
-        mutate the underlying event. Unknown item or no circle → 404; caller
-        not allowed to route → 403.
+        this driver is fulfilling → event destination. On itinerary build /
+        fingerprint refresh, when there are 2+ geocodable pickup stops and
+        routing succeeds, pickup order is auto-optimized to minimize total
+        pairwise driving duration (start and end stay fixed); 0–1 pickups keep
+        attachment order. Durations come from leaveby pairwise OSRM /
+        leaveby_route_cache (estimate only — never live traffic). status is OK
+        when ordered stops and legMinutes are available; UNAVAILABLE when
+        geocode/OSRM soft-fail or the itinerary cannot be built (optional
+        reason). bufferMinutes is title-heuristic only in this revision (game
+        45 / practice 20 / other 0). Does not mutate the underlying event.
+        Unknown item or no circle → 404; caller not allowed to route → 403.
       security:
         - bearerAuth: []
       parameters:
@@ -1717,6 +1723,108 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Current adult has no family circle, or unknown item id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: reorderCalendarRoute
+      tags: [family]
+      summary: Reorder middle (pickup) stops on a confirmed-ride itinerary
+      description: >
+        Driving adult only. Accepts an ordered list of the current middle-stop
+        identities (pickup stop addresses as returned on the route). Recomputes
+        legMinutes for that sequence and persists under the **same** stop
+        fingerprint (a later fingerprint-driven rebuild re-auto-optimizes and
+        overwrites this order). Returns the updated CalendarRoute. Riders who
+        may GET the route but are not the driving adult → 403. Unknown /
+        mismatched middleStopIds, or route not OK to reorder → 400. Missing
+        itinerary, unknown item, or no circle → 404. Same 401 as GET.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          description: Whether the item is a manual event or a feed-imported row
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          description: Manual event id or feed event id
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderCalendarRouteRequest"
+            examples:
+              twoPickups:
+                summary: Swap two pickup stops
+                value:
+                  middleStopIds:
+                    - "22 Pine St, Somerville, MA"
+                    - "12 Oak St, Somerville, MA"
+      responses:
+        "200":
+          description: Updated multi-stop itinerary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarRoute"
+              examples:
+                ok:
+                  summary: Reordered pickups
+                  value:
+                    status: OK
+                    reason: null
+                    bufferMinutes: 20
+                    stops:
+                      - name: Home
+                        address: "390 Huron Ave, Cambridge, MA"
+                        kind: home
+                      - name: Jordan
+                        address: "22 Pine St, Somerville, MA"
+                        kind: pickup
+                      - name: Kwame (the Oseis)
+                        address: "12 Oak St, Somerville, MA"
+                        kind: pickup
+                        contact:
+                          channel: push
+                          to: the Oseis
+                      - name: Allied Veterans Rink
+                        address: "65 Elm St, Everett, MA"
+                        kind: destination
+                    legMinutes: [8, 10, 14]
+        "400":
+          description: >
+            middleStopIds is not a permutation of the current pickup stops, or
+            the route cannot be reordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: >
+            Caller may not route this item, or is not the driving adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: >
+            Current adult has no family circle, unknown item id, or no
+            persisted itinerary for the driving adult
           content:
             application/json:
               schema:
@@ -4973,6 +5081,27 @@ components:
             type: integer
             minimum: 0
           example: [12, 18]
+
+    ReorderCalendarRouteRequest:
+      type: object
+      required:
+        - middleStopIds
+      description: >
+        Manual middle-stop reorder body. Identities are the current pickup
+        stop addresses as returned on CalendarRoute (order is the new pickup
+        sequence). Must be a permutation of the existing pickup stops.
+      properties:
+        middleStopIds:
+          type: array
+          description: >
+            Ordered pickup-stop identities (addresses). Home and destination
+            are fixed and must not appear here.
+          items:
+            type: string
+            minLength: 1
+          example:
+            - "22 Pine St, Somerville, MA"
+            - "12 Oak St, Somerville, MA"
 
     CalendarPlaylistTrack:
       type: object

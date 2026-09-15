@@ -10,7 +10,7 @@ import type {
   CarpoolRideLeg,
 } from "@/api/types"
 import {
-  acceptedRiders,
+  acceptedRiderKidCount,
   isConfirmedDriver,
   isOwnRideGap,
   isPendingHouseholdConfirm,
@@ -393,7 +393,7 @@ export function rideStatusChipForGameRow(
     return { label: waitingOnDriverLabel(ownRide.driver), tone: "amber" }
   }
   if (isConfirmedDriver(ownRide)) {
-    return drivingLabel(ownRide.driver, acceptedRiders(game).length)
+    return drivingLabel(ownRide.driver, acceptedRiderKidCount(game))
   }
 
   return { label: RIDE_NEEDED, tone: "amber" }

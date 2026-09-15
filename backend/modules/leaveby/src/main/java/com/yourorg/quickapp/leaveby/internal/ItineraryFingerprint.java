@@ -42,6 +42,20 @@ final class ItineraryFingerprint {
         return sha256Hex(raw.toString());
     }
 
+    /**
+     * Folds soft-skipped pickup geocodes into the fingerprint while staying at
+     * 64 hex chars ({@code leaveby_itineraries.stop_fingerprint} VARCHAR(64)).
+     * Appending a suffix to the SHA would overflow the column and 500 on accept.
+     */
+    static String withSoftSkippedPickups(
+            String baseFingerprint, int locatedPickups, int attemptedPickups) {
+        if (attemptedPickups <= locatedPickups) {
+            return baseFingerprint;
+        }
+        return sha256Hex(
+                baseFingerprint + "|geo:" + locatedPickups + "/" + attemptedPickups);
+    }
+
     static String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
