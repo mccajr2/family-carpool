@@ -13,10 +13,10 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-Once blocks exist in the API, Agenda/Focus still render one card per event.
-Parents need **one card per driving block** when 2+ events share a driver +
-contiguous window, with per-event/per-leg breakdown inside and quiet "not
-your job tonight" rows for legs another adult owns.
+Once the block domain exists, Agenda and Focus still render one card per
+event. Parents need **one card per driving block** when 2+ events share a
+driver + contiguous window, with per-event/per-leg breakdown inside and
+quiet "not your job tonight" rows for legs another adult owns.
 
 ## Non-goals (sketch)
 
