@@ -227,9 +227,12 @@ class CarpoolRideServiceTest {
         assertThat(created.legs().get(0).kind()).isEqualTo(CarpoolLegKind.TO);
         assertThat(created.legs().get(0).phase())
                 .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        assertThat(created.legs().get(0).placeName()).isEqualTo("Home");
+        assertThat(created.legs().get(0).placeAddress()).isEqualTo("1 Main St");
         assertThat(created.legs().get(1).kind()).isEqualTo(CarpoolLegKind.FROM);
         assertThat(created.legs().get(1).phase())
                 .isEqualTo(com.yourorg.quickapp.carpool.CarpoolLegPhase.ASKED_TEAM);
+        assertThat(created.legs().get(1).placeAddress()).isEqualTo("1 Main St");
         ArgumentCaptor<CarpoolRideRequestEntity> saved =
                 ArgumentCaptor.forClass(CarpoolRideRequestEntity.class);
         verify(rides).save(saved.capture());
@@ -309,7 +312,8 @@ class CarpoolRideServiceTest {
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
                         spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
                 .thenReturn(List.of());
-        when(familyPlaceApi.findPickupPlaceForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
 
         assertThatThrownBy(
                         () ->
@@ -1310,7 +1314,8 @@ class CarpoolRideServiceTest {
         stubRsvps(List.of(yes(kidA)));
         List<CarpoolRideRequestEntity> live = new ArrayList<>();
         stubLiveSpacePlans(live);
-        when(familyPlaceApi.findPickupPlaceForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
         stubKidNames();
         when(familyMembershipApi.findCircles(List.of(circleId)))
                 .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
@@ -1687,6 +1692,186 @@ class CarpoolRideServiceTest {
         verify(rides, never()).save(any());
     }
 
+    @Test
+    void savePlanPersistsDivergingToAndFromPlacesAndDerivesRidePickupFromTo() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        List<CarpoolRideRequestEntity> live = new ArrayList<>();
+        stubLiveSpacePlans(live);
+        stubKidNames();
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+        UUID grandmaId = UUID.fromString("01900000-0000-7000-8000-000000000031");
+        when(familyPlaceApi.requireLocatedPlaceForMember(adultId, grandmaId))
+                .thenReturn(
+                        new CirclePlaceDto(
+                                grandmaId, circleId, "Grandma", "9 Elm St", 42.1, -71.1));
+
+        var saved =
+                service.savePlan(
+                        adult,
+                        spaceId,
+                        singlePlanRequest(
+                                "UID:game-1",
+                                List.of(kidA),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.TO,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null,
+                                        grandmaId,
+                                        null),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null,
+                                        null,
+                                        "12 Oak St")));
+
+        assertThat(saved.ownRequests()).hasSize(1);
+        assertThat(saved.ownRequest().pickupPlaceName()).isEqualTo("Grandma");
+        assertThat(saved.ownRequest().pickupAddress()).isEqualTo("9 Elm St");
+        assertThat(saved.ownLegs().get(0).placeId()).isEqualTo(grandmaId);
+        assertThat(saved.ownLegs().get(0).placeName()).isEqualTo("Grandma");
+        assertThat(saved.ownLegs().get(0).placeAddress()).isEqualTo("9 Elm St");
+        assertThat(saved.ownLegs().get(1).placeId()).isNull();
+        assertThat(saved.ownLegs().get(1).placeAddress()).isEqualTo("12 Oak St");
+        CarpoolRideRequestEntity stored = live.getFirst();
+        assertThat(stored.pickupPlaceName()).isEqualTo("Grandma");
+        assertThat(stored.pickupAddress()).isEqualTo("9 Elm St");
+        assertThat(stored.leg(CarpoolLegKind.TO).placeId()).isEqualTo(grandmaId);
+        assertThat(stored.leg(CarpoolLegKind.FROM).oneTimeAddress()).isEqualTo("12 Oak St");
+    }
+
+    @Test
+    void savePlanDefaultModeWritesSameResolvedPlaceToBothLegs() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        List<CarpoolRideRequestEntity> live = new ArrayList<>();
+        stubLiveSpacePlans(live);
+        stubPickup();
+        stubKidNames();
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var saved =
+                service.savePlan(
+                        adult,
+                        spaceId,
+                        singlePlanRequest(
+                                "UID:game-1",
+                                List.of(kidA),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.TO,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null)));
+
+        assertThat(saved.ownRequest().pickupPlaceName()).isEqualTo("Home");
+        assertThat(saved.ownRequest().pickupAddress()).isEqualTo("1 Main St");
+        assertThat(saved.ownLegs().get(0).placeId()).isNull();
+        assertThat(saved.ownLegs().get(0).placeName()).isEqualTo("Home");
+        assertThat(saved.ownLegs().get(0).placeAddress()).isEqualTo("1 Main St");
+        assertThat(saved.ownLegs().get(1).placeId()).isNull();
+        assertThat(saved.ownLegs().get(1).placeName()).isEqualTo("Home");
+        assertThat(saved.ownLegs().get(1).placeAddress()).isEqualTo("1 Main St");
+        assertThat(live.getFirst().leg(CarpoolLegKind.TO).placeId()).isNull();
+        assertThat(live.getFirst().leg(CarpoolLegKind.TO).oneTimeAddress()).isNull();
+        assertThat(live.getFirst().leg(CarpoolLegKind.FROM).placeId()).isNull();
+        assertThat(live.getFirst().leg(CarpoolLegKind.FROM).oneTimeAddress()).isNull();
+    }
+
+    @Test
+    void savePlanAsk400WhenDefaultToPickupCannotResolve() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
+
+        assertThatThrownBy(
+                        () ->
+                                service.savePlan(
+                                        adult,
+                                        spaceId,
+                                        singlePlanRequest(
+                                                "UID:game-1",
+                                                List.of(kidA),
+                                                new SaveCarpoolRidePlanLeg(
+                                                        CarpoolLegKind.TO,
+                                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                                        null),
+                                                new SaveCarpoolRidePlanLeg(
+                                                        CarpoolLegKind.FROM,
+                                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                                        null))))
+                .isInstanceOf(CarpoolException.class)
+                .extracting(ex -> ((CarpoolException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(rides, never()).save(any());
+    }
+
+    @Test
+    void savePlanGroupsKidsOnlyWhenDriverOutcomesAndPlacesMatch() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA, kidB)));
+        stubRsvps(List.of(yes(kidA), yes(kidB)));
+        List<CarpoolRideRequestEntity> live = new ArrayList<>();
+        stubLiveSpacePlans(live);
+        stubKidNames();
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+        UUID homeId = UUID.fromString("01900000-0000-7000-8000-000000000032");
+        when(familyPlaceApi.requireLocatedPlaceForMember(adultId, homeId))
+                .thenReturn(
+                        new CirclePlaceDto(homeId, circleId, "Home", "1 Main St", 42.0, -71.0));
+
+        var saved =
+                service.savePlan(
+                        adult,
+                        spaceId,
+                        new SaveCarpoolRidePlanRequest(
+                                "UID:game-1",
+                                List.of(
+                                        new SaveCarpoolRidePlanGroup(
+                                                List.of(kidA),
+                                                List.of(
+                                                        new SaveCarpoolRidePlanLeg(
+                                                                CarpoolLegKind.TO,
+                                                                CarpoolRidePlanLegAction.ASK_TEAM,
+                                                                null,
+                                                                homeId,
+                                                                null),
+                                                        new SaveCarpoolRidePlanLeg(
+                                                                CarpoolLegKind.FROM,
+                                                                CarpoolRidePlanLegAction.ASK_TEAM,
+                                                                null,
+                                                                null,
+                                                                "Grandma"))),
+                                        new SaveCarpoolRidePlanGroup(
+                                                List.of(kidB),
+                                                List.of(
+                                                        new SaveCarpoolRidePlanLeg(
+                                                                CarpoolLegKind.TO,
+                                                                CarpoolRidePlanLegAction.ASK_TEAM,
+                                                                null,
+                                                                homeId,
+                                                                null),
+                                                        new SaveCarpoolRidePlanLeg(
+                                                                CarpoolLegKind.FROM,
+                                                                CarpoolRidePlanLegAction.ASK_TEAM,
+                                                                null,
+                                                                null,
+                                                                "School lot"))))));
+
+        assertThat(saved.ownRequests()).hasSize(2);
+        assertThat(live).hasSize(2);
+    }
+
     private static SaveCarpoolRidePlanRequest singlePlanRequest(
             String eventKey, List<UUID> kidIds, SaveCarpoolRidePlanLeg... legs) {
         return new SaveCarpoolRidePlanRequest(
@@ -1834,7 +2019,7 @@ class CarpoolRideServiceTest {
     }
 
     private void stubPickup() {
-        when(familyPlaceApi.findPickupPlaceForMember(adultId))
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId))
                 .thenReturn(
                         Optional.of(
                                 new CirclePlaceDto(
@@ -1842,8 +2027,8 @@ class CarpoolRideServiceTest {
                                         circleId,
                                         "Home",
                                         "1 Main St",
-                                        null,
-                                        null)));
+                                        42.0,
+                                        -71.0)));
     }
 
     @SuppressWarnings("unchecked")

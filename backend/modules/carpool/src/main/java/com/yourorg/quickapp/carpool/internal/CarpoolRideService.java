@@ -59,6 +59,7 @@ public class CarpoolRideService {
     static final Instant EVENT_LOOKUP_FROM = Instant.parse("2000-01-01T00:00:00Z");
     static final Instant EVENT_LOOKUP_TO = Instant.parse("2100-01-01T00:00:00Z");
     private static final Duration MAX_WINDOW = Duration.ofDays(31);
+    private static final int FAMILY_PLACE_ADDRESS_MAX = 255;
     private static final List<CarpoolRideStatus> ACTIVE =
             List.of(CarpoolRideStatus.PENDING, CarpoolRideStatus.ACCEPTED);
     private static final List<CarpoolRideStatus> OWN_PLAN_STATUSES =
@@ -161,7 +162,9 @@ public class CarpoolRideService {
                 }
                 FeedCalendarEventDto event = eventsByKey.get(ride.eventKey());
                 String eventLocation = event == null ? null : event.location();
-                detourItems.add(new DetourItemInput(ride.pickupAddress(), eventLocation));
+                detourItems.add(
+                        new DetourItemInput(
+                                familySidePlaceAddress(ride, CarpoolLegKind.TO), eventLocation));
                 detourRideIds.add(ride.id());
             }
         }
@@ -258,14 +261,8 @@ public class CarpoolRideService {
                         "An active ride request from this circle already exists for this event");
             }
         }
-        CirclePlaceDto pickup =
-                familyPlaceApi
-                        .findPickupPlaceForMember(adult.id())
-                        .orElseThrow(
-                                () ->
-                                        new CarpoolException(
-                                                HttpStatus.BAD_REQUEST,
-                                                "No pickup address; add a home address in Places"));
+        ResolvedFamilyPlace pickup =
+                requireResolvedToPickup(adult.id(), null, null);
         List<FamilyKidName> names = familyMembershipApi.findKids(circleId, kidIds);
         if (names.size() != kidIds.size()) {
             throw new CarpoolException(HttpStatus.BAD_REQUEST, "Kid not found in this circle");
@@ -284,11 +281,17 @@ public class CarpoolRideService {
                         eventKey,
                         circleId,
                         adult.id(),
-                        pickup.name(),
-                        pickup.address(),
+                        pickup.displayName(),
+                        pickup.displayAddress(),
                         snapshots,
                         askedLegs,
                         Instant.now());
+        // Create-ask has no per-leg place body yet: Default on both asked legs.
+        for (RideLegSlot leg : created.legs()) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                applyDefaultFamilyPlace(leg, pickup);
+            }
+        }
         rides.save(created);
         return toRideResponse(
                 created,
@@ -318,21 +321,9 @@ public class CarpoolRideService {
                 groups.stream()
                         .flatMap(g -> g.legs().stream())
                         .anyMatch(leg -> leg.phase() == CarpoolLegPhase.ASKED_TEAM);
-        CirclePlaceDto pickup = null;
-        if (anyAsk) {
-            pickup =
-                    familyPlaceApi
-                            .findPickupPlaceForMember(adult.id())
-                            .orElseThrow(
-                                    () ->
-                                            new CarpoolException(
-                                                    HttpStatus.BAD_REQUEST,
-                                                    "No pickup address; add a home address in Places"));
-        } else {
-            pickup = familyPlaceApi.findPickupPlaceForMember(adult.id()).orElse(null);
-        }
-        String pickupName = pickup == null ? "Home" : pickup.name();
-        String pickupAddress = pickup == null ? "" : pickup.address();
+        ResolvedFamilyPlace toPickup = resolveToPickupFromGroups(groups, anyAsk);
+        String pickupName = toPickup == null ? "Home" : toPickup.displayName();
+        String pickupAddress = toPickup == null ? "" : toPickup.displayAddress();
         replaceOwnPlans(
                 adult.id(),
                 circleId,
@@ -368,10 +359,9 @@ public class CarpoolRideService {
                     HttpStatus.BAD_REQUEST,
                     "Ask the team requires an enabled carpool space");
         }
-        CirclePlaceDto pickup =
-                familyPlaceApi.findPickupPlaceForMember(adult.id()).orElse(null);
-        String pickupName = pickup == null ? "Home" : pickup.name();
-        String pickupAddress = pickup == null ? "" : pickup.address();
+        ResolvedFamilyPlace toPickup = resolveToPickupFromGroups(groups, false);
+        String pickupName = toPickup == null ? "Home" : toPickup.displayName();
+        String pickupAddress = toPickup == null ? "" : toPickup.displayAddress();
         replaceOwnPlans(
                 adult.id(),
                 circleId,
@@ -780,6 +770,8 @@ public class CarpoolRideService {
                     .append(leg.assigneeAdultId())
                     .append(':')
                     .append(leg.assigneeCircleId())
+                    .append(':')
+                    .append(leg.placeOutcomeKey())
                     .append('|');
         }
         return key.toString();
@@ -954,41 +946,51 @@ public class CarpoolRideService {
 
     private RideLegSlot buildPlanSlot(
             SaveCarpoolRidePlanLeg leg, UUID callerAdultId, UUID circleId) {
-        return switch (leg.action()) {
-            case NEEDS_RIDE -> {
-                if (leg.assigneeAdultId() != null) {
-                    throw new CarpoolException(
-                            HttpStatus.BAD_REQUEST,
-                            "assigneeAdultId must be omitted for NEEDS_RIDE");
-                }
-                yield RideLegSlot.needsRide(leg.kind());
-            }
-            case ASK_TEAM -> {
-                if (leg.assigneeAdultId() != null) {
-                    throw new CarpoolException(
-                            HttpStatus.BAD_REQUEST,
-                            "assigneeAdultId must be omitted for ASK_TEAM");
-                }
-                yield RideLegSlot.askedTeam(leg.kind());
-            }
-            case HOUSEHOLD -> {
-                if (leg.assigneeAdultId() == null) {
-                    throw new CarpoolException(
-                            HttpStatus.BAD_REQUEST,
-                            "assigneeAdultId is required for HOUSEHOLD");
-                }
-                try {
-                    familyMembershipApi.requireAdultInCircle(circleId, leg.assigneeAdultId());
-                } catch (com.yourorg.quickapp.family.FamilyAccessException ex) {
-                    throw new CarpoolException(
-                            HttpStatus.BAD_REQUEST, "assigneeAdultId must be a circle adult");
-                }
-                if (leg.assigneeAdultId().equals(callerAdultId)) {
-                    yield RideLegSlot.householdConfirmed(leg.kind(), leg.assigneeAdultId());
-                }
-                yield RideLegSlot.waitingHousehold(leg.kind(), leg.assigneeAdultId());
-            }
-        };
+        RideLegSlot slot =
+                switch (leg.action()) {
+                    case NEEDS_RIDE -> {
+                        if (leg.assigneeAdultId() != null) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "assigneeAdultId must be omitted for NEEDS_RIDE");
+                        }
+                        if (leg.placeId() != null || hasText(leg.placeAddress())) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "place fields must be omitted for NEEDS_RIDE");
+                        }
+                        yield RideLegSlot.needsRide(leg.kind());
+                    }
+                    case ASK_TEAM -> {
+                        if (leg.assigneeAdultId() != null) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "assigneeAdultId must be omitted for ASK_TEAM");
+                        }
+                        yield RideLegSlot.askedTeam(leg.kind());
+                    }
+                    case HOUSEHOLD -> {
+                        if (leg.assigneeAdultId() == null) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "assigneeAdultId is required for HOUSEHOLD");
+                        }
+                        try {
+                            familyMembershipApi.requireAdultInCircle(circleId, leg.assigneeAdultId());
+                        } catch (com.yourorg.quickapp.family.FamilyAccessException ex) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST, "assigneeAdultId must be a circle adult");
+                        }
+                        if (leg.assigneeAdultId().equals(callerAdultId)) {
+                            yield RideLegSlot.householdConfirmed(leg.kind(), leg.assigneeAdultId());
+                        }
+                        yield RideLegSlot.waitingHousehold(leg.kind(), leg.assigneeAdultId());
+                    }
+                };
+        if (leg.action() != CarpoolRidePlanLegAction.NEEDS_RIDE) {
+            applyFamilyPlaceFromRequest(slot, callerAdultId, leg.placeId(), leg.placeAddress());
+        }
+        return slot;
     }
 
     private List<RideKidSnapshot> kidSnapshots(UUID circleId, List<UUID> kidIds) {
@@ -1261,8 +1263,8 @@ public class CarpoolRideService {
                             ride.acceptedByAdultId(),
                             ride.acceptingCircleId(),
                             ride.requestingCircleId(),
-                            ride.pickupPlaceName(),
-                            ride.pickupAddress(),
+                            familySidePlaceName(ride, CarpoolLegKind.TO),
+                            familySidePlaceAddress(ride, CarpoolLegKind.TO),
                             ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
         }
         return List.copyOf(out);
@@ -1345,35 +1347,39 @@ public class CarpoolRideService {
                                 .toList());
         List<CalendarRoutePickupInput> pickups = new ArrayList<>();
         for (CarpoolRideRequestEntity ride : accepted) {
+            String placeName = familySidePlaceName(ride, CarpoolLegKind.TO);
+            String placeAddress = familySidePlaceAddress(ride, CarpoolLegKind.TO);
             String to = names.get(ride.requestingCircleId());
             if (to == null || to.isBlank()) {
-                to = ride.pickupPlaceName();
+                to = placeName;
             }
             if (to == null || to.isBlank()) {
                 to = "Family";
             }
             pickups.add(
                     new CalendarRoutePickupInput(
-                            ride.pickupPlaceName(),
-                            ride.pickupAddress(),
+                            placeName,
+                            placeAddress,
                             new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to)));
         }
         return pickups;
     }
 
     private CalendarRoutePickupInput toPickupInput(CarpoolRideRequestEntity ride) {
+        String placeName = familySidePlaceName(ride, CarpoolLegKind.TO);
+        String placeAddress = familySidePlaceAddress(ride, CarpoolLegKind.TO);
         String to =
                 familyMembershipApi
                         .findCircle(ride.requestingCircleId())
                         .map(FamilyCircleName::name)
                         .filter(name -> name != null && !name.isBlank())
-                        .orElse(ride.pickupPlaceName());
+                        .orElse(placeName);
         if (to == null || to.isBlank()) {
             to = "Family";
         }
         return new CalendarRoutePickupInput(
-                ride.pickupPlaceName(),
-                ride.pickupAddress(),
+                placeName,
+                placeAddress,
                 new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to));
     }
 
@@ -1531,6 +1537,7 @@ public class CarpoolRideService {
             Map<UUID, String> assigneeAdultNames) {
         List<CarpoolRideLegResponse> out = new ArrayList<>(2);
         for (RideLegSlot leg : ride.legs()) {
+            FamilyPlaceView place = familyPlaceView(ride, leg);
             out.add(
                     new CarpoolRideLegResponse(
                             leg.kind(),
@@ -1542,7 +1549,10 @@ public class CarpoolRideService {
                             leg.assigneeCircleId(),
                             leg.assigneeCircleId() == null
                                     ? null
-                                    : circleNames.get(leg.assigneeCircleId())));
+                                    : circleNames.get(leg.assigneeCircleId()),
+                            place.placeId(),
+                            place.placeName(),
+                            place.placeAddress()));
         }
         return List.copyOf(out);
     }
@@ -1550,9 +1560,25 @@ public class CarpoolRideService {
     private static List<CarpoolRideLegResponse> needsRideOwnLegs() {
         return List.of(
                 new CarpoolRideLegResponse(
-                        CarpoolLegKind.TO, CarpoolLegPhase.NEEDS_RIDE, null, null, null, null),
+                        CarpoolLegKind.TO,
+                        CarpoolLegPhase.NEEDS_RIDE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
                 new CarpoolRideLegResponse(
-                        CarpoolLegKind.FROM, CarpoolLegPhase.NEEDS_RIDE, null, null, null, null));
+                        CarpoolLegKind.FROM,
+                        CarpoolLegPhase.NEEDS_RIDE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
     }
 
     private Map<UUID, String> assigneeDisplayNames(CarpoolRideRequestEntity ride) {
@@ -1689,6 +1715,205 @@ public class CarpoolRideService {
         }
         return names;
     }
+
+    private ResolvedFamilyPlace resolveToPickupFromGroups(
+            List<MergedPlanGroup> groups, boolean requireAddress) {
+        RideLegSlot toLeg = null;
+        for (MergedPlanGroup group : groups) {
+            for (RideLegSlot leg : group.legs()) {
+                if (leg.kind() == CarpoolLegKind.TO
+                        && leg.phase() != CarpoolLegPhase.NEEDS_RIDE) {
+                    toLeg = leg;
+                    break;
+                }
+            }
+            if (toLeg != null) {
+                break;
+            }
+        }
+        if (toLeg == null) {
+            if (requireAddress) {
+                throw new CarpoolException(
+                        HttpStatus.BAD_REQUEST,
+                        "No pickup address; add a home address in Places");
+            }
+            return null;
+        }
+        String address = toLeg.placeAddress();
+        if (!hasText(address)) {
+            if (requireAddress) {
+                throw new CarpoolException(
+                        HttpStatus.BAD_REQUEST,
+                        "No pickup address; add a home address in Places");
+            }
+            return null;
+        }
+        return new ResolvedFamilyPlace(
+                toLeg.placeId(),
+                toLeg.oneTimeAddress(),
+                toLeg.placeName() == null || toLeg.placeName().isBlank()
+                        ? address
+                        : toLeg.placeName(),
+                address);
+    }
+
+    private ResolvedFamilyPlace requireResolvedToPickup(
+            UUID adultId, UUID placeId, String placeAddress) {
+        ResolvedFamilyPlace resolved = resolveFamilyPlace(adultId, placeId, placeAddress);
+        if (resolved == null || !hasText(resolved.displayAddress())) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST,
+                    "No pickup address; add a home address in Places");
+        }
+        return resolved;
+    }
+
+    private void applyFamilyPlaceFromRequest(
+            RideLegSlot slot, UUID adultId, UUID placeId, String placeAddress) {
+        ResolvedFamilyPlace resolved = resolveFamilyPlace(adultId, placeId, placeAddress);
+        if (resolved == null) {
+            // Default with nothing to resolve — leave nulls (household-only OK).
+            slot.clearFamilyPlace();
+            return;
+        }
+        slot.setFamilyPlace(
+                resolved.storedPlaceId(),
+                resolved.storedOneTimeAddress(),
+                resolved.displayName(),
+                resolved.displayAddress());
+    }
+
+    private static void applyDefaultFamilyPlace(RideLegSlot slot, ResolvedFamilyPlace pickup) {
+        slot.setFamilyPlace(null, null, pickup.displayName(), pickup.displayAddress());
+    }
+
+    /**
+     * Resolves family-side place triad: named place, one-time address, or Default
+     * (membership default leave-from → first located by name).
+     */
+    private ResolvedFamilyPlace resolveFamilyPlace(
+            UUID adultId, UUID placeId, String placeAddress) {
+        String trimmed = placeAddress == null ? null : placeAddress.trim();
+        if (trimmed != null && trimmed.isEmpty()) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST, "placeAddress must be non-empty when set");
+        }
+        if (placeId != null && trimmed != null) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST, "placeId and placeAddress are mutually exclusive");
+        }
+        if (trimmed != null && trimmed.length() > FAMILY_PLACE_ADDRESS_MAX) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST,
+                    "placeAddress must be at most " + FAMILY_PLACE_ADDRESS_MAX + " characters");
+        }
+        if (placeId != null) {
+            CirclePlaceDto place;
+            try {
+                place = familyPlaceApi.requireLocatedPlaceForMember(adultId, placeId);
+            } catch (com.yourorg.quickapp.family.FamilyAccessException ex) {
+                throw new CarpoolException(ex.status(), ex.getMessage());
+            }
+            if (!hasText(place.address())) {
+                throw new CarpoolException(
+                        HttpStatus.BAD_REQUEST, "Place has no address; pick another");
+            }
+            return new ResolvedFamilyPlace(place.id(), null, place.name(), place.address());
+        }
+        if (trimmed != null) {
+            return new ResolvedFamilyPlace(null, trimmed, trimmed, trimmed);
+        }
+        Optional<CirclePlaceDto> defaultPlace = resolveDefaultFamilyPlace(adultId);
+        if (defaultPlace.isEmpty() || !hasText(defaultPlace.get().address())) {
+            return null;
+        }
+        CirclePlaceDto place = defaultPlace.get();
+        // Default mode stores null place id + null one-time; snapshots only.
+        return new ResolvedFamilyPlace(null, null, place.name(), place.address());
+    }
+
+    /**
+     * Default origin: My default leave-from when usable, else first located place
+     * by name.
+     */
+    private Optional<CirclePlaceDto> resolveDefaultFamilyPlace(UUID adultId) {
+        Optional<CirclePlaceDto> membershipDefault =
+                familyPlaceApi.findDefaultLeaveFromForMember(adultId);
+        if (membershipDefault.isPresent() && hasText(membershipDefault.get().address())) {
+            return membershipDefault;
+        }
+        // Prefer addressed located places; list is already name-sorted.
+        return familyPlaceApi.listLocatedPlacesForMember(adultId).stream()
+                .filter(place -> hasText(place.address()))
+                .findFirst();
+    }
+
+    private String familySidePlaceName(CarpoolRideRequestEntity ride, CarpoolLegKind kind) {
+        FamilyPlaceView view = familyPlaceView(ride, ride.leg(kind));
+        if (hasText(view.placeName())) {
+            return view.placeName();
+        }
+        return ride.pickupPlaceName();
+    }
+
+    private String familySidePlaceAddress(CarpoolRideRequestEntity ride, CarpoolLegKind kind) {
+        FamilyPlaceView view = familyPlaceView(ride, ride.leg(kind));
+        if (hasText(view.placeAddress())) {
+            return view.placeAddress();
+        }
+        return ride.pickupAddress();
+    }
+
+    /**
+     * Display view for a leg. Default rows without snapshots re-resolve via the
+     * requester's membership default / first located place.
+     */
+    private FamilyPlaceView familyPlaceView(CarpoolRideRequestEntity ride, RideLegSlot leg) {
+        if (leg == null) {
+            return new FamilyPlaceView(null, null, null);
+        }
+        if (leg.placeId() != null || hasText(leg.oneTimeAddress())) {
+            String name = leg.placeName();
+            String address =
+                    hasText(leg.placeAddress())
+                            ? leg.placeAddress()
+                            : leg.oneTimeAddress();
+            if (!hasText(name) && hasText(address)) {
+                name = address;
+            }
+            return new FamilyPlaceView(leg.placeId(), name, address);
+        }
+        // Default mode (or legacy null columns).
+        if (hasText(leg.placeAddress()) || hasText(leg.placeName())) {
+            return new FamilyPlaceView(null, leg.placeName(), leg.placeAddress());
+        }
+        if (leg.phase() == CarpoolLegPhase.NEEDS_RIDE) {
+            return new FamilyPlaceView(null, null, null);
+        }
+        Optional<CirclePlaceDto> resolved =
+                resolveDefaultFamilyPlace(ride.requestedByAdultId());
+        if (resolved.isEmpty()) {
+            return new FamilyPlaceView(null, null, null);
+        }
+        CirclePlaceDto place = resolved.get();
+        return new FamilyPlaceView(null, place.name(), place.address());
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    /**
+     * @param storedPlaceId null for Default and one-time
+     * @param storedOneTimeAddress null for Default and named place
+     */
+    private record ResolvedFamilyPlace(
+            UUID storedPlaceId,
+            String storedOneTimeAddress,
+            String displayName,
+            String displayAddress) {}
+
+    private record FamilyPlaceView(UUID placeId, String placeName, String placeAddress) {}
 
     private CarpoolSpaceEntity requireMemberSpace(UUID spaceId, UUID circleId) {
         CarpoolSpaceEntity space = spaces.findById(spaceId).orElseThrow(this::notFound);

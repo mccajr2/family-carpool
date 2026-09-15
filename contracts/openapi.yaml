@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.31.0
+  version: 0.32.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -61,16 +61,21 @@ info:
     on at most one non-cancelled plan for (requesting circle, event). Save ride
     plan (`POST /api/carpool/spaces/{spaceId}/ride-plans` and circle-local
     `POST /api/carpool/ride-plans`) is an atomic replace of this circle's active
-    plans for the event: body `plans[]` groups (`kidIds` + TO/FROM leg actions);
-    the server merges groups with identical TO/FROM outcomes. Leave-from stays
-    ride/coverage-level (no per-leg place columns). List/detail expose
-    `ownRequests` (all active own plans); singular `ownRequest` / `ownLegs` are
-    set only when there is exactly one plan, otherwise null. Household-only
-    plans before Enable carpool use `GET/POST /api/carpool/ride-plans` (null
-    `space_id`; ASK_TEAM is 400). Enabling a space attaches **all** matching
-    circle-local plans onto it. The assigned household adult confirms or
-    declines their WAITING_HOUSEHOLD legs via `POST …/ride-plans/confirm-household`
-    and `POST …/ride-plans/decline-household` (space-scoped or circle-local;
+    plans for the event: body `plans[]` groups (`kidIds` + TO/FROM leg actions
+    and optional per-leg family-side place); the server merges groups with
+    identical TO/FROM driver outcomes **and** family-side places. Each TO/FROM
+    leg stores one family-side place (Default / named located place / one-time
+    address). Ride-level `pickupPlaceName` / `pickupAddress` are derived from
+    the **TO** family-side place on Save / create ask. Ask without a resolvable
+    TO pickup (Default with neither membership default leave-from nor a first
+    located place) returns **400**. List/detail expose `ownRequests` (all
+    active own plans); singular `ownRequest` / `ownLegs` are set only when
+    there is exactly one plan, otherwise null. Household-only plans before
+    Enable carpool use `GET/POST /api/carpool/ride-plans` (null `space_id`;
+    ASK_TEAM is 400). Enabling a space attaches **all** matching circle-local
+    plans onto it. The assigned household adult confirms or declines their
+    WAITING_HOUSEHOLD legs via `POST …/ride-plans/confirm-household` and
+    `POST …/ride-plans/decline-household` (space-scoped or circle-local;
     eventKey only; other legs and pickup stay unchanged; scoped to the
     assignee's plan(s)). Each ride exposes TO/FROM phases (`NEEDS_RIDE` |
     `WAITING_HOUSEHOLD` | `ASKED_TEAM` | `CONFIRMED`). Accept is empty-body
@@ -136,22 +141,25 @@ tags:
       feed events with ride overlays (each event includes this circle's
       `ownRequests` — all active own plans — plus singular `ownRequest` /
       `ownLegs` only when there is exactly one plan), create ride requests
-      (default round-trip both legs; optional single-leg via `legs`; pickup at
-      the requester's house; default kids = not RSVP NO and still need a ride;
-      create leaves RSVP unchanged), save ride plan(s) atomically via `plans[]`
-      (household / Ask the team / Needs ride per leg; identical TO/FROM groups
-      merge; no per-leg places), accept another circle's pending request with
-      an empty body (like Pass; confirms every still-open asked leg on that
-      request only; any space-member adult from another circle; no vehicle,
-      drives, or seat gating; sets RSVP YES for kids on the ride; allowed after
-      Pass while still PENDING), pass
-      on another circle's pending request (per-adult soft decline; request
-      stays PENDING; Focus clients may skip passed asks), cancel their own
-      request (optional per-leg when assignees differ), or withdraw an
-      acceptance (same combined / per-leg rules). Ride kid first names, seat
-      counts, pickup address, passer adult display names, and per-leg phases
-      are visible to every adult in member circles. Paths are under
-      `/api/carpool/*`, not nested under `/api/family`.
+      (default round-trip both legs; optional single-leg via `legs`; TO/FROM
+      family-side places Default at create — membership default leave-from,
+      else first located place by name; ride-level pickup derived from TO;
+      default kids = not RSVP NO and still need a ride; create leaves RSVP
+      unchanged; Ask with no resolvable TO pickup → 400), save ride plan(s)
+      atomically via `plans[]` (household / Ask the team / Needs ride per leg
+      plus optional per-leg place triad; identical TO/FROM driver outcomes and
+      places merge), accept another circle's pending request with an empty
+      body (like Pass; confirms every still-open asked leg on that request
+      only; any space-member adult from another circle; no vehicle, drives, or
+      seat gating; sets RSVP YES for kids on the ride; allowed after Pass
+      while still PENDING), pass on another circle's pending request
+      (per-adult soft decline; request stays PENDING; Focus clients may skip
+      passed asks), cancel their own request (optional per-leg when assignees
+      differ), or withdraw an acceptance (same combined / per-leg rules).
+      Ride kid first names, seat counts, pickup address, passer adult display
+      names, per-leg phases, and per-leg family-side places are visible to
+      every adult in member circles. Paths are under `/api/carpool/*`, not
+      nested under `/api/family`.
 
 paths:
   /api/auth/request-code:
@@ -3039,13 +3047,13 @@ paths:
       summary: Save a household-only ride plan without a carpool space
       description: >
         Any circle member. Same body as saveCarpoolRidePlan (`plans[]` atomic
-        replace), but persists PLAN row(s) with null `space_id`. ASK_TEAM is
-        400 (Ask the team requires an enabled space). Each plan group requires
-        `kidIds`. Mixed household + Needs ride is allowed. Does **not** accept
-        per-leg place / leave-from fields. Caregiver save is allowed. Empty
-        plans or kidIds, missing eventKey, invalid legs, unknown / non-circle
-        household assignee, or a kid on more than one submitted group returns
-        400.
+        replace, including optional per-leg family-side places), but persists
+        PLAN row(s) with null `space_id`. ASK_TEAM is 400 (Ask the team
+        requires an enabled space). Each plan group requires `kidIds`. Mixed
+        household + Needs ride is allowed. Caregiver save is allowed. Empty
+        plans or kidIds, missing eventKey, invalid legs / place triad, unknown
+        / non-circle household assignee, or a kid on more than one submitted
+        group returns 400.
       security:
         - bearerAuth: []
       requestBody:
@@ -3067,9 +3075,9 @@ paths:
                 $ref: "#/components/schemas/SaveCarpoolRidePlanResponse"
         "400":
           description: >
-            ASK_TEAM selected, missing eventKey or plans/kidIds, invalid legs,
-            unknown / non-circle household assignee, or kid appears in more
-            than one group
+            ASK_TEAM selected, missing eventKey or plans/kidIds, invalid legs
+            / place triad, unknown / non-circle household assignee, or kid
+            appears in more than one group
           content:
             application/json:
               schema:
@@ -3613,20 +3621,22 @@ paths:
       tags: [carpool]
       summary: Request a ride for a feed event
       description: >
-        Any space-member adult. Creates a PENDING ride request with pickup at
-        the requester's house (default leave-from place if set, else the
-        circle's first named place with a non-blank address). Defaults to a
-        round-trip ask (both TO and FROM → ASKED_TEAM); when `legs` is present
-        it must be a non-empty unique subset of TO/FROM and only those legs
-        become ASKED_TEAM (the other stays NEEDS_RIDE). Snapshots kid first
-        names and pickup name+address at create. When kidIds is omitted,
-        defaults to all feed-linked kids on that event who are not RSVP NO and
-        not already on this circle's ACCEPTED ride (YES and NO_RESPONSE both
-        qualify; stable order = feed kid link order); when present, must be a
-        non-empty subset of that set. Create does not change RSVP (requested
-        kids may remain NO_RESPONSE). Empty default set (no feed kids, or all
-        RSVP NO / already covered), unknown kids, RSVP NO in kidIds, kid
-        already on an ACCEPTED ride, or no pickup address returns 400.
+        Any space-member adult. Creates a PENDING ride request. Family-side
+        places on asked legs are **Default** (membership default leave-from
+        when usable, else first located place by name). Ride-level
+        `pickupPlaceName` / `pickupAddress` are derived from the **TO**
+        family-side place (same resolution). Defaults to a round-trip ask
+        (both TO and FROM → ASKED_TEAM); when `legs` is present it must be a
+        non-empty unique subset of TO/FROM and only those legs become
+        ASKED_TEAM (the other stays NEEDS_RIDE). Snapshots kid first names and
+        pickup name+address at create. When kidIds is omitted, defaults to all
+        feed-linked kids on that event who are not RSVP NO and not already on
+        this circle's ACCEPTED ride (YES and NO_RESPONSE both qualify; stable
+        order = feed kid link order); when present, must be a non-empty subset
+        of that set. Create does not change RSVP (requested kids may remain
+        NO_RESPONSE). Empty default set (no feed kids, or all RSVP NO /
+        already covered), unknown kids, RSVP NO in kidIds, kid already on an
+        ACCEPTED ride, or no resolvable TO pickup address returns 400.
         Duplicate active (PENDING or ACCEPTED) request from this circle for
         the same event returns 409. Caregiver create is allowed.
       security:
@@ -3646,8 +3656,9 @@ paths:
                 $ref: "#/components/schemas/CarpoolRide"
         "400":
           description: >
-            Invalid kids (including RSVP NO), no pickup address, or empty
-            default kid set
+            Invalid kids (including RSVP NO), no resolvable TO pickup address
+            (Default with neither membership default leave-from nor a first
+            located place), or empty default kid set
           content:
             application/json:
               schema:
@@ -3941,19 +3952,22 @@ paths:
         TO and one FROM leg. Leg actions are HOUSEHOLD (circle adult —
         `assigneeAdultId` required; server sets CONFIRMED when the assignee is
         the caller, WAITING_HOUSEHOLD when another household adult), ASK_TEAM
-        (post that leg; pickup stays the requester's house), or NEEDS_RIDE
-        (leave or clear that leg open). Groups with identical TO/FROM outcomes
-        (same phase + assignee adult / circle per leg) are merged into one
+        (post that leg), or NEEDS_RIDE (leave or clear that leg open; place
+        fields must be omitted). Each HOUSEHOLD / ASK_TEAM leg may set a
+        family-side place triad (`placeId` / `placeAddress` / both null =
+        Default). Ride-level `pickupPlaceName` / `pickupAddress` are set from
+        the resolved **TO** family-side place. Groups with identical TO/FROM
+        driver outcomes **and** family-side places are merged into one
         RideRequest (seats = grouped kid count). Submitted groups must cover
         every going kid for the event with no kid on two groups. A kid already
         on another active plan is moved (`removeKid`; empty bag cancels that
         request) before the new groups are created. Does not change RSVP.
-        Does **not** accept per-leg place / leave-from fields — leave-from
-        stays on existing item / coverage leave-from writes. Caregiver save is
-        allowed. Unknown event, empty plans, invalid legs, missing household
-        assignee, unknown / non-circle assignee, overlapping kidIds, or
-        ASK_TEAM without pickup address returns 400. Non-member or unknown
-        space returns 404.
+        Caregiver save is allowed. Unknown event, empty plans, invalid legs /
+        place triad, missing household assignee, unknown / non-circle
+        assignee, overlapping kidIds, or ASK_TEAM without a resolvable TO
+        pickup address (Default with neither membership default leave-from nor
+        a first located place) returns 400. Non-member or unknown space
+        returns 404.
       security:
         - bearerAuth: []
       parameters:
@@ -3982,8 +3996,9 @@ paths:
         "400":
           description: >
             Invalid eventKey, empty plans, legs (not exactly TO+FROM per
-            group), household assignee, kids, overlapping kidIds across
-            groups, or no pickup address when Ask the team is selected
+            group), place triad, household assignee, kids, overlapping kidIds
+            across groups, or no resolvable TO pickup address when Ask the
+            team is selected
           content:
             application/json:
               schema:
@@ -5728,6 +5743,9 @@ components:
         - assigneeDisplayName
         - assigneeCircleId
         - assigneeCircleName
+        - placeId
+        - placeName
+        - placeAddress
       properties:
         kind:
           $ref: "#/components/schemas/CarpoolLegKind"
@@ -5757,6 +5775,28 @@ components:
           type: string
           nullable: true
           description: Accepting circle name when assigneeCircleId is set.
+        placeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Named located circle place for this leg's family-side place
+            (TO = Picking up from; FROM = Dropping off at). Null for Default
+            mode and for one-time address. Mutually exclusive with a stored
+            one-time address on the server.
+        placeName:
+          type: string
+          nullable: true
+          description: >
+            Display name of the family-side place (write-time snapshot, or
+            Default re-resolved at serve for legacy rows). Null when
+            NEEDS_RIDE or unresolved Default.
+        placeAddress:
+          type: string
+          nullable: true
+          description: >
+            Display / one-time address of the family-side place. Null when
+            NEEDS_RIDE or unresolved Default.
 
     CarpoolRideStatus:
       type: string
@@ -5827,10 +5867,15 @@ components:
           description: Number of kids requested (= kidIds.length)
         pickupPlaceName:
           type: string
-          description: Snapshot of requester's pickup place name at create
+          description: >
+            Ride-level pickup place name snapshot, derived from the **TO**
+            family-side place on Save / create ask (Accept / inbound / Route
+            chrome). FROM place is on the FROM leg only.
         pickupAddress:
           type: string
-          description: Snapshot of requester's pickup address at create
+          description: >
+            Ride-level pickup address snapshot, derived from the **TO**
+            family-side place on Save / create ask.
         pickupTown:
           type: string
           nullable: true
@@ -6069,6 +6114,25 @@ components:
           description: >
             Required when action is HOUSEHOLD (must be an adult in the caller's
             circle). Must be null / omitted for ASK_TEAM and NEEDS_RIDE.
+        placeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Named located circle place for this leg's family-side place.
+            Mutually exclusive with `placeAddress`. Null with null/omitted
+            `placeAddress` = Default (membership default leave-from, then
+            first located place by name). Must be omitted for NEEDS_RIDE.
+          example: 01900000-0000-7000-8000-000000000031
+        placeAddress:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: >
+            One-time free-text family-side address for this leg only. Trimmed;
+            must be non-empty when set. Never creates a named Place. Mutually
+            exclusive with `placeId`. Must be omitted for NEEDS_RIDE.
+          example: "12 Oak St, Somerville, MA"
 
     SaveCarpoolRidePlanGroup:
       type: object
@@ -6091,7 +6155,9 @@ components:
           minItems: 2
           maxItems: 2
           description: >
-            Exactly one TO and one FROM. No per-leg place / leave-from fields.
+            Exactly one TO and one FROM. Optional per-leg family-side place
+            triad on HOUSEHOLD / ASK_TEAM legs (`placeId`, `placeAddress`, or
+            both null = Default).
           items:
             $ref: "#/components/schemas/SaveCarpoolRidePlanLeg"
 
@@ -6109,11 +6175,12 @@ components:
           minItems: 1
           description: >
             Atomic replace of this circle's active plans for the event. Each
-            entry is a kid bag + TO/FROM outcomes. The server merges groups
-            that share identical TO/FROM driver outcomes (same phase +
-            assignee adult / circle per leg) into one RideRequest. Clients may
-            send already-grouped bags or one kid per group. No per-leg place
-            fields.
+            entry is a kid bag + TO/FROM outcomes and optional family-side
+            places. The server merges groups that share identical TO/FROM
+            driver outcomes **and** family-side places (same phase + assignee
+            adult / circle + place mode per leg) into one RideRequest. Clients
+            may send already-grouped bags or one kid per group. Ride-level
+            pickup is derived from the TO place after merge.
           items:
             $ref: "#/components/schemas/SaveCarpoolRidePlanGroup"
 

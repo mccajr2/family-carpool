@@ -5,6 +5,9 @@ const blankAssignee = {
   assigneeDisplayName: null as string | null,
   assigneeCircleId: null as string | null,
   assigneeCircleName: null as string | null,
+  placeId: null as string | null,
+  placeName: null as string | null,
+  placeAddress: null as string | null,
 }
 
 /** One leg slot (test + mapping helpers). */

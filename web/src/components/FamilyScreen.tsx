@@ -1347,8 +1347,8 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       const planLegs: SaveCarpoolRidePlanLeg[] = [
-        toSavePlanLeg("TO", legs.to),
-        toSavePlanLeg("FROM", legs.from),
+        toSavePlanLeg("TO", legs.to, legs.toPlace),
+        toSavePlanLeg("FROM", legs.from, legs.fromPlace),
       ]
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
@@ -1416,8 +1416,8 @@ export function FamilyScreen({
       const planGroups = plans.map((plan) => ({
         kidIds: [plan.kidId],
         legs: [
-          toSavePlanLeg("TO", plan.legs.to),
-          toSavePlanLeg("FROM", plan.legs.from),
+          toSavePlanLeg("TO", plan.legs.to, plan.legs.toPlace),
+          toSavePlanLeg("FROM", plan.legs.from, plan.legs.fromPlace),
         ] as SaveCarpoolRidePlanLeg[],
       }))
       if (spaceId != null) {
@@ -2169,12 +2169,22 @@ export function FamilyScreen({
       eventKey.length > 0 &&
       (spaceId != null || rideEvent != null)
     if (canSavePlan && eventKey != null) {
+      const draft = leaveFromDrafts[calendarItemKey(item)]
+      const place =
+        draft != null
+          ? {
+              placeId: draft.leaveFromPlaceId ?? null,
+              placeAddress: draft.leaveFromAddress?.trim() || null,
+            }
+          : { placeId: null, placeAddress: null }
       const saved = await onSaveAgendaRidePlan(
         item,
         eventKey,
         {
           to: { action: "HOUSEHOLD", assigneeAdultId: coveringAdultId },
           from: { action: "HOUSEHOLD", assigneeAdultId: coveringAdultId },
+          toPlace: place,
+          fromPlace: place,
         },
         going,
       )
@@ -4230,13 +4240,24 @@ export function FamilyScreen({
 function toSavePlanLeg(
   kind: "TO" | "FROM",
   choice: DriverPickerSavePlanLegs["to"],
+  place: DriverPickerSavePlanLegs["toPlace"],
 ): SaveCarpoolRidePlanLeg {
-  if (choice.action === "HOUSEHOLD") {
-    return {
-      kind,
-      action: "HOUSEHOLD",
-      assigneeAdultId: choice.assigneeAdultId,
-    }
+  if (choice.action === "NEEDS_RIDE") {
+    return { kind, action: "NEEDS_RIDE" }
   }
-  return { kind, action: choice.action }
+  const entry: SaveCarpoolRidePlanLeg =
+    choice.action === "HOUSEHOLD"
+      ? {
+          kind,
+          action: "HOUSEHOLD",
+          assigneeAdultId: choice.assigneeAdultId,
+        }
+      : { kind, action: choice.action }
+  if (place.placeId != null) {
+    entry.placeId = place.placeId
+  }
+  if (place.placeAddress != null && place.placeAddress.trim() !== "") {
+    entry.placeAddress = place.placeAddress
+  }
+  return entry
 }

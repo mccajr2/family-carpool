@@ -25,6 +25,22 @@ class RideLegSlot {
     @Column(name = "assignee_circle_id")
     private UUID assigneeCircleId;
 
+    /** Named circle place; mutually exclusive with {@link #oneTimeAddress}. */
+    @Column(name = "place_id")
+    private UUID placeId;
+
+    /** One-time free-text address; mutually exclusive with {@link #placeId}. */
+    @Column(name = "one_time_address", length = 255)
+    private String oneTimeAddress;
+
+    /** Write-time snapshot of family-side place name (Default / named / one-time). */
+    @Column(name = "place_name", length = 80)
+    private String placeName;
+
+    /** Write-time snapshot of family-side place address. */
+    @Column(name = "place_address", length = 255)
+    private String placeAddress;
+
     protected RideLegSlot() {}
 
     RideLegSlot(
@@ -77,6 +93,22 @@ class RideLegSlot {
         return assigneeCircleId;
     }
 
+    UUID placeId() {
+        return placeId;
+    }
+
+    String oneTimeAddress() {
+        return oneTimeAddress;
+    }
+
+    String placeName() {
+        return placeName;
+    }
+
+    String placeAddress() {
+        return placeAddress;
+    }
+
     void setPhase(CarpoolLegPhase phase) {
         this.phase = phase;
     }
@@ -89,5 +121,35 @@ class RideLegSlot {
     void clearAssignee() {
         this.assigneeAdultId = null;
         this.assigneeCircleId = null;
+    }
+
+    /**
+     * Stores family-side place mode + write-time display snapshot. Default mode
+     * keeps {@code placeId} and {@code oneTimeAddress} null.
+     */
+    void setFamilyPlace(
+            UUID placeId, String oneTimeAddress, String placeName, String placeAddress) {
+        this.placeId = placeId;
+        this.oneTimeAddress = oneTimeAddress;
+        this.placeName = placeName;
+        this.placeAddress = placeAddress;
+    }
+
+    void clearFamilyPlace() {
+        this.placeId = null;
+        this.oneTimeAddress = null;
+        this.placeName = null;
+        this.placeAddress = null;
+    }
+
+    /** Grouping key: Default / named place id / one-time address (not snapshots). */
+    String placeOutcomeKey() {
+        if (placeId != null) {
+            return "P:" + placeId;
+        }
+        if (oneTimeAddress != null && !oneTimeAddress.isBlank()) {
+            return "A:" + oneTimeAddress;
+        }
+        return "D";
     }
 }

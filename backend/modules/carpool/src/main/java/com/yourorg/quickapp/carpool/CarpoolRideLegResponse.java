@@ -8,4 +8,10 @@ public record CarpoolRideLegResponse(
         UUID assigneeAdultId,
         String assigneeDisplayName,
         UUID assigneeCircleId,
-        String assigneeCircleName) {}
+        String assigneeCircleName,
+        /** Named place id when mode is named place; null for Default / one-time. */
+        UUID placeId,
+        /** Display name of the family-side place (snapshot or Default resolve). */
+        String placeName,
+        /** Display / one-time address of the family-side place. */
+        String placeAddress) {}

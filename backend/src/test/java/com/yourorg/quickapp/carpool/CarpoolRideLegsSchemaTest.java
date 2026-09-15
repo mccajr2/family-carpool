@@ -42,6 +42,12 @@ class CarpoolRideLegsSchemaTest {
                     .isTrue();
             assertThat(columnExists(connection, "carpool_ride_request_legs", "assignee_circle_id"))
                     .isTrue();
+            assertThat(columnExists(connection, "carpool_ride_request_legs", "place_id")).isTrue();
+            assertThat(columnExists(connection, "carpool_ride_request_legs", "one_time_address"))
+                    .isTrue();
+            assertThat(columnExists(connection, "carpool_ride_request_legs", "place_name")).isTrue();
+            assertThat(columnExists(connection, "carpool_ride_request_legs", "place_address"))
+                    .isTrue();
         }
     }
 

@@ -77,6 +77,10 @@ export function waitingOnDriverLabel(driver: string): string {
 // — Per-leg transport chips (Getting there / Coming back) —
 
 export const LEG_GETTING_THERE = "Getting there" as const
+/** Family-side place label on the TO (Getting there) leg. */
+export const PLACE_PICKING_UP_FROM = "Picking up from" as const
+/** Family-side place label on the FROM (Coming back) leg. */
+export const PLACE_DROPPING_OFF_AT = "Dropping off at" as const
 export const LEG_COMING_BACK = "Coming back" as const
 /** Leg-chip phase copy (shorter than collapsed Agenda `RIDE_NEEDED`). */
 export const LEG_NEEDS_RIDE = "Needs ride" as const
