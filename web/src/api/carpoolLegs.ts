@@ -1,4 +1,9 @@
-import type { CarpoolLegKind, CarpoolLegPhase, CarpoolRideLeg } from "@/api/types"
+import type {
+  CarpoolLegKind,
+  CarpoolLegPhase,
+  CarpoolMeetSide,
+  CarpoolRideLeg,
+} from "@/api/types"
 
 const blankAssignee = {
   assigneeAdultId: null as string | null,
@@ -8,6 +13,7 @@ const blankAssignee = {
   placeId: null as string | null,
   placeName: null as string | null,
   placeAddress: null as string | null,
+  meetSide: "REQUESTER" as CarpoolMeetSide,
 }
 
 /** One leg slot (test + mapping helpers). */

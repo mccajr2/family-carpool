@@ -165,7 +165,7 @@ Allowlist for `/implement`:
 - [x] Backend: Flyway meet-side column; entity + create/Save/list/detail;
       Accept bind for `ACCEPTOR`; pickup derivation + Route stops; detour
       skip when no requester pickup
-- [ ] Contract: OpenAPI meet side on leg + Save/create; version bump; Accept
+- [x] Contract: OpenAPI meet side on leg + Save/create; version bump; Accept
       bind / **400** docs
 - [ ] Web: `carpoolClient` / types; DriverPicker Meet where? on Ask paths;
       own-ride + inbound copy for both sides; PickupLine gate
