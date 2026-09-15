@@ -530,8 +530,6 @@ export function DriverPicker({
   const splitNeedsRequesterPlace =
     askSelectionNeedsRequesterPlace(toSelection, toMeetSide) ||
     askSelectionNeedsRequesterPlace(fromSelection, fromMeetSide)
-  const splitAsksTeam =
-    toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM"
   const splitPrimaryDisabled =
     loading ||
     actionKidIds.length === 0 ||

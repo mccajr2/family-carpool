@@ -434,8 +434,9 @@ describe("hasRequesterPickupStop", () => {
   it("is false when ride or legs are missing", () => {
     expect(hasRequesterPickupStop(null)).toBe(false)
     expect(hasRequesterPickupStop(undefined)).toBe(false)
-    expect(hasRequesterPickupStop({} as { legs: undefined })).toBe(false)
+    expect(hasRequesterPickupStop({})).toBe(false)
     expect(hasRequesterPickupStop({ legs: undefined })).toBe(false)
+    expect(hasRequesterPickupStop({ legs: null })).toBe(false)
   })
 
   it("treats omitted meetSide as requester pickup", () => {

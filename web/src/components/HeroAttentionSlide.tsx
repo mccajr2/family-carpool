@@ -376,7 +376,7 @@ export function HeroAttentionSlide({
                 {kidAlreadyGoingSuffix(kidFirstName)}
               </p>
               {hasRequesterPickupStop(
-                requestRideForSlide(rideEvent, item.request.id) ?? item.request,
+                requestRideForSlide(rideEvent, item.request.id),
               ) ? (
                 <PickupLine
                   data-testid="hero-attention-pickup-summary"

@@ -786,7 +786,7 @@ export function ridePlaceLineKind(
  * the active meet side is Driver's place (`ACCEPTOR`).
  */
 export function hasRequesterPickupStop(
-  ride: Pick<CarpoolRide, "legs"> | null | undefined,
+  ride: { legs?: readonly CarpoolRideLeg[] | null } | null | undefined,
 ): boolean {
   if (ride == null || ride.legs == null) {
     return false
