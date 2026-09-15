@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
+import com.yourorg.quickapp.carpool.CarpoolMeetSide;
 import com.yourorg.quickapp.carpool.CarpoolRidePlanLegAction;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CarpoolSpaceMembership;
@@ -1870,6 +1871,215 @@ class CarpoolRideServiceTest {
 
         assertThat(saved.ownRequests()).hasSize(2);
         assertThat(live).hasSize(2);
+    }
+
+    @Test
+    void savePlanPersistsAcceptorMeetSideWithoutRequesterPlace() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        List<CarpoolRideRequestEntity> live = new ArrayList<>();
+        stubLiveSpacePlans(live);
+        stubKidNames();
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var saved =
+                service.savePlan(
+                        adult,
+                        spaceId,
+                        singlePlanRequest(
+                                "UID:game-1",
+                                List.of(kidA),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.TO,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null,
+                                        null,
+                                        null,
+                                        CarpoolMeetSide.ACCEPTOR),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null,
+                                        null,
+                                        null,
+                                        CarpoolMeetSide.ACCEPTOR)));
+
+        assertThat(saved.ownRequest().pickupPlaceName()).isEqualTo("Driver's place");
+        assertThat(saved.ownRequest().pickupAddress()).isEmpty();
+        assertThat(saved.ownLegs().get(0).meetSide()).isEqualTo(CarpoolMeetSide.ACCEPTOR);
+        assertThat(saved.ownLegs().get(0).placeName()).isEqualTo("Driver's place");
+        assertThat(saved.ownLegs().get(0).placeAddress()).isNull();
+        assertThat(saved.ownLegs().get(1).meetSide()).isEqualTo(CarpoolMeetSide.ACCEPTOR);
+        CarpoolRideRequestEntity stored = live.getFirst();
+        assertThat(stored.leg(CarpoolLegKind.TO).meetSide()).isEqualTo(CarpoolMeetSide.ACCEPTOR);
+        assertThat(stored.leg(CarpoolLegKind.TO).placeAddress()).isNull();
+        assertThat(stored.pickupPlaceName()).isEqualTo("Driver's place");
+    }
+
+    @Test
+    void savePlanDefaultsMeetSideToRequester() {
+        stubMemberSpace();
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        stubRsvps(List.of(yes(kidA)));
+        List<CarpoolRideRequestEntity> live = new ArrayList<>();
+        stubLiveSpacePlans(live);
+        stubPickup();
+        stubKidNames();
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var saved =
+                service.savePlan(
+                        adult,
+                        spaceId,
+                        singlePlanRequest(
+                                "UID:game-1",
+                                List.of(kidA),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.TO,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null),
+                                new SaveCarpoolRidePlanLeg(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolRidePlanLegAction.ASK_TEAM,
+                                        null)));
+
+        assertThat(saved.ownLegs().get(0).meetSide()).isEqualTo(CarpoolMeetSide.REQUESTER);
+        assertThat(saved.ownLegs().get(1).meetSide()).isEqualTo(CarpoolMeetSide.REQUESTER);
+        assertThat(live.getFirst().leg(CarpoolLegKind.TO).meetSide())
+                .isEqualTo(CarpoolMeetSide.REQUESTER);
+    }
+
+    @Test
+    void acceptBindsAcceptorPlaceOntoAcceptorMeetLegs() {
+        UUID requestingEventId = UUID.fromString("01900000-0000-7000-8000-000000000062");
+        CarpoolRideRequestEntity pending = pendingOtherRide(List.of(kidA));
+        pending.leg(CarpoolLegKind.TO).setMeetSide(CarpoolMeetSide.ACCEPTOR);
+        pending.leg(CarpoolLegKind.TO).clearFamilyPlace();
+        pending.leg(CarpoolLegKind.FROM).setMeetSide(CarpoolMeetSide.ACCEPTOR);
+        pending.leg(CarpoolLegKind.FROM).clearFamilyPlace();
+        pending.updatePickup("Driver's place", "");
+        stubMemberSpace();
+        when(rides.findByIdAndSpaceId(pending.id(), spaceId)).thenReturn(Optional.of(pending));
+        stubSpaceEvent(practiceEvent(List.of(kidA)));
+        FeedResponse otherFeed =
+                new FeedResponse(
+                        feedId,
+                        "Soccer",
+                        "https://example.com/team.ics",
+                        List.of(kidA),
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        null,
+                        2);
+        when(feedsApi.findByCircleAndNormalizedUrl(otherCircleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(otherFeed));
+        when(feedCalendarApi.listEventsInRange(
+                        otherCircleId,
+                        CarpoolRideService.EVENT_LOOKUP_FROM,
+                        CarpoolRideService.EVENT_LOOKUP_TO))
+                .thenReturn(
+                        List.of(
+                                new FeedCalendarEventDto(
+                                        requestingEventId,
+                                        feedId,
+                                        "Soccer",
+                                        "game-1",
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        "Field 3",
+                                        List.of(kidA))));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(otherCircleId, circleId)))
+                .thenReturn(
+                        List.of(
+                                new FamilyCircleName(otherCircleId, "House B"),
+                                new FamilyCircleName(circleId, "House A")));
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId))
+                .thenReturn(
+                        Optional.of(
+                                new CirclePlaceDto(
+                                        UUID.randomUUID(),
+                                        circleId,
+                                        "Driver Home",
+                                        "55 Pine St",
+                                        42.2,
+                                        -71.2)));
+        when(rides.findBySpaceIdInAndEventKeyAndAcceptedByAdultIdAndStatus(
+                        List.of(spaceId), "UID:game-1", adultId, CarpoolRideStatus.ACCEPTED))
+                .thenAnswer(inv -> List.of(pending));
+
+        var accepted = service.accept(adult, spaceId, pending.id());
+
+        assertThat(accepted.status()).isEqualTo(CarpoolRideStatus.ACCEPTED);
+        assertThat(accepted.pickupPlaceName()).isEqualTo("Driver Home");
+        assertThat(accepted.pickupAddress()).isEqualTo("55 Pine St");
+        assertThat(accepted.legs().get(0).meetSide()).isEqualTo(CarpoolMeetSide.ACCEPTOR);
+        assertThat(accepted.legs().get(0).placeName()).isEqualTo("Driver Home");
+        assertThat(accepted.legs().get(0).placeAddress()).isEqualTo("55 Pine St");
+        assertThat(accepted.legs().get(1).placeAddress()).isEqualTo("55 Pine St");
+        assertThat(pending.leg(CarpoolLegKind.TO).placeAddress()).isEqualTo("55 Pine St");
+        verify(leaveByApi)
+                .upsertCalendarRoute(
+                        eq(adultId),
+                        eq(LeaveByItemSource.FEED),
+                        eq(eventId),
+                        eq("Practice"),
+                        eq(List.of()),
+                        eq("Field 3"),
+                        eq("Field 3"));
+    }
+
+    @Test
+    void accept400WhenAcceptorMeetCannotResolveAccepterPlace() {
+        CarpoolRideRequestEntity pending = pendingOtherRide(List.of(kidA));
+        pending.leg(CarpoolLegKind.TO).setMeetSide(CarpoolMeetSide.ACCEPTOR);
+        pending.leg(CarpoolLegKind.TO).clearFamilyPlace();
+        stubMemberSpace();
+        when(rides.findByIdAndSpaceId(pending.id(), spaceId)).thenReturn(Optional.of(pending));
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.accept(adult, spaceId, pending.id()))
+                .isInstanceOf(CarpoolException.class)
+                .extracting(ex -> ((CarpoolException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(rides, never()).save(any());
+        verify(leaveByApi, never())
+                .upsertCalendarRoute(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void listSkipsDetourWhenOtherRequestToMeetIsAcceptor() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        FeedCalendarEventDto event = practiceEvent(List.of(kidA));
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of(event));
+        CarpoolRideRequestEntity other = pendingOtherRide(List.of(kidA));
+        other.leg(CarpoolLegKind.TO).setMeetSide(CarpoolMeetSide.ACCEPTOR);
+        other.leg(CarpoolLegKind.TO).clearFamilyPlace();
+        other.updatePickup("Driver's place", "");
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of(other));
+        when(passes.findByRideIdIn(any())).thenReturn(List.of());
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(otherCircleId, "House B")));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, "UID:game-1", circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        stubRsvps(List.of(yes(kidA)));
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed.getFirst().otherRequests().getFirst().detourMinutes()).isNull();
+        assertThat(listed.getFirst().otherRequests().getFirst().legs().get(0).meetSide())
+                .isEqualTo(CarpoolMeetSide.ACCEPTOR);
+        verify(leaveByApi, never()).detourMinutesMany(any(), any());
     }
 
     private static SaveCarpoolRidePlanRequest singlePlanRequest(

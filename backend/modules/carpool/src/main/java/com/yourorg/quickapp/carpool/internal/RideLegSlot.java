@@ -2,6 +2,7 @@ package com.yourorg.quickapp.carpool.internal;
 
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.carpool.CarpoolLegPhase;
+import com.yourorg.quickapp.carpool.CarpoolMeetSide;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -24,6 +25,14 @@ class RideLegSlot {
 
     @Column(name = "assignee_circle_id")
     private UUID assigneeCircleId;
+
+    /**
+     * Whose place is the meet point on Ask legs. Household / NEEDS_RIDE ignore;
+     * stored as {@link CarpoolMeetSide#REQUESTER}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meet_side", nullable = false, length = 16)
+    private CarpoolMeetSide meetSide = CarpoolMeetSide.REQUESTER;
 
     /** Named circle place; mutually exclusive with {@link #oneTimeAddress}. */
     @Column(name = "place_id")
@@ -93,6 +102,10 @@ class RideLegSlot {
         return assigneeCircleId;
     }
 
+    CarpoolMeetSide meetSide() {
+        return meetSide == null ? CarpoolMeetSide.REQUESTER : meetSide;
+    }
+
     UUID placeId() {
         return placeId;
     }
@@ -123,6 +136,10 @@ class RideLegSlot {
         this.assigneeCircleId = null;
     }
 
+    void setMeetSide(CarpoolMeetSide meetSide) {
+        this.meetSide = meetSide == null ? CarpoolMeetSide.REQUESTER : meetSide;
+    }
+
     /**
      * Stores family-side place mode + write-time display snapshot. Default mode
      * keeps {@code placeId} and {@code oneTimeAddress} null.
@@ -142,14 +159,16 @@ class RideLegSlot {
         this.placeAddress = null;
     }
 
-    /** Grouping key: Default / named place id / one-time address (not snapshots). */
+    /** Grouping key: meet side + Default / named place id / one-time address. */
     String placeOutcomeKey() {
+        String placePart;
         if (placeId != null) {
-            return "P:" + placeId;
+            placePart = "P:" + placeId;
+        } else if (oneTimeAddress != null && !oneTimeAddress.isBlank()) {
+            placePart = "A:" + oneTimeAddress;
+        } else {
+            placePart = "D";
         }
-        if (oneTimeAddress != null && !oneTimeAddress.isBlank()) {
-            return "A:" + oneTimeAddress;
-        }
-        return "D";
+        return meetSide() + ":" + placePart;
     }
 }

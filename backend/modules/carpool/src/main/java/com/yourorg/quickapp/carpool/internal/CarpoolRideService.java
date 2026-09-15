@@ -4,6 +4,7 @@ import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.carpool.CarpoolLegPhase;
+import com.yourorg.quickapp.carpool.CarpoolMeetSide;
 import com.yourorg.quickapp.carpool.CarpoolRideEventResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideLegResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
@@ -60,6 +61,8 @@ public class CarpoolRideService {
     static final Instant EVENT_LOOKUP_TO = Instant.parse("2100-01-01T00:00:00Z");
     private static final Duration MAX_WINDOW = Duration.ofDays(31);
     private static final int FAMILY_PLACE_ADDRESS_MAX = 255;
+    /** Ride-level pickup label while TO meet side is ACCEPTOR and still pending. */
+    private static final String DRIVER_PLACE_DISPLAY = "Driver's place";
     private static final List<CarpoolRideStatus> ACTIVE =
             List.of(CarpoolRideStatus.PENDING, CarpoolRideStatus.ACCEPTED);
     private static final List<CarpoolRideStatus> OWN_PLAN_STATUSES =
@@ -158,6 +161,9 @@ public class CarpoolRideService {
         for (List<CarpoolRideRequestEntity> group : ridesByKey.values()) {
             for (CarpoolRideRequestEntity ride : group) {
                 if (ride.requestingCircleId().equals(circleId)) {
+                    continue;
+                }
+                if (!hasRequesterPickupStop(ride)) {
                     continue;
                 }
                 FeedCalendarEventDto event = eventsByKey.get(ride.eventKey());
@@ -959,6 +965,11 @@ public class CarpoolRideService {
                                     HttpStatus.BAD_REQUEST,
                                     "place fields must be omitted for NEEDS_RIDE");
                         }
+                        if (leg.meetSide() != null) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "meetSide must be omitted for NEEDS_RIDE");
+                        }
                         yield RideLegSlot.needsRide(leg.kind());
                     }
                     case ASK_TEAM -> {
@@ -981,13 +992,33 @@ public class CarpoolRideService {
                             throw new CarpoolException(
                                     HttpStatus.BAD_REQUEST, "assigneeAdultId must be a circle adult");
                         }
+                        if (leg.meetSide() != null) {
+                            throw new CarpoolException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "meetSide must be omitted for HOUSEHOLD");
+                        }
                         if (leg.assigneeAdultId().equals(callerAdultId)) {
                             yield RideLegSlot.householdConfirmed(leg.kind(), leg.assigneeAdultId());
                         }
                         yield RideLegSlot.waitingHousehold(leg.kind(), leg.assigneeAdultId());
                     }
                 };
-        if (leg.action() != CarpoolRidePlanLegAction.NEEDS_RIDE) {
+        if (leg.action() == CarpoolRidePlanLegAction.ASK_TEAM) {
+            CarpoolMeetSide meetSide =
+                    leg.meetSide() == null ? CarpoolMeetSide.REQUESTER : leg.meetSide();
+            slot.setMeetSide(meetSide);
+            if (meetSide == CarpoolMeetSide.ACCEPTOR) {
+                if (leg.placeId() != null || hasText(leg.placeAddress())) {
+                    throw new CarpoolException(
+                            HttpStatus.BAD_REQUEST,
+                            "place fields must be omitted when meetSide is ACCEPTOR");
+                }
+                slot.clearFamilyPlace();
+            } else {
+                applyFamilyPlaceFromRequest(slot, callerAdultId, leg.placeId(), leg.placeAddress());
+            }
+        } else if (leg.action() != CarpoolRidePlanLegAction.NEEDS_RIDE) {
+            slot.setMeetSide(CarpoolMeetSide.REQUESTER);
             applyFamilyPlaceFromRequest(slot, callerAdultId, leg.placeId(), leg.placeAddress());
         }
         return slot;
@@ -1022,7 +1053,9 @@ public class CarpoolRideService {
         if (ride.status() != CarpoolRideStatus.PENDING) {
             throw new CarpoolException(HttpStatus.CONFLICT, "Ride is not PENDING");
         }
+        bindAcceptorPlacesOnAccept(ride, adult.id());
         ride.accept(adult.id(), circleId);
+        syncRidePickupFromToLeg(ride);
         rides.save(ride);
         passes.deleteByRideId(ride.id());
         ensureRequestingKidsYes(ride, adult.id());
@@ -1258,13 +1291,19 @@ public class CarpoolRideService {
             if (ride.acceptedByAdultId() == null) {
                 continue;
             }
+            String pickupName = null;
+            String pickupAddress = null;
+            if (hasRequesterPickupStop(ride)) {
+                pickupName = familySidePlaceName(ride, CarpoolLegKind.TO);
+                pickupAddress = familySidePlaceAddress(ride, CarpoolLegKind.TO);
+            }
             out.add(
                     new CarpoolAcceptedPickupDto(
                             ride.acceptedByAdultId(),
                             ride.acceptingCircleId(),
                             ride.requestingCircleId(),
-                            familySidePlaceName(ride, CarpoolLegKind.TO),
-                            familySidePlaceAddress(ride, CarpoolLegKind.TO),
+                            pickupName,
+                            pickupAddress,
                             ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
         }
         return List.copyOf(out);
@@ -1285,7 +1324,7 @@ public class CarpoolRideService {
         }
         List<CalendarRoutePickupInput> pickups =
                 pickupsForDriver(ride.acceptedByAdultId(), spaceId, ride.eventKey());
-        if (pickups.isEmpty()) {
+        if (pickups.isEmpty() && hasRequesterPickupStop(ride)) {
             pickups = List.of(toPickupInput(ride));
         }
         leaveByApi.upsertCalendarRoute(
@@ -1339,14 +1378,19 @@ public class CarpoolRideService {
         if (accepted.isEmpty()) {
             return List.of();
         }
+        List<CarpoolRideRequestEntity> withRequesterPickup =
+                accepted.stream().filter(CarpoolRideService::hasRequesterPickupStop).toList();
+        if (withRequesterPickup.isEmpty()) {
+            return List.of();
+        }
         Map<UUID, String> names =
                 circleNames(
-                        accepted.stream()
+                        withRequesterPickup.stream()
                                 .map(CarpoolRideRequestEntity::requestingCircleId)
                                 .distinct()
                                 .toList());
         List<CalendarRoutePickupInput> pickups = new ArrayList<>();
-        for (CarpoolRideRequestEntity ride : accepted) {
+        for (CarpoolRideRequestEntity ride : withRequesterPickup) {
             String placeName = familySidePlaceName(ride, CarpoolLegKind.TO);
             String placeAddress = familySidePlaceAddress(ride, CarpoolLegKind.TO);
             String to = names.get(ride.requestingCircleId());
@@ -1552,7 +1596,8 @@ public class CarpoolRideService {
                                     : circleNames.get(leg.assigneeCircleId()),
                             place.placeId(),
                             place.placeName(),
-                            place.placeAddress()));
+                            place.placeAddress(),
+                            leg.meetSide()));
         }
         return List.copyOf(out);
     }
@@ -1568,7 +1613,8 @@ public class CarpoolRideService {
                         null,
                         null,
                         null,
-                        null),
+                        null,
+                        CarpoolMeetSide.REQUESTER),
                 new CarpoolRideLegResponse(
                         CarpoolLegKind.FROM,
                         CarpoolLegPhase.NEEDS_RIDE,
@@ -1578,7 +1624,8 @@ public class CarpoolRideService {
                         null,
                         null,
                         null,
-                        null));
+                        null,
+                        CarpoolMeetSide.REQUESTER));
     }
 
     private Map<UUID, String> assigneeDisplayNames(CarpoolRideRequestEntity ride) {
@@ -1739,6 +1786,9 @@ public class CarpoolRideService {
             }
             return null;
         }
+        if (toLeg.meetSide() == CarpoolMeetSide.ACCEPTOR) {
+            return new ResolvedFamilyPlace(null, null, DRIVER_PLACE_DISPLAY, "");
+        }
         String address = toLeg.placeAddress();
         if (!hasText(address)) {
             if (requireAddress) {
@@ -1866,11 +1916,20 @@ public class CarpoolRideService {
 
     /**
      * Display view for a leg. Default rows without snapshots re-resolve via the
-     * requester's membership default / first located place.
+     * requester's membership default / first located place. ACCEPTOR legs pending
+     * Accept show Driver's place without a street address.
      */
     private FamilyPlaceView familyPlaceView(CarpoolRideRequestEntity ride, RideLegSlot leg) {
         if (leg == null) {
             return new FamilyPlaceView(null, null, null);
+        }
+        if (leg.meetSide() == CarpoolMeetSide.ACCEPTOR
+                && leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                && leg.placeId() == null
+                && !hasText(leg.oneTimeAddress())
+                && !hasText(leg.placeAddress())
+                && !hasText(leg.placeName())) {
+            return new FamilyPlaceView(null, DRIVER_PLACE_DISPLAY, null);
         }
         if (leg.placeId() != null || hasText(leg.oneTimeAddress())) {
             String name = leg.placeName();
@@ -1887,7 +1946,8 @@ public class CarpoolRideService {
         if (hasText(leg.placeAddress()) || hasText(leg.placeName())) {
             return new FamilyPlaceView(null, leg.placeName(), leg.placeAddress());
         }
-        if (leg.phase() == CarpoolLegPhase.NEEDS_RIDE) {
+        if (leg.phase() == CarpoolLegPhase.NEEDS_RIDE
+                || leg.meetSide() == CarpoolMeetSide.ACCEPTOR) {
             return new FamilyPlaceView(null, null, null);
         }
         Optional<CirclePlaceDto> resolved =
@@ -1897,6 +1957,62 @@ public class CarpoolRideService {
         }
         CirclePlaceDto place = resolved.get();
         return new FamilyPlaceView(null, place.name(), place.address());
+    }
+
+    /**
+     * On Accept, bind accepter leave-from onto each still-open ASKED_TEAM leg with
+     * meet side ACCEPTOR. Fails with 400 when that place cannot resolve.
+     */
+    private void bindAcceptorPlacesOnAccept(CarpoolRideRequestEntity ride, UUID accepterAdultId) {
+        boolean needsBind = false;
+        for (RideLegSlot leg : ride.legs()) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                    && leg.meetSide() == CarpoolMeetSide.ACCEPTOR) {
+                needsBind = true;
+                break;
+            }
+        }
+        if (!needsBind) {
+            return;
+        }
+        ResolvedFamilyPlace accepterPlace = resolveFamilyPlace(accepterAdultId, null, null);
+        if (accepterPlace == null || !hasText(accepterPlace.displayAddress())) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST,
+                    "No leave-from place; add a home address in Places");
+        }
+        for (RideLegSlot leg : ride.legs()) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM
+                    && leg.meetSide() == CarpoolMeetSide.ACCEPTOR) {
+                applyDefaultFamilyPlace(leg, accepterPlace);
+            }
+        }
+    }
+
+    /** Refresh ride-level pickup fields from the TO family-side place. */
+    private void syncRidePickupFromToLeg(CarpoolRideRequestEntity ride) {
+        RideLegSlot toLeg = ride.leg(CarpoolLegKind.TO);
+        if (toLeg.meetSide() == CarpoolMeetSide.ACCEPTOR
+                && toLeg.phase() == CarpoolLegPhase.ASKED_TEAM
+                && !hasText(toLeg.placeAddress())) {
+            ride.updatePickup(DRIVER_PLACE_DISPLAY, "");
+            return;
+        }
+        FamilyPlaceView view = familyPlaceView(ride, toLeg);
+        if (hasText(view.placeAddress())) {
+            String name =
+                    hasText(view.placeName()) ? view.placeName() : view.placeAddress();
+            ride.updatePickup(name, view.placeAddress());
+        } else if (toLeg.meetSide() == CarpoolMeetSide.ACCEPTOR) {
+            ride.updatePickup(DRIVER_PLACE_DISPLAY, "");
+        }
+    }
+
+    /** TO meet at requester place — inbound detour / Route pickup stop. */
+    private static boolean hasRequesterPickupStop(CarpoolRideRequestEntity ride) {
+        RideLegSlot toLeg = ride.leg(CarpoolLegKind.TO);
+        return toLeg.meetSide() == CarpoolMeetSide.REQUESTER
+                && toLeg.phase() != CarpoolLegPhase.NEEDS_RIDE;
     }
 
     private static boolean hasText(String value) {

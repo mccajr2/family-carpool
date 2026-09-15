@@ -14,4 +14,9 @@ public record CarpoolRideLegResponse(
         /** Display name of the family-side place (snapshot or Default resolve). */
         String placeName,
         /** Display / one-time address of the family-side place. */
-        String placeAddress) {}
+        String placeAddress,
+        /**
+         * Whose place is the meet point. Meaningful on Ask / confirmed team legs;
+         * {@link CarpoolMeetSide#REQUESTER} for household / NEEDS_RIDE.
+         */
+        CarpoolMeetSide meetSide) {}

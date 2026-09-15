@@ -1389,6 +1389,9 @@ public class CalendarService {
             if (!drivingAdultId.equals(pickup.acceptedByAdultId())) {
                 continue;
             }
+            if (pickup.pickupAddress() == null || pickup.pickupAddress().isBlank()) {
+                continue;
+            }
             String to = names.get(pickup.requestingCircleId());
             if (to == null || to.isBlank()) {
                 to = pickup.pickupPlaceName();

@@ -162,7 +162,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Backend: Flyway meet-side column; entity + create/Save/list/detail;
+- [x] Backend: Flyway meet-side column; entity + create/Save/list/detail;
       Accept bind for `ACCEPTOR`; pickup derivation + Route stops; detour
       skip when no requester pickup
 - [ ] Contract: OpenAPI meet side on leg + Save/create; version bump; Accept
