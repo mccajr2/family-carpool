@@ -788,18 +788,19 @@ export function ridePlaceLineKind(
 export function hasRequesterPickupStop(
   ride: Pick<CarpoolRide, "legs"> | null | undefined,
 ): boolean {
-  if (ride == null) {
+  if (ride == null || ride.legs == null) {
     return false
   }
   const to = ride.legs.find((leg) => leg.kind === "TO")
   if (to != null && to.phase !== "NEEDS_RIDE") {
-    return to.meetSide === "REQUESTER"
+    // Default REQUESTER when meetSide omitted (older payloads / mocks).
+    return to.meetSide !== "ACCEPTOR"
   }
   const from = ride.legs.find((leg) => leg.kind === "FROM")
   return (
     from != null &&
     from.phase !== "NEEDS_RIDE" &&
-    from.meetSide === "REQUESTER"
+    from.meetSide !== "ACCEPTOR"
   )
 }
 

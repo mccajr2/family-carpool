@@ -430,4 +430,21 @@ describe("hasRequesterPickupStop", () => {
       }),
     ).toBe(true)
   })
+
+  it("is false when ride or legs are missing", () => {
+    expect(hasRequesterPickupStop(null)).toBe(false)
+    expect(hasRequesterPickupStop(undefined)).toBe(false)
+    expect(hasRequesterPickupStop({} as { legs: undefined })).toBe(false)
+    expect(hasRequesterPickupStop({ legs: undefined })).toBe(false)
+  })
+
+  it("treats omitted meetSide as requester pickup", () => {
+    const to = { ...carpoolLeg("TO", "ASKED_TEAM") }
+    delete (to as { meetSide?: string }).meetSide
+    expect(
+      hasRequesterPickupStop({
+        legs: [to, carpoolLeg("FROM", "ASKED_TEAM")],
+      }),
+    ).toBe(true)
+  })
 })
