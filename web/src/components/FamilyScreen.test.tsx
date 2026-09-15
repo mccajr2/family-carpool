@@ -2117,26 +2117,10 @@ describe("FamilyScreen", () => {
         otherRequests: [],
       },
     ])
-    const createRide = vi.fn().mockResolvedValue({
-      id: "ride-1",
-      spaceId: "s1",
-      eventKey: "UID:practice-1",
-      requestingCircleId: "c1",
-      requestingCircleName: "House",
-      requestedByAdultId: "1",
-      kidIds: ["k1"],
-      kidFirstNames: ["Sam"],
-      seats: 1,
-      pickupPlaceName: "Home",
-      pickupAddress: "1 Main",
-pickupTown: null,
-detourMinutes: null,
-      status: "PENDING",
-      passedByMe: false,
-      passedByAdultNames: [],
-      acceptedByAdultId: null,
-      acceptingCircleId: null,
-      acceptingCircleName: null,
+    const saveRidePlan = vi.fn().mockResolvedValue({
+      ownRequests: [],
+      ownRequest: null,
+      ownLegs: null,
     })
     const getSummary = vi.fn().mockResolvedValue({
       circleRole: "ORGANIZER",
@@ -2196,7 +2180,7 @@ detourMinutes: null,
           listFeeds: vi.fn().mockResolvedValue([]),
           listCalendar: vi.fn().mockResolvedValue([feedItem]),
         })}
-        carpoolClient={mockCarpoolClient({ getSummary, listRides, createRide })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, saveRidePlan })}
         onSignedOut={vi.fn()}
       />,
     )
@@ -2219,9 +2203,17 @@ detourMinutes: null,
     await user.click(within(focus).getByRole("button", { name: "Post to team — round trip" }))
 
     await waitFor(() => {
-      expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+      expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
         eventKey: "UID:practice-1",
-        kidIds: ["k1"],
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "ASK_TEAM" },
+              { kind: "FROM", action: "ASK_TEAM" },
+            ],
+          },
+        ],
       })
     })
   })
@@ -3974,6 +3966,166 @@ detourMinutes: null,
     await waitFor(() => {
       expect(setCoverageLeaveFrom).toHaveBeenCalledWith("tok", "cov-twins", {
         leaveFromPlaceId: "p1",
+      })
+    })
+  })
+
+  it("saves diverging per-leg places from the hero split editor", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+    const practice = calendarItem({
+      id: "e-leg-places",
+      source: "FEED",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      feedId: "f1",
+      feedName: "Soccer",
+      eventKey: "UID:leg-places",
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const saveRidePlan = vi.fn().mockResolvedValue({
+      ownRequests: [],
+      ownRequest: null,
+      ownLegs: null,
+    })
+    const getSummary = vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [
+        {
+          feedId: "f1",
+          spaceId: "s1",
+          status: "OWNER",
+          spaceName: "Soccer",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "Soccer",
+          membership: "OWNER",
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [{ circleId: "c1", circleName: "House", membership: "OWNER" }],
+          pendingRequests: [],
+        },
+      ],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "UID:leg-places",
+        title: "Practice",
+        startsAt: "2030-08-15T17:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownLegs: null,
+        ownRequest: null,
+        ownRequests: [],
+        otherRequests: [],
+      },
+    ])
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "partner@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+                {
+                  id: "p-grandma",
+                  name: "Grandma",
+                  address: "9 Elm",
+                  latitude: 40.1,
+                  longitude: -74.1,
+                },
+              ],
+              defaultLeaveFromPlaceId: "p1",
+              defaultLeaveFromPlaceName: "Home",
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([practice]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, saveRidePlan })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const carousel = heroCarouselIn(agenda)
+    await waitFor(() => {
+      expect(within(carousel).getByTestId("driver-picker")).toBeInTheDocument()
+    })
+    await waitFor(() => expect(getSummary).toHaveBeenCalled())
+
+    await user.click(within(carousel).getByTestId("driver-picker-different-plans"))
+    expect(within(carousel).getByTestId("driver-picker")).toHaveAttribute("data-mode", "split")
+    expect(within(carousel).getByTestId("driver-picker-to-label")).toHaveTextContent(
+      "Picking up from",
+    )
+    expect(within(carousel).getByTestId("driver-picker-from-label")).toHaveTextContent(
+      "Dropping off at",
+    )
+
+    await user.selectOptions(
+      within(carousel).getByTestId("driver-picker-to-place-select"),
+      "p-grandma",
+    )
+    await user.click(within(carousel).getByRole("button", { name: "Save ride plan" }))
+
+    await waitFor(() => {
+      expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "UID:leg-places",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              {
+                kind: "TO",
+                action: "HOUSEHOLD",
+                assigneeAdultId: "1",
+                placeId: "p-grandma",
+              },
+              {
+                kind: "FROM",
+                action: "HOUSEHOLD",
+                assigneeAdultId: "1",
+              },
+            ],
+          },
+        ],
       })
     })
   })
@@ -9048,7 +9200,11 @@ detourMinutes: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
       }
-      const createRide = vi.fn().mockResolvedValue(ownPending)
+      const saveRidePlan = vi.fn().mockResolvedValue({
+        ownRequests: [ownPending],
+        ownRequest: ownPending,
+        ownLegs: null,
+      })
       const listRides = vi
         .fn()
         .mockResolvedValueOnce([
@@ -9100,7 +9256,7 @@ detourMinutes: null,
           carpoolClient={mockCarpoolClient({
             getSummary: vi.fn().mockResolvedValue(carpoolSummary),
             listRides,
-            createRide,
+            saveRidePlan,
           })}
           onSignedOut={vi.fn()}
         />,
@@ -9114,9 +9270,17 @@ detourMinutes: null,
       await user.click(within(slide).getByRole("button", { name: "Ask the team" }))
       await user.click(within(slide).getByRole("button", { name: "Post to team — round trip" }))
       await waitFor(() => {
-        expect(createRide).toHaveBeenCalledWith("tok", "s1", {
+        expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
           eventKey: "UID:ask-decline",
-          kidIds: ["k1"],
+          plans: [
+            {
+              kidIds: ["k1"],
+              legs: [
+                { kind: "TO", action: "ASK_TEAM" },
+                { kind: "FROM", action: "ASK_TEAM" },
+              ],
+            },
+          ],
         })
       })
 

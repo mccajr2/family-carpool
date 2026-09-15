@@ -17,6 +17,7 @@ import {
   DriverPicker,
   householdDriverChipLabel,
 } from "@/components/DriverPicker"
+import { LEAVE_FROM_ONE_TIME_VALUE } from "@/components/leaveFromDisplay"
 
 const members: FamilyMember[] = [
   {
@@ -608,6 +609,61 @@ describe("DriverPicker", () => {
           from: { action: "ASK_TEAM" },
           toPlace: emptyPlace,
           fromPlace: emptyPlace,
+        },
+      },
+      {
+        kidId: "k2",
+        legs: {
+          to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          toPlace: emptyPlace,
+          fromPlace: emptyPlace,
+        },
+      },
+    ])
+  })
+
+  it("saves diverging per-leg places inside kid-split nested leg editor", async () => {
+    const user = userEvent.setup()
+    const onSaveKidPlans = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={onSaveKidPlans}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Mia" },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    await user.click(screen.getByTestId("driver-picker-kid-k1-different-plans-leg"))
+    await user.selectOptions(
+      screen.getByTestId("driver-picker-kid-k1-to-place-select"),
+      "p-grandma",
+    )
+    await user.selectOptions(
+      screen.getByTestId("driver-picker-kid-k1-from-place-select"),
+      LEAVE_FROM_ONE_TIME_VALUE,
+    )
+    await user.type(
+      screen.getByTestId("driver-picker-kid-k1-from-one-time-input"),
+      "12 Oak St",
+    )
+    await user.tab()
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+
+    expect(onSaveKidPlans).toHaveBeenCalledWith([
+      {
+        kidId: "k1",
+        legs: {
+          to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+          toPlace: { placeId: "p-grandma", placeAddress: null },
+          fromPlace: { placeId: null, placeAddress: "12 Oak St" },
         },
       },
       {

@@ -1,11 +1,11 @@
 # Spec: carpool-leg-places
 
-Status: draft  
-Parent: [docs/roadmap.md](../../roadmap.md)  
-Created: 2026-08-14  
-Added: 2026-09-14 · re-rank split  
-Branch: `carpool-leg-places`  
-Updated: 2026-09-14 · docs: per-leg places in web contract + architecture Rides
+Status: archived
+Parent: [docs/roadmap.md](../../roadmap.md)
+Created: 2026-08-14
+Added: 2026-09-14 · re-rank split
+Branch: `carpool-leg-places`
+Updated: 2026-09-14 (`/pr` — archive after ship)
 
 ## Problem
 
@@ -146,29 +146,29 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] Save ride plan (space-scoped and circle-local) persists independent
+- [x] Save ride plan (space-scoped and circle-local) persists independent
       family-side places on TO and FROM; re-GET list/detail returns them on
       legs.
-- [ ] Simple round-trip Confirm / Post / Save with one Leave from writes the
+- [x] Simple round-trip Confirm / Post / Save with one Leave from writes the
       **same** resolved place to both TO pickup and FROM drop-off.
-- [ ] Shared leg-split editor shows **Picking up from** (TO) and **Dropping
+- [x] Shared leg-split editor shows **Picking up from** (TO) and **Dropping
       off at** (FROM) independently when those legs need a place; Save keeps
       them distinct across a reload.
-- [ ] Kid-split editor no longer uses one shared Leave from for all kids;
+- [x] Kid-split editor no longer uses one shared Leave from for all kids;
       per-kid / per-leg places save correctly; kids group only when driver
       outcomes **and** places match.
-- [ ] Ride-level `pickupPlaceName` / `pickupAddress` equal the resolved TO
+- [x] Ride-level `pickupPlaceName` / `pickupAddress` equal the resolved TO
       place after Save / create ask; Ask with no resolvable TO pickup
       (Default with neither membership default nor first-located place)
       still returns **400**.
-- [ ] Existing plans without leg place columns serve as Default
+- [x] Existing plans without leg place columns serve as Default
       (**My default leave-from** first, then first-located-by-name fallback)
       without migration failure.
-- [ ] OpenAPI documents the new leg place fields + Save body; web API
+- [x] OpenAPI documents the new leg place fields + Save body; web API
       clients updated in the same change; KMP `sharedLogic` untouched.
 - [x] Agenda coverage web contract + architecture Team carpool Rides / Out
       of scope updated (per-leg places in; meet-at still out).
-- [ ] Unit + integration tests cover Save/read of diverging TO/FROM places
+- [x] Unit + integration tests cover Save/read of diverging TO/FROM places
       and the shared-simple → both-legs write; web component tests cover
       split / kid-split place controls (would fail if places were ignored).
 
@@ -185,7 +185,7 @@ Allowlist for `/implement`:
       places
 - [x] Docs: `agenda-coverage-web-contract.md` place bullets;
       `architecture.md` Rides / Out of scope
-- [ ] Tests: `CarpoolRideServiceTest` + controller integration (diverging
+- [x] Tests: `CarpoolRideServiceTest` + controller integration (diverging
       places, simple both-legs, Ask missing pickup); DriverPicker /
       FamilyScreen (or Agenda) component tests for split + kid-split places
 

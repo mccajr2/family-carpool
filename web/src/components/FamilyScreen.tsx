@@ -2169,12 +2169,22 @@ export function FamilyScreen({
       eventKey.length > 0 &&
       (spaceId != null || rideEvent != null)
     if (canSavePlan && eventKey != null) {
+      const draft = leaveFromDrafts[calendarItemKey(item)]
+      const place =
+        draft != null
+          ? {
+              placeId: draft.leaveFromPlaceId ?? null,
+              placeAddress: draft.leaveFromAddress?.trim() || null,
+            }
+          : { placeId: null, placeAddress: null }
       const saved = await onSaveAgendaRidePlan(
         item,
         eventKey,
         {
           to: { action: "HOUSEHOLD", assigneeAdultId: coveringAdultId },
           from: { action: "HOUSEHOLD", assigneeAdultId: coveringAdultId },
+          toPlace: place,
+          fromPlace: place,
         },
         going,
       )
@@ -4235,19 +4245,19 @@ function toSavePlanLeg(
   if (choice.action === "NEEDS_RIDE") {
     return { kind, action: "NEEDS_RIDE" }
   }
-  if (choice.action === "HOUSEHOLD") {
-    return {
-      kind,
-      action: "HOUSEHOLD",
-      assigneeAdultId: choice.assigneeAdultId,
-      placeId: place.placeId,
-      placeAddress: place.placeAddress,
-    }
+  const entry: SaveCarpoolRidePlanLeg =
+    choice.action === "HOUSEHOLD"
+      ? {
+          kind,
+          action: "HOUSEHOLD",
+          assigneeAdultId: choice.assigneeAdultId,
+        }
+      : { kind, action: choice.action }
+  if (place.placeId != null) {
+    entry.placeId = place.placeId
   }
-  return {
-    kind,
-    action: choice.action,
-    placeId: place.placeId,
-    placeAddress: place.placeAddress,
+  if (place.placeAddress != null && place.placeAddress.trim() !== "") {
+    entry.placeAddress = place.placeAddress
   }
+  return entry
 }

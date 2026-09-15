@@ -9,7 +9,7 @@ DriverPicker default chrome via [`carpool-ride-coverage-card`](specs/archive/car
 kid-split editor + per-kid gaps/chips via
 [`carpool-kid-split-plans`](specs/archive/carpool-kid-split-plans.md) — Done;
 per-leg family-side places via
-[`carpool-leg-places`](specs/active/carpool-leg-places.md) — in progress)  
+[`carpool-leg-places`](specs/archive/carpool-leg-places.md) — Done)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 

@@ -24,7 +24,7 @@ Ask the team stays undifferentiated (plain post).
 ## Non-goals (sketch)
 
 - True per-leg place persistence / editors — Done target
-  [`carpool-leg-places`](../active/carpool-leg-places.md) (prerequisite)
+  [`carpool-leg-places`](../archive/carpool-leg-places.md) (prerequisite)
 - Per-leg drivers / split / kid-split chrome — already shipped
 - Early/late windows (`carpool-early-late-window`)
 - Stop-order optimize (`carpool-route-optimize`)
@@ -36,7 +36,7 @@ Ask the team stays undifferentiated (plain post).
 - **Owns** the Ask-the-team meet-at sub-flow only: plain pickup-at-home vs
   requester-specified radius drop-off + match-time distance vs candidate
   drivers’ homes.
-- Depends on [`carpool-leg-places`](../active/carpool-leg-places.md) so TO/FROM
+- Depends on [`carpool-leg-places`](../archive/carpool-leg-places.md) so TO/FROM
   already carry family-side places (named place / one-time / default).
 - Pickup/drop-off **places** stay circle named places — do not invent a second
   address model.

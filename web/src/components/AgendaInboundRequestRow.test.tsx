@@ -12,7 +12,7 @@ import {
   REVERT_INBOUND_RECONSIDER,
   REVERT_INBOUND_UNDO,
 } from "@/components/revertRideCopy"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 
 const pendingAsk: CarpoolRide = {
@@ -92,24 +92,7 @@ describe("AgendaInboundRequestRow", () => {
       <AgendaInboundRequestRow
         request={{
           ...pendingAsk,
-          legs: [
-            {
-              kind: "TO",
-              phase: "ASKED_TEAM",
-              assigneeAdultId: null,
-              assigneeDisplayName: null,
-              assigneeCircleId: null,
-              assigneeCircleName: null,
-            },
-            {
-              kind: "FROM",
-              phase: "NEEDS_RIDE",
-              assigneeAdultId: null,
-              assigneeDisplayName: null,
-              assigneeCircleId: null,
-              assigneeCircleName: null,
-            },
-          ],
+          legs: [carpoolLeg("TO", "ASKED_TEAM"), carpoolLeg("FROM", "NEEDS_RIDE")],
         }}
         circleId="c1"
         onAcceptRide={vi.fn()}
@@ -192,22 +175,13 @@ describe("AgendaInboundRequestRow", () => {
           ...acceptedByUs,
           pickupTown: "Huron Ave",
           legs: [
-            {
-              kind: "TO",
-              phase: "NEEDS_RIDE",
-              assigneeAdultId: null,
-              assigneeDisplayName: null,
-              assigneeCircleId: null,
-              assigneeCircleName: null,
-            },
-            {
-              kind: "FROM",
-              phase: "CONFIRMED",
+            carpoolLeg("TO", "NEEDS_RIDE"),
+            carpoolLeg("FROM", "CONFIRMED", {
               assigneeAdultId: "a1",
               assigneeDisplayName: "Alex",
               assigneeCircleId: "c1",
               assigneeCircleName: "Ours",
-            },
+            }),
           ],
         }}
         circleId="c1"
@@ -228,22 +202,16 @@ describe("AgendaInboundRequestRow", () => {
         request={{
           ...acceptedByUs,
           legs: [
-            {
-              kind: "TO",
-              phase: "CONFIRMED",
+            carpoolLeg("TO", "CONFIRMED", {
               assigneeAdultId: "a-jason",
               assigneeDisplayName: "Jason",
-              assigneeCircleId: null,
-              assigneeCircleName: null,
-            },
-            {
-              kind: "FROM",
-              phase: "CONFIRMED",
+            }),
+            carpoolLeg("FROM", "CONFIRMED", {
               assigneeAdultId: "a1",
               assigneeDisplayName: "Alex",
               assigneeCircleId: "c1",
               assigneeCircleName: "Ours",
-            },
+            }),
           ],
         }}
         circleId="c1"

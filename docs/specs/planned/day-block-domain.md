@@ -31,7 +31,7 @@ per-leg / coverage data. This slice owns the domain + API only; no UI yet.
 
 ## Notes
 
-- Depends on true per-leg places from [`carpool-leg-places`](../active/carpool-leg-places.md)
+- Depends on true per-leg places from [`carpool-leg-places`](../archive/carpool-leg-places.md)
   — more valuable once legs aren't stuck at requester house.
 - After [`carpool-route-optimize`](carpool-route-optimize.md) so
   optimize ships for today's single-event Route without a redo; block-wide

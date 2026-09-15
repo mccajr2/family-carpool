@@ -990,6 +990,160 @@ class CarpoolRideControllerIntegrationTest {
     }
 
     @Test
+    void saveRidePlanPersistsDivergingLegPlacesAndBothLegsDefault() throws Exception {
+        String orgA = signIn("carpool-leg-places-org-a@example.com");
+        String orgB = signIn("carpool-leg-places-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Leg Places House A");
+        createCircle(orgB, "Sam", "Leg Places House B");
+
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(orgA, "Soccer", "https://example.com/carpool-leg-places.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-leg-places.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(orgA, "Practice");
+        setRsvpYes(orgA, practiceA, kidA);
+        String grandmaId = addPlace(orgA, "Grandma", "9 Elm St");
+        String homeId = addPlace(orgA, "Home A", "12 Oak St");
+        mockMvc.perform(
+                        patch("/api/family/circle/default-leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"placeId\":\"" + homeId + "\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + EVENT_KEY
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
+                                                + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\",\"placeId\":\""
+                                                + grandmaId
+                                                + "\"},"
+                                                + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\",\"placeAddress\":\"12 Oak St\"}"
+                                                + "]}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequests.length()").value(1))
+                .andExpect(jsonPath("$.ownRequest.pickupPlaceName").value("Grandma"))
+                .andExpect(jsonPath("$.ownRequest.pickupAddress").value("9 Elm St"))
+                .andExpect(jsonPath("$.ownLegs[0].placeId").value(grandmaId))
+                .andExpect(jsonPath("$.ownLegs[0].placeName").value("Grandma"))
+                .andExpect(jsonPath("$.ownLegs[0].placeAddress").value("9 Elm St"))
+                .andExpect(jsonPath("$.ownLegs[1].placeId").value((Object) null))
+                .andExpect(jsonPath("$.ownLegs[1].placeAddress").value("12 Oak St"));
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownRequest.pickupPlaceName")
+                                .value("Grandma"))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[0].placeId")
+                                .value(grandmaId))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.eventKey=='"
+                                                + EVENT_KEY
+                                                + "')].ownLegs[1].placeAddress")
+                                .value("12 Oak St"));
+
+        // Simple both-legs Default: omit place fields → same resolved Home A on TO/FROM.
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + EVENT_KEY
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
+                                                + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\"},"
+                                                + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\"}"
+                                                + "]}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownRequest.pickupPlaceName").value("Home A"))
+                .andExpect(jsonPath("$.ownRequest.pickupAddress").value("12 Oak St"))
+                .andExpect(jsonPath("$.ownLegs[0].placeId").value((Object) null))
+                .andExpect(jsonPath("$.ownLegs[0].placeName").value("Home A"))
+                .andExpect(jsonPath("$.ownLegs[0].placeAddress").value("12 Oak St"))
+                .andExpect(jsonPath("$.ownLegs[1].placeId").value((Object) null))
+                .andExpect(jsonPath("$.ownLegs[1].placeName").value("Home A"))
+                .andExpect(jsonPath("$.ownLegs[1].placeAddress").value("12 Oak St"));
+    }
+
+    @Test
+    void saveRidePlanAsk400WhenNoResolvableToPickup() throws Exception {
+        String orgA = signIn("carpool-leg-places-no-pickup@example.com");
+        createCircle(orgA, "Alex", "No Pickup House");
+        String kidA = addKid(orgA, "Sam");
+        String feedA =
+                createFeed(
+                        orgA, "Soccer", "https://example.com/carpool-leg-places-no-pickup.ics", kidA);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String practiceA = feedEventId(orgA, "Practice");
+        setRsvpYes(orgA, practiceA, kidA);
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/ride-plans")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + EVENT_KEY
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
+                                                + "{\"kind\":\"TO\",\"action\":\"ASK_TEAM\"},"
+                                                + "{\"kind\":\"FROM\",\"action\":\"ASK_TEAM\"}"
+                                                + "]}]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void circleLocalRidePlansSaveAndList() throws Exception {
         String orgA = signIn("carpool-circle-plan-org@example.com");
         createCircle(orgA, "Alex", "House A");
@@ -1286,18 +1440,23 @@ class CarpoolRideControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private void addPlace(String token, String name, String address) throws Exception {
-        mockMvc.perform(
-                        post("/api/family/circle/places")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"name\":\""
-                                                + name
-                                                + "\",\"address\":\""
-                                                + address
-                                                + "\"}"))
-                .andExpect(status().isCreated());
+    private String addPlace(String token, String name, String address) throws Exception {
+        return JsonPath.read(
+                mockMvc.perform(
+                                post("/api/family/circle/places")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"name\":\""
+                                                        + name
+                                                        + "\",\"address\":\""
+                                                        + address
+                                                        + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                "$.id");
     }
 
     private String signIn(String email) throws Exception {
