@@ -1,0 +1,3 @@
+# False positive: prose "API, Agenda/Focus" matched generic-api-key (Agenda/Focus is not a secret).
+# Reworded in 8ba0431; fingerprint keeps the historical commit from failing PR scan.
+5077e7ecda76abe3db4050fda0207a2d189f74e7:docs/specs/planned/day-block-agenda.md:generic-api-key:16
