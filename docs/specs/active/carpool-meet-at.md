@@ -147,13 +147,13 @@ Allowlist for `/implement`:
       shows the bound driver place as where to bring kids.
 - [ ] After Accept with FROM `REQUESTER`, drop-off stays at requester place;
       with FROM `ACCEPTOR`, FROM family-side stop is the bound accepter place.
-- [ ] Inbound PickupLine / detour run only when there is a requester pickup
+- [x] Inbound PickupLine / detour run only when there is a requester pickup
       (TO `REQUESTER`); driver’s-place asks do not show a fake pickup detour.
-- [ ] Web DriverPicker (simple + split + kid-split Ask legs): **Our place** /
+- [x] Web DriverPicker (simple + split + kid-split Ask legs): **Our place** /
       **Driver’s place**; place picker only for Our place; defaults Our place.
-- [ ] OpenAPI documents meet side + Accept bind; web clients updated same
+- [x] OpenAPI documents meet side + Accept bind; web clients updated same
       change; KMP untouched.
-- [ ] Agenda coverage web contract + architecture Rides / Out of scope
+- [x] Agenda coverage web contract + architecture Rides / Out of scope
       updated (meet side in; radius match still out).
 - [ ] Unit + integration tests cover Save/read meet side, Accept bind,
       Accept **400** without accepter place, and no requester pickup stop for
@@ -169,7 +169,7 @@ Allowlist for `/implement`:
       bind / **400** docs
 - [x] Web: `carpoolClient` / types; DriverPicker Meet where? on Ask paths;
       own-ride + inbound copy for both sides; PickupLine gate
-- [ ] Docs: `agenda-coverage-web-contract.md`; `architecture.md` Rides /
+- [x] Docs: `agenda-coverage-web-contract.md`; `architecture.md` Rides /
       Out of scope
 - [ ] Tests: `CarpoolRideServiceTest` + controller integration (meet side,
       Accept bind, **400**); DriverPicker / FamilyScreen (or Agenda)

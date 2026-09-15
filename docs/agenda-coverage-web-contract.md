@@ -323,7 +323,11 @@ Origin modes (locked with `coverage-leave-from`):
      existing **One-time address…** option inside the same combobox (no
      separate “other location” control outside it). Confirm / Post / Save
      that writes both legs applies this place to **both** TO pickup and
-     FROM drop-off.
+     FROM drop-off when those legs meet at **Our place**. When **Ask the
+     team** is selected, show **Meet where?** first (Getting there and
+     Coming back independently: **Our place** / **Driver’s place**, default
+     **Our place**); hide Leave from when both legs are **Driver’s place**
+     (short helper: address appears after someone accepts).
   3. **Primary button** — label updates live from Driver + Leave-from:
      - Household self / other adult →  
        `Confirm — You'll drive round trip from {origin}` /  
@@ -332,8 +336,12 @@ Origin modes (locked with `coverage-leave-from`):
        placeholder). Pressing confirms coverage and commits leave-from draft
        when needed (same write path as today).
      - **Ask the team** selected → `Post to team — round trip`. Pressing
-       posts the existing plain round-trip team request for all **going**
-       siblings together (no meet-at / radius sub-options on this surface).
+       posts a round-trip team ask for all **going** siblings together,
+       persisting per-leg meet side (`REQUESTER` = Our place /
+       `ACCEPTOR` = Driver’s place). Ask with TO **Our place** and no
+       resolvable pickup still **400**; both legs **Driver’s place** may
+       post without a requester place. Radius / distance matching stays
+       out of this surface.
   4. **“Different plans for each leg.”** — plain text link **below** the
      primary button. Available whenever the circle has **2+ adults** (family-
      only split) **or** a carpool space/`rideEvent` exists. Ask chips stay
@@ -345,15 +353,18 @@ Origin modes (locked with `coverage-leave-from`):
         trailing **Ask the team** when a space exists), same chip rules as
         the default row.
      2. **Coming back** — same, independently selected.
-     3. **Per-leg family-side place** (`LeaveFromControls`, same Default /
-        named located place / one-time triad as coverage leave-from):
+     3. **Per-leg meet side + family-side place** (`LeaveFromControls`, same
+        Default / named located place / one-time triad as coverage
+        leave-from):
+        - When a leg is **Ask the team**: **Meet where?** (**Our place** /
+          **Driver’s place**, default Our place) under that leg
         - **Picking up from** under Getting there when that leg is household
-          or Ask the team
+          or Ask with **Our place**
         - **Dropping off at** under Coming back when that leg is household
-          or Ask the team
-        - Omit the place control when a leg is open **Needs ride**
-        Ask-the-team meet-at sub-flow (pickup-at-home vs drop-at-teammate /
-        radius) stays with `carpool-meet-at`.
+          or Ask with **Our place**
+        - Omit the place control when a leg is open **Needs ride** or Ask
+          with **Driver’s place** (helper: address appears after Accept)
+        Radius / distance matching stays out.
      4. Primary button: **Save ride plan** — applies **both** legs in one
         user action (household and/or Ask combinations; open **Needs ride**
         on a leg is allowed and must re-enter the hero queue). Without a
@@ -385,17 +396,20 @@ Origin modes (locked with `coverage-leave-from`):
      2. Nested **“Different plans for each leg.”** per kid — same Getting
         there / Coming back editor already shipped (independent household /
         Ask / Needs ride per leg).
-     3. **Per-kid / per-leg family-side places** — not one Leave from for
-        the whole editor. Collapsed round-trip per kid: one **Leave from**
-        combobox when that kid’s driver is household or Ask (applied to
-        both of that kid’s legs). Nested Getting there / Coming back:
-        **Picking up from** / **Dropping off at** independently when that
-        nested leg is household or Ask; omit for **Needs ride**.
+     3. **Per-kid / per-leg meet side + family-side places** — not one Leave
+        from for the whole editor. Collapsed round-trip per kid: **Meet
+        where?** for Getting there and Coming back when Ask; one **Leave
+        from** combobox when any of that kid’s Ask legs is **Our place**
+        (or household) — applied to those Our-place / household legs.
+        Nested Getting there / Coming back: **Meet where?** under each Ask
+        leg; **Picking up from** / **Dropping off at** independently when
+        that nested leg is household or Ask with **Our place**; omit for
+        **Needs ride** or Ask with **Driver’s place**.
      4. Primary **Save ride plan** applies **every** going kid in one user
-        action. Server groups kids with identical TO/FROM **driver outcomes
-        and family-side places** onto one RideRequest (seats = grouped kid
-        count); divergent outcomes persist as separate requests. A kid
-        appears on at most one non-cancelled plan per circle+event.
+        action. Server groups kids with identical TO/FROM **driver outcomes,
+        family-side places, and meet sides** onto one RideRequest (seats =
+        grouped kid count); divergent outcomes persist as separate requests. A
+        kid appears on at most one non-cancelled plan per circle+event.
      5. **Back to simple view** restores collapsed shared round-trip chrome
         without forcing plans to re-merge. Confirm / Post round-trip from
         simple view still writes **one shared plan for all going kids**
@@ -489,24 +503,32 @@ expanded Agenda — uncovered own-ride** above. Summary:
 
 - Household adult chips + trailing **Ask the team** chip in one driver row;
   default = signed-in adult.
-- Leave-from combobox under the driver row (Confirm / Post / Save writes
-  that place to both TO and FROM); primary CTA under leave-from.
+- Leave-from combobox under the driver row when household is selected, or
+  when Ask legs meet at **Our place** (Confirm / Post / Save writes that
+  place to Our-place / household legs); primary CTA under leave-from / meet
+  controls.
+- When **Ask the team** is selected: **Meet where?** for Getting there and
+  Coming back (**Our place** / **Driver's place**, default Our place); hide
+  Leave from when both are Driver's place.
 - Household selection → live **Confirm — … round trip from {origin}**
   (assigns / confirms coverage + leave-from draft).
-- Ask the team → live **Post to team — round trip** (plain round-trip team
-  ask; meet-at deferred to `carpool-meet-at`).
+- Ask the team → live **Post to team — round trip** (persists per-leg meet
+  side; radius / distance match still out).
 - **Different plans for each leg.** under the primary button opens the shared
-  leg-split editor (Getting there / Coming back, **Picking up from** /
-  **Dropping off at** independently when that leg needs a place, **Save
-  ride plan**, **Back to simple view**) — see Leave-from → uncovered
-  own-ride above. Hero queue treats in-play `NEEDS_RIDE` legs as gaps (see
-  Hero carousel queue).
+  leg-split editor (Getting there / Coming back, **Meet where?** under each
+  Ask leg, **Picking up from** / **Dropping off at** when that leg needs Our
+  place / household place, **Save ride plan**, **Back to simple view**) —
+  see Leave-from → uncovered own-ride above. Hero void treats in-play
+  `NEEDS_RIDE` legs as gaps (see Hero carousel void).
 - **Different plans for each kid.** under the leg link (2+ going kids only)
   opens the kid-split editor (one nested DriverPicker per kid, nested
-  leg-split, per-kid / per-leg places, atomic **Save ride plan** with
-  identical-outcome grouping including places, **Back to simple view**) —
-  see Leave-from → uncovered own-ride above. Hero queue / chips read all
-  own plans (per-kid gaps + per-plan chip groups).
+  leg-split, per-kid / per-leg meet side + places, atomic **Save ride plan**
+  with identical-outcome grouping including places and meet sides, **Back to
+  simple view**) — see Leave-from → uncovered own-ride above. Hero void /
+  chips read all own plans (per-kid gaps + per-plan chip groups).
+- Inbound **PickupLine** / detour only when there is a requester family-side
+  stop (TO meet **Our place**, or FROM-only **Our place** drop-off); Driver's
+  place asks omit a fake pickup detour.
 - No separate “Nobody in the household free?” / outline Ask-the-team footer
   on these surfaces.
 
