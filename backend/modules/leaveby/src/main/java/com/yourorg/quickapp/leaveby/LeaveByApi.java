@@ -80,8 +80,11 @@ public interface LeaveByApi {
      * Build and persist a multi-stop itinerary (resolved leave-from → pickups →
      * destination) for the driving adult. Origin uses the same resolution as
      * Agenda (coverage → item override → default → first located). Soft-fail
-     * geocode → UNAVAILABLE. OSRM miss uses config fallback duration and remains
-     * OK — fallback is not written to the pairwise duration cache.
+     * geocode → UNAVAILABLE. With 2+ geocoded pickups, middle-stop order is
+     * auto-optimized by pairwise duration (missing any required duration →
+     * UNAVAILABLE / {@code OSRM_UNAVAILABLE}). With 0–1 pickup, OSRM miss uses
+     * config fallback duration and remains OK — fallback is not written to the
+     * pairwise duration cache.
      */
     CalendarRouteDto upsertCalendarRoute(
             UUID drivingAdultId,

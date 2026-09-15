@@ -823,6 +823,168 @@ class LeaveByApiImplTest {
     }
 
     @Test
+    void upsertCalendarRouteOptimizesPickupOrderForTwoPlusMiddles() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        // Far pickup first in input; near pickup second — optimize should swap.
+        when(geocodeApi.resolveLocation("Far St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.3, -74.3)));
+        when(geocodeApi.resolveLocation("Near St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.12, -74.12)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        // home → near short; home → far long
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.12, -74.12))
+                .thenReturn(Optional.of(120.0));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.3, -74.3))
+                .thenReturn(Optional.of(1800.0));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.3, -74.3))
+                .thenReturn(Optional.of(1500.0));
+        when(osrmPort.drivingDurationSeconds(40.3, -74.3, 40.12, -74.12))
+                .thenReturn(Optional.of(1500.0));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+        when(osrmPort.drivingDurationSeconds(40.3, -74.3, 40.2, -74.2))
+                .thenReturn(Optional.of(300.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Tuesday Practice",
+                        List.of(
+                                new CalendarRoutePickupInput("Far kid", "Far St"),
+                                new CalendarRoutePickupInput("Near kid", "Near St")),
+                        "Allied Veterans Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops()).hasSize(4);
+        assertThat(route.stops().get(1).name()).isEqualTo("Near kid");
+        assertThat(route.stops().get(1).address()).isEqualTo("Near St");
+        assertThat(route.stops().get(2).name()).isEqualTo("Far kid");
+        assertThat(route.stops().get(2).address()).isEqualTo("Far St");
+        assertThat(route.legMinutes()).containsExactly(2, 25, 5);
+    }
+
+    @Test
+    void upsertCalendarRouteUnavailableWhenOptimizeDurationsMissing() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("22 Pine St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.16, -74.16)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.empty());
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Tuesday Practice",
+                        List.of(
+                                new CalendarRoutePickupInput("A", "12 Oak St"),
+                                new CalendarRoutePickupInput("B", "22 Pine St")),
+                        "Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.UNAVAILABLE);
+        assertThat(route.reason()).isEqualTo("OSRM_UNAVAILABLE");
+        assertThat(route.legMinutes()).isEmpty();
+        verify(routeCacheRepository, never()).save(any());
+    }
+
+    @Test
+    void getOrRefreshCalendarRouteReoptimizesWhenFingerprintChanges() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        ItineraryEntity stale =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        "stale-fingerprint",
+                        ItineraryJson.writeStops(
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Mom's house",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Far kid",
+                                                "Far St",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Near kid",
+                                                "Near St",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Rink",
+                                                "65 Elm St",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null))),
+                        ItineraryJson.writeLegMinutes(List.of(30, 25, 5)),
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(Optional.of(stale));
+        when(geocodeApi.resolveLocation("Far St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.3, -74.3)));
+        when(geocodeApi.resolveLocation("Near St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.12, -74.12)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.12, -74.12))
+                .thenReturn(Optional.of(120.0));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.3, -74.3))
+                .thenReturn(Optional.of(1800.0));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.3, -74.3))
+                .thenReturn(Optional.of(1500.0));
+        when(osrmPort.drivingDurationSeconds(40.3, -74.3, 40.12, -74.12))
+                .thenReturn(Optional.of(1500.0));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+        when(osrmPort.drivingDurationSeconds(40.3, -74.3, 40.2, -74.2))
+                .thenReturn(Optional.of(300.0));
+
+        CalendarRouteDto route =
+                api.getOrRefreshCalendarRoute(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(
+                                new CalendarRoutePickupInput("Far kid", "Far St"),
+                                new CalendarRoutePickupInput("Near kid", "Near St")),
+                        "Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().get(1).address()).isEqualTo("Near St");
+        assertThat(route.stops().get(2).address()).isEqualTo("Far St");
+        assertThat(route.legMinutes()).containsExactly(2, 25, 5);
+        assertThat(stale.stopFingerprint())
+                .isEqualTo(
+                        ItineraryFingerprint.compute(
+                                placeId,
+                                40.1,
+                                -74.1,
+                                "1 Main",
+                                List.of("Far St", "Near St"),
+                                "65 Elm St"));
+    }
+
+    @Test
     void upsertCalendarRouteUsesFallbackWhenOsrmMissesAndStillOk() {
         when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
         when(geocodeApi.resolveLocation("65 Elm St"))

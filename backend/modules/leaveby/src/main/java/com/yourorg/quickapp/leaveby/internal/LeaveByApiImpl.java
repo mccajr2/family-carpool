@@ -44,6 +44,7 @@ class LeaveByApiImpl implements LeaveByApi {
     static final String REASON_NO_ORIGIN = "NO_ORIGIN";
     static final String REASON_NO_DESTINATION = "NO_DESTINATION";
     static final String REASON_GEOCODE_FAILED = "GEOCODE_FAILED";
+    static final String REASON_OSRM_UNAVAILABLE = "OSRM_UNAVAILABLE";
 
     private static final Set<CoverageStatus> ACTIVE_COVERAGE =
             Set.of(CoverageStatus.PENDING, CoverageStatus.CONFIRMED);
@@ -687,13 +688,12 @@ class LeaveByApiImpl implements LeaveByApi {
 
         Map<String, Optional<Double>> durations = new HashMap<>();
 
-        List<CalendarRouteStopDto> stops = new ArrayList<>();
-        List<GeoPointDto> points = new ArrayList<>();
-        stops.add(
+        CalendarRouteStopDto homeStop =
                 new CalendarRouteStopDto(
-                        homeLabel, homeAddress, CalendarRouteStopKind.HOME, null));
-        points.add(new GeoPointDto(home.latitude(), home.longitude()));
+                        homeLabel, homeAddress, CalendarRouteStopKind.HOME, null);
+        GeoPointDto homePoint = new GeoPointDto(home.latitude(), home.longitude());
 
+        List<GeocodedPickup> geocodedPickups = new ArrayList<>();
         for (CalendarRoutePickupInput pickup : pickups) {
             if (pickup == null || pickup.address() == null || pickup.address().isBlank()) {
                 continue;
@@ -711,23 +711,21 @@ class LeaveByApiImpl implements LeaveByApi {
                                 homeAddress,
                                 pickupAddresses(pickups),
                                 destinationAddress);
+                List<CalendarRouteStopDto> partial = new ArrayList<>();
+                partial.add(homeStop);
+                for (GeocodedPickup done : geocodedPickups) {
+                    partial.add(pickupStop(done.input()));
+                }
                 return persistRoute(
                         drivingAdultId,
                         source,
                         itemId,
                         fingerprint,
                         CalendarRouteDto.unavailable(
-                                REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(stops)));
+                                REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(partial)));
             }
-            String name =
-                    pickup.name() == null || pickup.name().isBlank()
-                            ? pickup.address()
-                            : pickup.name();
-            CalendarRouteNotifyContact contact = pickup.contact();
-            stops.add(
-                    new CalendarRouteStopDto(
-                            name, pickup.address(), CalendarRouteStopKind.PICKUP, contact));
-            points.add(point.get());
+            String waypointId = "pickup-" + geocodedPickups.size();
+            geocodedPickups.add(new GeocodedPickup(pickup, point.get(), waypointId));
         }
 
         Optional<GeoPointDto> destination =
@@ -743,25 +741,97 @@ class LeaveByApiImpl implements LeaveByApi {
                             homeAddress,
                             pickupAddresses(pickups),
                             destinationAddress);
+            List<CalendarRouteStopDto> partial = new ArrayList<>();
+            partial.add(homeStop);
+            for (GeocodedPickup done : geocodedPickups) {
+                partial.add(pickupStop(done.input()));
+            }
             return persistRoute(
                     drivingAdultId,
                     source,
                     itemId,
                     fingerprint,
                     CalendarRouteDto.unavailable(
-                            REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(stops)));
+                            REASON_GEOCODE_FAILED, bufferMinutes, List.copyOf(partial)));
         }
         String destName =
                 destinationName == null || destinationName.isBlank()
                         ? destinationAddress
                         : destinationName;
-        stops.add(
+        CalendarRouteStopDto destStop =
                 new CalendarRouteStopDto(
                         destName,
                         destinationAddress,
                         CalendarRouteStopKind.DESTINATION,
-                        null));
-        points.add(destination.get());
+                        null);
+        GeoPointDto destPoint = destination.get();
+
+        List<GeocodedPickup> orderedPickups = geocodedPickups;
+        boolean allowFallbackLegs = geocodedPickups.size() < 2;
+        if (geocodedPickups.size() >= 2) {
+            StopSequenceOptimizer.Waypoint startWp =
+                    new StopSequenceOptimizer.Waypoint(
+                            "start", homePoint.latitude(), homePoint.longitude());
+            StopSequenceOptimizer.Waypoint endWp =
+                    new StopSequenceOptimizer.Waypoint(
+                            "end", destPoint.latitude(), destPoint.longitude());
+            List<StopSequenceOptimizer.Waypoint> middleWps = new ArrayList<>(geocodedPickups.size());
+            for (GeocodedPickup pickup : geocodedPickups) {
+                middleWps.add(
+                        new StopSequenceOptimizer.Waypoint(
+                                pickup.waypointId(),
+                                pickup.point().latitude(),
+                                pickup.point().longitude()));
+            }
+            Optional<List<StopSequenceOptimizer.Waypoint>> optimized =
+                    StopSequenceOptimizer.optimizeMiddles(
+                            startWp,
+                            middleWps,
+                            endWp,
+                            (from, to) ->
+                                    routeDuration(
+                                            from.latitude(),
+                                            from.longitude(),
+                                            to.latitude(),
+                                            to.longitude(),
+                                            durations));
+            if (optimized.isEmpty()) {
+                String fingerprint =
+                        ItineraryFingerprint.compute(
+                                home.placeId(),
+                                home.latitude(),
+                                home.longitude(),
+                                homeAddress,
+                                pickupAddresses(pickups),
+                                destinationAddress);
+                return persistRoute(
+                        drivingAdultId,
+                        source,
+                        itemId,
+                        fingerprint,
+                        CalendarRouteDto.unavailable(
+                                REASON_OSRM_UNAVAILABLE, bufferMinutes, List.of()));
+            }
+            Map<String, GeocodedPickup> pickupById = new HashMap<>();
+            for (GeocodedPickup pickup : geocodedPickups) {
+                pickupById.put(pickup.waypointId(), pickup);
+            }
+            orderedPickups = new ArrayList<>(optimized.get().size());
+            for (StopSequenceOptimizer.Waypoint wp : optimized.get()) {
+                orderedPickups.add(pickupById.get(wp.id()));
+            }
+        }
+
+        List<CalendarRouteStopDto> stops = new ArrayList<>();
+        List<GeoPointDto> points = new ArrayList<>();
+        stops.add(homeStop);
+        points.add(homePoint);
+        for (GeocodedPickup pickup : orderedPickups) {
+            stops.add(pickupStop(pickup.input()));
+            points.add(pickup.point());
+        }
+        stops.add(destStop);
+        points.add(destPoint);
 
         List<Integer> legMinutes = new ArrayList<>(points.size() - 1);
         for (int i = 0; i < points.size() - 1; i++) {
@@ -774,6 +844,23 @@ class LeaveByApiImpl implements LeaveByApi {
                             to.latitude(),
                             to.longitude(),
                             durations);
+            if (routed.isEmpty() && !allowFallbackLegs) {
+                String fingerprint =
+                        ItineraryFingerprint.compute(
+                                home.placeId(),
+                                home.latitude(),
+                                home.longitude(),
+                                homeAddress,
+                                pickupAddresses(pickups),
+                                destinationAddress);
+                return persistRoute(
+                        drivingAdultId,
+                        source,
+                        itemId,
+                        fingerprint,
+                        CalendarRouteDto.unavailable(
+                                REASON_OSRM_UNAVAILABLE, bufferMinutes, List.of()));
+            }
             double seconds = routed.orElse((double) properties.fallbackDurationSeconds());
             legMinutes.add(minutesFromSeconds(seconds));
         }
@@ -887,6 +974,18 @@ class LeaveByApiImpl implements LeaveByApi {
         }
         return addresses;
     }
+
+    private static CalendarRouteStopDto pickupStop(CalendarRoutePickupInput pickup) {
+        String name =
+                pickup.name() == null || pickup.name().isBlank()
+                        ? pickup.address()
+                        : pickup.name();
+        return new CalendarRouteStopDto(
+                name, pickup.address(), CalendarRouteStopKind.PICKUP, pickup.contact());
+    }
+
+    private record GeocodedPickup(
+            CalendarRoutePickupInput input, GeoPointDto point, String waypointId) {}
 
     static int minutesFromSeconds(double seconds) {
         return Math.max(0, (int) Math.round(seconds / 60.0));
