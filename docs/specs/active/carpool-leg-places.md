@@ -5,7 +5,7 @@ Parent: [docs/roadmap.md](../../roadmap.md)
 Created: 2026-08-14  
 Added: 2026-09-14 · re-rank split  
 Branch: `carpool-leg-places`  
-Updated: 2026-09-14 · amend Default = My default leave-from primary, first-located fallback only
+Updated: 2026-09-14 · docs: per-leg places in web contract + architecture Rides
 
 ## Problem
 
@@ -166,7 +166,7 @@ Allowlist for `/implement`:
       without migration failure.
 - [ ] OpenAPI documents the new leg place fields + Save body; web API
       clients updated in the same change; KMP `sharedLogic` untouched.
-- [ ] Agenda coverage web contract + architecture Team carpool Rides / Out
+- [x] Agenda coverage web contract + architecture Team carpool Rides / Out
       of scope updated (per-leg places in; meet-at still out).
 - [ ] Unit + integration tests cover Save/read of diverging TO/FROM places
       and the shared-simple → both-legs write; web component tests cover
@@ -183,7 +183,7 @@ Allowlist for `/implement`:
 - [x] Web: `carpoolClient` / types; DriverPicker simple shared Leave from →
       both legs; split + kid-split per-leg place controls; grouping includes
       places
-- [ ] Docs: `agenda-coverage-web-contract.md` place bullets;
+- [x] Docs: `agenda-coverage-web-contract.md` place bullets;
       `architecture.md` Rides / Out of scope
 - [ ] Tests: `CarpoolRideServiceTest` + controller integration (diverging
       places, simple both-legs, Ask missing pickup); DriverPicker /
