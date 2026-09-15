@@ -104,7 +104,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-route-optimize          | planned | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
+| 1    | carpool-route-optimize          | active  | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
 | 2    | day-block-domain                | planned | 2026-09-14 · enhancement   | Driving **block** domain + API: group CalendarItems by shared driver + contiguous window; no UI yet ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
 | 3    | day-block-agenda                | planned | 2026-09-14 · enhancement   | Agenda/Focus: one card per block; per-leg breakdown + quiet "not your job" rows; mockup SoT `docs/ui-system/day-block-grouping.mockup.html` |
 | 4    | day-block-route                 | planned | 2026-09-14 · enhancement   | Block Route spans full multi-event stop sequence; extend optimize to block stops ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
@@ -200,7 +200,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| — | — | *(none)* |
+| carpool-route-optimize | `carpool-route-optimize` | [active](specs/active/carpool-route-optimize.md) |
 
 ## Done
 
@@ -292,6 +292,9 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-15 | `/spec carpool-route-optimize` amend: defer There/Back Route chrome; consider at `day-block-route` (tabs/sections preferred). |
+| 2026-09-15 | `/spec carpool-route-optimize` amend: reusable waypoint optimizer (north-star day-block / per-leg riders); this PR still wires single-event only. |
+| 2026-09-15 | `/spec carpool-route-optimize`: promote — auto stop-order on itinerary build (pairwise OSRM); optional driver drag until fingerprint rebuild re-optimizes. Branch `carpool-route-optimize`. |
 | 2026-09-15 | `/pr carpool-meet-at`: Ask-team meet side (Our place / Driver’s place); Accept binds accepter leave-from; no requester pickup for TO Driver’s place. Spec archived. Next up `carpool-route-optimize`. |
 | 2026-09-15 | `/spec carpool-meet-at`: promote — per-leg meet side (requester place vs driver’s place; Accept binds accepter leave-from); radius match deferred; no early/late clocks. Branch `carpool-meet-at`. |
 | 2026-09-14 | `/pr carpool-leg-places`: per-leg Picking up from / Dropping off at; Save/list/detail persist independent TO/FROM places; split + kid-split editors; ride pickup derived from TO. Spec archived. Next up `carpool-meet-at`. |
