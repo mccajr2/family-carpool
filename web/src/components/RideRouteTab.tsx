@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type DragEvent } from "react"
 import {
   Bell,
   Check,
   Flag,
+  GripVertical,
   Home,
   Info,
   Loader2,
@@ -55,6 +56,16 @@ export type RideRouteTabProps = {
    * (no-op / soft-success, no network). Inject in tests; replace for push.
    */
   deliverNotify?: (request: RideNotifyRequest) => Promise<RideNotifyResult>
+  /**
+   * When true and there are 2+ pickup stops, middle rows are drag-reorderable.
+   * Hidden/inert for non-drivers, UNAVAILABLE hosts, or single-middle routes.
+   */
+  canReorderMiddles?: boolean
+  /**
+   * Persist a new middle-stop order (pickup addresses). Host refreshes schedule
+   * from the PUT response. Omitted when reorder is inert.
+   */
+  onReorderMiddles?: (middleStopIds: string[]) => Promise<void>
 }
 
 /** Local wall-clock `h:mm AM/PM` from an ISO instant (matches `toMinutes` / `toTime`). */
@@ -64,6 +75,32 @@ export function eventStartClockFromIso(startsAt: string): string {
     throw new Error(`Invalid startsAt: ${startsAt}`)
   }
   return toTime(date.getHours() * 60 + date.getMinutes())
+}
+
+/** Pure reorder of pickup stops by address identity (home/dest fixed). */
+export function reorderPickupStopsByAddress(
+  stops: FixtureRideStop[],
+  fromAddress: string,
+  toAddress: string,
+): FixtureRideStop[] | null {
+  if (fromAddress === toAddress || stops.length < 3) {
+    return null
+  }
+  const home = stops[0]
+  const destination = stops[stops.length - 1]
+  if (home?.kind !== "home" || destination?.kind !== "destination") {
+    return null
+  }
+  const middles = stops.slice(1, -1)
+  const fromIndex = middles.findIndex((stop) => stop.address === fromAddress)
+  const toIndex = middles.findIndex((stop) => stop.address === toAddress)
+  if (fromIndex < 0 || toIndex < 0) {
+    return null
+  }
+  const next = [...middles]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved!)
+  return [home, ...next, destination]
 }
 
 function formatSentAt(now: Date = new Date()): string {
@@ -124,7 +161,7 @@ function RouteMap({
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {stops.map((stop, index) => (
-          <div key={stop.name} className="flex items-center gap-2">
+          <div key={`${stop.kind}-${stop.address}`} className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-full border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--fc-text-primary)]">
               {stop.kind === "home" ? <Home aria-hidden size={12} /> : null}
               {stop.kind === "pickup" ? <Users aria-hidden size={12} /> : null}
@@ -213,6 +250,11 @@ function StopRow({
   isLast,
   notifyState,
   onNotify,
+  reorderable,
+  reorderBusy,
+  onDragStartPickup,
+  onDragOverPickup,
+  onDropPickup,
 }: {
   stop: FixtureRideStop
   time: number
@@ -220,13 +262,33 @@ function StopRow({
   isLast: boolean
   notifyState: RideNotifyState | undefined
   onNotify: (stop: FixtureRideStop, readyByLabel: string) => void
+  reorderable: boolean
+  reorderBusy: boolean
+  onDragStartPickup: (address: string, event: DragEvent<HTMLDivElement>) => void
+  onDragOverPickup: (event: DragEvent<HTMLDivElement>) => void
+  onDropPickup: (address: string, event: DragEvent<HTMLDivElement>) => void
 }) {
   const label = isFirst ? "Leave by" : isLast ? "Arrive by" : "Be ready by"
   const Icon =
     stop.kind === "home" ? Home : stop.kind === "destination" ? Flag : Users
 
   return (
-    <div data-testid={`ride-route-stop-${stop.name}`} className="flex gap-4">
+    <div
+      data-testid={`ride-route-stop-${stop.name}`}
+      data-stop-address={stop.address}
+      data-reorderable={reorderable ? "true" : undefined}
+      draggable={reorderable && !reorderBusy}
+      onDragStart={
+        reorderable
+          ? (event) => onDragStartPickup(stop.address, event)
+          : undefined
+      }
+      onDragOver={reorderable ? onDragOverPickup : undefined}
+      onDrop={reorderable ? (event) => onDropPickup(stop.address, event) : undefined}
+      className={`flex gap-4 ${reorderable ? "cursor-grab active:cursor-grabbing" : ""} ${
+        reorderBusy && reorderable ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex shrink-0 flex-col items-center">
         <div
           className={`flex items-center justify-center rounded-full ${
@@ -247,8 +309,19 @@ function StopRow({
       </div>
       <div className="min-w-0 flex-1 pb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div className="text-[length:var(--fc-font-ride-detail-stop-name-size)] leading-[var(--fc-font-ride-detail-stop-name-line)] font-[number:var(--fc-font-ride-detail-stop-name-weight)] text-[var(--fc-text-primary)]">
-            {stop.name}
+          <div className="flex min-w-0 items-center gap-2">
+            {reorderable ? (
+              <span
+                data-testid={`ride-route-drag-handle-${stop.address}`}
+                className="shrink-0 text-[var(--fc-text-secondary)]"
+                aria-hidden
+              >
+                <GripVertical size={14} />
+              </span>
+            ) : null}
+            <div className="text-[length:var(--fc-font-ride-detail-stop-name-size)] leading-[var(--fc-font-ride-detail-stop-name-line)] font-[number:var(--fc-font-ride-detail-stop-name-weight)] text-[var(--fc-text-primary)]">
+              {stop.name}
+            </div>
           </div>
           <div className="text-[length:var(--fc-font-ride-detail-stop-meta-size)] leading-[var(--fc-font-ride-detail-stop-meta-line)] font-[number:var(--fc-font-ride-detail-stop-meta-weight)] text-[var(--fc-text-secondary)]">
             {label}{" "}
@@ -282,8 +355,12 @@ export function RideRouteTab({
   mapsEmbedApiKey = googleMapsEmbedApiKey,
   notifyDelayMs = 700,
   deliverNotify = deliverRideReadyByNotify,
+  canReorderMiddles = false,
+  onReorderMiddles,
 }: RideRouteTabProps) {
   const [notifyStates, setNotifyStates] = useState<Record<string, RideNotifyState>>({})
+  const [reorderBusy, setReorderBusy] = useState(false)
+  const [dragFromAddress, setDragFromAddress] = useState<string | null>(null)
   const eventStart = eventStartClockFromIso(startsAt)
   const lead = routeLeadCopy(carpoolRoute.bufferMinutes)
   const { arriveBy, stopTimes } = useMemo(
@@ -296,6 +373,9 @@ export function RideRouteTab({
     carpoolRoute.stops.find((stop) => stop.kind === "destination")?.name ||
     "destination"
   const navHref = navigationUrl(carpoolRoute.stops)
+  const pickupCount = carpoolRoute.stops.filter((stop) => stop.kind === "pickup").length
+  const reorderEnabled =
+    canReorderMiddles && onReorderMiddles != null && pickupCount >= 2
 
   function handleNotify(stop: FixtureRideStop, readyByLabel: string) {
     const contact = stop.contact
@@ -327,6 +407,45 @@ export function RideRouteTab({
         })
       }, notifyDelayMs)
     })
+  }
+
+  function handleDragStartPickup(address: string, event: DragEvent<HTMLDivElement>) {
+    setDragFromAddress(address)
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData("text/plain", address)
+  }
+
+  function handleDragOverPickup(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+  }
+
+  function handleDropPickup(toAddress: string, event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    const fromAddress = dragFromAddress ?? event.dataTransfer.getData("text/plain")
+    setDragFromAddress(null)
+    if (fromAddress === "" || onReorderMiddles == null) {
+      return
+    }
+    const reordered = reorderPickupStopsByAddress(
+      carpoolRoute.stops,
+      fromAddress,
+      toAddress,
+    )
+    if (reordered == null) {
+      return
+    }
+    const middleStopIds = reordered
+      .filter((stop) => stop.kind === "pickup")
+      .map((stop) => stop.address)
+    setReorderBusy(true)
+    void onReorderMiddles(middleStopIds)
+      .catch(() => {
+        // Host keeps prior route; leave UI as-is.
+      })
+      .finally(() => {
+        setReorderBusy(false)
+      })
   }
 
   return (
@@ -382,13 +501,18 @@ export function RideRouteTab({
       <div data-testid="ride-route-stops">
         {carpoolRoute.stops.map((stop, index) => (
           <StopRow
-            key={stop.name}
+            key={`${stop.kind}-${stop.address}-${index}`}
             stop={stop}
             time={stopTimes[index]!}
             isFirst={index === 0}
             isLast={index === carpoolRoute.stops.length - 1}
             notifyState={notifyStates[stop.name]}
             onNotify={handleNotify}
+            reorderable={reorderEnabled && stop.kind === "pickup"}
+            reorderBusy={reorderBusy}
+            onDragStartPickup={handleDragStartPickup}
+            onDragOverPickup={handleDragOverPickup}
+            onDropPickup={handleDropPickup}
           />
         ))}
       </div>

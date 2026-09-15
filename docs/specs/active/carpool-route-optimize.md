@@ -189,7 +189,7 @@ Allowlist for `/implement`:
       identity
 - [x] Contract: OpenAPI — document optimize-on-build; add route reorder write +
       request schema; bump contract version / `OpenApiContractTest` as usual
-- [ ] Web: `familyClient` reorder method; wire Route tab drag for driving adult;
+- [x] Web: `familyClient` reorder method; wire Route tab drag for driving adult;
       refresh schedule/maps from response; `FamilyScreen` (or host) passes
       driver capability + save handler
 - [ ] Tests: helper unit (optimize + heuristic cap + north-star-shaped waypoint

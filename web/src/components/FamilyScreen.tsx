@@ -70,6 +70,7 @@ import {
   takeSpotifyOAuthReturn,
 } from "@/components/spotifyOAuthReturn"
 import { rideScheduleFromCalendarRoute } from "@/components/rideScheduleFromCalendarRoute"
+import { isDrivingAdultForCalendarRoute } from "@/components/isDrivingAdultForCalendarRoute"
 import { groupAgendaListSections } from "@/components/agendaDayGroups"
 import {
   activeCoverages,
@@ -2746,6 +2747,28 @@ export function FamilyScreen({
   const showRideDetail = destination === "calendar" && rideDetailItem != null
   const rideDetailLiveSchedule =
     rideDetailRoute != null ? rideScheduleFromCalendarRoute(rideDetailRoute) : null
+  const rideDetailCanReorder =
+    adult != null &&
+    rideDetailItem != null &&
+    isDrivingAdultForCalendarRoute(
+      adult.id,
+      rideDetailItem,
+      calendarRideByItemKey.get(calendarItemKey(rideDetailItem)) ?? null,
+    )
+
+  async function onReorderRideDetailMiddles(middleStopIds: string[]) {
+    const token = session.getAccessToken()
+    if (!token || rideDetailItem == null) {
+      throw new Error("Not signed in")
+    }
+    const route = await familyClient.reorderCalendarRoute(
+      token,
+      rideDetailItem.source,
+      rideDetailItem.id,
+      { middleStopIds },
+    )
+    setRideDetailRoute(route)
+  }
   // Item removed while detail was open — drop back to Agenda.
   if (rideDetailItemKey != null && rideDetailItem == null) {
     setRideDetailItemKey(null)
@@ -3098,6 +3121,10 @@ export function FamilyScreen({
                   carpoolRoute={rideDetailLiveSchedule}
                   startsAt={rideDetailItem.startsAt}
                   location={rideDetailItem.location}
+                  canReorderMiddles={rideDetailCanReorder}
+                  onReorderMiddles={
+                    rideDetailCanReorder ? onReorderRideDetailMiddles : undefined
+                  }
                 />
               ) : (
                 <RideRouteUnavailable
