@@ -41,6 +41,7 @@ export type {
   KidPlaylistDesignation,
   OpenCalendarPlaylistRequest,
   RequestAuthCodeResponse,
+  ReorderCalendarRouteRequest,
   RsvpStatus,
   SetCalendarLeaveFromRequest,
   SetCalendarRsvpRequest,

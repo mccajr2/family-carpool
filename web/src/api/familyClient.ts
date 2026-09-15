@@ -17,6 +17,7 @@ import type {
   CalendarPlaylistOpen,
   OpenCalendarPlaylistRequest,
   Place,
+  ReorderCalendarRouteRequest,
   SetCalendarLeaveFromRequest,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
@@ -440,6 +441,32 @@ export class FamilyClient {
     )
     if (!response.ok) {
       throw new Error(await readErrorMessage(response, "Get calendar route failed"))
+    }
+    return (await response.json()) as CalendarRoute
+  }
+
+  async reorderCalendarRoute(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    body: ReorderCalendarRouteRequest,
+  ): Promise<CalendarRoute> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/route`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Reorder calendar route failed"))
     }
     return (await response.json()) as CalendarRoute
   }

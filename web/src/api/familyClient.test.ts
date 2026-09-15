@@ -559,6 +559,64 @@ describe("FamilyClient", () => {
     expect((fetchFn.mock.calls[0]?.[1] as RequestInit).method).toBeUndefined()
   })
 
+  it("reorderCalendarRoute PUTs middleStopIds and returns CalendarRoute", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const reordered = {
+      status: "OK",
+      reason: null,
+      bufferMinutes: 20,
+      stops: [
+        { name: "Home", address: "1 Main", kind: "home" },
+        { name: "B", address: "B St", kind: "pickup" },
+        { name: "A", address: "A St", kind: "pickup" },
+        { name: "Rink", address: "65 Elm", kind: "destination" },
+      ],
+      legMinutes: [8, 10, 14],
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(reordered))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Only the driving adult may reorder" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.reorderCalendarRoute("tok", "FEED", "e1", {
+        middleStopIds: ["B St", "A St"],
+      }),
+    ).resolves.toMatchObject({
+      status: "OK",
+      legMinutes: [8, 10, 14],
+      stops: expect.arrayContaining([
+        expect.objectContaining({ address: "B St", kind: "pickup" }),
+      ]),
+    })
+    await expect(
+      client.reorderCalendarRoute("tok", "MANUAL", "e2", { middleStopIds: ["A St"] }),
+    ).rejects.toThrow(/Only the driving adult may reorder/)
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer tok",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ middleStopIds: ["B St", "A St"] }),
+    })
+  })
+
   it("gets and opens the calendar playlist for a confirmed ride", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

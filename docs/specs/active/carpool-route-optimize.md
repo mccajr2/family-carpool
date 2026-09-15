@@ -187,7 +187,7 @@ Allowlist for `/implement`:
 - [x] Backend (`leaveby` / calendar controller): reorder write that recomputes
       legs for a supplied middle-stop order without changing fingerprint
       identity
-- [ ] Contract: OpenAPI — document optimize-on-build; add route reorder write +
+- [x] Contract: OpenAPI — document optimize-on-build; add route reorder write +
       request schema; bump contract version / `OpenApiContractTest` as usual
 - [ ] Web: `familyClient` reorder method; wire Route tab drag for driving adult;
       refresh schedule/maps from response; `FamilyScreen` (or host) passes
