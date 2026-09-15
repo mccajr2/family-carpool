@@ -60,6 +60,16 @@ public class CalendarController {
         return calendarService.getRoute(adult, source, itemId);
     }
 
+    @PutMapping("/{source}/{itemId}/route")
+    public CalendarRouteResponse reorderRoute(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            @Valid @RequestBody ReorderCalendarRouteRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.reorderRoute(adult, source, itemId, request.middleStopIds());
+    }
+
     @GetMapping("/{source}/{itemId}/playlist")
     public CalendarPlaylistResponse getPlaylist(
             @PathVariable("source") CalendarItemSource source,

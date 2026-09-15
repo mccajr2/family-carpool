@@ -250,6 +250,133 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
+    public CalendarRouteDto reorderCalendarRouteMiddles(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            List<String> middleStopIds) {
+        Optional<ItineraryEntity> existing =
+                itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        drivingAdultId, source, itemId);
+        if (existing.isEmpty()) {
+            throw new FamilyAccessException(HttpStatus.NOT_FOUND, "Calendar route not found");
+        }
+        ItineraryEntity entity = existing.get();
+        CalendarRouteDto current = toDto(entity);
+        if (current.status() != CalendarRouteStatus.OK) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "Route is not available to reorder");
+        }
+        List<CalendarRouteStopDto> stops = current.stops();
+        if (stops.isEmpty()) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "Route is not available to reorder");
+        }
+        CalendarRouteStopDto home = stops.getFirst();
+        CalendarRouteStopDto destination = stops.getLast();
+        if (home.kind() != CalendarRouteStopKind.HOME
+                || destination.kind() != CalendarRouteStopKind.DESTINATION) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "Route is not available to reorder");
+        }
+        List<CalendarRouteStopDto> currentMiddles = new ArrayList<>();
+        for (int i = 1; i < stops.size() - 1; i++) {
+            CalendarRouteStopDto stop = stops.get(i);
+            if (stop.kind() != CalendarRouteStopKind.PICKUP) {
+                throw new FamilyAccessException(
+                        HttpStatus.BAD_REQUEST, "Route is not available to reorder");
+            }
+            currentMiddles.add(stop);
+        }
+        List<String> requested = middleStopIds == null ? List.of() : middleStopIds;
+        List<CalendarRouteStopDto> orderedMiddles =
+                matchMiddlePermutation(currentMiddles, requested);
+
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Optional<ResolvedOrigin> homeOpt =
+                resolveItemOriginLocated(drivingAdultId, source, itemId, geocoded);
+        if (homeOpt.isEmpty() || !homeOpt.get().located()) {
+            return persistRoute(
+                    drivingAdultId,
+                    source,
+                    itemId,
+                    entity.stopFingerprint(),
+                    CalendarRouteDto.unavailable(
+                            REASON_NO_ORIGIN, current.bufferMinutes(), List.of()));
+        }
+        ResolvedOrigin homeOrigin = homeOpt.get();
+        List<GeoPointDto> points = new ArrayList<>();
+        points.add(new GeoPointDto(homeOrigin.latitude(), homeOrigin.longitude()));
+
+        List<CalendarRouteStopDto> newStops = new ArrayList<>();
+        newStops.add(home);
+        for (CalendarRouteStopDto middle : orderedMiddles) {
+            Optional<GeoPointDto> point =
+                    geocoded.computeIfAbsent(
+                            normalizeLocation(middle.address()),
+                            ignored -> geocodeApi.resolveLocation(middle.address()));
+            if (point.isEmpty()) {
+                return persistRoute(
+                        drivingAdultId,
+                        source,
+                        itemId,
+                        entity.stopFingerprint(),
+                        CalendarRouteDto.unavailable(
+                                REASON_GEOCODE_FAILED, current.bufferMinutes(), List.of()));
+            }
+            newStops.add(middle);
+            points.add(point.get());
+        }
+        Optional<GeoPointDto> destPoint =
+                geocoded.computeIfAbsent(
+                        normalizeLocation(destination.address()),
+                        ignored -> geocodeApi.resolveLocation(destination.address()));
+        if (destPoint.isEmpty()) {
+            return persistRoute(
+                    drivingAdultId,
+                    source,
+                    itemId,
+                    entity.stopFingerprint(),
+                    CalendarRouteDto.unavailable(
+                            REASON_GEOCODE_FAILED, current.bufferMinutes(), List.of()));
+        }
+        newStops.add(destination);
+        points.add(destPoint.get());
+
+        Map<String, Optional<Double>> durations = new HashMap<>();
+        List<Integer> legMinutes = new ArrayList<>(points.size() - 1);
+        for (int i = 0; i < points.size() - 1; i++) {
+            GeoPointDto from = points.get(i);
+            GeoPointDto to = points.get(i + 1);
+            Optional<Double> routed =
+                    routeDuration(
+                            from.latitude(),
+                            from.longitude(),
+                            to.latitude(),
+                            to.longitude(),
+                            durations);
+            if (routed.isEmpty()) {
+                return persistRoute(
+                        drivingAdultId,
+                        source,
+                        itemId,
+                        entity.stopFingerprint(),
+                        CalendarRouteDto.unavailable(
+                                REASON_OSRM_UNAVAILABLE, current.bufferMinutes(), List.of()));
+            }
+            legMinutes.add(minutesFromSeconds(routed.get()));
+        }
+
+        return persistRoute(
+                drivingAdultId,
+                source,
+                itemId,
+                entity.stopFingerprint(),
+                CalendarRouteDto.ok(current.bufferMinutes(), newStops, legMinutes));
+    }
+
+    @Override
+    @Transactional
     public void invalidateCalendarRoute(
             UUID drivingAdultId, LeaveByItemSource source, UUID itemId) {
         itineraryRepository.deleteByDrivingAdultIdAndItemSourceAndItemId(
@@ -973,6 +1100,40 @@ class LeaveByApiImpl implements LeaveByApi {
             }
         }
         return addresses;
+    }
+
+    /**
+     * Match requested middle-stop ids (addresses) as a permutation of the current
+     * pickup stops. Comparison is normalized (trim + lower-case).
+     */
+    private static List<CalendarRouteStopDto> matchMiddlePermutation(
+            List<CalendarRouteStopDto> currentMiddles, List<String> requestedIds) {
+        if (requestedIds.size() != currentMiddles.size()) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "middleStopIds must match current pickup stops");
+        }
+        List<CalendarRouteStopDto> remaining = new ArrayList<>(currentMiddles);
+        List<CalendarRouteStopDto> ordered = new ArrayList<>(currentMiddles.size());
+        for (String requestedId : requestedIds) {
+            if (requestedId == null || requestedId.isBlank()) {
+                throw new FamilyAccessException(
+                        HttpStatus.BAD_REQUEST, "middleStopIds must match current pickup stops");
+            }
+            String key = ItineraryFingerprint.normalize(requestedId);
+            int found = -1;
+            for (int i = 0; i < remaining.size(); i++) {
+                if (ItineraryFingerprint.normalize(remaining.get(i).address()).equals(key)) {
+                    found = i;
+                    break;
+                }
+            }
+            if (found < 0) {
+                throw new FamilyAccessException(
+                        HttpStatus.BAD_REQUEST, "middleStopIds must match current pickup stops");
+            }
+            ordered.add(remaining.remove(found));
+        }
+        return ordered;
     }
 
     private static CalendarRouteStopDto pickupStop(CalendarRoutePickupInput pickup) {

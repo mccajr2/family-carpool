@@ -184,7 +184,7 @@ Allowlist for `/implement`:
       the helper
 - [x] Backend (`leaveby`): call helper from single-event itinerary
       build/refresh paths
-- [ ] Backend (`leaveby` / calendar controller): reorder write that recomputes
+- [x] Backend (`leaveby` / calendar controller): reorder write that recomputes
       legs for a supplied middle-stop order without changing fingerprint
       identity
 - [ ] Contract: OpenAPI — document optimize-on-build; add route reorder write +

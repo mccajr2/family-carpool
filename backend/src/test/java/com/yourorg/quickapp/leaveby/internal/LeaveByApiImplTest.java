@@ -985,6 +985,143 @@ class LeaveByApiImplTest {
     }
 
     @Test
+    void reorderCalendarRouteMiddlesPersistsOrderUnderSameFingerprint() {
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        String fingerprint =
+                ItineraryFingerprint.compute(
+                        placeId,
+                        40.1,
+                        -74.1,
+                        "1 Main",
+                        List.of("Near St", "Far St"),
+                        "65 Elm St");
+        ItineraryEntity cached =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        fingerprint,
+                        ItineraryJson.writeStops(
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Mom's house",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Near kid",
+                                                "Near St",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Far kid",
+                                                "Far St",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Rink",
+                                                "65 Elm St",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null))),
+                        ItineraryJson.writeLegMinutes(List.of(2, 25, 5)),
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(Optional.of(cached));
+        when(geocodeApi.resolveLocation("Near St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.12, -74.12)));
+        when(geocodeApi.resolveLocation("Far St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.3, -74.3)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.3, -74.3))
+                .thenReturn(Optional.of(1800.0));
+        when(osrmPort.drivingDurationSeconds(40.3, -74.3, 40.12, -74.12))
+                .thenReturn(Optional.of(1500.0));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        CalendarRouteDto route =
+                api.reorderCalendarRouteMiddles(
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        List.of("Far St", "Near St"));
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().get(1).address()).isEqualTo("Far St");
+        assertThat(route.stops().get(2).address()).isEqualTo("Near St");
+        assertThat(route.legMinutes()).containsExactly(30, 25, 15);
+        assertThat(cached.stopFingerprint()).isEqualTo(fingerprint);
+        assertThat(ItineraryJson.readStops(cached.stopsJson()).get(1).address()).isEqualTo("Far St");
+    }
+
+    @Test
+    void reorderCalendarRouteMiddlesRejectsMismatchedIds() {
+        String fingerprint = "fp";
+        ItineraryEntity cached =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        fingerprint,
+                        ItineraryJson.writeStops(
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Home", "1 Main", CalendarRouteStopKind.HOME, null),
+                                        new CalendarRouteStopDto(
+                                                "A", "A St", CalendarRouteStopKind.PICKUP, null),
+                                        new CalendarRouteStopDto(
+                                                "B", "B St", CalendarRouteStopKind.PICKUP, null),
+                                        new CalendarRouteStopDto(
+                                                "Rink",
+                                                "65 Elm St",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null))),
+                        ItineraryJson.writeLegMinutes(List.of(1, 2, 3)),
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(Optional.of(cached));
+
+        assertThatThrownBy(
+                        () ->
+                                api.reorderCalendarRouteMiddles(
+                                        adultId,
+                                        LeaveByItemSource.FEED,
+                                        itemId,
+                                        List.of("A St", "Unknown St")))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void reorderCalendarRouteMiddlesNotFoundWhenMissing() {
+        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                api.reorderCalendarRouteMiddles(
+                                        adultId, LeaveByItemSource.FEED, itemId, List.of()))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void upsertCalendarRouteUsesFallbackWhenOsrmMissesAndStillOk() {
         when(placeApi.listLocatedPlacesForMember(adultId)).thenReturn(List.of(locatedPlace));
         when(geocodeApi.resolveLocation("65 Elm St"))

@@ -108,6 +108,22 @@ public interface LeaveByApi {
             String destinationName,
             String destinationAddress);
 
+    /**
+     * Persist a manual middle-stop order for an existing itinerary without
+     * changing the stop fingerprint. {@code middleStopIds} must be a
+     * permutation of the current pickup-stop identities (stop addresses as
+     * returned on the route). Recomputes {@code legMinutes} for the new
+     * sequence. Unknown / mismatched ids → 400; missing itinerary → 404.
+     *
+     * @throws com.yourorg.quickapp.family.FamilyAccessException 400 / 404 as
+     *     documented above
+     */
+    CalendarRouteDto reorderCalendarRouteMiddles(
+            UUID drivingAdultId,
+            LeaveByItemSource source,
+            UUID itemId,
+            List<String> middleStopIds);
+
     /** Drop the cached itinerary for one driving adult + calendar item. */
     void invalidateCalendarRoute(UUID drivingAdultId, LeaveByItemSource source, UUID itemId);
 

@@ -979,6 +979,123 @@ class CalendarServiceTest {
     }
 
     @Test
+    void reorderRouteCallsLeaveByWhenCallerIsDrivingAdult() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(manualEventCalendarApi.findInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        itemId, "vs Thunder", startsAt, null, "Rink", List.of(kidId))));
+        CoverageAssignmentDto coverage =
+                new CoverageAssignmentDto(
+                        UUID.randomUUID(),
+                        CoverageItemSource.MANUAL,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidId),
+                        CoverageStatus.CONFIRMED,
+                        null,
+                        null,
+                        Instant.now(),
+                        Instant.now());
+        when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
+                .thenReturn(List.of(coverage));
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.MANUAL, List.of(itemId)))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.YES)));
+        when(leaveByApi.reorderCalendarRouteMiddles(
+                        eq(adult.id()),
+                        eq(LeaveByItemSource.MANUAL),
+                        eq(itemId),
+                        eq(List.of("B St", "A St"))))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                45,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "B", "B St", CalendarRouteStopKind.PICKUP, null),
+                                        new CalendarRouteStopDto(
+                                                "A", "A St", CalendarRouteStopKind.PICKUP, null),
+                                        new CalendarRouteStopDto(
+                                                "Rink",
+                                                "Rink",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null)),
+                                List.of(10, 12, 14)));
+
+        CalendarRouteResponse route =
+                calendarService.reorderRoute(
+                        adult, CalendarItemSource.MANUAL, itemId, List.of("B St", "A St"));
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().get(1).address()).isEqualTo("B St");
+        assertThat(route.legMinutes()).containsExactly(10, 12, 14);
+    }
+
+    @Test
+    void reorderRouteForbiddenWhenCallerIsNotDrivingAdult() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID driverAdultId = UUID.randomUUID();
+        UUID driverCircleId = UUID.randomUUID();
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        UUID.randomUUID(),
+                                        "U12",
+                                        "practice-uid@example.com",
+                                        "Practice",
+                                        Instant.parse("2026-08-15T17:00:00Z"),
+                                        null,
+                                        "Rink",
+                                        List.of(kidId))));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.FEED, List.of(itemId)))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.FEED, itemId, kidId, RsvpStatus.YES)));
+        when(carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId))
+                .thenReturn(
+                        List.of(
+                                new com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto(
+                                        driverAdultId,
+                                        driverCircleId,
+                                        circleId,
+                                        "Far kid",
+                                        "Far St",
+                                        List.of(kidId))));
+
+        assertThatThrownBy(
+                        () ->
+                                calendarService.reorderRoute(
+                                        adult,
+                                        CalendarItemSource.FEED,
+                                        itemId,
+                                        List.of("Far St")))
+                .isInstanceOf(CalendarException.class)
+                .extracting(ex -> ((CalendarException) ex).status())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        verify(leaveByApi, never())
+                .reorderCalendarRouteMiddles(any(), any(), any(), any());
+    }
+
+    @Test
     void getRouteForbiddenWhenCallerCannotRoute() {
         UUID itemId = UUID.randomUUID();
         UUID kidId = UUID.randomUUID();
