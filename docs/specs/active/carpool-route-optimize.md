@@ -179,7 +179,7 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Backend (`leaveby`): extract **waypoint stop-sequence optimizer**
+- [x] Backend (`leaveby`): extract **waypoint stop-sequence optimizer**
       (pairwise durations + cap/heuristic); no calendar/RideRequest types in
       the helper
 - [ ] Backend (`leaveby`): call helper from single-event itinerary
