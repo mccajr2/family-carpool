@@ -218,6 +218,20 @@ describe("getQueue", () => {
     expect(queue).toEqual([])
   })
 
+  it("keeps separate own-ride decisions — never merges two gaps into one queue item", () => {
+    // day-block-agenda: Agenda may collapse combined events to one card; Focus
+    // queue cardinality stays one decision per attention item.
+    const queue = getQueue([
+      game({ id: "FEED-drive-a:k1", order: 100, ownRide: "unassigned" }),
+      game({ id: "FEED-drive-b:k1", order: 200, ownRide: "unassigned" }),
+    ])
+    expect(queue).toHaveLength(2)
+    expect(queue.map((item) => item.game.id)).toEqual([
+      "FEED-drive-a:k1",
+      "FEED-drive-b:k1",
+    ])
+  })
+
   it("orders by event soonest-first: asks on earlier events before later own gaps", () => {
     const games = [
       game({

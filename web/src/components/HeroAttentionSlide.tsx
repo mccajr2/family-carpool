@@ -45,6 +45,10 @@ import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { PickupLine } from "@/components/PickupLine"
 import { inboundAskLegChips } from "@/components/rideStatusChip"
 import { allOwnPlanLegs, hasRequesterPickupStop, ridePlaceLineKind } from "@/components/transportPlan"
+import {
+  heroBlockSupportingContextHasContent,
+  type HeroBlockSupportingContext,
+} from "@/components/heroBlockSupportingContext"
 
 export type HeroAttentionSlideProps = {
   item: QueueItem
@@ -80,6 +84,12 @@ export type HeroAttentionSlideProps = {
    */
   hasPickupPlace?: boolean
   now?: Date
+  /**
+   * Optional driving-block supporting context (sibling run / muted not-your-job).
+   * Informational only — must not add a second primary decision for another
+   * block member on this slide.
+   */
+  blockSupportingContext?: HeroBlockSupportingContext | null
 }
 
 function requestRideForSlide(
@@ -115,6 +125,7 @@ export function HeroAttentionSlide({
   actionError,
   hasPickupPlace = true,
   now = new Date(),
+  blockSupportingContext = null,
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
@@ -198,6 +209,54 @@ export function HeroAttentionSlide({
   const inboundLegChips =
     requestAccept != null ? inboundAskLegChips(requestAccept) : []
 
+  const showBlockContext = heroBlockSupportingContextHasContent(blockSupportingContext)
+
+  const blockSupportingSection =
+    showBlockContext && blockSupportingContext != null ? (
+      <div
+        data-testid="hero-attention-block-context"
+        className="mt-[var(--fc-space-md)] flex flex-col gap-[var(--fc-space-xs)]"
+      >
+        {blockSupportingContext.siblingLines.map((line) => (
+          <p
+            key={line}
+            data-testid="hero-attention-block-sibling"
+            className="text-sm"
+            style={{ color: "var(--fc-hero-on-secondary)" }}
+          >
+            {line}
+          </p>
+        ))}
+        {blockSupportingContext.mutedHeading != null &&
+        blockSupportingContext.mutedLines.length > 0 ? (
+          <div
+            data-testid="hero-attention-block-muted"
+            className="rounded-lg px-[var(--fc-space-md)] py-[var(--fc-space-sm)]"
+            style={{ background: "rgba(255,255,255,0.08)" }}
+          >
+            <div
+              data-testid="hero-attention-block-muted-heading"
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--fc-hero-on-secondary)" }}
+            >
+              {blockSupportingContext.mutedHeading}
+            </div>
+            <ul className="mt-[var(--fc-space-xs)] flex flex-col gap-[var(--fc-space-xs)]">
+              {blockSupportingContext.mutedLines.map((line) => (
+                <li
+                  key={line}
+                  className="text-sm"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    ) : null
+
   const goingKids = useMemo(
     () =>
       coverageGames
@@ -259,6 +318,7 @@ export function HeroAttentionSlide({
                 className="mt-1"
                 data-testid="hero-attention-where"
               />
+              {blockSupportingSection}
               {showConfirmChrome ? (
                 <div
                   className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
@@ -369,6 +429,7 @@ export function HeroAttentionSlide({
                 className="mt-1"
                 data-testid="hero-attention-where"
               />
+              {blockSupportingSection}
               <p
                 className="mt-1 text-sm"
                 style={{ color: "var(--fc-hero-on-secondary)" }}

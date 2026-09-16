@@ -69,6 +69,8 @@ import {
   groupAgendaItemsByDriveBlock,
 } from "@/components/agendaDriveBlockGroups"
 import { driveBlockWriteForClick } from "@/components/driveBlockAgendaLinks"
+import { buildAgendaBlockSections } from "@/components/agendaBlockSections"
+import { heroBlockSupportingContext } from "@/components/heroBlockSupportingContext"
 import { RideDetailScreen } from "@/components/RideDetailScreen"
 import { RideRouteTab } from "@/components/RideRouteTab"
 import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
@@ -2924,6 +2926,32 @@ export function FamilyScreen({
       .map((game) => game.kidId)
     const assignKidIds = goingKidIds.length > 0 ? goingKidIds : gapKidIds
     const hasPickupPlace = circle.places.some((place) => place.address.trim().length > 0)
+    const blockMembers = (() => {
+      const combinedIds = new Set(
+        calendarItemForSlide.driveBlockLinks
+          .filter((link) => link.combined)
+          .map((link) => `${link.otherSource}-${link.otherId}`),
+      )
+      if (combinedIds.size === 0) {
+        return [calendarItemForSlide]
+      }
+      combinedIds.add(itemKey)
+      return agendaWindowItems.filter((row) => combinedIds.has(calendarItemKey(row)))
+    })()
+    const mutedLines =
+      blockMembers.length >= 2
+        ? (buildAgendaBlockSections({
+            items: blockMembers,
+            currentAdultId: adult?.id ?? "",
+            kids: circle.kids,
+            members: circle.members,
+            rideEventFor: (row) =>
+              calendarRideByItemKey.get(calendarItemKey(row)) ?? null,
+          }).mutedBand?.lines ?? [])
+        : []
+    const blockSupportingContext = heroBlockSupportingContext(calendarItemForSlide, {
+      mutedLines,
+    })
     return {
       item: queueItem,
       index,
@@ -2934,6 +2962,7 @@ export function FamilyScreen({
       loading: status.kind === "loading",
       rideEvent,
       assignDraft: { adultId: baseAssign.adultId, kidIds: assignKidIds },
+      blockSupportingContext,
       onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
       onAssignCoverage: (coveringAdultId, kidIds) =>
         void onConfirmSimpleHousehold(calendarItemForSlide, coveringAdultId, kidIds),

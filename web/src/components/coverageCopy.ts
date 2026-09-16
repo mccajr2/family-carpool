@@ -60,6 +60,9 @@ export const NOT_YOUR_JOB_TONIGHT = "Not your job tonight" as const
 /** ADR-0004 rule 6 — muted band when another's commitment covers the viewer's kids. */
 export const ALREADY_COVERED = "Already covered" as const
 
+/** Hero supporting context — sibling event in the same driving block (not a CTA). */
+export const HERO_BLOCK_ALSO_TONIGHT = "Also tonight" as const
+
 /** Block-run chip: You're driving · N rider(s). */
 export function youreDrivingRidersLabel(riderCount: number): string {
   if (riderCount <= 0) {
@@ -288,6 +291,18 @@ export function alreadyDrivingRoundTripBanner(
   kidFirstNames: readonly string[],
 ): string {
   return `You're already driving ${joinKidFirstNames(kidFirstNames)} round trip`
+}
+
+/**
+ * Hero supporting line for a combined sibling in the same driving block.
+ * Informational only — not a second primary decision (day-block-agenda).
+ */
+export function heroBlockSiblingLine(options: {
+  otherTitle: string
+  clockLabel: string
+}): string {
+  const title = options.otherTitle.trim() || "event"
+  return `${HERO_BLOCK_ALSO_TONIGHT} · ${title} · ${options.clockLabel}`
 }
 
 /**

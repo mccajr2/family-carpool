@@ -168,7 +168,7 @@ follow-up siblings.
       detail
 - [x] Web: wire ADR-critical copy through shared `coverageCopy` /
       ride-status helpers (extend, don’t fork)
-- [ ] Web: Focus / Hero — keep one-decision-per-card queue; do **not** merge
+- [x] Web: Focus / Hero — keep one-decision-per-card queue; do **not** merge
       attention items into a multi-decision block Hero; optional supporting
       block context only
 - [ ] Web: move merge/split override affordance onto the Agenda block card;

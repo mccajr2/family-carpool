@@ -586,4 +586,100 @@ describe("HeroAttentionSlide", () => {
 
     expect(screen.getByTestId("hero-attention-days-ring")).toHaveAttribute("aria-hidden", "true")
   })
+
+  it("keeps separate decision slides for two attention items in one combined block", () => {
+    const clockIso = "2030-08-15T18:00:00.000Z"
+    const itemA = calendarItem({
+      id: "drive-a",
+      title: "Practice A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      eventKey: "UID:a",
+      uncoveredKidIds: ["k1"],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-b",
+          otherTitle: "Practice B",
+          otherStartsAt: clockIso,
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "drive-b",
+      title: "Practice B",
+      startsAt: clockIso,
+      eventKey: "UID:b",
+      uncoveredKidIds: ["k1"],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const queue: QueueItem[] = [
+      {
+        kind: "ownRide",
+        game: game({
+          id: "FEED-drive-a:k1",
+          title: "Practice A",
+          startsAt: itemA.startsAt,
+          order: Date.parse(itemA.startsAt),
+        }),
+      },
+      {
+        kind: "ownRide",
+        game: game({
+          id: "FEED-drive-b:k1",
+          title: "Practice B",
+          startsAt: itemB.startsAt,
+          order: Date.parse(itemB.startsAt),
+        }),
+      },
+    ]
+
+    render(
+      <HeroAttentionCarousel
+        queue={queue}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 2,
+            calendarItem: item.game.id.startsWith("FEED-drive-a") ? itemA : itemB,
+            blockSupportingContext: {
+              siblingLines: [
+                item.game.id.startsWith("FEED-drive-a")
+                  ? `Also tonight · Practice B · ${new Date(clockIso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+                  : `Also tonight · Practice A · ${new Date(itemA.startsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`,
+              ],
+              mutedLines: [],
+              mutedHeading: null,
+            },
+          })
+        }
+      />,
+    )
+
+    const shells = screen.getAllByTestId("hero-attention-slide-shell")
+    expect(shells).toHaveLength(2)
+    expect(screen.getAllByTestId("hero-attention-dot")).toHaveLength(2)
+
+    for (const shell of shells) {
+      const slide = within(shell).getByTestId("hero-attention-slide")
+      expect(within(slide).getByTestId("hero-attention-block-sibling")).toBeInTheDocument()
+      // One primary decision surface (DriverPicker) — not a second CTA for the
+      // sibling block member on this slide.
+      expect(within(slide).getAllByTestId("hero-attention-slide-title")).toHaveLength(1)
+      expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+      expect(within(slide).getAllByTestId("driver-picker")).toHaveLength(1)
+      expect(within(slide).queryByRole("button", { name: /^Accept$/i })).not.toBeInTheDocument()
+    }
+  })
 })
