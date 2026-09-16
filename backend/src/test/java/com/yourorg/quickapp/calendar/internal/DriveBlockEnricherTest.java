@@ -19,7 +19,9 @@ import com.yourorg.quickapp.leaveby.LeaveByStatus;
 import com.yourorg.quickapp.leaveby.LeaveByVenueDriveDto;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -45,6 +47,7 @@ class DriveBlockEnricherTest {
     private final UUID circleId = UUID.randomUUID();
     private final UUID item1 = UUID.randomUUID();
     private final UUID item2 = UUID.randomUUID();
+    private final UUID item3 = UUID.randomUUID();
     private final String rink =
             DrivingBlockComputer.venueIdentity(42.373600, -71.109700);
 
@@ -142,6 +145,64 @@ class DriveBlockEnricherTest {
             assertThat(link.otherTitle()).isEqualTo("Mite Practice");
             assertThat(link.otherStartsAt()).isEqualTo(start1);
         });
+    }
+
+    @Test
+    void doesNotLinkNextDayConfirmedDriveAtDifferentRink() {
+        Instant miteStart = Instant.parse("2026-09-15T22:00:00Z"); // 6pm EDT
+        Instant miteEnd = Instant.parse("2026-09-15T22:50:00Z");
+        Instant squirtStart = Instant.parse("2026-09-15T23:00:00Z"); // 7pm EDT
+        Instant squirtEnd = Instant.parse("2026-09-15T23:50:00Z");
+        Instant billStart = Instant.parse("2026-09-16T21:30:00Z"); // 5:30pm next day
+        Instant billEnd = Instant.parse("2026-09-16T22:20:00Z");
+        String otherRink = DrivingBlockComputer.venueIdentity(42.390000, -71.100000);
+
+        CalendarItemResponse mite = feedItem(item1, "CYH Mite Practice", miteStart, miteEnd);
+        CalendarItemResponse squirt =
+                feedItem(item2, "CYH Squirt 1 Practice", squirtStart, squirtEnd);
+        CalendarItemResponse bill =
+                feedItem(item3, "2016/2017 (BILL) Extra-Practice", billStart, billEnd);
+
+        when(carpoolApi.listConfirmedDrivingLegs(eq(adultId), eq(circleId), any()))
+                .thenReturn(
+                        List.of(
+                                new CarpoolConfirmedDrivingLegDto(item1, CarpoolLegKind.TO),
+                                new CarpoolConfirmedDrivingLegDto(item2, CarpoolLegKind.TO),
+                                new CarpoolConfirmedDrivingLegDto(item3, CarpoolLegKind.TO)));
+        when(leaveByApi.cheapVenueDrives(eq(adultId), any()))
+                .thenAnswer(
+                        invocation -> {
+                            List<com.yourorg.quickapp.leaveby.LeaveByItemInput> inputs =
+                                    invocation.getArgument(1);
+                            return inputs.stream()
+                                    .map(
+                                            input -> {
+                                                if (item3.equals(input.itemId())) {
+                                                    return new LeaveByVenueDriveDto(otherRink, 900);
+                                                }
+                                                return new LeaveByVenueDriveDto(rink, 600);
+                                            })
+                                    .toList();
+                        });
+        when(leaveByApi.arrivalBufferMinutes(any())).thenReturn(20);
+        when(overrideService.pairOverridesForAdult(adultId)).thenReturn(List.of());
+
+        List<CalendarItemResponse> result =
+                enricher.attach(adultId, circleId, List.of(mite, squirt, bill));
+
+        Map<UUID, CalendarItemResponse> byId =
+                result.stream().collect(Collectors.toMap(CalendarItemResponse::id, r -> r));
+        assertThat(byId.get(item1).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.otherId()).isEqualTo(item2);
+            assertThat(link.otherTitle()).isEqualTo("CYH Squirt 1 Practice");
+            assertThat(link.combined()).isTrue();
+        });
+        assertThat(byId.get(item2).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.otherId()).isEqualTo(item1);
+            assertThat(link.otherTitle()).isEqualTo("CYH Mite Practice");
+            assertThat(link.combined()).isTrue();
+        });
+        assertThat(byId.get(item3).driveBlockLinks()).isEmpty();
     }
 
     @Test

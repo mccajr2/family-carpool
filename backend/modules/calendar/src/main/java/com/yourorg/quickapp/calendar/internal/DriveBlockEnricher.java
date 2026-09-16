@@ -11,6 +11,7 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveByVenueDriveDto;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +27,13 @@ import org.springframework.stereotype.Component;
  */
 @Component
 class DriveBlockEnricher {
+
+    /**
+     * Interim Combine/Split links only for siblings close enough to be one
+     * outing. Chronologically "next" confirmed drive tomorrow at another rink
+     * must not get a link.
+     */
+    static final Duration MAX_INTERIM_LINK_START_GAP = Duration.ofHours(6);
 
     private final CarpoolApi carpoolApi;
     private final LeaveByApi leaveByApi;
@@ -150,6 +158,9 @@ class DriveBlockEnricher {
                 String pair = pairKey(leg, left.source(), left.id(), right.source(), right.id());
                 boolean combined = combinedPairs.contains(pair);
                 DriveBlockOverrideAction action = overrideByPair.get(pair);
+                if (!shouldEmitInterimLink(left, right, combined, action)) {
+                    continue;
+                }
                 CalendarDriveBlockLinkResponse leftLink =
                         new CalendarDriveBlockLinkResponse(
                                 leg,
@@ -185,6 +196,23 @@ class DriveBlockEnricher {
             out.add(withLinks(item, List.copyOf(links)));
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * Interim Agenda links are for one outing — not "next confirmed drive on
+     * the calendar" across days/rinks. Combined / override pairs always keep a
+     * link so clear/split stays reachable.
+     */
+    static boolean shouldEmitInterimLink(
+            CalendarItemResponse left,
+            CalendarItemResponse right,
+            boolean combined,
+            DriveBlockOverrideAction action) {
+        if (combined || action != null) {
+            return true;
+        }
+        Duration startGap = Duration.between(left.startsAt(), right.startsAt()).abs();
+        return startGap.compareTo(MAX_INTERIM_LINK_START_GAP) < 0;
     }
 
     private static Set<String> combinedAdjacentPairs(

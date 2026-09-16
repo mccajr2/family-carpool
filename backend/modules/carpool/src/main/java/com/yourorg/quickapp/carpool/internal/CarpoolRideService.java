@@ -1313,6 +1313,10 @@ public class CarpoolRideService {
     /**
      * CONFIRMED legs assigned to {@code adultId} for the given feed events
      * (own plans + inbound accepts). Pending asks excluded.
+     *
+     * <p>Event keys are iCal UID-based and can collide across feeds. Space-scoped
+     * rides are resolved to the feed event on that space's feed; circle-local
+     * rides use a unique key match or startsAt when disambiguating.
      */
     @Transactional(readOnly = true)
     public List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
@@ -1320,23 +1324,40 @@ public class CarpoolRideService {
         if (feedEventIds == null || feedEventIds.isEmpty()) {
             return List.of();
         }
-        Map<String, UUID> feedIdByEventKey = new HashMap<>();
+        Map<String, List<FeedEventRef>> refsByEventKey = new HashMap<>();
         for (UUID feedEventId : feedEventIds) {
             Optional<FeedCalendarEventDto> event =
                     feedCalendarApi.findEventInCircle(circleId, feedEventId);
             if (event.isEmpty()) {
                 continue;
             }
-            feedIdByEventKey.put(RideEventKey.of(event.get()), feedEventId);
+            FeedCalendarEventDto dto = event.get();
+            String key = RideEventKey.of(dto);
+            refsByEventKey
+                    .computeIfAbsent(key, ignored -> new ArrayList<>())
+                    .add(new FeedEventRef(feedEventId, dto.feedId()));
         }
-        if (feedIdByEventKey.isEmpty()) {
+        if (refsByEventKey.isEmpty()) {
             return List.of();
         }
-        List<String> eventKeys = List.copyOf(feedIdByEventKey.keySet());
+        List<String> eventKeys = List.copyOf(refsByEventKey.keySet());
         List<UUID> spaceIds =
                 memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                         .map(CarpoolMembershipEntity::spaceId)
                         .toList();
+
+        Map<UUID, UUID> feedIdBySpaceId = new HashMap<>();
+        if (!spaceIds.isEmpty()) {
+            for (UUID spaceId : spaceIds) {
+                CarpoolSpaceEntity space = spaces.findById(spaceId).orElse(null);
+                if (space == null) {
+                    continue;
+                }
+                feedsApi
+                        .findByCircleAndNormalizedUrl(circleId, space.normalizedSourceUrl())
+                        .ifPresent(feed -> feedIdBySpaceId.put(spaceId, feed.id()));
+            }
+        }
 
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<CarpoolConfirmedDrivingLegDto> out = new ArrayList<>();
@@ -1345,24 +1366,58 @@ public class CarpoolRideService {
             for (CarpoolRideRequestEntity ride :
                     rides.findBySpaceIdInAndEventKeyInAndStatusIn(
                             spaceIds, eventKeys, OWN_PLAN_STATUSES)) {
-                collectConfirmedLegs(adultId, ride, feedIdByEventKey, seen, out);
+                UUID feedEventId =
+                        resolveFeedEventId(
+                                refsByEventKey.get(ride.eventKey()),
+                                feedIdBySpaceId.get(ride.spaceId()));
+                if (feedEventId == null) {
+                    continue;
+                }
+                collectConfirmedLegs(adultId, ride, feedEventId, seen, out);
             }
         }
         for (CarpoolRideRequestEntity ride :
                 rides.findByRequestingCircleIdAndEventKeyInAndSpaceIdIsNullAndStatusIn(
                         circleId, eventKeys, OWN_PLAN_STATUSES)) {
-            collectConfirmedLegs(adultId, ride, feedIdByEventKey, seen, out);
+            UUID feedEventId =
+                    resolveFeedEventId(refsByEventKey.get(ride.eventKey()), null);
+            if (feedEventId == null) {
+                continue;
+            }
+            collectConfirmedLegs(adultId, ride, feedEventId, seen, out);
         }
         return List.copyOf(out);
+    }
+
+    private record FeedEventRef(UUID feedEventId, UUID feedId) {}
+
+    /**
+     * Pick the calendar feed event for a ride. Prefer the space's feed when
+     * known; otherwise a unique key match; otherwise leave unresolved (null).
+     */
+    private static UUID resolveFeedEventId(List<FeedEventRef> refs, UUID spaceFeedId) {
+        if (refs == null || refs.isEmpty()) {
+            return null;
+        }
+        if (spaceFeedId != null) {
+            for (FeedEventRef ref : refs) {
+                if (spaceFeedId.equals(ref.feedId())) {
+                    return ref.feedEventId();
+                }
+            }
+        }
+        if (refs.size() == 1) {
+            return refs.getFirst().feedEventId();
+        }
+        return null;
     }
 
     private static void collectConfirmedLegs(
             UUID adultId,
             CarpoolRideRequestEntity ride,
-            Map<String, UUID> feedIdByEventKey,
+            UUID feedEventId,
             Set<String> seen,
             List<CarpoolConfirmedDrivingLegDto> out) {
-        UUID feedEventId = feedIdByEventKey.get(ride.eventKey());
         if (feedEventId == null) {
             return;
         }
