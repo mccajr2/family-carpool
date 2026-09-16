@@ -25,6 +25,7 @@ function item(coverages: CalendarItem["coverages"]): CalendarItem {
     feedId: null,
     feedName: null,
     eventKey: null,
+    driveBlockLinks: [],
   }
 }
 
