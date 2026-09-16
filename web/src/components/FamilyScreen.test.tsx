@@ -5024,6 +5024,575 @@ describe("FamilyScreen", () => {
     expect(within(list).queryByRole("heading", { name: "Today" })).not.toBeInTheDocument()
   })
 
+  it("collapses combined driveBlockLinks items into one Agenda block card", async () => {
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const todayStart = new Date(AGENDA_TEST_NOW)
+    todayStart.setHours(0, 0, 0, 0)
+    const practiceA = new Date(todayStart)
+    practiceA.setHours(17, 0, 0, 0)
+    const practiceB = new Date(todayStart)
+    practiceB.setHours(18, 0, 0, 0)
+    const solo = new Date(todayStart)
+    solo.setHours(20, 0, 0, 0)
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "drive-a",
+              source: "FEED",
+              title: "Practice A",
+              startsAt: practiceA.toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              location: "Simoni Rink",
+              uncoveredKidIds: [],
+              coverages: [
+                {
+                  id: "cov-a",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-b",
+                  otherTitle: "Practice B",
+                  otherStartsAt: practiceB.toISOString(),
+                  combined: true,
+                  overrideAction: null,
+                },
+              ],
+            }),
+            calendarItem({
+              id: "drive-b",
+              source: "FEED",
+              title: "Practice B",
+              startsAt: practiceB.toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              location: "Simoni Rink",
+              uncoveredKidIds: [],
+              coverages: [
+                {
+                  id: "cov-b",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-a",
+                  otherTitle: "Practice A",
+                  otherStartsAt: practiceA.toISOString(),
+                  combined: true,
+                  overrideAction: null,
+                },
+              ],
+            }),
+            calendarItem({
+              id: "solo",
+              source: "MANUAL",
+              title: "Solo dinner",
+              startsAt: solo.toISOString(),
+              kidIds: ["k1"],
+            }),
+          ]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const list = within(agenda).getByTestId("agenda-list")
+    expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
+    const block = within(list).getByTestId("agenda-block-card")
+    expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-a")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-b")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-run-to")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-run-to-view-route")).toHaveTextContent(
+      "View route",
+    )
+    expect(within(block).getByTestId("agenda-block-drive-block-links")).toBeInTheDocument()
+    expect(
+      within(block).getByRole("button", { name: /Split this out/ }),
+    ).toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-drive-block-links")).not.toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-b")).not.toBeInTheDocument()
+    expect(within(list).getByTestId("agenda-row-MANUAL-solo")).toBeInTheDocument()
+  })
+
+  it("shows Combine these on singleton Agenda rows after a FORCE_SPLIT", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const todayStart = new Date(AGENDA_TEST_NOW)
+    todayStart.setHours(0, 0, 0, 0)
+    const practiceA = new Date(todayStart)
+    practiceA.setHours(17, 0, 0, 0)
+    const practiceB = new Date(todayStart)
+    practiceB.setHours(18, 0, 0, 0)
+
+    const clearDriveBlockOverride = vi.fn().mockResolvedValue([])
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "drive-a",
+              source: "FEED",
+              title: "Practice A",
+              startsAt: practiceA.toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              uncoveredKidIds: [],
+              coverages: [
+                {
+                  id: "cov-a",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              rsvps: [{ kidId: "k1", status: "YES" }],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-b",
+                  otherTitle: "Practice B",
+                  otherStartsAt: practiceB.toISOString(),
+                  combined: false,
+                  overrideAction: "FORCE_SPLIT",
+                },
+              ],
+            }),
+            calendarItem({
+              id: "drive-b",
+              source: "FEED",
+              title: "Practice B",
+              startsAt: practiceB.toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              uncoveredKidIds: [],
+              coverages: [
+                {
+                  id: "cov-b",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              rsvps: [{ kidId: "k1", status: "YES" }],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-a",
+                  otherTitle: "Practice A",
+                  otherStartsAt: practiceA.toISOString(),
+                  combined: false,
+                  overrideAction: "FORCE_SPLIT",
+                },
+              ],
+            }),
+          ]),
+          clearDriveBlockOverride,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const list = within(agenda).getByTestId("agenda-list")
+    expect(within(list).queryByTestId("agenda-block-card")).not.toBeInTheDocument()
+
+    const rowA = within(list).getByTestId("agenda-row-FEED-drive-a")
+    await user.click(within(rowA).getByRole("button", { expanded: false }))
+    const combineA = within(rowA).getByRole("button", { name: /Combine these/ })
+    await user.click(combineA)
+
+    expect(clearDriveBlockOverride).toHaveBeenCalledWith(
+      "tok",
+      expect.objectContaining({
+        leg: "TO",
+        leftItemId: "drive-a",
+        rightItemId: "drive-b",
+      }),
+    )
+  })
+
+  it("opens single-event Route from Agenda block View route for the earliest member", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const todayStart = new Date(AGENDA_TEST_NOW)
+    todayStart.setHours(0, 0, 0, 0)
+    const practiceA = new Date(todayStart)
+    practiceA.setHours(17, 0, 0, 0)
+    const practiceB = new Date(todayStart)
+    practiceB.setHours(18, 0, 0, 0)
+
+    const getCalendarRoute = vi.fn().mockResolvedValue({
+      status: "OK",
+      bufferMinutes: 45,
+      stops: [
+        { id: "home", name: "Home", kind: "home", address: "1 Main" },
+        { id: "dest", name: "Simoni Rink", kind: "destination", address: "Rink" },
+      ],
+      legMinutes: [20],
+      reason: null,
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [
+                {
+                  id: "p1",
+                  name: "Home",
+                  address: "1 Main",
+                  latitude: 40,
+                  longitude: -74,
+                },
+              ],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([
+            calendarItem({
+              id: "drive-a",
+              source: "FEED",
+              title: "Practice A",
+              startsAt: practiceA.toISOString(),
+              endsAt: new Date(practiceA.getTime() + 60 * 60 * 1000).toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              location: "Simoni Rink",
+              uncoveredKidIds: [],
+              rsvps: [{ kidId: "k1", status: "YES" }],
+              coverages: [
+                {
+                  id: "cov-a",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-b",
+                  otherTitle: "Practice B",
+                  otherStartsAt: practiceB.toISOString(),
+                  combined: true,
+                  overrideAction: null,
+                },
+              ],
+            }),
+            calendarItem({
+              id: "drive-b",
+              source: "FEED",
+              title: "Practice B",
+              startsAt: practiceB.toISOString(),
+              endsAt: new Date(practiceB.getTime() + 60 * 60 * 1000).toISOString(),
+              kidIds: ["k1"],
+              feedId: "f1",
+              feedName: "U12",
+              location: "Simoni Rink",
+              uncoveredKidIds: [],
+              rsvps: [{ kidId: "k1", status: "YES" }],
+              coverages: [
+                {
+                  id: "cov-b",
+                  coveringAdultId: "1",
+                  coveringAdultDisplayName: "Alex",
+                  assignedByAdultId: "1",
+                  kidIds: ["k1"],
+                  status: "CONFIRMED",
+                  leaveFromPlaceId: null,
+                  leaveFromPlaceName: null,
+                  leaveFromAddress: null,
+                  leaveByAt: null,
+                  leaveByStatus: null,
+                  leaveByReason: null,
+                },
+              ],
+              driveBlockLinks: [
+                {
+                  leg: "TO",
+                  otherSource: "FEED",
+                  otherId: "drive-a",
+                  otherTitle: "Practice A",
+                  otherStartsAt: practiceA.toISOString(),
+                  combined: true,
+                  overrideAction: null,
+                },
+              ],
+            }),
+          ]),
+          getCalendarRoute,
+        })}
+        carpoolClient={mockCarpoolClient()}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const block = within(agenda).getByTestId("agenda-block-card")
+    await user.click(within(block).getByTestId("agenda-block-run-to-view-route"))
+
+    expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Practice A")
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "FEED", "drive-a")
+    expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+  })
+
+  it("keeps Focus as separate decision slides when two attention items share a combined block", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    })
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const practiceA = calendarItem({
+      id: "drive-a",
+      source: "FEED",
+      title: "Practice A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:a",
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const practiceB = calendarItem({
+      id: "drive-b",
+      source: "FEED",
+      title: "Practice B",
+      startsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:b",
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([practiceA, practiceB]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const carousel = heroCarouselIn(agenda)
+    expect(within(carousel).getByTestId("hero-attention-controls")).toBeInTheDocument()
+    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    expect(within(carousel).getByText("· 2 things need you")).toBeInTheDocument()
+
+    const shells = within(carousel).getAllByTestId("hero-attention-slide-shell")
+    expect(shells).toHaveLength(2)
+    for (const shell of shells) {
+      const slide = within(shell).getByTestId("hero-attention-slide")
+      expect(within(slide).getAllByTestId("hero-attention-slide-title")).toHaveLength(1)
+      expect(within(slide).getAllByTestId("driver-picker")).toHaveLength(1)
+      expect(within(slide).getByTestId("hero-attention-block-sibling")).toBeInTheDocument()
+      // Merge/split belongs on the Agenda block card only — not a second Hero decision.
+      expect(
+        within(slide).queryByRole("button", { name: /Split this out|Combine these/ }),
+      ).not.toBeInTheDocument()
+    }
+
+    const list = within(agenda).getByTestId("agenda-list")
+    expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-b")).not.toBeInTheDocument()
+    expect(
+      within(list).getByTestId("agenda-block-drive-block-links"),
+    ).toBeInTheDocument()
+  })
+
   it("renders the most urgent queue item in both carousel and flat list", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {

@@ -60,10 +60,17 @@ import { Input } from "@/components/ui/input"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { DriverPickerKidPlan, DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import { AgendaBlockCard } from "@/components/AgendaBlockCard"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
+import {
+  agendaDriveBlockEntryKey,
+  groupAgendaItemsByDriveBlock,
+} from "@/components/agendaDriveBlockGroups"
 import { driveBlockWriteForClick } from "@/components/driveBlockAgendaLinks"
+import { buildAgendaBlockSections } from "@/components/agendaBlockSections"
+import { heroBlockSupportingContext } from "@/components/heroBlockSupportingContext"
 import { RideDetailScreen } from "@/components/RideDetailScreen"
 import { RideRouteTab } from "@/components/RideRouteTab"
 import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
@@ -1983,10 +1990,10 @@ export function FamilyScreen({
   }
 
   async function onDriveBlockLinkAgenda(
-    item: CalendarItem,
+    item: Pick<CalendarItem, "id" | "source" | "startsAt">,
     link: CalendarDriveBlockLink,
   ) {
-    const itemKey = calendarItemKey(item)
+    const itemKey = `${item.source}-${item.id}`
     clearCoverageActionError(itemKey)
     try {
       const token = await requireToken()
@@ -2919,6 +2926,33 @@ export function FamilyScreen({
       .map((game) => game.kidId)
     const assignKidIds = goingKidIds.length > 0 ? goingKidIds : gapKidIds
     const hasPickupPlace = circle.places.some((place) => place.address.trim().length > 0)
+    const blockMembers = (() => {
+      const combinedIds = new Set(
+        calendarItemForSlide.driveBlockLinks
+          .filter((link) => link.combined)
+          .map((link) => `${link.otherSource}-${link.otherId}`),
+      )
+      if (combinedIds.size === 0) {
+        return [calendarItemForSlide]
+      }
+      combinedIds.add(itemKey)
+      return agendaWindowItems.filter((row) => combinedIds.has(calendarItemKey(row)))
+    })()
+    const mutedLines =
+      blockMembers.length >= 2
+        ? (buildAgendaBlockSections({
+            items: blockMembers,
+            currentAdultId: adult?.id ?? "",
+            circleId: circle.id,
+            kids: circle.kids,
+            members: circle.members,
+            rideEventFor: (row) =>
+              calendarRideByItemKey.get(calendarItemKey(row)) ?? null,
+          }).mutedBand?.lines ?? [])
+        : []
+    const blockSupportingContext = heroBlockSupportingContext(calendarItemForSlide, {
+      mutedLines,
+    })
     return {
       item: queueItem,
       index,
@@ -2929,6 +2963,7 @@ export function FamilyScreen({
       loading: status.kind === "loading",
       rideEvent,
       assignDraft: { adultId: baseAssign.adultId, kidIds: assignKidIds },
+      blockSupportingContext,
       onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
       onAssignCoverage: (coveringAdultId, kidIds) =>
         void onConfirmSimpleHousehold(calendarItemForSlide, coveringAdultId, kidIds),
@@ -3669,12 +3704,66 @@ export function FamilyScreen({
                   </header>
                   {group.items.length > 0 ? (
                   <ul className="flex flex-col gap-[var(--fc-space-list-row-gap)]">
-                    {group.items.map((item) => {
+                    {groupAgendaItemsByDriveBlock(group.items).map((entry) => {
+                      if (entry.kind === "block") {
+                        const blockKey = agendaDriveBlockEntryKey(entry.items)
+                        const blockFocused = entry.items.some(
+                          (member) =>
+                            calendarItemKey(member) === focusedCalendarItemKey,
+                        )
+                        return (
+                          <li
+                            key={blockKey}
+                            data-testid={`agenda-block-${blockKey}`}
+                            data-agenda-entry="block"
+                            data-member-keys={blockKey}
+                          >
+                            <AgendaBlockCard
+                              items={entry.items}
+                              circle={circle}
+                              currentAdultId={adult?.id ?? ""}
+                              now={now}
+                              rideEventFor={(member) =>
+                                calendarRideByItemKey.get(calendarItemKey(member)) ??
+                                null
+                              }
+                              isFocused={blockFocused}
+                              loading={status.kind === "loading"}
+                              onDriveBlockLink={(member, link) =>
+                                void onDriveBlockLinkAgenda(member, link)
+                              }
+                              onOpenRide={(member) => {
+                                setRideDetailItemKey(calendarItemKey(member))
+                              }}
+                              onRevertDecidedAssignee={(member, assignee) =>
+                                void onRevertDecidedAssigneeAgenda(member, assignee)
+                              }
+                              onCantMakeIt={(member, game) =>
+                                void onCantMakeItAgenda(member, game)
+                              }
+                              onRemoveCoverage={(assignmentId) =>
+                                void onRemoveCoverage(assignmentId)
+                              }
+                              onSetNotGoing={(member, kidIds) =>
+                                void onSetCalendarRsvps(member, kidIds, "NO")
+                              }
+                              onSetLeaveFrom={(member, body) =>
+                                void onSetCalendarLeaveFrom(member, body)
+                              }
+                              onWithdrawRide={(member, rideId, legs) =>
+                                void onWithdrawAgendaRide(member, rideId, legs)
+                              }
+                            />
+                          </li>
+                        )
+                      }
+                      const item = entry.item
                       const itemKey = calendarItemKey(item)
                       return (
                         <li
                           key={`${item.source}-${item.id}`}
                           data-testid={`agenda-item-${item.source}-${item.id}`}
+                          data-agenda-entry="singleton"
                           data-carpool-ride-key={
                             calendarRideByItemKey.get(itemKey)?.eventKey
                           }

@@ -144,8 +144,8 @@ type AgendaRowProps = {
   /** Opens ride-detail overlay when `canRoute` for at least one in-play kid. */
   onOpenRide?: () => void
   /**
-   * Interim driving-block merge/split control. Called with the write implied by
-   * the link (FORCE_MERGE / FORCE_SPLIT or clear).
+   * Recombine after a split (or clear FORCE_SPLIT). Only non-combined
+   * `driveBlockLinks` render here — combined pairs use AgendaBlockCard.
    */
   onDriveBlockLink?: (link: CalendarDriveBlockLink) => void
   onEdit: () => void
@@ -208,6 +208,9 @@ export function AgendaRow({
   const [open, setOpen] = useState(false)
   const [selectedRideKidIds, setSelectedRideKidIds] = useState<string[] | null>(null)
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
+  const recombineDriveBlockLinks = item.driveBlockLinks.filter(
+    (link) => !link.combined,
+  )
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
@@ -554,12 +557,12 @@ export function AgendaRow({
 
           {!outOfPlay &&
           onDriveBlockLink != null &&
-          item.driveBlockLinks.length > 0 ? (
+          recombineDriveBlockLinks.length > 0 ? (
             <div
               data-testid="agenda-drive-block-links"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
-              {item.driveBlockLinks.map((link) => (
+              {recombineDriveBlockLinks.map((link) => (
                 <button
                   key={`${link.leg}-${link.otherSource}-${link.otherId}`}
                   type="button"

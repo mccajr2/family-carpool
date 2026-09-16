@@ -29,6 +29,7 @@ import {
   RIDE_NEEDED,
   RIDING_WITH_TEAMMATE,
   YOURE_DRIVING,
+  agendaBlockViewerRunChipLabel,
   carpoolAskCountLabel,
   drivingChipLabel,
   legConfirmedStatusLabel,
@@ -533,5 +534,18 @@ export function carpoolAskChipForRideEvent(
   return {
     label: carpoolAskCountLabel(count),
     tone: "amber",
+  }
+}
+
+/**
+ * Agenda driving-block run chip for the viewing adult — mint tone + shared
+ * `You're driving · N riders` copy (coverageCopy / ADR rule 1).
+ */
+export function agendaBlockRunStatusChip(
+  riderCount: number,
+): RideStatusChipDescriptor {
+  return {
+    label: agendaBlockViewerRunChipLabel(riderCount),
+    tone: "mint",
   }
 }

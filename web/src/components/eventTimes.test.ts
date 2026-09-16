@@ -11,6 +11,7 @@ import {
   filterCalendarItemsInWindow,
   formatFocusEventWhen,
   formatIsoForDisplay,
+  formatAgendaBlockDayLabel,
   formatLocalTodayLabel,
   LEAVE_BY_NEAR_TERM_DAYS,
   mergeCalendarItems,
@@ -104,6 +105,32 @@ describe("formatLocalTodayLabel", () => {
       }),
     )
     expect(label).not.toMatch(/\d{4}/)
+  })
+})
+
+describe("formatAgendaBlockDayLabel", () => {
+  const now = new Date(2026, 8, 16, 12, 0, 0) // Tue Sep 16 2026 local
+
+  it("labels today with Today · month day", () => {
+    const starts = new Date(2026, 8, 16, 18, 0, 0).toISOString()
+    expect(formatAgendaBlockDayLabel(starts, now)).toMatch(/^Today · /)
+    expect(formatAgendaBlockDayLabel(starts, now)).toContain(
+      now.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    )
+  })
+
+  it("labels tomorrow with Tomorrow · month day", () => {
+    const starts = new Date(2026, 8, 17, 18, 0, 0).toISOString()
+    expect(formatAgendaBlockDayLabel(starts, now)).toMatch(/^Tomorrow · /)
+  })
+
+  it("labels later days with weekday + month day", () => {
+    const starts = new Date(2026, 8, 22, 18, 0, 0).toISOString()
+    const label = formatAgendaBlockDayLabel(starts, now)
+    expect(label).toMatch(/Sep/)
+    expect(label).toMatch(/22/)
+    expect(label).not.toMatch(/^Today/)
+    expect(label).not.toMatch(/^Tomorrow/)
   })
 })
 

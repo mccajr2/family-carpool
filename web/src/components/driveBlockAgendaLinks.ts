@@ -87,3 +87,50 @@ export function driveBlockWriteForClick(
   }
   return { kind: "set", action: "FORCE_MERGE", ...pair }
 }
+
+export type AgendaBlockDriveBlockControl = {
+  /** Member used as the click anchor for {@link driveBlockWriteForClick}. */
+  item: Pick<CalendarItem, "id" | "source" | "startsAt">
+  link: CalendarDriveBlockLink
+  label: string
+}
+
+/**
+ * Deduped combine/split controls for a multi-item Agenda block card.
+ * Only links whose sibling is also a block member are included (one control
+ * per ordered pair).
+ */
+export function agendaBlockDriveBlockControls(
+  items: readonly CalendarItem[],
+): AgendaBlockDriveBlockControl[] {
+  if (items.length < 2) {
+    return []
+  }
+  const memberKeys = new Set(
+    items.map((item) => `${item.source}-${item.id}`),
+  )
+  const seenPairs = new Set<string>()
+  const controls: AgendaBlockDriveBlockControl[] = []
+
+  for (const item of items) {
+    for (const link of item.driveBlockLinks) {
+      const otherKey = `${link.otherSource}-${link.otherId}`
+      if (!memberKeys.has(otherKey)) {
+        continue
+      }
+      const pair = orderedDriveBlockPair(item, link)
+      const pairKey = `${pair.leg}:${pair.leftSource}-${pair.leftItemId}:${pair.rightSource}-${pair.rightItemId}`
+      if (seenPairs.has(pairKey)) {
+        continue
+      }
+      seenPairs.add(pairKey)
+      controls.push({
+        item,
+        link,
+        label: driveBlockLinkLabel(link),
+      })
+    }
+  }
+
+  return controls
+}

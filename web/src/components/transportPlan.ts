@@ -235,7 +235,7 @@ export function orderedTransportLegs(
  * adult-only assignees (null circle) and must not inflate inbound · +n.
  * Legacy fixtures with blank assignees still count for the accepting circle.
  */
-function inboundLegOwnedByCircle(
+export function inboundLegOwnedByCircle(
   leg: CarpoolRideLeg,
   circleId: string,
 ): boolean {

@@ -3043,14 +3043,9 @@ describe("AgendaRow", () => {
     expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
   })
 
-  it("shows interim drive-block merge/split links and invokes the handler", async () => {
+  it("shows Combine these on AgendaRow for non-combined driveBlockLinks only", async () => {
     const user = userEvent.setup()
     const onDriveBlockLink = vi.fn()
-    const clockIso = "2030-08-15T18:00:00.000Z"
-    const clock = new Date(clockIso).toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    })
     const feedItem = item({
       id: "drive-a",
       source: "FEED",
@@ -3064,7 +3059,7 @@ describe("AgendaRow", () => {
           otherSource: "FEED",
           otherId: "drive-b",
           otherTitle: "Practice B",
-          otherStartsAt: clockIso,
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
           combined: true,
           overrideAction: null,
         },
@@ -3075,6 +3070,61 @@ describe("AgendaRow", () => {
           otherTitle: "Earlier skate",
           otherStartsAt: "2030-08-15T16:00:00.000Z",
           combined: false,
+          overrideAction: "FORCE_SPLIT",
+        },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        onDriveBlockLink={onDriveBlockLink}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-drive-a")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const links = within(row).getByTestId("agenda-drive-block-links")
+    expect(
+      within(links).queryByRole("button", { name: /Split this out/ }),
+    ).not.toBeInTheDocument()
+    const combine = within(links).getByRole("button", { name: /Combine these/ })
+    expect(combine).toHaveAttribute(
+      "data-testid",
+      "agenda-drive-block-link-TO-drive-c",
+    )
+    await user.click(combine)
+    expect(onDriveBlockLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        otherId: "drive-c",
+        combined: false,
+        overrideAction: "FORCE_SPLIT",
+      }),
+    )
+  })
+
+  it("does not render combined drive-block split links on AgendaRow", async () => {
+    const user = userEvent.setup()
+    const feedItem = item({
+      id: "drive-a",
+      source: "FEED",
+      title: "Practice A",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:a",
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+          combined: true,
           overrideAction: null,
         },
       ],
@@ -3087,69 +3137,16 @@ describe("AgendaRow", () => {
         currentAdultId="a1"
         loading={false}
         assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
-        {...noopHandlers}
-        onDriveBlockLink={onDriveBlockLink}
-      />,
-    )
-
-    const row = screen.getByTestId("agenda-row-FEED-drive-a")
-    await user.click(within(row).getByRole("button", { expanded: false }))
-    const links = within(row).getByTestId("agenda-drive-block-links")
-    expect(
-      within(links).getByRole("button", {
-        name: `Combined with Practice B · ${clock} · Split this out`,
-      }),
-    ).toBeInTheDocument()
-    const splitClock = new Date("2030-08-15T16:00:00.000Z").toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    })
-    expect(
-      within(links).getByRole("button", {
-        name: `Split from Earlier skate · ${splitClock} · Combine these`,
-      }),
-    ).toBeInTheDocument()
-
-    await user.click(within(links).getByTestId("agenda-drive-block-link-TO-drive-b"))
-    expect(onDriveBlockLink).toHaveBeenCalledWith(
-      expect.objectContaining({
-        otherId: "drive-b",
-        combined: true,
-      }),
-    )
-  })
-
-  it("hides drive-block links when the handler is omitted", async () => {
-    const user = userEvent.setup()
-    render(
-      <AgendaRow
-        item={item({
-          id: "drive-a",
-          source: "FEED",
-          title: "Practice A",
-          feedId: "f1",
-          feedName: "U12",
-          driveBlockLinks: [
-            {
-              leg: "TO",
-              otherSource: "FEED",
-              otherId: "drive-b",
-              otherTitle: "Practice B",
-              otherStartsAt: "2030-08-15T18:00:00.000Z",
-              combined: true,
-              overrideAction: null,
-            },
-          ],
-        })}
-        circle={circle}
-        currentAdultId="a1"
-        loading={false}
-        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        onDriveBlockLink={vi.fn()}
         {...noopHandlers}
       />,
     )
+
     const row = screen.getByTestId("agenda-row-FEED-drive-a")
     await user.click(within(row).getByRole("button", { expanded: false }))
     expect(within(row).queryByTestId("agenda-drive-block-links")).not.toBeInTheDocument()
+    expect(
+      within(row).queryByRole("button", { name: /Split this out|Combine these/ }),
+    ).not.toBeInTheDocument()
   })
 })
