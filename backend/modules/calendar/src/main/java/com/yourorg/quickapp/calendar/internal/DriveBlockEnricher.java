@@ -124,7 +124,10 @@ class DriveBlockEnricher {
         }
 
         Map<ItemLegKey, List<CalendarDriveBlockLinkResponse>> linksByItem = new HashMap<>();
-        for (CarpoolLegKind leg : CarpoolLegKind.values()) {
+        // Interim Agenda control is TO-only. Household confirms usually set TO+FROM;
+        // emitting both produced duplicate identical copy on the later card.
+        // FROM blocks still compute above for overrides / later block UI.
+        for (CarpoolLegKind leg : List.of(CarpoolLegKind.TO)) {
             List<CalendarItemResponse> legItems =
                     eligibleOrdered.stream()
                             .filter(item -> legsByFeed.getOrDefault(item.id(), Set.of()).contains(leg))
@@ -152,6 +155,7 @@ class DriveBlockEnricher {
                                 leg,
                                 right.source(),
                                 right.id(),
+                                right.title(),
                                 right.startsAt(),
                                 combined,
                                 action);
@@ -160,6 +164,7 @@ class DriveBlockEnricher {
                                 leg,
                                 left.source(),
                                 left.id(),
+                                left.title(),
                                 left.startsAt(),
                                 combined,
                                 action);

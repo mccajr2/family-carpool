@@ -164,6 +164,9 @@ class OpenApiContractTest {
         assertThat(yaml).contains("kid RSVP is NO");
         assertThat(yaml).contains("otherItemId:");
         assertThat(yaml).contains("otherStartsAt:");
+        assertThat(yaml).contains("otherTitle:");
+        assertThat(yaml).contains("CalendarDriveBlockLink:");
+        assertThat(yaml).contains("driveBlockLinks:");
         assertThat(yaml).contains("defaultLeaveFromPlaceId:");
         assertThat(yaml).contains("defaultLeaveFromPlaceName:");
         assertThat(yaml).contains("leaveFromPlaceId:");

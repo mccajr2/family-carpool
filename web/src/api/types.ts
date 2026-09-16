@@ -384,6 +384,9 @@ export type CalendarDriveBlockLink = {
   leg: CarpoolLegKind
   otherSource: CalendarItemSource
   otherId: string
+  /** Sibling event title for Agenda copy (not leave-by). */
+  otherTitle: string
+  /** Sibling event startsAt (UTC) — not leave-by. */
   otherStartsAt: string
   combined: boolean
   overrideAction: DriveBlockOverrideAction | null

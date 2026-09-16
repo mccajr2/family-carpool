@@ -1424,15 +1424,18 @@ paths:
         CONFIRMED assignment; RSVP NO kids are never uncovered), and conflicts
         (server-computed kid time-overlaps ignore RSVP NO kids; adult coverage
         overlaps using event startsAt/endsAt only; peers may lie outside the
-        requested window). When the viewing adult is the confirmed driver on a
-        carpool TO or FROM leg, items also include driveBlockLinks — adjacent
-        confirmed-driving siblings for that leg with combined vs splittable
-        state (auto merge rule, or FORCE_MERGE / FORCE_SPLIT override). Driving
-        blocks are computed on each read from live ride legs + leave-by cache
-        (no Nominatim/OSRM on this list); overrides are the only persisted
-        block state. Empty array when none match. from must be strictly
-        before to (400 otherwise). Adults without a circle receive 404. Does
-        not mutate feed snapshots or manual events.
+        requested window). When the viewing adult is the confirmed driver on the
+        carpool TO leg, items also include driveBlockLinks — time-adjacent
+        confirmed-driving TO siblings with combined vs splittable state (auto
+        merge rule, or FORCE_MERGE / FORCE_SPLIT override). Interim Agenda copy
+        is TO-only (household confirms often set TO+FROM; dual links were
+        duplicate noise). Each link includes otherTitle + otherStartsAt (event
+        start, not leave-by). Driving blocks are still computed for TO and FROM
+        on each read from live ride legs + leave-by cache (no Nominatim/OSRM on
+        this list); overrides are the only persisted block state. Empty array
+        when none match. from must be strictly before to (400 otherwise). Adults
+        without a circle receive 404. Does not mutate feed snapshots or manual
+        events.
       security:
         - bearerAuth: []
       parameters:
@@ -5786,6 +5789,7 @@ components:
         - leg
         - otherSource
         - otherId
+        - otherTitle
         - otherStartsAt
         - combined
       properties:
@@ -5797,10 +5801,16 @@ components:
           type: string
           format: uuid
           description: Sibling calendar item id (ordered adjacent on this leg)
+        otherTitle:
+          type: string
+          description: >
+            Sibling event title for interim Agenda copy (e.g. "CYH Mite Practice").
+            Prefer this over clock-only wording so the control names an event,
+            not a leave-by estimate.
         otherStartsAt:
           type: string
           format: date-time
-          description: Sibling startsAt (UTC) for copy like "your 6:00 drive"
+          description: Sibling startsAt (UTC) — event start, not leave-by
         combined:
           type: boolean
           description: >

@@ -19,6 +19,7 @@ function link(partial: Partial<CalendarDriveBlockLink> = {}): CalendarDriveBlock
     leg: "TO",
     otherSource: "FEED",
     otherId: "e2",
+    otherTitle: "Practice B",
     otherStartsAt: "2026-09-15T18:00:00.000Z",
     combined: true,
     overrideAction: null,
@@ -32,13 +33,13 @@ describe("driveBlockAgendaLinks", () => {
     expect(clock).toMatch(/\d{1,2}:\d{2}/)
   })
 
-  it("builds combined and splittable labels", () => {
+  it("builds combined and splittable labels with sibling title + start", () => {
     const clock = formatSiblingDriveClock("2026-09-15T18:00:00.000Z")
     expect(driveBlockLinkLabel(link({ combined: true }))).toBe(
-      `Combined with your ${clock} drive · Split this out`,
+      `Combined with Practice B · ${clock} · Split this out`,
     )
     expect(driveBlockLinkLabel(link({ combined: false }))).toBe(
-      `Split from your ${clock} drive · Combine these`,
+      `Split from Practice B · ${clock} · Combine these`,
     )
   })
 

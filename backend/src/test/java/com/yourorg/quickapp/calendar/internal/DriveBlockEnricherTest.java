@@ -92,6 +92,7 @@ class DriveBlockEnricherTest {
                         link -> {
                             assertThat(link.leg()).isEqualTo(CarpoolLegKind.TO);
                             assertThat(link.otherId()).isEqualTo(item2);
+                            assertThat(link.otherTitle()).isEqualTo("Practice B");
                             assertThat(link.otherStartsAt()).isEqualTo(start2);
                             assertThat(link.combined()).isTrue();
                             assertThat(link.overrideAction()).isNull();
@@ -101,8 +102,46 @@ class DriveBlockEnricherTest {
                 .satisfies(
                         link -> {
                             assertThat(link.otherId()).isEqualTo(item1);
+                            assertThat(link.otherTitle()).isEqualTo("Practice A");
                             assertThat(link.combined()).isTrue();
                         });
+    }
+
+    @Test
+    void emitsOnlyToLinksWhenAdultConfirmedOnToAndFrom() {
+        Instant start1 = Instant.parse("2026-09-15T17:00:00Z");
+        Instant end1 = Instant.parse("2026-09-15T18:00:00Z");
+        Instant start2 = end1.plus(10, java.time.temporal.ChronoUnit.MINUTES);
+        CalendarItemResponse a = feedItem(item1, "Mite Practice", start1, end1);
+        CalendarItemResponse b = feedItem(item2, "Squirt Practice", start2, start2.plusSeconds(3600));
+
+        when(carpoolApi.listConfirmedDrivingLegs(eq(adultId), eq(circleId), any()))
+                .thenReturn(
+                        List.of(
+                                new CarpoolConfirmedDrivingLegDto(item1, CarpoolLegKind.TO),
+                                new CarpoolConfirmedDrivingLegDto(item1, CarpoolLegKind.FROM),
+                                new CarpoolConfirmedDrivingLegDto(item2, CarpoolLegKind.TO),
+                                new CarpoolConfirmedDrivingLegDto(item2, CarpoolLegKind.FROM)));
+        when(leaveByApi.cheapVenueDrives(eq(adultId), any()))
+                .thenReturn(
+                        List.of(
+                                new LeaveByVenueDriveDto(rink, 600),
+                                new LeaveByVenueDriveDto(rink, 600)));
+        when(leaveByApi.arrivalBufferMinutes(any())).thenReturn(20);
+        when(overrideService.pairOverridesForAdult(adultId)).thenReturn(List.of());
+
+        List<CalendarItemResponse> result = enricher.attach(adultId, circleId, List.of(a, b));
+
+        assertThat(result.get(0).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.leg()).isEqualTo(CarpoolLegKind.TO);
+            assertThat(link.otherTitle()).isEqualTo("Squirt Practice");
+            assertThat(link.combined()).isTrue();
+        });
+        assertThat(result.get(1).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.leg()).isEqualTo(CarpoolLegKind.TO);
+            assertThat(link.otherTitle()).isEqualTo("Mite Practice");
+            assertThat(link.otherStartsAt()).isEqualTo(start1);
+        });
     }
 
     @Test

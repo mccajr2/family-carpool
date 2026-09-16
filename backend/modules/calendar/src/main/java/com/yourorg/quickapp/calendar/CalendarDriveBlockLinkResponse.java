@@ -13,6 +13,8 @@ public record CalendarDriveBlockLinkResponse(
         CarpoolLegKind leg,
         CalendarItemSource otherSource,
         UUID otherId,
+        /** Sibling event title for Agenda copy (avoids ambiguous leave-by clocks). */
+        String otherTitle,
         Instant otherStartsAt,
         /** True when this item and {@code otherId} share a computed driving block. */
         boolean combined,

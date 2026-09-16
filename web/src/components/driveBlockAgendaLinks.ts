@@ -5,7 +5,7 @@ import type {
   DriveBlockOverrideAction,
 } from "@/api/types"
 
-/** Local clock for “your 6:00 drive” copy (matches interim Agenda control). */
+/** Local clock for sibling event start in Agenda drive-block copy. */
 export function formatSiblingDriveClock(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) {
@@ -17,12 +17,17 @@ export function formatSiblingDriveClock(iso: string): string {
   })
 }
 
+/**
+ * Names the sibling event + its start clock so the control aligns with an
+ * Agenda row, not a leave-by estimate.
+ */
 export function driveBlockLinkLabel(link: CalendarDriveBlockLink): string {
   const clock = formatSiblingDriveClock(link.otherStartsAt)
+  const title = link.otherTitle.trim() || "drive"
   if (link.combined) {
-    return `Combined with your ${clock} drive · Split this out`
+    return `Combined with ${title} · ${clock} · Split this out`
   }
-  return `Split from your ${clock} drive · Combine these`
+  return `Split from ${title} · ${clock} · Combine these`
 }
 
 export type DriveBlockOrderedPair = {

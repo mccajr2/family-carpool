@@ -3063,6 +3063,7 @@ describe("AgendaRow", () => {
           leg: "TO",
           otherSource: "FEED",
           otherId: "drive-b",
+          otherTitle: "Practice B",
           otherStartsAt: clockIso,
           combined: true,
           overrideAction: null,
@@ -3071,6 +3072,7 @@ describe("AgendaRow", () => {
           leg: "TO",
           otherSource: "FEED",
           otherId: "drive-c",
+          otherTitle: "Earlier skate",
           otherStartsAt: "2030-08-15T16:00:00.000Z",
           combined: false,
           overrideAction: null,
@@ -3095,7 +3097,7 @@ describe("AgendaRow", () => {
     const links = within(row).getByTestId("agenda-drive-block-links")
     expect(
       within(links).getByRole("button", {
-        name: `Combined with your ${clock} drive · Split this out`,
+        name: `Combined with Practice B · ${clock} · Split this out`,
       }),
     ).toBeInTheDocument()
     const splitClock = new Date("2030-08-15T16:00:00.000Z").toLocaleTimeString(undefined, {
@@ -3104,7 +3106,7 @@ describe("AgendaRow", () => {
     })
     expect(
       within(links).getByRole("button", {
-        name: `Split from your ${splitClock} drive · Combine these`,
+        name: `Split from Earlier skate · ${splitClock} · Combine these`,
       }),
     ).toBeInTheDocument()
 
@@ -3132,6 +3134,7 @@ describe("AgendaRow", () => {
               leg: "TO",
               otherSource: "FEED",
               otherId: "drive-b",
+              otherTitle: "Practice B",
               otherStartsAt: "2030-08-15T18:00:00.000Z",
               combined: true,
               overrideAction: null,
