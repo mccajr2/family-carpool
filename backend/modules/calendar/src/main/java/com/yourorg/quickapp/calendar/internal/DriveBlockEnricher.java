@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.calendar.internal;
 
+import com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse;
 import com.yourorg.quickapp.calendar.CalendarDriveBlockLinkResponse;
 import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
@@ -7,6 +8,7 @@ import com.yourorg.quickapp.calendar.DriveBlockOverrideAction;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
+import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
@@ -65,15 +67,27 @@ class DriveBlockEnricher {
 
         List<CarpoolConfirmedDrivingLegDto> confirmed =
                 carpoolApi.listConfirmedDrivingLegs(adultId, circleId, feedIds);
-        if (confirmed.isEmpty()) {
-            return items.stream().map(item -> withLinks(item, List.of())).toList();
-        }
 
         Map<UUID, Set<CarpoolLegKind>> legsByFeed = new HashMap<>();
         for (CarpoolConfirmedDrivingLegDto row : confirmed) {
             legsByFeed
                     .computeIfAbsent(row.feedEventId(), ignored -> new HashSet<>())
                     .add(row.leg());
+        }
+        // Feeds without a carpool space still show You're driving via coverage
+        // CONFIRMED (e.g. Mite 3). Count those as TO for block membership so
+        // same-rink back-to-backs merge with space-backed plans (Squirt).
+        for (CalendarItemResponse item : items) {
+            if (item.source() != CalendarItemSource.FEED) {
+                continue;
+            }
+            if (!isCoverageConfirmedDriver(item, adultId)) {
+                continue;
+            }
+            legsByFeed.computeIfAbsent(item.id(), ignored -> new HashSet<>()).add(CarpoolLegKind.TO);
+        }
+        if (legsByFeed.isEmpty()) {
+            return items.stream().map(item -> withLinks(item, List.of())).toList();
         }
 
         Map<UUID, CalendarItemResponse> feedItems = new HashMap<>();
@@ -213,6 +227,19 @@ class DriveBlockEnricher {
         }
         Duration startGap = Duration.between(left.startsAt(), right.startsAt()).abs();
         return startGap.compareTo(MAX_INTERIM_LINK_START_GAP) < 0;
+    }
+
+    private static boolean isCoverageConfirmedDriver(CalendarItemResponse item, UUID adultId) {
+        if (item.coverages() == null || item.coverages().isEmpty()) {
+            return false;
+        }
+        for (CalendarCoverageAssignmentResponse coverage : item.coverages()) {
+            if (coverage.status() == CoverageStatus.CONFIRMED
+                    && adultId.equals(coverage.coveringAdultId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Set<String> combinedAdjacentPairs(

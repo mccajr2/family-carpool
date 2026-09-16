@@ -14,6 +14,7 @@ import com.yourorg.quickapp.calendar.DriveBlockOverrideAction;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
+import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByStatus;
 import com.yourorg.quickapp.leaveby.LeaveByVenueDriveDto;
@@ -206,6 +207,55 @@ class DriveBlockEnricherTest {
     }
 
     @Test
+    void mergesCoverageConfirmedWithCarpoolConfirmedSameVenue() {
+        // Dogfood: Mite 3 has no carpool space → coverage CONFIRMED only;
+        // Squirt has a PLAN. Both must still form one TO block.
+        Instant miteStart = Instant.parse("2026-09-15T22:00:00Z");
+        Instant miteEnd = Instant.parse("2026-09-15T22:50:00Z");
+        Instant squirtStart = Instant.parse("2026-09-15T23:00:00Z");
+        Instant squirtEnd = Instant.parse("2026-09-15T23:50:00Z");
+
+        CalendarItemResponse mite =
+                feedItemWithCoverage(
+                        item1,
+                        "CYH Mite Practice",
+                        miteStart,
+                        miteEnd,
+                        adultId,
+                        CoverageStatus.CONFIRMED);
+        CalendarItemResponse squirt =
+                feedItem(item2, "CYH Squirt 1 Practice", squirtStart, squirtEnd);
+
+        when(carpoolApi.listConfirmedDrivingLegs(eq(adultId), eq(circleId), any()))
+                .thenReturn(List.of(new CarpoolConfirmedDrivingLegDto(item2, CarpoolLegKind.TO)));
+        when(leaveByApi.cheapVenueDrives(eq(adultId), any()))
+                .thenAnswer(
+                        invocation -> {
+                            List<com.yourorg.quickapp.leaveby.LeaveByItemInput> inputs =
+                                    invocation.getArgument(1);
+                            return inputs.stream()
+                                    .map(ignored -> new LeaveByVenueDriveDto(rink, 600))
+                                    .toList();
+                        });
+        when(leaveByApi.arrivalBufferMinutes(any())).thenReturn(20);
+        when(overrideService.pairOverridesForAdult(adultId)).thenReturn(List.of());
+
+        List<CalendarItemResponse> result =
+                enricher.attach(adultId, circleId, List.of(mite, squirt));
+
+        Map<UUID, CalendarItemResponse> byId =
+                result.stream().collect(Collectors.toMap(CalendarItemResponse::id, r -> r));
+        assertThat(byId.get(item1).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.otherId()).isEqualTo(item2);
+            assertThat(link.combined()).isTrue();
+        });
+        assertThat(byId.get(item2).driveBlockLinks()).singleElement().satisfies(link -> {
+            assertThat(link.otherId()).isEqualTo(item1);
+            assertThat(link.combined()).isTrue();
+        });
+    }
+
+    @Test
     void surfacesForceSplitOverrideOnAdjacentPair() {
         Instant start1 = Instant.parse("2026-09-15T17:00:00Z");
         Instant end1 = Instant.parse("2026-09-15T18:00:00Z");
@@ -264,6 +314,43 @@ class DriveBlockEnricherTest {
 
     private static CalendarItemResponse feedItem(
             UUID id, String title, Instant startsAt, Instant endsAt) {
+        return feedItem(id, title, startsAt, endsAt, List.of());
+    }
+
+    private static CalendarItemResponse feedItemWithCoverage(
+            UUID id,
+            String title,
+            Instant startsAt,
+            Instant endsAt,
+            UUID coveringAdultId,
+            CoverageStatus status) {
+        return feedItem(
+                id,
+                title,
+                startsAt,
+                endsAt,
+                List.of(
+                        new com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse(
+                                UUID.randomUUID(),
+                                coveringAdultId,
+                                "You",
+                                coveringAdultId,
+                                List.of(),
+                                status,
+                                null,
+                                null,
+                                null,
+                                null,
+                                LeaveByStatus.PENDING,
+                                null)));
+    }
+
+    private static CalendarItemResponse feedItem(
+            UUID id,
+            String title,
+            Instant startsAt,
+            Instant endsAt,
+            List<com.yourorg.quickapp.calendar.CalendarCoverageAssignmentResponse> coverages) {
         return new CalendarItemResponse(
                 id,
                 CalendarItemSource.FEED,
@@ -281,7 +368,7 @@ class DriveBlockEnricherTest {
                 null,
                 LeaveByStatus.PENDING,
                 null,
-                List.of(),
+                coverages,
                 List.of(),
                 List.of(),
                 List.of(),
