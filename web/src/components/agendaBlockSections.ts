@@ -7,11 +7,13 @@ import type {
 } from "@/api/types"
 import {
   ALREADY_COVERED,
-  DROP_OFF_RUN,
-  joinKidFirstNames,
   NOT_YOUR_JOB_TONIGHT,
-  PICKUP_RUN,
-  youreDrivingRidersLabel,
+  alreadyDrivingRoundTripBanner,
+  agendaBlockRunHeading,
+  agendaBlockRunSummaryLine,
+  mutedOtherJobFromLine,
+  mutedOtherJobToLine,
+  qualifiedPlaceLabel,
 } from "@/components/coverageCopy"
 import {
   activeCoverages,
@@ -19,6 +21,7 @@ import {
 } from "@/components/coverageDisplay"
 import { formatSiblingDriveClock } from "@/components/driveBlockAgendaLinks"
 import { heroAdultFirstName, heroKidFirstName } from "@/components/heroAttentionCopy"
+import { agendaBlockRunStatusChip } from "@/components/rideStatusChip"
 import { resolveOwnRidePlans } from "@/components/transportPlan"
 
 export type AgendaBlockRunSection = {
@@ -27,7 +30,7 @@ export type AgendaBlockRunSection = {
   heading: string
   /** e.g. "You're driving · 4 riders" */
   chipLabel: string
-  /** Always-visible short rider line (kid names). */
+  /** Always-visible short rider line (kid names / direction summary). */
   summaryLine: string | null
   /**
    * Non-ADR density (route-ish detail) — starts collapsed; empty until a later
@@ -48,6 +51,8 @@ export type AgendaBlockMutedBand = {
 }
 
 export type AgendaBlockSections = {
+  /** ADR rule 3 — visible when viewer owns TO+FROM for the same kids. */
+  roundTripBanner: string | null
   toRun: AgendaBlockRunSection | null
   eventBands: AgendaBlockEventBand[]
   mutedBand: AgendaBlockMutedBand | null
@@ -59,6 +64,11 @@ export type BuildAgendaBlockSectionsOptions = {
   currentAdultId: string
   kids: readonly Kid[]
   members: readonly FamilyMember[]
+  /**
+   * Kid ids that belong to the viewing adult's household (circle kids).
+   * Used to qualify "home" across household boundaries (ADR rule 5).
+   */
+  viewerHouseholdKidIds?: ReadonlySet<string>
   rideEventFor: (item: CalendarItem) => CarpoolRideEvent | null | undefined
 }
 
@@ -76,7 +86,6 @@ function formatEventBandClock(startsAt: string, endsAt: string | null): string {
     return start
   }
   const end = formatSiblingDriveClock(endsAt)
-  // Drop duplicate meridian on the start when both clocks share AM/PM.
   const startParts = start.match(/^(.+)\s+(AM|PM)$/i)
   const endParts = end.match(/^(.+)\s+(AM|PM)$/i)
   if (
@@ -128,8 +137,6 @@ function collectOwnedKidLegs(
       }
     }
 
-    // Coverage CONFIRMED without a matching ride leg — treat as TO (matches
-    // server drive-block enrichment for space-less feeds).
     for (const coverage of activeCoverages(item)) {
       if (coverage.status !== "CONFIRMED") {
         continue
@@ -152,10 +159,7 @@ function collectOwnedKidLegs(
   return owned
 }
 
-function runClock(
-  leg: CarpoolLegKind,
-  rows: OwnedKidLeg[],
-): string {
+function runClock(leg: CarpoolLegKind, rows: OwnedKidLeg[]): string {
   if (leg === "TO") {
     const times = rows.map((row) => row.item.leaveByAt ?? row.item.startsAt)
     times.sort()
@@ -163,8 +167,18 @@ function runClock(
   }
   const times = rows.map((row) => row.item.endsAt ?? row.item.startsAt)
   times.sort()
-  // Pickup after the earliest ending event the viewer is driving home from.
   return formatSiblingDriveClock(times[0] ?? rows[0]!.item.startsAt)
+}
+
+function sharedVenue(rows: OwnedKidLeg[]): string | null {
+  const locations = rows
+    .map((row) => row.item.location?.trim() || null)
+    .filter((value): value is string => value != null)
+  if (locations.length === 0) {
+    return null
+  }
+  const first = locations[0]!
+  return locations.every((value) => value === first) ? first : first
 }
 
 function buildRun(
@@ -177,13 +191,15 @@ function buildRun(
   }
   const uniqueKidIds = [...new Set(rows.map((row) => row.kidId))]
   const names = uniqueKidIds.map((id) => heroKidFirstName(id, kids))
-  const runLabel = leg === "TO" ? DROP_OFF_RUN : PICKUP_RUN
-  const clock = runClock(leg, rows)
   return {
     leg,
-    heading: `${clock} · ${runLabel}`,
-    chipLabel: youreDrivingRidersLabel(uniqueKidIds.length),
-    summaryLine: names.length > 0 ? joinKidFirstNames(names) : null,
+    heading: agendaBlockRunHeading(leg, runClock(leg, rows)),
+    chipLabel: agendaBlockRunStatusChip(uniqueKidIds.length).label,
+    summaryLine: agendaBlockRunSummaryLine({
+      leg,
+      kidFirstNames: names,
+      venueName: sharedVenue(rows),
+    }),
     detailLines: [],
   }
 }
@@ -192,6 +208,7 @@ function mutedLine(
   row: OwnedKidLeg,
   kids: readonly Kid[],
   members: readonly FamilyMember[],
+  viewerHouseholdKidIds: ReadonlySet<string>,
 ): string {
   const kid = heroKidFirstName(row.kidId, kids)
   const driver =
@@ -199,24 +216,35 @@ function mutedLine(
     (row.ownerDisplayName?.trim() || "another parent")
   if (row.leg === "FROM") {
     const when = formatSiblingDriveClock(row.item.endsAt ?? row.item.startsAt)
-    return `${kid} → home with ${driver} at ${when}`
+    const dropOffLabel = qualifiedPlaceLabel({
+      placeName: "Home",
+      kidFirstName: kid,
+      isViewersHousehold: viewerHouseholdKidIds.has(row.kidId),
+    })
+    return mutedOtherJobFromLine({
+      kidFirstName: kid,
+      driverFirstName: driver,
+      clockLabel: when,
+      dropOffLabel,
+    })
   }
-  const place = row.item.location?.trim()
-  if (place) {
-    return `${kid} → ${place} with ${driver}`
-  }
-  return `${kid} · covered by ${driver}`
+  return mutedOtherJobToLine({
+    kidFirstName: kid,
+    driverFirstName: driver,
+    venueName: row.item.location,
+  })
 }
 
 /**
  * Derives Agenda block card sections from event-shaped calendar + ride data.
- * Order matches the day-block mockup: drop-off → event bands → muted other
- * jobs → pickup.
+ * Copy flows through coverageCopy + rideStatusChip (ADR-0004); no local forks.
  */
 export function buildAgendaBlockSections(
   options: BuildAgendaBlockSectionsOptions,
 ): AgendaBlockSections {
   const { items, currentAdultId, kids, members, rideEventFor } = options
+  const viewerHouseholdKidIds =
+    options.viewerHouseholdKidIds ?? new Set(kids.map((kid) => kid.id))
   const owned = collectOwnedKidLegs(items, rideEventFor)
 
   const viewerTo = owned.filter(
@@ -235,16 +263,30 @@ export function buildAgendaBlockSections(
   const viewerHasRun = viewerTo.length > 0 || viewerFrom.length > 0
   let mutedBand: AgendaBlockMutedBand | null = null
   if (other.length > 0) {
-    const lines = other.map((row) => mutedLine(row, kids, members))
-    // Dedupe identical lines (siblings same driver/time).
-    const uniqueLines = [...new Set(lines)]
+    const lines = other.map((row) =>
+      mutedLine(row, kids, members, viewerHouseholdKidIds),
+    )
     mutedBand = {
       heading: viewerHasRun ? NOT_YOUR_JOB_TONIGHT : ALREADY_COVERED,
-      lines: uniqueLines,
+      lines: [...new Set(lines)],
     }
   }
 
+  const toKidIds = new Set(viewerTo.map((row) => row.kidId))
+  const roundTripKidIds = [
+    ...new Set(
+      viewerFrom.map((row) => row.kidId).filter((kidId) => toKidIds.has(kidId)),
+    ),
+  ]
+  const roundTripBanner =
+    roundTripKidIds.length > 0
+      ? alreadyDrivingRoundTripBanner(
+          roundTripKidIds.map((id) => heroKidFirstName(id, kids)),
+        )
+      : null
+
   return {
+    roundTripBanner,
     toRun: buildRun("TO", viewerTo, kids),
     eventBands,
     mutedBand,

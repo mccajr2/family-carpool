@@ -177,6 +177,15 @@ export function AgendaBlockCard({
           ) : null}
         </header>
 
+        {sections.roundTripBanner != null ? (
+          <p
+            data-testid="agenda-block-round-trip-banner"
+            className="rounded-[var(--fc-radius-lg)] bg-[color-mix(in_srgb,var(--fc-success)_14%,transparent)] px-[var(--fc-space-md)] py-[var(--fc-space-sm)] text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-success)]"
+          >
+            {sections.roundTripBanner}
+          </p>
+        ) : null}
+
         {sections.toRun != null ? (
           <RunSection run={sections.toRun} testId="agenda-block-run-to" />
         ) : null}

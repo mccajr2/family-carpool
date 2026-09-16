@@ -166,7 +166,7 @@ follow-up siblings.
 - [x] Web: Agenda block card sections — per-leg runs, event bands, muted
       “not your job” / “already covered”, progressive disclosure for non-ADR
       detail
-- [ ] Web: wire ADR-critical copy through shared `coverageCopy` /
+- [x] Web: wire ADR-critical copy through shared `coverageCopy` /
       ride-status helpers (extend, don’t fork)
 - [ ] Web: Focus / Hero — keep one-decision-per-card queue; do **not** merge
       attention items into a multi-decision block Hero; optional supporting

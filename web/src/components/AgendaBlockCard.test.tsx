@@ -197,6 +197,9 @@ describe("AgendaBlockCard", () => {
       /Kian/,
     )
     expect(within(card).getByTestId("agenda-block-run-from")).toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-block-run-from-summary")).toHaveTextContent(
+      /Simoni Rink → home/,
+    )
     expect(screen.queryByTestId("agenda-row-FEED-a")).not.toBeInTheDocument()
   })
 

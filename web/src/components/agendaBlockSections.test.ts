@@ -194,14 +194,90 @@ describe("buildAgendaBlockSections", () => {
     expect(sections.mutedBand?.lines.some((line) => line.includes("Kian"))).toBe(
       true,
     )
+    expect(sections.mutedBand?.lines[0]).toMatch(/your home/)
     expect(sections.fromRun).toEqual(
       expect.objectContaining({
         leg: "FROM",
         chipLabel: "You're driving · 1 rider",
-        summaryLine: "Declan",
+        summaryLine: "Declan · Simoni Rink → home",
       }),
     )
     expect(sections.fromRun?.heading).toMatch(/Pickup run$/)
+    expect(sections.roundTripBanner).toBe(
+      "You're already driving Declan round trip",
+    )
+  })
+
+  it("shows round-trip banner when the viewer owns TO and FROM for the same kid", () => {
+    const a = item("Practice A", "2030-08-15T18:00:00.000Z", {
+      id: "a",
+      endsAt: "2030-08-15T19:00:00.000Z",
+      kidIds: ["k-declan"],
+    })
+    const b = item("Practice B", "2030-08-15T19:00:00.000Z", {
+      id: "b",
+      endsAt: "2030-08-15T20:00:00.000Z",
+      kidIds: ["k-declan"],
+    })
+
+    const sections = buildAgendaBlockSections({
+      items: [a, b],
+      currentAdultId: "a-chris",
+      kids,
+      members,
+      rideEventFor: (row) =>
+        row.id === "a"
+          ? rideEvent(
+              ride(["k-declan"], [
+                leg("TO", "a-chris", "Chris"),
+                leg("FROM", "a-chris", "Chris"),
+              ]),
+            )
+          : rideEvent(
+              ride(["k-declan"], [leg("FROM", "a-chris", "Chris")], {
+                eventKey: "UID:b",
+              }),
+            ),
+    })
+
+    expect(sections.roundTripBanner).toBe(
+      "You're already driving Declan round trip",
+    )
+  })
+
+  it("qualifies another household's home on muted FROM lines", () => {
+    const a = item("Practice A", "2030-08-15T18:00:00.000Z", {
+      id: "a",
+      endsAt: "2030-08-15T19:00:00.000Z",
+      kidIds: ["k-guest"],
+      rsvps: [{ kidId: "k-guest", status: "YES" }],
+    })
+    const b = item("Practice B", "2030-08-15T19:00:00.000Z", {
+      id: "b",
+      endsAt: "2030-08-15T20:00:00.000Z",
+    })
+    const guestKids = [...kids, { id: "k-guest", displayName: "Apollo" }]
+
+    const sections = buildAgendaBlockSections({
+      items: [a, b],
+      currentAdultId: "a-chris",
+      kids: guestKids,
+      members,
+      viewerHouseholdKidIds: new Set(["k-declan", "k-kian"]),
+      rideEventFor: () =>
+        rideEvent(
+          ride(
+            ["k-guest"],
+            [
+              leg("TO", "a-chris", "Chris"),
+              leg("FROM", "a-mom", "Kian's Mom"),
+            ],
+            { kidFirstNames: ["Apollo"] },
+          ),
+        ),
+    })
+
+    expect(sections.mutedBand?.lines[0]).toMatch(/Apollo's home/)
   })
 
   it("uses Already covered when the viewer has no driving run on the block", () => {

@@ -71,6 +71,94 @@ export function youreDrivingRidersLabel(riderCount: number): string {
   return `${YOURE_DRIVING} · ${riderCount} riders`
 }
 
+/**
+ * Viewer-owned Agenda block run chip. Uses the same `You're driving` stem as
+ * {@link legConfirmedStatusLabel} for the viewing adult (ADR rule 1).
+ */
+export function agendaBlockViewerRunChipLabel(riderCount: number): string {
+  return youreDrivingRidersLabel(riderCount)
+}
+
+/**
+ * ADR-0004 rule 5 — never bare "Home" across a household boundary.
+ * Viewer's own place stays "your home"; another kid's place is qualified.
+ */
+export function qualifiedHomeLabel(options: {
+  kidFirstName: string
+  /** True when the home belongs to the viewing adult's household. */
+  isViewersHousehold: boolean
+}): string {
+  const kid = options.kidFirstName.trim() || "Kid"
+  if (options.isViewersHousehold) {
+    return "your home"
+  }
+  return `${kid}'s home`
+}
+
+/**
+ * ADR-0004 rule 5 — qualify a free-text / venue place when it would otherwise
+ * read as bare "Home".
+ */
+export function qualifiedPlaceLabel(options: {
+  placeName: string | null | undefined
+  kidFirstName: string
+  isViewersHousehold: boolean
+}): string {
+  const raw = options.placeName?.trim() || ""
+  if (raw === "" || /^home$/i.test(raw)) {
+    return qualifiedHomeLabel({
+      kidFirstName: options.kidFirstName,
+      isViewersHousehold: options.isViewersHousehold,
+    })
+  }
+  return raw
+}
+
+/**
+ * ADR-0004 rules 2 + 4 + 6 — muted FROM line (home-side is a drop-off).
+ * Kid-first; direction-correct drop-off label.
+ */
+export function mutedOtherJobFromLine(options: {
+  kidFirstName: string
+  driverFirstName: string
+  clockLabel: string
+  dropOffLabel: string
+}): string {
+  const kid = options.kidFirstName.trim() || "Kid"
+  const driver = options.driverFirstName.trim() || "another parent"
+  return `${kid} → ${options.dropOffLabel} with ${driver} at ${options.clockLabel}`
+}
+
+/**
+ * ADR-0004 rules 2 + 6 — muted TO line (venue / covered-by).
+ * Kid-first; perspective is the viewer's ("with {driver}", not raw status).
+ */
+export function mutedOtherJobToLine(options: {
+  kidFirstName: string
+  driverFirstName: string
+  venueName?: string | null
+}): string {
+  const kid = options.kidFirstName.trim() || "Kid"
+  const driver = options.driverFirstName.trim() || "another parent"
+  const venue = options.venueName?.trim()
+  if (venue) {
+    return `${kid} → ${venue} with ${driver}`
+  }
+  return `${kid} · covered by ${driver}`
+}
+
+/**
+ * Block-run heading: `{clock} · Drop-off run` / `Pickup run`.
+ * Drop-off = TO (to event); Pickup = FROM (from event) — ADR rule 4.
+ */
+export function agendaBlockRunHeading(
+  leg: "TO" | "FROM",
+  clockLabel: string,
+): string {
+  const run = leg === "TO" ? DROP_OFF_RUN : PICKUP_RUN
+  return `${clockLabel} · ${run}`
+}
+
 /** Ask the team needs a pickup snapshot — shown next to Save / Post. */
 export const ASK_TEAM_NEEDS_PLACE =
   "Add a home address in Places before asking the team." as const
@@ -190,6 +278,36 @@ export function joinKidFirstNames(kidFirstNames: readonly string[]): string {
     return `${names[0]} and ${names[1]}`
   }
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+}
+
+/**
+ * ADR-0004 rule 3 — plain informational banner when the viewer already owns
+ * both TO and FROM for the listed kids (not a chip to decode).
+ */
+export function alreadyDrivingRoundTripBanner(
+  kidFirstNames: readonly string[],
+): string {
+  return `You're already driving ${joinKidFirstNames(kidFirstNames)} round trip`
+}
+
+/**
+ * ADR-0004 rules 4 + 8 — always-visible run summary (single-stop multi-kid
+ * names together). FROM uses venue → home (drop-off at home).
+ */
+export function agendaBlockRunSummaryLine(options: {
+  leg: "TO" | "FROM"
+  kidFirstNames: readonly string[]
+  venueName?: string | null
+}): string | null {
+  if (options.kidFirstNames.length === 0) {
+    return null
+  }
+  const kids = joinKidFirstNames(options.kidFirstNames)
+  if (options.leg === "FROM") {
+    const venue = options.venueName?.trim()
+    return venue ? `${kids} · ${venue} → home` : kids
+  }
+  return kids
 }
 
 export function kidNeedsRideTitle(kidFirstName: string): string {

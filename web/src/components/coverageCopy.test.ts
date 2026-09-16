@@ -29,6 +29,10 @@ import {
   WEEK_GLANCE_NEEDS_COVERAGE_PLURAL,
   WEEK_GLANCE_NEEDS_COVERAGE_SINGULAR,
   YOURE_DRIVING,
+  alreadyDrivingRoundTripBanner,
+  agendaBlockRunHeading,
+  agendaBlockRunSummaryLine,
+  agendaBlockViewerRunChipLabel,
   confirmDriveFromLabel,
   cancelRequestToDriverLabel,
   legConfirmedStatusLabel,
@@ -37,9 +41,14 @@ import {
   markAsGoingAgainLabel,
   markAsNotGoingLabel,
   markKidsAsNotGoingLabel,
+  mutedOtherJobFromLine,
+  mutedOtherJobToLine,
   needsCoverageWithKids,
+  qualifiedHomeLabel,
+  qualifiedPlaceLabel,
   waitingOnDriverLabel,
   weekGlanceCountCopy,
+  youreDrivingRidersLabel,
 } from "@/components/coverageCopy"
 
 describe("coverageCopy", () => {
@@ -158,5 +167,50 @@ describe("coverageCopy", () => {
     expect(HERO_SECTION_LABEL).toBe("Needs your attention")
     expect(HERO_ALL_CAUGHT_UP).toBe("All caught up")
     expect(AGENDA_LIST_SECTION_LABEL.needsAttention).toBe("NEEDS YOUR ATTENTION")
+  })
+
+  it("builds ADR-0004 Agenda block copy through shared helpers", () => {
+    expect(agendaBlockRunHeading("TO", "5:40 PM")).toBe("5:40 PM · Drop-off run")
+    expect(agendaBlockRunHeading("FROM", "8:00 PM")).toBe("8:00 PM · Pickup run")
+    expect(agendaBlockViewerRunChipLabel(2)).toBe(youreDrivingRidersLabel(2))
+    expect(agendaBlockViewerRunChipLabel(2)).toContain(YOURE_DRIVING)
+    expect(alreadyDrivingRoundTripBanner(["Luke", "Graham"])).toBe(
+      "You're already driving Luke and Graham round trip",
+    )
+    expect(qualifiedHomeLabel({ kidFirstName: "Declan", isViewersHousehold: true })).toBe(
+      "your home",
+    )
+    expect(qualifiedHomeLabel({ kidFirstName: "Declan", isViewersHousehold: false })).toBe(
+      "Declan's home",
+    )
+    expect(
+      qualifiedPlaceLabel({
+        placeName: "Home",
+        kidFirstName: "Apollo",
+        isViewersHousehold: false,
+      }),
+    ).toBe("Apollo's home")
+    expect(
+      mutedOtherJobFromLine({
+        kidFirstName: "Kian",
+        driverFirstName: "Mom",
+        clockLabel: "7:00 PM",
+        dropOffLabel: "Kian's home",
+      }),
+    ).toBe("Kian → Kian's home with Mom at 7:00 PM")
+    expect(
+      mutedOtherJobToLine({
+        kidFirstName: "Apollo",
+        driverFirstName: "Chris",
+        venueName: "Simoni Rink",
+      }),
+    ).toBe("Apollo → Simoni Rink with Chris")
+    expect(
+      agendaBlockRunSummaryLine({
+        leg: "FROM",
+        kidFirstNames: ["Declan"],
+        venueName: "Simoni Rink",
+      }),
+    ).toBe("Declan · Simoni Rink → home")
   })
 })

@@ -21,6 +21,7 @@ import {
 } from "@/components/coverageCopy"
 import {
   agendaOwnRideLegChips,
+  agendaBlockRunStatusChip,
   carpoolAskChipForRideEvent,
   inboundAskLegChips,
   pickMostUrgentGameRow,
@@ -981,5 +982,15 @@ describe("carpoolAskChipForRideEvent", () => {
         game({ id: "out", order: 100, attendance: "not_going", requests: [request({ id: "p1" })] }),
       ]),
     ).toBeNull()
+  })
+})
+
+describe("agendaBlockRunStatusChip", () => {
+  it("uses shared You're driving stem with mint tone", () => {
+    expect(agendaBlockRunStatusChip(4)).toEqual({
+      label: "You're driving · 4 riders",
+      tone: "mint",
+    })
+    expect(agendaBlockRunStatusChip(0).label).toBe(YOURE_DRIVING)
   })
 })
