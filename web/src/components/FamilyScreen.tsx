@@ -1990,10 +1990,10 @@ export function FamilyScreen({
   }
 
   async function onDriveBlockLinkAgenda(
-    item: CalendarItem,
+    item: Pick<CalendarItem, "id" | "source" | "startsAt">,
     link: CalendarDriveBlockLink,
   ) {
-    const itemKey = calendarItemKey(item)
+    const itemKey = `${item.source}-${item.id}`
     clearCoverageActionError(itemKey)
     try {
       const token = await requireToken()
@@ -3726,6 +3726,10 @@ export function FamilyScreen({
                                 null
                               }
                               isFocused={blockFocused}
+                              loading={status.kind === "loading"}
+                              onDriveBlockLink={(member, link) =>
+                                void onDriveBlockLinkAgenda(member, link)
+                              }
                             />
                           </li>
                         )
@@ -3861,9 +3865,6 @@ export function FamilyScreen({
                             onOpenRide={() => {
                               setRideDetailItemKey(itemKey)
                             }}
-                            onDriveBlockLink={(link) =>
-                              void onDriveBlockLinkAgenda(item, link)
-                            }
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
                           />

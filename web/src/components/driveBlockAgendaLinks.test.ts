@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CalendarDriveBlockLink, CalendarItem } from "@/api/types"
 import {
+  agendaBlockDriveBlockControls,
   driveBlockLinkLabel,
   driveBlockWriteForClick,
   formatSiblingDriveClock,
@@ -110,5 +111,50 @@ describe("driveBlockAgendaLinks", () => {
       rightSource: "FEED",
       rightItemId: "e2",
     })
+  })
+
+  it("dedupes block-card combine/split controls to one per ordered pair", () => {
+    const a: CalendarItem = {
+      id: "a",
+      source: "FEED",
+      title: "A",
+      startsAt: "2026-09-15T17:00:00.000Z",
+      endsAt: null,
+      location: null,
+      kidIds: [],
+      feedId: "f1",
+      feedName: null,
+      eventKey: null,
+      leaveFromPlaceId: null,
+      leaveFromPlaceName: null,
+      leaveFromAddress: null,
+      leaveByAt: null,
+      leaveByStatus: "UNAVAILABLE",
+      leaveByReason: null,
+      coverages: [],
+      uncoveredKidIds: [],
+      conflicts: [],
+      rsvps: [],
+      driveBlockLinks: [link({ otherId: "b", otherTitle: "B", combined: true })],
+    }
+    const b: CalendarItem = {
+      ...a,
+      id: "b",
+      title: "B",
+      startsAt: "2026-09-15T18:00:00.000Z",
+      driveBlockLinks: [
+        link({
+          otherId: "a",
+          otherTitle: "A",
+          otherStartsAt: "2026-09-15T17:00:00.000Z",
+          combined: true,
+        }),
+      ],
+    }
+
+    const controls = agendaBlockDriveBlockControls([a, b])
+    expect(controls).toHaveLength(1)
+    expect(controls[0]?.label).toMatch(/Split this out/)
+    expect(controls[0]?.link.otherId).toBe("b")
   })
 })

@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { describe, expect, it, vi } from "vitest"
 
 import type {
   CalendarItem,
@@ -105,9 +106,31 @@ describe("AgendaBlockCard", () => {
           { kidId: "k1", status: "YES" },
           { kidId: "k2", status: "YES" },
         ],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "b",
+            otherTitle: "Practice B",
+            otherStartsAt: "2030-08-15T19:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
       }),
       item("b", "2030-08-15T19:00:00.000Z", {
         endsAt: "2030-08-15T20:00:00.000Z",
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "a",
+            otherTitle: "Practice A",
+            otherStartsAt: "2030-08-15T18:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
       }),
     ]
 
@@ -146,6 +169,7 @@ describe("AgendaBlockCard", () => {
       legs: [confirmedLeg("FROM", "a1", "Chris")],
     }
 
+    const onDriveBlockLink = vi.fn()
     render(
       <AgendaBlockCard
         items={members}
@@ -175,6 +199,7 @@ describe("AgendaBlockCard", () => {
             otherRequests: [],
           },
         })}
+        onDriveBlockLink={onDriveBlockLink}
       />,
     )
 
@@ -200,7 +225,61 @@ describe("AgendaBlockCard", () => {
     expect(within(card).getByTestId("agenda-block-run-from-summary")).toHaveTextContent(
       /Simoni Rink → home/,
     )
+    const links = within(card).getByTestId("agenda-block-drive-block-links")
+    expect(within(links).getAllByRole("button")).toHaveLength(1)
+    expect(within(links).getByRole("button", { name: /Split this out/ })).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-row-FEED-a")).not.toBeInTheDocument()
+  })
+
+  it("invokes combine/split handler from the block card (not Hero)", async () => {
+    const user = userEvent.setup()
+    const onDriveBlockLink = vi.fn()
+    const members = [
+      item("a", "2030-08-15T17:00:00.000Z", {
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "b",
+            otherTitle: "Practice B",
+            otherStartsAt: "2030-08-15T18:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+      item("b", "2030-08-15T18:00:00.000Z", {
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "a",
+            otherTitle: "Practice A",
+            otherStartsAt: "2030-08-15T17:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+    ]
+
+    render(
+      <AgendaBlockCard
+        items={members}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onDriveBlockLink={onDriveBlockLink}
+      />,
+    )
+
+    await user.click(
+      screen.getByTestId("agenda-block-drive-block-link-TO-b"),
+    )
+    expect(onDriveBlockLink).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "a", source: "FEED" }),
+      expect.objectContaining({ otherId: "b", combined: true }),
+    )
   })
 
   it("applies focus chrome when isFocused", () => {

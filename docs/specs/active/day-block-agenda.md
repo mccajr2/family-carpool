@@ -171,7 +171,7 @@ follow-up siblings.
 - [x] Web: Focus / Hero — keep one-decision-per-card queue; do **not** merge
       attention items into a multi-decision block Hero; optional supporting
       block context only
-- [ ] Web: move merge/split override affordance onto the Agenda block card;
+- [x] Web: move merge/split override affordance onto the Agenda block card;
       remove interim `AgendaRow` + `driveBlockAgendaLinks` row wiring (keep
       override helpers/client); leave Hero free of merge/split
 - [ ] Web: optional “View route” on Agenda block card → existing

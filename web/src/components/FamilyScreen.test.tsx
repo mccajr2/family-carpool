@@ -5160,7 +5160,12 @@ describe("FamilyScreen", () => {
     expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-a")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-b")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-run-to")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-drive-block-links")).toBeInTheDocument()
+    expect(
+      within(block).getByRole("button", { name: /Split this out/ }),
+    ).toBeInTheDocument()
     expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-drive-block-links")).not.toBeInTheDocument()
     expect(within(list).queryByTestId("agenda-row-FEED-drive-b")).not.toBeInTheDocument()
     expect(within(list).getByTestId("agenda-row-MANUAL-solo")).toBeInTheDocument()
   })

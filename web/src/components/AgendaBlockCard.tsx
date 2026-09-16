@@ -1,11 +1,19 @@
 import { useState } from "react"
 
-import type { CalendarItem, CarpoolRideEvent, FamilyCircle } from "@/api/types"
+import type {
+  CalendarDriveBlockLink,
+  CalendarItem,
+  CarpoolRideEvent,
+  FamilyCircle,
+} from "@/api/types"
 import {
   buildAgendaBlockSections,
   type AgendaBlockRunSection,
 } from "@/components/agendaBlockSections"
 import { calendarItemKey } from "@/components/coverageDisplay"
+import {
+  agendaBlockDriveBlockControls,
+} from "@/components/driveBlockAgendaLinks"
 import { EventLocationLine } from "@/components/EventLocationLine"
 
 export type AgendaBlockCardProps = {
@@ -16,6 +24,15 @@ export type AgendaBlockCardProps = {
   rideEventFor: (item: CalendarItem) => CarpoolRideEvent | null | undefined
   /** True when any member is the focused Agenda attention row. */
   isFocused?: boolean
+  loading?: boolean
+  /**
+   * Combine/split override — one place for the block (not on Hero / AgendaRow).
+   * Anchor item is the member whose link was clicked.
+   */
+  onDriveBlockLink?: (
+    item: Pick<CalendarItem, "id" | "source" | "startsAt">,
+    link: CalendarDriveBlockLink,
+  ) => void
 }
 
 function sharedLocation(items: CalendarItem[]): string | null {
@@ -114,7 +131,7 @@ function RunSection({
 
 /**
  * Multi-item Agenda driving-block card: drop-off / event bands / muted other
- * jobs / pickup (mockup order). Merge-split and View route land in later tasks.
+ * jobs / pickup (mockup order). Combine/split override lives here only.
  */
 export function AgendaBlockCard({
   items,
@@ -122,6 +139,8 @@ export function AgendaBlockCard({
   currentAdultId,
   rideEventFor,
   isFocused = false,
+  loading = false,
+  onDriveBlockLink,
 }: AgendaBlockCardProps) {
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
@@ -132,6 +151,9 @@ export function AgendaBlockCard({
     members: circle.members,
     rideEventFor,
   })
+  const driveBlockControls = agendaBlockDriveBlockControls(items)
+  const overrideLinkClass =
+    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
   const focusRingStyle = isFocused
     ? {
         borderColor: "var(--fc-list-row-focus-border)",
@@ -236,6 +258,26 @@ export function AgendaBlockCard({
 
         {sections.fromRun != null ? (
           <RunSection run={sections.fromRun} testId="agenda-block-run-from" />
+        ) : null}
+
+        {onDriveBlockLink != null && driveBlockControls.length > 0 ? (
+          <div
+            data-testid="agenda-block-drive-block-links"
+            className="flex flex-col gap-[var(--fc-space-sm)]"
+          >
+            {driveBlockControls.map((control) => (
+              <button
+                key={`${control.link.leg}-${control.item.source}-${control.item.id}-${control.link.otherSource}-${control.link.otherId}`}
+                type="button"
+                disabled={loading}
+                className={overrideLinkClass}
+                data-testid={`agenda-block-drive-block-link-${control.link.leg}-${control.link.otherId}`}
+                onClick={() => onDriveBlockLink(control.item, control.link)}
+              >
+                {control.label}
+              </button>
+            ))}
+          </div>
         ) : null}
       </div>
     </div>
