@@ -34,3 +34,8 @@ exist yet.
 - OpenAPI remains the contract; Expo clients align with `contracts/openapi.yaml`
   like web. Frozen KMP is not updated on contract changes.
 - Depends on locked Client ship order (web reference + Expo for push gate).
+- **Agenda blocks:** scaffold / auth / shell may ship without block grouping.
+  Any later Expo Agenda that renders **driving-block cards** must wait for
+  [`agenda-block-api`](agenda-block-api.md) (do not re-implement web client
+  chrome from `day-block-agenda`). See roadmap Client ship order + parking
+  `agenda-block-api`.

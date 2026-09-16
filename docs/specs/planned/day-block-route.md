@@ -16,7 +16,7 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 A block's Route must span its **full stop sequence** (multiple pickups feeding
 one or more events), not one event's stops alone. Builds on
 [`ride-route-tab`](../archive/ride-route-tab.md) once
-[`day-block-domain`](../active/day-block-domain.md) + [`day-block-agenda`](day-block-agenda.md)
+[`day-block-domain`](../archive/day-block-domain.md) + [`day-block-agenda`](../active/day-block-agenda.md)
 exist.
 
 ## Non-goals (sketch)
@@ -24,7 +24,7 @@ exist.
 - Inventing a new Route shell (reuse ride-route-tab)
 - Stop-order **algorithm** as a separate product — consume the reusable
   waypoint helper from
-  [`carpool-route-optimize`](../active/carpool-route-optimize.md); this slice
+  [`carpool-route-optimize`](../archive/carpool-route-optimize.md); this slice
   **assembles** the block’s full middle-stop list (household afterschool /
   leave-from places + teammate riders on that leg + shared venue timing) and
   calls the same optimize + drag/recompute pattern. Do not reimplement
