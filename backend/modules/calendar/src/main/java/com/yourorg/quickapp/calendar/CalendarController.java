@@ -3,6 +3,7 @@ package com.yourorg.quickapp.calendar;
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.calendar.internal.CalendarService;
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Instant;
@@ -161,5 +162,28 @@ public class CalendarController {
             @PathVariable("assignmentId") UUID assignmentId, HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         return calendarService.declineCoverage(adult, assignmentId);
+    }
+
+    @PutMapping("/drive-block-overrides")
+    public List<CalendarItemResponse> setDriveBlockOverride(
+            @Valid @RequestBody SetDriveBlockOverrideRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.setDriveBlockOverride(adult, request);
+    }
+
+    @DeleteMapping("/drive-block-overrides")
+    public List<CalendarItemResponse> clearDriveBlockOverride(
+            @RequestParam("leg") CarpoolLegKind leg,
+            @RequestParam("leftSource") CalendarItemSource leftSource,
+            @RequestParam("leftItemId") UUID leftItemId,
+            @RequestParam("rightSource") CalendarItemSource rightSource,
+            @RequestParam("rightItemId") UUID rightItemId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.clearDriveBlockOverride(
+                adult,
+                new ClearDriveBlockOverrideRequest(
+                        leg, leftSource, leftItemId, rightSource, rightItemId));
     }
 }

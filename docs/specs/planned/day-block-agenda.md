@@ -42,4 +42,8 @@ quiet "not your job tonight" rows for legs another adult owns.
   Compress via progressive disclosure (collapse/mute route line, drive-time
   delta, "driving separately" notes) — but **never** collapse ADR-critical
   copy (round-trip banner, named/qualified address, paired cancel links).
-- Builds on [`day-block-domain`](day-block-domain.md). Web first.
+- Builds on [`day-block-domain`](../active/day-block-domain.md). Web first.
+- **Carry-forward from `day-block-domain`:** remove the interim per-event
+  Agenda `driveBlockLinks` merge/split plain links (on existing `AgendaRow`)
+  once one-card-per-block UI ships — do not leave two competing affordances
+  for the same action.

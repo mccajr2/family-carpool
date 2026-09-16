@@ -134,6 +134,20 @@ public interface LeaveByApi {
     void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId);
 
     /**
+     * Arrival lead buffer from the title heuristic used by Route
+     * ({@code practice} 20 / game-like 45 / other 0). Shared with driving-block
+     * merge padding — do not re-hardcode those minutes in callers.
+     */
+    int arrivalBufferMinutes(String title);
+
+    /**
+     * Cache-only venue identity + one-way drive seconds for driving-block merge.
+     * Same origin/dest resolution as {@link #enrichCheapMany}; never HTTP.
+     * Result list matches {@code items} order.
+     */
+    List<LeaveByVenueDriveDto> cheapVenueDrives(UUID adultId, List<LeaveByItemInput> items);
+
+    /**
      * Persist item-level leave-from for this adult. Modes: named located place,
      * one-time address, or both null to clear (Default). Place and address are
      * mutually exclusive.

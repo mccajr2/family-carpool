@@ -33,6 +33,7 @@ function item(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    driveBlockLinks: [],
     ...overrides,
   }
 }

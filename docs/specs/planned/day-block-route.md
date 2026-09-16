@@ -16,7 +16,7 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 A block's Route must span its **full stop sequence** (multiple pickups feeding
 one or more events), not one event's stops alone. Builds on
 [`ride-route-tab`](../archive/ride-route-tab.md) once
-[`day-block-domain`](day-block-domain.md) + [`day-block-agenda`](day-block-agenda.md)
+[`day-block-domain`](../active/day-block-domain.md) + [`day-block-agenda`](day-block-agenda.md)
 exist.
 
 ## Non-goals (sketch)

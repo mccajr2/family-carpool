@@ -41,6 +41,7 @@ function item(
     rsvps:
       partial.rsvps ??
       kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
+    driveBlockLinks: [],
   }
 }
 

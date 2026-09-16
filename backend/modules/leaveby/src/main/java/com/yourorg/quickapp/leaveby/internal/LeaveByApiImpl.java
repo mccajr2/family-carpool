@@ -22,6 +22,7 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import com.yourorg.quickapp.leaveby.LeaveByVenueDriveDto;
 import com.yourorg.quickapp.leaveby.LeaveFromEnrichmentInput;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
 import java.time.Instant;
@@ -396,6 +397,105 @@ class LeaveByApiImpl implements LeaveByApi {
     @Transactional
     public void invalidateCalendarRoutesForDrivingAdult(UUID drivingAdultId) {
         itineraryRepository.deleteByDrivingAdultId(drivingAdultId);
+    }
+
+    @Override
+    public int arrivalBufferMinutes(String title) {
+        return RouteBufferMinutes.forTitle(title);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeaveByVenueDriveDto> cheapVenueDrives(
+            UUID adultId, List<LeaveByItemInput> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
+        Map<String, Optional<Double>> durations = new HashMap<>();
+        List<LeaveByVenueDriveDto> out = new ArrayList<>(items.size());
+        for (LeaveByItemInput item : items) {
+            LeaveFromOverride override =
+                    leaveFromForAdult(adultId, item.source(), item.itemId());
+            out.add(
+                    venueDriveWithOverride(
+                            adultId,
+                            override.placeId(),
+                            override.address(),
+                            item.location(),
+                            geocoded,
+                            durations));
+        }
+        return List.copyOf(out);
+    }
+
+    private LeaveByVenueDriveDto venueDriveWithOverride(
+            UUID adultIdForDefault,
+            UUID leaveFromPlaceId,
+            String leaveFromAddress,
+            String location,
+            Map<String, Optional<GeoPointDto>> geocoded,
+            Map<String, Optional<Double>> durations) {
+        Optional<ResolvedOrigin> originOpt =
+                resolveOriginFields(
+                        adultIdForDefault, leaveFromPlaceId, leaveFromAddress, false, geocoded);
+        if (originOpt.isEmpty() || !originOpt.get().located()) {
+            // Still try venue identity from dest alone when origin is missing.
+            String venueOnly = cachedVenueIdentity(location, geocoded);
+            return new LeaveByVenueDriveDto(venueOnly, null);
+        }
+        if (location == null || location.isBlank()) {
+            return LeaveByVenueDriveDto.unavailable();
+        }
+        String locKey = normalizeLocation(location);
+        Optional<GeoPointDto> destination =
+                geocoded.computeIfAbsent(
+                        locKey, ignored -> geocodeApi.findCachedLocation(location));
+        if (destination.isEmpty()) {
+            return LeaveByVenueDriveDto.unavailable();
+        }
+        GeoPointDto dest = destination.get();
+        String venueIdentity =
+                String.format(
+                        Locale.ROOT, "%.6f,%.6f", dest.latitude(), dest.longitude());
+        ResolvedOrigin origin = originOpt.get();
+        String routeKey =
+                LeaveByRouteKeys.routeKey(
+                        origin.latitude(),
+                        origin.longitude(),
+                        dest.latitude(),
+                        dest.longitude());
+        Optional<Double> routed =
+                durations.computeIfAbsent(
+                        routeKey,
+                        ignored ->
+                                lookupDuration(
+                                        routeKey,
+                                        origin.latitude(),
+                                        origin.longitude(),
+                                        dest.latitude(),
+                                        dest.longitude(),
+                                        false));
+        if (routed.isEmpty()) {
+            return new LeaveByVenueDriveDto(venueIdentity, null);
+        }
+        return new LeaveByVenueDriveDto(venueIdentity, (int) Math.round(routed.get()));
+    }
+
+    private String cachedVenueIdentity(
+            String location, Map<String, Optional<GeoPointDto>> geocoded) {
+        if (location == null || location.isBlank()) {
+            return null;
+        }
+        String locKey = normalizeLocation(location);
+        Optional<GeoPointDto> destination =
+                geocoded.computeIfAbsent(
+                        locKey, ignored -> geocodeApi.findCachedLocation(location));
+        if (destination.isEmpty()) {
+            return null;
+        }
+        GeoPointDto dest = destination.get();
+        return String.format(Locale.ROOT, "%.6f,%.6f", dest.latitude(), dest.longitude());
     }
 
     @Override

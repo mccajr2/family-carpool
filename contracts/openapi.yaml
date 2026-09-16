@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.34.0
+  version: 0.35.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -14,6 +14,9 @@ info:
     per-adult default leave-from, estimated leave-by
     (OSRM or fallback; never live traffic; calendar list does not call
     Nominatim or OSRM — clients fill leave-by via GET …/calendar/leave-by),
+    computed driving-block adjacency on calendar items for the viewing adult
+    (confirmed carpool legs + leave-by cache venue/duration; FORCE_MERGE /
+    FORCE_SPLIT overrides via PUT/DELETE …/calendar/drive-block-overrides),
     a confirmed-ride multi-stop route read/write (GET/PUT
     …/calendar/{source}/{itemId}/route — resolved leave-from → pickups →
     destination; auto-optimized pickup order on build when 2+ middles;
@@ -1421,9 +1424,18 @@ paths:
         CONFIRMED assignment; RSVP NO kids are never uncovered), and conflicts
         (server-computed kid time-overlaps ignore RSVP NO kids; adult coverage
         overlaps using event startsAt/endsAt only; peers may lie outside the
-        requested window). Empty array when none match. from must be strictly
-        before to (400 otherwise). Adults without a circle receive 404. Does
-        not mutate feed snapshots or manual events.
+        requested window). When the viewing adult is the confirmed driver on the
+        carpool TO leg, items also include driveBlockLinks — time-adjacent
+        confirmed-driving TO siblings with combined vs splittable state (auto
+        merge rule, or FORCE_MERGE / FORCE_SPLIT override). Interim Agenda copy
+        is TO-only (household confirms often set TO+FROM; dual links were
+        duplicate noise). Each link includes otherTitle + otherStartsAt (event
+        start, not leave-by). Driving blocks are still computed for TO and FROM
+        on each read from live ride legs + leave-by cache (no Nominatim/OSRM on
+        this list); overrides are the only persisted block state. Empty array
+        when none match. from must be strictly before to (400 otherwise). Adults
+        without a circle receive 404. Does not mutate feed snapshots or manual
+        events.
       security:
         - bearerAuth: []
       parameters:
@@ -1946,6 +1958,147 @@ paths:
           description: >
             No connected playlists, viewer Spotify required for 2+ merge but
             not connected, or no track URIs available to merge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/drive-block-overrides:
+    put:
+      operationId: setDriveBlockOverride
+      tags: [family]
+      summary: Force-merge or force-split a driving-block pair for the viewing adult
+      description: >
+        Any circle member, for **their own** overrides only (signed-in adult).
+        Persists FORCE_MERGE or FORCE_SPLIT for an ordered adjacent pair
+        (earlier = left, later = right; server reorders by startsAt when the
+        body is inverted). Driving blocks themselves are not stored — each
+        calendar read recomputes from live confirmed carpool legs + leave-by
+        cache, then applies this adult's overrides. `createdAt` is set (or
+        refreshed) on write so dogfood can count override frequency vs auto
+        merges. Returns both calendar items fully re-enriched (including
+        driveBlockLinks). Unknown item / no circle → 404. Same left and right
+        → 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDriveBlockOverrideRequest"
+            examples:
+              forceSplit:
+                summary: Split an auto-combined pair
+                value:
+                  leg: TO
+                  leftSource: FEED
+                  leftItemId: 01900000-0000-7000-8000-0000000000a1
+                  rightSource: FEED
+                  rightItemId: 01900000-0000-7000-8000-0000000000a2
+                  action: FORCE_SPLIT
+              forceMerge:
+                summary: Combine a pair the auto rule split
+                value:
+                  leg: TO
+                  leftSource: FEED
+                  leftItemId: 01900000-0000-7000-8000-0000000000a1
+                  rightSource: FEED
+                  rightItemId: 01900000-0000-7000-8000-0000000000a2
+                  action: FORCE_MERGE
+      responses:
+        "200":
+          description: Override saved; both items returned with updated driveBlockLinks
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 2
+                maxItems: 2
+                items:
+                  $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: Missing fields or left and right refer to the same item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown calendar item for a source/id in the pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: clearDriveBlockOverride
+      tags: [family]
+      summary: Clear a driving-block override (restore auto merge)
+      description: >
+        Any circle member, for **their own** overrides only. Deletes the
+        FORCE_MERGE / FORCE_SPLIT row for the ordered pair (server reorders by
+        startsAt). Idempotent when nothing was stored. Returns both calendar
+        items re-enriched so driveBlockLinks reflect the auto rule again.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: leg
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/CarpoolLegKind"
+        - name: leftSource
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: leftItemId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: rightSource
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: rightItemId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Override cleared (or was absent); both items returned
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 2
+                maxItems: 2
+                items:
+                  $ref: "#/components/schemas/CalendarItem"
+        "400":
+          description: Missing fields or left and right refer to the same item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown calendar item for a source/id in the pair
           content:
             application/json:
               schema:
@@ -5489,6 +5642,7 @@ components:
         - uncoveredKidIds
         - conflicts
         - rsvps
+        - driveBlockLinks
       properties:
         id:
           type: string
@@ -5613,6 +5767,99 @@ components:
             NO_RESPONSE. Circle-visible.
           items:
             $ref: "#/components/schemas/CalendarRsvp"
+        driveBlockLinks:
+          type: array
+          description: >
+            Adjacent confirmed-driving siblings for the **viewing adult** on a
+            carpool leg (TO or FROM). Empty when the adult is not the confirmed
+            driver on any leg for this item, or there is no time-adjacent
+            confirmed-driving sibling in the loaded window. Driving blocks are
+            a computed view (live confirmed legs + leave-by geocode/duration
+            cache + 15-min contiguity buffer / 30-min merge-biased fallback);
+            overrides (FORCE_MERGE / FORCE_SPLIT) are the only persisted
+            block-related state and win until cleared. Clients use these links
+            for the interim Agenda merge/split control — not a separate block
+            list endpoint.
+          items:
+            $ref: "#/components/schemas/CalendarDriveBlockLink"
+
+    CalendarDriveBlockLink:
+      type: object
+      required:
+        - leg
+        - otherSource
+        - otherId
+        - otherTitle
+        - otherStartsAt
+        - combined
+      properties:
+        leg:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        otherSource:
+          $ref: "#/components/schemas/CalendarItemSource"
+        otherId:
+          type: string
+          format: uuid
+          description: Sibling calendar item id (ordered adjacent on this leg)
+        otherTitle:
+          type: string
+          description: >
+            Sibling event title for interim Agenda copy (e.g. "CYH Mite Practice").
+            Prefer this over clock-only wording so the control names an event,
+            not a leave-by estimate.
+        otherStartsAt:
+          type: string
+          format: date-time
+          description: Sibling startsAt (UTC) — event start, not leave-by
+        combined:
+          type: boolean
+          description: >
+            True when this item and otherId share a computed driving block for
+            leg (auto merge or FORCE_MERGE). False when adjacent but split
+            (auto or FORCE_SPLIT).
+        overrideAction:
+          allOf:
+            - $ref: "#/components/schemas/DriveBlockOverrideAction"
+          nullable: true
+          description: >
+            Active pair override for this ordered adjacent pair, if any. Null
+            means the auto merge rule produced `combined`. Present when
+            FORCE_MERGE or FORCE_SPLIT is stored for the adult+leg+pair.
+
+    DriveBlockOverrideAction:
+      type: string
+      enum: [FORCE_MERGE, FORCE_SPLIT]
+      description: >
+        Persisted override that wins over the auto driving-block merge rule
+        until cleared. FORCE_MERGE combines the ordered pair; FORCE_SPLIT
+        keeps them as separate blocks.
+
+    SetDriveBlockOverrideRequest:
+      type: object
+      required:
+        - leg
+        - leftSource
+        - leftItemId
+        - rightSource
+        - rightItemId
+        - action
+      properties:
+        leg:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        leftSource:
+          $ref: "#/components/schemas/CalendarItemSource"
+        leftItemId:
+          type: string
+          format: uuid
+          description: Earlier item in the ordered pair (server reorders by startsAt)
+        rightSource:
+          $ref: "#/components/schemas/CalendarItemSource"
+        rightItemId:
+          type: string
+          format: uuid
+          description: Later item in the ordered pair
+        action:
+          $ref: "#/components/schemas/DriveBlockOverrideAction"
 
     CreateManualEventRequest:
       type: object

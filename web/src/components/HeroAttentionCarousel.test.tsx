@@ -45,6 +45,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     uncoveredKidIds: ["k1"],
     conflicts: [],
     rsvps: kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
+    driveBlockLinks: [],
     ...partial,
   }
 }

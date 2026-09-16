@@ -15,6 +15,7 @@ import {
   isPlaceLocated,
   type ActivityFeed,
   type Adult,
+  type CalendarDriveBlockLink,
   type CalendarItem,
   type CalendarRoute,
   type CarpoolFeedStatus,
@@ -62,6 +63,7 @@ import type { DriverPickerKidPlan, DriverPickerSavePlanLegs } from "@/components
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
+import { driveBlockWriteForClick } from "@/components/driveBlockAgendaLinks"
 import { RideDetailScreen } from "@/components/RideDetailScreen"
 import { RideRouteTab } from "@/components/RideRouteTab"
 import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
@@ -1962,6 +1964,59 @@ export function FamilyScreen({
     })
   }
 
+  function replaceCalendarItems(updated: CalendarItem[]) {
+    if (updated.length === 0) {
+      return
+    }
+    setCalendarItems((current) => {
+      const byKey = new Map(
+        updated.map((row) => [`${row.source}:${row.id}`, row] as const),
+      )
+      const next = current.map((row) => byKey.get(`${row.source}:${row.id}`) ?? row)
+      if (adult && circle) {
+        for (const item of updated) {
+          calendarCache.patchItem(adult.id, circle.id, item)
+        }
+      }
+      return next
+    })
+  }
+
+  async function onDriveBlockLinkAgenda(
+    item: CalendarItem,
+    link: CalendarDriveBlockLink,
+  ) {
+    const itemKey = calendarItemKey(item)
+    clearCoverageActionError(itemKey)
+    try {
+      const token = await requireToken()
+      const write = driveBlockWriteForClick(item, link)
+      const updated =
+        write.kind === "clear"
+          ? await familyClient.clearDriveBlockOverride(token, {
+              leg: write.leg,
+              leftSource: write.leftSource,
+              leftItemId: write.leftItemId,
+              rightSource: write.rightSource,
+              rightItemId: write.rightItemId,
+            })
+          : await familyClient.setDriveBlockOverride(token, {
+              leg: write.leg,
+              leftSource: write.leftSource,
+              leftItemId: write.leftItemId,
+              rightSource: write.rightSource,
+              rightItemId: write.rightItemId,
+              action: write.action,
+            })
+      replaceCalendarItems(updated)
+    } catch (error) {
+      setCoverageActionError(
+        itemKey,
+        error instanceof Error ? error.message : "Something went wrong",
+      )
+    }
+  }
+
   function updateAssignCoverageDraft(
     itemKey: string,
     patch: Partial<{ adultId: string; kidIds: string[] }>,
@@ -3744,6 +3799,9 @@ export function FamilyScreen({
                             onOpenRide={() => {
                               setRideDetailItemKey(itemKey)
                             }}
+                            onDriveBlockLink={(link) =>
+                              void onDriveBlockLinkAgenda(item, link)
+                            }
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
                           />

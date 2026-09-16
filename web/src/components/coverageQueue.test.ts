@@ -80,6 +80,7 @@ function calendarItem(partial: Partial<CalendarItem> = {}): CalendarItem {
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
+    driveBlockLinks: [],
     ...partial,
   }
 }
@@ -699,6 +700,7 @@ describe("mapCalendarItemToCoverageGames", () => {
     const stale = calendarItem({
       kidIds: ["k1"],
       rsvps: [],
+      driveBlockLinks: [],
       uncoveredKidIds: ["k1"],
     })
     delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
