@@ -160,7 +160,7 @@ follow-up siblings.
 
 ## Tasks
 
-- [ ] Web: group day-list items into driving blocks from `driveBlockLinks`;
+- [x] Web: group day-list items into driving blocks from `driveBlockLinks`;
       render one multi-item **Agenda** block card component; keep singleton
       `AgendaRow`
 - [ ] Web: Agenda block card sections — per-leg runs, event bands, muted

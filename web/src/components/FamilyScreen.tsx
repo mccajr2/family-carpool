@@ -60,9 +60,14 @@ import { Input } from "@/components/ui/input"
 import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { DriverPickerKidPlan, DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+import { AgendaBlockCard } from "@/components/AgendaBlockCard"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
+import {
+  agendaDriveBlockEntryKey,
+  groupAgendaItemsByDriveBlock,
+} from "@/components/agendaDriveBlockGroups"
 import { driveBlockWriteForClick } from "@/components/driveBlockAgendaLinks"
 import { RideDetailScreen } from "@/components/RideDetailScreen"
 import { RideRouteTab } from "@/components/RideRouteTab"
@@ -3669,12 +3674,34 @@ export function FamilyScreen({
                   </header>
                   {group.items.length > 0 ? (
                   <ul className="flex flex-col gap-[var(--fc-space-list-row-gap)]">
-                    {group.items.map((item) => {
+                    {groupAgendaItemsByDriveBlock(group.items).map((entry) => {
+                      if (entry.kind === "block") {
+                        const blockKey = agendaDriveBlockEntryKey(entry.items)
+                        const blockFocused = entry.items.some(
+                          (member) =>
+                            calendarItemKey(member) === focusedCalendarItemKey,
+                        )
+                        return (
+                          <li
+                            key={blockKey}
+                            data-testid={`agenda-block-${blockKey}`}
+                            data-agenda-entry="block"
+                            data-member-keys={blockKey}
+                          >
+                            <AgendaBlockCard
+                              items={entry.items}
+                              isFocused={blockFocused}
+                            />
+                          </li>
+                        )
+                      }
+                      const item = entry.item
                       const itemKey = calendarItemKey(item)
                       return (
                         <li
                           key={`${item.source}-${item.id}`}
                           data-testid={`agenda-item-${item.source}-${item.id}`}
+                          data-agenda-entry="singleton"
                           data-carpool-ride-key={
                             calendarRideByItemKey.get(itemKey)?.eventKey
                           }
