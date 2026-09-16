@@ -3690,6 +3690,12 @@ export function FamilyScreen({
                           >
                             <AgendaBlockCard
                               items={entry.items}
+                              circle={circle}
+                              currentAdultId={adult?.id ?? ""}
+                              rideEventFor={(member) =>
+                                calendarRideByItemKey.get(calendarItemKey(member)) ??
+                                null
+                              }
                               isFocused={blockFocused}
                             />
                           </li>

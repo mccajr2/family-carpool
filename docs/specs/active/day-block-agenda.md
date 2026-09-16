@@ -163,7 +163,7 @@ follow-up siblings.
 - [x] Web: group day-list items into driving blocks from `driveBlockLinks`;
       render one multi-item **Agenda** block card component; keep singleton
       `AgendaRow`
-- [ ] Web: Agenda block card sections — per-leg runs, event bands, muted
+- [x] Web: Agenda block card sections — per-leg runs, event bands, muted
       “not your job” / “already covered”, progressive disclosure for non-ADR
       detail
 - [ ] Web: wire ADR-critical copy through shared `coverageCopy` /

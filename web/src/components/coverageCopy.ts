@@ -49,6 +49,28 @@ export const BACK_TO_SIMPLE_VIEW = "Back to simple view" as const
 /** One-time leave-from still empty in the draft field. */
 export const LEAVE_FROM_ADDRESS_PLACEHOLDER = "the address you enter" as const
 
+// — Agenda driving-block card —
+
+/** Multi-event Agenda block — TO leg run header. */
+export const DROP_OFF_RUN = "Drop-off run" as const
+/** Multi-event Agenda block — FROM leg run header. */
+export const PICKUP_RUN = "Pickup run" as const
+/** ADR-0004 rule 6 — muted band when viewer already has driving work on the card. */
+export const NOT_YOUR_JOB_TONIGHT = "Not your job tonight" as const
+/** ADR-0004 rule 6 — muted band when another's commitment covers the viewer's kids. */
+export const ALREADY_COVERED = "Already covered" as const
+
+/** Block-run chip: You're driving · N rider(s). */
+export function youreDrivingRidersLabel(riderCount: number): string {
+  if (riderCount <= 0) {
+    return YOURE_DRIVING
+  }
+  if (riderCount === 1) {
+    return `${YOURE_DRIVING} · 1 rider`
+  }
+  return `${YOURE_DRIVING} · ${riderCount} riders`
+}
+
 /** Ask the team needs a pickup snapshot — shown next to Save / Post. */
 export const ASK_TEAM_NEEDS_PLACE =
   "Add a home address in Places before asking the team." as const

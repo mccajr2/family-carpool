@@ -1,11 +1,19 @@
-import type { CalendarItem } from "@/api/types"
+import { useState } from "react"
+
+import type { CalendarItem, CarpoolRideEvent, FamilyCircle } from "@/api/types"
+import {
+  buildAgendaBlockSections,
+  type AgendaBlockRunSection,
+} from "@/components/agendaBlockSections"
 import { calendarItemKey } from "@/components/coverageDisplay"
 import { EventLocationLine } from "@/components/EventLocationLine"
-import { formatCompactEventWhen } from "@/components/eventTimes"
 
 export type AgendaBlockCardProps = {
   /** Combined driving-block members (length ≥ 2), chronological. */
   items: CalendarItem[]
+  circle: FamilyCircle
+  currentAdultId: string
+  rideEventFor: (item: CalendarItem) => CarpoolRideEvent | null | undefined
   /** True when any member is the focused Agenda attention row. */
   isFocused?: boolean
 }
@@ -40,13 +48,90 @@ function blockTitle(items: CalendarItem[]): string {
   return `${n} events tonight`
 }
 
+function RunSection({
+  run,
+  testId,
+}: {
+  run: AgendaBlockRunSection
+  testId: string
+}) {
+  const [detailOpen, setDetailOpen] = useState(false)
+  const hasDetail = run.detailLines.length > 0
+
+  return (
+    <div
+      data-testid={testId}
+      className="rounded-[var(--fc-radius-lg)] border border-[var(--fc-border)] px-[var(--fc-space-md)] py-[var(--fc-space-md)]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-[var(--fc-space-md)] gap-y-[var(--fc-space-sm)]">
+        <span
+          data-testid={`${testId}-heading`}
+          className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-text-primary)]"
+        >
+          {run.heading}
+        </span>
+        <span
+          data-testid={`${testId}-chip`}
+          className="rounded-full px-[var(--fc-space-feed-chip-pad-x)] py-[var(--fc-space-feed-chip-pad-y)] text-[length:var(--fc-font-feed-chip-size)] uppercase leading-[var(--fc-font-feed-chip-line)] font-[number:var(--fc-font-feed-chip-weight)] text-[var(--fc-success)] bg-[color-mix(in_srgb,var(--fc-success)_14%,transparent)]"
+        >
+          {run.chipLabel}
+        </span>
+      </div>
+      {run.summaryLine != null ? (
+        <p
+          data-testid={`${testId}-summary`}
+          className="mt-[var(--fc-space-sm)] text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+        >
+          {run.summaryLine}
+        </p>
+      ) : null}
+      {hasDetail ? (
+        <div className="mt-[var(--fc-space-sm)]">
+          <button
+            type="button"
+            className="text-xs underline underline-offset-2 text-[var(--fc-text-secondary)]"
+            aria-expanded={detailOpen}
+            data-testid={`${testId}-detail-toggle`}
+            onClick={() => setDetailOpen((open) => !open)}
+          >
+            {detailOpen ? "Hide details" : "Show details"}
+          </button>
+          {detailOpen ? (
+            <ul
+              data-testid={`${testId}-detail`}
+              className="mt-[var(--fc-space-sm)] flex flex-col gap-[var(--fc-space-xs)] text-[length:var(--fc-font-list-row-meta-size)] text-[var(--fc-text-secondary)]"
+            >
+              {run.detailLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /**
- * Multi-item Agenda driving-block card. Task 1: one card chrome for combined
- * members (per-leg runs / muted band / merge controls land in later tasks).
+ * Multi-item Agenda driving-block card: drop-off / event bands / muted other
+ * jobs / pickup (mockup order). Merge-split and View route land in later tasks.
  */
-export function AgendaBlockCard({ items, isFocused = false }: AgendaBlockCardProps) {
+export function AgendaBlockCard({
+  items,
+  circle,
+  currentAdultId,
+  rideEventFor,
+  isFocused = false,
+}: AgendaBlockCardProps) {
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
+  const sections = buildAgendaBlockSections({
+    items,
+    currentAdultId,
+    kids: circle.kids,
+    members: circle.members,
+    rideEventFor,
+  })
   const focusRingStyle = isFocused
     ? {
         borderColor: "var(--fc-list-row-focus-border)",
@@ -92,31 +177,57 @@ export function AgendaBlockCard({ items, isFocused = false }: AgendaBlockCardPro
           ) : null}
         </header>
 
-        <ul
-          data-testid="agenda-block-members"
-          className="flex flex-col gap-[var(--fc-space-sm)]"
-        >
-          {items.map((item) => (
-            <li
-              key={calendarItemKey(item)}
-              data-testid={`agenda-block-member-${item.source}-${item.id}`}
-              className="min-w-0"
+        {sections.toRun != null ? (
+          <RunSection run={sections.toRun} testId="agenda-block-run-to" />
+        ) : null}
+
+        {sections.eventBands.length > 0 ? (
+          <ul
+            data-testid="agenda-block-event-bands"
+            className="flex flex-col gap-[var(--fc-space-xs)] px-[var(--fc-space-xs)]"
+          >
+            {sections.eventBands.map((band) => (
+              <li
+                key={band.itemKey}
+                data-testid={`agenda-block-event-band-${band.itemKey}`}
+                className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+              >
+                {band.line}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {sections.mutedBand != null ? (
+          <div
+            data-testid="agenda-block-muted-band"
+            className="rounded-[var(--fc-radius-lg)] bg-[var(--fc-surface)] px-[var(--fc-space-md)] py-[var(--fc-space-md)]"
+          >
+            <div
+              data-testid="agenda-block-muted-heading"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-text-secondary)]"
             >
-              <span
-                data-testid="agenda-block-member-title"
-                className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-primary)]"
-              >
-                {item.title}
-              </span>
-              <span
-                data-testid="agenda-block-member-when"
-                className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
-              >
-                {formatCompactEventWhen(item.startsAt, item.endsAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
+              {sections.mutedBand.heading}
+            </div>
+            <ul
+              data-testid="agenda-block-muted-lines"
+              className="mt-[var(--fc-space-sm)] flex flex-col gap-[var(--fc-space-xs)]"
+            >
+              {sections.mutedBand.lines.map((line) => (
+                <li
+                  key={line}
+                  className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {sections.fromRun != null ? (
+          <RunSection run={sections.fromRun} testId="agenda-block-run-from" />
+        ) : null}
       </div>
     </div>
   )
