@@ -10,7 +10,9 @@ import {
   buildAgendaBlockSections,
   type AgendaBlockRunSection,
 } from "@/components/agendaBlockSections"
+import { canRoute } from "@/components/canRoute"
 import { calendarItemKey } from "@/components/coverageDisplay"
+import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
 import {
   agendaBlockDriveBlockControls,
 } from "@/components/driveBlockAgendaLinks"
@@ -33,6 +35,26 @@ export type AgendaBlockCardProps = {
     item: Pick<CalendarItem, "id" | "source" | "startsAt">,
     link: CalendarDriveBlockLink,
   ) => void
+  /**
+   * Opens existing single-event Route for a representative block member
+   * (earliest event in the run). No multi-stop block Route chrome.
+   */
+  onOpenRide?: (item: CalendarItem) => void
+}
+
+function isRunRoutable(
+  run: AgendaBlockRunSection,
+  circle: FamilyCircle,
+  currentAdultId: string,
+  rideEventFor: (item: CalendarItem) => CarpoolRideEvent | null | undefined,
+): boolean {
+  const rideEvent = rideEventFor(run.representativeItem)
+  const games = mapCalendarItemToCoverageGames(
+    run.representativeItem,
+    rideEvent,
+    { currentAdultId, members: circle.members },
+  )
+  return games.some((game) => canRoute(game, rideEvent))
 }
 
 function sharedLocation(items: CalendarItem[]): string | null {
@@ -68,9 +90,15 @@ function blockTitle(items: CalendarItem[]): string {
 function RunSection({
   run,
   testId,
+  showViewRoute,
+  loading,
+  onViewRoute,
 }: {
   run: AgendaBlockRunSection
   testId: string
+  showViewRoute: boolean
+  loading: boolean
+  onViewRoute?: () => void
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const hasDetail = run.detailLines.length > 0
@@ -101,6 +129,17 @@ function RunSection({
         >
           {run.summaryLine}
         </p>
+      ) : null}
+      {showViewRoute ? (
+        <button
+          type="button"
+          disabled={loading}
+          data-testid={`${testId}-view-route`}
+          className="mt-[var(--fc-space-sm)] text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+          onClick={onViewRoute}
+        >
+          View route
+        </button>
       ) : null}
       {hasDetail ? (
         <div className="mt-[var(--fc-space-sm)]">
@@ -141,6 +180,7 @@ export function AgendaBlockCard({
   isFocused = false,
   loading = false,
   onDriveBlockLink,
+  onOpenRide,
 }: AgendaBlockCardProps) {
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
@@ -161,6 +201,14 @@ export function AgendaBlockCard({
           "0 0 0 var(--fc-space-list-row-focus-halo-spread) var(--fc-list-row-focus-halo)",
       }
     : undefined
+  const toRoutable =
+    onOpenRide != null &&
+    sections.toRun != null &&
+    isRunRoutable(sections.toRun, circle, currentAdultId, rideEventFor)
+  const fromRoutable =
+    onOpenRide != null &&
+    sections.fromRun != null &&
+    isRunRoutable(sections.fromRun, circle, currentAdultId, rideEventFor)
 
   return (
     <div
@@ -209,7 +257,17 @@ export function AgendaBlockCard({
         ) : null}
 
         {sections.toRun != null ? (
-          <RunSection run={sections.toRun} testId="agenda-block-run-to" />
+          <RunSection
+            run={sections.toRun}
+            testId="agenda-block-run-to"
+            showViewRoute={toRoutable}
+            loading={loading}
+            onViewRoute={
+              toRoutable
+                ? () => onOpenRide?.(sections.toRun!.representativeItem)
+                : undefined
+            }
+          />
         ) : null}
 
         {sections.eventBands.length > 0 ? (
@@ -257,7 +315,17 @@ export function AgendaBlockCard({
         ) : null}
 
         {sections.fromRun != null ? (
-          <RunSection run={sections.fromRun} testId="agenda-block-run-from" />
+          <RunSection
+            run={sections.fromRun}
+            testId="agenda-block-run-from"
+            showViewRoute={fromRoutable}
+            loading={loading}
+            onViewRoute={
+              fromRoutable
+                ? () => onOpenRide?.(sections.fromRun!.representativeItem)
+                : undefined
+            }
+          />
         ) : null}
 
         {onDriveBlockLink != null && driveBlockControls.length > 0 ? (

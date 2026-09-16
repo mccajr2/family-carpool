@@ -187,6 +187,7 @@ describe("buildAgendaBlockSections", () => {
       }),
     )
     expect(sections.toRun?.heading).toMatch(/Drop-off run$/)
+    expect(sections.toRun?.representativeItem.id).toBe("a")
     expect(sections.eventBands).toHaveLength(2)
     expect(sections.eventBands[0]?.line).toContain("Practice A")
     expect(sections.eventBands[1]?.line).toContain("Practice B")
@@ -203,9 +204,48 @@ describe("buildAgendaBlockSections", () => {
       }),
     )
     expect(sections.fromRun?.heading).toMatch(/Pickup run$/)
+    expect(sections.fromRun?.representativeItem.id).toBe("b")
     expect(sections.roundTripBanner).toBe(
       "You're already driving Declan round trip",
     )
+  })
+
+  it("picks the earliest startsAt as the View-route representative for a multi-item TO run", () => {
+    const early = item("Practice A", "2030-08-15T18:00:00.000Z", {
+      id: "a",
+      leaveByAt: "2030-08-15T17:40:00.000Z",
+      kidIds: ["k-declan"],
+    })
+    const later = item("Practice B", "2030-08-15T19:00:00.000Z", {
+      id: "b",
+      leaveByAt: "2030-08-15T18:40:00.000Z",
+      kidIds: ["k-declan"],
+    })
+    const rides = new Map<string, CarpoolRideEvent>([
+      [
+        "FEED-a",
+        rideEvent(ride(["k-declan"], [leg("TO", "a-chris", "Chris")])),
+      ],
+      [
+        "FEED-b",
+        rideEvent(
+          ride(["k-declan"], [leg("TO", "a-chris", "Chris")], {
+            eventKey: "UID:b",
+          }),
+        ),
+      ],
+    ])
+
+    const sections = buildAgendaBlockSections({
+      items: [later, early],
+      currentAdultId: "a-chris",
+      kids,
+      members,
+      rideEventFor: (row) => rides.get(`${row.source}-${row.id}`),
+    })
+
+    expect(sections.toRun?.representativeItem.id).toBe("a")
+    expect(sections.toRun?.representativeItem.startsAt).toBe(early.startsAt)
   })
 
   it("shows round-trip banner when the viewer owns TO and FROM for the same kid", () => {

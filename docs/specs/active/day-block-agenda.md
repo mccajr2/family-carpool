@@ -174,7 +174,7 @@ follow-up siblings.
 - [x] Web: move merge/split override affordance onto the Agenda block card;
       remove interim `AgendaRow` + `driveBlockAgendaLinks` row wiring (keep
       override helpers/client); leave Hero free of merge/split
-- [ ] Web: optional “View route” on Agenda block card → existing
+- [x] Web: optional “View route” on Agenda block card → existing
       single-event Route only
 - [ ] Tests: Agenda block grouping + card chrome + Focus single-decision
       cardinality + link removal; no contract/backend tasks

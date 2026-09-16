@@ -229,6 +229,118 @@ describe("AgendaBlockCard", () => {
     expect(within(links).getAllByRole("button")).toHaveLength(1)
     expect(within(links).getByRole("button", { name: /Split this out/ })).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-row-FEED-a")).not.toBeInTheDocument()
+    // No handler → no View route (same gate as AgendaRow).
+    expect(screen.queryByTestId("agenda-block-run-to-view-route")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-block-run-from-view-route")).not.toBeInTheDocument()
+  })
+
+  it("opens single-event Route for the earliest member via View route on a run", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+    const members = [
+      item("a", "2030-08-15T18:00:00.000Z", {
+        endsAt: "2030-08-15T19:00:00.000Z",
+        leaveByAt: "2030-08-15T17:40:00.000Z",
+        kidIds: ["k1"],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "b",
+            otherTitle: "Practice B",
+            otherStartsAt: "2030-08-15T19:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+      item("b", "2030-08-15T19:00:00.000Z", {
+        endsAt: "2030-08-15T20:00:00.000Z",
+        leaveByAt: "2030-08-15T18:40:00.000Z",
+        kidIds: ["k1"],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "a",
+            otherTitle: "Practice A",
+            otherStartsAt: "2030-08-15T18:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+    ]
+
+    const rideA: CarpoolRide = {
+      id: "r-a",
+      spaceId: "s1",
+      eventKey: "UID:a",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Declan"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [confirmedLeg("TO", "a1", "Chris")],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const rideB: CarpoolRide = {
+      ...rideA,
+      id: "r-b",
+      eventKey: "UID:b",
+      legs: [confirmedLeg("TO", "a1", "Chris")],
+    }
+
+    render(
+      <AgendaBlockCard
+        items={members}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          a: {
+            eventKey: "UID:a",
+            title: "Practice A",
+            startsAt: members[0]!.startsAt,
+            endsAt: members[0]!.endsAt,
+            defaultKidIds: ["k1"],
+            ownRequests: [rideA],
+            ownLegs: rideA.legs,
+            ownRequest: rideA,
+            otherRequests: [],
+          },
+          b: {
+            eventKey: "UID:b",
+            title: "Practice B",
+            startsAt: members[1]!.startsAt,
+            endsAt: members[1]!.endsAt,
+            defaultKidIds: ["k1"],
+            ownRequests: [rideB],
+            ownLegs: rideB.legs,
+            ownRequest: rideB,
+            otherRequests: [],
+          },
+        })}
+        onOpenRide={onOpenRide}
+      />,
+    )
+
+    const viewRoute = screen.getByTestId("agenda-block-run-to-view-route")
+    expect(viewRoute).toHaveTextContent("View route")
+    await user.click(viewRoute)
+    expect(onOpenRide).toHaveBeenCalledTimes(1)
+    expect(onOpenRide).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "a", source: "FEED" }),
+    )
   })
 
   it("invokes combine/split handler from the block card (not Hero)", async () => {

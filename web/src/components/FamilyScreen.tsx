@@ -3730,6 +3730,9 @@ export function FamilyScreen({
                               onDriveBlockLink={(member, link) =>
                                 void onDriveBlockLinkAgenda(member, link)
                               }
+                              onOpenRide={(member) => {
+                                setRideDetailItemKey(calendarItemKey(member))
+                              }}
                             />
                           </li>
                         )

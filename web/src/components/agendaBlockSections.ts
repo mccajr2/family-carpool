@@ -37,6 +37,11 @@ export type AgendaBlockRunSection = {
    * task fills stop lists.
    */
   detailLines: string[]
+  /**
+   * Earliest event in this leg's combined viewer-owned set — target for
+   * single-event "View route" until day-block-route.
+   */
+  representativeItem: CalendarItem
 }
 
 export type AgendaBlockEventBand = {
@@ -181,6 +186,13 @@ function sharedVenue(rows: OwnedKidLeg[]): string | null {
   return locations.every((value) => value === first) ? first : first
 }
 
+function earliestItemInRun(rows: OwnedKidLeg[]): CalendarItem {
+  const sorted = [...rows].sort((a, b) =>
+    a.item.startsAt.localeCompare(b.item.startsAt),
+  )
+  return sorted[0]!.item
+}
+
 function buildRun(
   leg: CarpoolLegKind,
   rows: OwnedKidLeg[],
@@ -201,6 +213,7 @@ function buildRun(
       venueName: sharedVenue(rows),
     }),
     detailLines: [],
+    representativeItem: earliestItemInRun(rows),
   }
 }
 
