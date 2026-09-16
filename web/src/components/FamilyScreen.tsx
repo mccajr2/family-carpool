@@ -2943,6 +2943,7 @@ export function FamilyScreen({
         ? (buildAgendaBlockSections({
             items: blockMembers,
             currentAdultId: adult?.id ?? "",
+            circleId: circle.id,
             kids: circle.kids,
             members: circle.members,
             rideEventFor: (row) =>
@@ -3721,6 +3722,7 @@ export function FamilyScreen({
                               items={entry.items}
                               circle={circle}
                               currentAdultId={adult?.id ?? ""}
+                              now={now}
                               rideEventFor={(member) =>
                                 calendarRideByItemKey.get(calendarItemKey(member)) ??
                                 null
@@ -3733,6 +3735,24 @@ export function FamilyScreen({
                               onOpenRide={(member) => {
                                 setRideDetailItemKey(calendarItemKey(member))
                               }}
+                              onRevertDecidedAssignee={(member, assignee) =>
+                                void onRevertDecidedAssigneeAgenda(member, assignee)
+                              }
+                              onCantMakeIt={(member, game) =>
+                                void onCantMakeItAgenda(member, game)
+                              }
+                              onRemoveCoverage={(assignmentId) =>
+                                void onRemoveCoverage(assignmentId)
+                              }
+                              onSetNotGoing={(member, kidIds) =>
+                                void onSetCalendarRsvps(member, kidIds, "NO")
+                              }
+                              onSetLeaveFrom={(member, body) =>
+                                void onSetCalendarLeaveFrom(member, body)
+                              }
+                              onWithdrawRide={(member, rideId, legs) =>
+                                void onWithdrawAgendaRide(member, rideId, legs)
+                              }
                             />
                           </li>
                         )
@@ -3868,6 +3888,9 @@ export function FamilyScreen({
                             onOpenRide={() => {
                               setRideDetailItemKey(itemKey)
                             }}
+                            onDriveBlockLink={(link) =>
+                              void onDriveBlockLinkAgenda(item, link)
+                            }
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
                           />

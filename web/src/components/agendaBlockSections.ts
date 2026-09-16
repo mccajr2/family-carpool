@@ -22,7 +22,12 @@ import {
 import { formatSiblingDriveClock } from "@/components/driveBlockAgendaLinks"
 import { heroAdultFirstName, heroKidFirstName } from "@/components/heroAttentionCopy"
 import { agendaBlockRunStatusChip } from "@/components/rideStatusChip"
-import { resolveOwnRidePlans } from "@/components/transportPlan"
+import {
+  isBlankTransportPlan,
+  inboundLegOwnedByCircle,
+  orderedTransportLegs,
+  resolveOwnRidePlans,
+} from "@/components/transportPlan"
 
 export type AgendaBlockRunSection = {
   leg: CarpoolLegKind
@@ -38,8 +43,8 @@ export type AgendaBlockRunSection = {
    */
   detailLines: string[]
   /**
-   * Earliest event in this leg's combined viewer-owned set — target for
-   * single-event "View route" until day-block-route.
+   * Representative event for single-event "View route" until day-block-route:
+   * earliest member for TO, latest for FROM (pickup after the hang).
    */
   representativeItem: CalendarItem
 }
@@ -67,6 +72,8 @@ export type AgendaBlockSections = {
 export type BuildAgendaBlockSectionsOptions = {
   items: CalendarItem[]
   currentAdultId: string
+  /** Viewing adult's circle — required to attribute ACCEPTED inbound asks. */
+  circleId: string
   kids: readonly Kid[]
   members: readonly FamilyMember[]
   /**
@@ -83,6 +90,10 @@ type OwnedKidLeg = {
   leg: CarpoolLegKind
   ownerAdultId: string
   ownerDisplayName: string | null
+  /** Inbound / non-circle kid display name when not in `kids`. */
+  firstName?: string | null
+  /** ACCEPTED otherRequest id when this seat is an added rider. */
+  inboundRequestId?: string | null
 }
 
 function formatEventBandClock(startsAt: string, endsAt: string | null): string {
@@ -106,12 +117,14 @@ function formatEventBandClock(startsAt: string, endsAt: string | null): string {
 function collectOwnedKidLegs(
   items: CalendarItem[],
   rideEventFor: BuildAgendaBlockSectionsOptions["rideEventFor"],
+  circleId: string,
+  currentAdultId: string,
 ): OwnedKidLeg[] {
   const owned: OwnedKidLeg[] = []
   const seen = new Set<string>()
 
   function push(row: OwnedKidLeg) {
-    const key = `${calendarItemKey(row.item)}:${row.leg}:${row.kidId}:${row.ownerAdultId}`
+    const key = `${calendarItemKey(row.item)}:${row.leg}:${row.kidId}:${row.ownerAdultId}:${row.inboundRequestId ?? "own"}`
     if (seen.has(key)) {
       return
     }
@@ -123,8 +136,15 @@ function collectOwnedKidLegs(
     const rideEvent = rideEventFor(item)
     const plans = resolveOwnRidePlans(rideEvent)
     const sawConfirmedLegForKid = new Set<string>()
+    /** Kids with a non-blank TO/FROM plan — coverage must not invent missing legs. */
+    const kidsWithNonBlankPlan = new Set<string>()
 
     for (const plan of plans) {
+      if (!isBlankTransportPlan(plan.legs)) {
+        for (const kidId of plan.kidIds) {
+          kidsWithNonBlankPlan.add(kidId)
+        }
+      }
       for (const leg of plan.legs) {
         if (leg.phase !== "CONFIRMED" || leg.assigneeAdultId == null) {
           continue
@@ -142,20 +162,54 @@ function collectOwnedKidLegs(
       }
     }
 
+    // Household coverage CONFIRMED is round-trip by default (both legs) when
+    // there is no non-blank ride plan for that kid — matching DriverPicker /
+    // AgendaRow "You're driving" without a PLAN line.
     for (const coverage of activeCoverages(item)) {
       if (coverage.status !== "CONFIRMED") {
         continue
       }
       for (const kidId of coverage.kidIds) {
-        if (sawConfirmedLegForKid.has(`${kidId}:TO`)) {
+        if (kidsWithNonBlankPlan.has(kidId)) {
           continue
         }
-        push({
-          kidId,
-          item,
-          leg: "TO",
-          ownerAdultId: coverage.coveringAdultId,
-          ownerDisplayName: coverage.coveringAdultDisplayName,
+        for (const leg of ["TO", "FROM"] as const) {
+          if (sawConfirmedLegForKid.has(`${kidId}:${leg}`)) {
+            continue
+          }
+          push({
+            kidId,
+            item,
+            leg,
+            ownerAdultId: coverage.coveringAdultId,
+            ownerDisplayName: coverage.coveringAdultDisplayName,
+          })
+        }
+      }
+    }
+
+    // ACCEPTED inbound asks this circle drives — added riders on the same legs
+    // (AgendaRow "You're driving · +n"). Without this, block runs omit Apollo etc.
+    for (const request of rideEvent?.otherRequests ?? []) {
+      if (request.status !== "ACCEPTED" || request.acceptingCircleId !== circleId) {
+        continue
+      }
+      const ownerAdultId = request.acceptedByAdultId ?? currentAdultId
+      for (const leg of orderedTransportLegs(request.legs)) {
+        if (!inboundLegOwnedByCircle(leg, circleId)) {
+          continue
+        }
+        request.kidIds.forEach((kidId, index) => {
+          const firstName = request.kidFirstNames[index]?.trim() || null
+          push({
+            kidId,
+            item,
+            leg: leg.kind,
+            ownerAdultId,
+            ownerDisplayName: null,
+            firstName,
+            inboundRequestId: request.id,
+          })
         })
       }
     }
@@ -166,13 +220,18 @@ function collectOwnedKidLegs(
 
 function runClock(leg: CarpoolLegKind, rows: OwnedKidLeg[]): string {
   if (leg === "TO") {
-    const times = rows.map((row) => row.item.leaveByAt ?? row.item.startsAt)
-    times.sort()
-    return formatSiblingDriveClock(times[0] ?? rows[0]!.item.startsAt)
+    // Hang departure follows the earliest event — not min(leaveByAt) across
+    // members (a later event's leave-by often still assumes leaving home solo).
+    const byStart = [...rows].sort((a, b) =>
+      a.item.startsAt.localeCompare(b.item.startsAt),
+    )
+    const first = byStart[0]!
+    return formatSiblingDriveClock(first.item.leaveByAt ?? first.item.startsAt)
   }
+  // Pickup after the hang: last event end in the combined FROM set.
   const times = rows.map((row) => row.item.endsAt ?? row.item.startsAt)
   times.sort()
-  return formatSiblingDriveClock(times[0] ?? rows[0]!.item.startsAt)
+  return formatSiblingDriveClock(times[times.length - 1] ?? rows[0]!.item.startsAt)
 }
 
 function sharedVenue(rows: OwnedKidLeg[]): string | null {
@@ -186,11 +245,23 @@ function sharedVenue(rows: OwnedKidLeg[]): string | null {
   return locations.every((value) => value === first) ? first : first
 }
 
-function earliestItemInRun(rows: OwnedKidLeg[]): CalendarItem {
+function representativeItemForRun(
+  leg: CarpoolLegKind,
+  rows: OwnedKidLeg[],
+): CalendarItem {
   const sorted = [...rows].sort((a, b) =>
     a.item.startsAt.localeCompare(b.item.startsAt),
   )
-  return sorted[0]!.item
+  // TO: earliest leave/event. FROM: latest event (pickup after the hang).
+  return (leg === "FROM" ? sorted[sorted.length - 1] : sorted[0]!)!.item
+}
+
+function riderFirstName(row: OwnedKidLeg, kids: readonly Kid[]): string {
+  const fromRequest = row.firstName?.trim()
+  if (fromRequest) {
+    return fromRequest
+  }
+  return heroKidFirstName(row.kidId, kids)
 }
 
 function buildRun(
@@ -201,19 +272,24 @@ function buildRun(
   if (rows.length === 0) {
     return null
   }
-  const uniqueKidIds = [...new Set(rows.map((row) => row.kidId))]
-  const names = uniqueKidIds.map((id) => heroKidFirstName(id, kids))
+  const namesByKid = new Map<string, string>()
+  for (const row of rows) {
+    if (!namesByKid.has(row.kidId)) {
+      namesByKid.set(row.kidId, riderFirstName(row, kids))
+    }
+  }
+  const names = [...namesByKid.values()]
   return {
     leg,
     heading: agendaBlockRunHeading(leg, runClock(leg, rows)),
-    chipLabel: agendaBlockRunStatusChip(uniqueKidIds.length).label,
+    chipLabel: agendaBlockRunStatusChip(names.length).label,
     summaryLine: agendaBlockRunSummaryLine({
       leg,
       kidFirstNames: names,
       venueName: sharedVenue(rows),
     }),
     detailLines: [],
-    representativeItem: earliestItemInRun(rows),
+    representativeItem: representativeItemForRun(leg, rows),
   }
 }
 
@@ -255,10 +331,10 @@ function mutedLine(
 export function buildAgendaBlockSections(
   options: BuildAgendaBlockSectionsOptions,
 ): AgendaBlockSections {
-  const { items, currentAdultId, kids, members, rideEventFor } = options
+  const { items, currentAdultId, circleId, kids, members, rideEventFor } = options
   const viewerHouseholdKidIds =
     options.viewerHouseholdKidIds ?? new Set(kids.map((kid) => kid.id))
-  const owned = collectOwnedKidLegs(items, rideEventFor)
+  const owned = collectOwnedKidLegs(items, rideEventFor, circleId, currentAdultId)
 
   const viewerTo = owned.filter(
     (row) => row.leg === "TO" && row.ownerAdultId === currentAdultId,
@@ -291,11 +367,15 @@ export function buildAgendaBlockSections(
       viewerFrom.map((row) => row.kidId).filter((kidId) => toKidIds.has(kidId)),
     ),
   ]
+  const nameForKid = (kidId: string): string => {
+    const row =
+      viewerTo.find((entry) => entry.kidId === kidId) ??
+      viewerFrom.find((entry) => entry.kidId === kidId)
+    return row != null ? riderFirstName(row, kids) : heroKidFirstName(kidId, kids)
+  }
   const roundTripBanner =
     roundTripKidIds.length > 0
-      ? alreadyDrivingRoundTripBanner(
-          roundTripKidIds.map((id) => heroKidFirstName(id, kids)),
-        )
+      ? alreadyDrivingRoundTripBanner(roundTripKidIds.map(nameForKid))
       : null
 
   return {

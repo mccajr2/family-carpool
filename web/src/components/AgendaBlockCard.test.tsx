@@ -204,6 +204,10 @@ describe("AgendaBlockCard", () => {
     )
 
     const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-day")).toHaveTextContent(
+      /Sep|Aug/,
+    )
+    expect(within(card).getByTestId("agenda-block-day").textContent).toMatch(/U12/)
     expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent(
       "Two events tonight",
     )
@@ -410,5 +414,301 @@ describe("AgendaBlockCard", () => {
     const card = screen.getByTestId("agenda-block-card")
     expect(card).toHaveAttribute("data-focused", "true")
     expect(card.className).toMatch(/--fc-list-row-focus-border/)
+  })
+
+  it("surfaces per-commitment reassign, not-going, and hang departure leave-from", async () => {
+    const user = userEvent.setup()
+    const onCantMakeIt = vi.fn()
+    const onSetNotGoing = vi.fn()
+    const onSetLeaveFrom = vi.fn()
+
+    const members = [
+      item("a", "2030-08-15T18:00:00.000Z", {
+        title: "Mite Practice",
+        endsAt: "2030-08-15T19:00:00.000Z",
+        leaveByAt: "2030-08-15T17:41:00.000Z",
+        leaveByStatus: "OK",
+        leaveFromPlaceId: "p-hag",
+        leaveFromPlaceName: "Haggerty",
+        kidIds: ["k2"],
+        rsvps: [{ kidId: "k2", status: "YES" }],
+        coverages: [
+          {
+            id: "cov-k",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Chris",
+            assignedByAdultId: "a1",
+            kidIds: ["k2"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: "p-hag",
+            leaveFromPlaceName: "Haggerty",
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "b",
+            otherTitle: "Squirt Practice",
+            otherStartsAt: "2030-08-15T19:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+      item("b", "2030-08-15T19:00:00.000Z", {
+        title: "Squirt Practice",
+        endsAt: "2030-08-15T20:00:00.000Z",
+        leaveByAt: "2030-08-15T18:43:00.000Z",
+        leaveByStatus: "OK",
+        leaveFromPlaceName: "Home",
+        kidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "YES" }],
+        coverages: [
+          {
+            id: "cov-d",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Chris",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: "Home",
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "a",
+            otherTitle: "Mite Practice",
+            otherStartsAt: "2030-08-15T18:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+    ]
+
+    const circleWithPlace: FamilyCircle = {
+      ...circle,
+      places: [
+        {
+          id: "p-hag",
+          name: "Haggerty",
+          address: "1 School",
+          latitude: 42,
+          longitude: -71,
+        },
+      ],
+    }
+
+    render(
+      <AgendaBlockCard
+        items={members}
+        circle={circleWithPlace}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onCantMakeIt={onCantMakeIt}
+        onSetNotGoing={onSetNotGoing}
+        onSetLeaveFrom={onSetLeaveFrom}
+      />,
+    )
+
+    const actions = screen.getByTestId("agenda-block-commitment-actions")
+    expect(within(actions).getAllByTestId("agenda-reassign-link")).toHaveLength(2)
+    expect(within(actions).getByText(/Mark Kian as not going/)).toBeInTheDocument()
+    expect(within(actions).getByText(/Mark Declan as not going/)).toBeInTheDocument()
+
+    await user.click(within(actions).getAllByTestId("agenda-reassign-link")[0]!)
+    expect(onCantMakeIt).toHaveBeenCalled()
+
+    expect(screen.getByTestId("agenda-block-leave-from")).toBeInTheDocument()
+    expect(
+      screen.getByTestId("leave-from-block-FEED-a-place-select"),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId("leave-from-block-FEED-a-helper")).toHaveTextContent(
+      /Leave by ~/,
+    )
+  })
+
+  it("lists ACCEPTED inbound riders on combined run summaries", async () => {
+    const user = userEvent.setup()
+    const onWithdrawRide = vi.fn()
+    const members = [
+      item("mite", "2030-09-22T22:00:00.000Z", {
+        title: "CYH Mite Practice",
+        endsAt: "2030-09-22T22:50:00.000Z",
+        leaveByAt: "2030-09-22T21:41:00.000Z",
+        kidIds: ["k2"],
+        rsvps: [{ kidId: "k2", status: "YES" }],
+        coverages: [
+          {
+            id: "cov-kian",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Chris",
+            assignedByAdultId: "a1",
+            kidIds: ["k2"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "squirt",
+            otherTitle: "CYH Squirt 1 Practice",
+            otherStartsAt: "2030-09-22T23:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+      item("squirt", "2030-09-22T23:00:00.000Z", {
+        title: "CYH Squirt 1 Practice",
+        endsAt: "2030-09-22T23:50:00.000Z",
+        leaveByAt: "2030-09-22T22:43:00.000Z",
+        kidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "YES" }],
+        coverages: [
+          {
+            id: "cov-declan",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Chris",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+        driveBlockLinks: [
+          {
+            leg: "TO",
+            otherSource: "FEED",
+            otherId: "mite",
+            otherTitle: "CYH Mite Practice",
+            otherStartsAt: "2030-09-22T22:00:00.000Z",
+            combined: true,
+            overrideAction: null,
+          },
+        ],
+      }),
+    ]
+
+    const inboundApollo: CarpoolRide = {
+      id: "ask-apollo",
+      spaceId: "s1",
+      eventKey: "UID:squirt",
+      requestingCircleId: "c-apollo",
+      requestingCircleName: "Apollo's family",
+      requestedByAdultId: "a-apollo",
+      kidIds: ["k-apollo"],
+      kidFirstNames: ["Apollo"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Other",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "ACCEPTED",
+      legs: [
+        {
+          kind: "TO",
+          phase: "CONFIRMED",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: "c1",
+          assigneeCircleName: "House",
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+        {
+          kind: "FROM",
+          phase: "CONFIRMED",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: "c1",
+          assigneeCircleName: "House",
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: "a1",
+      acceptingCircleId: "c1",
+      acceptingCircleName: "House",
+    }
+
+    render(
+      <AgendaBlockCard
+        items={members}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          squirt: {
+            eventKey: "UID:squirt",
+            title: "Squirt",
+            startsAt: members[1]!.startsAt,
+            endsAt: members[1]!.endsAt,
+            defaultKidIds: ["k1"],
+            ownRequests: [],
+            ownLegs: null,
+            ownRequest: null,
+            otherRequests: [inboundApollo],
+          },
+        })}
+        onWithdrawRide={onWithdrawRide}
+      />,
+    )
+
+    expect(screen.getByTestId("agenda-block-run-to-chip")).toHaveTextContent(
+      "You're driving · 3 riders",
+    )
+    expect(screen.getByTestId("agenda-block-run-to-summary")).toHaveTextContent(
+      /Apollo/,
+    )
+    expect(screen.getByTestId("agenda-block-run-from-summary")).toHaveTextContent(
+      /Apollo/,
+    )
+
+    const actions = screen.getByTestId("agenda-block-commitment-actions")
+    const withdraw = within(actions).getByRole("button", {
+      name: "Can't take them anymore",
+    })
+    expect(withdraw).toBeInTheDocument()
+    // Paired with own-kid reassign (ADR-0004 rule 7) — not collapsed into one link.
+    expect(within(actions).getAllByTestId("agenda-reassign-link").length).toBeGreaterThan(
+      0,
+    )
+
+    await user.click(withdraw)
+    expect(onWithdrawRide).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "squirt" }),
+      "ask-apollo",
+      undefined,
+    )
   })
 })

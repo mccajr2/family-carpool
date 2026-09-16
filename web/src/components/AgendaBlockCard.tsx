@@ -5,18 +5,32 @@ import type {
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
+  SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import {
   buildAgendaBlockSections,
   type AgendaBlockRunSection,
 } from "@/components/agendaBlockSections"
+import {
+  agendaCommitmentActionsForItems,
+  blockDepartureItem,
+  type AgendaCommitmentAction,
+} from "@/components/agendaCommitmentActions"
 import { canRoute } from "@/components/canRoute"
-import { calendarItemKey } from "@/components/coverageDisplay"
-import { mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
+import { activeCoverages, calendarItemKey } from "@/components/coverageDisplay"
+import {
+  isPendingHouseholdConfirm,
+  mapCalendarItemToCoverageGames,
+  type CoverageGameEvent,
+} from "@/components/coverageQueue"
 import {
   agendaBlockDriveBlockControls,
 } from "@/components/driveBlockAgendaLinks"
 import { EventLocationLine } from "@/components/EventLocationLine"
+import { formatAgendaBlockDayLabel } from "@/components/eventTimes"
+import { agendaLeaveByLine } from "@/components/leaveByDisplay"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import type { DecidedAssignee } from "@/components/transportPlan"
 
 export type AgendaBlockCardProps = {
   /** Combined driving-block members (length ≥ 2), chronological. */
@@ -37,9 +51,28 @@ export type AgendaBlockCardProps = {
   ) => void
   /**
    * Opens existing single-event Route for a representative block member
-   * (earliest event in the run). No multi-stop block Route chrome.
+   * (earliest TO / latest FROM). No multi-stop block Route chrome.
    */
   onOpenRide?: (item: CalendarItem) => void
+  /** Viewer "now" for Today / Tomorrow / weekday day labels. */
+  now?: Date
+  onRevertDecidedAssignee?: (
+    item: CalendarItem,
+    assignee: DecidedAssignee,
+  ) => void
+  onCantMakeIt?: (item: CalendarItem, game: CoverageGameEvent) => void
+  onRemoveCoverage?: (assignmentId: string) => void
+  onSetNotGoing?: (item: CalendarItem, kidIds: string[]) => void
+  onSetLeaveFrom?: (
+    item: CalendarItem,
+    body: SetCalendarLeaveFromRequest,
+  ) => void
+  /** Withdraw ACCEPTED inbound ask (hand back Apollo etc.). */
+  onWithdrawRide?: (
+    item: CalendarItem,
+    rideId: string,
+    legs?: ("TO" | "FROM")[],
+  ) => void
 }
 
 function isRunRoutable(
@@ -168,9 +201,55 @@ function RunSection({
   )
 }
 
+function runCommitmentAction(
+  action: AgendaCommitmentAction,
+  handlers: {
+    onRevertDecidedAssignee?: AgendaBlockCardProps["onRevertDecidedAssignee"]
+    onCantMakeIt?: AgendaBlockCardProps["onCantMakeIt"]
+    onRemoveCoverage?: AgendaBlockCardProps["onRemoveCoverage"]
+    onSetNotGoing?: AgendaBlockCardProps["onSetNotGoing"]
+    onWithdrawRide?: AgendaBlockCardProps["onWithdrawRide"]
+    currentAdultId: string
+  },
+) {
+  switch (action.kind) {
+    case "revert":
+      handlers.onRevertDecidedAssignee?.(action.item, action.assignee)
+      return
+    case "cant-make-it":
+      handlers.onCantMakeIt?.(action.item, action.game)
+      return
+    case "cancel-pending": {
+      if (
+        !isPendingHouseholdConfirm(action.game.ownRide) ||
+        action.game.ownRide.driver === "You"
+      ) {
+        return
+      }
+      const coverage = activeCoverages(action.item).find(
+        (row) =>
+          row.status === "PENDING" &&
+          row.kidIds.includes(action.game.kidId) &&
+          row.coveringAdultId !== handlers.currentAdultId,
+      )
+      if (coverage != null) {
+        handlers.onRemoveCoverage?.(coverage.id)
+      }
+      return
+    }
+    case "not-going":
+      handlers.onSetNotGoing?.(action.item, action.kidIds)
+      return
+    case "withdraw-inbound":
+      handlers.onWithdrawRide?.(action.item, action.rideId, action.legs)
+      return
+  }
+}
+
 /**
  * Multi-item Agenda driving-block card: drop-off / event bands / muted other
- * jobs / pickup (mockup order). Combine/split override lives here only.
+ * jobs / pickup (mockup order). Combine/split + commitment actions + hang
+ * departure leave-from live here (same surfaces as AgendaRow, block-scoped).
  */
 export function AgendaBlockCard({
   items,
@@ -179,19 +258,43 @@ export function AgendaBlockCard({
   rideEventFor,
   isFocused = false,
   loading = false,
+  now = new Date(),
   onDriveBlockLink,
   onOpenRide,
+  onRevertDecidedAssignee,
+  onCantMakeIt,
+  onRemoveCoverage,
+  onSetNotGoing,
+  onSetLeaveFrom,
+  onWithdrawRide,
 }: AgendaBlockCardProps) {
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
+  const dayLabel =
+    items[0] != null ? formatAgendaBlockDayLabel(items[0].startsAt, now) : null
   const sections = buildAgendaBlockSections({
     items,
     currentAdultId,
+    circleId: circle.id,
     kids: circle.kids,
     members: circle.members,
     rideEventFor,
   })
   const driveBlockControls = agendaBlockDriveBlockControls(items)
+  const commitmentActions = agendaCommitmentActionsForItems(items, {
+    circle,
+    currentAdultId,
+    rideEventFor,
+  })
+  const departureItem = blockDepartureItem({
+    items,
+    currentAdultId,
+    rideEventFor,
+  })
+  const showLeaveFrom =
+    onSetLeaveFrom != null &&
+    departureItem != null &&
+    sections.toRun != null
   const overrideLinkClass =
     "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
   const focusRingStyle = isFocused
@@ -224,7 +327,14 @@ export function AgendaBlockCard({
     >
       <div className="flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)]">
         <header className="min-w-0">
-          {teamLabel != null ? (
+          {dayLabel != null ? (
+            <span
+              data-testid="agenda-block-day"
+              className="block uppercase tracking-wide text-[length:var(--fc-font-list-row-team-size)] leading-[var(--fc-font-list-row-team-line)] font-[number:var(--fc-font-list-row-team-weight)] text-[var(--fc-text-secondary)]"
+            >
+              {teamLabel != null ? `${dayLabel} · ${teamLabel}` : dayLabel}
+            </span>
+          ) : teamLabel != null ? (
             <span
               data-testid="agenda-block-team"
               className="block uppercase tracking-wide text-[length:var(--fc-font-list-row-team-size)] leading-[var(--fc-font-list-row-team-line)] font-[number:var(--fc-font-list-row-team-weight)] text-[var(--fc-text-secondary)]"
@@ -268,6 +378,25 @@ export function AgendaBlockCard({
                 : undefined
             }
           />
+        ) : null}
+
+        {showLeaveFrom && departureItem != null ? (
+          <div data-testid="agenda-block-leave-from">
+            <LeaveFromControls
+              variant="field-row"
+              value={{
+                leaveFromPlaceId: departureItem.leaveFromPlaceId,
+                leaveFromPlaceName: departureItem.leaveFromPlaceName,
+                leaveFromAddress: departureItem.leaveFromAddress,
+              }}
+              circle={circle}
+              loading={loading}
+              ariaLabel={`Leave from for ${blockTitle(items)}`}
+              helperLine={agendaLeaveByLine(departureItem)}
+              onChange={(body) => onSetLeaveFrom(departureItem, body)}
+              testIdPrefix={`leave-from-block-${calendarItemKey(departureItem)}`}
+            />
+          </div>
         ) : null}
 
         {sections.eventBands.length > 0 ? (
@@ -326,6 +455,36 @@ export function AgendaBlockCard({
                 : undefined
             }
           />
+        ) : null}
+
+        {commitmentActions.length > 0 ? (
+          <div
+            data-testid="agenda-block-commitment-actions"
+            className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
+          >
+            {commitmentActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                disabled={loading}
+                className={overrideLinkClass}
+                data-testid={action.testId}
+                data-action-key={action.key}
+                onClick={() =>
+                  runCommitmentAction(action, {
+                    onRevertDecidedAssignee,
+                    onCantMakeIt,
+                    onRemoveCoverage,
+                    onSetNotGoing,
+                    onWithdrawRide,
+                    currentAdultId,
+                  })
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         ) : null}
 
         {onDriveBlockLink != null && driveBlockControls.length > 0 ? (

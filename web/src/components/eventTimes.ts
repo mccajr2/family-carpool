@@ -148,6 +148,34 @@ export function formatLocalTodayLabel(now: Date = new Date()): string {
   })
 }
 
+/**
+ * Agenda block card day eyebrow — always includes the calendar date so
+ * "Two events tonight" is never day-ambiguous (today / tomorrow / later).
+ * e.g. "Today · Sep 22", "Tomorrow · Sep 23", "Mon, Sep 29".
+ */
+export function formatAgendaBlockDayLabel(
+  startsAt: string,
+  now: Date = new Date(),
+): string {
+  const start = new Date(startsAt)
+  if (Number.isNaN(start.getTime())) {
+    return startsAt
+  }
+  const monthDay = formatMonthDay(start)
+  const startDay = startOfLocalDay(start)
+  const today = startOfLocalDay(now)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (sameLocalDay(startDay, today)) {
+    return `Today · ${monthDay}`
+  }
+  if (sameLocalDay(startDay, tomorrow)) {
+    return `Tomorrow · ${monthDay}`
+  }
+  const weekday = start.toLocaleDateString(undefined, { weekday: "short" })
+  return `${weekday}, ${monthDay}`
+}
+
 /** Default agenda page size in local calendar days (Load more increments). */
 export const CALENDAR_PAGE_DAYS = 30
 
