@@ -35,6 +35,7 @@ function item(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: partial.rsvps,
+    driveBlockLinks: [],
   }
 }
 

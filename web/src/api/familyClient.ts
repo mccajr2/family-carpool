@@ -20,6 +20,8 @@ import type {
   SetCalendarLeaveFromRequest,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
+  SetDriveBlockOverrideRequest,
+  ClearDriveBlockOverrideRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -672,6 +674,54 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Set RSVP failed"))
     }
     return (await response.json()) as CalendarItem
+  }
+
+  async setDriveBlockOverride(
+    accessToken: string,
+    body: SetDriveBlockOverrideRequest,
+  ): Promise<CalendarItem[]> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/calendar/drive-block-overrides"),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set drive-block override failed"))
+    }
+    return (await response.json()) as CalendarItem[]
+  }
+
+  async clearDriveBlockOverride(
+    accessToken: string,
+    body: ClearDriveBlockOverrideRequest,
+  ): Promise<CalendarItem[]> {
+    const params = new URLSearchParams({
+      leg: body.leg,
+      leftSource: body.leftSource,
+      leftItemId: body.leftItemId,
+      rightSource: body.rightSource,
+      rightItemId: body.rightItemId,
+    })
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/drive-block-overrides?${params.toString()}`,
+      ),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Clear drive-block override failed"))
+    }
+    return (await response.json()) as CalendarItem[]
   }
 
   async listEvents(accessToken: string): Promise<ManualEvent[]> {

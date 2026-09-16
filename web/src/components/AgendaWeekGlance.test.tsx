@@ -28,6 +28,7 @@ function item(
     uncoveredKidIds: partial.uncoveredKidIds ?? [],
     conflicts: [],
     rsvps: [{ kidId: "k1", status: "YES" }],
+    driveBlockLinks: [],
   }
 }
 

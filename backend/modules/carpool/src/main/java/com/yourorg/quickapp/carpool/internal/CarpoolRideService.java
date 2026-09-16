@@ -31,6 +31,7 @@ import com.yourorg.quickapp.leaveby.DetourItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
+import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -1307,6 +1308,77 @@ public class CarpoolRideService {
                             ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * CONFIRMED legs assigned to {@code adultId} for the given feed events
+     * (own plans + inbound accepts). Pending asks excluded.
+     */
+    @Transactional(readOnly = true)
+    public List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
+            UUID adultId, UUID circleId, Collection<UUID> feedEventIds) {
+        if (feedEventIds == null || feedEventIds.isEmpty()) {
+            return List.of();
+        }
+        Map<String, UUID> feedIdByEventKey = new HashMap<>();
+        for (UUID feedEventId : feedEventIds) {
+            Optional<FeedCalendarEventDto> event =
+                    feedCalendarApi.findEventInCircle(circleId, feedEventId);
+            if (event.isEmpty()) {
+                continue;
+            }
+            feedIdByEventKey.put(RideEventKey.of(event.get()), feedEventId);
+        }
+        if (feedIdByEventKey.isEmpty()) {
+            return List.of();
+        }
+        List<String> eventKeys = List.copyOf(feedIdByEventKey.keySet());
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<CarpoolConfirmedDrivingLegDto> out = new ArrayList<>();
+
+        if (!spaceIds.isEmpty()) {
+            for (CarpoolRideRequestEntity ride :
+                    rides.findBySpaceIdInAndEventKeyInAndStatusIn(
+                            spaceIds, eventKeys, OWN_PLAN_STATUSES)) {
+                collectConfirmedLegs(adultId, ride, feedIdByEventKey, seen, out);
+            }
+        }
+        for (CarpoolRideRequestEntity ride :
+                rides.findByRequestingCircleIdAndEventKeyInAndSpaceIdIsNullAndStatusIn(
+                        circleId, eventKeys, OWN_PLAN_STATUSES)) {
+            collectConfirmedLegs(adultId, ride, feedIdByEventKey, seen, out);
+        }
+        return List.copyOf(out);
+    }
+
+    private static void collectConfirmedLegs(
+            UUID adultId,
+            CarpoolRideRequestEntity ride,
+            Map<String, UUID> feedIdByEventKey,
+            Set<String> seen,
+            List<CarpoolConfirmedDrivingLegDto> out) {
+        UUID feedEventId = feedIdByEventKey.get(ride.eventKey());
+        if (feedEventId == null) {
+            return;
+        }
+        for (RideLegSlot leg : ride.legs()) {
+            if (leg.phase() != CarpoolLegPhase.CONFIRMED) {
+                continue;
+            }
+            if (!adultId.equals(leg.assigneeAdultId())) {
+                continue;
+            }
+            String dedupe = feedEventId + "|" + leg.kind().name();
+            if (!seen.add(dedupe)) {
+                continue;
+            }
+            out.add(new CarpoolConfirmedDrivingLegDto(feedEventId, leg.kind()));
+        }
     }
 
     private void upsertAcceptedDriverRoute(CarpoolRideRequestEntity ride, UUID spaceId) {

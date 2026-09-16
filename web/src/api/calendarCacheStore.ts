@@ -22,6 +22,7 @@ export function normalizeCachedCalendarItem(item: CalendarItem): CalendarItem {
     uncoveredKidIds: item.uncoveredKidIds ?? [],
     conflicts: item.conflicts ?? [],
     rsvps: item.rsvps ?? [],
+    driveBlockLinks: item.driveBlockLinks ?? [],
     eventKey: item.eventKey ?? null,
   }
 }

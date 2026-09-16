@@ -30,6 +30,7 @@ function item(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
+    driveBlockLinks: [],
     ...partial,
   }
 }

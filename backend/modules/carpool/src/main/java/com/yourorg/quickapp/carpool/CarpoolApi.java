@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.carpool;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,4 +35,13 @@ public interface CarpoolApi {
      */
     List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
             UUID circleId, UUID feedEventId);
+
+    /**
+     * CONFIRMED TO/FROM legs where {@code adultId} is the assignee, for the
+     * given feed events in spaces (or circle-local plans) this adult's circle
+     * can see. Pending asks do not qualify. Dedupes to one row per
+     * (feedEventId, leg).
+     */
+    List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
+            UUID adultId, UUID circleId, Collection<UUID> feedEventIds);
 }

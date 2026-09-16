@@ -2,6 +2,8 @@ package com.yourorg.quickapp.carpool.internal;
 
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
+import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -30,5 +32,11 @@ class CarpoolApiImpl implements CarpoolApi {
     public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
             UUID circleId, UUID feedEventId) {
         return rideService.listAcceptedPickupsForFeedEvent(circleId, feedEventId);
+    }
+
+    @Override
+    public List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
+            UUID adultId, UUID circleId, Collection<UUID> feedEventIds) {
+        return rideService.listConfirmedDrivingLegs(adultId, circleId, feedEventIds);
     }
 }

@@ -15,8 +15,11 @@ import com.yourorg.quickapp.calendar.CalendarRouteNotifyContactResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteStopResponse;
 import com.yourorg.quickapp.calendar.CalendarRsvpResponse;
+import com.yourorg.quickapp.calendar.ClearDriveBlockOverrideRequest;
+import com.yourorg.quickapp.calendar.SetDriveBlockOverrideRequest;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -46,6 +49,7 @@ import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
 import com.yourorg.quickapp.rsvp.RsvpStatus;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -74,6 +78,8 @@ public class CalendarService {
     private final AdultSessionApi adultSessionApi;
     private final CarpoolApi carpoolApi;
     private final RidePlaylistApi ridePlaylistApi;
+    private final DriveBlockEnricher driveBlockEnricher;
+    private final DriveBlockOverrideService driveBlockOverrideService;
 
     public CalendarService(
             FamilyMembershipApi familyMembershipApi,
@@ -84,7 +90,9 @@ public class CalendarService {
             RsvpApi rsvpApi,
             AdultSessionApi adultSessionApi,
             CarpoolApi carpoolApi,
-            RidePlaylistApi ridePlaylistApi) {
+            RidePlaylistApi ridePlaylistApi,
+            DriveBlockEnricher driveBlockEnricher,
+            DriveBlockOverrideService driveBlockOverrideService) {
         this.familyMembershipApi = familyMembershipApi;
         this.feedCalendarApi = feedCalendarApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
@@ -94,6 +102,8 @@ public class CalendarService {
         this.adultSessionApi = adultSessionApi;
         this.carpoolApi = carpoolApi;
         this.ridePlaylistApi = ridePlaylistApi;
+        this.driveBlockEnricher = driveBlockEnricher;
+        this.driveBlockOverrideService = driveBlockOverrideService;
     }
 
     public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
@@ -184,7 +194,7 @@ public class CalendarService {
                 Comparator.comparing(CalendarItemResponse::startsAt)
                         .thenComparing(item -> item.source().name())
                         .thenComparing(CalendarItemResponse::id));
-        return List.copyOf(items);
+        return driveBlockEnricher.attach(adult.id(), circleId, List.copyOf(items));
     }
 
     public List<CalendarLeaveByResponse> listLeaveBy(
@@ -494,6 +504,130 @@ public class CalendarService {
         return requireItem(adult.id(), circleId, source, itemId);
     }
 
+    /**
+     * Persist FORCE_MERGE / FORCE_SPLIT for the viewing adult on an ordered
+     * pair, then return both items re-enriched (drive-block links included).
+     */
+    @Transactional
+    public List<CalendarItemResponse> setDriveBlockOverride(
+            AdultResponse adult, SetDriveBlockOverrideRequest request) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        OrderedPair pair =
+                requireOrderedPair(
+                        circleId,
+                        request.leg(),
+                        request.leftSource(),
+                        request.leftItemId(),
+                        request.rightSource(),
+                        request.rightItemId());
+        driveBlockOverrideService.upsert(
+                adult.id(),
+                pair.leg(),
+                pair.leftSource(),
+                pair.leftItemId(),
+                pair.rightSource(),
+                pair.rightItemId(),
+                request.action());
+        return enrichDriveBlockPair(adult.id(), circleId, pair);
+    }
+
+    /**
+     * Clear a pair override for the viewing adult (restore auto merge). Returns
+     * both items re-enriched even when nothing was stored.
+     */
+    @Transactional
+    public List<CalendarItemResponse> clearDriveBlockOverride(
+            AdultResponse adult, ClearDriveBlockOverrideRequest request) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        OrderedPair pair =
+                requireOrderedPair(
+                        circleId,
+                        request.leg(),
+                        request.leftSource(),
+                        request.leftItemId(),
+                        request.rightSource(),
+                        request.rightItemId());
+        driveBlockOverrideService.clear(
+                adult.id(),
+                pair.leg(),
+                pair.leftSource(),
+                pair.leftItemId(),
+                pair.rightSource(),
+                pair.rightItemId());
+        return enrichDriveBlockPair(adult.id(), circleId, pair);
+    }
+
+    /**
+     * Re-attach drive-block links with both pair members in one pass so
+     * back-to-back (non-overlapping) siblings still get adjacency — single-item
+     * enrich alone can miss them.
+     */
+    private List<CalendarItemResponse> enrichDriveBlockPair(
+            UUID adultId, UUID circleId, OrderedPair pair) {
+        List<CalendarItemResponse> both =
+                List.of(
+                        requireItem(adultId, circleId, pair.leftSource(), pair.leftItemId()),
+                        requireItem(adultId, circleId, pair.rightSource(), pair.rightItemId()));
+        return driveBlockEnricher.attach(adultId, circleId, both);
+    }
+
+    private OrderedPair requireOrderedPair(
+            UUID circleId,
+            CarpoolLegKind leg,
+            CalendarItemSource leftSource,
+            UUID leftItemId,
+            CalendarItemSource rightSource,
+            UUID rightItemId) {
+        if (leg == null) {
+            throw new CalendarException(HttpStatus.BAD_REQUEST, "leg is required");
+        }
+        Instant leftStarts = requireItemStartsAt(circleId, leftSource, leftItemId);
+        Instant rightStarts = requireItemStartsAt(circleId, rightSource, rightItemId);
+        if (leftSource == rightSource && leftItemId.equals(rightItemId)) {
+            throw new CalendarException(
+                    HttpStatus.BAD_REQUEST, "left and right items must be distinct");
+        }
+        int cmp = leftStarts.compareTo(rightStarts);
+        if (cmp < 0 || (cmp == 0 && leftItemId.toString().compareTo(rightItemId.toString()) <= 0)) {
+            return new OrderedPair(leg, leftSource, leftItemId, rightSource, rightItemId);
+        }
+        return new OrderedPair(leg, rightSource, rightItemId, leftSource, leftItemId);
+    }
+
+    private Instant requireItemStartsAt(
+            UUID circleId, CalendarItemSource source, UUID itemId) {
+        if (source == null || itemId == null) {
+            throw new CalendarException(HttpStatus.BAD_REQUEST, "item refs are required");
+        }
+        return switch (source) {
+            case MANUAL ->
+                    manualEventCalendarApi
+                            .findInCircle(circleId, itemId)
+                            .orElseThrow(
+                                    () ->
+                                            new CalendarException(
+                                                    HttpStatus.NOT_FOUND,
+                                                    "Calendar item not found"))
+                            .startsAt();
+            case FEED ->
+                    feedCalendarApi
+                            .findEventInCircle(circleId, itemId)
+                            .orElseThrow(
+                                    () ->
+                                            new CalendarException(
+                                                    HttpStatus.NOT_FOUND,
+                                                    "Calendar item not found"))
+                            .startsAt();
+        };
+    }
+
+    private record OrderedPair(
+            CarpoolLegKind leg,
+            CalendarItemSource leftSource,
+            UUID leftItemId,
+            CalendarItemSource rightSource,
+            UUID rightItemId) {}
+
     private boolean hasConfirmedCoverage(
             UUID circleId, CoverageItemSource source, UUID itemId) {
         return coverageApi.listForItem(circleId, source, itemId).stream()
@@ -572,46 +706,90 @@ public class CalendarService {
                                     new ItemLeaveMetaKey(CoverageItemSource.MANUAL, manual.id()),
                                     new ItemLeaveMeta(manual.startsAt(), manual.location())),
                             true);
-            return fromManual(
-                    manual,
-                    coverages,
-                    rsvps,
-                    displayNames(coverages),
-                    conflictsByItem.getOrDefault(
-                            new CalendarConflictDetector.ItemKey(
-                                    CalendarItemSource.MANUAL, manual.id()),
-                            List.of()),
-                    leaveBy,
-                    coverageLeaveBys);
+            CalendarItemResponse item =
+                    fromManual(
+                            manual,
+                            coverages,
+                            rsvps,
+                            displayNames(coverages),
+                            conflictsByItem.getOrDefault(
+                                    new CalendarConflictDetector.ItemKey(
+                                            CalendarItemSource.MANUAL, manual.id()),
+                                    List.of()),
+                            leaveBy,
+                            coverageLeaveBys);
+            return driveBlockEnricher.attach(adultId, circleId, List.of(item)).getFirst();
         }
-        List<CoverageAssignmentDto> coverages =
-                coverageApi.listForItem(circleId, CoverageItemSource.FEED, feed.id());
-        List<RsvpDto> rsvps =
-                rsvpApi.listForItems(circleId, RsvpItemSource.FEED, List.of(feed.id()));
-        LeaveByEnrichmentDto leaveBy =
-                leaveByApi.enrich(
-                        adultId,
-                        LeaveByItemSource.FEED,
-                        feed.id(),
-                        feed.startsAt(),
-                        feed.location());
+        // Widen past half-open overlap so back-to-back (0-gap) siblings still
+        // appear for drive-block adjacency on single-item mutation responses.
+        Instant windowStart = feed.startsAt().minus(4, ChronoUnit.HOURS);
+        Instant windowEnd =
+                ScheduleIntervals.endExclusive(feed.startsAt(), feed.endsAt())
+                        .plus(4, ChronoUnit.HOURS);
+        List<FeedCalendarEventDto> nearbyFeeds = new ArrayList<>();
+        nearbyFeeds.add(feed);
+        for (FeedCalendarEventDto nearby :
+                feedCalendarApi.listEventsOverlapping(circleId, windowStart, windowEnd)) {
+            if (!nearby.id().equals(feed.id())) {
+                nearbyFeeds.add(nearby);
+            }
+        }
+        Map<UUID, List<CoverageAssignmentDto>> nearbyCoverages =
+                groupCoverages(
+                        coverageApi.listForItems(
+                                circleId,
+                                CoverageItemSource.FEED,
+                                nearbyFeeds.stream().map(FeedCalendarEventDto::id).toList()));
+        Map<UUID, List<RsvpDto>> nearbyRsvps =
+                groupRsvps(
+                        rsvpApi.listForItems(
+                                circleId,
+                                RsvpItemSource.FEED,
+                                nearbyFeeds.stream().map(FeedCalendarEventDto::id).toList()));
+        Map<UUID, String> adultNames = displayNamesFor(nearbyCoverages, Map.of());
+        Map<ItemLeaveMetaKey, ItemLeaveMeta> itemMeta = new HashMap<>();
+        for (FeedCalendarEventDto nearby : nearbyFeeds) {
+            itemMeta.put(
+                    new ItemLeaveMetaKey(CoverageItemSource.FEED, nearby.id()),
+                    new ItemLeaveMeta(nearby.startsAt(), nearby.location()));
+        }
         Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys =
-                enrichCoverageLeaveBys(
-                        coverages,
-                        Map.of(
-                                new ItemLeaveMetaKey(CoverageItemSource.FEED, feed.id()),
-                                new ItemLeaveMeta(feed.startsAt(), feed.location())),
-                        true);
-        return fromFeed(
-                feed,
-                coverages,
-                rsvps,
-                displayNames(coverages),
-                conflictsByItem.getOrDefault(
-                        new CalendarConflictDetector.ItemKey(CalendarItemSource.FEED, feed.id()),
-                        List.of()),
-                leaveBy,
-                coverageLeaveBys);
+                enrichCoverageLeaveBys(flattenCoverages(nearbyCoverages, Map.of()), itemMeta, true);
+        List<LeaveByItemInput> leaveInputs = new ArrayList<>();
+        for (FeedCalendarEventDto nearby : nearbyFeeds) {
+            leaveInputs.add(
+                    new LeaveByItemInput(
+                            LeaveByItemSource.FEED,
+                            nearby.id(),
+                            nearby.startsAt(),
+                            nearby.location()));
+        }
+        List<LeaveByEnrichmentDto> leaveBys = leaveByApi.enrichMany(adultId, leaveInputs);
+        List<CalendarItemResponse> nearbyItems = new ArrayList<>();
+        for (int i = 0; i < nearbyFeeds.size(); i++) {
+            FeedCalendarEventDto nearby = nearbyFeeds.get(i);
+            nearbyItems.add(
+                    fromFeed(
+                            nearby,
+                            nearbyCoverages.getOrDefault(nearby.id(), List.of()),
+                            nearbyRsvps.getOrDefault(nearby.id(), List.of()),
+                            adultNames,
+                            conflictsByItem.getOrDefault(
+                                    new CalendarConflictDetector.ItemKey(
+                                            CalendarItemSource.FEED, nearby.id()),
+                                    List.of()),
+                            leaveBys.get(i),
+                            coverageLeaveBys));
+        }
+        List<CalendarItemResponse> enriched =
+                driveBlockEnricher.attach(adultId, circleId, nearbyItems);
+        return enriched.stream()
+                .filter(item -> item.id().equals(feed.id()))
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new CalendarException(
+                                        HttpStatus.NOT_FOUND, "Calendar item not found"));
     }
 
     private Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem>
@@ -938,7 +1116,8 @@ public class CalendarService {
                 coverageResponses,
                 uncoveredKidIds(kidIds, coverages, rsvps),
                 conflicts == null ? List.of() : List.copyOf(conflicts),
-                rsvpResponses);
+                rsvpResponses,
+                List.of());
     }
 
     private static CalendarCoverageAssignmentResponse toCoverageResponse(

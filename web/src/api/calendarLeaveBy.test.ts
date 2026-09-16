@@ -30,6 +30,7 @@ function item(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: [],
+    driveBlockLinks: [],
     ...partial,
   }
 }

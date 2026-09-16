@@ -25,4 +25,5 @@ public record CalendarItemResponse(
         List<CalendarCoverageAssignmentResponse> coverages,
         List<UUID> uncoveredKidIds,
         List<CalendarConflictResponse> conflicts,
-        List<CalendarRsvpResponse> rsvps) {}
+        List<CalendarRsvpResponse> rsvps,
+        List<CalendarDriveBlockLinkResponse> driveBlockLinks) {}

@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-15 (`/pr` carpool-meet-at)
+Updated: 2026-09-15 (`/pr` day-block-domain)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,20 +105,19 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | 1    | carpool-route-optimize          | planned | 2026-09-08 · enhancement   | Multi-stop route **stop-order optimize** (Route tab already shows ordered stops; this picks a better order)                   |
-| 2    | day-block-domain                | active  | 2026-09-14 · enhancement   | Driving **block** domain + API: drive-time-aware merge + merge/split override; interim Agenda link ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
-| 3    | day-block-agenda                | planned | 2026-09-14 · enhancement   | Agenda/Focus: one card per block; per-leg breakdown + quiet "not your job" rows; mockup SoT `docs/ui-system/day-block-grouping.mockup.html` |
-| 4    | day-block-route                 | planned | 2026-09-14 · enhancement   | Block Route spans full multi-event stop sequence; extend optimize to block stops ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
-| 5    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
-| 6    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
-| 7    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
-| 8    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
-| 9    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
-| 10   | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
-| 11   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
-| 12   | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
-| 13   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
-| 14   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 15   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 2    | day-block-agenda                | planned | 2026-09-14 · enhancement   | Agenda/Focus: one card per block; per-leg breakdown + quiet "not your job" rows; mockup SoT `docs/ui-system/day-block-grouping.mockup.html` |
+| 3    | day-block-route                 | planned | 2026-09-14 · enhancement   | Block Route spans full multi-event stop sequence; extend optimize to block stops ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
+| 4    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
+| 5    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
+| 6    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
+| 7    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
+| 8    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
+| 9    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
+| 10   | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
+| 11   | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
+| 12   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
+| 13   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 14   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -200,13 +199,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| day-block-domain | `day-block-domain` | [active](specs/active/day-block-domain.md) |
+| — | — | *(none)* |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| day-block-domain           | 2026-09-15 | [archive](specs/archive/day-block-domain.md)           |
 | carpool-meet-at            | 2026-09-15 | [archive](specs/archive/carpool-meet-at.md)            |
 | carpool-leg-places         | 2026-09-14 | [archive](specs/archive/carpool-leg-places.md)         |
 | carpool-kid-split-plans    | 2026-09-13 | [archive](specs/archive/carpool-kid-split-plans.md)    |
@@ -292,6 +292,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-15 | `/pr day-block-domain`: driving-block compute + FORCE_MERGE/SPLIT overrides + interim Agenda link; OpenAPI/web client. Spec archived. Next up `carpool-route-optimize`. |
 | 2026-09-15 | `/spec day-block-domain`: promote — drive-time-aware merge (effective gap + round-trip + 15m buffer), FORCE_MERGE/SPLIT override, interim Agenda link (no block cards). Branch `day-block-domain`. |
 | 2026-09-15 | `/pr carpool-meet-at`: Ask-team meet side (Our place / Driver’s place); Accept binds accepter leave-from; no requester pickup for TO Driver’s place. Spec archived. Next up `carpool-route-optimize`. |
 | 2026-09-15 | `/spec carpool-meet-at`: promote — per-leg meet side (requester place vs driver’s place; Accept binds accepter leave-from); radius match deferred; no early/late clocks. Branch `carpool-meet-at`. |
