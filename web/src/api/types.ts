@@ -269,6 +269,7 @@ export type CalendarItem = {
   uncoveredKidIds: string[]
   conflicts: CalendarConflict[]
   rsvps: CalendarRsvp[]
+  driveBlockLinks: CalendarDriveBlockLink[]
 }
 
 export type SetCalendarLeaveFromRequest = {
@@ -371,6 +372,39 @@ export type CarpoolSummary = {
 export type CarpoolRideStatus = "PENDING" | "ACCEPTED" | "CANCELLED" | "PLAN"
 
 export type CarpoolLegKind = "TO" | "FROM"
+
+/** Persisted override that wins over the auto driving-block merge rule. */
+export type DriveBlockOverrideAction = "FORCE_MERGE" | "FORCE_SPLIT"
+
+/**
+ * Adjacent confirmed-driving sibling for the viewing adult (interim Agenda
+ * merge/split control). Empty on items where the adult is not driving.
+ */
+export type CalendarDriveBlockLink = {
+  leg: CarpoolLegKind
+  otherSource: CalendarItemSource
+  otherId: string
+  otherStartsAt: string
+  combined: boolean
+  overrideAction: DriveBlockOverrideAction | null
+}
+
+export type SetDriveBlockOverrideRequest = {
+  leg: CarpoolLegKind
+  leftSource: CalendarItemSource
+  leftItemId: string
+  rightSource: CalendarItemSource
+  rightItemId: string
+  action: DriveBlockOverrideAction
+}
+
+export type ClearDriveBlockOverrideRequest = {
+  leg: CarpoolLegKind
+  leftSource: CalendarItemSource
+  leftItemId: string
+  rightSource: CalendarItemSource
+  rightItemId: string
+}
 
 export type CarpoolLegPhase =
   | "NEEDS_RIDE"

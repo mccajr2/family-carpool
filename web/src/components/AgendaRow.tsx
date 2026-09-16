@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { ChevronDown, ChevronRight, ChevronUp, Navigation } from "lucide-react"
 import type {
+  CalendarDriveBlockLink,
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
@@ -76,6 +77,7 @@ import {
   transportGapKidIds,
   type DecidedAssignee,
 } from "@/components/transportPlan"
+import { driveBlockLinkLabel } from "@/components/driveBlockAgendaLinks"
 
 /** Team/feed label for GameCard header — omit for manual events without a feed name. */
 function agendaRowTeamLabel(item: CalendarItem): string | null {
@@ -141,6 +143,11 @@ type AgendaRowProps = {
   onOpenPlaces: () => void
   /** Opens ride-detail overlay when `canRoute` for at least one in-play kid. */
   onOpenRide?: () => void
+  /**
+   * Interim driving-block merge/split control. Called with the write implied by
+   * the link (FORCE_MERGE / FORCE_SPLIT or clear).
+   */
+  onDriveBlockLink?: (link: CalendarDriveBlockLink) => void
   onEdit: () => void
   onRemoveEvent: () => void
 }
@@ -194,6 +201,7 @@ export function AgendaRow({
   onSetNotGoing,
   onOpenPlaces,
   onOpenRide,
+  onDriveBlockLink,
   onEdit,
   onRemoveEvent,
 }: AgendaRowProps) {
@@ -542,6 +550,28 @@ export function AgendaRow({
             >
               {commitmentConflictLine}
             </p>
+          ) : null}
+
+          {!outOfPlay &&
+          onDriveBlockLink != null &&
+          item.driveBlockLinks.length > 0 ? (
+            <div
+              data-testid="agenda-drive-block-links"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {item.driveBlockLinks.map((link) => (
+                <button
+                  key={`${link.leg}-${link.otherSource}-${link.otherId}`}
+                  type="button"
+                  disabled={loading}
+                  className={`${overrideLinkClass} text-left`}
+                  data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
+                  onClick={() => onDriveBlockLink(link)}
+                >
+                  {driveBlockLinkLabel(link)}
+                </button>
+              ))}
+            </div>
           ) : null}
 
           {/* Pending assign / confirm per uncovered kid; confirmed rides use override links */}

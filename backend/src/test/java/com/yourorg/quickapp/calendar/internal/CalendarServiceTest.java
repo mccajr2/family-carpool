@@ -87,6 +87,12 @@ class CalendarServiceTest {
     @Mock
     private com.yourorg.quickapp.playlist.RidePlaylistApi ridePlaylistApi;
 
+    @Mock
+    private DriveBlockEnricher driveBlockEnricher;
+
+    @Mock
+    private DriveBlockOverrideService driveBlockOverrideService;
+
     @InjectMocks
     private CalendarService calendarService;
 
@@ -96,6 +102,9 @@ class CalendarServiceTest {
 
     @BeforeEach
     void stubLeaveByUnavailable() {
+        lenient()
+                .when(driveBlockEnricher.attach(any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
         lenient()
                 .when(leaveByApi.enrich(any(), any(), any(), any(), any()))
                 .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
@@ -690,21 +699,23 @@ class CalendarServiceTest {
                                         Instant.parse("2026-08-15T18:00:00Z"),
                                         "Field 3",
                                         List.of(kidA, kidB))));
+        CoverageAssignmentDto remainingCoverage =
+                new CoverageAssignmentDto(
+                        UUID.randomUUID(),
+                        CoverageItemSource.FEED,
+                        itemId,
+                        adult.id(),
+                        adult.id(),
+                        List.of(kidB),
+                        CoverageStatus.CONFIRMED,
+                        null,
+                        null,
+                        Instant.now(),
+                        Instant.now());
         when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
-                .thenReturn(
-                        List.of(
-                                new CoverageAssignmentDto(
-                                        UUID.randomUUID(),
-                                        CoverageItemSource.FEED,
-                                        itemId,
-                                        adult.id(),
-                                        adult.id(),
-                                        List.of(kidB),
-                                        CoverageStatus.CONFIRMED,
-                                        null,
-                                        null,
-                                        Instant.now(),
-                                        Instant.now())));
+                .thenReturn(List.of(remainingCoverage));
+        when(coverageApi.listForItems(eq(circleId), eq(CoverageItemSource.FEED), any()))
+                .thenReturn(List.of(remainingCoverage));
         when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
         when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.FEED), any()))
                 .thenReturn(

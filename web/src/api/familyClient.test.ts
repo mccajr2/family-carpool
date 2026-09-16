@@ -410,6 +410,7 @@ describe("FamilyClient", () => {
         uncoveredKidIds: [],
         conflicts: [],
         rsvps: [],
+        driveBlockLinks: [],
       },
       {
         id: "fe1",
@@ -432,6 +433,7 @@ describe("FamilyClient", () => {
         uncoveredKidIds: ["k1"],
         conflicts: [],
         rsvps: [],
+        driveBlockLinks: [],
       },
     ]
 
@@ -712,6 +714,7 @@ describe("FamilyClient", () => {
       uncoveredKidIds: [],
       conflicts: [],
       rsvps: [],
+      driveBlockLinks: [],
     }
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -724,6 +727,143 @@ describe("FamilyClient", () => {
       "http://localhost:8080/api/family/circle/calendar/MANUAL/e1/leave-from",
     )
     expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PUT" })
+  })
+
+  it("sets and clears drive-block overrides for an ordered pair", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const left = {
+      id: "e1",
+      source: "FEED" as const,
+      title: "Practice A",
+      startsAt: "2026-09-15T17:00:00Z",
+      endsAt: "2026-09-15T18:00:00Z",
+      location: "Rink",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:a",
+      leaveFromPlaceId: null,
+      leaveFromPlaceName: null,
+      leaveFromAddress: null,
+      leaveByAt: null,
+      leaveByStatus: "PENDING" as const,
+      leaveByReason: null,
+      coverages: [],
+      uncoveredKidIds: [],
+      conflicts: [],
+      rsvps: [],
+      driveBlockLinks: [
+        {
+          leg: "TO" as const,
+          otherSource: "FEED" as const,
+          otherId: "e2",
+          otherStartsAt: "2026-09-15T18:00:00Z",
+          combined: false,
+          overrideAction: "FORCE_SPLIT" as const,
+        },
+      ],
+    }
+    const right = {
+      ...left,
+      id: "e2",
+      title: "Practice B",
+      startsAt: "2026-09-15T18:00:00Z",
+      endsAt: "2026-09-15T19:00:00Z",
+      eventKey: "UID:b",
+      driveBlockLinks: [
+        {
+          leg: "TO" as const,
+          otherSource: "FEED" as const,
+          otherId: "e1",
+          otherStartsAt: "2026-09-15T17:00:00Z",
+          combined: false,
+          overrideAction: "FORCE_SPLIT" as const,
+        },
+      ],
+    }
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json([left, right]))
+      .mockResolvedValueOnce(
+        json([
+          {
+            ...left,
+            driveBlockLinks: [
+              {
+                leg: "TO",
+                otherSource: "FEED",
+                otherId: "e2",
+                otherStartsAt: "2026-09-15T18:00:00Z",
+                combined: true,
+                overrideAction: null,
+              },
+            ],
+          },
+          {
+            ...right,
+            driveBlockLinks: [
+              {
+                leg: "TO",
+                otherSource: "FEED",
+                otherId: "e1",
+                otherStartsAt: "2026-09-15T17:00:00Z",
+                combined: true,
+                overrideAction: null,
+              },
+            ],
+          },
+        ]),
+      )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.setDriveBlockOverride("tok", {
+        leg: "TO",
+        leftSource: "FEED",
+        leftItemId: "e1",
+        rightSource: "FEED",
+        rightItemId: "e2",
+        action: "FORCE_SPLIT",
+      }),
+    ).resolves.toMatchObject([
+      { id: "e1", driveBlockLinks: [{ combined: false, overrideAction: "FORCE_SPLIT" }] },
+      { id: "e2" },
+    ])
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/drive-block-overrides",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "PUT" })
+    expect(JSON.parse(String(fetchFn.mock.calls[0]?.[1]?.body))).toEqual({
+      leg: "TO",
+      leftSource: "FEED",
+      leftItemId: "e1",
+      rightSource: "FEED",
+      rightItemId: "e2",
+      action: "FORCE_SPLIT",
+    })
+
+    await expect(
+      client.clearDriveBlockOverride("tok", {
+        leg: "TO",
+        leftSource: "FEED",
+        leftItemId: "e1",
+        rightSource: "FEED",
+        rightItemId: "e2",
+      }),
+    ).resolves.toMatchObject([
+      { id: "e1", driveBlockLinks: [{ combined: true, overrideAction: null }] },
+      { id: "e2" },
+    ])
+    expect(fetchFn.mock.calls[1]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/drive-block-overrides?leg=TO&leftSource=FEED&leftItemId=e1&rightSource=FEED&rightItemId=e2",
+    )
+    expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" })
   })
 
   it("sets coverage leave-from (one-time address)", async () => {
@@ -769,6 +909,7 @@ describe("FamilyClient", () => {
       uncoveredKidIds: [],
       conflicts: [],
       rsvps: [],
+      driveBlockLinks: [],
     }
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item))
     const client = new FamilyClient("http://localhost:8080", fetchFn)
@@ -870,6 +1011,7 @@ describe("FamilyClient", () => {
       uncoveredKidIds: [],
       conflicts: [],
       rsvps: [],
+      driveBlockLinks: [],
     }
 
     const fetchFn = vi.fn().mockResolvedValueOnce(json(item, 201))
@@ -885,6 +1027,7 @@ describe("FamilyClient", () => {
       uncoveredKidIds: [],
       conflicts: [],
       rsvps: [],
+      driveBlockLinks: [],
     })
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(

@@ -1,8 +1,8 @@
 # Spec: day-block-domain
 
-Status: draft  
+Status: done  
 Created: 2026-09-14  
-Updated: 2026-09-15 (`/spec`)  
+Updated: 2026-09-15 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-09-14 · enhancement  
 Branch: `day-block-domain`
@@ -147,53 +147,53 @@ siblings.
 
 ## Acceptance criteria
 
-- [ ] Same rink (same geocode identity), back-to-back, 0-min raw gap, viewing
+- [x] Same rink (same geocode identity), back-to-back, 0-min raw gap, viewing
       adult confirmed on TO for both → one TO block containing both items.
-- [ ] Same two events / venue / day, but another adult’s confirmed pickup on a
+- [x] Same two events / venue / day, but another adult’s confirmed pickup on a
       different leg or as a different driver → **not** merged into the first
       adult’s block.
-- [ ] Rink ~5 min one-way from home, 90-min raw gap, 20-min practice padding on
+- [x] Rink ~5 min one-way from home, 90-min raw gap, 20-min practice padding on
       event2 → effective gap ~70 min, round trip ~10 min + 15 buffer → **two**
       blocks (still manually mergeable).
-- [ ] Rink ~25 min one-way from home, 30-min raw gap, 45-min game padding on
+- [x] Rink ~25 min one-way from home, 30-min raw gap, 45-min game padding on
       event2 → effective gap negative → **one** block (wait at venue). A flat
       30-min raw-gap rule would have wrongly split this pair.
-- [ ] Same confirmed driver, same leg, adjacent events, different venue
+- [x] Same confirmed driver, same leg, adjacent events, different venue
       geocode identity → two blocks regardless of gap.
-- [ ] Drive-time estimate unavailable for a pair → flat 30-min fallback,
+- [x] Drive-time estimate unavailable for a pair → flat 30-min fallback,
       biased toward merge.
-- [ ] After today’s blocks were already computed, a driver **accepts** a
+- [x] After today’s blocks were already computed, a driver **accepts** a
       pending carpool ask that makes them the confirmed driver → next calendar
       read reflects new block membership with **no** explicit re-merge action.
-- [ ] FORCE_MERGE / FORCE_SPLIT override persists for that adult+leg+pair and
+- [x] FORCE_MERGE / FORCE_SPLIT override persists for that adult+leg+pair and
       wins over the auto rule until cleared; clearing restores auto.
-- [ ] OpenAPI + web client expose block adjacency + override writes; interim
+- [x] OpenAPI + web client expose block adjacency + override writes; interim
       Agenda link appears on existing per-event cards for adjacent siblings
       only — no new components / tokens.
-- [ ] Unit tests cover the merge matrix above (including unavailable
+- [x] Unit tests cover the merge matrix above (including unavailable
       drive-time + missing `endsAt` fallback); integration test covers
       override write + calendar read reflecting it; web unit test covers the
       link labels / handlers. Relevant suites pass; `ModularityTests` pass.
 
 ## Tasks
 
-- [ ] Backend: driving-block compute (confirmed driver + leg + venue identity
+- [x] Backend: driving-block compute (confirmed driver + leg + venue identity
       + effective-gap rule + 15-min buffer + 30-min merge-biased fallback);
       singleton blocks; apply FORCE_MERGE / FORCE_SPLIT overrides
-- [ ] Backend: persist overrides (adult, leg, ordered item pair, action,
+- [x] Backend: persist overrides (adult, leg, ordered item pair, action,
       `createdAt`); clear path
-- [ ] Backend: enrich calendar `CalendarItem` (or adjacent sibling fields)
+- [x] Backend: enrich calendar `CalendarItem` (or adjacent sibling fields)
       for the viewing adult; no Nominatim/OSRM on the cheap list path beyond
       existing leave-by cache reads
-- [ ] Contract: OpenAPI schemas + override write operations; document
+- [x] Contract: OpenAPI schemas + override write operations; document
       computed-vs-override semantics
-- [ ] Web: `familyClient` types + override calls aligned with OpenAPI
-- [ ] Web: interim merge/split plain link on existing `AgendaRow` (today’s
+- [x] Web: `familyClient` types + override calls aligned with OpenAPI
+- [x] Web: interim merge/split plain link on existing `AgendaRow` (today’s
       confirmed-driving adjacent siblings); reuse current link classes
-- [ ] Docs: architecture Calendar / Leave-by note that driving blocks are a
+- [x] Docs: architecture Calendar / Leave-by note that driving blocks are a
       computed view + override table (short); update
       [`day-block-agenda`](../planned/day-block-agenda.md) carry-forward
-- [ ] Tests: merge-rule unit matrix; override + accept→membership integration;
+- [x] Tests: merge-rule unit matrix; override + accept→membership integration;
       Agenda link unit test; `ModularityTests`
 
 ## Open questions

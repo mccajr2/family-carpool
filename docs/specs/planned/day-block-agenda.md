@@ -44,5 +44,6 @@ quiet "not your job tonight" rows for legs another adult owns.
   copy (round-trip banner, named/qualified address, paired cancel links).
 - Builds on [`day-block-domain`](../active/day-block-domain.md). Web first.
 - **Carry-forward from `day-block-domain`:** remove the interim per-event
-  merge/split control once block cards ship — do not leave two competing
-  affordances for the same action.
+  Agenda `driveBlockLinks` merge/split plain links (on existing `AgendaRow`)
+  once one-card-per-block UI ships — do not leave two competing affordances
+  for the same action.

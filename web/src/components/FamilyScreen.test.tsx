@@ -181,6 +181,7 @@ function calendarItem(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "NO_RESPONSE" as const })),
+    driveBlockLinks: [],
     ...partial,
   }
 }

@@ -26,6 +26,19 @@ class IcalParserTest {
     }
 
     @Test
+    void parsesDriveBlockBackToBackFixture() {
+        List<ParsedIcalEvent> events = parser.parse(StubIcalFetchPort.DRIVE_BLOCK_FIXTURE);
+        assertThat(events).hasSize(2);
+        assertThat(events.get(0).uid()).isEqualTo("stub-drive-block-a@example.com");
+        assertThat(events.get(0).summary()).isEqualTo("Practice A");
+        assertThat(events.get(0).endsAt()).isEqualTo(Instant.parse("2026-08-15T18:00:00Z"));
+        assertThat(events.get(1).uid()).isEqualTo("stub-drive-block-b@example.com");
+        assertThat(events.get(1).summary()).isEqualTo("Practice B");
+        assertThat(events.get(1).startsAt()).isEqualTo(Instant.parse("2026-08-15T18:00:00Z"));
+        assertThat(events.get(0).location()).isEqualTo(events.get(1).location());
+    }
+
+    @Test
     void parsesAllDayDateAsUtcMidnight() {
         String ical =
                 """

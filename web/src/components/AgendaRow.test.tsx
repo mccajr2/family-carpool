@@ -31,6 +31,7 @@ function item(
     uncoveredKidIds: [],
     conflicts: [],
     rsvps: kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
+    driveBlockLinks: [],
     ...partial,
   }
 }
@@ -3040,5 +3041,112 @@ describe("AgendaRow", () => {
     expect(within(row).queryByRole("button", { name: "Mark Luke as not going" })).not.toBeInTheDocument()
     await user.click(within(row).getByRole("button", { name: "Mark Graham and Luke as not going" }))
     expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
+  })
+
+  it("shows interim drive-block merge/split links and invokes the handler", async () => {
+    const user = userEvent.setup()
+    const onDriveBlockLink = vi.fn()
+    const clockIso = "2030-08-15T18:00:00.000Z"
+    const clock = new Date(clockIso).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    const feedItem = item({
+      id: "drive-a",
+      source: "FEED",
+      title: "Practice A",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:a",
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-b",
+          otherStartsAt: clockIso,
+          combined: true,
+          overrideAction: null,
+        },
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-c",
+          otherStartsAt: "2030-08-15T16:00:00.000Z",
+          combined: false,
+          overrideAction: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaRow
+        item={feedItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+        onDriveBlockLink={onDriveBlockLink}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-drive-a")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const links = within(row).getByTestId("agenda-drive-block-links")
+    expect(
+      within(links).getByRole("button", {
+        name: `Combined with your ${clock} drive · Split this out`,
+      }),
+    ).toBeInTheDocument()
+    const splitClock = new Date("2030-08-15T16:00:00.000Z").toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    expect(
+      within(links).getByRole("button", {
+        name: `Split from your ${splitClock} drive · Combine these`,
+      }),
+    ).toBeInTheDocument()
+
+    await user.click(within(links).getByTestId("agenda-drive-block-link-TO-drive-b"))
+    expect(onDriveBlockLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        otherId: "drive-b",
+        combined: true,
+      }),
+    )
+  })
+
+  it("hides drive-block links when the handler is omitted", async () => {
+    const user = userEvent.setup()
+    render(
+      <AgendaRow
+        item={item({
+          id: "drive-a",
+          source: "FEED",
+          title: "Practice A",
+          feedId: "f1",
+          feedName: "U12",
+          driveBlockLinks: [
+            {
+              leg: "TO",
+              otherSource: "FEED",
+              otherId: "drive-b",
+              otherStartsAt: "2030-08-15T18:00:00.000Z",
+              combined: true,
+              overrideAction: null,
+            },
+          ],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-FEED-drive-a")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByTestId("agenda-drive-block-links")).not.toBeInTheDocument()
   })
 })
