@@ -5329,6 +5329,127 @@ describe("FamilyScreen", () => {
     expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
   })
 
+  it("keeps Focus as separate decision slides when two attention items share a combined block", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    })
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const practiceA = calendarItem({
+      id: "drive-a",
+      source: "FEED",
+      title: "Practice A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:a",
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const practiceB = calendarItem({
+      id: "drive-b",
+      source: "FEED",
+      title: "Practice B",
+      startsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:b",
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "drive-a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([practiceA, practiceB]),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const carousel = heroCarouselIn(agenda)
+    expect(within(carousel).getByTestId("hero-attention-controls")).toBeInTheDocument()
+    expect(within(carousel).getAllByTestId("hero-attention-slide")).toHaveLength(2)
+    expect(within(carousel).getByText("· 2 things need you")).toBeInTheDocument()
+
+    const shells = within(carousel).getAllByTestId("hero-attention-slide-shell")
+    expect(shells).toHaveLength(2)
+    for (const shell of shells) {
+      const slide = within(shell).getByTestId("hero-attention-slide")
+      expect(within(slide).getAllByTestId("hero-attention-slide-title")).toHaveLength(1)
+      expect(within(slide).getAllByTestId("driver-picker")).toHaveLength(1)
+      expect(within(slide).getByTestId("hero-attention-block-sibling")).toBeInTheDocument()
+      // Merge/split belongs on the Agenda block card only — not a second Hero decision.
+      expect(
+        within(slide).queryByRole("button", { name: /Split this out|Combine these/ }),
+      ).not.toBeInTheDocument()
+    }
+
+    const list = within(agenda).getByTestId("agenda-list")
+    expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
+    expect(within(list).queryByTestId("agenda-row-FEED-drive-b")).not.toBeInTheDocument()
+    expect(
+      within(list).getByTestId("agenda-block-drive-block-links"),
+    ).toBeInTheDocument()
+  })
+
   it("renders the most urgent queue item in both carousel and flat list", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {

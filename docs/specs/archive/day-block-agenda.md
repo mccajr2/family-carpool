@@ -1,8 +1,8 @@
 # Spec: day-block-agenda
 
-Status: draft  
+Status: done  
 Created: 2026-09-14  
-Updated: 2026-09-16 (`/spec` amend — Focus stays single-decision)  
+Updated: 2026-09-16 (`/pr`)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-09-14 · enhancement  
 Branch: `day-block-agenda`
@@ -120,39 +120,39 @@ follow-up siblings.
 
 ## Acceptance criteria
 
-- [ ] When two (or more) Agenda items are auto- or FORCE-combined via
+- [x] When two (or more) Agenda items are auto- or FORCE-combined via
       `driveBlockLinks` for the viewing adult, the day list shows **one**
       block card (not one `AgendaRow` per event).
-- [ ] Singleton / non-combined events still render as today’s per-event
+- [x] Singleton / non-combined events still render as today’s per-event
       Agenda rows (no mandatory new block chrome).
-- [ ] Multi-item block card shows per-leg / per-run breakdown and event time
+- [x] Multi-item block card shows per-leg / per-run breakdown and event time
       bands consistent with
       [`day-block-grouping.mockup.html`](../../ui-system/day-block-grouping.mockup.html)
       grouping (drop-off vs pickup vs hang/practice windows) — compressed, not
       a verbatim mock dump.
-- [ ] Legs/kids another adult already owns appear in a single muted
+- [x] Legs/kids another adult already owns appear in a single muted
       non-actionable “Not your job tonight” / “Already covered” band (ADR
       rule 6), not interleaved as actionable chips with the viewer’s jobs.
-- [ ] Card copy obeys ADR-0004 rules 1–5 and 7–9 where those surfaces appear
+- [x] Card copy obeys ADR-0004 rules 1–5 and 7–9 where those surfaces appear
       (perspective, kid-first, leg-scoped chips/banners, direction-correct
       pickup/drop-off labels, named/qualified addresses, paired
       cancel/reassign when own kids + added rider share a leg, single-stop
       multi-kid grouping, pending-ask card parity).
-- [ ] Focus / Hero: queue **cardinality unchanged** — N attention items in
+- [x] Focus / Hero: queue **cardinality unchanged** — N attention items in
       one driving block ⇒ N separate decision slides (not one multi-action
       Hero). Each slide keeps a single primary CTA for that queue item.
-- [ ] Focus / Hero: optional supporting block context on a slide is allowed
+- [x] Focus / Hero: optional supporting block context on a slide is allowed
       (sibling run / muted “not your job”); it must not add a second primary
       decision for another block member on the same card.
-- [ ] Interim per-event AgendaRow `driveBlockLinks` merge/split plain links
+- [x] Interim per-event AgendaRow `driveBlockLinks` merge/split plain links
       are **gone**; combine/split lives only on the **Agenda** block card and
       still calls existing override APIs (not on Hero).
-- [ ] “View route” (if shown on the Agenda block card) opens existing
+- [x] “View route” (if shown on the Agenda block card) opens existing
       single-event Route for a representative block member — no multi-event
       stop list UI.
-- [ ] **No** OpenAPI / `contracts/openapi.yaml` / server DTO changes in this
+- [x] **No** OpenAPI / `contracts/openapi.yaml` / server DTO changes in this
       PR; web types stay event-shaped.
-- [ ] Component/unit tests cover: multi-item Agenda collapse to one card;
+- [x] Component/unit tests cover: multi-item Agenda collapse to one card;
       singleton unchanged; “not your job” band on Agenda block card; interim
       row links removed; Focus queue still emits separate slides for two
       attention items that share a combined block (each with one primary
@@ -176,7 +176,7 @@ follow-up siblings.
       override helpers/client); leave Hero free of merge/split
 - [x] Web: optional “View route” on Agenda block card → existing
       single-event Route only
-- [ ] Tests: Agenda block grouping + card chrome + Focus single-decision
+- [x] Tests: Agenda block grouping + card chrome + Focus single-decision
       cardinality + link removal; no contract/backend tasks
 
 ## Open questions
