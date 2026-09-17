@@ -43,8 +43,8 @@ export type AgendaBlockRunSection = {
    */
   detailLines: string[]
   /**
-   * Representative event for single-event "View route" until day-block-route:
-   * earliest member for TO, latest for FROM (pickup after the hang).
+   * Representative event for dual-leg Route entry: earliest member for TO,
+   * latest for FROM (pickup after the hang).
    */
   representativeItem: CalendarItem
 }

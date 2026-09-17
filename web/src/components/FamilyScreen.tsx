@@ -18,6 +18,7 @@ import {
   type CalendarDriveBlockLink,
   type CalendarItem,
   type CalendarRoute,
+  type CalendarRouteLeg,
   type CarpoolFeedStatus,
   type CarpoolRideEvent,
   type CarpoolSummary,
@@ -72,7 +73,7 @@ import { driveBlockWriteForClick } from "@/components/driveBlockAgendaLinks"
 import { buildAgendaBlockSections } from "@/components/agendaBlockSections"
 import { heroBlockSupportingContext } from "@/components/heroBlockSupportingContext"
 import { RideDetailScreen } from "@/components/RideDetailScreen"
-import { RideRouteTab } from "@/components/RideRouteTab"
+import { RideRouteLegTabs, RideRouteTab } from "@/components/RideRouteTab"
 import { RideRouteUnavailable } from "@/components/RideRouteUnavailable"
 import {
   consumeSpotifyConnectedQuery,
@@ -312,7 +313,13 @@ export function FamilyScreen({
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   /** Calendar overlay: open ride-detail for this item key. */
   const [rideDetailItemKey, setRideDetailItemKey] = useState<string | null>(null)
-  const [rideDetailRoute, setRideDetailRoute] = useState<CalendarRoute | null>(null)
+  const [rideDetailLeg, setRideDetailLeg] = useState<CalendarRouteLeg>("TO")
+  const [rideDetailRoutes, setRideDetailRoutes] = useState<
+    Partial<Record<CalendarRouteLeg, CalendarRoute | null>>
+  >({})
+  const [rideDetailAvailableLegs, setRideDetailAvailableLegs] = useState<
+    CalendarRouteLeg[]
+  >(["TO"])
   const [rideDetailRouteLoading, setRideDetailRouteLoading] = useState(false)
   const [rideDetailRouteError, setRideDetailRouteError] = useState<string | null>(null)
   const [feedsCarpoolSummary, setFeedsCarpoolSummary] = useState<CarpoolSummary | null>(
@@ -387,11 +394,14 @@ export function FamilyScreen({
     }
     setDestination("calendar")
     setRideDetailItemKey(stored.rideDetailItemKey)
+    setRideDetailLeg("TO")
   }, [])
 
   useEffect(() => {
     if (rideDetailItemKey == null) {
-      setRideDetailRoute(null)
+      setRideDetailRoutes({})
+      setRideDetailAvailableLegs(["TO"])
+      setRideDetailLeg("TO")
       setRideDetailRouteLoading(false)
       setRideDetailRouteError(null)
       return
@@ -407,25 +417,48 @@ export function FamilyScreen({
     let cancelled = false
     setRideDetailRouteLoading(true)
     setRideDetailRouteError(null)
-    void familyClient
-      .getCalendarRoute(token, item.source, item.id)
-      .then((route) => {
-        if (cancelled) {
-          return
+    void Promise.allSettled([
+      familyClient.getCalendarRoute(token, item.source, item.id, "TO"),
+      familyClient.getCalendarRoute(token, item.source, item.id, "FROM"),
+    ]).then(([toResult, fromResult]) => {
+      if (cancelled) {
+        return
+      }
+      const next: Partial<Record<CalendarRouteLeg, CalendarRoute | null>> = {}
+      const available: CalendarRouteLeg[] = []
+      if (toResult.status === "fulfilled") {
+        next.TO = toResult.value
+        available.push("TO")
+      } else {
+        next.TO = null
+      }
+      if (fromResult.status === "fulfilled") {
+        next.FROM = fromResult.value
+        available.push("FROM")
+      } else {
+        next.FROM = null
+      }
+      setRideDetailRoutes(next)
+      setRideDetailAvailableLegs(available.length > 0 ? available : ["TO"])
+      setRideDetailLeg((current) => {
+        if (available.includes(current)) {
+          return current
         }
-        setRideDetailRoute(route)
-        setRideDetailRouteLoading(false)
+        return available[0] ?? "TO"
       })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return
-        }
-        setRideDetailRoute(null)
-        setRideDetailRouteLoading(false)
+      setRideDetailRouteLoading(false)
+      if (available.length === 0) {
+        const err =
+          toResult.status === "rejected"
+            ? toResult.reason
+            : fromResult.status === "rejected"
+              ? fromResult.reason
+              : null
         setRideDetailRouteError(
-          error instanceof Error ? error.message : "Could not load route estimate",
+          err instanceof Error ? err.message : "Could not load route estimate",
         )
-      })
+      }
+    })
     return () => {
       cancelled = true
     }
@@ -2911,6 +2944,7 @@ export function FamilyScreen({
       : (calendarItems.find((item) => calendarItemKey(item) === rideDetailItemKey) ??
         null)
   const showRideDetail = destination === "calendar" && rideDetailItem != null
+  const rideDetailRoute = rideDetailRoutes[rideDetailLeg] ?? null
   const rideDetailLiveSchedule =
     rideDetailRoute != null ? rideScheduleFromCalendarRoute(rideDetailRoute) : null
   const rideDetailCanReorder =
@@ -2932,8 +2966,9 @@ export function FamilyScreen({
       rideDetailItem.source,
       rideDetailItem.id,
       { middleStopIds },
+      rideDetailLeg,
     )
-    setRideDetailRoute(route)
+    setRideDetailRoutes((current) => ({ ...current, [rideDetailLeg]: route }))
   }
   // Item removed while detail was open — drop back to Agenda.
   if (rideDetailItemKey != null && rideDetailItem == null) {
@@ -3333,7 +3368,13 @@ export function FamilyScreen({
             whenLabel={formatEventWhen(rideDetailItem.startsAt, rideDetailItem.endsAt)}
             onBack={() => setRideDetailItemKey(null)}
             routePanel={
-              rideDetailRouteLoading ? (
+              <>
+                <RideRouteLegTabs
+                  leg={rideDetailLeg}
+                  availableLegs={rideDetailAvailableLegs}
+                  onLegChange={setRideDetailLeg}
+                />
+                {rideDetailRouteLoading ? (
                 <div
                   data-testid="ride-route-loading"
                   className="flex items-center gap-2 text-[length:var(--fc-font-subtitle-size)] text-[var(--fc-text-secondary)]"
@@ -3346,6 +3387,7 @@ export function FamilyScreen({
                   carpoolRoute={rideDetailLiveSchedule}
                   startsAt={rideDetailItem.startsAt}
                   location={rideDetailItem.location}
+                  leg={rideDetailLeg}
                   canReorderMiddles={rideDetailCanReorder}
                   onReorderMiddles={
                     rideDetailCanReorder ? onReorderRideDetailMiddles : undefined
@@ -3356,7 +3398,8 @@ export function FamilyScreen({
                   reason={rideDetailRoute?.reason}
                   errorMessage={rideDetailRouteError}
                 />
-              )
+              )}
+              </>
             }
           />
         ) : (
@@ -3867,7 +3910,8 @@ export function FamilyScreen({
                               onDriveBlockLink={(member, link) =>
                                 void onDriveBlockLinkAgenda(member, link)
                               }
-                              onOpenRide={(member) => {
+                              onOpenRide={(member, leg) => {
+                                setRideDetailLeg(leg ?? "TO")
                                 setRideDetailItemKey(calendarItemKey(member))
                               }}
                               onRevertDecidedAssignee={(member, assignee) =>
@@ -4021,6 +4065,7 @@ export function FamilyScreen({
                               setDestination("places")
                             }}
                             onOpenRide={() => {
+                              setRideDetailLeg("TO")
                               setRideDetailItemKey(itemKey)
                             }}
                             onDriveBlockLink={(link) =>

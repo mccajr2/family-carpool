@@ -3441,7 +3441,8 @@ describe("FamilyScreen", () => {
 
     await user.click(within(item).getByTestId("agenda-row-open-ride"))
     expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
-    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "MANUAL", "e1")
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "MANUAL", "e1", "TO")
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "MANUAL", "e1", "FROM")
     expect(screen.getByTestId("ride-route-stop-School")).toBeInTheDocument()
   })
 
@@ -5316,7 +5317,7 @@ describe("FamilyScreen", () => {
     )
   })
 
-  it("opens single-event Route from Agenda block View route for the earliest member", async () => {
+  it("opens dual-leg Route from Agenda block View route for the earliest member", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -5468,8 +5469,14 @@ describe("FamilyScreen", () => {
 
     expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Practice A")
-    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "FEED", "drive-a")
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "FEED", "drive-a", "TO")
+    expect(getCalendarRoute).toHaveBeenCalledWith("tok", "FEED", "drive-a", "FROM")
     expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leg-tabs")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leg-there")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
   })
 
   it("keeps Focus as separate decision slides when two attention items share a combined block", async () => {
@@ -11117,7 +11124,6 @@ detourMinutes: null,
 
     expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("vs Belmont")
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument()
     expect(screen.queryByTestId("ride-detail-tab-playlist")).not.toBeInTheDocument()
     expect(screen.queryByTestId("ride-playlist-tab")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Agenda")).not.toBeInTheDocument()
@@ -11125,6 +11131,7 @@ detourMinutes: null,
 
     // Route body smoke (live API schedule)
     expect(await screen.findByTestId("ride-route-tab")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leg-tabs")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-leave-by")).toBeInTheDocument()
     expect(screen.getByTestId("ride-route-start-nav")).toHaveAttribute(
       "href",
@@ -11346,8 +11353,8 @@ detourMinutes: null,
 
     await screen.findByTestId("ride-detail-screen")
     expect(screen.getByTestId("ride-detail-title")).toHaveTextContent("Tuesday Practice")
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument()
     expect(screen.queryByTestId("ride-detail-tab-playlist")).not.toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leg-tabs")).toBeInTheDocument()
     const routeTab = await screen.findByTestId("ride-route-tab")
     expect(routeTab).toHaveTextContent("20 min early for practices")
     expect(routeTab).toHaveTextContent("Live Home")

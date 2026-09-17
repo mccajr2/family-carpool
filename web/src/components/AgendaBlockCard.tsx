@@ -3,6 +3,7 @@ import { useState } from "react"
 import type {
   CalendarDriveBlockLink,
   CalendarItem,
+  CalendarRouteLeg,
   CarpoolRideEvent,
   FamilyCircle,
   SetCalendarLeaveFromRequest,
@@ -50,10 +51,10 @@ export type AgendaBlockCardProps = {
     link: CalendarDriveBlockLink,
   ) => void
   /**
-   * Opens existing single-event Route for a representative block member
-   * (earliest TO / latest FROM). No multi-stop block Route chrome.
+   * Opens dual-leg Route for the block via a representative member item.
+   * Passes the run's leg so There (TO) / Back (FROM) opens on the right tab.
    */
-  onOpenRide?: (item: CalendarItem) => void
+  onOpenRide?: (item: CalendarItem, leg?: CalendarRouteLeg) => void
   /** Viewer "now" for Today / Tomorrow / weekday day labels. */
   now?: Date
   onRevertDecidedAssignee?: (
@@ -374,7 +375,7 @@ export function AgendaBlockCard({
             loading={loading}
             onViewRoute={
               toRoutable
-                ? () => onOpenRide?.(sections.toRun!.representativeItem)
+                ? () => onOpenRide?.(sections.toRun!.representativeItem, "TO")
                 : undefined
             }
           />
@@ -451,7 +452,7 @@ export function AgendaBlockCard({
             loading={loading}
             onViewRoute={
               fromRoutable
-                ? () => onOpenRide?.(sections.fromRun!.representativeItem)
+                ? () => onOpenRide?.(sections.fromRun!.representativeItem, "FROM")
                 : undefined
             }
           />

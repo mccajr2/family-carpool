@@ -185,7 +185,7 @@ north-star for public block ids.
       document block assembly + member-set key; optional `leg` /
       `memberItemIds` on `CalendarRoute`; update architecture Leave-by rows
       that still say “single-event TO only”
-- [ ] Web: `familyClient` + types for `leg`; Route There/Back tabs; drag per
+- [x] Web: `familyClient` + types for `leg`; Route There/Back tabs; drag per
       active leg; AgendaBlockCard / FamilyScreen View route → dual-leg Route
 - [ ] Tests: leaveby unit (assembly + optimizer caller); integration (block
       multi-stop + FROM + same itinerary via two itemIds + reorder); web

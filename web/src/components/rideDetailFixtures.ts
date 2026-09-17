@@ -22,7 +22,7 @@ export type RideNotifyContact = {
 
 export type FixtureRideStop = RideStop & {
   name: string
-  kind: "home" | "pickup" | "destination"
+  kind: "home" | "pickup" | "dropoff" | "destination"
   contact?: RideNotifyContact
 }
 
