@@ -20,6 +20,7 @@ import com.yourorg.quickapp.calendar.ClearDriveBlockOverrideRequest;
 import com.yourorg.quickapp.calendar.SetDriveBlockOverrideRequest;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
+import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
@@ -48,6 +49,7 @@ import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveFromEnrichmentInput;
+import com.yourorg.quickapp.leaveby.LeaveFromPlaceDto;
 import com.yourorg.quickapp.playlist.RidePlaylistApi;
 import com.yourorg.quickapp.playlist.RidePlaylistAttendingKid;
 import com.yourorg.quickapp.rsvp.RsvpApi;
@@ -1667,6 +1669,8 @@ public class CalendarService {
                                 .thenComparing(s -> s.id().toString()))
                         .orElse(pathItem);
 
+        // Combined HOME is membership default (leaveby); earliest only drives
+        // leave-by title buffer + shared venue identity on the path args.
         String homeAddress = resolveDriverHomeAddress(drivingAdultId);
         List<CalendarRoutePickupInput> middles =
                 assembleMiddles(
@@ -1779,6 +1783,11 @@ public class CalendarService {
             if (member.source() != CalendarItemSource.FEED) {
                 continue;
             }
+            if (combinedBlock) {
+                raw.addAll(
+                        householdPlanMiddles(
+                                drivingAdultId, circleId, member.id(), leg, middleKind));
+            }
             List<CarpoolAcceptedPickupDto> stops =
                     carpoolApi.listAcceptedFamilyStopsForFeedEvent(circleId, member.id(), leg);
             raw.addAll(familyStopsForDriver(drivingAdultId, stops, middleKind));
@@ -1789,16 +1798,69 @@ public class CalendarService {
         return BlockRouteAssembler.mergeColocated(withoutHome);
     }
 
+    private List<CalendarRoutePickupInput> householdPlanMiddles(
+            UUID drivingAdultId,
+            UUID circleId,
+            UUID feedEventId,
+            CarpoolLegKind leg,
+            CalendarRouteStopKind kind) {
+        List<CarpoolHouseholdStopDto> stops =
+                carpoolApi.listConfirmedHouseholdStopsForFeedEvent(
+                        drivingAdultId, circleId, feedEventId, leg);
+        if (stops.isEmpty()) {
+            return List.of();
+        }
+        List<CalendarRoutePickupInput> out = new ArrayList<>();
+        for (CarpoolHouseholdStopDto stop : stops) {
+            if (stop.placeAddress() == null || stop.placeAddress().isBlank()) {
+                continue;
+            }
+            String label =
+                    stop.placeName() == null || stop.placeName().isBlank()
+                            ? stop.placeAddress()
+                            : stop.placeName();
+            Set<UUID> kidIds =
+                    stop.kidIds() == null ? Set.of() : new HashSet<>(stop.kidIds());
+            if (!kidIds.isEmpty()) {
+                Map<UUID, String> names = new HashMap<>();
+                for (FamilyKidName kid : familyMembershipApi.findKids(circleId, kidIds)) {
+                    names.put(kid.id(), kid.displayName());
+                }
+                if (!names.isEmpty()) {
+                    String kidLabel = String.join(" and ", names.values());
+                    if (!kidLabel.isBlank()
+                            && !label.toLowerCase().contains(kidLabel.toLowerCase())) {
+                        label = kidLabel + " · " + label;
+                    }
+                }
+            }
+            out.add(new CalendarRoutePickupInput(label, stop.placeAddress(), null, kind));
+        }
+        return out;
+    }
+
     private List<CalendarRoutePickupInput> householdLeaveFromMiddles(
             UUID drivingAdultId,
             UUID circleId,
             RichItemSnapshot member,
             String homeAddress,
             CalendarRouteStopKind kind) {
+        Optional<LeaveFromPlaceDto> pickup =
+                leaveByApi.pickupLeaveFromForRouteMiddle(
+                        drivingAdultId, toLeaveBySource(member.source()), member.id());
+        if (pickup.isEmpty()
+                || pickup.get().address() == null
+                || pickup.get().address().isBlank()) {
+            return List.of();
+        }
+        if (BlockRouteAssembler.normalize(pickup.get().address())
+                .equals(BlockRouteAssembler.normalize(homeAddress))) {
+            return List.of();
+        }
+
         List<CoverageAssignmentDto> coverages =
                 coverageApi.listForItem(
                         circleId, toCoverageSource(member.source()), member.id());
-        List<CalendarRoutePickupInput> out = new ArrayList<>();
         Set<UUID> kidIds = new HashSet<>();
         for (CoverageAssignmentDto coverage : coverages) {
             if (coverage.status() != CoverageStatus.CONFIRMED) {
@@ -1807,41 +1869,30 @@ public class CalendarService {
             if (!drivingAdultId.equals(coverage.coveringAdultId())) {
                 continue;
             }
-            ResolvedLeaveFromPlace place =
-                    resolveCoverageLeaveFrom(drivingAdultId, coverage);
-            if (place.address() == null || place.address().isBlank()) {
-                continue;
-            }
-            if (BlockRouteAssembler.normalize(place.address())
-                    .equals(BlockRouteAssembler.normalize(homeAddress))) {
-                continue;
-            }
             kidIds.addAll(coverage.kidIds());
-            String label = place.name() == null || place.name().isBlank()
-                    ? place.address()
-                    : place.name();
-            out.add(new CalendarRoutePickupInput(label, place.address(), null, kind));
         }
-        if (out.isEmpty() || kidIds.isEmpty()) {
-            return out;
+        if (kidIds.isEmpty() && member.kidIds() != null) {
+            kidIds.addAll(member.kidIds());
         }
-        Map<UUID, String> names = new HashMap<>();
-        for (FamilyKidName kid : familyMembershipApi.findKids(circleId, kidIds)) {
-            names.put(kid.id(), kid.displayName());
+
+        LeaveFromPlaceDto place = pickup.get();
+        String label =
+                place.placeName() == null || place.placeName().isBlank()
+                        ? place.address()
+                        : place.placeName();
+        if (!kidIds.isEmpty()) {
+            Map<UUID, String> names = new HashMap<>();
+            for (FamilyKidName kid : familyMembershipApi.findKids(circleId, kidIds)) {
+                names.put(kid.id(), kid.displayName());
+            }
+            if (!names.isEmpty()) {
+                String kidLabel = String.join(" and ", names.values());
+                if (!kidLabel.isBlank()) {
+                    label = kidLabel + " · " + label;
+                }
+            }
         }
-        // Qualify stop names with kid display names when we have them.
-        if (out.size() == 1 && !names.isEmpty()) {
-            CalendarRoutePickupInput only = out.getFirst();
-            String kidLabel = String.join(" and ", names.values());
-            String qualified =
-                    kidLabel.isBlank()
-                            ? only.name()
-                            : kidLabel + " · " + only.name();
-            return List.of(
-                    new CalendarRoutePickupInput(
-                            qualified, only.address(), only.contact(), only.kind()));
-        }
-        return out;
+        return List.of(new CalendarRoutePickupInput(label, place.address(), null, kind));
     }
 
     private ResolvedLeaveFromPlace resolveCoverageLeaveFrom(

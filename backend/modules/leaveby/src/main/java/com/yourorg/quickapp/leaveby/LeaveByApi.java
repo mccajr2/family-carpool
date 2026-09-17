@@ -101,6 +101,9 @@ public interface LeaveByApi {
      * Build / refresh a multi-stop itinerary for a driving-block member set on
      * one leg. TO: home → middle pickups → venue. FROM: venue → middle dropoffs
      * → home. Cache key is {@code (drivingAdultId, leg, ordered members)}.
+     * Multi-member sets fix HOME at the driver's membership default leave-from;
+     * per-event coverage leave-froms are caller-supplied middles. Singletons
+     * still resolve HOME from the path item's leave-from override chain.
      */
     CalendarRouteDto upsertCalendarRoute(
             UUID drivingAdultId,
@@ -203,4 +206,13 @@ public interface LeaveByApi {
             UUID itemId,
             UUID leaveFromPlaceId,
             String leaveFromAddress);
+
+    /**
+     * Pickup-side leave-from for combined-block Route middles: coverage
+     * leave-from when explicitly set, else per-item leave-from override.
+     * Does <strong>not</strong> fall back to membership default (that is the
+     * itinerary HOME start). Empty when neither override is set.
+     */
+    java.util.Optional<LeaveFromPlaceDto> pickupLeaveFromForRouteMiddle(
+            UUID adultId, LeaveByItemSource source, UUID itemId);
 }

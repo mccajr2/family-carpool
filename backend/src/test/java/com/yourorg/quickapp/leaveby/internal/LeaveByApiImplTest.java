@@ -38,6 +38,7 @@ import com.yourorg.quickapp.leaveby.LeaveByEnrichmentDto;
 import com.yourorg.quickapp.leaveby.LeaveByItemInput;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.leaveby.LeaveByStatus;
+import com.yourorg.quickapp.leaveby.LeaveFromPlaceDto;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
 import java.time.Instant;
 import java.util.List;
@@ -867,6 +868,167 @@ class LeaveByApiImplTest {
         assertThat(route.stops().get(1).kind()).isEqualTo(CalendarRouteStopKind.DROPOFF);
         assertThat(route.stops().get(2).kind()).isEqualTo(CalendarRouteStopKind.HOME);
         assertThat(route.legMinutes()).containsExactly(10, 8);
+    }
+
+    @Test
+    void upsertCombinedToIgnoresEarliestItemCoverageLeaveFromForHomeStart() {
+        UUID otherItem = UUID.randomUUID();
+        UUID schoolPlaceId = UUID.randomUUID();
+        CirclePlaceDto school =
+                new CirclePlaceDto(schoolPlaceId, circleId, "Haggerty", "9 School Rd", 40.12, -74.12);
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(placeApi.findPlaceForMember(adultId, placeId)).thenReturn(Optional.of(locatedPlace));
+        // If origin wrongly used the earliest item, HOME would become Haggerty.
+        lenient()
+                .when(placeApi.findPlaceForMember(adultId, schoolPlaceId))
+                .thenReturn(Optional.of(school));
+        lenient()
+                .when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.FEED,
+                                        itemId,
+                                        adultId,
+                                        adultId,
+                                        List.of(UUID.randomUUID()),
+                                        CoverageStatus.CONFIRMED,
+                                        schoolPlaceId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(geocodeApi.resolveLocation("9 School Rd"))
+                .thenReturn(Optional.of(new GeoPointDto(40.12, -74.12)));
+        when(geocodeApi.resolveLocation("34 Pine St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(600.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        List.of(
+                                new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId),
+                                new CalendarRouteMemberRef(LeaveByItemSource.FEED, otherItem)),
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(
+                                new CalendarRoutePickupInput(
+                                        "Kian · Haggerty", "9 School Rd"),
+                                new CalendarRoutePickupInput(
+                                        "Apollo",
+                                        "34 Pine St",
+                                        new CalendarRouteNotifyContact(
+                                                CalendarRouteNotifyChannel.PUSH, "House Requester"))),
+                        "Simoni",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().getFirst().kind()).isEqualTo(CalendarRouteStopKind.HOME);
+        assertThat(route.stops().getFirst().address()).isEqualTo("1 Main");
+        assertThat(route.stops().getFirst().name()).isEqualTo("Mom's house");
+        assertThat(route.stops())
+                .filteredOn(s -> s.kind() == CalendarRouteStopKind.PICKUP)
+                .extracting(CalendarRouteStopDto::address)
+                .containsExactlyInAnyOrder("9 School Rd", "34 Pine St");
+        assertThat(route.stops().getLast().kind()).isEqualTo(CalendarRouteStopKind.DESTINATION);
+    }
+
+    @Test
+    void upsertSingletonToStillUsesItemCoverageLeaveFromAsHome() {
+        UUID schoolPlaceId = UUID.randomUUID();
+        CirclePlaceDto school =
+                new CirclePlaceDto(schoolPlaceId, circleId, "Haggerty", "9 School Rd", 40.12, -74.12);
+        when(placeApi.findPlaceForMember(adultId, schoolPlaceId)).thenReturn(Optional.of(school));
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.FEED,
+                                        itemId,
+                                        adultId,
+                                        adultId,
+                                        List.of(UUID.randomUUID()),
+                                        CoverageStatus.CONFIRMED,
+                                        schoolPlaceId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.12, -74.12, 40.2, -74.2))
+                .thenReturn(Optional.of(480.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId)),
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(),
+                        "Simoni",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops()).hasSize(2);
+        assertThat(route.stops().getFirst().kind()).isEqualTo(CalendarRouteStopKind.HOME);
+        assertThat(route.stops().getFirst().address()).isEqualTo("9 School Rd");
+        assertThat(route.stops().getFirst().name()).isEqualTo("Haggerty");
+        verify(placeApi, never()).findDefaultLeaveFromForMember(adultId);
+    }
+
+    @Test
+    void pickupLeaveFromForRouteMiddleFallsThroughCoverageDefaultHomeToItemOverride() {
+        UUID schoolPlaceId = UUID.randomUUID();
+        CirclePlaceDto school =
+                new CirclePlaceDto(schoolPlaceId, circleId, "Haggerty", "9 School Rd", 40.12, -74.12);
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(placeApi.findPlaceForMember(adultId, placeId)).thenReturn(Optional.of(locatedPlace));
+        when(placeApi.findPlaceForMember(adultId, schoolPlaceId)).thenReturn(Optional.of(school));
+        // Coverage force-written to membership default home.
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(
+                        List.of(
+                                new CoverageAssignmentDto(
+                                        UUID.randomUUID(),
+                                        CoverageItemSource.FEED,
+                                        itemId,
+                                        adultId,
+                                        adultId,
+                                        List.of(UUID.randomUUID()),
+                                        CoverageStatus.CONFIRMED,
+                                        placeId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+        when(leaveFromRepository.findByAdultIdAndItemSourceAndItemId(
+                        adultId, LeaveByItemSource.FEED, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new CalendarLeaveFromEntity(
+                                        UUID.randomUUID(),
+                                        adultId,
+                                        LeaveByItemSource.FEED,
+                                        itemId,
+                                        schoolPlaceId,
+                                        null,
+                                        Instant.now(),
+                                        Instant.now())));
+
+        Optional<LeaveFromPlaceDto> pickup =
+                api.pickupLeaveFromForRouteMiddle(adultId, LeaveByItemSource.FEED, itemId);
+
+        assertThat(pickup).isPresent();
+        assertThat(pickup.get().address()).isEqualTo("9 School Rd");
+        assertThat(pickup.get().placeName()).isEqualTo("Haggerty");
     }
 
     @Test

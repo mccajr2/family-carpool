@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-16 (`/spec day-block-route`)
+Updated: 2026-09-17 (`/pr day-block-route`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,7 +105,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | day-block-route                 | active  | 2026-09-14 · enhancement   | Block Route spans full multi-event stop sequence; There/Back + extend optimize to block stops ([ADR-0004](decisions/ADR-0004-carpool-card-perspective-rules.md)) |
+| 1    | block-route-origin              | planned | 2026-09-17 · enhancement   | Explicit governing “Leaving from …” for combined There drives (default home already shipped in day-block-route)                |
 | 2    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
 | 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
 | 4    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
@@ -199,13 +199,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                     | Branch                   | Spec                                                   |
 | ---------------------- | ------------------------ | ------------------------------------------------------ |
-| day-block-route        | `day-block-route`        | [active](specs/active/day-block-route.md)              |
+| *(none)*               |                          |                                                        |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| day-block-route            | 2026-09-17 | [archive](specs/archive/day-block-route.md)            |
 | family-conflict-report     | 2026-09-16 | [archive](specs/archive/family-conflict-report.md)     |
 | player-conflict-hero       | 2026-09-16 | [archive](specs/archive/player-conflict-hero.md)       |
 | hero-not-going             | 2026-09-16 | [archive](specs/archive/hero-not-going.md)             |
@@ -297,6 +298,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-17 | `/pr day-block-route`: block Route There/Back + member-set cache; combined HOME = membership default; household CONFIRMED plan middles; park follow-up `block-route-origin` as Next up. Spec archived. |
 | 2026-09-16 | `/spec day-block-route`: promote — extend item route with `leg` TO/FROM; block stop assembly + member-set cache key; There/Back chrome; reuse `StopSequenceOptimizer`; public block id deferred to `agenda-block-api`. Branch `day-block-route`. |
 | 2026-09-16 | `/pr family-conflict-report`: server `FAMILY_TIME_OVERLAP` + quieter Agenda chrome for disjoint kids; off Hero; OpenAPI `otherKidId`. Spec archived. Next up `day-block-route`. |
 | 2026-09-16 | `/spec family-conflict-report`: promote — server `FAMILY_TIME_OVERLAP` for disjoint in-play kids; quieter Agenda chrome; off Hero; no same-feed exclusion. Branch `family-conflict-report`. |

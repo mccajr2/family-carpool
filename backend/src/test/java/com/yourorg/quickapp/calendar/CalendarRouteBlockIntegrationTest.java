@@ -111,13 +111,14 @@ class CalendarRouteBlockIntegrationTest {
                                         .param("leg", "TO")
                                         .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.status").value("OK"))
-                        .andExpect(jsonPath("$.leg").value("TO"))
-                        .andExpect(jsonPath("$.memberItemIds", hasSize(2)))
-                        .andExpect(jsonPath("$.stops[0].kind").value("home"))
-                        .andExpect(jsonPath("$.stops[-1].kind").value("destination"))
-                        .andExpect(jsonPath("$.stops[*].kind", hasItem("pickup")))
-                        .andReturn();
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.leg").value("TO"))
+                .andExpect(jsonPath("$.memberItemIds", hasSize(2)))
+                .andExpect(jsonPath("$.stops[0].kind").value("home"))
+                .andExpect(jsonPath("$.stops[0].address").value("12 Oak St"))
+                .andExpect(jsonPath("$.stops[-1].kind").value("destination"))
+                .andExpect(jsonPath("$.stops[*].kind", hasItem("pickup")))
+                .andReturn();
         String toJsonA = viaA.getResponse().getContentAsString();
         @SuppressWarnings("unchecked")
         List<String> memberIdsA =
@@ -127,6 +128,11 @@ class CalendarRouteBlockIntegrationTest {
         List<String> middleAddressesA =
                 JsonPath.read(toJsonA, "$.stops[?(@.kind=='pickup')].address");
         assertThat(middleAddressesA).contains("2 School Rd", "34 Pine St");
+        @SuppressWarnings("unchecked")
+        List<String> homeAddressesA =
+                JsonPath.read(toJsonA, "$.stops[?(@.kind=='home')].address");
+        assertThat(homeAddressesA).containsExactly("12 Oak St");
+        assertThat(middleAddressesA).doesNotContain("12 Oak St");
 
         MvcResult viaB =
                 mockMvc.perform(

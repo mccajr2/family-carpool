@@ -32,6 +32,7 @@ import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
+import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -1396,6 +1397,91 @@ public class CarpoolRideService {
         return List.copyOf(out);
     }
 
+    /**
+     * Family-side places on the caller's CONFIRMED legs for one feed event
+     * (space-scoped own plans + circle-local null-space PLANs).
+     */
+    @Transactional(readOnly = true)
+    public List<CarpoolHouseholdStopDto> listConfirmedHouseholdStopsForFeedEvent(
+            UUID adultId, UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
+        CarpoolLegKind safeLeg = leg == null ? CarpoolLegKind.TO : leg;
+        Optional<FeedCalendarEventDto> event =
+                feedCalendarApi.findEventInCircle(circleId, feedEventId);
+        if (event.isEmpty()) {
+            return List.of();
+        }
+        String eventKey = RideEventKey.of(event.get());
+        UUID eventFeedId = event.get().feedId();
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+
+        List<CarpoolHouseholdStopDto> out = new ArrayList<>();
+        LinkedHashSet<String> seenAddresses = new LinkedHashSet<>();
+
+        if (!spaceIds.isEmpty()) {
+            Map<UUID, UUID> feedIdBySpaceId = new HashMap<>();
+            for (UUID spaceId : spaceIds) {
+                CarpoolSpaceEntity space = spaces.findById(spaceId).orElse(null);
+                if (space == null) {
+                    continue;
+                }
+                feedsApi
+                        .findByCircleAndNormalizedUrl(circleId, space.normalizedSourceUrl())
+                        .ifPresent(feed -> feedIdBySpaceId.put(spaceId, feed.id()));
+            }
+            for (CarpoolRideRequestEntity ride :
+                    rides.findBySpaceIdInAndEventKeyInAndStatusIn(
+                            spaceIds, List.of(eventKey), OWN_PLAN_STATUSES)) {
+                UUID spaceFeedId = feedIdBySpaceId.get(ride.spaceId());
+                if (spaceFeedId != null && !spaceFeedId.equals(eventFeedId)) {
+                    continue;
+                }
+                collectHouseholdStop(
+                        adultId, feedEventId, safeLeg, ride, seenAddresses, out);
+            }
+        }
+        for (CarpoolRideRequestEntity ride :
+                rides.findByRequestingCircleIdAndEventKeyInAndSpaceIdIsNullAndStatusIn(
+                        circleId, List.of(eventKey), OWN_PLAN_STATUSES)) {
+            collectHouseholdStop(adultId, feedEventId, safeLeg, ride, seenAddresses, out);
+        }
+        return List.copyOf(out);
+    }
+
+    private void collectHouseholdStop(
+            UUID adultId,
+            UUID feedEventId,
+            CarpoolLegKind leg,
+            CarpoolRideRequestEntity ride,
+            Set<String> seenAddresses,
+            List<CarpoolHouseholdStopDto> out) {
+        RideLegSlot slot = ride.leg(leg);
+        if (slot == null || slot.phase() != CarpoolLegPhase.CONFIRMED) {
+            return;
+        }
+        if (!adultId.equals(slot.assigneeAdultId())) {
+            return;
+        }
+        String placeName = familySidePlaceName(ride, leg);
+        String placeAddress = familySidePlaceAddress(ride, leg);
+        if (!hasText(placeAddress)) {
+            return;
+        }
+        String norm = placeAddress.trim().toLowerCase();
+        if (!seenAddresses.add(norm)) {
+            return;
+        }
+        out.add(
+                new CarpoolHouseholdStopDto(
+                        feedEventId,
+                        leg,
+                        placeName,
+                        placeAddress,
+                        ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
+    }
+
     private record FeedEventRef(UUID feedEventId, UUID feedId) {}
 
     /**
@@ -2071,6 +2157,17 @@ public class CarpoolRideService {
                     hasText(leg.placeAddress())
                             ? leg.placeAddress()
                             : leg.oneTimeAddress();
+            if (!hasText(address) && leg.placeId() != null) {
+                Optional<CirclePlaceDto> resolved =
+                        familyPlaceApi.findPlaceForMember(
+                                ride.requestedByAdultId(), leg.placeId());
+                if (resolved.isPresent() && hasText(resolved.get().address())) {
+                    address = resolved.get().address();
+                    if (!hasText(name)) {
+                        name = resolved.get().name();
+                    }
+                }
+            }
             if (!hasText(name) && hasText(address)) {
                 name = address;
             }

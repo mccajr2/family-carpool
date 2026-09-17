@@ -1,6 +1,6 @@
 # Spec: day-block-route
 
-Status: draft  
+Status: done  
 Created: 2026-09-14  
 Promoted: 2026-09-16 · `/spec`  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -57,13 +57,20 @@ block for the requested leg.**
 
 3. **Stop assembly (per leg) — callers build waypoints; optimizer only
    orders middles:**
-   - **TO:** fixed start = resolved leave-from; reorderable middles =
-     household kid leave-from / afterschool places for kids the viewer is
-     driving on that leg across **all member events**, plus ACCEPTED teammate
-     pickups on that leg for those events; fixed end = shared venue
-     (domain already requires same venue identity). Leave-by clock =
+   - **TO:** fixed start = driver's membership **default** leave-from when the
+     resolved block has 2+ members (governing origin for the merged drive);
+     singleton blocks still use the path item's leave-from override chain.
+     Reorderable middles = household kid leave-from / afterschool places for
+     kids the viewer is driving on that leg across **all member events**
+     (coverage leave-from **and** CONFIRMED household ride-plan family-side
+     places), plus ACCEPTED teammate pickups on that leg for those events; fixed end = shared
+     venue (domain already requires same venue identity). Leave-by clock =
      **earliest member** `startsAt − bufferMinutes` (existing title heuristic
      on that earliest item) — matches the optimize north-star.
+     Per-event coverage “picked up at …” must **not** become the itinerary
+     HOME start on a combined block (see follow-up
+     [`block-route-origin`](../planned/block-route-origin.md) for an explicit
+     block-level origin override UI).
    - **FROM:** fixed start = venue; reorderable middles = home-side stops for
      riders on the FROM leg across member events; fixed end = driver’s
      leave-from / home. ADR-0004 rule 4: label home-side middles as
@@ -194,6 +201,6 @@ north-star for public block ids.
 
 ## Open questions
 
-- None blocking — contract shape locked in `/spec` discussion (item-path +
-  `leg` now; public block id deferred to `agenda-block-api`). Tab vs dual
-  section: implementer preference, tabs preferred.
+- None blocking for this PR. Follow-up governing origin UI:
+  [`block-route-origin`](../planned/block-route-origin.md) (promote via `/spec`
+  immediately after merge / smoke of default-home fix).

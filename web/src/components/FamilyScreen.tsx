@@ -2133,12 +2133,21 @@ export function FamilyScreen({
     if (
       assignment != null &&
       assignment.leaveFromPlaceId == null &&
-      (assignment.leaveFromAddress == null || assignment.leaveFromAddress.trim() === "") &&
-      circle?.defaultLeaveFromPlaceId
+      (assignment.leaveFromAddress == null || assignment.leaveFromAddress.trim() === "")
     ) {
-      return familyClient.setCoverageLeaveFrom(token, assignmentId, {
-        leaveFromPlaceId: circle.defaultLeaveFromPlaceId,
-      })
+      // Prefer item-level leave-from (saved with the ride plan) over forcing
+      // membership default home — default home strips household pickup middles.
+      if (updated.leaveFromPlaceId != null || (updated.leaveFromAddress?.trim() ?? "") !== "") {
+        return familyClient.setCoverageLeaveFrom(token, assignmentId, {
+          leaveFromPlaceId: updated.leaveFromPlaceId ?? undefined,
+          leaveFromAddress: updated.leaveFromAddress?.trim() || undefined,
+        })
+      }
+      if (circle?.defaultLeaveFromPlaceId) {
+        return familyClient.setCoverageLeaveFrom(token, assignmentId, {
+          leaveFromPlaceId: circle.defaultLeaveFromPlaceId,
+        })
+      }
     }
     return updated
   }
