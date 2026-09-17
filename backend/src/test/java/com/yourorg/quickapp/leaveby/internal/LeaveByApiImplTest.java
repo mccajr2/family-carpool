@@ -2206,6 +2206,138 @@ class LeaveByApiImplTest {
         verify(placeApi, never()).findDefaultLeaveFromForMember(any());
     }
 
+    @Test
+    void setCalendarRouteOriginPersistsOverrideAndRebuildsWithoutTouchingItemLeaveFrom() {
+        UUID otherItemId = UUID.randomUUID();
+        UUID officeId = UUID.randomUUID();
+        CirclePlaceDto office =
+                new CirclePlaceDto(officeId, circleId, "Office", "500 Market", 41.0, -75.0);
+        List<CalendarRouteMemberRef> members =
+                List.of(
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId),
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, otherItemId));
+        String memberSetKey = MemberSetKeys.compute(members);
+        java.util.concurrent.atomic.AtomicReference<ItineraryEntity> stored =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        adultId, CalendarRouteLeg.TO, memberSetKey))
+                .thenAnswer(invocation -> Optional.ofNullable(stored.get()));
+        when(itineraryRepository.save(any(ItineraryEntity.class)))
+                .thenAnswer(
+                        invocation -> {
+                            ItineraryEntity entity = invocation.getArgument(0);
+                            stored.set(entity);
+                            return entity;
+                        });
+        when(placeApi.requireLocatedPlaceForMember(adultId, officeId)).thenReturn(office);
+        when(placeApi.findPlaceForMember(adultId, officeId)).thenReturn(Optional.of(office));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(41.0, -75.0, 40.2, -74.2))
+                .thenReturn(Optional.of(900.0));
+
+        CalendarRouteDto route =
+                api.setCalendarRouteOrigin(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        members,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(),
+                        "Rink",
+                        "65 Elm St",
+                        officeId,
+                        null);
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().getFirst().name()).isEqualTo("Office");
+        assertThat(route.stops().getFirst().address()).isEqualTo("500 Market");
+        assertThat(stored.get().homePlaceId()).isEqualTo(officeId);
+        assertThat(stored.get().homeAddress()).isNull();
+        verify(leaveFromRepository, never()).save(any());
+        verify(leaveFromRepository, never()).delete(any());
+    }
+
+    @Test
+    void setCalendarRouteOriginClearRestoresMembershipDefaultHome() {
+        UUID otherItemId = UUID.randomUUID();
+        List<CalendarRouteMemberRef> members =
+                List.of(
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId),
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, otherItemId));
+        String memberSetKey = MemberSetKeys.compute(members);
+        ItineraryEntity existing =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteLeg.TO,
+                        memberSetKey,
+                        MemberSetKeys.membersToken(members),
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        "stale",
+                        "[]",
+                        "[]",
+                        Instant.now(),
+                        Instant.now());
+        existing.setHomeSideOverride(UUID.randomUUID(), null, Instant.now());
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        adultId, CalendarRouteLeg.TO, memberSetKey))
+                .thenReturn(Optional.of(existing));
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(600.0));
+
+        CalendarRouteDto route =
+                api.setCalendarRouteOrigin(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        members,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(),
+                        "Rink",
+                        "65 Elm St",
+                        null,
+                        null);
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.stops().getFirst().name()).isEqualTo("Mom's house");
+        assertThat(existing.homePlaceId()).isNull();
+        assertThat(existing.homeAddress()).isNull();
+    }
+
+    @Test
+    void setCalendarRouteOriginRejectsPlaceAndAddressTogether() {
+        assertThatThrownBy(
+                        () ->
+                                api.setCalendarRouteOrigin(
+                                        adultId,
+                                        CalendarRouteLeg.TO,
+                                        List.of(
+                                                new CalendarRouteMemberRef(
+                                                        LeaveByItemSource.FEED, itemId)),
+                                        LeaveByItemSource.FEED,
+                                        itemId,
+                                        "Practice",
+                                        List.of(),
+                                        "Rink",
+                                        "65 Elm St",
+                                        placeId,
+                                        "1 Main"))
+                .isInstanceOf(FamilyAccessException.class)
+                .extracting(ex -> ((FamilyAccessException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(itineraryRepository, never()).save(any());
+    }
+
     private void failIfUpstreamHttp() {
         lenient()
                 .when(geocodeApi.resolveLocation(any()))

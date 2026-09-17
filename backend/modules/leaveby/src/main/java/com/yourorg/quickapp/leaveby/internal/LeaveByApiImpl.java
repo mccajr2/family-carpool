@@ -660,6 +660,94 @@ class LeaveByApiImpl implements LeaveByApi {
 
     @Override
     @Transactional
+    public CalendarRouteDto setCalendarRouteOrigin(
+            UUID drivingAdultId,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItems,
+            LeaveByItemSource originSource,
+            UUID originItemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> middles,
+            String destinationName,
+            String destinationAddress,
+            UUID homePlaceId,
+            String homeAddress) {
+        CalendarRouteLeg safeLeg = leg == null ? CalendarRouteLeg.TO : leg;
+        List<CalendarRouteMemberRef> members = requireMembers(memberItems);
+        membershipApi.requireMemberCircleId(drivingAdultId);
+
+        String trimmedAddress = homeAddress == null ? null : homeAddress.trim();
+        if (trimmedAddress != null && trimmedAddress.isEmpty()) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST, "leaveFromAddress must be non-empty when set");
+        }
+        if (homePlaceId != null && trimmedAddress != null) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromPlaceId and leaveFromAddress are mutually exclusive");
+        }
+        if (trimmedAddress != null && trimmedAddress.length() > LEAVE_FROM_ADDRESS_MAX) {
+            throw new FamilyAccessException(
+                    HttpStatus.BAD_REQUEST,
+                    "leaveFromAddress must be at most " + LEAVE_FROM_ADDRESS_MAX + " characters");
+        }
+
+        UUID placeId = null;
+        String address = null;
+        if (homePlaceId != null) {
+            placeApi.requireLocatedPlaceForMember(drivingAdultId, homePlaceId);
+            placeId = homePlaceId;
+        } else if (trimmedAddress != null) {
+            address = trimmedAddress;
+        }
+
+        ItineraryEntity entity = ensureItineraryRow(drivingAdultId, safeLeg, members);
+        entity.setHomeSideOverride(placeId, address, Instant.now());
+
+        return buildAndPersistCalendarRoute(
+                drivingAdultId,
+                safeLeg,
+                members,
+                originSource,
+                originItemId,
+                eventTitle,
+                middles == null ? List.of() : middles,
+                destinationName,
+                destinationAddress);
+    }
+
+    private ItineraryEntity ensureItineraryRow(
+            UUID drivingAdultId, CalendarRouteLeg leg, List<CalendarRouteMemberRef> members) {
+        String memberSetKey = MemberSetKeys.compute(members);
+        Optional<ItineraryEntity> existing =
+                itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        drivingAdultId, leg, memberSetKey);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        Instant now = Instant.now();
+        CalendarRouteMemberRef anchor = members.getFirst();
+        return itineraryRepository.save(
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        drivingAdultId,
+                        anchor.source(),
+                        anchor.itemId(),
+                        leg,
+                        memberSetKey,
+                        MemberSetKeys.membersToken(members),
+                        CalendarRouteStatus.UNAVAILABLE,
+                        null,
+                        0,
+                        "",
+                        "[]",
+                        "[]",
+                        now,
+                        now));
+    }
+
+    @Override
+    @Transactional
     public void setLeaveFrom(
             UUID adultId,
             LeaveByItemSource source,

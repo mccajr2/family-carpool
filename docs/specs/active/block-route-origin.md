@@ -137,7 +137,7 @@ public block ids.
 - [x] Backend: persist home-side triad on member-set itinerary (Flyway); resolve
       TO start / FROM end from override → existing fallbacks; flatten
       co-located middles before optimize; bust fingerprint on override change
-- [ ] Backend: `LeaveByApi` + calendar HTTP for origin PUT; same routability
+- [x] Backend: `LeaveByApi` + calendar HTTP for origin PUT; same routability
       gate as get/reorder (403 when not the driving adult)
 - [ ] Contract: OpenAPI origin write + `CalendarRoute` home-side echo; describe
       independent legs + flatten
