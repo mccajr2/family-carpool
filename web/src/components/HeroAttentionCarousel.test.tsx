@@ -911,4 +911,159 @@ describe("HeroAttentionSlide", () => {
       within(slide).queryByRole("button", { name: /not going/i }),
     ).not.toBeInTheDocument()
   })
+
+  it("shows both peer labels and keep A / keep B / neither for a single-kid conflict", async () => {
+    const user = userEvent.setup()
+    const onResolvePlayerConflict = vi.fn()
+    const peerItem = calendarItem({
+      id: "e2",
+      title: "Other game",
+      feedName: "Admirals",
+      startsAt: "2030-08-29T22:00:00.000Z",
+      endsAt: "2030-08-29T23:00:00.000Z",
+    })
+    const conflictQueue: QueueItem[] = [
+      {
+        kind: "playerConflict",
+        game: game({
+          id: "FEED-e1:k1",
+          title: "Mass Admirals",
+          kidTimeOverlapPeerKeys: ["FEED-e2"],
+        }),
+        peerGame: game({
+          id: "FEED-e2:k1",
+          title: "Other game",
+          startsAt: "2030-08-29T22:00:00.000Z",
+          order: Date.parse("2030-08-29T22:00:00.000Z"),
+          kidTimeOverlapPeerKeys: ["FEED-e1"],
+        }),
+        kidIds: ["k1"],
+      },
+    ]
+
+    render(
+      <HeroAttentionCarousel
+        queue={conflictQueue}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            peerCalendarItem: peerItem,
+            onResolvePlayerConflict,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(slide).toHaveAttribute("data-slide-kind", "playerConflict")
+    expect(within(slide).getByTestId("hero-attention-slide-title")).toHaveTextContent(
+      "Declan is on two overlapping events",
+    )
+    expect(within(slide).getByTestId("hero-attention-conflict-peer-a")).toHaveTextContent(
+      "Sharks · 2016/2017 (BILL) · Mass Admirals",
+    )
+    expect(within(slide).getByTestId("hero-attention-conflict-peer-b")).toHaveTextContent(
+      "Admirals · Other game",
+    )
+    await user.click(
+      within(slide).getByRole("button", {
+        name: "Keep Sharks · 2016/2017 (BILL) · Mass Admirals",
+      }),
+    )
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("keepA", ["k1"])
+
+    onResolvePlayerConflict.mockClear()
+    await user.click(
+      within(slide).getByRole("button", { name: "Keep Admirals · Other game" }),
+    )
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("keepB", ["k1"])
+
+    onResolvePlayerConflict.mockClear()
+    const neither = within(slide).getByRole("button", { name: "Mark Declan as not going" })
+    expect(neither).toHaveStyle({ color: "var(--fc-hero-on-secondary)" })
+    await user.click(neither)
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("neither", ["k1"])
+    expect(within(slide).queryByRole("button", { name: /undo/i })).not.toBeInTheDocument()
+  })
+
+  it("applies one keep choice to all kids by default and allows per-kid split including neither", async () => {
+    const user = userEvent.setup()
+    const onResolvePlayerConflict = vi.fn()
+    const twinsCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Graham" },
+        { id: "k2", displayName: "Luke" },
+      ],
+    }
+    const peerItem = calendarItem({
+      id: "e2",
+      title: "Game B",
+      feedName: null,
+      source: "MANUAL",
+      kidIds: ["k1", "k2"],
+    })
+    const conflictQueue: QueueItem[] = [
+      {
+        kind: "playerConflict",
+        game: game({ id: "MANUAL-e1:k1", kidId: "k1" }),
+        peerGame: game({ id: "MANUAL-e2:k1", kidId: "k1", title: "Game B" }),
+        kidIds: ["k1", "k2"],
+      },
+    ]
+
+    render(
+      <HeroAttentionCarousel
+        queue={conflictQueue}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            circle: twinsCircle,
+            calendarItem: calendarItem({
+              source: "MANUAL",
+              feedName: null,
+              title: "Game A",
+              kidIds: ["k1", "k2"],
+            }),
+            peerCalendarItem: peerItem,
+            onResolvePlayerConflict,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("hero-attention-slide-title")).toHaveTextContent(
+      "Graham and Luke are on two overlapping events",
+    )
+    expect(within(slide).getByTestId("hero-attention-conflict-peer-a")).toHaveTextContent(
+      "Game A",
+    )
+    expect(within(slide).getByTestId("hero-attention-conflict-peer-b")).toHaveTextContent(
+      "Game B",
+    )
+
+    await user.click(within(slide).getByRole("button", { name: "Keep Game A" }))
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("keepA", ["k1", "k2"])
+
+    onResolvePlayerConflict.mockClear()
+    await user.click(
+      within(slide).getByRole("button", { name: "Mark Graham and Luke as not going" }),
+    )
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("neither", ["k1", "k2"])
+
+    await user.click(
+      within(slide).getByRole("button", { name: "Different plans for each kid." }),
+    )
+    expect(within(slide).getByTestId("hero-attention-conflict-per-kid")).toBeInTheDocument()
+    await user.click(within(slide).getByTestId("hero-attention-conflict-keep-a-k1"))
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("keepA", ["k1"])
+    onResolvePlayerConflict.mockClear()
+    await user.click(within(slide).getByTestId("hero-attention-conflict-keep-b-k2"))
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("keepB", ["k2"])
+    onResolvePlayerConflict.mockClear()
+    await user.click(within(slide).getByTestId("hero-attention-conflict-neither-k2"))
+    expect(onResolvePlayerConflict).toHaveBeenCalledWith("neither", ["k2"])
+    expect(within(slide).queryByRole("button", { name: /undo/i })).not.toBeInTheDocument()
+  })
 })

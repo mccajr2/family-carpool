@@ -9,6 +9,7 @@ import {
 } from "react"
 
 import type { QueueItem } from "@/components/coverageQueue"
+import { coverageGameEventKey } from "@/components/coverageQueue"
 import {
   HERO_ALL_CAUGHT_UP,
   HERO_CAROUSEL_ARIA_LABEL,
@@ -35,7 +36,13 @@ export type HeroAttentionCarouselProps = {
 }
 
 function slideKey(item: QueueItem): string {
-  return item.kind === "request" ? `req-${item.request.id}` : `own-${item.game.id}`
+  if (item.kind === "request") {
+    return `req-${item.request.id}`
+  }
+  if (item.kind === "playerConflict") {
+    return `conflict-${coverageGameEventKey(item.game.id)}-${coverageGameEventKey(item.peerGame.id)}`
+  }
+  return `own-${item.game.id}`
 }
 
 function queueSignature(queue: readonly QueueItem[]): string {
@@ -50,11 +57,13 @@ function slideAriaLabel(
   slideProps: HeroAttentionSlideProps,
 ): string {
   const kidFirstNames =
-    item.kind === "ownRide" && slideProps.assignDraft.kidIds.length > 0
-      ? slideProps.assignDraft.kidIds.map((kidId) =>
-          heroKidFirstName(kidId, slideProps.circle.kids),
-        )
-      : [heroKidFirstName(item.game.kidId, slideProps.circle.kids)]
+    item.kind === "playerConflict"
+      ? item.kidIds.map((kidId) => heroKidFirstName(kidId, slideProps.circle.kids))
+      : item.kind === "ownRide" && slideProps.assignDraft.kidIds.length > 0
+        ? slideProps.assignDraft.kidIds.map((kidId) =>
+            heroKidFirstName(kidId, slideProps.circle.kids),
+          )
+        : [heroKidFirstName(item.game.kidId, slideProps.circle.kids)]
   return heroAttentionSlideAriaLabel(item, {
     kidFirstNames,
     pendingConfirm: Boolean(

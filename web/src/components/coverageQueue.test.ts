@@ -455,6 +455,263 @@ describe("getQueue", () => {
       game: { id: "EVENT-E:k1", kidId: "k1" },
     })
   })
+
+  it("emits one playerConflict per unresolved KID_TIME_OVERLAP pair before that event's gaps/asks", () => {
+    const sooner = game({
+      id: "MANUAL-e1:k1",
+      kidId: "k1",
+      order: 100,
+      ownRide: "unassigned",
+      kidTimeOverlapPeerKeys: ["MANUAL-e2"],
+      requests: [request({ id: "ask-on-sooner" })],
+    })
+    const later = game({
+      id: "MANUAL-e2:k1",
+      kidId: "k1",
+      order: 200,
+      ownRide: "unassigned",
+      kidTimeOverlapPeerKeys: ["MANUAL-e1"],
+    })
+
+    const queue = getQueue([later, sooner])
+
+    expect(queue.map((item) => item.kind)).toEqual([
+      "playerConflict",
+      "ownRide",
+      "request",
+      "ownRide",
+    ])
+    expect(queue[0]).toMatchObject({
+      kind: "playerConflict",
+      game: { id: "MANUAL-e1:k1" },
+      peerGame: { id: "MANUAL-e2:k1" },
+      kidIds: ["k1"],
+    })
+    expect(queue.filter((item) => item.kind === "playerConflict")).toHaveLength(1)
+  })
+
+  it("keeps a sooner unrelated gap ahead of a later player-conflict pair", () => {
+    const unrelatedGap = game({
+      id: "MANUAL-early:k1",
+      kidId: "k1",
+      order: 50,
+      ownRide: "unassigned",
+    })
+    const conflictA = game({
+      id: "MANUAL-a:k1",
+      kidId: "k1",
+      order: 100,
+      ownRide: { driver: "You", confirmed: true },
+      kidTimeOverlapPeerKeys: ["MANUAL-b"],
+    })
+    const conflictB = game({
+      id: "MANUAL-b:k1",
+      kidId: "k1",
+      order: 200,
+      ownRide: { driver: "You", confirmed: true },
+      kidTimeOverlapPeerKeys: ["MANUAL-a"],
+    })
+
+    const queue = getQueue([conflictB, unrelatedGap, conflictA])
+
+    expect(queue.map((item) => item.kind + ":" + coverageGameEventKey(item.game.id))).toEqual([
+      "ownRide:MANUAL-early",
+      "playerConflict:MANUAL-a",
+    ])
+  })
+
+  it("keeps a sooner unrelated inbound ask ahead of a later player-conflict pair", () => {
+    const unrelatedAsk = game({
+      id: "MANUAL-early:k1",
+      kidId: "k1",
+      order: 50,
+      ownRide: { driver: "You", confirmed: true },
+      requests: [request({ id: "ask-early" })],
+    })
+    const conflictA = game({
+      id: "MANUAL-a:k1",
+      kidId: "k1",
+      order: 100,
+      ownRide: { driver: "You", confirmed: true },
+      kidTimeOverlapPeerKeys: ["MANUAL-b"],
+      requests: [request({ id: "ask-on-conflict" })],
+    })
+    const conflictB = game({
+      id: "MANUAL-b:k1",
+      kidId: "k1",
+      order: 200,
+      ownRide: { driver: "You", confirmed: true },
+      kidTimeOverlapPeerKeys: ["MANUAL-a"],
+    })
+
+    const queue = getQueue([conflictB, unrelatedAsk, conflictA])
+
+    expect(
+      queue.map((item) =>
+        item.kind === "request"
+          ? `request:${item.request.id}`
+          : `${item.kind}:${coverageGameEventKey(item.game.id)}`,
+      ),
+    ).toEqual([
+      "request:ask-early",
+      "playerConflict:MANUAL-a",
+      "request:ask-on-conflict",
+    ])
+  })
+
+  it("omits playerConflict after not_going even when peer keys (amber conflicts) remain", () => {
+    const kept = game({
+      id: "MANUAL-e1:k1",
+      kidId: "k1",
+      order: 100,
+      attendance: "going",
+      ownRide: { driver: "You", confirmed: true },
+      kidTimeOverlapPeerKeys: ["MANUAL-e2"],
+    })
+    const dropped = game({
+      id: "MANUAL-e2:k1",
+      kidId: "k1",
+      order: 200,
+      attendance: "not_going",
+      ownRide: "unassigned",
+      kidTimeOverlapPeerKeys: ["MANUAL-e1"],
+    })
+
+    expect(getQueue([kept, dropped]).some((item) => item.kind === "playerConflict")).toBe(false)
+    expect(kept.kidTimeOverlapPeerKeys).toEqual(["MANUAL-e2"])
+  })
+
+  it("drops playerConflict when the kid is not_going on either peer", () => {
+    const goingOnA = game({
+      id: "MANUAL-e1:k1",
+      kidId: "k1",
+      order: 100,
+      attendance: "going",
+      ownRide: "unassigned",
+      kidTimeOverlapPeerKeys: ["MANUAL-e2"],
+    })
+    const notGoingOnB = game({
+      id: "MANUAL-e2:k1",
+      kidId: "k1",
+      order: 200,
+      attendance: "not_going",
+      ownRide: "unassigned",
+      kidTimeOverlapPeerKeys: ["MANUAL-e1"],
+    })
+
+    expect(getQueue([goingOnA, notGoingOnB]).some((item) => item.kind === "playerConflict")).toBe(
+      false,
+    )
+
+    const notGoingOnA = { ...goingOnA, attendance: "not_going" as const }
+    const goingOnB = { ...notGoingOnB, attendance: "going" as const }
+    expect(getQueue([notGoingOnA, goingOnB]).some((item) => item.kind === "playerConflict")).toBe(
+      false,
+    )
+  })
+
+  it("collects multiple unresolved kids on the same pair into one playerConflict", () => {
+    const aK1 = game({
+      id: "MANUAL-e1:k1",
+      kidId: "k1",
+      order: 100,
+      kidTimeOverlapPeerKeys: ["MANUAL-e2"],
+      ownRide: { driver: "You", confirmed: true },
+    })
+    const aK2 = game({
+      id: "MANUAL-e1:k2",
+      kidId: "k2",
+      order: 100,
+      kidTimeOverlapPeerKeys: ["MANUAL-e2"],
+      ownRide: { driver: "You", confirmed: true },
+    })
+    const bK1 = game({
+      id: "MANUAL-e2:k1",
+      kidId: "k1",
+      order: 200,
+      kidTimeOverlapPeerKeys: ["MANUAL-e1"],
+      ownRide: { driver: "You", confirmed: true },
+    })
+    const bK2 = game({
+      id: "MANUAL-e2:k2",
+      kidId: "k2",
+      order: 200,
+      kidTimeOverlapPeerKeys: ["MANUAL-e1"],
+      ownRide: { driver: "You", confirmed: true },
+    })
+    const bK2Out = { ...bK2, attendance: "not_going" as const }
+
+    const both = getQueue([aK1, aK2, bK1, bK2])
+    expect(both).toHaveLength(1)
+    expect(both[0]).toMatchObject({
+      kind: "playerConflict",
+      kidIds: ["k1", "k2"],
+    })
+
+    const oneLeft = getQueue([aK1, aK2, bK1, bK2Out])
+    expect(oneLeft).toHaveLength(1)
+    expect(oneLeft[0]).toMatchObject({
+      kind: "playerConflict",
+      kidIds: ["k1"],
+    })
+  })
+
+  it("maps calendar KID_TIME_OVERLAP conflicts onto coverage games for getQueue", () => {
+    const itemA = calendarItem({
+      id: "e1",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e2",
+          otherTitle: "Game",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "e2",
+      title: "Game",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      kidIds: ["k1"],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e1",
+          otherTitle: "Practice",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const rows = mapCalendarItemsToCoverageGames(
+      [itemA, itemB],
+      () => null,
+      mapOptions,
+    )
+    expect(rows.map((row) => row.kidTimeOverlapPeerKeys)).toEqual([
+      ["MANUAL-e2"],
+      ["MANUAL-e1"],
+    ])
+
+    const queue = getQueue(rows)
+    expect(queue).toHaveLength(1)
+    expect(queue[0]).toMatchObject({
+      kind: "playerConflict",
+      game: { id: "MANUAL-e1:k1" },
+      peerGame: { id: "MANUAL-e2:k1" },
+      kidIds: ["k1"],
+    })
+  })
 })
 
 describe("filterQueueWithinHorizon", () => {
@@ -480,6 +737,52 @@ describe("filterQueueWithinHorizon", () => {
 
     expect(filtered).toHaveLength(1)
     expect(filtered[0]).toMatchObject({ game: { id: "this-week" } })
+  })
+
+  it("excludes playerConflict slides whose sooner peer is outside the near-term horizon", () => {
+    const queue = getQueue([
+      game({
+        id: "MANUAL-near:k1",
+        kidId: "k1",
+        order: Date.parse("2030-08-16T17:00:00.000Z"),
+        startsAt: "2030-08-16T17:00:00.000Z",
+        ownRide: { driver: "You", confirmed: true },
+        kidTimeOverlapPeerKeys: ["MANUAL-far"],
+      }),
+      game({
+        id: "MANUAL-far:k1",
+        kidId: "k1",
+        order: Date.parse("2030-08-16T18:00:00.000Z"),
+        startsAt: "2030-08-16T18:00:00.000Z",
+        ownRide: { driver: "You", confirmed: true },
+        kidTimeOverlapPeerKeys: ["MANUAL-near"],
+      }),
+      game({
+        id: "MANUAL-out-a:k1",
+        kidId: "k1",
+        order: Date.parse("2030-08-25T17:00:00.000Z"),
+        startsAt: "2030-08-25T17:00:00.000Z",
+        ownRide: { driver: "You", confirmed: true },
+        kidTimeOverlapPeerKeys: ["MANUAL-out-b"],
+      }),
+      game({
+        id: "MANUAL-out-b:k1",
+        kidId: "k1",
+        order: Date.parse("2030-08-25T18:00:00.000Z"),
+        startsAt: "2030-08-25T18:00:00.000Z",
+        ownRide: { driver: "You", confirmed: true },
+        kidTimeOverlapPeerKeys: ["MANUAL-out-a"],
+      }),
+    ])
+
+    expect(queue.filter((item) => item.kind === "playerConflict")).toHaveLength(2)
+
+    const filtered = filterQueueWithinHorizon(queue, now)
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]).toMatchObject({
+      kind: "playerConflict",
+      game: { id: "MANUAL-near:k1" },
+    })
   })
 })
 

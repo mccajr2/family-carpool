@@ -11,7 +11,9 @@ kid-split editor + per-kid gaps/chips via
 per-leg family-side places via
 [`carpool-leg-places`](specs/archive/carpool-leg-places.md) — Done;
 Hero own-kid not-going escape via
-[`hero-not-going`](specs/archive/hero-not-going.md) — Done)  
+[`hero-not-going`](specs/archive/hero-not-going.md) — Done;
+player-conflict Hero slides via
+[`player-conflict-hero`](specs/archive/player-conflict-hero.md) — Done)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -59,17 +61,58 @@ Shared leave-by reason copy (all clients): `No leave-from place yet` /
 ### Hero carousel queue
 
 Build slides from `getQueue(mapCalendarItemsToCoverageGames(...))` inside the
-near-term horizon only. A slide **leaves the carousel on the next render** once
-the signed-in adult no longer has a decision on that kid row:
+near-term horizon only (`AGENDA_NEAR_TERM_DAYS` = 7). **Load more** / a longer
+loaded calendar window does **not** add Hero slides (including
+`playerConflict`) outside that horizon. A slide **leaves the carousel on the
+next render** once the signed-in adult no longer has a decision on that kid
+row (or, for player-conflict, once no household kid remains in-play on both
+peers):
 
-| Kid-row `ownRide` | In carousel? |
+| Kid-row `ownRide` / kind | In carousel? |
 | --- | --- |
+| Unresolved **player conflict** (`playerConflict`) | Yes — keep A / keep B (or progressive per-kid split); see below |
 | `unassigned` | Yes — pick a driver or ask the team |
 | `{ driver: "You", confirmed: false }` | Yes — **Confirm coverage** / Decline (calendar coverage **or** split-plan `WAITING_HOUSEHOLD` assigned to you) |
 | `{ driver: "<other>", confirmed: false }` | No — **Waiting on {driver}** (list chip only) |
 | `"requested"` (asked the team) | No — waiting on teammates *(unless a per-leg / per-kid gap below, or waiting-on-you household leg)* |
 | `{ driver, confirmed: true }` | No — covered *(unless a per-leg / per-kid gap below)* |
 | Pending inbound carpool request (actionable) | Yes — Accept / Decline |
+
+**Player conflict (must):** emit one `playerConflict` queue item per unresolved
+**event-pair** from calendar `conflicts` with `type: KID_TIME_OVERLAP` — do
+**not** re-derive overlap intervals in the client. A pair is unresolved for
+Hero only when ≥1 household kid is still **in-play**
+(`attendance !== "not_going"`) on **both** peers. Marking one side not-going
+clears that kid from the conflict even if amber Agenda `conflicts` remain.
+Deduplicate so one pair yields **one** slide (not one per peer). Per
+[ADR-0001](decisions/ADR-0001-coverage-priority-rule.md), while walking
+events soonest-first, emit the pair’s conflict slide **before** that event’s
+own-ride gaps and inbound asks; do not jump it ahead of sooner events that
+are not part of the pair.
+
+**Player-conflict slide (must):** present **both** peers. Labels: **team ·
+event** when linked (`feedName` · title via existing source/title helpers);
+title-only for standalone/manual. Primary actions: **keep A** or **keep B**.
+**Neither / not going** reuses the shared **Hero not-going** secondary control
+(below) — not conflict-only chrome — and writes not-going on **both** peers
+for kids in scope. Do **not** embed DriverPicker on this slide; after resolve,
+normal `ownRide` / ask slides for kept in-play kids appear under ordinary
+`getQueue` rules. No dedicated Undo — reverse via Agenda attendance or Hero
+not-going on the kept event (and optional going on the other).
+
+**Multi-kid same pair (must):** when multiple circle kids are unresolved on
+the same pair, default is **one answer for all** (keep A → not-going on B for
+every unresolved kid, or the reverse). Offer progressive **Different plans
+for each kid.** (same disclosure copy as gap / Confirm): per-kid keep A, keep
+B, or **neither** (not-going on both). Valid splits include one kid each
+event, or one kid keeps / one neither.
+
+**Resolve writes (must):** persist via existing `setCalendarRsvp` /
+attendance mapping (`NO` = not going, `YES` = going) — same path as Agenda
+and Hero not-going. Keep A writes not-going on B (and ensures going on A as
+needed); neither marks not-going on both peers. After successful writes, the
+`playerConflict` item is **absent** from `getQueue` / carousel on the next
+render.
 
 **Waiting-on-you household leg (must):** when `ownLegs` has
 `WAITING_HOUSEHOLD` with `assigneeAdultId` equal to the signed-in adult, treat
@@ -146,6 +189,7 @@ game.
 
 | Slide | Going kids | Not-going control |
 | --- | --- | --- |
+| **Player conflict** | 1+ unresolved on the pair | Secondary shared Hero not-going under keep A / keep B — marks **both** peers not-going for kids in scope (collapsed all-kids, or per-kid **neither** inside Different plans) |
 | Own-ride **gap** | 1 | Secondary **Mark {firstName} as not going** under Assign / Save |
 | Own-ride **gap** | 2+ | **Collapsed:** one all-kids secondary (`markKidsAsNotGoingLabel`). **Different plans for each kid.** → per-kid **ride** plans **plus** per-kid **Mark {firstName} as not going** (no per-kid stack on collapsed surface) |
 | Pending **Confirm** | 1 | Secondary **Mark {firstName} as not going** under Confirm / Decline |

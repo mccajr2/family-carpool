@@ -4,6 +4,7 @@ import { calendarSourceLabel } from "@/components/coverageDisplay"
 import {
   assignedYouToDriveKidsTitle,
   confirmYoullDriveKidsTitle,
+  joinKidFirstNames,
   kidsNeedRideTitle,
 } from "@/components/coverageCopy"
 import type { CarpoolRequest, QueueItem } from "@/components/coverageQueue"
@@ -90,6 +91,32 @@ export function heroPickupSummary(request: CarpoolRequest): string {
   return address ? `${name}, ${address}` : name
 }
 
+/**
+ * Player-conflict peer label: `feedName · title` when linked, else title-only
+ * (standalone / manual).
+ */
+export function heroConflictEventLabel(item: CalendarItem): string {
+  const team = item.feedName?.trim()
+  if (team) {
+    return `${team} · ${item.title}`
+  }
+  return item.title
+}
+
+/** Primary keep CTA for one peer on a player-conflict slide. */
+export function keepConflictEventLabel(eventLabel: string): string {
+  return `Keep ${eventLabel}`
+}
+
+/** Player-conflict slide title. */
+export function heroPlayerConflictTitle(kidFirstNames: readonly string[]): string {
+  const joined = joinKidFirstNames(kidFirstNames)
+  if (kidFirstNames.map((name) => name.trim()).filter(Boolean).length <= 1) {
+    return `${joined} is on two overlapping events`
+  }
+  return `${joined} are on two overlapping events`
+}
+
 /** Accessible name for a hero carousel slide shell (title-derived). */
 export function heroAttentionSlideAriaLabel(
   item: QueueItem,
@@ -102,6 +129,15 @@ export function heroAttentionSlideAriaLabel(
 ): string {
   if (item.kind === "request") {
     return heroRequestTitle(item.request)
+  }
+  if (item.kind === "playerConflict") {
+    const names =
+      options.kidFirstNames != null && options.kidFirstNames.length > 0
+        ? options.kidFirstNames
+        : options.kidFirstName != null
+          ? [options.kidFirstName]
+          : []
+    return heroPlayerConflictTitle(names)
   }
   return heroOwnRideTitle({
     kidFirstName: options.kidFirstName,

@@ -8680,6 +8680,534 @@ describe("FamilyScreen", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("shows a player-conflict hero slide and after keep A surfaces the kept event own-ride gap", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const itemA = calendarItem({
+      id: "e-conflict-a",
+      source: "MANUAL",
+      title: "Practice A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-conflict-b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "e-conflict-b",
+      source: "MANUAL",
+      title: "Practice B",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      endsAt: "2030-08-15T18:30:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-conflict-a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const setCalendarRsvp = vi.fn(
+      async (
+        _token: string,
+        source: CalendarItem["source"],
+        id: string,
+        kidId: string,
+        body: { status: "YES" | "NO" | "NO_RESPONSE" },
+      ) => {
+        const base = id === "e-conflict-a" ? itemA : itemB
+        return {
+          ...base,
+          source,
+          id,
+          rsvps: [{ kidId, status: body.status }],
+          uncoveredKidIds: body.status === "NO" ? [] : base.uncoveredKidIds,
+        }
+      },
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([itemA, itemB]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const conflictSlide = heroSlideIn(agenda, "Sam is on two overlapping events")
+    expect(conflictSlide).toHaveAttribute("data-slide-kind", "playerConflict")
+    expect(within(conflictSlide).getByTestId("hero-attention-conflict-peer-a")).toHaveTextContent(
+      "Practice A",
+    )
+    expect(within(conflictSlide).getByTestId("hero-attention-conflict-peer-b")).toHaveTextContent(
+      "Practice B",
+    )
+
+    await user.click(within(conflictSlide).getByRole("button", { name: "Keep Practice A" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-conflict-b", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(
+        within(agenda).queryByText("Sam is on two overlapping events"),
+      ).not.toBeInTheDocument()
+    })
+    const gapSlide = heroSlideIn(agenda, "Sam needs a ride")
+    expect(gapSlide).toHaveAttribute("data-slide-kind", "ownRide")
+    expect(within(gapSlide).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e-conflict-a")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-item-MANUAL-e-conflict-b")).toBeInTheDocument()
+  })
+
+  it("marks neither from a player-conflict slide and clears the conflict from the hero queue", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const itemA = calendarItem({
+      id: "e-neither-a",
+      source: "MANUAL",
+      title: "Game A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-neither-b",
+          otherTitle: "Game B",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "e-neither-b",
+      source: "MANUAL",
+      title: "Game B",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      endsAt: "2030-08-15T18:30:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-neither-a",
+          otherTitle: "Game A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const setCalendarRsvp = vi.fn(
+      async (
+        _token: string,
+        source: CalendarItem["source"],
+        id: string,
+        kidId: string,
+        body: { status: "YES" | "NO" | "NO_RESPONSE" },
+      ) => {
+        const base = id === "e-neither-a" ? itemA : itemB
+        return {
+          ...base,
+          source,
+          id,
+          rsvps: [{ kidId, status: body.status }],
+          uncoveredKidIds: body.status === "NO" ? [] : base.uncoveredKidIds,
+        }
+      },
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([itemA, itemB]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Sam is on two overlapping events")
+    await user.click(within(slide).getByRole("button", { name: "Mark Sam as not going" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-neither-a", "k1", {
+        status: "NO",
+      })
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-neither-b", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    })
+    expect(within(agenda).queryByText("Sam needs a ride")).not.toBeInTheDocument()
+  })
+
+  it("writes keep B RSVPs on both peers and omits Undo on the conflict slide", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const itemA = calendarItem({
+      id: "e-keepb-a",
+      source: "MANUAL",
+      title: "Morning skate",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-keepb-b",
+          otherTitle: "Afternoon game",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "e-keepb-b",
+      source: "MANUAL",
+      title: "Afternoon game",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      endsAt: "2030-08-15T18:30:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-keepb-a",
+          otherTitle: "Morning skate",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const setCalendarRsvp = vi.fn(
+      async (
+        _token: string,
+        source: CalendarItem["source"],
+        id: string,
+        kidId: string,
+        body: { status: "YES" | "NO" | "NO_RESPONSE" },
+      ) => {
+        const base = id === "e-keepb-a" ? itemA : itemB
+        return {
+          ...base,
+          source,
+          id,
+          rsvps: [{ kidId, status: body.status }],
+          uncoveredKidIds: body.status === "NO" ? [] : base.uncoveredKidIds,
+          conflicts: base.conflicts,
+        }
+      },
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([itemA, itemB]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Sam is on two overlapping events")
+    expect(within(slide).queryByRole("button", { name: /undo/i })).not.toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Keep Afternoon game" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-keepb-a", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(
+        within(agenda).queryByText("Sam is on two overlapping events"),
+      ).not.toBeInTheDocument()
+    })
+    expect(heroSlideIn(agenda, "Sam needs a ride")).toHaveAttribute("data-slide-kind", "ownRide")
+  })
+
+  it("applies multi-kid default keep to every unresolved kid on both peers", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const itemA = calendarItem({
+      id: "e-twins-a",
+      source: "MANUAL",
+      title: "Twins A",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      endsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: [],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-twins-b",
+          otherTitle: "Twins B",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k2",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-twins-b",
+          otherTitle: "Twins B",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const itemB = calendarItem({
+      id: "e-twins-b",
+      source: "MANUAL",
+      title: "Twins B",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      endsAt: "2030-08-15T18:30:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: [],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+      conflicts: [
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-twins-a",
+          otherTitle: "Twins A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+        {
+          type: "KID_TIME_OVERLAP",
+          kidId: "k2",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "e-twins-a",
+          otherTitle: "Twins A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const itemsById: Record<string, CalendarItem> = {
+      "e-twins-a": itemA,
+      "e-twins-b": itemB,
+    }
+    const setCalendarRsvp = vi.fn(
+      async (
+        _token: string,
+        source: CalendarItem["source"],
+        id: string,
+        kidId: string,
+        body: { status: "YES" | "NO" | "NO_RESPONSE" },
+      ) => {
+        const current = itemsById[id]!
+        const updated: CalendarItem = {
+          ...current,
+          source,
+          id,
+          rsvps: current.rsvps.map((row) =>
+            row.kidId === kidId ? { ...row, status: body.status } : row,
+          ),
+          conflicts: current.conflicts,
+        }
+        itemsById[id] = updated
+        return updated
+      },
+    )
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Graham" },
+                { id: "k2", displayName: "Luke" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([itemA, itemB]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Graham and Luke are on two overlapping events")
+    await user.click(within(slide).getByRole("button", { name: "Keep Twins A" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-twins-b", "k1", {
+        status: "NO",
+      })
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-twins-b", "k2", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    })
+  })
+
   it("does not write when hero confirm not-going coverage-release is cancelled", async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
