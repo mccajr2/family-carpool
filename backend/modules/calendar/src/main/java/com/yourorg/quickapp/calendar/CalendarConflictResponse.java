@@ -6,6 +6,7 @@ import java.util.UUID;
 public record CalendarConflictResponse(
         CalendarConflictType type,
         UUID kidId,
+        UUID otherKidId,
         UUID adultId,
         String adultDisplayName,
         CalendarItemSource otherSource,

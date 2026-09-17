@@ -37,6 +37,7 @@ import {
   ridingWithCircleLabel,
   waitingOnDriverLabel,
 } from "@/components/coverageCopy"
+import { isFamilyOnlyConflicts } from "@/components/conflictDisplay"
 import {
   rideCommitmentConflict,
   rideCommitmentConflictChipLabel,
@@ -49,7 +50,7 @@ import {
   resolveOwnRidePlans,
 } from "@/components/transportPlan"
 
-export type RideStatusChipTone = "mint" | "amber" | "route" | "muted"
+export type RideStatusChipTone = "mint" | "amber" | "route" | "muted" | "family"
 
 export type RideStatusChipDescriptor = {
   label: string
@@ -424,7 +425,10 @@ export function rideStatusChipsForItem(
   const chips: RideStatusChipDescriptor[] = []
 
   if (item.conflicts.length > 0) {
-    chips.push({ label: OVERLAPS_CHIP, tone: "amber" })
+    chips.push({
+      label: OVERLAPS_CHIP,
+      tone: isFamilyOnlyConflicts(item.conflicts) ? "family" : "amber",
+    })
   }
 
   const circleId = options?.circleId

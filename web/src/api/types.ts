@@ -230,11 +230,16 @@ export type CalendarCoverageAssignment = {
   leaveByReason: string | null
 }
 
-export type CalendarConflictType = "KID_TIME_OVERLAP" | "ADULT_COVERAGE_OVERLAP"
+export type CalendarConflictType =
+  | "KID_TIME_OVERLAP"
+  | "ADULT_COVERAGE_OVERLAP"
+  | "FAMILY_TIME_OVERLAP"
 
 export type CalendarConflict = {
   type: CalendarConflictType
   kidId: string | null
+  /** Peer in-play kid when type is FAMILY_TIME_OVERLAP; null otherwise. */
+  otherKidId: string | null
   adultId: string | null
   adultDisplayName: string | null
   otherSource: CalendarItemSource

@@ -6743,6 +6743,7 @@ describe("FamilyScreen", () => {
                 {
                   type: "KID_TIME_OVERLAP",
                   kidId: "k1",
+                  otherKidId: null,
                   adultId: null,
                   adultDisplayName: null,
                   otherSource: "MANUAL",
@@ -8702,6 +8703,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -8724,6 +8726,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -8833,6 +8836,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -8855,6 +8859,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -8953,6 +8958,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -8975,6 +8981,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -9077,6 +9084,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -9087,6 +9095,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k2",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -9112,6 +9121,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -9122,6 +9132,7 @@ describe("FamilyScreen", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k2",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",

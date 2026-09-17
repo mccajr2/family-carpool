@@ -65,6 +65,7 @@ function kidConflict(partial: Partial<CalendarConflict> = {}): CalendarConflict 
   return {
     type: "KID_TIME_OVERLAP",
     kidId: "k1",
+    otherKidId: null,
     adultId: null,
     adultDisplayName: null,
     otherSource: "MANUAL",
@@ -277,6 +278,43 @@ describe("rideStatusChipsForItem", () => {
       { label: OVERLAPS_CHIP, tone: "amber" },
       { label: RIDE_NEEDED, tone: "amber" },
     ])
+  })
+
+  it("uses family tone for Overlaps when conflicts are family-only", () => {
+    const item = calendarItem({
+      conflicts: [
+        kidConflict({
+          type: "FAMILY_TIME_OVERLAP",
+          otherKidId: "k2",
+          otherTitle: "Dance",
+        }),
+      ],
+    })
+    const games = [game({ id: "g", order: 100, ownRide: "unassigned" })]
+
+    expect(rideStatusChipsForItem(item, games, null)).toEqual([
+      { label: OVERLAPS_CHIP, tone: "family" },
+      { label: RIDE_NEEDED, tone: "amber" },
+    ])
+  })
+
+  it("keeps amber Overlaps when family and kid conflicts mix", () => {
+    const item = calendarItem({
+      conflicts: [
+        kidConflict({
+          type: "FAMILY_TIME_OVERLAP",
+          otherKidId: "k2",
+          otherTitle: "Dance",
+        }),
+        kidConflict(),
+      ],
+    })
+    const games = [game({ id: "g", order: 100, ownRide: "unassigned" })]
+
+    expect(rideStatusChipsForItem(item, games, null)[0]).toEqual({
+      label: OVERLAPS_CHIP,
+      tone: "amber",
+    })
   })
 
   it("shows Ride needed when one kid is uncovered and another is confirmed driver", () => {

@@ -262,6 +262,7 @@ describe("coverageDisplay", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -283,6 +284,28 @@ describe("coverageDisplay", () => {
       OVERLAPS_CHIP,
       "Riding with House B",
       NEEDS_COVERAGE,
+    ])
+    expect(tags[0]).toEqual({ label: OVERLAPS_CHIP, tone: "amber" })
+  })
+
+  it("uses family tone for Overlaps when conflicts are family-only", () => {
+    const familyOnly = calendarItem({
+      conflicts: [
+        {
+          type: "FAMILY_TIME_OVERLAP",
+          kidId: "k1",
+          otherKidId: "k2",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "other",
+          otherTitle: "Dance",
+          otherStartsAt: "2030-08-15T18:00:00Z",
+        },
+      ],
+    })
+    expect(agendaItemStatusTags(familyOnly, "a1")).toEqual([
+      { label: OVERLAPS_CHIP, tone: "family" },
     ])
   })
 

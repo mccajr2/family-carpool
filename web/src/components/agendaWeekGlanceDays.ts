@@ -14,6 +14,10 @@ import {
   WEEK_GLANCE_TO_CONFIRM,
   weekGlanceCountCopy,
 } from "@/components/coverageCopy"
+import {
+  hasAttentionConflicts,
+  isFamilyOnlyConflicts,
+} from "@/components/conflictDisplay"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
@@ -65,11 +69,13 @@ function statusForDay(
     }
   }
 
-  const overlapping = inPlay.filter((item) => item.conflicts.length > 0)
-  if (overlapping.length > 0) {
+  const attentionOverlaps = inPlay.filter((item) =>
+    hasAttentionConflicts(item.conflicts),
+  )
+  if (attentionOverlaps.length > 0) {
     return {
       copy: countCopy(
-        overlapping.length,
+        attentionOverlaps.length,
         WEEK_GLANCE_OVERLAPS_SINGULAR,
         WEEK_GLANCE_OVERLAPS_PLURAL,
       ),
@@ -84,6 +90,18 @@ function statusForDay(
     return {
       copy: countCopy(toConfirm.length, WEEK_GLANCE_TO_CONFIRM, WEEK_GLANCE_TO_CONFIRM),
       flagged: true,
+    }
+  }
+
+  const familyOverlaps = inPlay.filter((item) => isFamilyOnlyConflicts(item.conflicts))
+  if (familyOverlaps.length > 0) {
+    return {
+      copy: countCopy(
+        familyOverlaps.length,
+        WEEK_GLANCE_OVERLAPS_SINGULAR,
+        WEEK_GLANCE_OVERLAPS_PLURAL,
+      ),
+      flagged: false,
     }
   }
 

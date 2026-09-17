@@ -1522,6 +1522,7 @@ paths:
                   conflicts:
                     - type: KID_TIME_OVERLAP
                       kidId: 01900000-0000-7000-8000-000000000021
+                      otherKidId: null
                       adultId: null
                       adultDisplayName: null
                       otherSource: MANUAL
@@ -4955,13 +4956,16 @@ components:
       description: >
         Server-computed schedule conflict on a calendar item. KID_TIME_OVERLAP:
         the same kid appears on two overlapping events (amber only; creation is
-        allowed). ADULT_COVERAGE_OVERLAP: the same adult has active
+        allowed). FAMILY_TIME_OVERLAP: two overlapping events have non-empty,
+        disjoint in-play kid sets (RSVP ≠ NO) — report-only quieter chrome; not
+        a Hero queue item. ADULT_COVERAGE_OVERLAP: the same adult has active
         (PENDING/CONFIRMED) coverage on two overlapping events with at least one
         PENDING (or anomalous CONFIRMED+CONFIRMED). Overlap uses event
         startsAt/endsAt only (null endsAt → zero-length at startsAt).
       enum:
         - KID_TIME_OVERLAP
         - ADULT_COVERAGE_OVERLAP
+        - FAMILY_TIME_OVERLAP
 
     CalendarConflict:
       type: object
@@ -4978,7 +4982,16 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Present when type is KID_TIME_OVERLAP; null otherwise
+          description: >
+            Present when type is KID_TIME_OVERLAP or FAMILY_TIME_OVERLAP (local
+            in-play kid); null otherwise
+        otherKidId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Present when type is FAMILY_TIME_OVERLAP (peer item in-play kid);
+            null for KID_TIME_OVERLAP and ADULT_COVERAGE_OVERLAP
         adultId:
           type: string
           format: uuid

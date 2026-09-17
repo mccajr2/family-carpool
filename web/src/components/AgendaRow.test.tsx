@@ -2119,6 +2119,7 @@ describe("AgendaRow", () => {
               {
                 type: "KID_TIME_OVERLAP",
                 kidId: "k1",
+                otherKidId: null,
                 adultId: null,
                 adultDisplayName: null,
                 otherSource: "MANUAL",
@@ -2147,6 +2148,57 @@ describe("AgendaRow", () => {
     expect(strip.className).toMatch(/max-\[390px\]:w-full/)
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText("Overlaps")).toBeInTheDocument()
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText(RIDE_NEEDED)).toBeInTheDocument()
+  })
+
+  it("renders quieter family conflict lines with conflictFamily tokens", async () => {
+    const user = userEvent.setup()
+    const familyCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Alex" },
+      ],
+    }
+    render(
+      <AgendaRow
+        item={item({
+          id: "family-conflict",
+          title: "Soccer",
+          conflicts: [
+            {
+              type: "FAMILY_TIME_OVERLAP",
+              kidId: "k1",
+              otherKidId: "k2",
+              adultId: null,
+              adultDisplayName: null,
+              otherSource: "MANUAL",
+              otherItemId: "dance",
+              otherTitle: "Dance",
+              otherStartsAt: "2030-08-15T17:30:00.000Z",
+            },
+          ],
+        })}
+        circle={familyCircle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1"],
+          soleAdult: true,
+          soleKid: true,
+        }}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-family-conflict")
+    const overlaps = within(row).getByText("Overlaps")
+    expect(overlaps.className).toMatch(/--fc-conflict-family/)
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    const line = within(row).getByText("Sam overlaps Alex's Dance")
+    expect(line.className).toMatch(/--fc-conflict-family/)
+    expect(line.className).not.toMatch(/--fc-danger/)
   })
 
   it("shows compact rider chips on teammate rides and not on ride-needed rows", () => {
@@ -2438,6 +2490,7 @@ describe("AgendaRow", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",

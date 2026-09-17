@@ -15,6 +15,7 @@ import {
   OVERLAPS_CHIP,
 } from "@/components/coverageCopy"
 import { isRideCommitmentConflictChipLabel } from "@/components/rideCommitmentConflict"
+import { isFamilyOnlyConflicts } from "@/components/conflictDisplay"
 
 /** Mirrors mobile/iosApp CoverageDisplay.swift + sharedUI CoverageDisplay.kt. */
 
@@ -96,7 +97,7 @@ export function activeCoverageForAdult(
 
 export type AgendaItemStatusTag = {
   label: string
-  tone: "mint" | "amber" | "muted"
+  tone: "mint" | "amber" | "muted" | "family"
 }
 
 /**
@@ -158,7 +159,10 @@ export function agendaItemStatusTags(
   const gapKids = remainingCoverageGapKidIds(item.uncoveredKidIds, ownRequest)
 
   if (item.conflicts.length > 0) {
-    tags.push({ label: OVERLAPS_CHIP, tone: "amber" })
+    tags.push({
+      label: OVERLAPS_CHIP,
+      tone: isFamilyOnlyConflicts(item.conflicts) ? "family" : "amber",
+    })
   }
   if (gapKids.length > 0) {
     tags.push({ label: NEEDS_COVERAGE, tone: "amber" })

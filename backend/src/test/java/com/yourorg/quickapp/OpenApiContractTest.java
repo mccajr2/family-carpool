@@ -140,6 +140,8 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CalendarConflictType:");
         assertThat(yaml).contains("KID_TIME_OVERLAP");
         assertThat(yaml).contains("ADULT_COVERAGE_OVERLAP");
+        assertThat(yaml).contains("FAMILY_TIME_OVERLAP");
+        assertThat(yaml).contains("otherKidId:");
         assertThat(yaml).contains("LeaveByStatus:");
         assertThat(yaml).contains("CalendarLeaveBy:");
         assertThat(yaml).contains("CalendarCoverageLeaveBy:");

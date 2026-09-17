@@ -665,6 +665,7 @@ describe("getQueue", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -683,6 +684,7 @@ describe("getQueue", () => {
         {
           type: "KID_TIME_OVERLAP",
           kidId: "k1",
+          otherKidId: null,
           adultId: null,
           adultDisplayName: null,
           otherSource: "MANUAL",
@@ -711,6 +713,89 @@ describe("getQueue", () => {
       peerGame: { id: "MANUAL-e2:k1" },
       kidIds: ["k1"],
     })
+  })
+
+  it("does not map FAMILY_TIME_OVERLAP into Hero playerConflict slides", () => {
+    const soccer = calendarItem({
+      id: "soccer",
+      title: "Soccer",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        },
+      ],
+      conflicts: [
+        {
+          type: "FAMILY_TIME_OVERLAP",
+          kidId: "k1",
+          otherKidId: "k2",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "dance",
+          otherTitle: "Dance",
+          otherStartsAt: "2030-08-15T17:30:00.000Z",
+        },
+      ],
+    })
+    const dance = calendarItem({
+      id: "dance",
+      title: "Dance",
+      startsAt: "2030-08-15T17:30:00.000Z",
+      kidIds: ["k2"],
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a1",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        },
+      ],
+      conflicts: [
+        {
+          type: "FAMILY_TIME_OVERLAP",
+          kidId: "k2",
+          otherKidId: "k1",
+          adultId: null,
+          adultDisplayName: null,
+          otherSource: "MANUAL",
+          otherItemId: "soccer",
+          otherTitle: "Soccer",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+        },
+      ],
+    })
+
+    const rows = mapCalendarItemsToCoverageGames(
+      [soccer, dance],
+      () => null,
+      mapOptions,
+    )
+    expect(rows.every((row) => row.kidTimeOverlapPeerKeys == null)).toBe(true)
+
+    const queue = getQueue(rows)
+    expect(queue.some((item) => item.kind === "playerConflict")).toBe(false)
   })
 })
 

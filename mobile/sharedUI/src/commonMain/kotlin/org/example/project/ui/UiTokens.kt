@@ -15,6 +15,8 @@ object UiTokens {
         val border: String,
         val textPrimary: String,
         val textSecondary: String,
+        val conflictFamily: String,
+        val conflictFamilySurface: String,
         val heroSurface: String,
         val heroOn: String,
         val heroOnInverse: String,
@@ -56,6 +58,8 @@ object UiTokens {
             border = "#E7E5DF",
             textPrimary = "#16181A",
             textSecondary = "#686F79",
+            conflictFamily = "#686F79",
+            conflictFamilySurface = "#F6F5F2",
             heroSurface = "#16181A",
             heroOn = "#FFFFFF",
             heroOnInverse = "#16181A",
@@ -95,6 +99,8 @@ object UiTokens {
             border = "#2C3033",
             textPrimary = "#EDEEF0",
             textSecondary = "#9AA0A8",
+            conflictFamily = "#9AA0A8",
+            conflictFamilySurface = "#15171A",
             heroSurface = "#242832",
             heroOn = "#FFFFFF",
             heroOnInverse = "#16181A",
@@ -263,6 +269,7 @@ object UiTokens {
         val weekDay = TypeScale(size = 12f, lineHeight = 16f, weight = "700")
         val weekCount = TypeScale(size = 13f, lineHeight = 18f, weight = "600")
         val weekCountCalm = TypeScale(size = 13f, lineHeight = 18f, weight = "500")
+        val conflictFamily = TypeScale(size = 12f, lineHeight = 16f, weight = "400")
         val rideDetailTitle = TypeScale(size = 24f, lineHeight = 32f, weight = "700")
         val rideDetailLeaveBy = TypeScale(size = 48f, lineHeight = 48f, weight = "700")
         val rideDetailQueuedMin = TypeScale(size = 36f, lineHeight = 36f, weight = "700")

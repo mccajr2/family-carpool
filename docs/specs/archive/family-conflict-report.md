@@ -1,6 +1,6 @@
 # Spec: family-conflict-report
 
-Status: draft  
+Status: done  
 Created: 2026-09-16  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `family-conflict-report`  
@@ -90,47 +90,47 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] Overlapping distinct items with **disjoint** non-empty in-play kid sets
+- [x] Overlapping distinct items with **disjoint** non-empty in-play kid sets
       produce `FAMILY_TIME_OVERLAP` on **both** items (peer refs + `kidId` +
       `otherKidId`), visible on `GET …/calendar` (and enrichment paths that
       already attach `conflicts`).
-- [ ] Same-kid overlap still emits only `KID_TIME_OVERLAP` for shared kids; that
+- [x] Same-kid overlap still emits only `KID_TIME_OVERLAP` for shared kids; that
       pair does **not** also get `FAMILY_TIME_OVERLAP`.
-- [ ] Two kids on the **same** calendar item (typical same-team practice) do
+- [x] Two kids on the **same** calendar item (typical same-team practice) do
       **not** produce a family conflict (item never pairs with itself).
-- [ ] RSVP `NO` kids are excluded from family detection (same in-play rule as
+- [x] RSVP `NO` kids are excluded from family detection (same in-play rule as
       kid overlaps).
-- [ ] OpenAPI enum includes `FAMILY_TIME_OVERLAP`; `CalendarConflict` documents
+- [x] OpenAPI enum includes `FAMILY_TIME_OVERLAP`; `CalendarConflict` documents
       `otherKidId` (required/present for family; null for existing types). Web
       hand-written types updated in the same change.
-- [ ] Agenda shows quieter, distinct family-conflict status lines (who + peer
+- [x] Agenda shows quieter, distinct family-conflict status lines (who + peer
       event) — not the same amber weight as kid/adult conflicts. New token roles
       landed in `design-tokens/tokens.json`.
-- [ ] Collapsed/status chip (and week-glance if applicable): family-only →
+- [x] Collapsed/status chip (and week-glance if applicable): family-only →
       quieter tone; mixed with kid/adult → amber still wins.
-- [ ] No Hero / `getQueue` item for `FAMILY_TIME_OVERLAP`.
-- [ ] Adult CONFIRMED double-book **409** and `ADULT_COVERAGE_OVERLAP` behavior
+- [x] No Hero / `getQueue` item for `FAMILY_TIME_OVERLAP`.
+- [x] Adult CONFIRMED double-book **409** and `ADULT_COVERAGE_OVERLAP` behavior
       unchanged.
-- [ ] Backend unit tests cover detect cases above; web tests cover copy +
+- [x] Backend unit tests cover detect cases above; web tests cover copy +
       quieter chrome / chip precedence + Hero non-emission.
 
 ## Tasks
 
-- [ ] Backend: extend `CalendarConflictDetector` (+ response/type) for
+- [x] Backend: extend `CalendarConflictDetector` (+ response/type) for
       `FAMILY_TIME_OVERLAP` with `otherKidId`; wire through calendar enrichment
-- [ ] Contract: OpenAPI `CalendarConflictType` + `CalendarConflict.otherKidId`;
+- [x] Contract: OpenAPI `CalendarConflictType` + `CalendarConflict.otherKidId`;
       description updates; `OpenApiContractTest` assert
-- [ ] Web API: hand-written `CalendarConflictType` / `CalendarConflict` in
+- [x] Web API: hand-written `CalendarConflictType` / `CalendarConflict` in
       `web/src/api/types.ts`
-- [ ] Web: `conflictDisplay` copy + Agenda conflict line styling via new tokens;
+- [x] Web: `conflictDisplay` copy + Agenda conflict line styling via new tokens;
       chip / week-glance precedence for family-only vs mixed
-- [ ] Web: confirm `coverageQueue` / Hero ignore family conflicts (test)
-- [ ] Docs: update architecture **Conflict detection (detail)** table +
+- [x] Web: confirm `coverageQueue` / Hero ignore family conflicts (test)
+- [x] Docs: update architecture **Conflict detection (detail)** table +
       agenda-coverage-web-contract **Conflict chrome** for family type / quieter
       chrome
-- [ ] Tokens: add quieter `conflictFamily*` (or equivalent) roles; regenerate /
+- [x] Tokens: add quieter `conflictFamily*` (or equivalent) roles; regenerate /
       consume on web
-- [ ] Tests: detector unit + web display/chip/queue as listed in AC
+- [x] Tests: detector unit + web display/chip/queue as listed in AC
 
 ## Open questions
 
