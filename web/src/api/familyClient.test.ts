@@ -536,6 +536,27 @@ describe("FamilyClient", () => {
           headers: { "Content-Type": "application/json" },
         }),
       )
+      .mockResolvedValueOnce(
+        json({
+          ...route,
+          leg: "FROM",
+          stops: [
+            {
+              name: "Allied Veterans Rink",
+              address: "65 Elm St, Everett, MA",
+              kind: "destination",
+            },
+            {
+              name: "Kwame (the Oseis)",
+              address: "Somerville, MA",
+              kind: "dropoff",
+              contact: { channel: "push", to: "the Oseis" },
+            },
+            { name: "Home", address: "390 Huron Ave, Cambridge, MA", kind: "home" },
+          ],
+          legMinutes: [15, 12],
+        }),
+      )
     const client = new FamilyClient("http://localhost:8080", fetchFn)
 
     await expect(client.getCalendarRoute("tok", "FEED", "e1")).resolves.toMatchObject({
@@ -553,12 +574,23 @@ describe("FamilyClient", () => {
     )
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(
-      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route",
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route?leg=TO",
     )
     expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({
       headers: { Authorization: "Bearer tok" },
     })
     expect((fetchFn.mock.calls[0]?.[1] as RequestInit).method).toBeUndefined()
+
+    await expect(client.getCalendarRoute("tok", "FEED", "e1", "FROM")).resolves.toMatchObject({
+      status: "OK",
+      leg: "FROM",
+      stops: expect.arrayContaining([
+        expect.objectContaining({ kind: "dropoff" }),
+      ]),
+    })
+    expect(fetchFn.mock.calls[3]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route?leg=FROM",
+    )
   })
 
   it("reorderCalendarRoute PUTs middleStopIds and returns CalendarRoute", async () => {
@@ -607,7 +639,7 @@ describe("FamilyClient", () => {
     ).rejects.toThrow(/Only the driving adult may reorder/)
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe(
-      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route",
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route?leg=TO",
     )
     expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({
       method: "PUT",

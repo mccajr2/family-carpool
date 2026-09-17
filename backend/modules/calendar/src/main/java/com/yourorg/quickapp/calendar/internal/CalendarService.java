@@ -11,6 +11,7 @@ import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
 import com.yourorg.quickapp.calendar.CalendarPlaylistOpenResponse;
 import com.yourorg.quickapp.calendar.CalendarPlaylistResponse;
+import com.yourorg.quickapp.calendar.CalendarRouteMemberItemResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteNotifyContactResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteStopResponse;
@@ -1999,12 +2000,30 @@ public class CalendarService {
                                                                 stop.contact().channel(),
                                                                 stop.contact().to())))
                         .toList();
+        List<CalendarRouteMemberItemResponse> members =
+                route.memberItemIds() == null
+                        ? List.of()
+                        : route.memberItemIds().stream()
+                                .map(
+                                        m ->
+                                                new CalendarRouteMemberItemResponse(
+                                                        toCalendarSource(m.source()), m.itemId()))
+                                .toList();
         return new CalendarRouteResponse(
                 route.status(),
                 route.reason(),
                 route.bufferMinutes(),
                 stops,
-                route.legMinutes());
+                route.legMinutes(),
+                route.leg(),
+                members);
+    }
+
+    private static CalendarItemSource toCalendarSource(LeaveByItemSource source) {
+        return switch (source) {
+            case MANUAL -> CalendarItemSource.MANUAL;
+            case FEED -> CalendarItemSource.FEED;
+        };
     }
 
     private record ItemSnapshot(String title, String location, List<UUID> kidIds) {}

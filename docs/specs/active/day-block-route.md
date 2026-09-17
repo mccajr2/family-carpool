@@ -181,7 +181,7 @@ north-star for public block ids.
 - [x] Backend: resolve combined block for `(adult, leg, item)`; assemble TO /
       FROM waypoint lists (merge co-located); persist under member-set key;
       wire optimize + reorder scoped by `leg`; extend stop kind `dropoff`
-- [ ] Contract: OpenAPI `leg` on get/reorder; `CalendarRouteStopKind.dropoff`;
+- [x] Contract: OpenAPI `leg` on get/reorder; `CalendarRouteStopKind.dropoff`;
       document block assembly + member-set key; optional `leg` /
       `memberItemIds` on `CalendarRoute`; update architecture Leave-by rows
       that still say “single-event TO only”
