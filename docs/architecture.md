@@ -615,7 +615,7 @@ Path-filtered GitHub Actions run on pull requests and pushes to `main`:
 | Workflow | Paths | Job |
 |----------|-------|-----|
 | `.github/workflows/backend.yml` | `backend/**`, `build-logic/**`, `gradle/**`, root Gradle files, the workflow itself | `:backend:test` (JDK 25) on `ubuntu-latest` |
-| `.github/workflows/mobile.yml` | `mobile/**`, the workflow itself | `:sharedLogic:testAndroidHostTest` + `:androidApp:assembleDebug` (JDK 21 + Android SDK) on `ubuntu-latest` |
+| `.github/workflows/mobile.yml` | `mobile/**`, the workflow itself | **No-op while KMP is frozen** (token sync still triggers the check); revive JDK 21 + Android SDK + `:sharedLogic:testAndroidHostTest` / `:androidApp:assembleDebug` with Expo/`kmp-mobile-retire` |
 | `.github/workflows/web.yml` | `web/**`, the workflow itself | Corepack-pinned npm + `npm ci` + lint + test + build (Node from `web/.nvmrc`) on `ubuntu-latest` |
 
 Docs-only or unrelated-path changes do not start the irrelevant workflow.
@@ -624,7 +624,7 @@ Docs-only or unrelated-path changes do not start the irrelevant workflow.
 
 Branch protection on `main` is in effect (classic rules: require a pull request,
 no force pushes, no deletions). Optionally require status checks `backend` /
-`mobile` / `web` once those jobs have run at least once.
+`web` (and `mobile` only after Expo/KMP CI is revived) once those jobs have run at least once.
 
 Land all work via feature branches and PRs. CI runs on the PR and again on push
 to `main` after merge. See **SDD workflow** above for the branch-per-spec rule.
