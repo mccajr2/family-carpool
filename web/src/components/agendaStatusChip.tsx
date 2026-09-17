@@ -1,4 +1,4 @@
-export type AgendaStatusChipTone = "mint" | "amber" | "route" | "muted"
+export type AgendaStatusChipTone = "mint" | "amber" | "route" | "muted" | "family"
 
 export type AgendaStatusChipVariant = "default" | "hero"
 
@@ -36,6 +36,9 @@ export function agendaStatusChipToneClass(
   if (tone === "route") {
     return "text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_14%,transparent)]"
   }
+  if (tone === "family") {
+    return "text-[var(--fc-conflict-family)] bg-[var(--fc-conflict-family-surface)]"
+  }
   return "text-[var(--fc-text-secondary)] bg-[var(--fc-surface)]"
 }
 
@@ -63,6 +66,9 @@ function agendaStatusChipBorderClass(
   }
   if (tone === "route") {
     return "border-[color-mix(in_srgb,var(--fc-accent)_35%,transparent)]"
+  }
+  if (tone === "family") {
+    return "border-[color-mix(in_srgb,var(--fc-conflict-family)_35%,transparent)]"
   }
   return "border-[var(--fc-border)]"
 }

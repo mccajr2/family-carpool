@@ -211,6 +211,115 @@ class ConflictCalendarIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
+    @Test
+    void familyTimeOverlapAppearsOnBothCalendarItems() throws Exception {
+        String organizerToken = signIn("family-conflict-org@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult kidAResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Sam\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidAId = JsonPath.read(kidAResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult kidBResult =
+                mockMvc.perform(
+                                post("/api/family/circle/kids")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"displayName\":\"Alex\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String kidBId = JsonPath.read(kidBResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult soccer =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Soccer\",\"startsAt\":\"2026-08-15T17:00:00Z\",\"endsAt\":\"2026-08-15T18:00:00Z\",\"kidIds\":[\""
+                                                        + kidAId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String soccerId = JsonPath.read(soccer.getResponse().getContentAsString(), "$.id");
+
+        MvcResult dance =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Dance\",\"startsAt\":\"2026-08-15T17:30:00Z\",\"endsAt\":\"2026-08-15T18:30:00Z\",\"kidIds\":[\""
+                                                        + kidBId
+                                                        + "\"]}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String danceId = JsonPath.read(dance.getResponse().getContentAsString(), "$.id");
+
+        MvcResult calendar =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                        .param("from", "2026-08-01T00:00:00Z")
+                                        .param("to", "2026-09-01T00:00:00Z"))
+                        .andExpect(status().isOk())
+                        .andExpect(
+                                jsonPath(
+                                                "$[?(@.id=='"
+                                                        + soccerId
+                                                        + "')].conflicts[?(@.type=='FAMILY_TIME_OVERLAP')]")
+                                        .isNotEmpty())
+                        .andExpect(
+                                jsonPath(
+                                                "$[?(@.id=='"
+                                                        + danceId
+                                                        + "')].conflicts[?(@.type=='FAMILY_TIME_OVERLAP')]")
+                                        .isNotEmpty())
+                        .andReturn();
+        String body = calendar.getResponse().getContentAsString();
+        @SuppressWarnings("unchecked")
+        java.util.List<String> soccerKidIds =
+                JsonPath.read(
+                        body,
+                        "$[?(@.id=='"
+                                + soccerId
+                                + "')].conflicts[?(@.type=='FAMILY_TIME_OVERLAP')].kidId");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> soccerOtherKidIds =
+                JsonPath.read(
+                        body,
+                        "$[?(@.id=='"
+                                + soccerId
+                                + "')].conflicts[?(@.type=='FAMILY_TIME_OVERLAP')].otherKidId");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> danceOtherKidIds =
+                JsonPath.read(
+                        body,
+                        "$[?(@.id=='"
+                                + danceId
+                                + "')].conflicts[?(@.type=='FAMILY_TIME_OVERLAP')].otherKidId");
+        @SuppressWarnings("unchecked")
+        java.util.List<Object> kidOverlaps =
+                JsonPath.read(body, "$[*].conflicts[?(@.type=='KID_TIME_OVERLAP')]");
+
+        org.assertj.core.api.Assertions.assertThat(soccerKidIds).containsExactly(kidAId);
+        org.assertj.core.api.Assertions.assertThat(soccerOtherKidIds).containsExactly(kidBId);
+        org.assertj.core.api.Assertions.assertThat(danceOtherKidIds).containsExactly(kidAId);
+        org.assertj.core.api.Assertions.assertThat(kidOverlaps).isEmpty();
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

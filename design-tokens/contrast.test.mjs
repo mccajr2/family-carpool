@@ -78,6 +78,9 @@ function morePairings(scheme) {
     { name: "textSecondary on surfaceRaised", fg: c.textSecondary, bg: c.surfaceRaised, min: 4.5 },
     { name: "danger on surface", fg: c.danger, bg: c.surface, min: 4.5 },
     { name: "danger on surfaceRaised", fg: c.danger, bg: c.surfaceRaised, min: 4.5 },
+    { name: "conflictFamily on surface", fg: c.conflictFamily, bg: c.surface, min: 4.5 },
+    { name: "conflictFamily on surfaceRaised", fg: c.conflictFamily, bg: c.surfaceRaised, min: 4.5 },
+    { name: "conflictFamily on conflictFamilySurface", fg: c.conflictFamily, bg: c.conflictFamilySurface, min: 4.5 },
     // Large text / icons (≥3:1): accent icon on surface
     { name: "accent on surface (icon)", fg: c.accent, bg: c.surface, min: 3 },
     { name: "accent on surfaceRaised (icon)", fg: c.accent, bg: c.surfaceRaised, min: 3 },

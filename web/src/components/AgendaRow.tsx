@@ -539,8 +539,15 @@ export function AgendaRow({
               aria-label="Schedule conflicts"
             >
               {conflictLines.map((line) => (
-                <li key={line} className="text-xs font-medium text-[var(--fc-danger)]">
-                  {line}
+                <li
+                  key={`${line.tone}:${line.text}`}
+                  className={
+                    line.tone === "family"
+                      ? "text-[length:var(--fc-font-conflict-family-size)] leading-[var(--fc-font-conflict-family-line)] font-[number:var(--fc-font-conflict-family-weight)] text-[var(--fc-conflict-family)]"
+                      : "text-xs font-medium text-[var(--fc-danger)]"
+                  }
+                >
+                  {line.text}
                 </li>
               ))}
             </ul>

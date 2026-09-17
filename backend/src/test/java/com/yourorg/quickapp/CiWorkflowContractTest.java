@@ -44,13 +44,16 @@ class CiWorkflowContractTest {
         String web = Files.readString(resolveWorkflow("web.yml"));
 
         assertThat(backend).contains("actions/checkout@v7");
-        assertThat(mobile).contains("actions/checkout@v7");
         assertThat(web).contains("actions/checkout@v7");
         assertThat(web).contains("actions/setup-node@v7");
         assertThat(backend).doesNotContain("actions/checkout@v4");
-        assertThat(mobile).doesNotContain("actions/checkout@v4");
         assertThat(web).doesNotContain("actions/checkout@v4");
         assertThat(web).doesNotContain("actions/setup-node@v4");
+
+        // KMP mobile CI is frozen (no Android SDK / Gradle) until Expo returns.
+        assertThat(mobile).contains("KMP mobile CI frozen");
+        assertThat(mobile).doesNotContain("android-actions/setup-android");
+        assertThat(mobile).doesNotContain("actions/checkout@v4");
     }
 
     @Test

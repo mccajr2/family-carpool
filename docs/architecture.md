@@ -288,16 +288,18 @@ Config / CI: `LEAVEBY_OSRM_PROVIDER` (`http` \| `stub`), `LEAVEBY_OSRM_BASE_URL`
 
 ### Conflict detection (detail)
 
-Locked for [`conflict-detection`](specs/archive/conflict-detection.md):
+Locked for [`conflict-detection`](specs/archive/conflict-detection.md);
+family report via [`family-conflict-report`](specs/archive/family-conflict-report.md):
 
 | Topic | Decision |
 |--------|----------|
 | Overlap | Event `startsAt` / `endsAt` only (null `endsAt` → zero-length at start); half-open intervals; not leave-by / travel |
 | Kid | Same kid on two overlapping items → amber `KID_TIME_OVERLAP` on both; creation still allowed |
+| Family | Overlapping items with **disjoint** non-empty in-play kid sets (RSVP ≠ `NO`) → quieter `FAMILY_TIME_OVERLAP` on both (`kidId` + `otherKidId` per Cartesian pair); report-only — no create/confirm **409**, **not** on Hero `getQueue` |
 | Adult amber | Same adult active (`PENDING`\|`CONFIRMED`) on overlapping items with at least one PENDING → amber `ADULT_COVERAGE_OVERLAP` |
 | Adult hard | Two CONFIRMED on overlapping items never persisted → **409** on confirm / self-assign |
 | Truth | Server enriches `CalendarItem.conflicts`; clients render only — no client re-derivation of overlap rules |
-| UI | Amber status lines on the Agenda **item** (primary band); web contract is reference |
+| UI | Kid/adult: amber status lines on the Agenda **item** (primary band). Family: quieter `conflictFamily*` chrome. Web contract is reference |
 
 ## Interaction UX
 
@@ -613,7 +615,7 @@ Path-filtered GitHub Actions run on pull requests and pushes to `main`:
 | Workflow | Paths | Job |
 |----------|-------|-----|
 | `.github/workflows/backend.yml` | `backend/**`, `build-logic/**`, `gradle/**`, root Gradle files, the workflow itself | `:backend:test` (JDK 25) on `ubuntu-latest` |
-| `.github/workflows/mobile.yml` | `mobile/**`, the workflow itself | `:sharedLogic:testAndroidHostTest` + `:androidApp:assembleDebug` (JDK 21 + Android SDK) on `ubuntu-latest` |
+| `.github/workflows/mobile.yml` | `mobile/**`, the workflow itself | **No-op while KMP is frozen** (token sync still triggers the check); revive JDK 21 + Android SDK + `:sharedLogic:testAndroidHostTest` / `:androidApp:assembleDebug` with Expo/`kmp-mobile-retire` |
 | `.github/workflows/web.yml` | `web/**`, the workflow itself | Corepack-pinned npm + `npm ci` + lint + test + build (Node from `web/.nvmrc`) on `ubuntu-latest` |
 
 Docs-only or unrelated-path changes do not start the irrelevant workflow.
@@ -622,7 +624,7 @@ Docs-only or unrelated-path changes do not start the irrelevant workflow.
 
 Branch protection on `main` is in effect (classic rules: require a pull request,
 no force pushes, no deletions). Optionally require status checks `backend` /
-`mobile` / `web` once those jobs have run at least once.
+`web` (and `mobile` only after Expo/KMP CI is revived) once those jobs have run at least once.
 
 Land all work via feature branches and PRs. CI runs on the PR and again on push
 to `main` after merge. See **SDD workflow** above for the branch-per-spec rule.

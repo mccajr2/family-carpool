@@ -13,7 +13,9 @@ per-leg family-side places via
 Hero own-kid not-going escape via
 [`hero-not-going`](specs/archive/hero-not-going.md) — Done;
 player-conflict Hero slides via
-[`player-conflict-hero`](specs/archive/player-conflict-hero.md) — Done)  
+[`player-conflict-hero`](specs/archive/player-conflict-hero.md) — Done;
+family (disjoint-kid) quieter conflict report via
+[`family-conflict-report`](specs/archive/family-conflict-report.md))  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -279,7 +281,7 @@ kids sit between identity and leave-by, so “who” and “when to leave” blu
 
 | Band | Contents | Why |
 |------|----------|-----|
-| Primary | title, when, location, **conflict status lines** (when `conflicts` non-empty) | Event identity first; amber conflict copy attaches here as a status affordance — not a new control dump |
+| Primary | title, when, location, **conflict status lines** (when `conflicts` non-empty) | Event identity first; conflict copy attaches here as a status affordance — amber for kid/adult, quieter `conflictFamily*` for family-only lines — not a new control dump |
 | Travel / origin | leave-by, Leave from, Open Places (`NO_ORIGIN`) | Keep leave timing + origin together so adults answer “when do I leave / from where?” in one place; recovery stays with the gap |
 | People / source | source label, **per-kid attendance toggle** | Who is going / not going; attendance is separate from coverage |
 | Coverage / actions | coverage lines, needs-coverage, Confirm/Decline, Assign | Responsibility + situational CTAs; Edit/Remove moved to Manual actions |
@@ -289,18 +291,26 @@ kids sit between identity and leave-by, so “who” and “when to leave” blu
 
 - Render from `CalendarItem.conflicts` only — do **not** re-derive overlap
   rules on the client for truth.
-- Amber status lines under the primary band (`data-testid` /
-  `agenda-conflicts-{source}-{id}` on web). Provisional warning color is OK
-  until token adoption.
+- Status lines under the primary band (`data-testid` /
+  `agenda-conflicts-{source}-{id}` on web):
+  - `KID_TIME_OVERLAP` / `ADULT_COVERAGE_OVERLAP` → amber (`danger`) weight
+  - `FAMILY_TIME_OVERLAP` → quieter `conflictFamily*` tokens (not amber)
 - Copy helpers (web reference: `conflictDisplay.ts`):
   - Kid: `{kidName} overlaps {otherTitle}` or `Kid schedule overlaps {otherTitle}`
+  - Family: `{localName} overlaps {peerName}'s {otherTitle}` (fallbacks when
+    names missing)
   - Adult: `{adultDisplayName} also covering {otherTitle}`
+- Collapsed **Overlaps** chip: family-only conflicts → `family` tone
+  (`conflictFamily*`); any kid/adult conflict on the row → amber still wins.
+- Hero / `getQueue`: emit `playerConflict` only from `KID_TIME_OVERLAP` —
+  never from `FAMILY_TIME_OVERLAP`.
 - Confirm / self-assign **409** for overlapping double-CONFIRMED: keep prior
   Agenda state; show
   `Already confirmed on an overlapping event — decline or reassign first.`
   (web: `coverageDoubleBookMessage`) **on that Agenda item, immediately under
   the Confirm / Assign controls** — not in the top-of-Agenda status banner.
-  Do not treat as success or retry as OK.
+  Do not treat as success or retry as OK. Family conflicts do **not** block
+  writes.
 - No auto-resolve UI.
 
 ## Field rows (single-value attributes)
@@ -539,8 +549,10 @@ Origin modes (locked with `coverage-leave-from`):
   `Overlaps` → ride-commitment conflict chip (if any) → own-ride chip (if any)
   → `Needs coverage` (remaining gap) → **Confirm coverage** (pending-for-self)
   → **Awaiting confirm** (pending for someone else) → `Confirmed` → `All set`
-  (Focus only, and only when there is **no** own-ride chip). Conflict chip
-  (amber; from `rideCommitmentConflict`): **Also driving {inbound kid
+  (Focus only, and only when there is **no** own-ride chip). **Overlaps** tone:
+  amber when any `KID_TIME_OVERLAP` / `ADULT_COVERAGE_OVERLAP`; quieter `family`
+  (`conflictFamily*`) when conflicts are **only** `FAMILY_TIME_OVERLAP`. Conflict
+  chip (amber; from `rideCommitmentConflict`): **Also driving {inbound kid
   first-name}** when Type A with exactly one inbound kid name; else **Ride
   conflict** (Type A multi-kid or Type B mutual swap). Shown **alongside** the
   own-ride / gap chip — not instead of it. Own-ride chip: **Riding with
@@ -700,8 +712,9 @@ First match:
 |-----------|------|------|
 | Zero items that local day | **No events** | none |
 | `n` in-play with **remaining gap kids** > 0 (`uncoveredKidIds` minus kids on this circle’s **ACCEPTED** own plan(s); PENDING does not clear) | **1 needs coverage** / **{n} need coverage** | amber |
-| else `n` in-play with `conflicts.length > 0` | **1 overlaps** / **{n} overlap** | amber |
+| else `n` in-play with kid/adult conflicts (`KID_TIME_OVERLAP` / `ADULT_COVERAGE_OVERLAP`) | **1 overlaps** / **{n} overlap** | amber |
 | else `n` in-play pending-for-self | **1 to confirm** / **{n} to confirm** | amber |
+| else `n` in-play with **family-only** conflicts (`FAMILY_TIME_OVERLAP`) | **1 overlaps** / **{n} overlap** | none (calm / quieter) |
 | else (in-play all-set, pending-for-others, out-of-play only) | **All set** | none |
 
 Wire the same ride join as Agenda rows (`ownRequestForItem` from

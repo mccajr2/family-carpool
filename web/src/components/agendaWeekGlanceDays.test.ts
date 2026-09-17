@@ -47,6 +47,7 @@ function localIso(year: number, month: number, day: number, hour = 12): string {
 const conflict = {
   type: "KID_TIME_OVERLAP" as const,
   kidId: "k1",
+  otherKidId: null,
   adultId: null,
   adultDisplayName: null,
   otherSource: "MANUAL" as const,
@@ -227,6 +228,65 @@ describe("agendaWeekGlanceDays", () => {
     )
     expect(overlapDays[0]).toEqual(expect.objectContaining({ copy: "1 overlaps", flagged: true }))
     expect(overlapDays[1]).toEqual(expect.objectContaining({ copy: "2 overlap", flagged: true }))
+
+    const familyDays = agendaWeekGlanceDays(
+      [
+        item({
+          id: "family",
+          startsAt: localIso(2026, 8, 12, 18),
+          conflicts: [
+            {
+              type: "FAMILY_TIME_OVERLAP" as const,
+              kidId: "k1",
+              otherKidId: "k2",
+              adultId: null,
+              adultDisplayName: null,
+              otherSource: "MANUAL" as const,
+              otherItemId: "other",
+              otherTitle: "Dance",
+              otherStartsAt: "2030-08-15T18:00:00Z",
+            },
+          ],
+        }),
+      ],
+      now,
+      adultId,
+    )
+    expect(familyDays[0]).toEqual(
+      expect.objectContaining({ copy: "1 overlaps", flagged: false }),
+    )
+
+    const mixedFamilyAndKid = agendaWeekGlanceDays(
+      [
+        item({
+          id: "family",
+          startsAt: localIso(2026, 8, 12, 17),
+          conflicts: [
+            {
+              type: "FAMILY_TIME_OVERLAP" as const,
+              kidId: "k1",
+              otherKidId: "k2",
+              adultId: null,
+              adultDisplayName: null,
+              otherSource: "MANUAL" as const,
+              otherItemId: "other",
+              otherTitle: "Dance",
+              otherStartsAt: "2030-08-15T18:00:00Z",
+            },
+          ],
+        }),
+        item({
+          id: "kid-overlap",
+          startsAt: localIso(2026, 8, 12, 18),
+          conflicts: [conflict],
+        }),
+      ],
+      now,
+      adultId,
+    )
+    expect(mixedFamilyAndKid[0]).toEqual(
+      expect.objectContaining({ copy: "1 overlaps", flagged: true }),
+    )
 
     const confirmDays = agendaWeekGlanceDays(
       [

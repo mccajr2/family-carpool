@@ -586,6 +586,7 @@ export function mapCalendarItemToCoverageGames(
     const kidTimeOverlapPeerKeys = [
       ...new Set(
         item.conflicts
+          // Hero / getQueue only for same-kid overlaps — FAMILY_TIME_OVERLAP stays Agenda-only.
           .filter(
             (conflict) =>
               conflict.type === "KID_TIME_OVERLAP" && conflict.kidId === kidId,

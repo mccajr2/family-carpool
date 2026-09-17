@@ -8,14 +8,18 @@ import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Detects kid time-overlaps and adult coverage overlaps for Agenda enrichment.
- * Does not enforce the CONFIRMED double-book 409 (coverage writes own that).
+ * Detects kid time-overlaps, family (disjoint-kid) time-overlaps, and adult
+ * coverage overlaps for Agenda enrichment. Does not enforce the CONFIRMED
+ * double-book 409 (coverage writes own that). Callers pass in-play kid ids
+ * (RSVP ≠ NO) on each {@link ScheduleItem}.
  */
 final class CalendarConflictDetector {
 
@@ -44,6 +48,7 @@ final class CalendarConflictDetector {
                     continue;
                 }
                 addKidConflicts(byItem, a, b);
+                addFamilyConflicts(byItem, a, b);
                 addAdultConflicts(byItem, a, b, adultDisplayNames);
             }
         }
@@ -60,6 +65,36 @@ final class CalendarConflictDetector {
             if (kidId != null && b.kidIds().contains(kidId)) {
                 add(byItem, key(a), kidConflict(kidId, b));
                 add(byItem, key(b), kidConflict(kidId, a));
+            }
+        }
+    }
+
+    /**
+     * When both items have non-empty in-play kid sets and those sets are
+     * disjoint, emit one FAMILY_TIME_OVERLAP per (localKid, peerKid) pair on
+     * both items. Shared kids → KID_TIME_OVERLAP only (no family for the pair).
+     */
+    private static void addFamilyConflicts(
+            Map<ItemKey, List<CalendarConflictResponse>> byItem, ScheduleItem a, ScheduleItem b) {
+        List<UUID> kidsA = nonNullKids(a.kidIds());
+        List<UUID> kidsB = nonNullKids(b.kidIds());
+        if (kidsA.isEmpty() || kidsB.isEmpty()) {
+            return;
+        }
+        Set<UUID> setB = new HashSet<>(kidsB);
+        for (UUID kidId : kidsA) {
+            if (setB.contains(kidId)) {
+                return;
+            }
+        }
+        for (UUID localKid : kidsA) {
+            for (UUID peerKid : kidsB) {
+                add(byItem, key(a), familyConflict(localKid, peerKid, b));
+            }
+        }
+        for (UUID localKid : kidsB) {
+            for (UUID peerKid : kidsA) {
+                add(byItem, key(b), familyConflict(localKid, peerKid, a));
             }
         }
     }
@@ -88,10 +123,38 @@ final class CalendarConflictDetector {
         }
     }
 
+    private static List<UUID> nonNullKids(List<UUID> kidIds) {
+        if (kidIds == null) {
+            return List.of();
+        }
+        List<UUID> out = new ArrayList<>();
+        for (UUID kidId : kidIds) {
+            if (kidId != null) {
+                out.add(kidId);
+            }
+        }
+        return out;
+    }
+
     private static CalendarConflictResponse kidConflict(UUID kidId, ScheduleItem other) {
         return new CalendarConflictResponse(
                 CalendarConflictType.KID_TIME_OVERLAP,
                 kidId,
+                null,
+                null,
+                null,
+                other.source(),
+                other.id(),
+                other.title(),
+                other.startsAt());
+    }
+
+    private static CalendarConflictResponse familyConflict(
+            UUID kidId, UUID otherKidId, ScheduleItem other) {
+        return new CalendarConflictResponse(
+                CalendarConflictType.FAMILY_TIME_OVERLAP,
+                kidId,
+                otherKidId,
                 null,
                 null,
                 other.source(),
@@ -104,6 +167,7 @@ final class CalendarConflictDetector {
             UUID adultId, String adultDisplayName, ScheduleItem other) {
         return new CalendarConflictResponse(
                 CalendarConflictType.ADULT_COVERAGE_OVERLAP,
+                null,
                 null,
                 adultId,
                 adultDisplayName,

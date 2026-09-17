@@ -53,6 +53,7 @@ function localIso(year: number, month: number, day: number, hour = 12): string {
 const conflict = {
   type: "KID_TIME_OVERLAP" as const,
   kidId: "k1",
+  otherKidId: null,
   adultId: null,
   adultDisplayName: null,
   otherSource: "MANUAL" as const,

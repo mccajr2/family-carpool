@@ -18,6 +18,8 @@ enum UiTokens {
         let border: String
         let textPrimary: String
         let textSecondary: String
+        let conflictFamily: String
+        let conflictFamilySurface: String
         let heroSurface: String
         let heroOn: String
         let heroOnInverse: String
@@ -59,6 +61,8 @@ enum UiTokens {
             border: "#E7E5DF",
             textPrimary: "#16181A",
             textSecondary: "#686F79",
+            conflictFamily: "#686F79",
+            conflictFamilySurface: "#F6F5F2",
             heroSurface: "#16181A",
             heroOn: "#FFFFFF",
             heroOnInverse: "#16181A",
@@ -98,6 +102,8 @@ enum UiTokens {
             border: "#2C3033",
             textPrimary: "#EDEEF0",
             textSecondary: "#9AA0A8",
+            conflictFamily: "#9AA0A8",
+            conflictFamilySurface: "#15171A",
             heroSurface: "#242832",
             heroOn: "#FFFFFF",
             heroOnInverse: "#16181A",
@@ -270,6 +276,7 @@ enum UiTokens {
         static let weekDay = TypeScale(size: 12, lineHeight: 16, weight: "700")
         static let weekCount = TypeScale(size: 13, lineHeight: 18, weight: "600")
         static let weekCountCalm = TypeScale(size: 13, lineHeight: 18, weight: "500")
+        static let conflictFamily = TypeScale(size: 12, lineHeight: 16, weight: "400")
         static let rideDetailTitle = TypeScale(size: 24, lineHeight: 32, weight: "700")
         static let rideDetailLeaveBy = TypeScale(size: 48, lineHeight: 48, weight: "700")
         static let rideDetailQueuedMin = TypeScale(size: 36, lineHeight: 36, weight: "700")

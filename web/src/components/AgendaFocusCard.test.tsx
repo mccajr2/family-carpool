@@ -132,6 +132,7 @@ describe("AgendaFocusCard header chrome", () => {
           {
             type: "KID_TIME_OVERLAP",
             kidId: "k1",
+            otherKidId: null,
             adultId: null,
             adultDisplayName: null,
             otherSource: "MANUAL",
