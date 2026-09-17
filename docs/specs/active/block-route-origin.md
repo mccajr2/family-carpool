@@ -134,7 +134,7 @@ public block ids.
 
 ## Tasks
 
-- [ ] Backend: persist home-side triad on member-set itinerary (Flyway); resolve
+- [x] Backend: persist home-side triad on member-set itinerary (Flyway); resolve
       TO start / FROM end from override → existing fallbacks; flatten
       co-located middles before optimize; bust fingerprint on override change
 - [ ] Backend: `LeaveByApi` + calendar HTTP for origin PUT; same routability

@@ -287,6 +287,7 @@ class LeaveByApiImpl implements LeaveByApi {
         Optional<String> fingerprint =
                 currentFingerprint(
                         drivingAdultId,
+                        safeLeg,
                         members,
                         originSource,
                         originItemId,
@@ -391,6 +392,7 @@ class LeaveByApiImpl implements LeaveByApi {
         Optional<ResolvedOrigin> homeOpt =
                 resolveItineraryHomeLocated(
                         drivingAdultId,
+                        safeLeg,
                         members,
                         members.getFirst().source(),
                         members.getFirst().itemId(),
@@ -951,22 +953,69 @@ class LeaveByApiImpl implements LeaveByApi {
     }
 
     /**
-     * Combined (multi-member) itineraries use the driver's membership default
-     * leave-from as the fixed HOME end — never the earliest member's per-event
-     * coverage leave-from (those are pickup/drop-off middles). Singletons keep
-     * per-item origin resolution for single-event leave-by parity.
+     * Fixed HOME start (TO) / end (FROM): itinerary home-side override when set;
+     * else combined → membership default; singleton → path-item leave-from chain.
+     * Per-event / coverage leave-from stay middles, never this HOME.
      */
     private Optional<ResolvedOrigin> resolveItineraryHomeLocated(
             UUID drivingAdultId,
+            CalendarRouteLeg leg,
             List<CalendarRouteMemberRef> members,
             LeaveByItemSource originSource,
             UUID originItemId,
             Map<String, Optional<GeoPointDto>> geocoded) {
-        if (members.size() > 1) {
-            return resolveDefaultAsOrigin(drivingAdultId)
+        LeaveFromOverride override = homeSideOverride(drivingAdultId, leg, members);
+        if (override.placeId() != null
+                || (override.address() != null && !override.address().isBlank())) {
+            return resolveExplicitHomeSide(
+                            drivingAdultId, override.placeId(), override.address(), geocoded)
                     .filter(ResolvedOrigin::located);
         }
+        if (members.size() > 1) {
+            return resolveDefaultAsOrigin(drivingAdultId).filter(ResolvedOrigin::located);
+        }
         return resolveItemOriginLocated(drivingAdultId, originSource, originItemId, geocoded);
+    }
+
+    private LeaveFromOverride homeSideOverride(
+            UUID drivingAdultId, CalendarRouteLeg leg, List<CalendarRouteMemberRef> members) {
+        String memberSetKey = MemberSetKeys.compute(members);
+        Optional<ItineraryEntity> row =
+                itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        drivingAdultId, leg, memberSetKey);
+        if (row.isEmpty()) {
+            return LeaveFromOverride.DEFAULT;
+        }
+        return new LeaveFromOverride(row.get().homePlaceId(), row.get().homeAddress());
+    }
+
+    /**
+     * Resolve an explicit itinerary override only — no silent fallback to membership
+     * default when the named place is missing or not located.
+     */
+    private Optional<ResolvedOrigin> resolveExplicitHomeSide(
+            UUID adultId,
+            UUID homePlaceId,
+            String homeAddress,
+            Map<String, Optional<GeoPointDto>> geocoded) {
+        if (homePlaceId != null) {
+            return placeApi
+                    .findPlaceForMember(adultId, homePlaceId)
+                    .filter(CirclePlaceDto::located)
+                    .map(ResolvedOrigin::fromPlace);
+        }
+        String trimmed = homeAddress == null ? null : homeAddress.trim();
+        if (trimmed == null || trimmed.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<GeoPointDto> point =
+                geocoded.computeIfAbsent(
+                        normalizeLocation(trimmed),
+                        ignored -> geocodeApi.resolveLocation(trimmed));
+        if (point.isPresent()) {
+            return Optional.of(ResolvedOrigin.oneTime(trimmed, point.get()));
+        }
+        return Optional.of(ResolvedOrigin.oneTimeUnresolved(trimmed));
     }
 
     private Integer detourMinutesOne(
@@ -1105,7 +1154,7 @@ class LeaveByApiImpl implements LeaveByApi {
         Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
         Optional<ResolvedOrigin> homeOpt =
                 resolveItineraryHomeLocated(
-                        drivingAdultId, members, originSource, originItemId, geocoded);
+                        drivingAdultId, leg, members, originSource, originItemId, geocoded);
         if (homeOpt.isEmpty()) {
             return persistRoute(
                     drivingAdultId,
@@ -1132,6 +1181,19 @@ class LeaveByApiImpl implements LeaveByApi {
                 homeAddress = place.get().address();
             }
         }
+        List<CalendarRoutePickupInput> flattenedMiddles =
+                home.located()
+                        ? HomeSideFlatten.withoutMatchingHome(
+                                middles,
+                                home.placeId(),
+                                homeAddress,
+                                home.latitude(),
+                                home.longitude(),
+                                address ->
+                                        geocoded.computeIfAbsent(
+                                                normalizeLocation(address),
+                                                ignored -> geocodeApi.resolveLocation(address)))
+                        : (middles == null ? List.of() : middles);
         if (destinationAddress == null || destinationAddress.isBlank()) {
             CalendarRouteStopDto homeStop =
                     new CalendarRouteStopDto(
@@ -1142,7 +1204,7 @@ class LeaveByApiImpl implements LeaveByApi {
                             home.latitude(),
                             home.longitude(),
                             homeAddress,
-                            middleAddresses(middles),
+                            middleAddresses(flattenedMiddles),
                             destinationAddress);
             return persistRoute(
                     drivingAdultId,
@@ -1167,7 +1229,7 @@ class LeaveByApiImpl implements LeaveByApi {
 
         List<GeocodedMiddle> geocodedMiddles = new ArrayList<>();
         int attemptedMiddles = 0;
-        for (CalendarRoutePickupInput middle : middles) {
+        for (CalendarRoutePickupInput middle : flattenedMiddles) {
             if (middle == null || middle.address() == null || middle.address().isBlank()) {
                 continue;
             }
@@ -1196,7 +1258,7 @@ class LeaveByApiImpl implements LeaveByApi {
                             home.latitude(),
                             home.longitude(),
                             homeAddress,
-                            middleAddresses(middles),
+                            middleAddresses(flattenedMiddles),
                             destinationAddress);
             List<CalendarRouteStopDto> partial = new ArrayList<>();
             if (leg == CalendarRouteLeg.TO) {
@@ -1268,7 +1330,7 @@ class LeaveByApiImpl implements LeaveByApi {
                                 home.latitude(),
                                 home.longitude(),
                                 homeAddress,
-                                middles,
+                                flattenedMiddles,
                                 destinationAddress,
                                 geocodedMiddles.size(),
                                 attemptedMiddles);
@@ -1330,7 +1392,7 @@ class LeaveByApiImpl implements LeaveByApi {
                                 home.latitude(),
                                 home.longitude(),
                                 homeAddress,
-                                middles,
+                                flattenedMiddles,
                                 destinationAddress,
                                 geocodedMiddles.size(),
                                 attemptedMiddles);
@@ -1353,7 +1415,7 @@ class LeaveByApiImpl implements LeaveByApi {
                         home.latitude(),
                         home.longitude(),
                         homeAddress,
-                        middles,
+                        flattenedMiddles,
                         destinationAddress,
                         geocodedMiddles.size(),
                         attemptedMiddles);
@@ -1393,6 +1455,7 @@ class LeaveByApiImpl implements LeaveByApi {
 
     private Optional<String> currentFingerprint(
             UUID drivingAdultId,
+            CalendarRouteLeg leg,
             List<CalendarRouteMemberRef> members,
             LeaveByItemSource source,
             UUID itemId,
@@ -1400,7 +1463,8 @@ class LeaveByApiImpl implements LeaveByApi {
             String destinationAddress) {
         Map<String, Optional<GeoPointDto>> geocoded = new HashMap<>();
         Optional<ResolvedOrigin> homeOpt =
-                resolveItineraryHomeLocated(drivingAdultId, members, source, itemId, geocoded);
+                resolveItineraryHomeLocated(
+                        drivingAdultId, leg, members, source, itemId, geocoded);
         if (homeOpt.isEmpty()) {
             return Optional.empty();
         }
@@ -1415,13 +1479,26 @@ class LeaveByApiImpl implements LeaveByApi {
                 homeAddress = place.get().address();
             }
         }
+        List<CalendarRoutePickupInput> flattenedMiddles =
+                home.located()
+                        ? HomeSideFlatten.withoutMatchingHome(
+                                middles,
+                                home.placeId(),
+                                homeAddress,
+                                home.latitude(),
+                                home.longitude(),
+                                address ->
+                                        geocoded.computeIfAbsent(
+                                                normalizeLocation(address),
+                                                ignored -> geocodeApi.resolveLocation(address)))
+                        : (middles == null ? List.of() : middles);
         return Optional.of(
                 ItineraryFingerprint.compute(
                         home.placeId(),
                         home.latitude(),
                         home.longitude(),
                         homeAddress,
-                        middleAddresses(middles),
+                        middleAddresses(flattenedMiddles),
                         destinationAddress));
     }
 
