@@ -855,4 +855,60 @@ describe("DriverPicker hero styling", () => {
     expect(screen.getByTestId("driver-picker-confirm")).toBeDisabled()
     expect(screen.getByTestId("driver-picker-ask-team-chip")).toBeDisabled()
   })
+
+  it("shows collapsed all-kids not-going and per-kid links inside kid-split", async () => {
+    const user = userEvent.setup()
+    const onSetNotGoing = vi.fn()
+    const onSetRsvp = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        hero
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={vi.fn()}
+        onSetNotGoing={onSetNotGoing}
+        onSetRsvp={onSetRsvp}
+        goingKids={[
+          { id: "k1", firstName: "Graham" },
+          { id: "k2", firstName: "Luke" },
+        ]}
+      />,
+    )
+
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+    expect(screen.queryByRole("button", { name: "Mark Graham as not going" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Mark Graham and Luke as not going" }))
+    expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
+
+    await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(
+      screen.queryByRole("button", { name: "Mark Graham and Luke as not going" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-not-going-k1")).toHaveTextContent(
+      "Mark Graham as not going",
+    )
+    expect(screen.getByTestId("driver-picker-not-going-k2")).toHaveTextContent(
+      "Mark Luke as not going",
+    )
+    await user.click(screen.getByTestId("driver-picker-not-going-k1"))
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
+  })
+
+  it("omits not-going controls when attendance handlers are not passed", () => {
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveKidPlans={vi.fn()}
+        goingKids={[
+          { id: "k1", firstName: "Graham" },
+          { id: "k2", firstName: "Luke" },
+        ]}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: /not going/i })).not.toBeInTheDocument()
+  })
 })

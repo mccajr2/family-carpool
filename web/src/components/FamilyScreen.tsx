@@ -3031,6 +3031,10 @@ export function FamilyScreen({
       onAcceptRide: (rideId) =>
         void onAcceptAgendaRide(calendarItemForSlide, rideId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
+      onSetRsvp: (kidId, rsvpStatus) =>
+        void onSetCalendarRsvp(calendarItemForSlide, kidId, rsvpStatus),
+      onSetNotGoing: (kidIds) =>
+        void onSetCalendarRsvps(calendarItemForSlide, kidIds, "NO"),
       leaveFromValue: (() => {
         const draft = leaveFromDrafts[itemKey]
         if (draft != null) {

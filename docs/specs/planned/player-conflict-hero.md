@@ -5,13 +5,13 @@ Created: 2026-09-16
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `player-conflict-hero`  
 Added: 2026-09-16 · enhancement  
-Depends on: [`hero-not-going`](../active/hero-not-going.md), [`conflict-detection`](../archive/conflict-detection.md), [`hero-attention-carousel`](../archive/hero-attention-carousel.md), [`coverage-priority-same-event`](../archive/coverage-priority-same-event.md), [`attendance-manual-toggle`](../archive/attendance-manual-toggle.md)  
+Depends on: [`hero-not-going`](../archive/hero-not-going.md), [`conflict-detection`](../archive/conflict-detection.md), [`hero-attention-carousel`](../archive/hero-attention-carousel.md), [`coverage-priority-same-event`](../archive/coverage-priority-same-event.md), [`attendance-manual-toggle`](../archive/attendance-manual-toggle.md)  
 Governs: [ADR-0001](../../decisions/ADR-0001-coverage-priority-rule.md) (amend)
 
 Fleshed during `/spec`; **demoted to planned** pending prerequisite
-[`hero-not-going`](../active/hero-not-going.md) (re-rank split). Re-promote with
-`/spec player-conflict-hero` after that ships (or when Next up). **Do not
-implement** while `hero-not-going` is unfinished.
+[`hero-not-going`](../archive/hero-not-going.md) (re-rank split). That
+prerequisite is **Done** — re-promote with `/spec player-conflict-hero` when
+it is Next up.
 
 ## Problem
 
@@ -38,13 +38,13 @@ split allowed).
 - Muting Agenda amber after not-going (server conflict truth unchanged; Hero
   alone filters by in-play attendance)
 - Inventing Hero **not going** chrome — that is
-  [`hero-not-going`](../active/hero-not-going.md); this slice **reuses** that shared
+  [`hero-not-going`](../archive/hero-not-going.md); this slice **reuses** that shared
   affordance for neither / escape
 
 ## Approach
 
 **Client-only**, consistent with Hero queue slices and attendance writes.
-**Prerequisite:** [`hero-not-going`](../active/hero-not-going.md) so own-kid Hero slides
+**Prerequisite:** [`hero-not-going`](../archive/hero-not-going.md) so own-kid Hero slides
 already expose not-going (no Agenda-only trap).
 
 1. **Signal:** Reuse calendar `conflicts` with `type: KID_TIME_OVERLAP`. Do not
@@ -67,7 +67,7 @@ already expose not-going (no Agenda-only trap).
    when linked (`feedName` · title via existing source/title helpers); title-only
    fallback for standalone/manual. Primary actions: keep A or keep B. **Neither /
    not going** uses the shared Hero not-going control from
-   [`hero-not-going`](../active/hero-not-going.md) (not a one-off conflict-only pattern).
+   [`hero-not-going`](../archive/hero-not-going.md) (not a one-off conflict-only pattern).
 6. **Multi-kid progressive:** If multiple circle kids are unresolved on the
    **same** pair, default is **one answer for all** (keep A / not-going B, or the
    reverse). Offer a progressive path to **split**: per-kid keep A, keep B, or
@@ -99,7 +99,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - Architecture: [`docs/architecture.md`](../../architecture.md) → **Conflict detection (detail)**
 - Decisions: [`docs/decisions/ADR-0001-coverage-priority-rule.md`](../../decisions/ADR-0001-coverage-priority-rule.md)
 - Contract doc: [`docs/agenda-coverage-web-contract.md`](../../agenda-coverage-web-contract.md) → **Hero carousel queue**; **RSVP / attendance**; conflict chrome notes
-- Prior slices: [`hero-not-going`](../active/hero-not-going.md); [`conflict-detection`](../archive/conflict-detection.md); [`coverage-priority-same-event`](../archive/coverage-priority-same-event.md); [`hero-attention-carousel`](../archive/hero-attention-carousel.md); [`attendance-manual-toggle`](../archive/attendance-manual-toggle.md)
+- Prior slices: [`hero-not-going`](../archive/hero-not-going.md); [`conflict-detection`](../archive/conflict-detection.md); [`coverage-priority-same-event`](../archive/coverage-priority-same-event.md); [`hero-attention-carousel`](../archive/hero-attention-carousel.md); [`attendance-manual-toggle`](../archive/attendance-manual-toggle.md)
 - Source: `web/src/components/coverageQueue.ts` → `QueueItem`, `getQueue`, `filterQueueWithinHorizon`, `isInPlay` / attendance mapping; `web/src/components/conflictDisplay.ts`; `web/src/components/heroAttentionCopy.ts`; `web/src/components/HeroAttentionSlide.tsx` / `HeroAttentionCarousel.tsx`; FamilyScreen wiring that builds `attentionQueue`
 - Tests: `web/src/components/coverageQueue.test.ts`; Hero carousel / FamilyScreen attention tests as needed for the new kind
 
@@ -111,7 +111,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       title-only.
 - [ ] Primary resolve path: keep A or keep B (default all-kids); choosing keep A
       writes not-going on B (and ensures going on A as needed) via existing RSVP
-      APIs. Escape / neither uses the shared [`hero-not-going`](../active/hero-not-going.md)
+      APIs. Escape / neither uses the shared [`hero-not-going`](../archive/hero-not-going.md)
       control (not conflict-only chrome).
 - [ ] After successful resolve writes, the player-conflict item is **absent**
       from `getQueue` / carousel on the next render (even if server amber

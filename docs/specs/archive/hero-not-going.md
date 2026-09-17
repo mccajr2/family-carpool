@@ -1,6 +1,6 @@
 # Spec: hero-not-going
 
-Status: draft  
+Status: done  
 Created: 2026-09-16  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `hero-not-going`  
@@ -106,39 +106,39 @@ Allowlist for `/implement`:
 
 ## Acceptance criteria
 
-- [ ] On an own-ride **gap** Hero slide with **one** going kid, a secondary
+- [x] On an own-ride **gap** Hero slide with **one** going kid, a secondary
       text link **Mark {firstName} as not going** appears under the primary
       Assign / Save chrome (not as the primary button).
-- [ ] On an own-ride **gap** Hero slide with **2+** going kids, collapsed
+- [x] On an own-ride **gap** Hero slide with **2+** going kids, collapsed
       simple view shows **one** secondary all-kids link
       (`markKidsAsNotGoingLabel`); after **Different plans for each kid.**,
       each kid section has **Mark {firstName} as not going** (no stack of
       per-kid links on the collapsed surface).
-- [ ] On a pending **Confirm** Hero slide with **one** going kid, the same
+- [x] On a pending **Confirm** Hero slide with **one** going kid, the same
       secondary **Mark {firstName} as not going** link appears under Confirm /
       Decline.
-- [ ] On a pending **Confirm** Hero slide with **2+** going kids: Confirm /
+- [x] On a pending **Confirm** Hero slide with **2+** going kids: Confirm /
       Decline remain the default for **both**; one all-kids secondary
       not-going link; **Different plans for each kid.** reveals **per-kid
       not-going only** (no Assign / Ask / Save ride-plan chrome on Confirm).
-- [ ] Activating the all-kids simple-view link writes `NO` for every currently
+- [x] Activating the all-kids simple-view link writes `NO` for every currently
       going kid on the slide; cancel on coverage-release leaves all unchanged.
-- [ ] Activating a per-kid not-going link (1-kid surface or inside Different
+- [x] Activating a per-kid not-going link (1-kid surface or inside Different
       plans) calls `setCalendarRsvp(..., NO)` for that kid; coverage-release
       confirm runs when that kid has active PENDING/CONFIRMED coverage; cancel
       leaves RSVP unchanged.
-- [ ] After a successful not-going write, that kid is out of `getQueue` for
+- [x] After a successful not-going write, that kid is out of `getQueue` for
       the game; the slide drops when no own-kid gap/confirm remains for the
       event; no attendance-only queue item ever appears (ADR-0003).
-- [ ] Inbound **ask** slides are unchanged (no attendance control).
-- [ ] Copy uses **going** / **not going** only; control is visually secondary
+- [x] Inbound **ask** slides are unchanged (no attendance control).
+- [x] Copy uses **going** / **not going** only; control is visually secondary
       to Assign / Confirm on hero glow.
-- [ ] `docs/agenda-coverage-web-contract.md` documents Hero not-going
+- [x] `docs/agenda-coverage-web-contract.md` documents Hero not-going
       (1-kid secondary; 2+ all-kids secondary; gap Different plans = plans +
       per-kid not-going; Confirm Different plans = per-kid not-going only) and
       write mapping matching Agenda (`NO` = not going).
-- [ ] No OpenAPI, backend, or Expo changes in this PR.
-- [ ] Component/unit tests cover: single-kid gap + Confirm → `NO`; multi-kid
+- [x] No OpenAPI, backend, or Expo changes in this PR.
+- [x] Component/unit tests cover: single-kid gap + Confirm → `NO`; multi-kid
       all-kids bulk; gap Different-plans per-kid not-going; Confirm
       Different-plans per-kid not-going **without** ride-plan chrome;
       coverage-release cancel; ask slides omit control; queue exclusion after
@@ -146,23 +146,23 @@ Allowlist for `/implement`:
 
 ## Tasks
 
-- [ ] Docs: update `docs/agenda-coverage-web-contract.md` Hero + RSVP sections
+- [x] Docs: update `docs/agenda-coverage-web-contract.md` Hero + RSVP sections
       for Hero not-going (gap + Confirm; all-kids secondary + progressive
       per-kid)
-- [ ] Web: wire Hero secondary not-going on gap and Confirm — 1 kid
+- [x] Web: wire Hero secondary not-going on gap and Confirm — 1 kid
       `markAsNotGoingLabel`; 2+ simple view `markKidsAsNotGoingLabel` bulk
       write (reuse FamilyScreen RSVP / coverage-release gate)
-- [ ] Web: extend `DriverPicker` kid-split (**gap**) with per-kid not-going
-- [ ] Web: Confirm 2+ — same **Different plans for each kid.** copy + per-kid
+- [x] Web: extend `DriverPicker` kid-split (**gap**) with per-kid not-going
+- [x] Web: Confirm 2+ — same **Different plans for each kid.** copy + per-kid
       not-going sections only (no Assign / Ask / Save); alongside collapsed
       all-kids not-going link
-- [ ] Web: HeroAttentionSlide / FamilyScreen props — pass `onSetRsvp` /
+- [x] Web: HeroAttentionSlide / FamilyScreen props — pass `onSetRsvp` /
       bulk-not-going (or equivalent) into gap + Confirm paths; busy/disabled
       while loading
-- [ ] Tests: `HeroAttentionSlide` / carousel / FamilyScreen — single-kid write,
+- [x] Tests: `HeroAttentionSlide` / carousel / FamilyScreen — single-kid write,
       multi-kid all-kids bulk, gap vs Confirm progressive (Confirm has no
       ride-plan chrome), coverage-release cancel, ask exclusion, queue drop
-- [ ] Tests: no regression on Agenda AttendanceToggle / assign → RSVP `YES`
+- [x] Tests: no regression on Agenda AttendanceToggle / assign → RSVP `YES`
       reset
 
 ## Open questions

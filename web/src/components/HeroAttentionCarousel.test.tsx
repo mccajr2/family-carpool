@@ -682,4 +682,233 @@ describe("HeroAttentionSlide", () => {
       expect(within(slide).queryByRole("button", { name: /^Accept$/i })).not.toBeInTheDocument()
     }
   })
+
+  it("shows Mark {firstName} as not going under gap Assign chrome and writes NO", async () => {
+    const user = userEvent.setup()
+    const onSetRsvp = vi.fn()
+
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, { queueLength: 1, onSetRsvp })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    const notGoing = within(slide).getByRole("button", { name: "Mark Declan as not going" })
+    expect(notGoing).toHaveAttribute("data-testid", "driver-picker-not-going-k1")
+    expect(notGoing).toHaveStyle({ color: "var(--fc-hero-on-secondary)" })
+    await user.click(notGoing)
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
+  })
+
+  it("shows Mark {firstName} as not going under Confirm / Decline and writes NO", async () => {
+    const user = userEvent.setup()
+    const onSetRsvp = vi.fn()
+    const pendingItem = calendarItem({
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "cov1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a2",
+          kidIds: ["k1"],
+          status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            calendarItem: pendingItem,
+            onConfirmCoverage: vi.fn(),
+            onDeclineCoverage: vi.fn(),
+            onSetRsvp,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Mark Declan as not going" }))
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
+  })
+
+  it("shows one all-kids not-going link on multi-kid gap and Confirm simple views", async () => {
+    const user = userEvent.setup()
+    const onSetNotGoing = vi.fn()
+    const onSetRsvp = vi.fn()
+    const twinCircle: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Graham" },
+        { id: "k2", displayName: "Luke" },
+      ],
+    }
+    const twinItem = calendarItem({
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    const twinConfirmItem = calendarItem({
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: [],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+      coverages: [
+        {
+          id: "cov-twins",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "a2",
+          kidIds: ["k1", "k2"],
+          status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: "PENDING",
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    const { rerender } = render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            circle: twinCircle,
+            calendarItem: twinItem,
+            onSaveKidPlans: vi.fn(),
+            onSetNotGoing,
+            onSetRsvp,
+          })
+        }
+      />,
+    )
+
+    let slide = screen.getByTestId("hero-attention-slide")
+    const picker = within(slide).getByTestId("driver-picker")
+    expect(picker).toHaveAttribute("data-mode", "simple")
+    expect(
+      within(slide).queryByRole("button", { name: "Mark Graham as not going" }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(slide).queryByRole("button", { name: "Mark Luke as not going" }),
+    ).not.toBeInTheDocument()
+    await user.click(
+      within(picker).getByRole("button", { name: "Mark Graham and Luke as not going" }),
+    )
+    expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
+
+    onSetNotGoing.mockClear()
+    await user.click(within(picker).getByTestId("driver-picker-different-plans-kid"))
+    expect(within(slide).getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")
+    expect(
+      within(slide).queryByRole("button", { name: "Mark Graham and Luke as not going" }),
+    ).not.toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Mark Graham as not going" }))
+    expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")
+    await user.click(within(slide).getByRole("button", { name: "Mark Luke as not going" }))
+    expect(onSetRsvp).toHaveBeenCalledWith("k2", "NO")
+
+    onSetNotGoing.mockClear()
+    onSetRsvp.mockClear()
+    rerender(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[0]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            circle: twinCircle,
+            calendarItem: twinConfirmItem,
+            onConfirmCoverage: vi.fn(),
+            onDeclineCoverage: vi.fn(),
+            onSetNotGoing,
+            onSetRsvp,
+          })
+        }
+      />,
+    )
+
+    slide = screen.getByTestId("hero-attention-slide")
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).getByTestId("hero-attention-decline-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    await user.click(
+      within(slide).getByRole("button", { name: "Mark Graham and Luke as not going" }),
+    )
+    expect(onSetNotGoing).toHaveBeenCalledWith(["k1", "k2"])
+
+    onSetRsvp.mockClear()
+    await user.click(
+      within(slide).getByTestId("hero-attention-confirm-different-plans-kid"),
+    )
+    expect(
+      within(slide).getByTestId("hero-attention-confirm-per-kid-not-going"),
+    ).toBeInTheDocument()
+    expect(
+      within(slide).queryByRole("button", { name: "Mark Graham and Luke as not going" }),
+    ).not.toBeInTheDocument()
+    // Confirm / Decline stay; no ride-plan chrome.
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).getByTestId("hero-attention-decline-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(slide).queryByRole("button", { name: /Save ride plan/i })).not.toBeInTheDocument()
+    expect(within(slide).queryByRole("button", { name: /Ask the team/i })).not.toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Mark Luke as not going" }))
+    expect(onSetRsvp).toHaveBeenCalledWith("k2", "NO")
+
+    await user.click(within(slide).getByTestId("hero-attention-confirm-back-to-simple"))
+    expect(
+      within(slide).queryByTestId("hero-attention-confirm-per-kid-not-going"),
+    ).not.toBeInTheDocument()
+    expect(
+      within(slide).getByRole("button", { name: "Mark Graham and Luke as not going" }),
+    ).toBeInTheDocument()
+  })
+
+  it("omits not-going control on inbound ask slides", () => {
+    render(
+      <HeroAttentionCarousel
+        queue={[ownRideQueue[1]!]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            onSetRsvp: vi.fn(),
+            onSetNotGoing: vi.fn(),
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(slide).toHaveAttribute("data-slide-kind", "request")
+    expect(
+      within(slide).queryByRole("button", { name: /not going/i }),
+    ).not.toBeInTheDocument()
+  })
 })
