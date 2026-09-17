@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-17 (`/pr day-block-route`)
+Updated: 2026-09-17 (`/spec block-route-origin`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,7 +105,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | block-route-origin              | planned | 2026-09-17 · enhancement   | Explicit governing “Leaving from …” for combined There drives (default home already shipped in day-block-route)                |
+| 1    | block-route-origin              | active  | 2026-09-17 · enhancement   | Explicit governing Leaving from / Returning to on Route (independent There/Back; itinerary-only member-set override)           |
 | 2    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
 | 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
 | 4    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
@@ -199,7 +199,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id                     | Branch                   | Spec                                                   |
 | ---------------------- | ------------------------ | ------------------------------------------------------ |
-| *(none)*               |                          |                                                        |
+| block-route-origin     | `block-route-origin`     | [active](specs/active/block-route-origin.md)           |
 
 ## Done
 
@@ -298,6 +298,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-17 | `/spec block-route-origin`: promote — independent Leaving from / Returning to on Route (singleton + combined); per-leg member-set itinerary override (itinerary-only); flatten kid place == HOME; reuse LeaveFromControls. Branch `block-route-origin`. |
 | 2026-09-17 | `/pr day-block-route`: block Route There/Back + member-set cache; combined HOME = membership default; household CONFIRMED plan middles; park follow-up `block-route-origin` as Next up. Spec archived. |
 | 2026-09-16 | `/spec day-block-route`: promote — extend item route with `leg` TO/FROM; block stop assembly + member-set cache key; There/Back chrome; reuse `StopSequenceOptimizer`; public block id deferred to `agenda-block-api`. Branch `day-block-route`. |
 | 2026-09-16 | `/pr family-conflict-report`: server `FAMILY_TIME_OVERLAP` + quieter Agenda chrome for disjoint kids; off Hero; OpenAPI `otherKidId`. Spec archived. Next up `day-block-route`. |
