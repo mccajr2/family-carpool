@@ -16,7 +16,7 @@ expand Agenda and use attendance there — or feel forced to Confirm/Assign just
 to clear the carousel. That is inconsistent with Agenda and the wrong default
 for a “needs your attention” surface. This shared escape is also a
 **prerequisite** for a consistent
-[`player-conflict-hero`](../planned/player-conflict-hero.md) (neither / escape
+[`player-conflict-hero`](../active/player-conflict-hero.md) (neither / escape
 without inventing conflict-only chrome).
 
 ## Non-goals
@@ -95,7 +95,7 @@ Allowlist for `/implement`:
   (Agenda SoT + write mapping); [`carpool-kid-split-plans`](../archive/carpool-kid-split-plans.md)
   (progressive **Different plans for each kid.**); [`hero-attention-carousel`](../archive/hero-attention-carousel.md)
   (reverses its deferral of carousel not-going)
-- Downstream consumer (do not implement): [`player-conflict-hero`](../planned/player-conflict-hero.md)
+- Downstream consumer (do not implement): [`player-conflict-hero`](../active/player-conflict-hero.md)
 - Source:
   - `web/src/components/HeroAttentionSlide.tsx` (gap `DriverPicker` vs Confirm chrome)
   - `web/src/components/DriverPicker.tsx` (kid-split sections; `DIFFERENT_PLANS_FOR_EACH_KID`)
