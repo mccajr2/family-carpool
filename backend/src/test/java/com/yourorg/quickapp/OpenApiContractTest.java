@@ -202,10 +202,18 @@ class OpenApiContractTest {
         assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/route");
         assertThat(yaml).contains("CalendarRoute:");
         assertThat(yaml).contains("CalendarRouteStatus:");
+        assertThat(yaml).contains("CalendarRouteLeg:");
+        assertThat(yaml).contains("CalendarRouteMemberItem:");
+        assertThat(yaml).contains("CalendarRouteStopKind:");
+        assertThat(yaml).contains("- dropoff");
+        assertThat(yaml).contains("memberItemIds:");
+        assertThat(yaml).contains("member-set cache key");
         assertThat(yaml).contains("ReorderCalendarRouteRequest:");
         assertThat(yaml).contains("middleStopIds:");
         assertThat(yaml).contains("legMinutes:");
         assertThat(yaml).contains("bufferMinutes:");
+        assertThat(yaml).contains("name: leg");
+        assertThat(yaml).doesNotContain("/api/family/circle/blocks/");
         assertThat(yaml).contains("operationId: getCalendarPlaylist");
         assertThat(yaml).contains("operationId: openCalendarPlaylist");
         assertThat(yaml).contains("/api/family/circle/calendar/{source}/{itemId}/playlist");

@@ -31,6 +31,8 @@ export type {
   SetDriveBlockOverrideRequest,
   ClearDriveBlockOverrideRequest,
   CalendarRoute,
+  CalendarRouteLeg,
+  CalendarRouteMemberItem,
   CalendarRouteNotifyChannel,
   CalendarRouteNotifyContact,
   CalendarRouteStatus,

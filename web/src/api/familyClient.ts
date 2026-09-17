@@ -18,6 +18,7 @@ import type {
   OpenCalendarPlaylistRequest,
   Place,
   ReorderCalendarRouteRequest,
+  CalendarRouteLeg,
   SetCalendarLeaveFromRequest,
   SetCalendarRsvpRequest,
   SetDefaultLeaveFromRequest,
@@ -431,11 +432,13 @@ export class FamilyClient {
     accessToken: string,
     source: CalendarItemSource,
     itemId: string,
+    leg: CalendarRouteLeg = "TO",
   ): Promise<CalendarRoute> {
+    const params = new URLSearchParams({ leg })
     const response = await this.fetchFn(
       authUrl(
         this.baseUrl,
-        `/api/family/circle/calendar/${source}/${itemId}/route`,
+        `/api/family/circle/calendar/${source}/${itemId}/route?${params}`,
       ),
       {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -452,11 +455,13 @@ export class FamilyClient {
     source: CalendarItemSource,
     itemId: string,
     body: ReorderCalendarRouteRequest,
+    leg: CalendarRouteLeg = "TO",
   ): Promise<CalendarRoute> {
+    const params = new URLSearchParams({ leg })
     const response = await this.fetchFn(
       authUrl(
         this.baseUrl,
-        `/api/family/circle/calendar/${source}/${itemId}/route`,
+        `/api/family/circle/calendar/${source}/${itemId}/route?${params}`,
       ),
       {
         method: "PUT",

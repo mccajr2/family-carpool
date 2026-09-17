@@ -57,15 +57,20 @@ export type RideRouteTabProps = {
    */
   deliverNotify?: (request: RideNotifyRequest) => Promise<RideNotifyResult>
   /**
-   * When true and there are 2+ pickup stops, middle rows are drag-reorderable.
+   * When true and there are 2+ middle stops, middle rows are drag-reorderable.
    * Hidden/inert for non-drivers, UNAVAILABLE hosts, or single-middle routes.
    */
   canReorderMiddles?: boolean
   /**
-   * Persist a new middle-stop order (pickup addresses). Host refreshes schedule
+   * Persist a new middle-stop order (addresses). Host refreshes schedule
    * from the PUT response. Omitted when reorder is inert.
    */
   onReorderMiddles?: (middleStopIds: string[]) => Promise<void>
+  /**
+   * Active There/Back leg (informational for chrome / reorder). Tabs are owned
+   * by the host when both legs are routable.
+   */
+  leg?: "TO" | "FROM"
 }
 
 /** Local wall-clock `h:mm AM/PM` from an ISO instant (matches `toMinutes` / `toTime`). */
@@ -77,8 +82,8 @@ export function eventStartClockFromIso(startsAt: string): string {
   return toTime(date.getHours() * 60 + date.getMinutes())
 }
 
-/** Pure reorder of pickup stops by address identity (home/dest fixed). */
-export function reorderPickupStopsByAddress(
+/** Pure reorder of middle stops by address identity (fixed start/end). */
+export function reorderMiddleStopsByAddress(
   stops: FixtureRideStop[],
   fromAddress: string,
   toAddress: string,
@@ -86,12 +91,23 @@ export function reorderPickupStopsByAddress(
   if (fromAddress === toAddress || stops.length < 3) {
     return null
   }
-  const home = stops[0]
-  const destination = stops[stops.length - 1]
-  if (home?.kind !== "home" || destination?.kind !== "destination") {
+  const fixedStart = stops[0]
+  const fixedEnd = stops[stops.length - 1]
+  if (fixedStart == null || fixedEnd == null) {
     return null
   }
+  const toShape =
+    fixedStart.kind === "home" && fixedEnd.kind === "destination"
+  const fromShape =
+    fixedStart.kind === "destination" && fixedEnd.kind === "home"
+  if (!toShape && !fromShape) {
+    return null
+  }
+  const expectedMiddle = toShape ? "pickup" : "dropoff"
   const middles = stops.slice(1, -1)
+  if (middles.some((stop) => stop.kind !== expectedMiddle)) {
+    return null
+  }
   const fromIndex = middles.findIndex((stop) => stop.address === fromAddress)
   const toIndex = middles.findIndex((stop) => stop.address === toAddress)
   if (fromIndex < 0 || toIndex < 0) {
@@ -100,7 +116,16 @@ export function reorderPickupStopsByAddress(
   const next = [...middles]
   const [moved] = next.splice(fromIndex, 1)
   next.splice(toIndex, 0, moved!)
-  return [home, ...next, destination]
+  return [fixedStart, ...next, fixedEnd]
+}
+
+/** @deprecated Prefer {@link reorderMiddleStopsByAddress}. */
+export function reorderPickupStopsByAddress(
+  stops: FixtureRideStop[],
+  fromAddress: string,
+  toAddress: string,
+): FixtureRideStop[] | null {
+  return reorderMiddleStopsByAddress(stops, fromAddress, toAddress)
 }
 
 function formatSentAt(now: Date = new Date()): string {
@@ -164,7 +189,9 @@ function RouteMap({
           <div key={`${stop.kind}-${stop.address}`} className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-full border border-[var(--fc-border)] bg-[var(--fc-surface-raised)] px-3 py-1.5 text-xs font-semibold text-[var(--fc-text-primary)]">
               {stop.kind === "home" ? <Home aria-hidden size={12} /> : null}
-              {stop.kind === "pickup" ? <Users aria-hidden size={12} /> : null}
+              {stop.kind === "pickup" || stop.kind === "dropoff" ? (
+                <Users aria-hidden size={12} />
+              ) : null}
               {stop.kind === "destination" ? <Flag aria-hidden size={12} /> : null}
               {stop.name}
             </div>
@@ -344,6 +371,64 @@ function StopRow({
   )
 }
 
+export type RideRouteLegTabsProps = {
+  leg: "TO" | "FROM"
+  availableLegs: Array<"TO" | "FROM">
+  onLegChange: (leg: "TO" | "FROM") => void
+}
+
+/** There / Back tabs when both legs are routable for the viewer. */
+export function RideRouteLegTabs({
+  leg,
+  availableLegs,
+  onLegChange,
+}: RideRouteLegTabsProps) {
+  if (availableLegs.length < 2) {
+    return null
+  }
+  return (
+    <div
+      role="tablist"
+      aria-label="Route direction"
+      data-testid="ride-route-leg-tabs"
+      className="mb-[var(--fc-space-ride-detail-block-mb)] flex gap-2"
+    >
+      {availableLegs.includes("TO") ? (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={leg === "TO"}
+          data-testid="ride-route-leg-there"
+          onClick={() => onLegChange("TO")}
+          className={`rounded-[var(--fc-radius-lg)] px-3 py-1.5 text-sm font-semibold ${
+            leg === "TO"
+              ? "bg-[var(--fc-text-primary)] text-[var(--fc-surface-raised)]"
+              : "bg-[var(--fc-hero-carousel-control-bg)] text-[var(--fc-text-secondary)]"
+          }`}
+        >
+          There
+        </button>
+      ) : null}
+      {availableLegs.includes("FROM") ? (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={leg === "FROM"}
+          data-testid="ride-route-leg-back"
+          onClick={() => onLegChange("FROM")}
+          className={`rounded-[var(--fc-radius-lg)] px-3 py-1.5 text-sm font-semibold ${
+            leg === "FROM"
+              ? "bg-[var(--fc-text-primary)] text-[var(--fc-surface-raised)]"
+              : "bg-[var(--fc-hero-carousel-control-bg)] text-[var(--fc-text-secondary)]"
+          }`}
+        >
+          Back
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * Route tab: leave-by hero, map/placeholder, stop list, local notify UI.
  * Delivery goes through {@link deliverRideReadyByNotify} (no network until push).
@@ -357,6 +442,7 @@ export function RideRouteTab({
   deliverNotify = deliverRideReadyByNotify,
   canReorderMiddles = false,
   onReorderMiddles,
+  leg = "TO",
 }: RideRouteTabProps) {
   const [notifyStates, setNotifyStates] = useState<Record<string, RideNotifyState>>({})
   const [reorderBusy, setReorderBusy] = useState(false)
@@ -368,14 +454,26 @@ export function RideRouteTab({
     [carpoolRoute, eventStart],
   )
   const leaveBy = stopTimes[0] ?? arriveBy
-  const destinationName =
-    location?.trim() ||
-    carpoolRoute.stops.find((stop) => stop.kind === "destination")?.name ||
-    "destination"
+  const firstStopName = carpoolRoute.stops[0]?.name?.trim() || null
+  const lastStopName =
+    carpoolRoute.stops[carpoolRoute.stops.length - 1]?.name?.trim() || null
+  const leavePlaceName =
+    leg === "FROM"
+      ? location?.trim() || firstStopName || "venue"
+      : carpoolRoute.stops[0]?.kind === "home"
+        ? "home"
+        : firstStopName || "home"
+  const arrivePlaceName =
+    leg === "TO"
+      ? location?.trim() || lastStopName || "destination"
+      : carpoolRoute.stops[carpoolRoute.stops.length - 1]?.kind === "home"
+        ? "home"
+        : lastStopName || "home"
   const navHref = navigationUrl(carpoolRoute.stops)
-  const pickupCount = carpoolRoute.stops.filter((stop) => stop.kind === "pickup").length
+  const middleKind = leg === "FROM" ? "dropoff" : "pickup"
+  const middleCount = carpoolRoute.stops.filter((stop) => stop.kind === middleKind).length
   const reorderEnabled =
-    canReorderMiddles && onReorderMiddles != null && pickupCount >= 2
+    canReorderMiddles && onReorderMiddles != null && middleCount >= 2
 
   function handleNotify(stop: FixtureRideStop, readyByLabel: string) {
     const contact = stop.contact
@@ -427,7 +525,7 @@ export function RideRouteTab({
     if (fromAddress === "" || onReorderMiddles == null) {
       return
     }
-    const reordered = reorderPickupStopsByAddress(
+    const reordered = reorderMiddleStopsByAddress(
       carpoolRoute.stops,
       fromAddress,
       toAddress,
@@ -436,7 +534,7 @@ export function RideRouteTab({
       return
     }
     const middleStopIds = reordered
-      .filter((stop) => stop.kind === "pickup")
+      .filter((stop) => stop.kind === middleKind)
       .map((stop) => stop.address)
     setReorderBusy(true)
     void onReorderMiddles(middleStopIds)
@@ -449,7 +547,7 @@ export function RideRouteTab({
   }
 
   return (
-    <div data-testid="ride-route-tab">
+    <div data-testid="ride-route-tab" data-route-leg={leg}>
       <div
         data-testid="ride-route-hero"
         className="relative overflow-hidden rounded-[var(--fc-radius-xl)] p-[var(--fc-space-hero-slide-pad)] text-[var(--fc-hero-on)] mb-[var(--fc-space-ride-detail-block-mb)]"
@@ -476,7 +574,7 @@ export function RideRouteTab({
           data-testid="ride-route-hero-copy"
           className="text-[length:var(--fc-font-ride-detail-hero-copy-size)] leading-[var(--fc-font-ride-detail-hero-copy-line)] font-[number:var(--fc-font-ride-detail-hero-copy-weight)] text-[var(--fc-hero-on-secondary)]"
         >
-          Leave home to arrive at {destinationName} by {toTime(arriveBy)} —{" "}
+          Leave {leavePlaceName} to arrive at {arrivePlaceName} by {toTime(arriveBy)} —{" "}
           {carpoolRoute.bufferMinutes} min before {lead.eventNoun} at {eventStart}
         </div>
         <a
@@ -508,7 +606,7 @@ export function RideRouteTab({
             isLast={index === carpoolRoute.stops.length - 1}
             notifyState={notifyStates[stop.name]}
             onNotify={handleNotify}
-            reorderable={reorderEnabled && stop.kind === "pickup"}
+            reorderable={reorderEnabled && stop.kind === middleKind}
             reorderBusy={reorderBusy}
             onDragStartPickup={handleDragStartPickup}
             onDragOverPickup={handleDragOverPickup}

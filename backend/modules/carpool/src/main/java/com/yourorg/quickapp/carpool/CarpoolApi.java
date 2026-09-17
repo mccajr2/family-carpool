@@ -29,12 +29,20 @@ public interface CarpoolApi {
     void clearTransportForNotGoingKid(UUID actorAdultId, UUID feedEventId, UUID kidId);
 
     /**
-     * ACCEPTED rides on this feed event in spaces the circle belongs to (as
-     * requester or acceptor). Empty when the event is missing or the circle
-     * has no space membership.
+     * Accepted teammate family-side stops for Route middles on the given leg
+     * (TO pickup / FROM drop-off). Meet-at-requester only. Empty when the event
+     * is missing or the circle has no space membership.
      */
-    List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
-            UUID circleId, UUID feedEventId);
+    List<CarpoolAcceptedPickupDto> listAcceptedFamilyStopsForFeedEvent(
+            UUID circleId, UUID feedEventId, CarpoolLegKind leg);
+
+    /**
+     * Accepted teammate TO pickups visible for multi-stop route building.
+     */
+    default List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        return listAcceptedFamilyStopsForFeedEvent(circleId, feedEventId, CarpoolLegKind.TO);
+    }
 
     /**
      * CONFIRMED TO/FROM legs where {@code adultId} is the assignee, for the
@@ -44,4 +52,13 @@ public interface CarpoolApi {
      */
     List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
             UUID adultId, UUID circleId, Collection<UUID> feedEventIds);
+
+    /**
+     * Family-side places on CONFIRMED legs assigned to {@code adultId} for one
+     * feed event (own household / PLAN rows). Used for combined-block Route
+     * middles when the driver set picking-up / dropping-off on Save ride plan.
+     * Empty when the event is missing or there is no confirmed leg place.
+     */
+    List<CarpoolHouseholdStopDto> listConfirmedHouseholdStopsForFeedEvent(
+            UUID adultId, UUID circleId, UUID feedEventId, CarpoolLegKind leg);
 }

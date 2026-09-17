@@ -7,6 +7,8 @@ import java.util.Locale;
 public enum CalendarRouteStopKind {
     HOME,
     PICKUP,
+    /** Home-side stop on a FROM (back) leg — not a pickup. */
+    DROPOFF,
     DESTINATION;
 
     @JsonValue

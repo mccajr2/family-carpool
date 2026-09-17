@@ -3,6 +3,8 @@ package com.yourorg.quickapp.carpool.internal;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
+import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -29,14 +31,21 @@ class CarpoolApiImpl implements CarpoolApi {
     }
 
     @Override
-    public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
-            UUID circleId, UUID feedEventId) {
-        return rideService.listAcceptedPickupsForFeedEvent(circleId, feedEventId);
+    public List<CarpoolAcceptedPickupDto> listAcceptedFamilyStopsForFeedEvent(
+            UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
+        return rideService.listAcceptedFamilyStopsForFeedEvent(circleId, feedEventId, leg);
     }
 
     @Override
     public List<CarpoolConfirmedDrivingLegDto> listConfirmedDrivingLegs(
             UUID adultId, UUID circleId, Collection<UUID> feedEventIds) {
         return rideService.listConfirmedDrivingLegs(adultId, circleId, feedEventIds);
+    }
+
+    @Override
+    public List<CarpoolHouseholdStopDto> listConfirmedHouseholdStopsForFeedEvent(
+            UUID adultId, UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
+        return rideService.listConfirmedHouseholdStopsForFeedEvent(
+                adultId, circleId, feedEventId, leg);
     }
 }

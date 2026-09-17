@@ -4,6 +4,7 @@ import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.calendar.internal.CalendarService;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
+import com.yourorg.quickapp.leaveby.CalendarRouteLeg;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Instant;
@@ -56,19 +57,23 @@ public class CalendarController {
     public CalendarRouteResponse getRoute(
             @PathVariable("source") CalendarItemSource source,
             @PathVariable("itemId") UUID itemId,
+            @RequestParam(value = "leg", required = false, defaultValue = "TO")
+                    CalendarRouteLeg leg,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return calendarService.getRoute(adult, source, itemId);
+        return calendarService.getRoute(adult, source, itemId, leg);
     }
 
     @PutMapping("/{source}/{itemId}/route")
     public CalendarRouteResponse reorderRoute(
             @PathVariable("source") CalendarItemSource source,
             @PathVariable("itemId") UUID itemId,
+            @RequestParam(value = "leg", required = false, defaultValue = "TO")
+                    CalendarRouteLeg leg,
             @Valid @RequestBody ReorderCalendarRouteRequest request,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return calendarService.reorderRoute(adult, source, itemId, request.middleStopIds());
+        return calendarService.reorderRoute(adult, source, itemId, request.middleStopIds(), leg);
     }
 
     @GetMapping("/{source}/{itemId}/playlist")

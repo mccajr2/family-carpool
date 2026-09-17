@@ -102,7 +102,9 @@ export type CalendarCoverageLeaveBy = {
 /** Multi-stop itinerary from GET/PUT …/calendar/{source}/{itemId}/route. */
 export type CalendarRouteStatus = "OK" | "UNAVAILABLE"
 
-export type CalendarRouteStopKind = "home" | "pickup" | "destination"
+export type CalendarRouteLeg = "TO" | "FROM"
+
+export type CalendarRouteStopKind = "home" | "pickup" | "dropoff" | "destination"
 
 export type CalendarRouteNotifyChannel = "push" | "sms"
 
@@ -118,6 +120,11 @@ export type CalendarRouteStop = {
   contact?: CalendarRouteNotifyContact | null
 }
 
+export type CalendarRouteMemberItem = {
+  source: CalendarItemSource
+  itemId: string
+}
+
 export type CalendarRoute = {
   status: CalendarRouteStatus
   reason?: string | null
@@ -125,11 +132,15 @@ export type CalendarRoute = {
   stops: CalendarRouteStop[]
   /** Length = stops − 1 when status is OK; empty when UNAVAILABLE. */
   legMinutes: number[]
+  /** Echo of assembled leg; optional for older responses. */
+  leg?: CalendarRouteLeg | null
+  /** Ordered block member refs for the member-set cache key. */
+  memberItemIds?: CalendarRouteMemberItem[] | null
 }
 
 /** Body for PUT …/calendar/{source}/{itemId}/route (driving adult only). */
 export type ReorderCalendarRouteRequest = {
-  /** Ordered pickup-stop addresses as returned on the route. */
+  /** Ordered middle-stop addresses as returned on the route (pickup or dropoff). */
   middleStopIds: string[]
 }
 

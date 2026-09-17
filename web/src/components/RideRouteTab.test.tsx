@@ -7,8 +7,10 @@ import {
   PRACTICE_CARPOOL_ROUTE_FIXTURE,
 } from "@/components/rideDetailFixtures"
 import {
+  RideRouteLegTabs,
   RideRouteTab,
   eventStartClockFromIso,
+  reorderMiddleStopsByAddress,
   reorderPickupStopsByAddress,
 } from "@/components/RideRouteTab"
 import { computeSchedule, navigationUrl, toTime } from "@/components/rideScheduleUtils"
@@ -281,5 +283,96 @@ describe("reorderPickupStopsByAddress", () => {
       "Near St",
       "65 Elm",
     ])
+  })
+})
+
+describe("reorderMiddleStopsByAddress", () => {
+  it("reorders FROM dropoffs with venue start and home end", () => {
+    const fromRoute = [
+      { name: "Rink", address: "65 Elm", kind: "destination" as const },
+      { name: "Near", address: "Near St", kind: "dropoff" as const },
+      { name: "Far", address: "Far St", kind: "dropoff" as const },
+      { name: "Home", address: "1 Main", kind: "home" as const },
+    ]
+    const next = reorderMiddleStopsByAddress(fromRoute, "Near St", "Far St")
+    expect(next?.map((stop) => stop.address)).toEqual([
+      "65 Elm",
+      "Far St",
+      "Near St",
+      "1 Main",
+    ])
+  })
+})
+
+describe("RideRouteLegTabs", () => {
+  it("renders There/Back and switches leg", async () => {
+    const user = userEvent.setup()
+    const onLegChange = vi.fn()
+    render(
+      <RideRouteLegTabs
+        leg="TO"
+        availableLegs={["TO", "FROM"]}
+        onLegChange={onLegChange}
+      />,
+    )
+    expect(screen.getByTestId("ride-route-leg-tabs")).toBeInTheDocument()
+    expect(screen.getByTestId("ride-route-leg-there")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    await user.click(screen.getByTestId("ride-route-leg-back"))
+    expect(onLegChange).toHaveBeenCalledWith("FROM")
+  })
+
+  it("hides when only one leg is available", () => {
+    render(
+      <RideRouteLegTabs leg="TO" availableLegs={["TO"]} onLegChange={vi.fn()} />,
+    )
+    expect(screen.queryByTestId("ride-route-leg-tabs")).not.toBeInTheDocument()
+  })
+})
+
+describe("RideRouteTab FROM leg", () => {
+  it("exposes drag handles for dropoff middles on Back", async () => {
+    const fromRoute = {
+      bufferMinutes: 0,
+      stops: [
+        { name: "Rink", address: "65 Elm", kind: "destination" as const },
+        { name: "Near", address: "Near St", kind: "dropoff" as const },
+        { name: "Far", address: "Far St", kind: "dropoff" as const },
+        { name: "Home", address: "1 Main", kind: "home" as const },
+      ],
+      legMinutes: [10, 12, 8],
+    }
+    const onReorderMiddles = vi.fn().mockResolvedValue(undefined)
+    render(
+      <RideRouteTab
+        carpoolRoute={fromRoute}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        leg="FROM"
+        canReorderMiddles
+        onReorderMiddles={onReorderMiddles}
+      />,
+    )
+    expect(screen.getByTestId("ride-route-tab")).toHaveAttribute(
+      "data-route-leg",
+      "FROM",
+    )
+    expect(screen.getByTestId("ride-route-drag-handle-Near St")).toBeInTheDocument()
+    const from = screen.getByTestId("ride-route-stop-Near")
+    const to = screen.getByTestId("ride-route-stop-Far")
+    const dataTransfer = {
+      effectAllowed: "none",
+      dropEffect: "none",
+      setData: vi.fn(),
+      getData: vi.fn().mockReturnValue("Near St"),
+    }
+    fireEvent.dragStart(from, { dataTransfer })
+    fireEvent.dragOver(to, { dataTransfer })
+    await act(async () => {
+      fireEvent.drop(to, { dataTransfer })
+    })
+    expect(onReorderMiddles).toHaveBeenCalledWith(["Far St", "Near St"])
   })
 })

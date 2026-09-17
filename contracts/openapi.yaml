@@ -1654,20 +1654,30 @@ paths:
         Circle member who may route this calendar item — confirmed household
         driver (CONFIRMED coverage for a kid on the item) or adult whose
         circle has an ACCEPTED teammate ride for a kid on the item, and the
-        kid is not RSVP NO. Returns a cached multi-stop itinerary: driving
-        adult's resolved leave-from (active coverage leave-from → item override
-        → membership default → first located) → ACCEPTED teammate pickup stop(s)
-        this driver is fulfilling → event destination. On itinerary build /
-        fingerprint refresh, when there are 2+ geocodable pickup stops and
-        routing succeeds, pickup order is auto-optimized to minimize total
-        pairwise driving duration (start and end stay fixed); 0–1 pickups keep
-        attachment order. Durations come from leaveby pairwise OSRM /
-        leaveby_route_cache (estimate only — never live traffic). status is OK
-        when ordered stops and legMinutes are available; UNAVAILABLE when
-        geocode/OSRM soft-fail or the itinerary cannot be built (optional
-        reason). bufferMinutes is title-heuristic only in this revision (game
-        45 / practice 20 / other 0). Does not mutate the underlying event.
-        Unknown item or no circle → 404; caller not allowed to route → 403.
+        kid is not RSVP NO. Resolves the **combined driving-block** component
+        that contains this item for the signed-in adult and requested `leg`
+        (same adjacency / combined closure as Agenda `driveBlockLinks`).
+        Singleton (one-item) blocks keep the single-event shape for that leg.
+
+        **TO (default):** fixed start = resolved leave-from; reorderable
+        middles = household kid leave-from / afterschool places (combined
+        multi-item blocks) plus ACCEPTED teammate pickups on that leg across
+        all member events (co-located siblings merged before optimize);
+        fixed end = shared venue. bufferMinutes uses the **earliest** member
+        event title heuristic. **FROM:** fixed start = venue; middles =
+        home-side stops as kind `dropoff`; fixed end = driver leave-from /
+        home. Not the confirmed driver on that leg → 403.
+
+        Itineraries persist under a **member-set cache key**
+        `(drivingAdultId, leg, ordered member source+itemId list)` — opening
+        the same combined set via any member `itemId` returns the same
+        cached itinerary (no public block UUID in this revision). On build /
+        fingerprint refresh, 2+ geocodable middles are auto-optimized via the
+        leaveby stop-sequence helper (pairwise OSRM / leaveby_route_cache;
+        estimate only — never live traffic). status is OK when ordered stops
+        and legMinutes are available; UNAVAILABLE on geocode/OSRM soft-fail.
+        Optional response `leg` + `memberItemIds` echo block scope. Does not
+        mutate the underlying event. Unknown item or no circle → 404.
       security:
         - bearerAuth: []
       parameters:
@@ -1680,10 +1690,22 @@ paths:
         - name: itemId
           in: path
           required: true
-          description: Manual event id or feed event id
+          description: >
+            Manual event id or feed event id. Any member of a combined
+            driving block may be used; cache key is the full member set.
           schema:
             type: string
             format: uuid
+        - name: leg
+          in: query
+          required: false
+          description: >
+            Which direction to assemble. TO (There) is the default for
+            back-compat. FROM (Back) returns venue → drop-off middles → home
+            when the viewer is the confirmed driver on that leg.
+          schema:
+            $ref: "#/components/schemas/CalendarRouteLeg"
+          example: TO
       responses:
         "200":
           description: Multi-stop itinerary (OK or UNAVAILABLE)
@@ -1698,6 +1720,10 @@ paths:
                     status: OK
                     reason: null
                     bufferMinutes: 45
+                    leg: TO
+                    memberItemIds:
+                      - source: FEED
+                        itemId: "11111111-1111-1111-1111-111111111111"
                     stops:
                       - name: Home
                         address: "390 Huron Ave, Cambridge, MA"
@@ -1712,12 +1738,38 @@ paths:
                         address: "65 Elm St, Everett, MA"
                         kind: destination
                     legMinutes: [12, 18]
+                fromOk:
+                  summary: FROM leg with drop-off middle
+                  value:
+                    status: OK
+                    reason: null
+                    bufferMinutes: 20
+                    leg: FROM
+                    memberItemIds:
+                      - source: FEED
+                        itemId: "11111111-1111-1111-1111-111111111111"
+                    stops:
+                      - name: Allied Veterans Rink
+                        address: "65 Elm St, Everett, MA"
+                        kind: destination
+                      - name: Kwame (the Oseis)
+                        address: "Somerville, MA"
+                        kind: dropoff
+                        contact:
+                          channel: push
+                          to: the Oseis
+                      - name: Home
+                        address: "390 Huron Ave, Cambridge, MA"
+                        kind: home
+                    legMinutes: [15, 12]
                 unavailable:
                   summary: Soft-fail routing
                   value:
                     status: UNAVAILABLE
                     reason: OSRM_UNAVAILABLE
                     bufferMinutes: 20
+                    leg: TO
+                    memberItemIds: []
                     stops: []
                     legMinutes: []
         "401":
@@ -1728,8 +1780,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: >
-            Caller may not route this item (not a confirmed household driver
-            or ACCEPTED teammate rider for an in-play kid on the item)
+            Caller may not route this item / leg (not a confirmed household
+            driver or ACCEPTED teammate rider for an in-play kid on the item,
+            or not confirmed on the requested FROM leg)
           content:
             application/json:
               schema:
@@ -1743,14 +1796,15 @@ paths:
     put:
       operationId: reorderCalendarRoute
       tags: [family]
-      summary: Reorder middle (pickup) stops on a confirmed-ride itinerary
+      summary: Reorder middle stops on a confirmed-ride itinerary
       description: >
         Driving adult only. Accepts an ordered list of the current middle-stop
-        identities (pickup stop addresses as returned on the route). Recomputes
-        legMinutes for that sequence and persists under the **same** stop
-        fingerprint (a later fingerprint-driven rebuild re-auto-optimizes and
-        overwrites this order). Returns the updated CalendarRoute. Riders who
-        may GET the route but are not the driving adult → 403. Unknown /
+        identities (pickup or dropoff stop addresses as returned on the route
+        for the requested `leg`). Recomputes legMinutes for that sequence and
+        persists under the **same** stop fingerprint and **member-set cache
+        key** for that leg (a later fingerprint-driven rebuild re-auto-optimizes
+        and overwrites this order). Returns the updated CalendarRoute. Riders
+        who may GET the route but are not the driving adult → 403. Unknown /
         mismatched middleStopIds, or route not OK to reorder → 400. Missing
         itinerary, unknown item, or no circle → 404. Same 401 as GET.
       security:
@@ -1765,10 +1819,19 @@ paths:
         - name: itemId
           in: path
           required: true
-          description: Manual event id or feed event id
+          description: Manual event id or feed event id (any combined-block member)
           schema:
             type: string
             format: uuid
+        - name: leg
+          in: query
+          required: false
+          description: >
+            Which leg's middle order to persist. Defaults to TO. Must match a
+            leg the caller is allowed to drive.
+          schema:
+            $ref: "#/components/schemas/CalendarRouteLeg"
+          example: TO
       requestBody:
         required: true
         content:
@@ -1796,6 +1859,10 @@ paths:
                     status: OK
                     reason: null
                     bufferMinutes: 20
+                    leg: TO
+                    memberItemIds:
+                      - source: FEED
+                        itemId: "11111111-1111-1111-1111-111111111111"
                     stops:
                       - name: Home
                         address: "390 Huron Ave, Cambridge, MA"
@@ -5149,12 +5216,42 @@ components:
         - OK
         - UNAVAILABLE
 
+    CalendarRouteLeg:
+      type: string
+      description: >
+        Driving direction for a calendar route itinerary. TO — There (to the
+        event). FROM — Back (from the event). Defaults to TO when omitted on
+        GET/PUT …/route.
+      enum:
+        - TO
+        - FROM
+
+    CalendarRouteMemberItem:
+      type: object
+      required:
+        - source
+        - itemId
+      description: >
+        One calendar item in the ordered driving-block member set used as the
+        itinerary cache key (with adult id + leg).
+      properties:
+        source:
+          $ref: "#/components/schemas/CalendarItemSource"
+        itemId:
+          type: string
+          format: uuid
+          description: Manual event id or feed event id
+
     CalendarRouteStopKind:
       type: string
-      description: Role of a stop in the multi-stop itinerary
+      description: >
+        Role of a stop in the multi-stop itinerary. `pickup` is used for TO
+        (There) middles; `dropoff` for FROM (Back) home-side middles
+        (ADR-0004 direction-correct labeling).
       enum:
         - home
         - pickup
+        - dropoff
         - destination
 
     CalendarRouteNotifyChannel:
@@ -5201,8 +5298,8 @@ components:
             - $ref: "#/components/schemas/CalendarRouteNotifyContact"
           nullable: true
           description: >
-            Optional notify stub for pickup stops. Null or omitted when the
-            stop has no contact (home / destination).
+            Optional notify stub for pickup/dropoff stops. Null or omitted when
+            the stop has no contact (home / destination).
 
     CalendarRoute:
       type: object
@@ -5227,13 +5324,31 @@ components:
           minimum: 0
           description: >
             Arrival lead-time buffer in minutes from the calendar title
-            heuristic: game 45, practice (\bpractice\b) 20, otherwise 0.
-            Not editable in this revision.
+            heuristic on the **earliest** member event in the resolved block:
+            game 45, practice (\bpractice\b) 20, otherwise 0. Not editable in
+            this revision.
           example: 45
+        leg:
+          allOf:
+            - $ref: "#/components/schemas/CalendarRouteLeg"
+          nullable: true
+          description: >
+            Echo of the requested/assembled leg. Optional for older clients;
+            present when the server built a block itinerary for TO or FROM.
+        memberItemIds:
+          type: array
+          nullable: true
+          description: >
+            Ordered driving-block member refs (source + itemId) for the
+            member-set cache key. Optional echo so clients can assert block
+            scope. Empty or omitted when unavailable.
+          items:
+            $ref: "#/components/schemas/CalendarRouteMemberItem"
         stops:
           type: array
           description: >
-            Ordered stops home → pickup(s) → destination. Empty when status is
+            Ordered stops for the leg. TO: home → pickup(s) → destination.
+            FROM: destination → dropoff(s) → home. Empty when status is
             UNAVAILABLE and no stop list could be assembled.
           items:
             $ref: "#/components/schemas/CalendarRouteStop"
@@ -5253,15 +5368,15 @@ components:
       required:
         - middleStopIds
       description: >
-        Manual middle-stop reorder body. Identities are the current pickup
-        stop addresses as returned on CalendarRoute (order is the new pickup
-        sequence). Must be a permutation of the existing pickup stops.
+        Manual middle-stop reorder body. Identities are the current middle
+        stop addresses as returned on CalendarRoute (pickup on TO, dropoff on
+        FROM). Must be a permutation of the existing middle stops for that leg.
       properties:
         middleStopIds:
           type: array
           description: >
-            Ordered pickup-stop identities (addresses). Home and destination
-            are fixed and must not appear here.
+            Ordered middle-stop identities (addresses). Fixed start and end
+            (home/venue depending on leg) must not appear here.
           items:
             type: string
             minLength: 1
