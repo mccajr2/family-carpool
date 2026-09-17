@@ -147,31 +147,31 @@ north-star for public block ids.
 
 ## Acceptance criteria
 
-- [ ] `GET …/route` accepts `leg=TO|FROM` (default TO). For a multi-item
+- [x] `GET …/route` accepts `leg=TO|FROM` (default TO). For a multi-item
       combined TO block, response stops include **all** assembled middles for
       that block (household + teammate on that leg), not only the path item’s
       single-event pickups; end is the shared venue; leave-by targets the
       **earliest** member event’s `startsAt − bufferMinutes`.
-- [ ] Opening Route via **any** member `itemId` of the same combined
+- [x] Opening Route via **any** member `itemId` of the same combined
       component + same `leg` returns the **same** ordered itinerary (member-set
       cache key).
-- [ ] `GET …/route?leg=FROM` for a routable FROM block returns venue →
+- [x] `GET …/route?leg=FROM` for a routable FROM block returns venue →
       drop-off middles → home; home-side stops are kind **`dropoff`** (not
       labeled pickup). ADR-0004 named/qualified addresses and co-located
       multi-kid merge apply.
-- [ ] Build / fingerprint refresh with 2+ geocodable middles calls existing
+- [x] Build / fingerprint refresh with 2+ geocodable middles calls existing
       `StopSequenceOptimizer` (no second permutation engine). Soft-fail →
       `UNAVAILABLE`.
-- [ ] Driving adult `PUT` reorder with `leg` persists middle order for that
+- [x] Driving adult `PUT` reorder with `leg` persists middle order for that
       leg until the next fingerprint rebuild re-auto-optimizes; non-driver /
       wrong leg → 403.
-- [ ] Web Route shows **There / Back** tabs (or dual sections); each loads /
+- [x] Web Route shows **There / Back** tabs (or dual sections); each loads /
       reorders its `leg`. Agenda block **View route** opens this chrome
       (default There). Singleton one-event drives get the same dual-leg UI
       when both legs are routable.
-- [ ] OpenAPI + web `familyClient` / types updated in the same change; KMP
+- [x] OpenAPI + web `familyClient` / types updated in the same change; KMP
       untouched. No public `/blocks/{id}/route` in this PR.
-- [ ] Unit + integration coverage for block TO assembly, FROM assembly +
+- [x] Unit + integration coverage for block TO assembly, FROM assembly +
       dropoff kind, member-set cache equivalence across itemIds, and
       There/Back client tab fetch; existing single-event TO default remains
       green.
@@ -187,7 +187,7 @@ north-star for public block ids.
       that still say “single-event TO only”
 - [x] Web: `familyClient` + types for `leg`; Route There/Back tabs; drag per
       active leg; AgendaBlockCard / FamilyScreen View route → dual-leg Route
-- [ ] Tests: leaveby unit (assembly + optimizer caller); integration (block
+- [x] Tests: leaveby unit (assembly + optimizer caller); integration (block
       multi-stop + FROM + same itinerary via two itemIds + reorder); web
       `RideRouteTab` There/Back + `AgendaBlockCard` / FamilyScreen View route;
       OpenAPI contract assertions

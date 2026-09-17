@@ -19,7 +19,10 @@ import com.yourorg.quickapp.calendar.CalendarItemResponse;
 import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.CalendarLeaveByResponse;
 import com.yourorg.quickapp.calendar.CalendarRouteResponse;
+import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
+import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
+import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.coverage.CoverageApi;
 import com.yourorg.quickapp.coverage.CoverageAssignmentDto;
 import com.yourorg.quickapp.coverage.CoverageItemSource;
@@ -27,11 +30,15 @@ import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.family.FamilyAccessException;
+import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedEventKey;
 import com.yourorg.quickapp.leaveby.CalendarRouteDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteLeg;
+import com.yourorg.quickapp.leaveby.CalendarRouteMemberRef;
+import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
 import com.yourorg.quickapp.leaveby.CalendarRouteStatus;
 import com.yourorg.quickapp.leaveby.CalendarRouteStopDto;
 import com.yourorg.quickapp.leaveby.CalendarRouteStopKind;
@@ -51,6 +58,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -1206,5 +1214,467 @@ class CalendarServiceTest {
                                                 kidA,
                                                 RsvpStatus.NO))))
                 .containsExactly(kidB);
+    }
+
+    @Test
+    void getRouteCombinedToBlockAssemblesPickupsAcrossMembersAndUsesEarliestTitle() {
+        UUID itemA = UUID.randomUUID();
+        UUID itemB = UUID.randomUUID();
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        UUID requesterCircle = UUID.randomUUID();
+        Instant startsA = Instant.parse("2026-08-15T17:00:00Z");
+        Instant startsB = Instant.parse("2026-08-15T18:00:00Z");
+        UUID feedId = UUID.randomUUID();
+
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(requesterCircle, "House Requester")));
+        stubFeedEvent(itemA, feedId, "Practice A", startsA, kidA);
+        stubFeedEvent(itemB, feedId, "Practice B", startsB, kidB);
+        when(coverageApi.listForItem(eq(circleId), eq(CoverageItemSource.FEED), any()))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.FEED, List.of(itemB)))
+                .thenReturn(List.of(new RsvpDto(RsvpItemSource.FEED, itemB, kidB, RsvpStatus.YES)));
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(
+                        eq(circleId), eq(itemA), eq(CarpoolLegKind.TO)))
+                .thenReturn(
+                        List.of(
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "Home B",
+                                        "34 Pine St",
+                                        List.of(kidA))));
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(
+                        eq(circleId), eq(itemB), eq(CarpoolLegKind.TO)))
+                .thenReturn(
+                        List.of(
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "School",
+                                        "2 School Rd",
+                                        List.of(kidB))));
+        when(driveBlockRouteResolver.resolve(
+                        eq(adult.id()),
+                        eq(circleId),
+                        eq(CalendarItemSource.FEED),
+                        eq(itemB),
+                        eq(CarpoolLegKind.TO),
+                        any()))
+                .thenReturn(
+                        Optional.of(
+                                new DrivingBlockComputer.DriveBlock(
+                                        CarpoolLegKind.TO,
+                                        List.of(
+                                                new DrivingBlockComputer.ItemRef(
+                                                        CalendarItemSource.FEED, itemA),
+                                                new DrivingBlockComputer.ItemRef(
+                                                        CalendarItemSource.FEED, itemB)))));
+        when(leaveByApi.getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.TO),
+                        any(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemA),
+                        eq("Practice A"),
+                        any(),
+                        eq("Field 3"),
+                        eq("Field 3")))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                20,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Home B (House Requester)",
+                                                "34 Pine St",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "School (House Requester)",
+                                                "2 School Rd",
+                                                CalendarRouteStopKind.PICKUP,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Field 3",
+                                                "Field 3",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null)),
+                                List.of(10, 12, 14),
+                                CalendarRouteLeg.TO,
+                                List.of(
+                                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemA),
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.FEED, itemB))));
+
+        CalendarRouteResponse route =
+                calendarService.getRoute(
+                        adult, CalendarItemSource.FEED, itemB, CalendarRouteLeg.TO);
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.leg()).isEqualTo(CalendarRouteLeg.TO);
+        assertThat(route.memberItemIds()).hasSize(2);
+        assertThat(route.stops()).hasSize(4);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CalendarRoutePickupInput>> middles =
+                ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<CalendarRouteMemberRef>> members =
+                ArgumentCaptor.forClass(List.class);
+        verify(leaveByApi)
+                .getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.TO),
+                        members.capture(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemA),
+                        eq("Practice A"),
+                        middles.capture(),
+                        eq("Field 3"),
+                        eq("Field 3"));
+        assertThat(members.getValue())
+                .containsExactly(
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemA),
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemB));
+        assertThat(middles.getValue())
+                .extracting(CalendarRoutePickupInput::address)
+                .containsExactlyInAnyOrder("34 Pine St", "2 School Rd");
+        assertThat(middles.getValue())
+                .allMatch(m -> m.kind() == CalendarRouteStopKind.PICKUP);
+    }
+
+    @Test
+    void getRouteFromLegAssemblesDropoffsAndVenueStartShape() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID requesterCircle = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(requesterCircle, "House Requester")));
+        stubFeedEvent(itemId, feedId, "Practice", startsAt, kidId);
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.FEED, List.of(itemId)))
+                .thenReturn(
+                        List.of(new RsvpDto(RsvpItemSource.FEED, itemId, kidId, RsvpStatus.YES)));
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(
+                        eq(circleId), eq(itemId), eq(CarpoolLegKind.FROM)))
+                .thenReturn(
+                        List.of(
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "Home B",
+                                        "34 Pine St",
+                                        List.of(kidId))));
+        // Empty resolve → singleton; confirmed FROM unlocks the leg gate.
+        when(driveBlockRouteResolver.resolve(
+                        eq(adult.id()),
+                        eq(circleId),
+                        eq(CalendarItemSource.FEED),
+                        eq(itemId),
+                        eq(CarpoolLegKind.FROM),
+                        any()))
+                .thenReturn(Optional.empty());
+        when(carpoolApi.listConfirmedDrivingLegs(adult.id(), circleId, List.of(itemId)))
+                .thenReturn(
+                        List.of(new CarpoolConfirmedDrivingLegDto(itemId, CarpoolLegKind.FROM)));
+        when(leaveByApi.getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.FROM),
+                        any(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemId),
+                        eq("Practice"),
+                        any(),
+                        eq("Field 3"),
+                        eq("Field 3")))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                20,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Field 3",
+                                                "Field 3",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Home B (House Requester)",
+                                                "34 Pine St",
+                                                CalendarRouteStopKind.DROPOFF,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null)),
+                                List.of(10, 8),
+                                CalendarRouteLeg.FROM,
+                                List.of(
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.FEED, itemId))));
+
+        CalendarRouteResponse route =
+                calendarService.getRoute(
+                        adult, CalendarItemSource.FEED, itemId, CalendarRouteLeg.FROM);
+
+        assertThat(route.leg()).isEqualTo(CalendarRouteLeg.FROM);
+        assertThat(route.stops().get(1).kind()).isEqualTo(CalendarRouteStopKind.DROPOFF);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CalendarRoutePickupInput>> middles =
+                ArgumentCaptor.forClass(List.class);
+        verify(leaveByApi)
+                .getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.FROM),
+                        any(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemId),
+                        eq("Practice"),
+                        middles.capture(),
+                        eq("Field 3"),
+                        eq("Field 3"));
+        assertThat(middles.getValue())
+                .singleElement()
+                .satisfies(
+                        m -> {
+                            assertThat(m.address()).isEqualTo("34 Pine St");
+                            assertThat(m.kind()).isEqualTo(CalendarRouteStopKind.DROPOFF);
+                        });
+    }
+
+    @Test
+    void getRouteSameCombinedMembersViaEitherItemId() {
+        UUID itemA = UUID.randomUUID();
+        UUID itemB = UUID.randomUUID();
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        UUID requesterCircle = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsA = Instant.parse("2026-08-15T17:00:00Z");
+        Instant startsB = Instant.parse("2026-08-15T18:00:00Z");
+        DrivingBlockComputer.DriveBlock combined =
+                new DrivingBlockComputer.DriveBlock(
+                        CarpoolLegKind.TO,
+                        List.of(
+                                new DrivingBlockComputer.ItemRef(CalendarItemSource.FEED, itemA),
+                                new DrivingBlockComputer.ItemRef(CalendarItemSource.FEED, itemB)));
+
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(requesterCircle, "House Requester")));
+        stubFeedEvent(itemA, feedId, "Practice A", startsA, kidA);
+        stubFeedEvent(itemB, feedId, "Practice B", startsB, kidB);
+        when(coverageApi.listForItem(eq(circleId), eq(CoverageItemSource.FEED), any()))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.FEED), any()))
+                .thenAnswer(
+                        inv -> {
+                            @SuppressWarnings("unchecked")
+                            List<UUID> ids = inv.getArgument(2);
+                            UUID id = ids.getFirst();
+                            UUID kid = id.equals(itemA) ? kidA : kidB;
+                            return List.of(
+                                    new RsvpDto(RsvpItemSource.FEED, id, kid, RsvpStatus.YES));
+                        });
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(
+                        eq(circleId), any(), eq(CarpoolLegKind.TO)))
+                .thenReturn(
+                        List.of(
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "Home B",
+                                        "34 Pine St",
+                                        List.of(kidA, kidB))));
+        when(driveBlockRouteResolver.resolve(
+                        eq(adult.id()),
+                        eq(circleId),
+                        eq(CalendarItemSource.FEED),
+                        any(),
+                        eq(CarpoolLegKind.TO),
+                        any()))
+                .thenReturn(Optional.of(combined));
+        when(leaveByApi.getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.TO),
+                        any(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemA),
+                        eq("Practice A"),
+                        any(),
+                        eq("Field 3"),
+                        eq("Field 3")))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                20,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Field 3",
+                                                "Field 3",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null)),
+                                List.of(14),
+                                CalendarRouteLeg.TO,
+                                List.of(
+                                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemA),
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.FEED, itemB))));
+
+        calendarService.getRoute(adult, CalendarItemSource.FEED, itemA, CalendarRouteLeg.TO);
+        calendarService.getRoute(adult, CalendarItemSource.FEED, itemB, CalendarRouteLeg.TO);
+
+        ArgumentCaptor<List<CalendarRouteMemberRef>> members =
+                ArgumentCaptor.forClass(List.class);
+        verify(leaveByApi, org.mockito.Mockito.times(2))
+                .getOrRefreshCalendarRoute(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.TO),
+                        members.capture(),
+                        eq(LeaveByItemSource.FEED),
+                        eq(itemA),
+                        eq("Practice A"),
+                        any(),
+                        eq("Field 3"),
+                        eq("Field 3"));
+        assertThat(members.getAllValues().get(0)).isEqualTo(members.getAllValues().get(1));
+        assertThat(members.getValue())
+                .containsExactly(
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemA),
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemB));
+    }
+
+    @Test
+    void reorderRouteFromLegPassesLegScopedMembers() {
+        UUID itemId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID requesterCircle = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        Instant startsAt = Instant.parse("2026-08-15T17:00:00Z");
+
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(requesterCircle, "House Requester")));
+        stubFeedEvent(itemId, feedId, "Practice", startsAt, kidId);
+        when(coverageApi.listForItem(circleId, CoverageItemSource.FEED, itemId))
+                .thenReturn(List.of());
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.FEED, List.of(itemId)))
+                .thenReturn(
+                        List.of(new RsvpDto(RsvpItemSource.FEED, itemId, kidId, RsvpStatus.YES)));
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(
+                        eq(circleId), eq(itemId), eq(CarpoolLegKind.FROM)))
+                .thenReturn(
+                        List.of(
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "Near",
+                                        "Near St",
+                                        List.of(kidId)),
+                                new CarpoolAcceptedPickupDto(
+                                        adult.id(),
+                                        circleId,
+                                        requesterCircle,
+                                        "Far",
+                                        "Far St",
+                                        List.of(kidId))));
+        when(driveBlockRouteResolver.resolve(
+                        eq(adult.id()),
+                        eq(circleId),
+                        eq(CalendarItemSource.FEED),
+                        eq(itemId),
+                        eq(CarpoolLegKind.FROM),
+                        any()))
+                .thenReturn(Optional.empty());
+        when(carpoolApi.listConfirmedDrivingLegs(adult.id(), circleId, List.of(itemId)))
+                .thenReturn(
+                        List.of(new CarpoolConfirmedDrivingLegDto(itemId, CarpoolLegKind.FROM)));
+        when(leaveByApi.reorderCalendarRouteMiddles(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.FROM),
+                        any(),
+                        eq(List.of("Far St", "Near St"))))
+                .thenReturn(
+                        CalendarRouteDto.ok(
+                                20,
+                                List.of(
+                                        new CalendarRouteStopDto(
+                                                "Field 3",
+                                                "Field 3",
+                                                CalendarRouteStopKind.DESTINATION,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Far",
+                                                "Far St",
+                                                CalendarRouteStopKind.DROPOFF,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Near",
+                                                "Near St",
+                                                CalendarRouteStopKind.DROPOFF,
+                                                null),
+                                        new CalendarRouteStopDto(
+                                                "Home",
+                                                "1 Main",
+                                                CalendarRouteStopKind.HOME,
+                                                null)),
+                                List.of(10, 12, 8),
+                                CalendarRouteLeg.FROM,
+                                List.of(
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.FEED, itemId))));
+
+        CalendarRouteResponse route =
+                calendarService.reorderRoute(
+                        adult,
+                        CalendarItemSource.FEED,
+                        itemId,
+                        List.of("Far St", "Near St"),
+                        CalendarRouteLeg.FROM);
+
+        assertThat(route.stops().get(1).address()).isEqualTo("Far St");
+        verify(leaveByApi)
+                .reorderCalendarRouteMiddles(
+                        eq(adult.id()),
+                        eq(CalendarRouteLeg.FROM),
+                        any(),
+                        eq(List.of("Far St", "Near St")));
+    }
+
+    private void stubFeedEvent(
+            UUID itemId, UUID feedId, String title, Instant startsAt, UUID kidId) {
+        when(feedCalendarApi.findEventInCircle(circleId, itemId))
+                .thenReturn(
+                        Optional.of(
+                                new FeedCalendarEventDto(
+                                        itemId,
+                                        feedId,
+                                        "U12",
+                                        title.toLowerCase().replace(' ', '-') + "@example.com",
+                                        title,
+                                        startsAt,
+                                        startsAt.plusSeconds(3600),
+                                        "Field 3",
+                                        List.of(kidId))));
     }
 }
