@@ -2540,6 +2540,110 @@ export function FamilyScreen({
     }
   }
 
+  /**
+   * Player-conflict Hero resolve: keep A / keep B / neither via existing RSVP
+   * writes on both peers (YES on kept, NO on dropped / both).
+   */
+  async function onResolvePlayerConflict(
+    itemA: CalendarItem,
+    itemB: CalendarItem,
+    choice: "keepA" | "keepB" | "neither",
+    kidIds: readonly string[],
+  ) {
+    const uniqueKidIds = [...new Set(kidIds)]
+    if (uniqueKidIds.length === 0) {
+      return
+    }
+    type Write = { item: CalendarItem; kidId: string; status: RsvpStatus }
+    const writes: Write[] = []
+    for (const kidId of uniqueKidIds) {
+      if (choice === "keepA") {
+        writes.push({ item: itemA, kidId, status: "YES" })
+        writes.push({ item: itemB, kidId, status: "NO" })
+      } else if (choice === "keepB") {
+        writes.push({ item: itemA, kidId, status: "NO" })
+        writes.push({ item: itemB, kidId, status: "YES" })
+      } else {
+        writes.push({ item: itemA, kidId, status: "NO" })
+        writes.push({ item: itemB, kidId, status: "NO" })
+      }
+    }
+    const needed = writes.filter(
+      (write) => rsvpStatusForKid(write.item, write.kidId) !== write.status,
+    )
+    if (needed.length === 0) {
+      return
+    }
+    const noWrites = needed.filter((write) => write.status === "NO")
+    if (noWrites.length > 0) {
+      const kidsNeedingConfirm = [
+        ...new Set(
+          noWrites
+            .filter((write) => kidHasActiveCoverage(write.item, write.kidId))
+            .map((write) => write.kidId),
+        ),
+      ]
+      const feedItems = [itemA, itemB].filter((row) => row.source === "FEED")
+      const inboundPassengerNames = feedItems.flatMap((row) => {
+        const rideEvent = calendarRideByItemKey.get(calendarItemKey(row))
+        return (
+          rideEvent?.otherRequests
+            .filter((ride) => circle != null && isAcceptedByCircle(ride, circle.id))
+            .flatMap((ride) => ride.kidFirstNames) ?? []
+        )
+      })
+      if (kidsNeedingConfirm.length > 0 || inboundPassengerNames.length > 0) {
+        const names = joinKidFirstNames(
+          (kidsNeedingConfirm.length > 0 ? kidsNeedingConfirm : uniqueKidIds).map(
+            (kidId) =>
+              circle?.kids.find((kid) => kid.id === kidId)?.displayName?.trim().split(/\s+/)[0] ||
+              "Kid",
+          ),
+        )
+        if (!window.confirm(rsvpCoverageReleaseMessage(names, inboundPassengerNames))) {
+          return
+        }
+      }
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const byItemKey = new Map<string, CalendarItem>([
+        [calendarItemKey(itemA), itemA],
+        [calendarItemKey(itemB), itemB],
+      ])
+      let touchedFeed = false
+      for (const write of needed) {
+        const key = calendarItemKey(write.item)
+        const current = byItemKey.get(key) ?? write.item
+        if (rsvpStatusForKid(current, write.kidId) === write.status) {
+          continue
+        }
+        const updated = await familyClient.setCalendarRsvp(
+          token,
+          current.source,
+          current.id,
+          write.kidId,
+          { status: write.status },
+        )
+        byItemKey.set(key, updated)
+        if (write.status === "NO" && current.source === "FEED") {
+          touchedFeed = true
+        }
+      }
+      replaceCalendarItems([...byItemKey.values()])
+      if (touchedFeed) {
+        await reloadCalendarCarpoolRides(token)
+      }
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
   function openEditEvent(item: CalendarItem) {
     setEditingEventId(item.id)
     setEditingEventTitle(item.title)
@@ -2908,6 +3012,17 @@ export function FamilyScreen({
     if (calendarItemForSlide == null) {
       throw new Error(`Missing calendar item for queue game ${queueItem.game.id}`)
     }
+    const peerItemKey =
+      queueItem.kind === "playerConflict"
+        ? coverageGameEventKey(queueItem.peerGame.id)
+        : null
+    const peerCalendarItem =
+      peerItemKey != null
+        ? agendaWindowItems.find((row) => calendarItemKey(row) === peerItemKey)
+        : undefined
+    if (queueItem.kind === "playerConflict" && peerCalendarItem == null) {
+      throw new Error(`Missing peer calendar item for conflict ${queueItem.peerGame.id}`)
+    }
     const rideEvent = calendarRideByItemKey.get(itemKey) ?? null
     const baseAssign = coverageAssignState(
       calendarItemForSlide,
@@ -2924,7 +3039,12 @@ export function FamilyScreen({
     const gapKidIds = slideGames
       .filter((game) => game.attendance !== "not_going" && isOwnRideGap(game))
       .map((game) => game.kidId)
-    const assignKidIds = goingKidIds.length > 0 ? goingKidIds : gapKidIds
+    const assignKidIds =
+      queueItem.kind === "playerConflict"
+        ? [...queueItem.kidIds]
+        : goingKidIds.length > 0
+          ? goingKidIds
+          : gapKidIds
     const hasPickupPlace = circle.places.some((place) => place.address.trim().length > 0)
     const blockMembers = (() => {
       const combinedIds = new Set(
@@ -2958,6 +3078,7 @@ export function FamilyScreen({
       index,
       queueLength: attentionQueue.length,
       calendarItem: calendarItemForSlide,
+      peerCalendarItem,
       circle,
       currentAdultId: adult?.id ?? "",
       loading: status.kind === "loading",
@@ -3035,6 +3156,16 @@ export function FamilyScreen({
         void onSetCalendarRsvp(calendarItemForSlide, kidId, rsvpStatus),
       onSetNotGoing: (kidIds) =>
         void onSetCalendarRsvps(calendarItemForSlide, kidIds, "NO"),
+      onResolvePlayerConflict:
+        queueItem.kind === "playerConflict" && peerCalendarItem != null
+          ? (choice, kidIds) =>
+              void onResolvePlayerConflict(
+                calendarItemForSlide,
+                peerCalendarItem,
+                choice,
+                kidIds,
+              )
+          : undefined,
       leaveFromValue: (() => {
         const draft = leaveFromDrafts[itemKey]
         if (draft != null) {

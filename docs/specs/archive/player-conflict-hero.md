@@ -1,6 +1,6 @@
 # Spec: player-conflict-hero
 
-Status: draft  
+Status: done  
 Created: 2026-09-16  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Branch: `player-conflict-hero`  
@@ -106,55 +106,55 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] Unresolved same-kid overlap (`KID_TIME_OVERLAP` + kid in-play on both peers)
+- [x] Unresolved same-kid overlap (`KID_TIME_OVERLAP` + kid in-play on both peers)
       in the near-term Hero horizon produces **one** Hero slide that presents
       both events with **team · event** labels when `feedName` is present, else
       title-only.
-- [ ] Primary resolve path: keep A or keep B (default all-kids); choosing keep A
+- [x] Primary resolve path: keep A or keep B (default all-kids); choosing keep A
       writes not-going on B (and ensures going on A as needed) via existing RSVP
       APIs. Escape / neither uses the shared [`hero-not-going`](../archive/hero-not-going.md)
       control (not conflict-only chrome) and marks not-going on **both** peers for
       kids in scope.
-- [ ] After successful resolve writes, the player-conflict item is **absent**
+- [x] After successful resolve writes, the player-conflict item is **absent**
       from `getQueue` / carousel on the next render (even if server amber
       `conflicts` remain).
-- [ ] For events in that pair, the player-conflict slide ranks **above** that
+- [x] For events in that pair, the player-conflict slide ranks **above** that
       event’s own-ride gaps and inbound asks; a sooner unrelated event’s gaps/asks
       still rank ahead of a later conflict pair.
-- [ ] Multi-kid same pair: default applies one keep/not-going choice to **all**
+- [x] Multi-kid same pair: default applies one keep/not-going choice to **all**
       unresolved kids; progressive split allows per-kid keep A, keep B, or
       neither; after resolve, normal own-ride Hero slides can surface for kept
       going kids (no special conflict→DriverPicker chrome).
-- [ ] Load more / loaded calendar beyond +7 does **not** add player-conflict
+- [x] Load more / loaded calendar beyond +7 does **not** add player-conflict
       slides outside `filterQueueWithinHorizon` (same as other Hero items).
-- [ ] Reversing a pick uses attendance (Agenda or Hero not-going on the kept
+- [x] Reversing a pick uses attendance (Agenda or Hero not-going on the kept
       event; optional going on the other); no dedicated Undo on the conflict slide.
-- [ ] No OpenAPI / backend / Expo changes. ADR-0001 and
+- [x] No OpenAPI / backend / Expo changes. ADR-0001 and
       `docs/agenda-coverage-web-contract.md` document the new queue kind and
       precedence.
-- [ ] Unit/component tests would fail if conflict queue emission, in-play
+- [x] Unit/component tests would fail if conflict queue emission, in-play
       filtering, multi-kid default vs split writes, or priority ordering were
       reverted.
 
 ## Tasks
 
-- [ ] Docs: amend ADR-0001 for player-conflict precedence within event-grouped
+- [x] Docs: amend ADR-0001 for player-conflict precedence within event-grouped
       `getQueue` (one slide per unresolved pair; before own gaps/asks for those
       events)
-- [ ] Docs: update `docs/agenda-coverage-web-contract.md` Hero carousel queue —
+- [x] Docs: update `docs/agenda-coverage-web-contract.md` Hero carousel queue —
       player-conflict kind, in-play-both-peers rule, multi-kid progressive
       resolve, horizon unchanged
-- [ ] Web: extend `QueueItem` + `getQueue` to emit deduped `playerConflict`
+- [x] Web: extend `QueueItem` + `getQueue` to emit deduped `playerConflict`
       items from calendar conflicts + attendance; cover with
       `coverageQueue.test.ts`
-- [ ] Web: Hero slide UI — both peers labeled; keep A / keep B; reuse shared
+- [x] Web: Hero slide UI — both peers labeled; keep A / keep B; reuse shared
       Hero not-going for neither; multi-kid default + split (Different plans
       disclosure); wire RSVP writes; slide drops after success
-- [ ] Web: FamilyScreen / carousel wiring — map calendar peers for the new
+- [x] Web: FamilyScreen / carousel wiring — map calendar peers for the new
       kind; ensure post-resolve ownRide/ask slides continue to work
-- [ ] Tests: component coverage for slide resolve paths (single kid, multi-kid
+- [x] Tests: component coverage for slide resolve paths (single kid, multi-kid
       default, split including neither); priority vs gap/ask; horizon exclusion
-- [ ] Visual: reuse `hero*` chrome; add token roles only if measured values need
+- [x] Visual: reuse `hero*` chrome; add token roles only if measured values need
       a new lock (no snap-to-nearby)
 
 ## Open questions

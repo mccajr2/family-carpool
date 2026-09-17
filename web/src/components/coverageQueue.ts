@@ -1,6 +1,7 @@
 /**
  * Shared coverage priority queue for the hero & coverage flow redesign.
- * Pure view-model — no UI, no API calls. See docs/specs/active/coverage-priority-engine.md.
+ * Pure view-model — no UI, no API calls. See ADR-0001 and
+ * docs/agenda-coverage-web-contract.md (Hero carousel queue).
  *
  * Downstream contract: assigning any real driver resets attendance to "going"
  * (ADR-0003) — enforced in household-driver-assignment, not here.
@@ -66,11 +67,25 @@ export type CoverageGameEvent = {
    * `ownRide` of requested/confirmed still queues when any leg is NEEDS_RIDE.
    */
   ownLegs?: CarpoolRideLeg[]
+  /**
+   * Calendar-item keys (`source-id`) of this kid's `KID_TIME_OVERLAP` peers.
+   * Omitted or empty when the calendar item has no such conflicts for the kid.
+   */
+  kidTimeOverlapPeerKeys?: readonly string[]
 }
 
 export type QueueItem =
   | { kind: "ownRide"; game: CoverageGameEvent }
   | { kind: "request"; game: CoverageGameEvent; request: CarpoolRequest }
+  | {
+      kind: "playerConflict"
+      /** Sooner peer row (emit / horizon anchor). */
+      game: CoverageGameEvent
+      /** Later peer row for the same unresolved kids. */
+      peerGame: CoverageGameEvent
+      /** Household kids still in-play on both peers (stable kidId order). */
+      kidIds: readonly string[]
+    }
 
 /** `{calendarItemKey}:{kidId}` → calendar item key for list exclusion / lookup. */
 export function coverageGameEventKey(gameId: string): string {
@@ -190,9 +205,103 @@ function isActionableInboundRequest(request: CarpoolRequest): boolean {
   return request.status === "pending" && !request.autoDeclined && !request.passedByMe
 }
 
+/** Unordered event-pair key for player-conflict dedupe. */
+function playerConflictPairKey(eventKeyA: string, eventKeyB: string): string {
+  return eventKeyA < eventKeyB
+    ? `${eventKeyA}|${eventKeyB}`
+    : `${eventKeyB}|${eventKeyA}`
+}
+
+type UnresolvedPlayerConflict = {
+  pairKey: string
+  soonerEventKey: string
+  laterEventKey: string
+  soonerGame: CoverageGameEvent
+  laterGame: CoverageGameEvent
+  kidIds: string[]
+}
+
+/**
+ * Unresolved same-kid overlaps: kid still in-play on both peers of a
+ * `KID_TIME_OVERLAP`. One entry per unordered event pair.
+ */
+function unresolvedPlayerConflicts(
+  games: readonly CoverageGameEvent[],
+): UnresolvedPlayerConflict[] {
+  const byGameId = new Map<string, CoverageGameEvent>()
+  for (const game of games) {
+    byGameId.set(game.id, game)
+  }
+
+  const byPair = new Map<
+    string,
+    {
+      soonerEventKey: string
+      laterEventKey: string
+      soonerGame: CoverageGameEvent
+      laterGame: CoverageGameEvent
+      kidIds: Set<string>
+    }
+  >()
+
+  for (const game of games) {
+    if (!isInPlay(game)) {
+      continue
+    }
+    const eventKey = coverageGameEventKey(game.id)
+    const peerKeys = game.kidTimeOverlapPeerKeys
+    if (peerKeys == null || peerKeys.length === 0) {
+      continue
+    }
+    for (const peerKey of peerKeys) {
+      if (peerKey === eventKey) {
+        continue
+      }
+      const peerGame = byGameId.get(`${peerKey}:${game.kidId}`)
+      if (peerGame == null || !isInPlay(peerGame)) {
+        continue
+      }
+      const pairKey = playerConflictPairKey(eventKey, peerKey)
+      const existing = byPair.get(pairKey)
+      if (existing) {
+        existing.kidIds.add(game.kidId)
+        continue
+      }
+      const soonerFirst =
+        game.order < peerGame.order ||
+        (game.order === peerGame.order && eventKey <= peerKey)
+      byPair.set(pairKey, {
+        soonerEventKey: soonerFirst ? eventKey : peerKey,
+        laterEventKey: soonerFirst ? peerKey : eventKey,
+        soonerGame: soonerFirst ? game : peerGame,
+        laterGame: soonerFirst ? peerGame : game,
+        kidIds: new Set([game.kidId]),
+      })
+    }
+  }
+
+  return [...byPair.entries()]
+    .map(([pairKey, row]) => ({
+      pairKey,
+      soonerEventKey: row.soonerEventKey,
+      laterEventKey: row.laterEventKey,
+      soonerGame: row.soonerGame,
+      laterGame: row.laterGame,
+      kidIds: [...row.kidIds].sort(),
+    }))
+    .sort((left, right) => {
+      const orderDelta = left.soonerGame.order - right.soonerGame.order
+      if (orderDelta !== 0) {
+        return orderDelta
+      }
+      return left.pairKey.localeCompare(right.pairKey)
+    })
+}
+
 /**
  * Priority queue per ADR-0001 (event-grouped): walk calendar events
- * soonest-first; for each event emit own-ride gaps then actionable inbound
+ * soonest-first; for each event emit unresolved player-conflict (once per
+ * pair, at the sooner peer), then own-ride gaps, then actionable inbound
  * asks (deduped by `request.id`). Empty array = all caught up.
  */
 export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
@@ -215,11 +324,35 @@ export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
     (left, right) => (eventOrder.get(left) ?? 0) - (eventOrder.get(right) ?? 0),
   )
 
+  const conflictsBySoonerEvent = new Map<string, UnresolvedPlayerConflict[]>()
+  for (const conflict of unresolvedPlayerConflicts(games)) {
+    const group = conflictsBySoonerEvent.get(conflict.soonerEventKey)
+    if (group) {
+      group.push(conflict)
+    } else {
+      conflictsBySoonerEvent.set(conflict.soonerEventKey, [conflict])
+    }
+  }
+
   const queue: QueueItem[] = []
   const emittedRequestIds = new Set<string>()
+  const emittedConflictPairs = new Set<string>()
 
   for (const eventKey of eventKeys) {
     const eventGames = sortByOrder(byEvent.get(eventKey) ?? [])
+
+    for (const conflict of conflictsBySoonerEvent.get(eventKey) ?? []) {
+      if (emittedConflictPairs.has(conflict.pairKey)) {
+        continue
+      }
+      emittedConflictPairs.add(conflict.pairKey)
+      queue.push({
+        kind: "playerConflict",
+        game: conflict.soonerGame,
+        peerGame: conflict.laterGame,
+        kidIds: conflict.kidIds,
+      })
+    }
 
     // One own-ride slide per event — the slide already has per-kid coverage chrome.
     const ownGaps = eventGames.filter(isOwnRideGap)
@@ -450,6 +583,16 @@ export function mapCalendarItemToCoverageGames(
         : plans.length === 1
           ? (plan?.legs ?? rideEvent?.ownLegs)
           : undefined)
+    const kidTimeOverlapPeerKeys = [
+      ...new Set(
+        item.conflicts
+          .filter(
+            (conflict) =>
+              conflict.type === "KID_TIME_OVERLAP" && conflict.kidId === kidId,
+          )
+          .map((conflict) => `${conflict.otherSource}-${conflict.otherItemId}`),
+      ),
+    ]
     return {
       id: `${eventKey}:${kidId}`,
       kidId,
@@ -460,6 +603,9 @@ export function mapCalendarItemToCoverageGames(
       ownRide: mapOwnRideStatusForKid(kidId, item, rideEvent, options),
       requests,
       ...(ownLegs != null ? { ownLegs } : {}),
+      ...(kidTimeOverlapPeerKeys.length > 0
+        ? { kidTimeOverlapPeerKeys }
+        : {}),
     }
   })
 }

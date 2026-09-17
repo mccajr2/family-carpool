@@ -19,10 +19,13 @@ import {
 } from "@/components/DriverPicker"
 import {
   heroAdultFirstName,
+  heroConflictEventLabel,
   heroKidFirstName,
   heroOwnRideTitle,
+  heroPlayerConflictTitle,
   heroRequestTitle,
   heroVenueLine,
+  keepConflictEventLabel,
 } from "@/components/heroAttentionCopy"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
@@ -85,6 +88,20 @@ export type HeroAttentionSlideProps = {
   onSetRsvp?: (kidId: string, status: RsvpStatus) => void
   /** Bulk not-going for 2+ going kids on the slide (simple view). */
   onSetNotGoing?: (kidIds: string[]) => void
+  /**
+   * Peer calendar item for `playerConflict` slides (later / other event).
+   * Required when `item.kind === "playerConflict"`.
+   */
+  peerCalendarItem?: CalendarItem
+  /**
+   * Resolve a player-conflict pick for the given kids.
+   * `keepA` = sooner/`calendarItem`; `keepB` = `peerCalendarItem`;
+   * `neither` = not going on both peers.
+   */
+  onResolvePlayerConflict?: (
+    choice: "keepA" | "keepB" | "neither",
+    kidIds: readonly string[],
+  ) => void
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
@@ -134,6 +151,8 @@ export function HeroAttentionSlide({
   onPassRide,
   onSetRsvp,
   onSetNotGoing,
+  peerCalendarItem,
+  onResolvePlayerConflict,
   leaveFromValue,
   onSetLeaveFrom,
   actionError,
@@ -143,6 +162,7 @@ export function HeroAttentionSlide({
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const [confirmPerKidNotGoing, setConfirmPerKidNotGoing] = useState(false)
+  const [conflictPerKidSplit, setConflictPerKidSplit] = useState(false)
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
   const coverageGames = useMemo(
@@ -395,6 +415,151 @@ export function HeroAttentionSlide({
     </button>
   ) : null
 
+  const conflictKidIds =
+    item.kind === "playerConflict" ? [...item.kidIds] : []
+  const conflictKids = conflictKidIds.map((kidId) => ({
+    id: kidId,
+    firstName: heroKidFirstName(kidId, circle.kids),
+  }))
+  const conflictTitle = heroPlayerConflictTitle(
+    conflictKids.map((kid) => kid.firstName),
+  )
+  const conflictEventALabel = heroConflictEventLabel(calendarItem)
+  const conflictEventBLabel =
+    peerCalendarItem != null ? heroConflictEventLabel(peerCalendarItem) : item.kind === "playerConflict"
+      ? item.peerGame.title
+      : ""
+  const conflictSplitEligible = conflictKids.length >= 2
+  const conflictSplitEnabled =
+    conflictSplitEligible && onResolvePlayerConflict != null
+  const showConflictChrome =
+    item.kind === "playerConflict" && onResolvePlayerConflict != null
+
+  function resolveConflict(
+    choice: "keepA" | "keepB" | "neither",
+    kidIds: readonly string[],
+  ) {
+    onResolvePlayerConflict?.(choice, kidIds)
+  }
+
+  const conflictKeepButtons = (kidIds: readonly string[], testIdSuffix: string) => (
+    <div className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-sm)]">
+      <button
+        type="button"
+        data-testid={`hero-attention-conflict-keep-a${testIdSuffix}`}
+        className="rounded-lg px-4 py-2 text-left text-sm font-semibold"
+        style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
+        disabled={loading}
+        onClick={() => resolveConflict("keepA", kidIds)}
+      >
+        {keepConflictEventLabel(conflictEventALabel)}
+      </button>
+      <button
+        type="button"
+        data-testid={`hero-attention-conflict-keep-b${testIdSuffix}`}
+        className="rounded-lg px-4 py-2 text-left text-sm font-semibold"
+        style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
+        disabled={loading}
+        onClick={() => resolveConflict("keepB", kidIds)}
+      >
+        {keepConflictEventLabel(conflictEventBLabel)}
+      </button>
+    </div>
+  )
+
+  const conflictNeitherLink = (kidIds: readonly string[], testIdSuffix: string) => {
+    const names = kidIds.map(
+      (kidId) => conflictKids.find((kid) => kid.id === kidId)?.firstName ?? "Kid",
+    )
+    return (
+      <button
+        type="button"
+        data-testid={`hero-attention-conflict-neither${testIdSuffix}`}
+        className={heroSecondaryLinkClass}
+        style={{ color: "var(--fc-hero-on-secondary)" }}
+        disabled={loading}
+        onClick={() => resolveConflict("neither", kidIds)}
+      >
+        {names.length >= 2
+          ? markKidsAsNotGoingLabel(names)
+          : markAsNotGoingLabel(names[0] ?? "Kid")}
+      </button>
+    )
+  }
+
+  const conflictCollapsedChrome = showConflictChrome && !conflictPerKidSplit ? (
+    <div
+      className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
+      style={{ borderColor: "rgba(255,255,255,0.14)" }}
+      data-testid="hero-attention-conflict-actions"
+    >
+      {conflictKeepButtons(
+        conflictKidIds,
+        conflictKids.length >= 2 ? "-all" : `-${conflictKids[0]?.id ?? "kid"}`,
+      )}
+      {conflictNeitherLink(
+        conflictKidIds,
+        conflictKids.length >= 2 ? "-all" : `-${conflictKids[0]?.id ?? "kid"}`,
+      )}
+      {conflictSplitEligible ? (
+        <button
+          type="button"
+          data-testid="hero-attention-conflict-different-plans-kid"
+          className={`${heroSecondaryLinkClass}${conflictSplitEnabled ? "" : " cursor-not-allowed"}`}
+          style={{ color: "var(--fc-hero-on-secondary)" }}
+          aria-disabled={conflictSplitEnabled ? undefined : "true"}
+          tabIndex={conflictSplitEnabled ? undefined : -1}
+          disabled={loading}
+          onClick={(event) => {
+            if (!conflictSplitEnabled) {
+              event.preventDefault()
+              return
+            }
+            setConflictPerKidSplit(true)
+          }}
+        >
+          {DIFFERENT_PLANS_FOR_EACH_KID}
+        </button>
+      ) : null}
+    </div>
+  ) : null
+
+  const conflictPerKidChrome =
+    showConflictChrome && conflictSplitEnabled && conflictPerKidSplit ? (
+      <div
+        data-testid="hero-attention-conflict-per-kid"
+        className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
+        style={{ borderColor: "rgba(255,255,255,0.14)" }}
+      >
+        {conflictKids.map((kid) => (
+          <div
+            key={kid.id}
+            data-testid={`hero-attention-conflict-kid-${kid.id}`}
+            className="flex flex-col gap-[var(--fc-space-sm)]"
+          >
+            <span
+              className="text-xs font-semibold uppercase tracking-wide opacity-90"
+              data-testid={`hero-attention-conflict-kid-header-${kid.id}`}
+            >
+              {kid.firstName}
+            </span>
+            {conflictKeepButtons([kid.id], `-${kid.id}`)}
+            {conflictNeitherLink([kid.id], `-${kid.id}`)}
+          </div>
+        ))}
+        <button
+          type="button"
+          data-testid="hero-attention-conflict-back-to-simple"
+          className={heroSecondaryLinkClass}
+          style={{ color: "var(--fc-hero-on-secondary)" }}
+          disabled={loading}
+          onClick={() => setConflictPerKidSplit(false)}
+        >
+          {BACK_TO_SIMPLE_VIEW}
+        </button>
+      </div>
+    ) : null
+
   return (
     <div
       data-testid="hero-attention-slide"
@@ -544,6 +709,36 @@ export function HeroAttentionSlide({
                   />
                 </div>
               )}
+            </>
+          ) : item.kind === "playerConflict" ? (
+            <>
+              <h2
+                className="fc-display mb-[var(--fc-space-sm)] text-[length:var(--fc-font-focus-title-size)] leading-[var(--fc-font-focus-title-line)] font-[number:var(--fc-font-focus-title-weight)]"
+                data-testid="hero-attention-slide-title"
+              >
+                {conflictTitle}
+              </h2>
+              <div
+                data-testid="hero-attention-conflict-peers"
+                className="flex flex-col gap-[var(--fc-space-xs)]"
+              >
+                <p
+                  data-testid="hero-attention-conflict-peer-a"
+                  className="text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)] font-[number:var(--fc-font-focus-when-weight)]"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {conflictEventALabel}
+                </p>
+                <p
+                  data-testid="hero-attention-conflict-peer-b"
+                  className="text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)] font-[number:var(--fc-font-focus-when-weight)]"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {conflictEventBLabel}
+                </p>
+              </div>
+              {conflictCollapsedChrome}
+              {conflictPerKidChrome}
             </>
           ) : (
             <>

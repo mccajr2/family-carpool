@@ -3,10 +3,13 @@ import { describe, expect, it } from "vitest"
 import type { CalendarItem } from "@/api/types"
 import {
   heroAttentionSlideAriaLabel,
+  heroConflictEventLabel,
   heroEventContextLine,
   heroKidFirstName,
   heroPickupSummary,
+  heroPlayerConflictTitle,
   heroRequestTitle,
+  keepConflictEventLabel,
 } from "@/components/heroAttentionCopy"
 import type { CarpoolRequest } from "@/components/coverageQueue"
 
@@ -135,5 +138,39 @@ describe("heroAttentionCopy", () => {
     expect(
       heroAttentionSlideAriaLabel(request, { kidFirstName: "Declan", pendingConfirm: false }),
     ).toBe("the Nguyens need a ride for Ben")
+
+    const conflict = {
+      kind: "playerConflict" as const,
+      game: ownRide.game,
+      peerGame: { ...ownRide.game, id: "g2", title: "Other" },
+      kidIds: ["k1"],
+    }
+    expect(
+      heroAttentionSlideAriaLabel(conflict, {
+        kidFirstNames: ["Declan"],
+        pendingConfirm: false,
+      }),
+    ).toBe("Declan is on two overlapping events")
+  })
+
+  it("labels conflict peers with feedName · title or title-only", () => {
+    expect(
+      heroConflictEventLabel(
+        calendarItem({
+          source: "FEED",
+          feedName: "Sharks · 2016/2017 (BILL)",
+          title: "Practice",
+        }),
+      ),
+    ).toBe("Sharks · 2016/2017 (BILL) · Practice")
+    expect(
+      heroConflictEventLabel(
+        calendarItem({ source: "MANUAL", feedName: null, title: "Practice" }),
+      ),
+    ).toBe("Practice")
+    expect(keepConflictEventLabel("Practice")).toBe("Keep Practice")
+    expect(heroPlayerConflictTitle(["Declan", "Luke"])).toBe(
+      "Declan and Luke are on two overlapping events",
+    )
   })
 })
