@@ -93,6 +93,12 @@ class CalendarServiceTest {
     @Mock
     private DriveBlockOverrideService driveBlockOverrideService;
 
+    @Mock
+    private DriveBlockRouteResolver driveBlockRouteResolver;
+
+    @Mock
+    private com.yourorg.quickapp.family.FamilyPlaceApi familyPlaceApi;
+
     @InjectMocks
     private CalendarService calendarService;
 
@@ -105,6 +111,27 @@ class CalendarServiceTest {
         lenient()
                 .when(driveBlockEnricher.attach(any(), any(), any()))
                 .thenAnswer(invocation -> invocation.getArgument(2));
+        lenient()
+                .when(driveBlockRouteResolver.resolve(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        lenient()
+                .when(familyPlaceApi.findDefaultLeaveFromForMember(any()))
+                .thenReturn(Optional.empty());
+        lenient()
+                .when(familyPlaceApi.listLocatedPlacesForMember(any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(any(), any(), any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(carpoolApi.listConfirmedDrivingLegs(any(), any(), any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(coverageApi.listForItems(any(), any(), any()))
+                .thenReturn(List.of());
+        lenient()
+                .when(feedCalendarApi.listEventsInRange(any(), any(), any()))
+                .thenReturn(List.of());
         lenient()
                 .when(leaveByApi.enrich(any(), any(), any(), any(), any()))
                 .thenReturn(LeaveByEnrichmentDto.unavailable(null, null, "NO_ORIGIN"));
@@ -956,8 +983,12 @@ class CalendarServiceTest {
                         List.of(
                                 new RsvpDto(
                                         RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.YES)));
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adult.id())).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adult.id())).thenReturn(List.of());
         when(leaveByApi.getOrRefreshCalendarRoute(
                         eq(adult.id()),
+                        eq(com.yourorg.quickapp.leaveby.CalendarRouteLeg.TO),
+                        any(),
                         eq(LeaveByItemSource.MANUAL),
                         eq(itemId),
                         eq("vs Thunder"),
@@ -1020,10 +1051,12 @@ class CalendarServiceTest {
                         List.of(
                                 new RsvpDto(
                                         RsvpItemSource.MANUAL, itemId, kidId, RsvpStatus.YES)));
+        when(familyPlaceApi.findDefaultLeaveFromForMember(adult.id())).thenReturn(Optional.empty());
+        when(familyPlaceApi.listLocatedPlacesForMember(adult.id())).thenReturn(List.of());
         when(leaveByApi.reorderCalendarRouteMiddles(
                         eq(adult.id()),
-                        eq(LeaveByItemSource.MANUAL),
-                        eq(itemId),
+                        eq(com.yourorg.quickapp.leaveby.CalendarRouteLeg.TO),
+                        any(),
                         eq(List.of("B St", "A St"))))
                 .thenReturn(
                         CalendarRouteDto.ok(
@@ -1081,7 +1114,7 @@ class CalendarServiceTest {
                         List.of(
                                 new RsvpDto(
                                         RsvpItemSource.FEED, itemId, kidId, RsvpStatus.YES)));
-        when(carpoolApi.listAcceptedPickupsForFeedEvent(circleId, itemId))
+        when(carpoolApi.listAcceptedFamilyStopsForFeedEvent(eq(circleId), eq(itemId), any()))
                 .thenReturn(
                         List.of(
                                 new com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto(
@@ -1103,7 +1136,11 @@ class CalendarServiceTest {
                 .extracting(ex -> ((CalendarException) ex).status())
                 .isEqualTo(HttpStatus.FORBIDDEN);
         verify(leaveByApi, never())
-                .reorderCalendarRouteMiddles(any(), any(), any(), any());
+                .reorderCalendarRouteMiddles(
+                        any(),
+                        any(com.yourorg.quickapp.leaveby.CalendarRouteLeg.class),
+                        any(),
+                        any());
     }
 
     @Test
@@ -1123,6 +1160,8 @@ class CalendarServiceTest {
                                         List.of(kidId))));
         when(coverageApi.listForItem(circleId, CoverageItemSource.MANUAL, itemId))
                 .thenReturn(List.of());
+        when(rsvpApi.listForItems(circleId, RsvpItemSource.MANUAL, List.of(itemId)))
+                .thenReturn(List.of());
 
         assertThatThrownBy(
                         () -> calendarService.getRoute(adult, CalendarItemSource.MANUAL, itemId))
@@ -1130,7 +1169,8 @@ class CalendarServiceTest {
                 .extracting(ex -> ((CalendarException) ex).status())
                 .isEqualTo(HttpStatus.FORBIDDEN);
         verify(leaveByApi, never())
-                .getOrRefreshCalendarRoute(any(), any(), any(), any(), any(), any(), any());
+                .getOrRefreshCalendarRoute(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

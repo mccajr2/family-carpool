@@ -1267,6 +1267,13 @@ public class CarpoolRideService {
     @Transactional(readOnly = true)
     public List<CarpoolAcceptedPickupDto> listAcceptedPickupsForFeedEvent(
             UUID circleId, UUID feedEventId) {
+        return listAcceptedFamilyStopsForFeedEvent(circleId, feedEventId, CarpoolLegKind.TO);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CarpoolAcceptedPickupDto> listAcceptedFamilyStopsForFeedEvent(
+            UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
+        CarpoolLegKind safeLeg = leg == null ? CarpoolLegKind.TO : leg;
         Optional<FeedCalendarEventDto> event =
                 feedCalendarApi.findEventInCircle(circleId, feedEventId);
         if (event.isEmpty()) {
@@ -1292,19 +1299,19 @@ public class CarpoolRideService {
             if (ride.acceptedByAdultId() == null) {
                 continue;
             }
-            String pickupName = null;
-            String pickupAddress = null;
-            if (hasRequesterPickupStop(ride)) {
-                pickupName = familySidePlaceName(ride, CarpoolLegKind.TO);
-                pickupAddress = familySidePlaceAddress(ride, CarpoolLegKind.TO);
+            String placeName = null;
+            String placeAddress = null;
+            if (hasRequesterFamilyStop(ride, safeLeg)) {
+                placeName = familySidePlaceName(ride, safeLeg);
+                placeAddress = familySidePlaceAddress(ride, safeLeg);
             }
             out.add(
                     new CarpoolAcceptedPickupDto(
                             ride.acceptedByAdultId(),
                             ride.acceptingCircleId(),
                             ride.requestingCircleId(),
-                            pickupName,
-                            pickupAddress,
+                            placeName,
+                            placeAddress,
                             ride.kids().stream().map(RideKidSnapshot::kidId).toList()));
         }
         return List.copyOf(out);
@@ -2137,9 +2144,15 @@ public class CarpoolRideService {
 
     /** TO meet at requester place — inbound detour / Route pickup stop. */
     private static boolean hasRequesterPickupStop(CarpoolRideRequestEntity ride) {
-        RideLegSlot toLeg = ride.leg(CarpoolLegKind.TO);
-        return toLeg.meetSide() == CarpoolMeetSide.REQUESTER
-                && toLeg.phase() != CarpoolLegPhase.NEEDS_RIDE;
+        return hasRequesterFamilyStop(ride, CarpoolLegKind.TO);
+    }
+
+    /** Meet at requester place on the given leg — Route middle stop. */
+    private static boolean hasRequesterFamilyStop(
+            CarpoolRideRequestEntity ride, CarpoolLegKind leg) {
+        RideLegSlot slot = ride.leg(leg);
+        return slot.meetSide() == CarpoolMeetSide.REQUESTER
+                && slot.phase() != CarpoolLegPhase.NEEDS_RIDE;
     }
 
     private static boolean hasText(String value) {

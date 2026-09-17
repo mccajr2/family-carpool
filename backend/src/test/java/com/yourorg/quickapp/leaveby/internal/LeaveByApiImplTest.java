@@ -3,6 +3,7 @@ package com.yourorg.quickapp.leaveby.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -25,6 +26,8 @@ import com.yourorg.quickapp.family.FamilyPlaceApi;
 import com.yourorg.quickapp.family.GeoPointDto;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.leaveby.CalendarRouteDto;
+import com.yourorg.quickapp.leaveby.CalendarRouteLeg;
+import com.yourorg.quickapp.leaveby.CalendarRouteMemberRef;
 import com.yourorg.quickapp.leaveby.CalendarRouteNotifyChannel;
 import com.yourorg.quickapp.leaveby.CalendarRouteNotifyContact;
 import com.yourorg.quickapp.leaveby.CalendarRoutePickupInput;
@@ -123,7 +126,7 @@ class LeaveByApiImplTest {
                 .when(routeCacheRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient()
-                .when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(any(), any(), any()))
+                .when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(any(), any(), any()))
                 .thenReturn(Optional.empty());
         lenient()
                 .when(itineraryRepository.save(any()))
@@ -824,6 +827,99 @@ class LeaveByApiImplTest {
     }
 
     @Test
+    void upsertCalendarRouteFromLegBuildsVenueDropoffHome() {
+        UUID otherItem = UUID.randomUUID();
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("12 Oak St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.15, -74.15)));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.2, -74.2, 40.15, -74.15))
+                .thenReturn(Optional.of(600.0));
+        when(osrmPort.drivingDurationSeconds(40.15, -74.15, 40.1, -74.1))
+                .thenReturn(Optional.of(480.0));
+
+        CalendarRouteDto route =
+                api.upsertCalendarRoute(
+                        adultId,
+                        CalendarRouteLeg.FROM,
+                        List.of(
+                                new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId),
+                                new CalendarRouteMemberRef(LeaveByItemSource.FEED, otherItem)),
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(
+                                new CalendarRoutePickupInput(
+                                        "Kwame",
+                                        "12 Oak St",
+                                        new CalendarRouteNotifyContact(
+                                                CalendarRouteNotifyChannel.PUSH, "the Oseis"),
+                                        CalendarRouteStopKind.DROPOFF)),
+                        "Allied Veterans Rink",
+                        "65 Elm St");
+
+        assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(route.leg()).isEqualTo(CalendarRouteLeg.FROM);
+        assertThat(route.memberItemIds()).hasSize(2);
+        assertThat(route.stops()).hasSize(3);
+        assertThat(route.stops().get(0).kind()).isEqualTo(CalendarRouteStopKind.DESTINATION);
+        assertThat(route.stops().get(1).kind()).isEqualTo(CalendarRouteStopKind.DROPOFF);
+        assertThat(route.stops().get(2).kind()).isEqualTo(CalendarRouteStopKind.HOME);
+        assertThat(route.legMinutes()).containsExactly(10, 8);
+    }
+
+    @Test
+    void getOrRefreshSameMemberSetViaDifferentPathItemSharesCacheKey() {
+        UUID otherItem = UUID.randomUUID();
+        when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
+        when(geocodeApi.resolveLocation("65 Elm St"))
+                .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
+        when(osrmPort.drivingDurationSeconds(40.1, -74.1, 40.2, -74.2))
+                .thenReturn(Optional.of(840.0));
+
+        List<CalendarRouteMemberRef> members =
+                List.of(
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId),
+                        new CalendarRouteMemberRef(LeaveByItemSource.FEED, otherItem));
+        CalendarRouteDto first =
+                api.getOrRefreshCalendarRoute(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        members,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        "Practice",
+                        List.of(),
+                        "Rink",
+                        "65 Elm St");
+        assertThat(first.status()).isEqualTo(CalendarRouteStatus.OK);
+
+        ArgumentCaptor<ItineraryEntity> saved = ArgumentCaptor.forClass(ItineraryEntity.class);
+        verify(itineraryRepository).save(saved.capture());
+        String memberSetKey = saved.getValue().memberSetKey();
+
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        adultId, CalendarRouteLeg.TO, memberSetKey))
+                .thenReturn(Optional.of(saved.getValue()));
+
+        CalendarRouteDto second =
+                api.getOrRefreshCalendarRoute(
+                        adultId,
+                        CalendarRouteLeg.TO,
+                        members,
+                        LeaveByItemSource.FEED,
+                        otherItem,
+                        "Practice",
+                        List.of(),
+                        "Rink",
+                        "65 Elm St");
+        assertThat(second.status()).isEqualTo(CalendarRouteStatus.OK);
+        assertThat(second.legMinutes()).isEqualTo(first.legMinutes());
+        verify(itineraryRepository, times(1)).save(any());
+    }
+
+    @Test
     void upsertCalendarRouteOptimizesPickupOrderForTwoPlusMiddles() {
         when(placeApi.findDefaultLeaveFromForMember(adultId)).thenReturn(Optional.of(locatedPlace));
         // Far pickup first in input; near pickup second — optimize should swap.
@@ -907,6 +1003,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.OK,
                         null,
                         20,
@@ -936,8 +1035,8 @@ class LeaveByApiImplTest {
                         ItineraryJson.writeLegMinutes(List.of(30, 25, 5)),
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(stale));
         when(geocodeApi.resolveLocation("Far St"))
                 .thenReturn(Optional.of(new GeoPointDto(40.3, -74.3)));
@@ -1002,6 +1101,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.OK,
                         null,
                         20,
@@ -1031,8 +1133,8 @@ class LeaveByApiImplTest {
                         ItineraryJson.writeLegMinutes(List.of(2, 25, 5)),
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(cached));
         when(geocodeApi.resolveLocation("Near St"))
                 .thenReturn(Optional.of(new GeoPointDto(40.12, -74.12)));
@@ -1071,6 +1173,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.OK,
                         null,
                         20,
@@ -1091,8 +1196,8 @@ class LeaveByApiImplTest {
                         ItineraryJson.writeLegMinutes(List.of(1, 2, 3)),
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(cached));
 
         assertThatThrownBy(
@@ -1109,8 +1214,8 @@ class LeaveByApiImplTest {
 
     @Test
     void reorderCalendarRouteMiddlesNotFoundWhenMissing() {
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(
@@ -1240,6 +1345,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.OK,
                         null,
                         20,
@@ -1248,8 +1356,8 @@ class LeaveByApiImplTest {
                         legsJson,
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(cached));
 
         CalendarRouteDto route =
@@ -1286,6 +1394,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.UNAVAILABLE,
                         "GEOCODE_FAILED",
                         20,
@@ -1294,8 +1405,8 @@ class LeaveByApiImplTest {
                         ItineraryJson.writeLegMinutes(List.of()),
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(staleUnavailable));
         when(geocodeApi.resolveLocation("50 broadway cambridge ma")).thenReturn(Optional.empty());
         when(geocodeApi.resolveLocation("109 Fresh Pond Pkwy"))
@@ -1338,6 +1449,9 @@ class LeaveByApiImplTest {
                         adultId,
                         LeaveByItemSource.FEED,
                         itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
                         CalendarRouteStatus.OK,
                         null,
                         45,
@@ -1346,8 +1460,8 @@ class LeaveByApiImplTest {
                         ItineraryJson.writeLegMinutes(List.of()),
                         Instant.now(),
                         Instant.now());
-        when(itineraryRepository.findByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId))
+        when(itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        eq(adultId), eq(CalendarRouteLeg.TO), any()))
                 .thenReturn(Optional.of(stale));
         when(geocodeApi.resolveLocation("65 Elm St"))
                 .thenReturn(Optional.of(new GeoPointDto(40.2, -74.2)));
@@ -1376,16 +1490,59 @@ class LeaveByApiImplTest {
 
     @Test
     void invalidateCalendarRouteDeletesRow() {
+        ItineraryEntity row =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.FEED,
+                        itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(
+                                List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        MemberSetKeys.membersToken(
+                                List.of(new CalendarRouteMemberRef(LeaveByItemSource.FEED, itemId))),
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        "fp",
+                        "[]",
+                        "[]",
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByDrivingAdultId(adultId)).thenReturn(List.of(row));
         api.invalidateCalendarRoute(adultId, LeaveByItemSource.FEED, itemId);
-        verify(itineraryRepository)
-                .deleteByDrivingAdultIdAndItemSourceAndItemId(
-                        adultId, LeaveByItemSource.FEED, itemId);
+        verify(itineraryRepository).delete(row);
     }
 
     @Test
     void invalidateCalendarRoutesForItemDeletesAllDrivers() {
+        ItineraryEntity row =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        adultId,
+                        LeaveByItemSource.MANUAL,
+                        itemId,
+                        CalendarRouteLeg.TO,
+                        MemberSetKeys.compute(
+                                List.of(
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.MANUAL, itemId))),
+                        MemberSetKeys.membersToken(
+                                List.of(
+                                        new CalendarRouteMemberRef(
+                                                LeaveByItemSource.MANUAL, itemId))),
+                        CalendarRouteStatus.OK,
+                        null,
+                        20,
+                        "fp",
+                        "[]",
+                        "[]",
+                        Instant.now(),
+                        Instant.now());
+        when(itineraryRepository.findByMembersTokenContaining("MANUAL/" + itemId))
+                .thenReturn(List.of(row));
         api.invalidateCalendarRoutesForItem(LeaveByItemSource.MANUAL, itemId);
-        verify(itineraryRepository).deleteByItemSourceAndItemId(LeaveByItemSource.MANUAL, itemId);
+        verify(itineraryRepository).delete(row);
     }
 
     @Test

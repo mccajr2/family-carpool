@@ -178,7 +178,7 @@ north-star for public block ids.
 
 ## Tasks
 
-- [ ] Backend: resolve combined block for `(adult, leg, item)`; assemble TO /
+- [x] Backend: resolve combined block for `(adult, leg, item)`; assemble TO /
       FROM waypoint lists (merge co-located); persist under member-set key;
       wire optimize + reorder scoped by `leg`; extend stop kind `dropoff`
 - [ ] Contract: OpenAPI `leg` on get/reorder; `CalendarRouteStopKind.dropoff`;

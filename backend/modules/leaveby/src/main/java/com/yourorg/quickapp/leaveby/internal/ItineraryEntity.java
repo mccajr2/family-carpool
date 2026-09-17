@@ -1,5 +1,6 @@
 package com.yourorg.quickapp.leaveby.internal;
 
+import com.yourorg.quickapp.leaveby.CalendarRouteLeg;
 import com.yourorg.quickapp.leaveby.CalendarRouteStatus;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import jakarta.persistence.Column;
@@ -27,6 +28,16 @@ class ItineraryEntity {
 
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "leg", nullable = false, length = 8)
+    private CalendarRouteLeg leg;
+
+    @Column(name = "member_set_key", nullable = false, length = 64)
+    private String memberSetKey;
+
+    @Column(name = "members_token", nullable = false, columnDefinition = "TEXT")
+    private String membersToken;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -60,6 +71,9 @@ class ItineraryEntity {
             UUID drivingAdultId,
             LeaveByItemSource itemSource,
             UUID itemId,
+            CalendarRouteLeg leg,
+            String memberSetKey,
+            String membersToken,
             CalendarRouteStatus status,
             String reason,
             int bufferMinutes,
@@ -72,6 +86,9 @@ class ItineraryEntity {
         this.drivingAdultId = drivingAdultId;
         this.itemSource = itemSource;
         this.itemId = itemId;
+        this.leg = leg == null ? CalendarRouteLeg.TO : leg;
+        this.memberSetKey = memberSetKey;
+        this.membersToken = membersToken == null ? "" : membersToken;
         this.status = status;
         this.reason = reason;
         this.bufferMinutes = bufferMinutes;
@@ -96,6 +113,18 @@ class ItineraryEntity {
 
     UUID itemId() {
         return itemId;
+    }
+
+    CalendarRouteLeg leg() {
+        return leg;
+    }
+
+    String memberSetKey() {
+        return memberSetKey;
+    }
+
+    String membersToken() {
+        return membersToken;
     }
 
     CalendarRouteStatus status() {
@@ -137,6 +166,9 @@ class ItineraryEntity {
             String stopFingerprint,
             String stopsJson,
             String legMinutesJson,
+            LeaveByItemSource itemSource,
+            UUID itemId,
+            String membersToken,
             Instant updatedAt) {
         this.status = status;
         this.reason = reason;
@@ -144,6 +176,9 @@ class ItineraryEntity {
         this.stopFingerprint = stopFingerprint;
         this.stopsJson = stopsJson;
         this.legMinutesJson = legMinutesJson;
+        this.itemSource = itemSource;
+        this.itemId = itemId;
+        this.membersToken = membersToken == null ? "" : membersToken;
         this.updatedAt = updatedAt;
     }
 }

@@ -85,6 +85,8 @@ public interface LeaveByApi {
      * UNAVAILABLE / {@code OSRM_UNAVAILABLE}). With 0–1 pickup, OSRM miss uses
      * config fallback duration and remains OK — fallback is not written to the
      * pairwise duration cache.
+     *
+     * <p>Persists under the TO singleton member-set key for {@code source}+{@code itemId}.
      */
     CalendarRouteDto upsertCalendarRoute(
             UUID drivingAdultId,
@@ -92,6 +94,22 @@ public interface LeaveByApi {
             UUID itemId,
             String eventTitle,
             List<CalendarRoutePickupInput> pickups,
+            String destinationName,
+            String destinationAddress);
+
+    /**
+     * Build / refresh a multi-stop itinerary for a driving-block member set on
+     * one leg. TO: home → middle pickups → venue. FROM: venue → middle dropoffs
+     * → home. Cache key is {@code (drivingAdultId, leg, ordered members)}.
+     */
+    CalendarRouteDto upsertCalendarRoute(
+            UUID drivingAdultId,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItems,
+            LeaveByItemSource originSource,
+            UUID originItemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> middles,
             String destinationName,
             String destinationAddress);
 
@@ -109,9 +127,24 @@ public interface LeaveByApi {
             String destinationAddress);
 
     /**
+     * Member-set + leg variant of {@link #getOrRefreshCalendarRoute(UUID,
+     * LeaveByItemSource, UUID, String, List, String, String)}.
+     */
+    CalendarRouteDto getOrRefreshCalendarRoute(
+            UUID drivingAdultId,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItems,
+            LeaveByItemSource originSource,
+            UUID originItemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> middles,
+            String destinationName,
+            String destinationAddress);
+
+    /**
      * Persist a manual middle-stop order for an existing itinerary without
      * changing the stop fingerprint. {@code middleStopIds} must be a
-     * permutation of the current pickup-stop identities (stop addresses as
+     * permutation of the current middle-stop identities (stop addresses as
      * returned on the route). Recomputes {@code legMinutes} for the new
      * sequence. Unknown / mismatched ids → 400; missing itinerary → 404.
      *
@@ -124,10 +157,19 @@ public interface LeaveByApi {
             UUID itemId,
             List<String> middleStopIds);
 
-    /** Drop the cached itinerary for one driving adult + calendar item. */
+    /**
+     * Reorder middles for a member-set itinerary on the given leg.
+     */
+    CalendarRouteDto reorderCalendarRouteMiddles(
+            UUID drivingAdultId,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItems,
+            List<String> middleStopIds);
+
+    /** Drop the cached itinerary for one driving adult + calendar item (any leg). */
     void invalidateCalendarRoute(UUID drivingAdultId, LeaveByItemSource source, UUID itemId);
 
-    /** Drop all cached itineraries for a calendar item (any driving adult). */
+    /** Drop all cached itineraries for a calendar item (any driving adult / leg). */
     void invalidateCalendarRoutesForItem(LeaveByItemSource source, UUID itemId);
 
     /** Drop every cached itinerary for a driving adult (origin fingerprint may change). */
