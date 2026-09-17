@@ -3,6 +3,7 @@ import type {
   CalendarItem,
   CarpoolRideEvent,
   FamilyCircle,
+  RsvpStatus,
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import type { QueueItem } from "@/components/coverageQueue"
@@ -27,13 +28,17 @@ import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
 import {
+  BACK_TO_SIMPLE_VIEW,
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
+  DIFFERENT_PLANS_FOR_EACH_KID,
   HERO_MOST_URGENT,
   HERO_ON_INVERSE,
   HERO_UP_NEXT,
   heroQueueCountLabel,
   kidAlreadyGoingSuffix,
+  markAsNotGoingLabel,
+  markKidsAsNotGoingLabel,
 } from "@/components/coverageCopy"
 import { formatCompactEventWhen } from "@/components/eventTimes"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
@@ -73,6 +78,13 @@ export type HeroAttentionSlideProps = {
   onDeclineHouseholdPlan?: () => void
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
+  /**
+   * Own-kid gap / Confirm attendance escape — Agenda RSVP write path
+   * (`NO` = not going). Omit on inbound ask slides.
+   */
+  onSetRsvp?: (kidId: string, status: RsvpStatus) => void
+  /** Bulk not-going for 2+ going kids on the slide (simple view). */
+  onSetNotGoing?: (kidIds: string[]) => void
   /** Leave-from fields (draft before Assign/Confirm, or live after covering). */
   leaveFromValue?: LeaveFromFields
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
@@ -120,6 +132,8 @@ export function HeroAttentionSlide({
   onDeclineHouseholdPlan,
   onAcceptRide,
   onPassRide,
+  onSetRsvp,
+  onSetNotGoing,
   leaveFromValue,
   onSetLeaveFrom,
   actionError,
@@ -128,6 +142,7 @@ export function HeroAttentionSlide({
   blockSupportingContext = null,
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
+  const [confirmPerKidNotGoing, setConfirmPerKidNotGoing] = useState(false)
   const whenLabel = formatCompactEventWhen(calendarItem.startsAt, calendarItem.endsAt)
   const venue = heroVenueLine(calendarItem)
   const coverageGames = useMemo(
@@ -268,6 +283,118 @@ export function HeroAttentionSlide({
     [coverageGames, circle.kids],
   )
 
+  const showNotGoingControl =
+    item.kind === "ownRide" &&
+    showConfirmChrome &&
+    goingKids.length > 0 &&
+    (onSetRsvp != null || onSetNotGoing != null)
+  const confirmKidSplitEligible = showConfirmChrome && goingKids.length >= 2
+  const confirmKidSplitEnabled = confirmKidSplitEligible && onSetRsvp != null
+  const heroSecondaryLinkClass =
+    "text-left text-xs underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current disabled:cursor-not-allowed disabled:opacity-50"
+
+  function markGoingKidsNotAttending() {
+    const ids = goingKids.map((kid) => kid.id)
+    if (ids.length === 0) {
+      return
+    }
+    if (ids.length >= 2 && onSetNotGoing != null) {
+      onSetNotGoing(ids)
+      return
+    }
+    if (onSetRsvp != null) {
+      for (const id of ids) {
+        onSetRsvp(id, "NO")
+      }
+      return
+    }
+    onSetNotGoing?.(ids)
+  }
+
+  const confirmCollapsedNotGoing =
+    showNotGoingControl && !(confirmKidSplitEnabled && confirmPerKidNotGoing) ? (
+      <button
+        type="button"
+        data-testid={
+          goingKids.length >= 2
+            ? `hero-attention-not-going-all`
+            : `hero-attention-not-going-${goingKids[0]!.id}`
+        }
+        className={heroSecondaryLinkClass}
+        style={{ color: "var(--fc-hero-on-secondary)" }}
+        disabled={loading}
+        onClick={markGoingKidsNotAttending}
+      >
+        {goingKids.length >= 2
+          ? markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))
+          : markAsNotGoingLabel(goingKids[0]!.firstName)}
+      </button>
+    ) : null
+
+  const confirmPerKidNotGoingSections =
+    confirmKidSplitEnabled && confirmPerKidNotGoing ? (
+      <div
+        data-testid="hero-attention-confirm-per-kid-not-going"
+        className="flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)]"
+      >
+        {goingKids.map((kid) => (
+          <div
+            key={kid.id}
+            data-testid={`hero-attention-confirm-kid-${kid.id}`}
+            className="flex flex-col gap-[var(--fc-space-sm)]"
+          >
+            <span
+              className="text-xs font-semibold uppercase tracking-wide opacity-90"
+              data-testid={`hero-attention-confirm-kid-header-${kid.id}`}
+            >
+              {kid.firstName}
+            </span>
+            <button
+              type="button"
+              data-testid={`hero-attention-not-going-${kid.id}`}
+              className={heroSecondaryLinkClass}
+              style={{ color: "var(--fc-hero-on-secondary)" }}
+              disabled={loading}
+              onClick={() => onSetRsvp?.(kid.id, "NO")}
+            >
+              {markAsNotGoingLabel(kid.firstName)}
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          data-testid="hero-attention-confirm-back-to-simple"
+          className={heroSecondaryLinkClass}
+          style={{ color: "var(--fc-hero-on-secondary)" }}
+          disabled={loading}
+          onClick={() => setConfirmPerKidNotGoing(false)}
+        >
+          {BACK_TO_SIMPLE_VIEW}
+        </button>
+      </div>
+    ) : null
+
+  const confirmDifferentPlansLink = confirmKidSplitEligible ? (
+    <button
+      type="button"
+      data-testid="hero-attention-confirm-different-plans-kid"
+      className={`${heroSecondaryLinkClass}${confirmKidSplitEnabled ? "" : " cursor-not-allowed"}`}
+      style={{ color: "var(--fc-hero-on-secondary)" }}
+      aria-disabled={confirmKidSplitEnabled ? undefined : "true"}
+      tabIndex={confirmKidSplitEnabled ? undefined : -1}
+      disabled={loading}
+      onClick={(event) => {
+        if (!confirmKidSplitEnabled) {
+          event.preventDefault()
+          return
+        }
+        setConfirmPerKidNotGoing(true)
+      }}
+    >
+      {DIFFERENT_PLANS_FOR_EACH_KID}
+    </button>
+  ) : null
+
   return (
     <div
       data-testid="hero-attention-slide"
@@ -374,6 +501,14 @@ export function HeroAttentionSlide({
                       {DECLINE_COVERAGE}
                     </button>
                   </div>
+                  {confirmPerKidNotGoingSections == null ? (
+                    <>
+                      {confirmCollapsedNotGoing}
+                      {confirmDifferentPlansLink}
+                    </>
+                  ) : (
+                    confirmPerKidNotGoingSections
+                  )}
                 </div>
               ) : (
                 <div
@@ -402,6 +537,8 @@ export function HeroAttentionSlide({
                     onSaveRidePlan={onSaveRidePlan}
                     goingKids={goingKids}
                     onSaveKidPlans={onSaveKidPlans}
+                    onSetRsvp={onSetRsvp}
+                    onSetNotGoing={onSetNotGoing}
                     hasPickupPlace={hasPickupPlace}
                     actionError={actionError}
                   />

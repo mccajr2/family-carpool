@@ -9,7 +9,9 @@ DriverPicker default chrome via [`carpool-ride-coverage-card`](specs/archive/car
 kid-split editor + per-kid gaps/chips via
 [`carpool-kid-split-plans`](specs/archive/carpool-kid-split-plans.md) — Done;
 per-leg family-side places via
-[`carpool-leg-places`](specs/archive/carpool-leg-places.md) — Done)  
+[`carpool-leg-places`](specs/archive/carpool-leg-places.md) — Done;
+Hero own-kid not-going escape via
+[`hero-not-going`](specs/archive/hero-not-going.md) — Done)  
 Parent: [coverage-confirm-decline](specs/archive/coverage-confirm-decline.md) ·
 [conflict-detection](specs/archive/conflict-detection.md)
 
@@ -131,6 +133,38 @@ leg-scoped copy.
 (coverage `assignedByAdultId` or plan `requestedByAdultId`); fallback
 `Confirm you'll drive {Kid}`. True gaps keep `{Kid} needs a ride`. Buttons stay
 Confirm coverage / Decline coverage.
+
+**Hero not-going (own-kid slides only — must):** reuse Agenda’s attendance
+write path (`setCalendarRsvp` → `NO`); no new API. Product copy is **going** /
+**not going** only (same helpers as Agenda: `markAsNotGoingLabel` /
+`markKidsAsNotGoingLabel`). Control is a **secondary text link** under the
+primary Assign / Confirm chrome — never a competing primary CTA; style like
+other hero secondary actions (`hero-on-secondary`). **Inbound ask** slides omit
+this control entirely. Hero does **not** offer **Mark as going again** (Agenda
+keeps reverse); not-going kids leave the Hero queue / kid-split set for that
+game.
+
+| Slide | Going kids | Not-going control |
+| --- | --- | --- |
+| Own-ride **gap** | 1 | Secondary **Mark {firstName} as not going** under Assign / Save |
+| Own-ride **gap** | 2+ | **Collapsed:** one all-kids secondary (`markKidsAsNotGoingLabel`). **Different plans for each kid.** → per-kid **ride** plans **plus** per-kid **Mark {firstName} as not going** (no per-kid stack on collapsed surface) |
+| Pending **Confirm** | 1 | Secondary **Mark {firstName} as not going** under Confirm / Decline |
+| Pending **Confirm** | 2+ | Confirm / Decline still apply to **both**; one all-kids secondary not-going link. **Different plans for each kid.** → **per-kid not-going only** — do **not** mount Assign / Ask / Save on Confirm |
+
+Same disclosure copy (`DIFFERENT_PLANS_FOR_EACH_KID`) on gap and Confirm so the
+pattern stays familiar. Gap opened sections are full kid-split via
+`DriverPicker`; Confirm opened sections are per-kid not-going hosts only.
+
+**Bulk write (2+ simple view):** one activation marks **every** currently going
+kid on the slide `NO`. Coverage-release confirm (`rsvpCoverageReleaseMessage`)
+runs when any selected kid has active `PENDING` / `CONFIRMED` coverage — same
+gate as Agenda bulk / per-kid; cancel leaves **all** RSVPs unchanged.
+
+**After write:** calendar cache patch like other RSVP mutations; that kid drops
+out of `isInPlay` / `getQueue` for the game. Multi-kid: marking one kid not
+going keeps the slide if another going kid still has a gap or pending confirm;
+slide / carousel item clears when no own-kid attention remains for that event.
+Attendance never enqueues a Hero item (ADR-0003).
 
 When the filtered queue is empty, render the **All caught up** hero
 (`heroGlow`, `CheckCircle2` 28px in `heroSuccess`, uppercase **All caught up**,
@@ -534,10 +568,10 @@ expanded Agenda — uncovered own-ride** above. Summary:
 
 ## RSVP / attendance
 
-Web Agenda uses a **two-state attendance toggle** (ADR-0003). Product copy is
-always **going** / **not going** — never "make it", and never ride-side
-**drive** wording on this control. OpenAPI still uses `YES` / `NO` /
-`NO_RESPONSE`; the client maps — no enum rename in this surface.
+Web Agenda (and Hero own-kid slides) use a **two-state attendance** model
+(ADR-0003). Product copy is always **going** / **not going** — never "make
+it", and never ride-side **drive** wording on this control. OpenAPI still uses
+`YES` / `NO` / `NO_RESPONSE`; the client maps — no enum rename in this surface.
 
 ### Read mapping
 
@@ -547,15 +581,25 @@ always **going** / **not going** — never "make it", and never ride-side
 | `NO_RESPONSE` / missing | `going` (default; no action required) |
 | `NO` | `not_going` |
 
-### Write mapping (People band only)
+### Write mapping
 
-| UI action | API write |
-| --- | --- |
-| **Mark {displayName} as not going** | `NO` |
-| **Mark as going again** | `YES` |
+| UI action | Surface | API write |
+| --- | --- | --- |
+| **Mark {displayName} as not going** | Agenda People band; Hero gap / Confirm (1 kid or per-kid inside Different plans) | `NO` |
+| **Mark {names} as not going** (`markKidsAsNotGoingLabel`) | Agenda simple-view bulk; Hero gap / Confirm simple view (2+ going) | `NO` for **every** currently going kid on that item / slide |
+| **Mark as going again** | Agenda People band only | `YES` |
 
 UI never offers setting `NO_RESPONSE`. Attendance never creates a hero / queue
-item; marking not going may *remove* a ride-needed gap (`isInPlay`).
+item; marking not going may *remove* a ride-needed gap (`isInPlay` /
+`getQueue`). Hero surfaces omit reverse (**Mark as going again**).
+
+Shared coverage-release gate (Agenda + Hero): client confirm only when marking
+**not going** while the kid (or any kid in a bulk selection) has active
+(`PENDING` / `CONFIRMED`) coverage — `rsvpCoverageReleaseMessage` / `This will
+remove coverage for {kidName}.` Cancel leaves attendance unchanged (bulk:
+**all** unchanged). No confirm when uncovered or when marking going again.
+Patch the calendar cache on attendance writes like other single-item
+mutations.
 
 ### Control (expanded Agenda row)
 
@@ -568,12 +612,14 @@ item; marking not going may *remove* a ride-needed gap (`isInPlay`).
   toggle so they can reverse.
 - `data-testid` / a11y id `rsvp-{source}-{id}-{kidId}` (stable id; control is
   no longer a `<select>`).
-- Client confirm only when marking **not going** while the kid has active
-  (`PENDING` / `CONFIRMED`) coverage: `This will remove coverage for
-  {kidName}.` Cancel leaves attendance unchanged. No confirm when uncovered or
-  when marking going again.
-- Patch the calendar cache on attendance writes like other single-item
-  mutations.
+
+### Control (Hero own-kid gap + Confirm)
+
+See **Hero not-going** under Hero carousel queue. Summary: 1-kid secondary
+`markAsNotGoingLabel`; 2+ collapsed all-kids `markKidsAsNotGoingLabel`; gap
+**Different plans for each kid.** = plans + per-kid not-going; Confirm
+**Different plans for each kid.** = per-kid not-going only (no ride-plan
+editor). Inbound asks unchanged.
 
 ## Week at a glance
 

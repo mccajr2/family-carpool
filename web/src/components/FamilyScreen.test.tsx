@@ -8608,6 +8608,340 @@ describe("FamilyScreen", () => {
     confirmSpy.mockRestore()
   })
 
+  it("marks not going from a hero gap slide and clears the attention queue", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const baseItem = calendarItem({
+      id: "e-hero-gap-rsvp",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const setCalendarRsvp = vi.fn().mockResolvedValue({
+      ...baseItem,
+      rsvps: [{ kidId: "k1", status: "NO" }],
+      uncoveredKidIds: [],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([baseItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda, "Sam needs a ride")
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Mark Sam as not going" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-hero-gap-rsvp", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(within(agenda).getByText("All caught up")).toBeInTheDocument()
+    })
+    expect(within(agenda).queryByText("Sam needs a ride")).not.toBeInTheDocument()
+    expect(
+      within(agenda).queryByText(/mark.*attendance|RSVP reminder|not sure/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it("does not write when hero confirm not-going coverage-release is cancelled", async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const pendingItem = calendarItem({
+      id: "e-hero-confirm-rsvp",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "cov-hero-confirm",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "2",
+          kidIds: ["k1"],
+          status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const setCalendarRsvp = vi.fn()
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [{ id: "k1", displayName: "Sam" }],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([pendingItem]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda)
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    await user.click(within(slide).getByRole("button", { name: "Mark Sam as not going" }))
+
+    expect(confirmSpy).toHaveBeenCalledWith("This will remove coverage for Sam.")
+    expect(setCalendarRsvp).not.toHaveBeenCalled()
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it("does not bulk-write when hero all-kids not-going coverage-release is cancelled", async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false)
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const twinsPending = calendarItem({
+      id: "e-hero-twins-confirm",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: [],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+      coverages: [
+        {
+          id: "cov-hero-twins",
+          coveringAdultId: "1",
+          coveringAdultDisplayName: "Alex",
+          assignedByAdultId: "2",
+          kidIds: ["k1", "k2"],
+          status: "PENDING",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const setCalendarRsvp = vi.fn()
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Graham" },
+                { id: "k2", displayName: "Luke" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([twinsPending]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda)
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    expect(within(slide).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    await user.click(
+      within(slide).getByRole("button", { name: "Mark Graham and Luke as not going" }),
+    )
+
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(setCalendarRsvp).not.toHaveBeenCalled()
+    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    confirmSpy.mockRestore()
+  })
+
+  it("keeps the hero slide when one of two gap kids is marked not going", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const twinsGap = calendarItem({
+      id: "e-hero-twins-gap",
+      source: "MANUAL",
+      title: "Practice",
+      startsAt: "2030-08-15T17:00:00.000Z",
+      kidIds: ["k1", "k2"],
+      uncoveredKidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    const setCalendarRsvp = vi
+      .fn()
+      .mockImplementation(async (_token: string, _source: string, _id: string, kidId: string) => ({
+        ...twinsGap,
+        rsvps: twinsGap.rsvps.map((row) =>
+          row.kidId === kidId ? { ...row, status: "NO" as const } : row,
+        ),
+        uncoveredKidIds: twinsGap.uncoveredKidIds.filter((id) => id !== kidId),
+      }))
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue(
+            circleFixture({
+              id: "c1",
+              name: "House",
+              role: "ORGANIZER",
+              members: [
+                {
+                  adultId: "1",
+                  email: "parent@example.com",
+                  displayName: "Alex",
+                  role: "ORGANIZER",
+                },
+                {
+                  adultId: "2",
+                  email: "other@example.com",
+                  displayName: "Jordan",
+                  role: "CAREGIVER",
+                },
+              ],
+              kids: [
+                { id: "k1", displayName: "Graham" },
+                { id: "k2", displayName: "Luke" },
+              ],
+              places: [],
+            }),
+          ),
+          listCalendar: vi.fn().mockResolvedValue([twinsGap]),
+          setCalendarRsvp,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    const slide = heroSlideIn(agenda)
+    expect(within(slide).getByTestId("driver-picker")).toBeInTheDocument()
+    await user.click(within(slide).getByTestId("driver-picker-different-plans-kid"))
+    await user.click(within(slide).getByRole("button", { name: "Mark Graham as not going" }))
+
+    await waitFor(() => {
+      expect(setCalendarRsvp).toHaveBeenCalledWith("tok", "MANUAL", "e-hero-twins-gap", "k1", {
+        status: "NO",
+      })
+    })
+    await waitFor(() => {
+      expect(within(heroSlideIn(agenda)).getByText(/Luke needs a ride/)).toBeInTheDocument()
+    })
+    expect(within(agenda).queryByText("All caught up")).not.toBeInTheDocument()
+    expect(setCalendarRsvp).toHaveBeenCalledTimes(1)
+  })
+
   it("keeps mixed Yes/No rows in play and only shows uncovered Yes kids", async () => {
     const session = new AuthSessionHolder()
     session.setSession("tok", {

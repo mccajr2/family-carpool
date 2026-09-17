@@ -3,6 +3,7 @@ import type {
   CarpoolMeetSide,
   FamilyCircle,
   FamilyMember,
+  RsvpStatus,
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { memberLabel } from "@/components/coverageDisplay"
@@ -24,6 +25,8 @@ import {
   POST_TO_TEAM_ROUND_TRIP,
   SAVE_RIDE_PLAN,
   confirmDriveFromLabel,
+  markAsNotGoingLabel,
+  markKidsAsNotGoingLabel,
 } from "@/components/coverageCopy"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
 import type { LeaveFromFields } from "@/components/leaveFromDisplay"
@@ -113,6 +116,13 @@ export type DriverPickerProps = {
   goingKids?: DriverPickerGoingKid[]
   /** Atomic multi-plan Save for the kid-split editor (required to activate). */
   onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
+  /**
+   * Optional attendance escape (Hero gap). Per-kid not-going inside kid-split;
+   * 1-kid simple/legSplit also uses this.
+   */
+  onSetRsvp?: (kidId: string, status: RsvpStatus) => void
+  /** Bulk not-going on simple/legSplit when 2+ going kids (Hero gap). */
+  onSetNotGoing?: (kidIds: string[]) => void
   /** Hero Focus card styling (needsDecision). */
   hero?: boolean
   /** When false, hides the Ask the team chip (e.g. no carpool ride event). */
@@ -477,6 +487,8 @@ export function DriverPicker({
   onSaveRidePlan,
   goingKids = [],
   onSaveKidPlans,
+  onSetRsvp,
+  onSetNotGoing,
   hero = false,
   showTeamSection = true,
   leaveFromSlot,
@@ -814,6 +826,67 @@ export function DriverPicker({
     )
   }
 
+  function markGoingKidsNotAttending() {
+    const ids = goingKids.map((kid) => kid.id)
+    if (ids.length === 0) {
+      return
+    }
+    if (ids.length >= 2 && onSetNotGoing != null) {
+      onSetNotGoing(ids)
+      return
+    }
+    if (onSetRsvp != null) {
+      for (const id of ids) {
+        onSetRsvp(id, "NO")
+      }
+      return
+    }
+    onSetNotGoing?.(ids)
+  }
+
+  /** Collapsed simple / leg-split attendance escape (not shown in kid-split). */
+  function renderCollapsedNotGoingControl() {
+    if (goingKids.length === 0 || (onSetRsvp == null && onSetNotGoing == null)) {
+      return null
+    }
+    return (
+      <button
+        type="button"
+        data-testid={
+          goingKids.length >= 2
+            ? "driver-picker-not-going-all"
+            : `driver-picker-not-going-${goingKids[0]!.id}`
+        }
+        className={`${linkClass} disabled:cursor-not-allowed disabled:opacity-50`}
+        style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+        disabled={loading}
+        onClick={markGoingKidsNotAttending}
+      >
+        {goingKids.length >= 2
+          ? markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))
+          : markAsNotGoingLabel(goingKids[0]!.firstName)}
+      </button>
+    )
+  }
+
+  function renderKidNotGoingControl(kid: DriverPickerGoingKid) {
+    if (onSetRsvp == null) {
+      return null
+    }
+    return (
+      <button
+        type="button"
+        data-testid={`driver-picker-not-going-${kid.id}`}
+        className={`${linkClass} disabled:cursor-not-allowed disabled:opacity-50`}
+        style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+        disabled={loading}
+        onClick={() => onSetRsvp(kid.id, "NO")}
+      >
+        {markAsNotGoingLabel(kid.firstName)}
+      </button>
+    )
+  }
+
   if (mode === "kidSplit" && kidSplitEnabled) {
     return (
       <div data-testid="driver-picker" data-mode="kid-split" className="w-full min-w-0 max-w-full">
@@ -974,6 +1047,7 @@ export function DriverPicker({
                     )}
                   </>
                 )}
+                {renderKidNotGoingControl(kid)}
               </div>
             )
           })}
@@ -1068,6 +1142,7 @@ export function DriverPicker({
             true,
             () => setMode("simple"),
           )}
+          {renderCollapsedNotGoingControl()}
         </div>
       </div>
     )
@@ -1141,6 +1216,7 @@ export function DriverPicker({
               openKidSplitEditor,
             )
           : null}
+        {renderCollapsedNotGoingControl()}
       </div>
     </div>
   )
