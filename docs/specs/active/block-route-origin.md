@@ -144,7 +144,7 @@ public block ids.
 - [x] Web: `familyClient` / types for origin PUT + echo fields
 - [x] Web: `RideRouteTab` Leaving from (There) / Returning to (Back) via
       `LeaveFromControls`; wire save → rebuild
-- [ ] Docs: update `docs/architecture.md` → **Multi-stop itinerary** for
+- [x] Docs: update `docs/architecture.md` → **Multi-stop itinerary** for
       per-leg itinerary home-side override (itinerary-only; not Agenda leave-from)
 - [ ] Tests: leaveby unit (resolution + flatten); calendar/route integration
       (PUT origin, independent legs, Agenda leave-from unchanged); 
