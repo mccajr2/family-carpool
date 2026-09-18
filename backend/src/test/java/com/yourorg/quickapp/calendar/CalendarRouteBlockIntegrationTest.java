@@ -200,6 +200,227 @@ class CalendarRouteBlockIntegrationTest {
                 .andExpect(jsonPath("$.stops[2].address").value(pickupAddresses.get(0)));
     }
 
+    @Test
+    void routeOriginPut_independentLegs_defaultClear_agendaLeaveFromUnchanged() throws Exception {
+        String feedUrl = "https://example.com/drive-block-route-origin.ics";
+
+        String driver = signIn("drive-block-route-origin-driver@example.com");
+        String requester = signIn("drive-block-route-origin-requester@example.com");
+
+        createCircle(driver, "Alex", "House Driver Origin");
+        createCircle(requester, "Sam", "House Requester Origin");
+
+        String driverKid = addKid(driver, "Riley");
+        String requesterKid = addKid(requester, "Sam");
+        String feedDriver = createFeed(driver, "Hockey", feedUrl, driverKid);
+        createFeed(requester, "Hockey", feedUrl, requesterKid);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedDriver + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(requester))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        String practiceA = feedEventId(driver, "Practice A");
+        String practiceB = feedEventId(driver, "Practice B");
+        String practiceARequester = feedEventId(requester, "Practice A");
+        String practiceBRequester = feedEventId(requester, "Practice B");
+        setRsvpYes(driver, practiceA, driverKid);
+        setRsvpYes(driver, practiceB, driverKid);
+        setRsvpYes(requester, practiceARequester, requesterKid);
+        setRsvpYes(requester, practiceBRequester, requesterKid);
+        addPlace(driver, "Home A", "12 Oak St");
+        String schoolId = addPlaceReturningId(driver, "School", "2 School Rd");
+        String officeId = addPlaceReturningId(driver, "Office", "500 Market St");
+        addPlace(requester, "Home B", "34 Pine St");
+
+        String driverAdultId = organizerAdultId(driver);
+        assertThat(driverAdultId).isNotBlank();
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/leave-by")
+                                .param("from", FROM)
+                                .param("to", TO)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                .andExpect(status().isOk());
+
+        acceptRide(driver, requester, spaceId, EVENT_A);
+        acceptRide(driver, requester, spaceId, EVENT_B);
+
+        assignCoverageLeaveFrom(driver, practiceA, driverAdultId, driverKid, schoolId);
+        assignCoverageLeaveFrom(driver, practiceB, driverAdultId, driverKid, schoolId);
+
+        // Agenda item leave-from (School) — must stay unchanged after Route origin writes.
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceA + "/leave-from")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":\"" + schoolId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveFromPlaceId").value(schoolId));
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceA + "/route/origin")
+                                .param("leg", "TO")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":\"" + officeId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.leg").value("TO"))
+                .andExpect(jsonPath("$.leaveFromPlaceId").value(officeId))
+                .andExpect(jsonPath("$.leaveFromPlaceName").value("Office"))
+                .andExpect(jsonPath("$.stops[0].kind").value("home"))
+                .andExpect(jsonPath("$.stops[0].address").value("500 Market St"))
+                .andExpect(jsonPath("$.stops[*].kind", hasItem("pickup")));
+
+        MvcResult toViaA =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar/FEED/" + practiceA + "/route")
+                                        .param("leg", "TO")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.leaveFromPlaceId").value(officeId))
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> toMiddles =
+                JsonPath.read(
+                        toViaA.getResponse().getContentAsString(),
+                        "$.stops[?(@.kind=='pickup')].address");
+        assertThat(toMiddles).contains("2 School Rd", "34 Pine St");
+        assertThat(toMiddles).doesNotContain("500 Market St");
+
+        // Same override via the other member itemId.
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/FEED/" + practiceB + "/route")
+                                .param("leg", "TO")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveFromPlaceId").value(officeId))
+                .andExpect(jsonPath("$.stops[0].address").value("500 Market St"));
+
+        // FROM Returning to Home (membership default place) — independent of TO Office.
+        String homePlaceId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        get("/api/family/circle")
+                                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.defaultLeaveFromPlaceId");
+        if (homePlaceId == null || ((String) homePlaceId).isBlank()) {
+            // First located place is used as fallback HOME; resolve by name.
+            @SuppressWarnings("unchecked")
+            List<String> homeIds =
+                    JsonPath.read(
+                            mockMvc.perform(
+                                            get("/api/family/circle")
+                                                    .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                                    .andReturn()
+                                    .getResponse()
+                                    .getContentAsString(),
+                            "$.places[?(@.name=='Home A')].id");
+            assertThat(homeIds).isNotEmpty();
+            homePlaceId = homeIds.getFirst();
+        }
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceA + "/route/origin")
+                                .param("leg", "FROM")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":\"" + homePlaceId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.leg").value("FROM"))
+                .andExpect(jsonPath("$.leaveFromPlaceId").value(homePlaceId))
+                .andExpect(jsonPath("$.stops[0].kind").value("destination"))
+                .andExpect(jsonPath("$.stops[-1].kind").value("home"))
+                .andExpect(jsonPath("$.stops[-1].address").value("12 Oak St"));
+
+        // TO override untouched.
+        mockMvc.perform(
+                        get("/api/family/circle/calendar/FEED/" + practiceA + "/route")
+                                .param("leg", "TO")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveFromPlaceId").value(officeId))
+                .andExpect(jsonPath("$.stops[0].address").value("500 Market St"));
+
+        // Default clear on TO restores membership / first-located HOME.
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceB + "/route/origin")
+                                .param("leg", "TO")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":null,\"leaveFromAddress\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveFromPlaceId").isEmpty())
+                .andExpect(jsonPath("$.stops[0].address").value("12 Oak St"));
+
+        // Agenda leave-from still School.
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", FROM)
+                                .param("to", TO)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.id=='"
+                                                + practiceA
+                                                + "')].leaveFromPlaceId",
+                                        hasItem(schoolId)))
+                .andExpect(
+                        jsonPath(
+                                        "$.[?(@.id=='"
+                                                + practiceA
+                                                + "')].leaveFromPlaceName",
+                                        hasItem("School")));
+
+        // Flatten: Leaving from School drops the school middle (HOME only once).
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/FEED/" + practiceA + "/route/origin")
+                                .param("leg", "TO")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(driver))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"leaveFromPlaceId\":\"" + schoolId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stops[0].address").value("2 School Rd"));
+        MvcResult flattened =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar/FEED/" + practiceA + "/route")
+                                        .param("leg", "TO")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(driver)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> flattenedMiddles =
+                JsonPath.read(
+                        flattened.getResponse().getContentAsString(),
+                        "$.stops[?(@.kind=='pickup')].address");
+        assertThat(flattenedMiddles).contains("34 Pine St").doesNotContain("2 School Rd");
+        @SuppressWarnings("unchecked")
+        List<String> flattenedHomes =
+                JsonPath.read(
+                        flattened.getResponse().getContentAsString(),
+                        "$.stops[?(@.kind=='home')].address");
+        assertThat(flattenedHomes).containsExactly("2 School Rd");
+    }
+
     private void acceptRide(String driver, String requester, String spaceId, String eventKey)
             throws Exception {
         MvcResult created =

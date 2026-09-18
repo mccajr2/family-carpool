@@ -1,6 +1,6 @@
 # Spec: block-route-origin
 
-Status: draft  
+Status: done  
 Created: 2026-09-17  
 Promoted: 2026-09-17 · `/spec`  
 Parent: [docs/roadmap.md](../../roadmap.md)  
@@ -106,29 +106,29 @@ public block ids.
 
 ## Acceptance criteria
 
-- [ ] On a **combined** There route, driver can set **Leaving from** to a
+- [x] On a **combined** There route, driver can set **Leaving from** to a
       located circle place (e.g. Office) distinct from membership default;
       rebuilt stops use that place as fixed HOME start; kid/coverage leave-from
       places remain middles (not HOME).
-- [ ] On the same block’s Back route, driver can set **Returning to** to a
+- [x] On the same block’s Back route, driver can set **Returning to** to a
       different place (e.g. Home) without changing the There override; FROM
       fixed HOME end uses Returning to.
-- [ ] On a **singleton** Route, Leaving from / Returning to appear and persist
+- [x] On a **singleton** Route, Leaving from / Returning to appear and persist
       the same way (independent per leg); when no itinerary override is set,
       assembly keeps today’s fallbacks (item leave-from chain for TO start;
       driver leave-from / home for FROM end).
-- [ ] Clearing the control to **Default** removes the itinerary override and
+- [x] Clearing the control to **Default** removes the itinerary override and
       restores the fallback for that leg; Agenda/Focus leave-from for member
       events is **unchanged** by Route origin writes.
-- [ ] When a household kid leave-from (or FROM drop-off) resolves to the same
+- [x] When a household kid leave-from (or FROM drop-off) resolves to the same
       place as the governing HOME for that leg, assembly emits **one** home-side
       stop (no duplicate middle at that address).
-- [ ] Opening the same member-set via any member `itemId` + same `leg` returns
+- [x] Opening the same member-set via any member `itemId` + same `leg` returns
       the same home-side override and ordered stops.
 - [x] OpenAPI documents the origin write + `CalendarRoute` echo fields; web
       `familyClient` / types call them; Route There/Back use `LeaveFromControls`
       with labels **Leaving from** / **Returning to**.
-- [ ] Unit + integration coverage: independent TO/FROM overrides, Default
+- [x] Unit + integration coverage: independent TO/FROM overrides, Default
       clear, flatten when kid place == HOME, Agenda leave-from unchanged after
       Route origin PUT; web component test for Route origin controls.
 
@@ -146,7 +146,7 @@ public block ids.
       `LeaveFromControls`; wire save → rebuild
 - [x] Docs: update `docs/architecture.md` → **Multi-stop itinerary** for
       per-leg itinerary home-side override (itinerary-only; not Agenda leave-from)
-- [ ] Tests: leaveby unit (resolution + flatten); calendar/route integration
+- [x] Tests: leaveby unit (resolution + flatten); calendar/route integration
       (PUT origin, independent legs, Agenda leave-from unchanged); 
       `RideRouteTab` component test for controls
 
