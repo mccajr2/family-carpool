@@ -76,6 +76,24 @@ public class CalendarController {
         return calendarService.reorderRoute(adult, source, itemId, request.middleStopIds(), leg);
     }
 
+    @PutMapping("/{source}/{itemId}/route/origin")
+    public CalendarRouteResponse setRouteOrigin(
+            @PathVariable("source") CalendarItemSource source,
+            @PathVariable("itemId") UUID itemId,
+            @RequestParam(value = "leg", required = false, defaultValue = "TO")
+                    CalendarRouteLeg leg,
+            @Valid @RequestBody SetCalendarLeaveFromRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.setRouteOrigin(
+                adult,
+                source,
+                itemId,
+                leg,
+                request.leaveFromPlaceId(),
+                request.leaveFromAddress());
+    }
+
     @GetMapping("/{source}/{itemId}/playlist")
     public CalendarPlaylistResponse getPlaylist(
             @PathVariable("source") CalendarItemSource source,

@@ -1,6 +1,7 @@
 package com.yourorg.quickapp.leaveby;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Multi-stop driving itinerary for a confirmed ride. Always an estimate — never
@@ -14,7 +15,10 @@ public record CalendarRouteDto(
         List<CalendarRouteStopDto> stops,
         List<Integer> legMinutes,
         CalendarRouteLeg leg,
-        List<CalendarRouteMemberRef> memberItemIds) {
+        List<CalendarRouteMemberRef> memberItemIds,
+        UUID leaveFromPlaceId,
+        String leaveFromPlaceName,
+        String leaveFromAddress) {
 
     public CalendarRouteDto(
             CalendarRouteStatus status,
@@ -23,6 +27,42 @@ public record CalendarRouteDto(
             List<CalendarRouteStopDto> stops,
             List<Integer> legMinutes) {
         this(status, reason, bufferMinutes, stops, legMinutes, CalendarRouteLeg.TO, List.of());
+    }
+
+    public CalendarRouteDto(
+            CalendarRouteStatus status,
+            String reason,
+            int bufferMinutes,
+            List<CalendarRouteStopDto> stops,
+            List<Integer> legMinutes,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItemIds) {
+        this(
+                status,
+                reason,
+                bufferMinutes,
+                stops,
+                legMinutes,
+                leg,
+                memberItemIds,
+                null,
+                null,
+                null);
+    }
+
+    public CalendarRouteDto withHomeSide(
+            UUID leaveFromPlaceId, String leaveFromPlaceName, String leaveFromAddress) {
+        return new CalendarRouteDto(
+                status,
+                reason,
+                bufferMinutes,
+                stops,
+                legMinutes,
+                leg,
+                memberItemIds,
+                leaveFromPlaceId,
+                leaveFromPlaceName,
+                leaveFromAddress);
     }
 
     public static CalendarRouteDto unavailable(
@@ -43,7 +83,10 @@ public record CalendarRouteDto(
                 List.copyOf(stops),
                 List.of(),
                 leg == null ? CalendarRouteLeg.TO : leg,
-                memberItemIds == null ? List.of() : List.copyOf(memberItemIds));
+                memberItemIds == null ? List.of() : List.copyOf(memberItemIds),
+                null,
+                null,
+                null);
     }
 
     public static CalendarRouteDto ok(
@@ -64,6 +107,9 @@ public record CalendarRouteDto(
                 List.copyOf(stops),
                 List.copyOf(legMinutes),
                 leg == null ? CalendarRouteLeg.TO : leg,
-                memberItemIds == null ? List.of() : List.copyOf(memberItemIds));
+                memberItemIds == null ? List.of() : List.copyOf(memberItemIds),
+                null,
+                null,
+                null);
     }
 }

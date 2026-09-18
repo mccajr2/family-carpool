@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import type { FamilyCircle } from "@/api/types"
 import {
   GAME_CARPOOL_ROUTE_FIXTURE,
   PRACTICE_CARPOOL_ROUTE_FIXTURE,
@@ -374,5 +375,111 @@ describe("RideRouteTab FROM leg", () => {
       fireEvent.drop(to, { dataTransfer })
     })
     expect(onReorderMiddles).toHaveBeenCalledWith(["Far St", "Near St"])
+  })
+})
+
+describe("RideRouteTab origin controls", () => {
+  const circle: FamilyCircle = {
+    id: "c1",
+    name: "Test",
+    role: "ORGANIZER",
+    members: [
+      { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+    ],
+    kids: [{ id: "k1", displayName: "Sam" }],
+    places: [
+      { id: "p1", name: "Home", address: "1 Main", latitude: 40, longitude: -74 },
+      { id: "office", name: "Office", address: "500 Market", latitude: 41, longitude: -75 },
+    ],
+    defaultLeaveFromPlaceId: "p1",
+    defaultLeaveFromPlaceName: "Home",
+  }
+
+  it("hides Leaving from when the viewer cannot set origin", () => {
+    render(
+      <RideRouteTab
+        carpoolRoute={PRACTICE_CARPOOL_ROUTE_FIXTURE}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        circle={circle}
+        canSetOrigin={false}
+        onSetOrigin={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId("ride-route-origin")).not.toBeInTheDocument()
+  })
+
+  it("shows Leaving from on There and saves a named place override", async () => {
+    const user = userEvent.setup()
+    const onSetOrigin = vi.fn().mockResolvedValue(undefined)
+    render(
+      <RideRouteTab
+        carpoolRoute={PRACTICE_CARPOOL_ROUTE_FIXTURE}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        leg="TO"
+        circle={circle}
+        originLeaveFrom={{
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+        }}
+        canSetOrigin
+        onSetOrigin={onSetOrigin}
+      />,
+    )
+
+    expect(screen.getByTestId("ride-route-origin-label")).toHaveTextContent(
+      "Leaving from",
+    )
+    await user.selectOptions(
+      screen.getByTestId("ride-route-origin-place-select"),
+      "office",
+    )
+    expect(onSetOrigin).toHaveBeenCalledWith({
+      leaveFromPlaceId: "office",
+      leaveFromAddress: null,
+    })
+  })
+
+  it("shows Returning to on Back and clears to Default", async () => {
+    const user = userEvent.setup()
+    const onSetOrigin = vi.fn().mockResolvedValue(undefined)
+    const fromRoute = {
+      bufferMinutes: 0,
+      stops: [
+        { name: "Rink", address: "65 Elm", kind: "destination" as const },
+        { name: "Home", address: "1 Main", kind: "home" as const },
+      ],
+      legMinutes: [15],
+    }
+    render(
+      <RideRouteTab
+        carpoolRoute={fromRoute}
+        startsAt="2030-08-15T18:00:00.000"
+        mapsEmbedApiKey={null}
+        leg="FROM"
+        circle={circle}
+        originLeaveFrom={{
+          leaveFromPlaceId: "office",
+          leaveFromPlaceName: "Office",
+          leaveFromAddress: null,
+        }}
+        canSetOrigin
+        onSetOrigin={onSetOrigin}
+      />,
+    )
+
+    expect(screen.getByTestId("ride-route-origin-label")).toHaveTextContent(
+      "Returning to",
+    )
+    await user.selectOptions(
+      screen.getByTestId("ride-route-origin-place-select"),
+      "p1",
+    )
+    expect(onSetOrigin).toHaveBeenCalledWith({
+      leaveFromPlaceId: null,
+      leaveFromAddress: null,
+    })
   })
 })

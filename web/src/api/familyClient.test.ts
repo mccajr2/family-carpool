@@ -651,6 +651,68 @@ describe("FamilyClient", () => {
     })
   })
 
+  it("setCalendarRouteOrigin PUTs leave-from body and returns CalendarRoute", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const withOrigin = {
+      status: "OK",
+      reason: null,
+      bufferMinutes: 20,
+      leg: "TO",
+      leaveFromPlaceId: "office-1",
+      leaveFromPlaceName: "Office",
+      leaveFromAddress: null,
+      stops: [
+        { name: "Office", address: "500 Market", kind: "home" },
+        { name: "Rink", address: "65 Elm", kind: "destination" },
+      ],
+      legMinutes: [15],
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(withOrigin))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Only the driving adult may set the route origin" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.setCalendarRouteOrigin("tok", "FEED", "e1", { leaveFromPlaceId: "office-1" }),
+    ).resolves.toMatchObject({
+      status: "OK",
+      leaveFromPlaceId: "office-1",
+      leaveFromPlaceName: "Office",
+      stops: expect.arrayContaining([
+        expect.objectContaining({ name: "Office", kind: "home" }),
+      ]),
+    })
+    await expect(
+      client.setCalendarRouteOrigin("tok", "MANUAL", "e2", { leaveFromPlaceId: "p1" }, "FROM"),
+    ).rejects.toThrow(/Only the driving adult may set the route origin/)
+
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/FEED/e1/route/origin?leg=TO",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer tok",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ leaveFromPlaceId: "office-1" }),
+    })
+    expect(fetchFn.mock.calls[1]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/MANUAL/e2/route/origin?leg=FROM",
+    )
+  })
+
   it("gets and opens the calendar playlist for a confirmed ride", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

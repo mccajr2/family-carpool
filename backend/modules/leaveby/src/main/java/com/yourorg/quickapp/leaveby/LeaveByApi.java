@@ -193,6 +193,30 @@ public interface LeaveByApi {
     List<LeaveByVenueDriveDto> cheapVenueDrives(UUID adultId, List<LeaveByItemInput> items);
 
     /**
+     * Persist a per-leg itinerary home-side override (Leaving from / Returning
+     * to) and rebuild the route. Modes: named located place, one-time address,
+     * or both null to clear (Default). Does <strong>not</strong> write calendar
+     * item or coverage leave-from. Changing the override busts the stop
+     * fingerprint via the new HOME identity.
+     *
+     * @throws com.yourorg.quickapp.family.FamilyAccessException 400 when place
+     *     and address are both set or address is blank / too long; 404 when the
+     *     named place is missing for the member
+     */
+    CalendarRouteDto setCalendarRouteOrigin(
+            UUID drivingAdultId,
+            CalendarRouteLeg leg,
+            List<CalendarRouteMemberRef> memberItems,
+            LeaveByItemSource originSource,
+            UUID originItemId,
+            String eventTitle,
+            List<CalendarRoutePickupInput> middles,
+            String destinationName,
+            String destinationAddress,
+            UUID homePlaceId,
+            String homeAddress);
+
+    /**
      * Persist item-level leave-from for this adult. Modes: named located place,
      * one-time address, or both null to clear (Default). Place and address are
      * mutually exclusive.

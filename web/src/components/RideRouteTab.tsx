@@ -12,6 +12,9 @@ import {
   Users,
 } from "lucide-react"
 
+import type { FamilyCircle, SetCalendarLeaveFromRequest } from "@/api/types"
+import { LeaveFromControls } from "@/components/LeaveFromControls"
+import type { LeaveFromFields } from "@/components/leaveFromDisplay"
 import type {
   FixtureRideStop,
   RideNotifyContact,
@@ -71,6 +74,22 @@ export type RideRouteTabProps = {
    * by the host when both legs are routable.
    */
   leg?: "TO" | "FROM"
+  /**
+   * Circle places for Leaving from / Returning to. Required with
+   * {@link onSetOrigin}.
+   */
+  circle?: FamilyCircle | null
+  /** Stored itinerary home-side override echo for the active leg. */
+  originLeaveFrom?: LeaveFromFields | null
+  /**
+   * Driving adult may set per-leg itinerary origin. Hidden when false/omitted.
+   */
+  canSetOrigin?: boolean
+  /**
+   * Persist Leaving from (TO) / Returning to (FROM). Host refreshes schedule
+   * from the PUT response.
+   */
+  onSetOrigin?: (body: SetCalendarLeaveFromRequest) => Promise<void>
 }
 
 /** Local wall-clock `h:mm AM/PM` from an ISO instant (matches `toMinutes` / `toTime`). */
@@ -443,9 +462,14 @@ export function RideRouteTab({
   canReorderMiddles = false,
   onReorderMiddles,
   leg = "TO",
+  circle = null,
+  originLeaveFrom = null,
+  canSetOrigin = false,
+  onSetOrigin,
 }: RideRouteTabProps) {
   const [notifyStates, setNotifyStates] = useState<Record<string, RideNotifyState>>({})
   const [reorderBusy, setReorderBusy] = useState(false)
+  const [originBusy, setOriginBusy] = useState(false)
   const [dragFromAddress, setDragFromAddress] = useState<string | null>(null)
   const eventStart = eventStartClockFromIso(startsAt)
   const lead = routeLeadCopy(carpoolRoute.bufferMinutes)
@@ -474,6 +498,14 @@ export function RideRouteTab({
   const middleCount = carpoolRoute.stops.filter((stop) => stop.kind === middleKind).length
   const reorderEnabled =
     canReorderMiddles && onReorderMiddles != null && middleCount >= 2
+  const originLabel = leg === "FROM" ? "Returning to" : "Leaving from"
+  const showOriginControls =
+    canSetOrigin && onSetOrigin != null && circle != null
+  const originValue: LeaveFromFields = originLeaveFrom ?? {
+    leaveFromPlaceId: null,
+    leaveFromPlaceName: null,
+    leaveFromAddress: null,
+  }
 
   function handleNotify(stop: FixtureRideStop, readyByLabel: string) {
     const contact = stop.contact
@@ -546,6 +578,20 @@ export function RideRouteTab({
       })
   }
 
+  function handleSetOrigin(body: SetCalendarLeaveFromRequest) {
+    if (onSetOrigin == null || originBusy) {
+      return
+    }
+    setOriginBusy(true)
+    void onSetOrigin(body)
+      .catch(() => {
+        // Host keeps prior route; leave UI as-is.
+      })
+      .finally(() => {
+        setOriginBusy(false)
+      })
+  }
+
   return (
     <div data-testid="ride-route-tab" data-route-leg={leg}>
       <div
@@ -588,6 +634,24 @@ export function RideRouteTab({
           <Navigation aria-hidden size={16} /> Start navigation
         </a>
       </div>
+
+      {showOriginControls ? (
+        <div
+          data-testid="ride-route-origin"
+          className="mb-[var(--fc-space-ride-detail-block-mb)]"
+        >
+          <LeaveFromControls
+            variant="field-row"
+            value={originValue}
+            circle={circle}
+            loading={originBusy}
+            label={originLabel}
+            ariaLabel={originLabel}
+            onChange={handleSetOrigin}
+            testIdPrefix="ride-route-origin"
+          />
+        </div>
+      ) : null}
 
       <div className="mb-[var(--fc-space-ride-detail-block-mb)]">
         <RouteMap stops={carpoolRoute.stops} apiKey={mapsEmbedApiKey} />

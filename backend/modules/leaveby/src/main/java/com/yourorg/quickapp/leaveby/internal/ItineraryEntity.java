@@ -58,6 +58,14 @@ class ItineraryEntity {
     @Column(name = "leg_minutes_json", nullable = false, columnDefinition = "TEXT")
     private String legMinutesJson;
 
+    /** Named place home-side override; mutually exclusive with {@code homeAddress}. */
+    @Column(name = "home_place_id")
+    private UUID homePlaceId;
+
+    /** One-time home-side override; mutually exclusive with {@code homePlaceId}. */
+    @Column(name = "home_address", length = 255)
+    private String homeAddress;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -151,12 +159,30 @@ class ItineraryEntity {
         return legMinutesJson;
     }
 
+    UUID homePlaceId() {
+        return homePlaceId;
+    }
+
+    String homeAddress() {
+        return homeAddress;
+    }
+
     Instant createdAt() {
         return createdAt;
     }
 
     Instant updatedAt() {
         return updatedAt;
+    }
+
+    /**
+     * Persist Leaving-from / Returning-to triad. Both null clears to Default.
+     * Does not touch stop fingerprint — callers must rebuild after a change.
+     */
+    void setHomeSideOverride(UUID homePlaceId, String homeAddress, Instant updatedAt) {
+        this.homePlaceId = homePlaceId;
+        this.homeAddress = homeAddress;
+        this.updatedAt = updatedAt;
     }
 
     void replace(
@@ -180,5 +206,6 @@ class ItineraryEntity {
         this.itemId = itemId;
         this.membersToken = membersToken == null ? "" : membersToken;
         this.updatedAt = updatedAt;
+        // homePlaceId / homeAddress intentionally preserved across rebuilds
     }
 }

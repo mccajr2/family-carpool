@@ -328,6 +328,37 @@ public class CalendarService {
     }
 
     @Transactional
+    public CalendarRouteResponse setRouteOrigin(
+            AdultResponse adult,
+            CalendarItemSource source,
+            UUID itemId,
+            CalendarRouteLeg leg,
+            UUID homePlaceId,
+            String homeAddress) {
+        CalendarRouteLeg safeLeg = leg == null ? CalendarRouteLeg.TO : leg;
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        RouteBlockContext context = requireRoutableBlock(adult, circleId, source, itemId, safeLeg);
+        if (!adult.id().equals(context.drivingAdultId())) {
+            throw new CalendarException(
+                    HttpStatus.FORBIDDEN, "Only the driving adult may set the route origin");
+        }
+        CalendarRouteDto route =
+                leaveByApi.setCalendarRouteOrigin(
+                        context.drivingAdultId(),
+                        safeLeg,
+                        context.members(),
+                        context.originSource(),
+                        context.originItemId(),
+                        context.eventTitle(),
+                        context.middles(),
+                        context.venueName(),
+                        context.venueAddress(),
+                        homePlaceId,
+                        homeAddress);
+        return toRouteResponse(route);
+    }
+
+    @Transactional
     public CalendarPlaylistResponse getPlaylist(
             AdultResponse adult, CalendarItemSource source, UUID itemId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
@@ -2067,7 +2098,10 @@ public class CalendarService {
                 stops,
                 route.legMinutes(),
                 route.leg(),
-                members);
+                members,
+                route.leaveFromPlaceId(),
+                route.leaveFromPlaceName(),
+                route.leaveFromAddress());
     }
 
     private static CalendarItemSource toCalendarSource(LeaveByItemSource source) {

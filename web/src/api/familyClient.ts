@@ -478,6 +478,34 @@ export class FamilyClient {
     return (await response.json()) as CalendarRoute
   }
 
+  async setCalendarRouteOrigin(
+    accessToken: string,
+    source: CalendarItemSource,
+    itemId: string,
+    body: SetCalendarLeaveFromRequest,
+    leg: CalendarRouteLeg = "TO",
+  ): Promise<CalendarRoute> {
+    const params = new URLSearchParams({ leg })
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/${source}/${itemId}/route/origin?${params}`,
+      ),
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Set calendar route origin failed"))
+    }
+    return (await response.json()) as CalendarRoute
+  }
+
   async getCalendarPlaylist(
     accessToken: string,
     source: CalendarItemSource,

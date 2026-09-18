@@ -69,7 +69,7 @@ block for the requested leg.**
      on that earliest item) — matches the optimize north-star.
      Per-event coverage “picked up at …” must **not** become the itinerary
      HOME start on a combined block (see follow-up
-     [`block-route-origin`](../planned/block-route-origin.md) for an explicit
+     [`block-route-origin`](block-route-origin.md) for an explicit
      block-level origin override UI).
    - **FROM:** fixed start = venue; reorderable middles = home-side stops for
      riders on the FROM leg across member events; fixed end = driver’s
@@ -202,5 +202,5 @@ north-star for public block ids.
 ## Open questions
 
 - None blocking for this PR. Follow-up governing origin UI:
-  [`block-route-origin`](../planned/block-route-origin.md) (promote via `/spec`
+  [`block-route-origin`](block-route-origin.md) (promote via `/spec`
   immediately after merge / smoke of default-home fix).
