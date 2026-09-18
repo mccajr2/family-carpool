@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { CalendarUxSandboxScreen } from "@/sandbox/CalendarUxSandboxScreen"
 
 type Status =
   | { kind: "idle" }
@@ -42,6 +43,21 @@ export function AuthScreen({
   const [devHint, setDevHint] = useState<string | null>(null)
   const [adult, setAdult] = useState<Adult | null>(() => session.getAdult())
   const [status, setStatus] = useState<Status>({ kind: "idle" })
+  const [uxSandbox, setUxSandbox] = useState(
+    () =>
+      import.meta.env.DEV &&
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("uxSandbox") === "1",
+  )
+
+  function exitUxSandbox() {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("uxSandbox")
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash)
+    }
+    setUxSandbox(false)
+  }
 
   async function onRequestCode() {
     setStatus({ kind: "loading" })
@@ -78,18 +94,30 @@ export function AuthScreen({
   }
 
   if (adult) {
+    const onSignedOut = () => {
+      setAdult(null)
+      setCodeSent(false)
+      setCode("")
+      setDevHint(null)
+      setStatus({ kind: "idle" })
+      setUxSandbox(false)
+    }
+    if (uxSandbox) {
+      return (
+        <CalendarUxSandboxScreen
+          session={session}
+          familyClient={familyClient}
+          onExit={exitUxSandbox}
+          onSignedOut={onSignedOut}
+        />
+      )
+    }
     return (
       <FamilyScreen
         session={session}
         authClient={client}
         familyClient={familyClient}
-        onSignedOut={() => {
-          setAdult(null)
-          setCodeSent(false)
-          setCode("")
-          setDevHint(null)
-          setStatus({ kind: "idle" })
-        }}
+        onSignedOut={onSignedOut}
       />
     )
   }
