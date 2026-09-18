@@ -2253,6 +2253,9 @@ class LeaveByApiImplTest {
         assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
         assertThat(route.stops().getFirst().name()).isEqualTo("Office");
         assertThat(route.stops().getFirst().address()).isEqualTo("500 Market");
+        assertThat(route.leaveFromPlaceId()).isEqualTo(officeId);
+        assertThat(route.leaveFromPlaceName()).isEqualTo("Office");
+        assertThat(route.leaveFromAddress()).isNull();
         assertThat(stored.get().homePlaceId()).isEqualTo(officeId);
         assertThat(stored.get().homeAddress()).isNull();
         verify(leaveFromRepository, never()).save(any());
@@ -2310,6 +2313,8 @@ class LeaveByApiImplTest {
 
         assertThat(route.status()).isEqualTo(CalendarRouteStatus.OK);
         assertThat(route.stops().getFirst().name()).isEqualTo("Mom's house");
+        assertThat(route.leaveFromPlaceId()).isNull();
+        assertThat(route.leaveFromAddress()).isNull();
         assertThat(existing.homePlaceId()).isNull();
         assertThat(existing.homeAddress()).isNull();
     }

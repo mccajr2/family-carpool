@@ -136,6 +136,13 @@ export type CalendarRoute = {
   leg?: CalendarRouteLeg | null
   /** Ordered block member refs for the member-set cache key. */
   memberItemIds?: CalendarRouteMemberItem[] | null
+  /**
+   * Itinerary home-side override for this leg (Leaving from / Returning to).
+   * Null with null leaveFromAddress = Default. Not Agenda leave-from.
+   */
+  leaveFromPlaceId?: string | null
+  leaveFromPlaceName?: string | null
+  leaveFromAddress?: string | null
 }
 
 /** Body for PUT …/calendar/{source}/{itemId}/route (driving adult only). */

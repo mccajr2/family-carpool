@@ -1619,30 +1619,44 @@ class LeaveByApiImpl implements LeaveByApi {
                             anchor.itemId(),
                             membersToken,
                             now);
-        } else {
-            itineraryRepository.save(
-                    new ItineraryEntity(
-                            UUID.randomUUID(),
-                            drivingAdultId,
-                            anchor.source(),
-                            anchor.itemId(),
-                            leg,
-                            memberSetKey,
-                            membersToken,
-                            route.status(),
-                            route.reason(),
-                            route.bufferMinutes(),
-                            fingerprint,
-                            stopsJson,
-                            legMinutesJson,
-                            now,
-                            now));
+            return withHomeSideEcho(route, existing.get());
         }
-        return route;
+        ItineraryEntity created =
+                new ItineraryEntity(
+                        UUID.randomUUID(),
+                        drivingAdultId,
+                        anchor.source(),
+                        anchor.itemId(),
+                        leg,
+                        memberSetKey,
+                        membersToken,
+                        route.status(),
+                        route.reason(),
+                        route.bufferMinutes(),
+                        fingerprint,
+                        stopsJson,
+                        legMinutesJson,
+                        now,
+                        now);
+        itineraryRepository.save(created);
+        return withHomeSideEcho(route, created);
     }
 
-    private static CalendarRouteDto toDto(
-            ItineraryEntity entity, List<CalendarRouteMemberRef> members) {
+    private CalendarRouteDto withHomeSideEcho(CalendarRouteDto route, ItineraryEntity entity) {
+        UUID placeId = entity.homePlaceId();
+        String address = entity.homeAddress();
+        String placeName = null;
+        if (placeId != null) {
+            placeName =
+                    placeApi
+                            .findPlaceForMember(entity.drivingAdultId(), placeId)
+                            .map(CirclePlaceDto::name)
+                            .orElse(null);
+        }
+        return route.withHomeSide(placeId, placeName, address);
+    }
+
+    private CalendarRouteDto toDto(ItineraryEntity entity, List<CalendarRouteMemberRef> members) {
         List<CalendarRouteStopDto> stops = ItineraryJson.readStops(entity.stopsJson());
         List<Integer> legMinutes = ItineraryJson.readLegMinutes(entity.legMinutesJson());
         CalendarRouteLeg leg = entity.leg() == null ? CalendarRouteLeg.TO : entity.leg();
@@ -1650,12 +1664,17 @@ class LeaveByApiImpl implements LeaveByApi {
                 members == null || members.isEmpty()
                         ? List.of(new CalendarRouteMemberRef(entity.itemSource(), entity.itemId()))
                         : members;
+        CalendarRouteDto base;
         if (entity.status() == CalendarRouteStatus.OK) {
-            return CalendarRouteDto.ok(
-                    entity.bufferMinutes(), stops, legMinutes, leg, memberRefs);
+            base =
+                    CalendarRouteDto.ok(
+                            entity.bufferMinutes(), stops, legMinutes, leg, memberRefs);
+        } else {
+            base =
+                    CalendarRouteDto.unavailable(
+                            entity.reason(), entity.bufferMinutes(), stops, leg, memberRefs);
         }
-        return CalendarRouteDto.unavailable(
-                entity.reason(), entity.bufferMinutes(), stops, leg, memberRefs);
+        return withHomeSideEcho(base, entity);
     }
 
     private static List<String> middleAddresses(List<CalendarRoutePickupInput> middles) {

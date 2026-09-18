@@ -139,9 +139,9 @@ public block ids.
       co-located middles before optimize; bust fingerprint on override change
 - [x] Backend: `LeaveByApi` + calendar HTTP for origin PUT; same routability
       gate as get/reorder (403 when not the driving adult)
-- [ ] Contract: OpenAPI origin write + `CalendarRoute` home-side echo; describe
+- [x] Contract: OpenAPI origin write + `CalendarRoute` home-side echo; describe
       independent legs + flatten
-- [ ] Web: `familyClient` / types for origin PUT + echo fields
+- [x] Web: `familyClient` / types for origin PUT + echo fields
 - [ ] Web: `RideRouteTab` Leaving from (There) / Returning to (Back) via
       `LeaveFromControls`; wire save → rebuild
 - [ ] Docs: update `docs/architecture.md` → **Multi-stop itinerary** for

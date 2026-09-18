@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.35.0
+  version: 0.36.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -18,10 +18,10 @@ info:
     (confirmed carpool legs + leave-by cache venue/duration; FORCE_MERGE /
     FORCE_SPLIT overrides via PUT/DELETE …/calendar/drive-block-overrides),
     a confirmed-ride multi-stop route read/write (GET/PUT
-    …/calendar/{source}/{itemId}/route — resolved leave-from → pickups →
-    destination; auto-optimized pickup order on build when 2+ middles;
-    optional driving-adult middle-stop reorder; cached OSRM pairwise legs;
-    estimate only),
+    …/calendar/{source}/{itemId}/route — home → middles → venue for TO;
+    venue → dropoffs → home for FROM; per-leg itinerary home-side override via
+    PUT …/route/origin; auto-optimized middles on build; optional driving-adult
+    middle reorder; cached OSRM pairwise legs; estimate only),
     a confirmed-ride Playlist read and Open-in-Spotify handoff
     (GET/POST …/calendar/{source}/{itemId}/playlist[ /open ] — attending kids,
     designations, tracks; 1 connected → source URL; 2+ → transient merge on
@@ -1659,14 +1659,20 @@ paths:
         (same adjacency / combined closure as Agenda `driveBlockLinks`).
         Singleton (one-item) blocks keep the single-event shape for that leg.
 
-        **TO (default):** fixed start = resolved leave-from; reorderable
-        middles = household kid leave-from / afterschool places (combined
-        multi-item blocks) plus ACCEPTED teammate pickups on that leg across
-        all member events (co-located siblings merged before optimize);
+        **TO (default):** fixed start = itinerary home-side override when set,
+        else membership default leave-from on combined (2+) blocks or the path
+        item's leave-from chain on singletons; reorderable middles = household
+        kid leave-from / afterschool places (combined multi-item blocks) plus
+        ACCEPTED teammate pickups on that leg across all member events
+        (co-located siblings merged before optimize; middles that resolve to
+        the same place as the governing HOME are dropped so HOME appears once);
         fixed end = shared venue. bufferMinutes uses the **earliest** member
         event title heuristic. **FROM:** fixed start = venue; middles =
-        home-side stops as kind `dropoff`; fixed end = driver leave-from /
-        home. Not the confirmed driver on that leg → 403.
+        home-side stops as kind `dropoff` (same flatten vs HOME end); fixed end
+        = itinerary home-side override when set, else driver leave-from / home.
+        There (TO) and Back (FROM) home-side overrides are **independent**.
+        Route origin writes are itinerary-only — they do not mutate Agenda /
+        coverage leave-from. Not the confirmed driver on that leg → 403.
 
         Itineraries persist under a **member-set cache key**
         `(drivingAdultId, leg, ordered member source+itemId list)` — opening
@@ -1905,6 +1911,132 @@ paths:
           description: >
             Current adult has no family circle, unknown item id, or no
             persisted itinerary for the driving adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/{source}/{itemId}/route/origin:
+    put:
+      operationId: setCalendarRouteOrigin
+      tags: [family]
+      summary: Set the per-leg itinerary home-side origin (Leaving from / Returning to)
+      description: >
+        Driving adult only. Sets the **itinerary** home-side override for the
+        resolved member-set on the requested `leg` (TO = Leaving from fixed
+        HOME start; FROM = Returning to fixed HOME end). Body shape matches
+        SetCalendarLeaveFromRequest: named located circle place, one-time
+        free-text, or both null to clear to Default (restore membership /
+        path-item fallbacks for that leg). TO and FROM overrides are
+        independent. Does **not** write calendar-item or coverage leave-from.
+        Busts the stop fingerprint and rebuilds (re-auto-optimizes middles;
+        flattens co-located middles that match the new HOME). Returns the
+        rebuilt CalendarRoute. Same routability gate as getCalendarRoute;
+        riders who may GET but are not the driving adult → 403. Invalid body
+        (both place and address set, blank address) → 400. Unknown item or no
+        circle → 404. Same 401 as GET.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source
+          in: path
+          required: true
+          description: Whether the item is a manual event or a feed-imported row
+          schema:
+            $ref: "#/components/schemas/CalendarItemSource"
+        - name: itemId
+          in: path
+          required: true
+          description: >
+            Manual event id or feed event id (any combined-block member). Cache
+            key is the full member set for that leg.
+          schema:
+            type: string
+            format: uuid
+        - name: leg
+          in: query
+          required: false
+          description: >
+            Which leg's home-side override to set. Defaults to TO. Must match a
+            leg the caller is allowed to drive.
+          schema:
+            $ref: "#/components/schemas/CalendarRouteLeg"
+          example: TO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCalendarLeaveFromRequest"
+            examples:
+              namedPlace:
+                summary: Leave from / return to a located circle place
+                value:
+                  leaveFromPlaceId: "01900000-0000-7000-8000-000000000031"
+              oneTime:
+                summary: One-time free-text home-side address
+                value:
+                  leaveFromAddress: "Office lobby"
+              clearDefault:
+                summary: Clear override (Default fallbacks)
+                value:
+                  leaveFromPlaceId: null
+                  leaveFromAddress: null
+      responses:
+        "200":
+          description: Rebuilt multi-stop itinerary for that leg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarRoute"
+              examples:
+                ok:
+                  summary: There route leaving from Office
+                  value:
+                    status: OK
+                    reason: null
+                    bufferMinutes: 20
+                    leg: TO
+                    leaveFromPlaceId: "01900000-0000-7000-8000-000000000031"
+                    leaveFromPlaceName: Office
+                    leaveFromAddress: null
+                    memberItemIds:
+                      - source: FEED
+                        itemId: "11111111-1111-1111-1111-111111111111"
+                    stops:
+                      - name: Office
+                        address: "500 Market St"
+                        kind: home
+                      - name: Declan · Afterschool
+                        address: "10 Community Center"
+                        kind: pickup
+                      - name: Allied Veterans Rink
+                        address: "65 Elm St, Everett, MA"
+                        kind: destination
+                    legMinutes: [8, 14]
+        "400":
+          description: >
+            leaveFromPlaceId and leaveFromAddress both set, or address blank /
+            too long
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: >
+            Caller may not route this item, or is not the driving adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Current adult has no family circle, or unknown item id
           content:
             application/json:
               schema:
@@ -5344,6 +5476,33 @@ components:
             scope. Empty or omitted when unavailable.
           items:
             $ref: "#/components/schemas/CalendarRouteMemberItem"
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Itinerary home-side override for this leg (Leaving from on TO /
+            Returning to on FROM): named located circle place id when set.
+            Null with null leaveFromAddress means Default (use membership /
+            path-item fallbacks). Independent per leg. Not Agenda leave-from.
+          example: 01900000-0000-7000-8000-000000000031
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+          description: >
+            Display name for leaveFromPlaceId when the place is still visible
+            to the member. Null when Default, one-time, or the place was
+            removed.
+          example: Office
+        leaveFromAddress:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: >
+            One-time free-text itinerary home-side override for this leg.
+            Mutually exclusive with leaveFromPlaceId. Null when Default or
+            named place.
+          example: "Office lobby"
         stops:
           type: array
           description: >

@@ -2098,7 +2098,10 @@ public class CalendarService {
                 stops,
                 route.legMinutes(),
                 route.leg(),
-                members);
+                members,
+                route.leaveFromPlaceId(),
+                route.leaveFromPlaceName(),
+                route.leaveFromAddress());
     }
 
     private static CalendarItemSource toCalendarSource(LeaveByItemSource source) {
