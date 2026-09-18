@@ -125,7 +125,7 @@ public block ids.
       stop (no duplicate middle at that address).
 - [ ] Opening the same member-set via any member `itemId` + same `leg` returns
       the same home-side override and ordered stops.
-- [ ] OpenAPI documents the origin write + `CalendarRoute` echo fields; web
+- [x] OpenAPI documents the origin write + `CalendarRoute` echo fields; web
       `familyClient` / types call them; Route There/Back use `LeaveFromControls`
       with labels **Leaving from** / **Returning to**.
 - [ ] Unit + integration coverage: independent TO/FROM overrides, Default
@@ -142,7 +142,7 @@ public block ids.
 - [x] Contract: OpenAPI origin write + `CalendarRoute` home-side echo; describe
       independent legs + flatten
 - [x] Web: `familyClient` / types for origin PUT + echo fields
-- [ ] Web: `RideRouteTab` Leaving from (There) / Returning to (Back) via
+- [x] Web: `RideRouteTab` Leaving from (There) / Returning to (Back) via
       `LeaveFromControls`; wire save → rebuild
 - [ ] Docs: update `docs/architecture.md` → **Multi-stop itinerary** for
       per-leg itinerary home-side override (itinerary-only; not Agenda leave-from)

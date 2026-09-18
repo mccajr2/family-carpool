@@ -2979,6 +2979,21 @@ export function FamilyScreen({
     )
     setRideDetailRoutes((current) => ({ ...current, [rideDetailLeg]: route }))
   }
+
+  async function onSetRideDetailOrigin(body: SetCalendarLeaveFromRequest) {
+    const token = session.getAccessToken()
+    if (!token || rideDetailItem == null) {
+      throw new Error("Not signed in")
+    }
+    const route = await familyClient.setCalendarRouteOrigin(
+      token,
+      rideDetailItem.source,
+      rideDetailItem.id,
+      body,
+      rideDetailLeg,
+    )
+    setRideDetailRoutes((current) => ({ ...current, [rideDetailLeg]: route }))
+  }
   // Item removed while detail was open — drop back to Agenda.
   if (rideDetailItemKey != null && rideDetailItem == null) {
     setRideDetailItemKey(null)
@@ -3397,6 +3412,16 @@ export function FamilyScreen({
                   startsAt={rideDetailItem.startsAt}
                   location={rideDetailItem.location}
                   leg={rideDetailLeg}
+                  circle={circle}
+                  originLeaveFrom={{
+                    leaveFromPlaceId: rideDetailRoute?.leaveFromPlaceId ?? null,
+                    leaveFromPlaceName: rideDetailRoute?.leaveFromPlaceName ?? null,
+                    leaveFromAddress: rideDetailRoute?.leaveFromAddress ?? null,
+                  }}
+                  canSetOrigin={rideDetailCanReorder}
+                  onSetOrigin={
+                    rideDetailCanReorder ? onSetRideDetailOrigin : undefined
+                  }
                   canReorderMiddles={rideDetailCanReorder}
                   onReorderMiddles={
                     rideDetailCanReorder ? onReorderRideDetailMiddles : undefined
