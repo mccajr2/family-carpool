@@ -340,6 +340,7 @@ describe("FamilyClient", () => {
       endsAt: "2026-08-15T18:00:00Z",
       location: "Clinic",
       kidIds: ["k1"],
+      feedId: null,
     }
 
     const fetchFn = vi
@@ -347,6 +348,8 @@ describe("FamilyClient", () => {
       .mockResolvedValueOnce(json([event]))
       .mockResolvedValueOnce(json({ ...event, id: "e2" }, 201))
       .mockResolvedValueOnce(json({ ...event, title: "Dentist 2" }))
+      .mockResolvedValueOnce(json({ ...event, feedId: "f1" }, 201))
+      .mockResolvedValueOnce(json({ ...event, feedId: "f1", title: "Banquet" }))
       .mockResolvedValueOnce(json(event))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
 
@@ -362,23 +365,47 @@ describe("FamilyClient", () => {
         "2026-08-15T18:00:00Z",
         "Clinic",
       ),
-    ).resolves.toMatchObject({ id: "e2" })
+    ).resolves.toMatchObject({ id: "e2", feedId: null })
     await expect(
       client.updateEvent("tok", "e1", "Dentist 2", "2026-08-15T17:00:00Z", ["k1"]),
     ).resolves.toMatchObject({ title: "Dentist 2" })
+    await expect(
+      client.createEvent(
+        "tok",
+        "Banquet",
+        "2026-08-15T17:00:00Z",
+        ["k1"],
+        null,
+        null,
+        "f1",
+      ),
+    ).resolves.toMatchObject({ feedId: "f1" })
+    await expect(
+      client.updateEvent("tok", "e1", "Banquet", "2026-08-15T17:00:00Z", ["k1"], null, null, "f1"),
+    ).resolves.toMatchObject({ feedId: "f1" })
     await expect(client.getEvent("tok", "e1")).resolves.toMatchObject({ id: "e1" })
     await client.deleteEvent("tok", "e1")
 
     expect(fetchFn.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/family/circle/events")
     expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "POST" })
+    expect(JSON.parse(String(fetchFn.mock.calls[1]?.[1]?.body))).toMatchObject({
+      title: "Dentist",
+      feedId: null,
+    })
     expect(fetchFn.mock.calls[2]?.[0]).toBe(
       "http://localhost:8080/api/family/circle/events/e1",
     )
     expect(fetchFn.mock.calls[2]?.[1]).toMatchObject({ method: "PUT" })
-    expect(fetchFn.mock.calls[3]?.[0]).toBe(
+    expect(JSON.parse(String(fetchFn.mock.calls[3]?.[1]?.body))).toMatchObject({
+      feedId: "f1",
+    })
+    expect(JSON.parse(String(fetchFn.mock.calls[4]?.[1]?.body))).toMatchObject({
+      feedId: "f1",
+    })
+    expect(fetchFn.mock.calls[5]?.[0]).toBe(
       "http://localhost:8080/api/family/circle/events/e1",
     )
-    expect(fetchFn.mock.calls[4]?.[1]).toMatchObject({ method: "DELETE" })
+    expect(fetchFn.mock.calls[6]?.[1]).toMatchObject({ method: "DELETE" })
   })
 
   it("lists unified calendar items for a time window", async () => {

@@ -814,6 +814,7 @@ export class FamilyClient {
     kidIds: string[],
     endsAt: string | null = null,
     location: string | null = null,
+    feedId: string | null = null,
   ): Promise<ManualEvent> {
     const response = await this.fetchFn(authUrl(this.baseUrl, "/api/family/circle/events"), {
       method: "POST",
@@ -821,7 +822,7 @@ export class FamilyClient {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ title, startsAt, endsAt, location, kidIds }),
+      body: JSON.stringify({ title, startsAt, endsAt, location, kidIds, feedId }),
     })
     if (!response.ok) {
       throw new Error(await readErrorMessage(response, "Create event failed"))
@@ -837,6 +838,7 @@ export class FamilyClient {
     kidIds: string[],
     endsAt: string | null = null,
     location: string | null = null,
+    feedId: string | null = null,
   ): Promise<ManualEvent> {
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/family/circle/events/${eventId}`),
@@ -846,7 +848,7 @@ export class FamilyClient {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title, startsAt, endsAt, location, kidIds }),
+        body: JSON.stringify({ title, startsAt, endsAt, location, kidIds, feedId }),
       },
     )
     if (!response.ok) {

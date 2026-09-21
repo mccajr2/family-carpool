@@ -69,6 +69,8 @@ export type ManualEvent = {
   endsAt: string | null
   location: string | null
   kidIds: string[]
+  /** Circle activity feed link for team carpool; null = standalone. */
+  feedId: string | null
 }
 
 export type CalendarItemSource = "MANUAL" | "FEED"

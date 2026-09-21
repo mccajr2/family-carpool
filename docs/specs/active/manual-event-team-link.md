@@ -189,7 +189,7 @@ planned stubs.
       only; carpool space-event union + RSVP-NO / Enable-attach /
       `defaultKidIds` YES-only for MANUAL; 409 on relink with active space
       rides; delete cancels own plans; amend ADR-0003
-- [ ] **Contract:** OpenAPI `feedId` on manual event schemas; `CalendarItem`
+- [x] **Contract:** OpenAPI `feedId` on manual event schemas; `CalendarItem`
       + calendar GET descriptions for linked MANUAL `feedId`/`eventKey`;
       web types + `familyClient` create/update bodies. No party-size field
 - [ ] **Web:** compose Team select; `matchCalendarItemToRideEvent` allows
