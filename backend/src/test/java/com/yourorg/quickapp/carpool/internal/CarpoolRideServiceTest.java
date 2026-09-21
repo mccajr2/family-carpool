@@ -24,6 +24,7 @@ import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyPlaceApi;
+import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
 import com.yourorg.quickapp.feeds.FeedResponse;
@@ -71,6 +72,9 @@ class CarpoolRideServiceTest {
 
     @Mock
     private FeedCalendarApi feedCalendarApi;
+
+    @Mock
+    private ManualEventCalendarApi manualEventCalendarApi;
 
     @Mock
     private RsvpApi rsvpApi;
@@ -123,6 +127,7 @@ class CarpoolRideServiceTest {
                         familyPlaceApi,
                         feedsApi,
                         feedCalendarApi,
+                        manualEventCalendarApi,
                         rsvpApi,
                         leaveByApi,
                         spaces,
@@ -136,6 +141,14 @@ class CarpoolRideServiceTest {
                             List<?> items = invocation.getArgument(1);
                             return Collections.nCopies(items.size(), null);
                         });
+        org.mockito.Mockito.lenient()
+                .when(
+                        manualEventCalendarApi.listLinkedToFeedInRange(
+                                any(), any(), any(), any()))
+                .thenReturn(List.of());
+        org.mockito.Mockito.lenient()
+                .when(manualEventCalendarApi.findInCircle(any(), any()))
+                .thenReturn(Optional.empty());
         org.mockito.Mockito.lenient()
                 .when(
                         leaveByApi.upsertCalendarRoute(

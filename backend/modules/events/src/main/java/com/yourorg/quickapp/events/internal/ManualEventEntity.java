@@ -35,6 +35,9 @@ class ManualEventEntity {
     @Column(name = "location", length = 500)
     private String location;
 
+    @Column(name = "feed_id")
+    private UUID feedId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -86,6 +89,10 @@ class ManualEventEntity {
         return location;
     }
 
+    UUID feedId() {
+        return feedId;
+    }
+
     Set<UUID> kidIds() {
         return kidIds;
     }
@@ -104,6 +111,10 @@ class ManualEventEntity {
 
     void setLocation(String location) {
         this.location = location;
+    }
+
+    void setFeedId(UUID feedId) {
+        this.feedId = feedId;
     }
 
     void setKidIds(Set<UUID> kidIds) {

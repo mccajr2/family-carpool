@@ -3,6 +3,7 @@ package com.yourorg.quickapp.calendar;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -115,8 +116,22 @@ class CoverageCalendarIntegrationTest {
                                 .param("from", "2026-08-01T00:00:00Z")
                                 .param("to", "2026-09-01T00:00:00Z"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].uncoveredKidIds.length()").value(2))
+                .andExpect(jsonPath("$[0].uncoveredKidIds.length()").value(0))
                 .andExpect(jsonPath("$[0].coverages").isEmpty());
+
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/rsvps/" + kidA)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"YES\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/rsvps/" + kidB)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"YES\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.uncoveredKidIds.length()").value(2));
 
         MvcResult assigned =
                 mockMvc.perform(

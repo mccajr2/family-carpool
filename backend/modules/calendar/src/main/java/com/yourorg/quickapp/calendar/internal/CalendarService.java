@@ -29,6 +29,7 @@ import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.coverage.ScheduleIntervals;
 import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
+import com.yourorg.quickapp.events.ManualEventKey;
 import com.yourorg.quickapp.family.CirclePlaceDto;
 import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyKidName;
@@ -555,12 +556,12 @@ public class CalendarService {
         if (status == RsvpStatus.NO || status == RsvpStatus.NO_RESPONSE) {
             CoverageItemSource coverageSource = toCoverageSource(source);
             coverageApi.releaseKidFromActiveRows(circleId, coverageSource, itemId, kidId);
-            if (source == CalendarItemSource.FEED
+            if (carpoolEligibleItem(circleId, source, itemId)
                     && !hasConfirmedCoverage(circleId, coverageSource, itemId)) {
                 carpoolApi.withdrawAcceptedInboundForFeedEvent(adult.id(), itemId);
             }
         }
-        if (status == RsvpStatus.NO && source == CalendarItemSource.FEED) {
+        if (status == RsvpStatus.NO && carpoolEligibleItem(circleId, source, itemId)) {
             carpoolApi.clearTransportForNotGoingKid(adult.id(), itemId, kidId);
         }
         rsvpApi.setStatus(
@@ -939,7 +940,7 @@ public class CalendarService {
                     entry.getKey(),
                     toScheduleItem(
                             base,
-                            inPlayKidIds(base.kidIds(), rsvps),
+                            inPlayKidIds(base.source(), base.kidIds(), rsvps),
                             activeCoverages(coverages)));
         }
         return withCoverage;
@@ -1058,6 +1059,9 @@ public class CalendarService {
             List<CalendarConflictResponse> conflicts,
             LeaveByEnrichmentDto leaveBy,
             Map<UUID, LeaveByEnrichmentDto> coverageLeaveBys) {
+        UUID feedId = event.feedId();
+        String feedName = feedId == null ? null : event.feedName();
+        String eventKey = feedId == null ? null : ManualEventKey.of(event.id());
         return toResponse(
                 event.id(),
                 CalendarItemSource.MANUAL,
@@ -1066,9 +1070,9 @@ public class CalendarService {
                 event.endsAt(),
                 event.location(),
                 event.kidIds(),
-                null,
-                null,
-                null,
+                feedId,
+                feedName,
+                eventKey,
                 leaveBy,
                 coverages,
                 rsvps,
@@ -1178,7 +1182,7 @@ public class CalendarService {
                 leaveBy.leaveByStatus(),
                 leaveBy.leaveByReason(),
                 coverageResponses,
-                uncoveredKidIds(kidIds, coverages, rsvps),
+                uncoveredKidIds(source, kidIds, coverages, rsvps),
                 conflicts == null ? List.of() : List.copyOf(conflicts),
                 rsvpResponses,
                 List.of());
@@ -1294,6 +1298,14 @@ public class CalendarService {
 
     static List<UUID> uncoveredKidIds(
             List<UUID> kidIds, List<CoverageAssignmentDto> coverages, List<RsvpDto> rsvps) {
+        return uncoveredKidIds(CalendarItemSource.FEED, kidIds, coverages, rsvps);
+    }
+
+    static List<UUID> uncoveredKidIds(
+            CalendarItemSource source,
+            List<UUID> kidIds,
+            List<CoverageAssignmentDto> coverages,
+            List<RsvpDto> rsvps) {
         if (kidIds == null || kidIds.isEmpty()) {
             return List.of();
         }
@@ -1306,7 +1318,7 @@ public class CalendarService {
         }
         Map<UUID, RsvpStatus> byKid = statusByKid(rsvps);
         return kidIds.stream()
-                .filter(id -> byKid.getOrDefault(id, RsvpStatus.NO_RESPONSE) != RsvpStatus.NO)
+                .filter(id -> isGoingForCoverage(source, byKid.getOrDefault(id, RsvpStatus.NO_RESPONSE)))
                 .filter(id -> !covered.contains(id))
                 .toList();
     }
@@ -1325,13 +1337,41 @@ public class CalendarService {
     }
 
     static List<UUID> inPlayKidIds(List<UUID> kidIds, List<RsvpDto> rsvps) {
+        return inPlayKidIds(CalendarItemSource.FEED, kidIds, rsvps);
+    }
+
+    static List<UUID> inPlayKidIds(
+            CalendarItemSource source, List<UUID> kidIds, List<RsvpDto> rsvps) {
         if (kidIds == null || kidIds.isEmpty()) {
             return List.of();
         }
         Map<UUID, RsvpStatus> byKid = statusByKid(rsvps);
         return kidIds.stream()
-                .filter(id -> byKid.getOrDefault(id, RsvpStatus.NO_RESPONSE) != RsvpStatus.NO)
+                .filter(id -> isGoingForCoverage(source, byKid.getOrDefault(id, RsvpStatus.NO_RESPONSE)))
                 .toList();
+    }
+
+    /**
+     * FEED (ADR-0003): missing / {@code NO_RESPONSE} counts as going. MANUAL is
+     * opt-in: only explicit {@code YES} counts as going.
+     */
+    static boolean isGoingForCoverage(CalendarItemSource source, RsvpStatus status) {
+        if (source == CalendarItemSource.MANUAL) {
+            return status == RsvpStatus.YES;
+        }
+        return status != RsvpStatus.NO;
+    }
+
+    private boolean carpoolEligibleItem(
+            UUID circleId, CalendarItemSource source, UUID itemId) {
+        return switch (source) {
+            case FEED -> true;
+            case MANUAL ->
+                    manualEventCalendarApi
+                            .findInCircle(circleId, itemId)
+                            .map(manual -> manual.feedId() != null)
+                            .orElse(false);
+        };
     }
 
     private static Map<UUID, RsvpStatus> statusByKid(List<RsvpDto> rsvps) {

@@ -1,6 +1,9 @@
 package com.yourorg.quickapp.events;
 
+import com.yourorg.quickapp.events.ErrorResponse;
 import com.yourorg.quickapp.events.internal.EventsException;
+import com.yourorg.quickapp.events.ManualEventRideConflictException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,6 +15,11 @@ public class EventsExceptionHandler {
     @ExceptionHandler(EventsException.class)
     ResponseEntity<ErrorResponse> handleEvents(EventsException ex) {
         return ResponseEntity.status(ex.status()).body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ManualEventRideConflictException.class)
+    ResponseEntity<ErrorResponse> handleRideConflict(ManualEventRideConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -29,4 +29,8 @@ interface ManualEventRepository extends JpaRepository<ManualEventEntity, UUID> {
             @Param("windowEnd") Instant windowEnd);
 
     Optional<ManualEventEntity> findByIdAndCircleId(UUID id, UUID circleId);
+
+    List<ManualEventEntity>
+            findByCircleIdAndFeedIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAscIdAsc(
+                    UUID circleId, UUID feedId, Instant from, Instant to);
 }

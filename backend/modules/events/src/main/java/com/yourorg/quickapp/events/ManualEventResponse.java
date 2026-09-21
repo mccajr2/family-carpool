@@ -10,4 +10,5 @@ public record ManualEventResponse(
         Instant startsAt,
         Instant endsAt,
         String location,
-        List<UUID> kidIds) {}
+        List<UUID> kidIds,
+        UUID feedId) {}

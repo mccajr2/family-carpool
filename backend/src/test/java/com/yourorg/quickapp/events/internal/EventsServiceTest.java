@@ -10,9 +10,12 @@ import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.events.CreateManualEventRequest;
+import com.yourorg.quickapp.events.ManualEventRideGuard;
 import com.yourorg.quickapp.events.UpdateManualEventRequest;
 import com.yourorg.quickapp.family.FamilyAccessException;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
+import com.yourorg.quickapp.feeds.FeedResponse;
+import com.yourorg.quickapp.feeds.FeedsApi;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +34,12 @@ class EventsServiceTest {
 
     @Mock
     private FamilyMembershipApi familyMembershipApi;
+
+    @Mock
+    private FeedsApi feedsApi;
+
+    @Mock
+    private ManualEventRideGuard rideGuard;
 
     @Mock
     private ManualEventRepository events;
@@ -54,19 +63,79 @@ class EventsServiceTest {
                 eventsService.create(
                         adult,
                         new CreateManualEventRequest(
-                                " Dentist ", start, end, " Clinic ", List.of(kidId)));
+                                " Dentist ", start, end, " Clinic ", List.of(kidId), null));
 
         assertThat(response.title()).isEqualTo("Dentist");
         assertThat(response.startsAt()).isEqualTo(start);
         assertThat(response.endsAt()).isEqualTo(end);
         assertThat(response.location()).isEqualTo("Clinic");
         assertThat(response.kidIds()).containsExactly(kidId);
+        assertThat(response.feedId()).isNull();
 
         ArgumentCaptor<ManualEventEntity> saved = ArgumentCaptor.forClass(ManualEventEntity.class);
         verify(events).save(saved.capture());
         assertThat(saved.getValue().circleId()).isEqualTo(circleId);
         assertThat(saved.getValue().kidIds()).isEqualTo(Set.of(kidId));
+        assertThat(saved.getValue().feedId()).isNull();
         verify(familyMembershipApi).requireKidsInCircle(circleId, Set.of(kidId));
+    }
+
+    @Test
+    void createWithFeedIdPersistsLink() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                eventsService.create(
+                        adult,
+                        new CreateManualEventRequest(
+                                "Banquet",
+                                Instant.parse("2026-08-15T17:00:00Z"),
+                                null,
+                                null,
+                                List.of(kidId),
+                                feedId));
+
+        assertThat(response.feedId()).isEqualTo(feedId);
+        ArgumentCaptor<ManualEventEntity> saved = ArgumentCaptor.forClass(ManualEventEntity.class);
+        verify(events).save(saved.capture());
+        assertThat(saved.getValue().feedId()).isEqualTo(feedId);
+    }
+
+    @Test
+    void createRejectsUnknownFeedId() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedsApi.listByCircle(circleId)).thenReturn(List.of());
+
+        assertThatThrownBy(
+                        () ->
+                                eventsService.create(
+                                        adult,
+                                        new CreateManualEventRequest(
+                                                "Banquet",
+                                                Instant.parse("2026-08-15T17:00:00Z"),
+                                                null,
+                                                null,
+                                                List.of(kidId),
+                                                UUID.randomUUID())))
+                .isInstanceOf(EventsException.class)
+                .extracting(ex -> ((EventsException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(events, never()).save(any());
     }
 
     @Test
@@ -85,7 +154,8 @@ class EventsServiceTest {
                                                 Instant.parse("2026-08-15T17:00:00Z"),
                                                 null,
                                                 null,
-                                                List.of())))
+                                                List.of(),
+                                                null)))
                 .isInstanceOf(EventsException.class)
                 .extracting(ex -> ((EventsException) ex).status())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -110,7 +180,8 @@ class EventsServiceTest {
                                                 Instant.parse("2026-08-15T18:00:00Z"),
                                                 Instant.parse("2026-08-15T17:00:00Z"),
                                                 null,
-                                                List.of(kidId))))
+                                                List.of(kidId),
+                                                null)))
                 .isInstanceOf(EventsException.class)
                 .satisfies(
                         ex -> {
@@ -176,7 +247,8 @@ class EventsServiceTest {
                                                 Instant.parse("2026-08-15T17:00:00Z"),
                                                 null,
                                                 null,
-                                                List.of(UUID.randomUUID()))))
+                                                List.of(UUID.randomUUID()),
+                                                null)))
                 .isInstanceOf(EventsException.class)
                 .extracting(ex -> ((EventsException) ex).status())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -199,7 +271,8 @@ class EventsServiceTest {
                                 Instant.parse("2026-09-01T23:00:00Z"),
                                 null,
                                 null,
-                                List.of(kidId)));
+                                List.of(kidId),
+                                null));
 
         assertThat(response.title()).isEqualTo("School concert");
         verify(familyMembershipApi).requireMemberCircleId(adultId);
@@ -227,7 +300,8 @@ class EventsServiceTest {
                                                 Instant.parse("2026-08-15T17:00:00Z"),
                                                 null,
                                                 null,
-                                                List.of(kidId))))
+                                                List.of(kidId),
+                                                null)))
                 .isInstanceOf(FamilyAccessException.class);
         verify(events, never()).save(any());
     }
@@ -254,6 +328,35 @@ class EventsServiceTest {
 
         eventsService.delete(adult, eventId);
 
+        verify(events).delete(event);
+        verify(rideGuard, never()).cancelActivePlans(any(), any());
+    }
+
+    @Test
+    void deleteLinkedCancelsActivePlans() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ManualEventEntity event =
+                new ManualEventEntity(
+                        eventId,
+                        circleId,
+                        "Banquet",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        Instant.now());
+        event.setKidIds(Set.of(kidId));
+        event.setFeedId(feedId);
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(events.findByIdAndCircleId(eventId, circleId)).thenReturn(Optional.of(event));
+
+        eventsService.delete(adult, eventId);
+
+        verify(rideGuard).cancelActivePlans(circleId, "CAL:MANUAL:" + eventId);
         verify(events).delete(event);
     }
 }

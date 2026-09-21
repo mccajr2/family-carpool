@@ -264,7 +264,7 @@ class CalendarServiceTest {
         assertThat(items.get(0).feedId()).isNull();
         assertThat(items.get(0).eventKey()).isNull();
         assertThat(items.get(0).leaveByStatus()).isEqualTo(LeaveByStatus.UNAVAILABLE);
-        assertThat(items.get(0).uncoveredKidIds()).containsExactly(kidId);
+        assertThat(items.get(0).uncoveredKidIds()).isEmpty();
         assertThat(items.get(0).coverages()).isEmpty();
         assertThat(items.get(0).rsvps())
                 .singleElement()
@@ -346,6 +346,13 @@ class CalendarServiceTest {
                         Instant.parse("2026-08-01T00:00:00Z"));
         when(coverageApi.listForItems(eq(circleId), eq(CoverageItemSource.MANUAL), any()))
                 .thenReturn(List.of(coverage));
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.MANUAL), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidCovered, RsvpStatus.YES),
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidOpen, RsvpStatus.YES)));
         when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
 
         List<CalendarItemResponse> items = calendarService.list(adult, from, to);
@@ -418,7 +425,7 @@ class CalendarServiceTest {
         assertThat(response.leaveByStatus()).isEqualTo(LeaveByStatus.OK);
         assertThat(response.leaveFromPlaceId()).isEqualTo(placeId);
         assertThat(response.leaveByAt()).isEqualTo(Instant.parse("2026-08-15T16:30:00Z"));
-        assertThat(response.uncoveredKidIds()).containsExactly(kidId);
+        assertThat(response.uncoveredKidIds()).isEmpty();
         assertThat(response.eventKey()).isNull();
     }
 
@@ -1343,14 +1350,34 @@ class CalendarServiceTest {
         UUID itemId = UUID.randomUUID();
         assertThat(
                         CalendarService.uncoveredKidIds(
+                                CalendarItemSource.FEED,
                                 List.of(kidYes, kidNo),
+                                List.of(),
+                                List.of(
+                                        new RsvpDto(
+                                                RsvpItemSource.FEED,
+                                                itemId,
+                                                kidNo,
+                                                RsvpStatus.NO))))
+                .containsExactly(kidYes);
+    }
+
+    @Test
+    void uncoveredKidIdsManualRequiresYes() {
+        UUID kidYes = UUID.randomUUID();
+        UUID kidSilent = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        assertThat(
+                        CalendarService.uncoveredKidIds(
+                                CalendarItemSource.MANUAL,
+                                List.of(kidYes, kidSilent),
                                 List.of(),
                                 List.of(
                                         new RsvpDto(
                                                 RsvpItemSource.MANUAL,
                                                 itemId,
-                                                kidNo,
-                                                RsvpStatus.NO))))
+                                                kidYes,
+                                                RsvpStatus.YES))))
                 .containsExactly(kidYes);
     }
 

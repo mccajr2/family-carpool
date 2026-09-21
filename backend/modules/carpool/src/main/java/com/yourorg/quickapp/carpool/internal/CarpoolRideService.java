@@ -20,8 +20,12 @@ import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyPlaceApi;
+import com.yourorg.quickapp.events.ManualCalendarEventDto;
+import com.yourorg.quickapp.events.ManualEventCalendarApi;
+import com.yourorg.quickapp.events.ManualEventKey;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
+import com.yourorg.quickapp.feeds.FeedEventKey;
 import com.yourorg.quickapp.feeds.FeedResponse;
 import com.yourorg.quickapp.feeds.FeedsApi;
 import com.yourorg.quickapp.leaveby.CalendarRouteNotifyChannel;
@@ -75,6 +79,7 @@ public class CarpoolRideService {
     private final FamilyPlaceApi familyPlaceApi;
     private final FeedsApi feedsApi;
     private final FeedCalendarApi feedCalendarApi;
+    private final ManualEventCalendarApi manualEventCalendarApi;
     private final RsvpApi rsvpApi;
     private final LeaveByApi leaveByApi;
     private final CarpoolSpaceRepository spaces;
@@ -88,6 +93,7 @@ public class CarpoolRideService {
             FamilyPlaceApi familyPlaceApi,
             FeedsApi feedsApi,
             FeedCalendarApi feedCalendarApi,
+            ManualEventCalendarApi manualEventCalendarApi,
             RsvpApi rsvpApi,
             LeaveByApi leaveByApi,
             CarpoolSpaceRepository spaces,
@@ -99,6 +105,7 @@ public class CarpoolRideService {
         this.familyPlaceApi = familyPlaceApi;
         this.feedsApi = feedsApi;
         this.feedCalendarApi = feedCalendarApi;
+        this.manualEventCalendarApi = manualEventCalendarApi;
         this.rsvpApi = rsvpApi;
         this.leaveByApi = leaveByApi;
         this.spaces = spaces;
@@ -113,7 +120,7 @@ public class CarpoolRideService {
         requireValidRange(from, to);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         CarpoolSpaceEntity space = requireMemberSpace(spaceId, circleId);
-        List<FeedCalendarEventDto> events = spaceEvents(circleId, space, from, to);
+        List<SpaceRideEvent> events = spaceEvents(circleId, space, from, to);
         if (events.isEmpty()) {
             return List.of();
         }
@@ -121,7 +128,7 @@ public class CarpoolRideService {
                 rides
                         .findBySpaceIdAndEventKeyInAndStatusIn(
                                 spaceId,
-                                events.stream().map(RideEventKey::of).distinct().toList(),
+                                events.stream().map(SpaceRideEvent::eventKey).distinct().toList(),
                                 OWN_PLAN_STATUSES)
                         .stream()
                         .collect(Collectors.groupingBy(CarpoolRideRequestEntity::eventKey));
@@ -154,9 +161,9 @@ public class CarpoolRideService {
                 }
             }
         }
-        Map<String, FeedCalendarEventDto> eventsByKey = new HashMap<>();
-        for (FeedCalendarEventDto event : events) {
-            eventsByKey.put(RideEventKey.of(event), event);
+        Map<String, SpaceRideEvent> eventsByKey = new HashMap<>();
+        for (SpaceRideEvent event : events) {
+            eventsByKey.put(event.eventKey(), event);
         }
         List<DetourItemInput> detourItems = new ArrayList<>();
         List<UUID> detourRideIds = new ArrayList<>();
@@ -168,7 +175,7 @@ public class CarpoolRideService {
                 if (!hasRequesterPickupStop(ride)) {
                     continue;
                 }
-                FeedCalendarEventDto event = eventsByKey.get(ride.eventKey());
+                SpaceRideEvent event = eventsByKey.get(ride.eventKey());
                 String eventLocation = event == null ? null : event.location();
                 detourItems.add(
                         new DetourItemInput(
@@ -178,8 +185,8 @@ public class CarpoolRideService {
         }
         Map<UUID, Integer> detourMinutesByRideId = detourMinutesByRideId(adult.id(), detourRideIds, detourItems);
         List<CarpoolRideEventResponse> result = new ArrayList<>();
-        for (FeedCalendarEventDto event : events) {
-            String eventKey = RideEventKey.of(event);
+        for (SpaceRideEvent event : events) {
+            String eventKey = event.eventKey();
             List<CarpoolRideRequestEntity> overlay = ridesByKey.getOrDefault(eventKey, List.of());
             List<CarpoolRideResponse> ownRequests = new ArrayList<>();
             List<CarpoolRideRequestEntity> ownPlanRides = new ArrayList<>();
@@ -248,13 +255,13 @@ public class CarpoolRideService {
             AdultResponse adult, UUID spaceId, CreateCarpoolRideRequest request) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         CarpoolSpaceEntity space = requireMemberSpace(spaceId, circleId);
-        FeedCalendarEventDto event =
+        SpaceRideEvent event =
                 findSpaceEvent(circleId, space, request.eventKey())
                         .orElseThrow(
                                 () ->
                                         new CarpoolException(
                                                 HttpStatus.BAD_REQUEST, "Unknown event"));
-        String eventKey = RideEventKey.of(event);
+        String eventKey = event.eventKey();
         List<UUID> defaultKids = defaultKidIds(circleId, spaceId, event);
         List<UUID> kidIds = resolveCreateKids(request.kidIds(), defaultKids);
         List<CarpoolRideRequestEntity> existingPlans =
@@ -315,13 +322,13 @@ public class CarpoolRideService {
             AdultResponse adult, UUID spaceId, SaveCarpoolRidePlanRequest request) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         CarpoolSpaceEntity space = requireMemberSpace(spaceId, circleId);
-        FeedCalendarEventDto event =
+        SpaceRideEvent event =
                 findSpaceEvent(circleId, space, request.eventKey())
                         .orElseThrow(
                                 () ->
                                         new CarpoolException(
                                                 HttpStatus.BAD_REQUEST, "Unknown event"));
-        String eventKey = RideEventKey.of(event);
+        String eventKey = event.eventKey();
         List<UUID> goingKids = defaultKidIds(circleId, spaceId, event);
         List<MergedPlanGroup> groups =
                 resolveMergedPlanGroups(request.plans(), adult.id(), circleId, goingKids, true);
@@ -450,6 +457,11 @@ public class CarpoolRideService {
             if (feedId.equals(event.feedId())) {
                 feedKeys.add(RideEventKey.of(event));
             }
+        }
+        for (ManualCalendarEventDto manual :
+                manualEventCalendarApi.listLinkedToFeedInRange(
+                        circleId, feedId, EVENT_LOOKUP_FROM, EVENT_LOOKUP_TO)) {
+            feedKeys.add(ManualEventKey.of(manual.id()));
         }
         if (feedKeys.isEmpty()) {
             return;
@@ -1192,12 +1204,11 @@ public class CarpoolRideService {
     @Transactional
     public void withdrawAcceptedInboundForFeedEvent(UUID actorAdultId, UUID feedEventId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(actorAdultId);
-        Optional<FeedCalendarEventDto> event =
-                feedCalendarApi.findEventInCircle(circleId, feedEventId);
-        if (event.isEmpty()) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
             return;
         }
-        String eventKey = RideEventKey.of(event.get());
+        String eventKey = resolvedKey.get();
         List<UUID> spaceIds =
                 memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                         .map(CarpoolMembershipEntity::spaceId)
@@ -1226,12 +1237,11 @@ public class CarpoolRideService {
     public void clearTransportForNotGoingKid(
             UUID actorAdultId, UUID feedEventId, UUID kidId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(actorAdultId);
-        Optional<FeedCalendarEventDto> event =
-                feedCalendarApi.findEventInCircle(circleId, feedEventId);
-        if (event.isEmpty()) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
             return;
         }
-        String eventKey = RideEventKey.of(event.get());
+        String eventKey = resolvedKey.get();
         List<UUID> spaceIds =
                 memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                         .map(CarpoolMembershipEntity::spaceId)
@@ -1275,12 +1285,11 @@ public class CarpoolRideService {
     public List<CarpoolAcceptedPickupDto> listAcceptedFamilyStopsForFeedEvent(
             UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
         CarpoolLegKind safeLeg = leg == null ? CarpoolLegKind.TO : leg;
-        Optional<FeedCalendarEventDto> event =
-                feedCalendarApi.findEventInCircle(circleId, feedEventId);
-        if (event.isEmpty()) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
             return List.of();
         }
-        String eventKey = RideEventKey.of(event.get());
+        String eventKey = resolvedKey.get();
         List<UUID> spaceIds =
                 memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                         .map(CarpoolMembershipEntity::spaceId)
@@ -1405,13 +1414,12 @@ public class CarpoolRideService {
     public List<CarpoolHouseholdStopDto> listConfirmedHouseholdStopsForFeedEvent(
             UUID adultId, UUID circleId, UUID feedEventId, CarpoolLegKind leg) {
         CarpoolLegKind safeLeg = leg == null ? CarpoolLegKind.TO : leg;
-        Optional<FeedCalendarEventDto> event =
-                feedCalendarApi.findEventInCircle(circleId, feedEventId);
-        if (event.isEmpty()) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
             return List.of();
         }
-        String eventKey = RideEventKey.of(event.get());
-        UUID eventFeedId = event.get().feedId();
+        String eventKey = resolvedKey.get();
+        UUID eventFeedId = resolveItemFeedId(circleId, feedEventId).orElse(null);
         List<UUID> spaceIds =
                 memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
                         .map(CarpoolMembershipEntity::spaceId)
@@ -1537,7 +1545,7 @@ public class CarpoolRideService {
         if (space == null) {
             return;
         }
-        Optional<FeedCalendarEventDto> event =
+        Optional<SpaceRideEvent> event =
                 findSpaceEvent(ride.acceptingCircleId(), space, ride.eventKey());
         if (event.isEmpty()) {
             return;
@@ -1569,7 +1577,7 @@ public class CarpoolRideService {
         } catch (RuntimeException ex) {
             return;
         }
-        Optional<FeedCalendarEventDto> event = findSpaceEvent(driverCircleId, space, eventKey);
+        Optional<SpaceRideEvent> event = findSpaceEvent(driverCircleId, space, eventKey);
         if (event.isEmpty()) {
             return;
         }
@@ -1647,29 +1655,37 @@ public class CarpoolRideService {
                 new CalendarRouteNotifyContact(CalendarRouteNotifyChannel.PUSH, to));
     }
 
-    private static String destinationName(FeedCalendarEventDto event) {
+    private static String destinationName(SpaceRideEvent event) {
         if (event.location() != null && !event.location().isBlank()) {
             return event.location();
         }
         return event.title();
     }
 
-    private List<UUID> defaultKidIds(UUID circleId, UUID spaceId, FeedCalendarEventDto event) {
-        List<UUID> feedKids = event.kidIds() == null ? List.of() : event.kidIds();
-        if (feedKids.isEmpty()) {
+    private List<UUID> defaultKidIds(UUID circleId, UUID spaceId, SpaceRideEvent event) {
+        List<UUID> eventKids = event.kidIds() == null ? List.of() : event.kidIds();
+        if (eventKids.isEmpty()) {
             return List.of();
         }
         Map<UUID, RsvpStatus> byKid =
-                rsvpApi.statusesForKids(circleId, RsvpItemSource.FEED, event.id(), feedKids).stream()
+                rsvpApi.statusesForKids(circleId, event.rsvpSource(), event.id(), eventKids).stream()
                         .collect(
                                 Collectors.toMap(
                                         RsvpDto::kidId, RsvpDto::status, (left, right) -> left));
-        Set<UUID> covered = acceptedKidIds(spaceId, RideEventKey.of(event), circleId);
-        return feedKids.stream()
-                .filter(kidId -> byKid.getOrDefault(kidId, RsvpStatus.NO_RESPONSE) != RsvpStatus.NO)
+        Set<UUID> covered = acceptedKidIds(spaceId, event.eventKey(), circleId);
+        return eventKids.stream()
+                .filter(kidId -> isDefaultGoing(event.rsvpSource(), byKid.getOrDefault(kidId, RsvpStatus.NO_RESPONSE)))
                 .filter(kidId -> !covered.contains(kidId))
                 .distinct()
                 .toList();
+    }
+
+    /** FEED: not RSVP NO. MANUAL: RSVP YES only. */
+    private static boolean isDefaultGoing(RsvpItemSource source, RsvpStatus status) {
+        if (source == RsvpItemSource.MANUAL) {
+            return status == RsvpStatus.YES;
+        }
+        return status != RsvpStatus.NO;
     }
 
     private List<UUID> resolveCreateKids(List<UUID> requested, List<UUID> defaultKids) {
@@ -1697,7 +1713,7 @@ public class CarpoolRideService {
 
     private void ensureRequestingKidsYes(CarpoolRideRequestEntity ride, UUID updatedByAdultId) {
         CarpoolSpaceEntity space = spaces.findById(ride.spaceId()).orElseThrow(this::notFound);
-        FeedCalendarEventDto event =
+        SpaceRideEvent event =
                 findSpaceEvent(ride.requestingCircleId(), space, ride.eventKey())
                         .orElseThrow(
                                 () ->
@@ -1707,7 +1723,7 @@ public class CarpoolRideService {
         for (RideKidSnapshot kid : ride.kids()) {
             rsvpApi.setStatus(
                     ride.requestingCircleId(),
-                    RsvpItemSource.FEED,
+                    event.rsvpSource(),
                     event.id(),
                     kid.kidId(),
                     RsvpStatus.YES,
@@ -1728,17 +1744,17 @@ public class CarpoolRideService {
         return kidIds;
     }
 
-    private Optional<FeedCalendarEventDto> findSpaceEvent(
+    private Optional<SpaceRideEvent> findSpaceEvent(
             UUID circleId, CarpoolSpaceEntity space, String eventKey) {
         if (eventKey == null || eventKey.isBlank()) {
             return Optional.empty();
         }
         return spaceEvents(circleId, space, EVENT_LOOKUP_FROM, EVENT_LOOKUP_TO).stream()
-                .filter(event -> eventKey.equals(RideEventKey.of(event)))
+                .filter(event -> eventKey.equals(event.eventKey()))
                 .findFirst();
     }
 
-    private List<FeedCalendarEventDto> spaceEvents(
+    private List<SpaceRideEvent> spaceEvents(
             UUID circleId, CarpoolSpaceEntity space, Instant from, Instant to) {
         Optional<FeedResponse> feed =
                 feedsApi.findByCircleAndNormalizedUrl(circleId, space.normalizedSourceUrl());
@@ -1746,9 +1762,87 @@ public class CarpoolRideService {
             return List.of();
         }
         UUID feedId = feed.get().id();
-        return feedCalendarApi.listEventsInRange(circleId, from, to).stream()
-                .filter(event -> feedId.equals(event.feedId()))
-                .toList();
+        String feedName = feed.get().name();
+        List<SpaceRideEvent> out = new ArrayList<>();
+        for (FeedCalendarEventDto event : feedCalendarApi.listEventsInRange(circleId, from, to)) {
+            if (feedId.equals(event.feedId())) {
+                out.add(SpaceRideEvent.fromFeed(event));
+            }
+        }
+        for (ManualCalendarEventDto manual :
+                manualEventCalendarApi.listLinkedToFeedInRange(circleId, feedId, from, to)) {
+            out.add(SpaceRideEvent.fromManual(manual, feedName));
+        }
+        out.sort(
+                Comparator.comparing(SpaceRideEvent::startsAt)
+                        .thenComparing(SpaceRideEvent::id));
+        return out;
+    }
+
+    private Optional<String> resolveItemEventKey(UUID circleId, UUID itemId) {
+        Optional<FeedCalendarEventDto> feed =
+                feedCalendarApi.findEventInCircle(circleId, itemId);
+        if (feed.isPresent()) {
+            return Optional.of(RideEventKey.of(feed.get()));
+        }
+        return manualEventCalendarApi
+                .findInCircle(circleId, itemId)
+                .filter(manual -> manual.feedId() != null)
+                .map(manual -> ManualEventKey.of(manual.id()));
+    }
+
+    private Optional<UUID> resolveItemFeedId(UUID circleId, UUID itemId) {
+        Optional<FeedCalendarEventDto> feed =
+                feedCalendarApi.findEventInCircle(circleId, itemId);
+        if (feed.isPresent()) {
+            return Optional.ofNullable(feed.get().feedId());
+        }
+        return manualEventCalendarApi
+                .findInCircle(circleId, itemId)
+                .map(ManualCalendarEventDto::feedId)
+                .filter(id -> id != null);
+    }
+
+    private record SpaceRideEvent(
+            UUID id,
+            UUID feedId,
+            String feedName,
+            String title,
+            Instant startsAt,
+            Instant endsAt,
+            String location,
+            List<UUID> kidIds,
+            RsvpItemSource rsvpSource,
+            String eventKey) {
+
+        static SpaceRideEvent fromFeed(FeedCalendarEventDto event) {
+            return new SpaceRideEvent(
+                    event.id(),
+                    event.feedId(),
+                    event.feedName(),
+                    event.title(),
+                    event.startsAt(),
+                    event.endsAt(),
+                    event.location(),
+                    event.kidIds(),
+                    RsvpItemSource.FEED,
+                    FeedEventKey.of(event));
+        }
+
+        static SpaceRideEvent fromManual(ManualCalendarEventDto event, String feedName) {
+            String name = event.feedName() != null ? event.feedName() : feedName;
+            return new SpaceRideEvent(
+                    event.id(),
+                    event.feedId(),
+                    name,
+                    event.title(),
+                    event.startsAt(),
+                    event.endsAt(),
+                    event.location(),
+                    event.kidIds(),
+                    RsvpItemSource.MANUAL,
+                    ManualEventKey.of(event.id()));
+        }
     }
 
     private static void requireValidRange(Instant from, Instant to) {

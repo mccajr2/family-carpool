@@ -183,7 +183,7 @@ planned stubs.
 
 ## Tasks
 
-- [ ] **Backend:** Flyway nullable `feed_id` on `manual_events` (FK,
+- [x] **Backend:** Flyway nullable `feed_id` on `manual_events` (FK,
       `ON DELETE SET NULL`); events CRUD validate via `FeedsApi` (still 1+
       kids); calendar maps linked manuals; MANUAL `uncoveredKidIds` = YES
       only; carpool space-event union + RSVP-NO / Enable-attach /
