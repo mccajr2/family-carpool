@@ -807,11 +807,15 @@ export class FamilyClient {
     return (await response.json()) as ManualEvent
   }
 
+  /**
+   * Create a manual event. Standalone: pass 1+ kidIds. Linked (feedId set):
+   * kidIds may be empty — the server derives the feed roster.
+   */
   async createEvent(
     accessToken: string,
     title: string,
     startsAt: string,
-    kidIds: string[],
+    kidIds: string[] = [],
     endsAt: string | null = null,
     location: string | null = null,
     feedId: string | null = null,
@@ -830,12 +834,16 @@ export class FamilyClient {
     return (await response.json()) as ManualEvent
   }
 
+  /**
+   * Update a manual event. Standalone: pass 1+ kidIds. Linked (feedId set):
+   * kidIds may be empty — the server overwrites from the feed roster.
+   */
   async updateEvent(
     accessToken: string,
     eventId: string,
     title: string,
     startsAt: string,
-    kidIds: string[],
+    kidIds: string[] = [],
     endsAt: string | null = null,
     location: string | null = null,
     feedId: string | null = null,

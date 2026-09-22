@@ -408,6 +408,44 @@ describe("FamilyClient", () => {
     expect(fetchFn.mock.calls[6]?.[1]).toMatchObject({ method: "DELETE" })
   })
 
+  it("createEvent and updateEvent allow empty kidIds when feedId is set", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+    const linked = {
+      id: "e1",
+      title: "Banquet",
+      startsAt: "2026-08-15T17:00:00Z",
+      endsAt: null,
+      location: null,
+      kidIds: ["feed-kid"],
+      feedId: "f1",
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(linked, 201))
+      .mockResolvedValueOnce(json({ ...linked, title: "Banquet 2" }))
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.createEvent("tok", "Banquet", "2026-08-15T17:00:00Z", [], null, null, "f1"),
+    ).resolves.toMatchObject({ feedId: "f1", kidIds: ["feed-kid"] })
+    await expect(
+      client.updateEvent("tok", "e1", "Banquet 2", "2026-08-15T17:00:00Z", [], null, null, "f1"),
+    ).resolves.toMatchObject({ title: "Banquet 2" })
+
+    expect(JSON.parse(String(fetchFn.mock.calls[0]?.[1]?.body))).toMatchObject({
+      kidIds: [],
+      feedId: "f1",
+    })
+    expect(JSON.parse(String(fetchFn.mock.calls[1]?.[1]?.body))).toMatchObject({
+      kidIds: [],
+      feedId: "f1",
+    })
+  })
+
   it("lists unified calendar items for a time window", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {
