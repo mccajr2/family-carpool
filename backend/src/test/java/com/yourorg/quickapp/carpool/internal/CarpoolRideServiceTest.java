@@ -2341,11 +2341,11 @@ class CarpoolRideServiceTest {
         assertThat(listed.getFirst().eventKey()).isEqualTo(peerKey);
         assertThat(listed.getFirst().otherRequests()).hasSize(1);
         assertThat(listed.getFirst().otherRequests().getFirst().id()).isEqualTo(peerPending.id());
-        assertThat(listed.getFirst().defaultKidIds()).isEmpty();
+        assertThat(listed.getFirst().defaultKidIds()).containsExactly(kidA);
     }
 
     @Test
-    void createManualDefaultsYesOnlyExcludesNoResponse() {
+    void createManualDefaultsIncludesNoResponseExcludesNo() {
         stubMemberSpace();
         UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000072");
         String manualKey = "CAL:MANUAL:" + manualId;
@@ -2371,12 +2371,12 @@ class CarpoolRideServiceTest {
         var created =
                 service.create(adult, spaceId, new CreateCarpoolRideRequest(manualKey, null, null));
 
-        assertThat(created.kidIds()).containsExactly(kidA);
-        assertThat(created.seats()).isEqualTo(1);
+        assertThat(created.kidIds()).containsExactly(kidA, kidB);
+        assertThat(created.seats()).isEqualTo(2);
     }
 
     @Test
-    void createManual400WhenZeroYesKids() {
+    void createManual400WhenAllKidsNotGoing() {
         stubMemberSpace();
         UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000073");
         String manualKey = "CAL:MANUAL:" + manualId;
@@ -2384,11 +2384,7 @@ class CarpoolRideServiceTest {
         when(rsvpApi.statusesForKids(eq(circleId), eq(RsvpItemSource.MANUAL), eq(manualId), any()))
                 .thenReturn(
                         List.of(
-                                new RsvpDto(
-                                        RsvpItemSource.MANUAL,
-                                        manualId,
-                                        kidA,
-                                        RsvpStatus.NO_RESPONSE),
+                                new RsvpDto(RsvpItemSource.MANUAL, manualId, kidA, RsvpStatus.NO),
                                 new RsvpDto(RsvpItemSource.MANUAL, manualId, kidB, RsvpStatus.NO)));
         when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
                         spaceId, manualKey, circleId, CarpoolRideStatus.ACCEPTED))

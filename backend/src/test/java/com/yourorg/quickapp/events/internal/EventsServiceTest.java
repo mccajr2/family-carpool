@@ -82,10 +82,11 @@ class EventsServiceTest {
     }
 
     @Test
-    void createWithFeedIdPersistsLink() {
+    void createWithFeedIdDerivesKidIdsFromFeedRoster() {
         UUID adultId = UUID.randomUUID();
         UUID circleId = UUID.randomUUID();
-        UUID kidId = UUID.randomUUID();
+        UUID clientKidId = UUID.randomUUID();
+        UUID feedKidId = UUID.randomUUID();
         UUID feedId = UUID.randomUUID();
         AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
         when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
@@ -93,7 +94,13 @@ class EventsServiceTest {
                 .thenReturn(
                         List.of(
                                 new FeedResponse(
-                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(feedKidId),
+                                        null,
+                                        null,
+                                        0)));
         when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response =
@@ -104,13 +111,88 @@ class EventsServiceTest {
                                 Instant.parse("2026-08-15T17:00:00Z"),
                                 null,
                                 null,
-                                List.of(kidId),
+                                List.of(clientKidId),
                                 feedId));
 
         assertThat(response.feedId()).isEqualTo(feedId);
+        assertThat(response.kidIds()).containsExactly(feedKidId);
         ArgumentCaptor<ManualEventEntity> saved = ArgumentCaptor.forClass(ManualEventEntity.class);
         verify(events).save(saved.capture());
         assertThat(saved.getValue().feedId()).isEqualTo(feedId);
+        assertThat(saved.getValue().kidIds()).isEqualTo(Set.of(feedKidId));
+        verify(familyMembershipApi).requireKidsInCircle(circleId, Set.of(feedKidId));
+        verify(familyMembershipApi, never()).requireKidsInCircle(circleId, Set.of(clientKidId));
+    }
+
+    @Test
+    void createWithFeedIdAndEmptyClientKidIdsUsesFeedRoster() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID feedKidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(feedKidId),
+                                        null,
+                                        null,
+                                        0)));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                eventsService.create(
+                        adult,
+                        new CreateManualEventRequest(
+                                "Banquet",
+                                Instant.parse("2026-08-15T17:00:00Z"),
+                                null,
+                                null,
+                                List.of(),
+                                feedId));
+
+        assertThat(response.kidIds()).containsExactly(feedKidId);
+    }
+
+    @Test
+    void createWithFeedIdRejectsFeedWithZeroKids() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(),
+                                        null,
+                                        null,
+                                        0)));
+
+        assertThatThrownBy(
+                        () ->
+                                eventsService.create(
+                                        adult,
+                                        new CreateManualEventRequest(
+                                                "Banquet",
+                                                Instant.parse("2026-08-15T17:00:00Z"),
+                                                null,
+                                                null,
+                                                List.of(UUID.randomUUID()),
+                                                feedId)))
+                .isInstanceOf(EventsException.class)
+                .extracting(ex -> ((EventsException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(events, never()).save(any());
     }
 
     @Test
@@ -292,7 +374,13 @@ class EventsServiceTest {
                 .thenReturn(
                         List.of(
                                 new FeedResponse(
-                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(kidId),
+                                        null,
+                                        null,
+                                        0)));
         when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         var response =
@@ -303,10 +391,11 @@ class EventsServiceTest {
                                 Instant.parse("2026-09-01T23:00:00Z"),
                                 null,
                                 null,
-                                List.of(kidId),
+                                List.of(),
                                 feedId));
 
         assertThat(response.feedId()).isEqualTo(feedId);
+        assertThat(response.kidIds()).containsExactly(kidId);
         verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
     }
 
@@ -374,7 +463,13 @@ class EventsServiceTest {
                 .thenReturn(
                         List.of(
                                 new FeedResponse(
-                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(kidId),
+                                        null,
+                                        null,
+                                        0)));
         when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         eventsService.update(

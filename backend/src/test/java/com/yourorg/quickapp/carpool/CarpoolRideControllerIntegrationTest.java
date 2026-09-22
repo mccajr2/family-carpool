@@ -1559,7 +1559,7 @@ class CarpoolRideControllerIntegrationTest {
     }
 
     @Test
-    void linkedManualListRidesYesOnlyDefaultsRsvpNoEnableAttachAndRelink409() throws Exception {
+    void linkedManualListRidesDefaultGoingEnableAttachAndRelink409() throws Exception {
         String orgA = signIn("carpool-manual-link-org-a@example.com");
         String orgB = signIn("carpool-manual-link-org-b@example.com");
 
@@ -1655,25 +1655,6 @@ class CarpoolRideControllerIntegrationTest {
                 .andExpect(
                         jsonPath("$[?(@.eventKey=='" + eventKey + "')].ownRequests[0].status")
                                 .value("PLAN"))
-                .andExpect(
-                        jsonPath("$[?(@.eventKey=='" + eventKey + "')].defaultKidIds[0]")
-                                .doesNotExist());
-
-        mockMvc.perform(
-                        post("/api/carpool/spaces/" + spaceId + "/rides")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"eventKey\":\"" + eventKey + "\"}"))
-                .andExpect(status().isBadRequest());
-
-        setManualRsvpYes(orgA, eventId, kidA);
-
-        mockMvc.perform(
-                        get("/api/carpool/spaces/" + spaceId + "/rides")
-                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
-                                .param("from", FROM)
-                                .param("to", TO))
-                .andExpect(status().isOk())
                 .andExpect(
                         jsonPath("$[?(@.eventKey=='" + eventKey + "')].defaultKidIds[0]")
                                 .value(kidA));

@@ -295,20 +295,36 @@ class EventsControllerIntegrationTest {
                                 .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[],\"feedId\":\""
-                                                + feedId
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"],\"feedId\":\""
+                                                + UUID.randomUUID()
                                                 + "\"}"))
                 .andExpect(status().isBadRequest());
+
+        String emptyFeedId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/feeds")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"name\":\"Empty\",\"sourceUrl\":\"https://example.com/events-empty.ics\",\"kidIds\":[]}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
 
         mockMvc.perform(
                         post("/api/family/circle/events")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
-                                                + kidId
-                                                + "\"],\"feedId\":\""
-                                                + UUID.randomUUID()
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[],\"feedId\":\""
+                                                + emptyFeedId
                                                 + "\"}"))
                 .andExpect(status().isBadRequest());
 
@@ -318,14 +334,14 @@ class EventsControllerIntegrationTest {
                                         .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(
-                                                "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
-                                                        + kidId
-                                                        + "\"],\"feedId\":\""
+                                                "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[],\"feedId\":\""
                                                         + feedId
                                                         + "\"}"))
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.feedId").value(feedId))
                         .andExpect(jsonPath("$.title").value("Banquet"))
+                        .andExpect(jsonPath("$.kidIds[0]").value(kidId))
+                        .andExpect(jsonPath("$.kidIds.length()").value(1))
                         .andReturn();
         String eventId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 

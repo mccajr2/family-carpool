@@ -1680,11 +1680,8 @@ public class CarpoolRideService {
                 .toList();
     }
 
-    /** FEED: not RSVP NO. MANUAL: RSVP YES only. */
+    /** ADR-0003: not RSVP NO (FEED and MANUAL). */
     private static boolean isDefaultGoing(RsvpItemSource source, RsvpStatus status) {
-        if (source == RsvpItemSource.MANUAL) {
-            return status == RsvpStatus.YES;
-        }
         return status != RsvpStatus.NO;
     }
 

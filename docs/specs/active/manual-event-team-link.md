@@ -208,7 +208,7 @@ planned stubs.
       maps linked manuals; carpool space-event union + peer linked manuals
       for list Accept; RSVP-NO / Enable-attach; 409 on relink with active
       space rides; delete cancels own plans
-- [ ] **Backend (amend):** When `feedId` set, **derive `kidIds` from feed
+- [x] **Backend (amend):** When `feedId` set, **derive `kidIds` from feed
       roster** on create/update (ignore client list); zero feed kids → 400;
       restore MANUAL `uncoveredKidIds` / ride `defaultKidIds` to FEED-like
       not-RSVP-NO bag; restore ADR-0003 default-going for MANUAL

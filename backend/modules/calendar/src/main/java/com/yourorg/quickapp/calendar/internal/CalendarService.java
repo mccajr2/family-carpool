@@ -1352,13 +1352,10 @@ public class CalendarService {
     }
 
     /**
-     * FEED (ADR-0003): missing / {@code NO_RESPONSE} counts as going. MANUAL is
-     * opt-in: only explicit {@code YES} counts as going.
+     * ADR-0003: missing / {@code NO_RESPONSE} counts as going for FEED and
+     * MANUAL. Explicit {@code NO} is the only opt-out.
      */
     static boolean isGoingForCoverage(CalendarItemSource source, RsvpStatus status) {
-        if (source == CalendarItemSource.MANUAL) {
-            return status == RsvpStatus.YES;
-        }
         return status != RsvpStatus.NO;
     }
 

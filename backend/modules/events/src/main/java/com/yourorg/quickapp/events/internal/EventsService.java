@@ -63,9 +63,9 @@ public class EventsService {
         Instant startsAt = requireStartsAt(request.startsAt());
         Instant endsAt = normalizeEndsAt(startsAt, request.endsAt());
         String location = normalizeOptional(request.location());
-        Set<UUID> kidIds = requireKidIds(request.kidIds());
-        familyMembershipApi.requireKidsInCircle(circleId, kidIds);
-        UUID feedId = requireFeedInCircleOrNull(circleId, request.feedId());
+        FeedResponse linkedFeed = requireFeedInCircleOrNull(circleId, request.feedId());
+        UUID feedId = linkedFeed == null ? null : linkedFeed.id();
+        Set<UUID> kidIds = resolveKidIds(circleId, linkedFeed, request.kidIds());
 
         ManualEventEntity event =
                 new ManualEventEntity(
@@ -87,9 +87,9 @@ public class EventsService {
         Instant startsAt = requireStartsAt(request.startsAt());
         Instant endsAt = normalizeEndsAt(startsAt, request.endsAt());
         String location = normalizeOptional(request.location());
-        Set<UUID> kidIds = requireKidIds(request.kidIds());
-        familyMembershipApi.requireKidsInCircle(circleId, kidIds);
-        UUID feedId = requireFeedInCircleOrNull(circleId, request.feedId());
+        FeedResponse linkedFeed = requireFeedInCircleOrNull(circleId, request.feedId());
+        UUID feedId = linkedFeed == null ? null : linkedFeed.id();
+        Set<UUID> kidIds = resolveKidIds(circleId, linkedFeed, request.kidIds());
 
         if (!Objects.equals(event.feedId(), feedId)) {
             rideGuard.requireNoActiveSpaceRides(circleId, ManualEventKey.of(event.id()));
@@ -117,7 +117,11 @@ public class EventsService {
         events.delete(event);
     }
 
-    private UUID requireFeedInCircleOrNull(UUID circleId, UUID feedId) {
+    /**
+     * Null {@code feedId} → standalone. Otherwise the feed must belong to this
+     * circle.
+     */
+    private FeedResponse requireFeedInCircleOrNull(UUID circleId, UUID feedId) {
         if (feedId == null) {
             return null;
         }
@@ -128,7 +132,27 @@ public class EventsService {
         if (feed.isEmpty()) {
             throw new EventsException(HttpStatus.BAD_REQUEST, "feedId is not a feed in this circle");
         }
-        return feedId;
+        return feed.get();
+    }
+
+    /**
+     * Standalone: client {@code kidIds} (1+). Linked: feed roster (client list
+     * ignored); empty feed roster → 400.
+     */
+    private Set<UUID> resolveKidIds(
+            UUID circleId, FeedResponse linkedFeed, List<UUID> clientKidIds) {
+        if (linkedFeed == null) {
+            Set<UUID> kidIds = requireKidIds(clientKidIds);
+            familyMembershipApi.requireKidsInCircle(circleId, kidIds);
+            return kidIds;
+        }
+        List<UUID> roster = linkedFeed.kidIds();
+        if (roster == null || roster.isEmpty()) {
+            throw new EventsException(HttpStatus.BAD_REQUEST, "feed has no linked kids");
+        }
+        Set<UUID> kidIds = new HashSet<>(roster);
+        familyMembershipApi.requireKidsInCircle(circleId, kidIds);
+        return kidIds;
     }
 
     private ManualEventResponse toResponse(ManualEventEntity event) {
