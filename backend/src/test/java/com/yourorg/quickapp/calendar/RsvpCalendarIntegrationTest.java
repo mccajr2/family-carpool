@@ -94,21 +94,7 @@ class RsvpCalendarIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].rsvps.length()").value(2))
                 .andExpect(jsonPath("$[0].rsvps[0].status").value("NO_RESPONSE"))
-                .andExpect(jsonPath("$[0].uncoveredKidIds.length()").value(0));
-
-        mockMvc.perform(
-                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/rsvps/" + kidA)
-                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"status\":\"YES\"}"))
-                .andExpect(status().isOk());
-        mockMvc.perform(
-                        put("/api/family/circle/calendar/MANUAL/" + eventId + "/rsvps/" + kidB)
-                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"status\":\"YES\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uncoveredKidIds.length()").value(2));
+                .andExpect(jsonPath("$[0].uncoveredKidIds.length()").value(2));
 
         mockMvc.perform(
                         post("/api/family/circle/calendar/MANUAL/" + eventId + "/coverages")

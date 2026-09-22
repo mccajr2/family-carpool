@@ -137,7 +137,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CalendarItemSource:");
         assertThat(yaml).contains("CAL:MANUAL:");
         assertThat(yaml).contains("Null for standalone MANUAL");
-        assertThat(yaml).contains("MANUAL in-play = RSVP YES only");
+        assertThat(yaml).contains("FEED and MANUAL in-play = RSVP YES or");
         assertThat(yaml).contains("CalendarConflict:");
         assertThat(yaml).contains("CalendarConflictType:");
         assertThat(yaml).contains("KID_TIME_OVERLAP");
