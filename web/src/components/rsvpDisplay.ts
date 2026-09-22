@@ -17,16 +17,13 @@ export function rsvpStatusForKid(item: CalendarItem, kidId: string): RsvpStatus 
 }
 
 /**
- * FEED (ADR-0003): missing / NO_RESPONSE counts as going. MANUAL is opt-in:
- * only explicit YES counts as going.
+ * ADR-0003: missing / NO_RESPONSE counts as going for FEED and MANUAL.
+ * Explicit NO is the only opt-out.
  */
 export function isGoingRsvp(
   status: RsvpStatus,
-  source: CalendarItemSource = "FEED",
+  _source: CalendarItemSource = "FEED",
 ): boolean {
-  if (source === "MANUAL") {
-    return status === "YES"
-  }
   return status !== "NO"
 }
 

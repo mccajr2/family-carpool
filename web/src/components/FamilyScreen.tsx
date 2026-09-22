@@ -1904,7 +1904,7 @@ export function FamilyScreen({
         token,
         newEventTitle.trim(),
         startsAt,
-        newEventKidIds,
+        newEventFeedId != null ? [] : newEventKidIds,
         endsAt,
         newEventLocation.trim() ? newEventLocation.trim() : null,
         newEventFeedId,
@@ -1946,7 +1946,7 @@ export function FamilyScreen({
         eventId,
         editingEventTitle.trim(),
         startsAt,
-        editingEventKidIds,
+        editingEventFeedId != null ? [] : editingEventKidIds,
         endsAt,
         editingEventLocation.trim() ? editingEventLocation.trim() : null,
         editingEventFeedId,
@@ -4257,7 +4257,7 @@ export function FamilyScreen({
                       </select>
                     )}
                   </FieldRow>
-                  {circle.kids.length > 0 ? (
+                  {editingEventFeedId != null ? null : circle.kids.length > 0 ? (
                     <fieldset className="flex flex-col gap-1">
                       <legend className="text-xs text-muted-foreground">Kids on event</legend>
                       {circle.kids.map((kid) => (
@@ -4297,7 +4297,7 @@ export function FamilyScreen({
                         status.kind === "loading" ||
                         !editingEventTitle.trim() ||
                         !editingEventStartsAt.trim() ||
-                        editingEventKidIds.length === 0
+                        (editingEventFeedId == null && editingEventKidIds.length === 0)
                       }
                     >
                       {status.kind === "loading" ? (
@@ -4393,7 +4393,7 @@ export function FamilyScreen({
                       </select>
                     </FieldRow>
                   ) : null}
-                  {circle.kids.length > 0 ? (
+                  {newEventFeedId != null ? null : circle.kids.length > 0 ? (
                     <fieldset className="flex flex-col gap-1">
                       <legend className="text-xs text-muted-foreground">Kids on event</legend>
                       {circle.kids.map((kid) => (
@@ -4429,7 +4429,7 @@ export function FamilyScreen({
                         status.kind === "loading" ||
                         !newEventTitle.trim() ||
                         !newEventStartsAt.trim() ||
-                        newEventKidIds.length === 0
+                        (newEventFeedId == null && newEventKidIds.length === 0)
                       }
                     >
                       {status.kind === "loading" ? (

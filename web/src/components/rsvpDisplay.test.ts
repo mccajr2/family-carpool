@@ -69,7 +69,7 @@ describe("rsvpDisplay", () => {
     ).toEqual(["k1", "k3"])
   })
 
-  it("lists going kids as YES-only on MANUAL", () => {
+  it("lists going kids excluding RSVP NO on MANUAL (NO_RESPONSE still going)", () => {
     expect(
       goingKidIdsForItem(
         item({
@@ -82,7 +82,7 @@ describe("rsvpDisplay", () => {
           ],
         }),
       ),
-    ).toEqual(["k1"])
+    ).toEqual(["k1", "k3"])
   })
 
   it("treats omitted rsvps array (stale cache) as NO_RESPONSE", () => {
@@ -90,8 +90,8 @@ describe("rsvpDisplay", () => {
     // Simulate pre-RSVP localStorage rows that never had the field.
     delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
     expect(rsvpStatusForKid(stale, "k1")).toBe("NO_RESPONSE")
-    // MANUAL helper defaults source MANUAL on this fixture → opt-in out of play.
-    expect(isAgendaItemOutOfPlay(stale)).toBe(true)
+    // Missing RSVP counts as going for MANUAL and FEED (ADR-0003).
+    expect(isAgendaItemOutOfPlay(stale)).toBe(false)
     expect(isAgendaItemOutOfPlay({ ...stale, source: "FEED" })).toBe(false)
   })
 

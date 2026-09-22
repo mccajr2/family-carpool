@@ -813,7 +813,7 @@ describe("FamilyScreen", () => {
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
   })
 
-  it("shows Team select when feeds exist and round-trips feedId", async () => {
+  it("shows Team select when feeds exist and round-trips feedId without kid picker", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
@@ -847,15 +847,24 @@ describe("FamilyScreen", () => {
         feedId: feedId ?? null,
       }
     })
-    const updateEvent = vi.fn().mockImplementation(async (_t, _id, title, _s, _kids, _e, _loc, feedId) => {
-      calendar = [{ ...linked, title, feedId: feedId ?? null }]
+    const updateEvent = vi.fn().mockImplementation(async (_t, _id, title, _s, kids, _e, _loc, feedId) => {
+      calendar = [
+        {
+          ...linked,
+          title,
+          feedId: feedId ?? null,
+          kidIds: kids.length > 0 ? kids : linked.kidIds,
+          feedName: feedId ? "U12" : null,
+          eventKey: feedId ? linked.eventKey : null,
+        },
+      ]
       return {
         id: linked.id,
         title,
         startsAt: linked.startsAt,
         endsAt: linked.endsAt,
         location: linked.location,
-        kidIds: linked.kidIds,
+        kidIds: kids.length > 0 ? kids : linked.kidIds,
         feedId: feedId ?? null,
       }
     })
@@ -905,16 +914,17 @@ describe("FamilyScreen", () => {
     const compose = await screen.findByRole("dialog", { name: "Add event" })
     expect(within(compose).getByLabelText("Team")).toBeInTheDocument()
     expect(within(compose).getByLabelText("Team")).toHaveDisplayValue("Standalone (family only)")
+    expect(within(compose).getByLabelText("Assign Sam to event")).toBeInTheDocument()
     await user.type(within(compose).getByLabelText("Event title"), "Banquet")
     await user.selectOptions(within(compose).getByLabelText("Team"), "f1")
-    await user.click(within(compose).getByLabelText("Assign Sam to event"))
+    expect(within(compose).queryByLabelText("Assign Sam to event")).not.toBeInTheDocument()
     await user.click(within(compose).getByRole("button", { name: "Save" }))
 
     expect(createEvent).toHaveBeenCalledWith(
       "tok",
       "Banquet",
       expect.any(String),
-      ["k1"],
+      [],
       null,
       null,
       "f1",
@@ -924,7 +934,9 @@ describe("FamilyScreen", () => {
     await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e-banquet")
     const edit = await screen.findByRole("dialog", { name: "Edit event" })
     expect(within(edit).getByLabelText("Team")).toHaveDisplayValue("U12")
+    expect(within(edit).queryByLabelText("Assign Sam to event")).not.toBeInTheDocument()
     await user.selectOptions(within(edit).getByLabelText("Team"), "")
+    expect(within(edit).getByLabelText("Assign Sam to event")).toBeInTheDocument()
     await user.click(within(edit).getByRole("button", { name: "Save" }))
     expect(updateEvent).toHaveBeenCalledWith(
       "tok",

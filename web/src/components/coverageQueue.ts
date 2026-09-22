@@ -474,14 +474,11 @@ export type MapCoverageGamesOptions = {
   members: FamilyMember[]
 }
 
-/** Single read mapper: FEED missing/NO_RESPONSE → going; MANUAL → YES only. */
+/** Single read mapper: missing / NO_RESPONSE → going; NO → not_going (FEED and MANUAL). */
 export function mapRsvpToAttendance(
   status: RsvpStatus,
-  source: CalendarItemSource = "FEED",
+  _source: CalendarItemSource = "FEED",
 ): Attendance {
-  if (source === "MANUAL") {
-    return status === "YES" ? "going" : "not_going"
-  }
   return status === "NO" ? "not_going" : "going"
 }
 

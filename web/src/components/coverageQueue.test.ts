@@ -1112,18 +1112,18 @@ describe("mapCalendarItemToCoverageGames", () => {
     expect(withoutRow[0]?.attendance).toBe("going")
   })
 
-  it("maps NO_RESPONSE to not_going attendance on MANUAL", () => {
+  it("maps NO_RESPONSE to going attendance on MANUAL", () => {
     const rows = mapCalendarItemToCoverageGames(
       calendarItem({
         source: "MANUAL",
         kidIds: ["k1"],
         rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
-        uncoveredKidIds: [],
+        uncoveredKidIds: ["k1"],
       }),
       null,
       mapOptions,
     )
-    expect(rows[0]?.attendance).toBe("not_going")
+    expect(rows[0]?.attendance).toBe("going")
   })
 
   it("maps pending household confirm and requested own rides from API shapes", () => {

@@ -219,7 +219,7 @@ planned stubs.
       `kidIds` from feed; client `kidIds` optional/ignored when `feedId` set
 - [x] **Web (link):** compose Team select; `matchCalendarItemToRideEvent`
       allows MANUAL with member/owner `feedId` (exact key); no new tokens
-- [ ] **Web (amend):** Team selected → **no kid picker**; restore
+- [x] **Web (amend):** Team selected → **no kid picker**; restore
       `mapRsvpToAttendance` / `goingKidIdsForItem` default-going for MANUAL;
       linked rows use **FEED-parity** carpool/plan UI (default ask + split
       per-kid/per-leg plans)
