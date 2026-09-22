@@ -223,6 +223,154 @@ class EventsControllerIntegrationTest {
     }
 
     @Test
+    void linkedManualFeedIdValidationCalendarAndCaregiverPath() throws Exception {
+        String organizerToken = signIn("events-link-org@example.com");
+        String caregiverToken = signIn("events-link-care@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        String code =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        get("/api/family/circle/invite")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.code");
+
+        mockMvc.perform(
+                        post("/api/family/circle/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"code\":\""
+                                                + code
+                                                + "\",\"adultDisplayName\":\"Jordan\"}"))
+                .andExpect(status().isOk());
+
+        String kidId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/kids")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content("{\"displayName\":\"Sam\"}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        String feedId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/feeds")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"name\":\"U12\",\"sourceUrl\":\"https://example.com/events-link.ics\",\"kidIds\":[\""
+                                                                + kidId
+                                                                + "\"]}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"],\"feedId\":\""
+                                                + UUID.randomUUID()
+                                                + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        String emptyFeedId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/feeds")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"name\":\"Empty\",\"sourceUrl\":\"https://example.com/events-empty.ics\",\"kidIds\":[]}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[],\"feedId\":\""
+                                                + emptyFeedId
+                                                + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        MvcResult created =
+                mockMvc.perform(
+                                post("/api/family/circle/events")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[],\"feedId\":\""
+                                                        + feedId
+                                                        + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.feedId").value(feedId))
+                        .andExpect(jsonPath("$.title").value("Banquet"))
+                        .andExpect(jsonPath("$.kidIds[0]").value(kidId))
+                        .andExpect(jsonPath("$.kidIds.length()").value(1))
+                        .andReturn();
+        String eventId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", "2026-08-01T00:00:00Z")
+                                .param("to", "2026-09-01T00:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='" + eventId + "')].source").value("MANUAL"))
+                .andExpect(jsonPath("$[?(@.id=='" + eventId + "')].feedId").value(feedId))
+                .andExpect(jsonPath("$[?(@.id=='" + eventId + "')].feedName").value("U12"))
+                .andExpect(
+                        jsonPath("$[?(@.id=='" + eventId + "')].eventKey")
+                                .value("CAL:MANUAL:" + eventId));
+
+        mockMvc.perform(
+                        post("/api/family/circle/events")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Dentist\",\"startsAt\":\"2026-08-15T16:00:00Z\",\"kidIds\":[\""
+                                                + kidId
+                                                + "\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.feedId").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
     void unauthenticatedAndNoMembershipReturn401And404() throws Exception {
         mockMvc.perform(
                         get("/api/family/circle/events")

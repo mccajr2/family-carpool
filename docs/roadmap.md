@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-17 (`/pr block-route-origin`)
+Updated: 2026-09-21 (`/pr manual-event-team-link`: archive; Next up `drive-block-linked-manual`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,7 +105,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | manual-event-team-link          | planned | 2026-08-13 · re-rank split | Manual events: attach to a team (feed UUID, carpool-eligible) or standalone — prerequisite for recurring rotation             |
+| 1    | drive-block-linked-manual       | planned | 2026-09-21 · enhancement   | Include team-linked MANUAL in driving-block merge/route with same-feed FEED rows (dogfood: practice → outing)               |
 | 2    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | Standing teammate rotation for a recurring team event; RSVP No drops that kid for that week only                              |
 | 3    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool concept (Claude mockup SoT — attach under `docs/ui-system/`); may split at `/spec`                        |
 | 4    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
@@ -127,6 +127,9 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 
 | Id                            | Added                    | Summary                                                                                                                                                           |
 | ----------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| manual-event-party-size       | 2026-09-18 · enhancement | Extra seats on a manual RSVP (e.g. going +2) + headcount rollup — after `manual-event-team-link`; not OpenTable |
+| manual-event-adults-only      | 2026-09-18 · enhancement | Parents/adults-only manual events (zero `kidIds`, per-adult RSVP) — after `manual-event-team-link` |
+| manual-event-relative-timing  | 2026-09-18 · enhancement | Compose: time relative to another same-feed event + open-ended/no-fixed-end — scheduling, not team-link |
 | agenda-block-api              | 2026-09-16 · enhancement | Server block-shaped Agenda contract (grouping + ADR-0004 perspective + “not your job” rows) so RN does not re-implement web client chrome — **gate:** merge-rule buffer dogfood-stable (override rate + `day-block-agenda` usage); **hard dep** of whichever RN/Expo spec first renders Agenda blocks (scaffold/auth may precede) |
 | rn-expo-scaffold              | 2026-08-25 · enhancement | Expo app: OTP auth + shell + push-token registration — **parked for carpool Beta** (revive after web carpool cluster dogfoods); Agenda **block** rendering waits on parking `agenda-block-api` |
 | push-notifications            | 2026-08-07 · initial     | Expo push for carpool ride request / accept / deny — **parked with Expo**; not a gate that pulls mobile ahead of web carpool                                      |
@@ -196,14 +199,16 @@ by the ride Route/Playlist carve-up.
 In-progress work (locked for re-rank — finish, amend, or abandon before reshuffle).
 
 
-| Id                     | Branch                   | Spec                                                   |
-| ---------------------- | ------------------------ | ------------------------------------------------------ |
+| Id | Branch | Spec |
+| -- | ------ | ---- |
+| —  | —      | —    |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| manual-event-team-link     | 2026-09-21 | [archive](specs/archive/manual-event-team-link.md)     |
 | block-route-origin         | 2026-09-17 | [archive](specs/archive/block-route-origin.md)         |
 | day-block-route            | 2026-09-17 | [archive](specs/archive/day-block-route.md)            |
 | family-conflict-report     | 2026-09-16 | [archive](specs/archive/family-conflict-report.md)     |
@@ -297,6 +302,10 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-21 | `/pr manual-event-team-link`: optional `feedId` on manuals; FEED-parity carpool when linked; server-derived feed roster; restore ADR-0003 default-going. Spec archived. Next up `drive-block-linked-manual`. |
+| 2026-09-21 | `/roadmap` dogfood: Extra-Practice (FEED) + Aeronaut Outing (linked MANUAL) same team/driver/kid — add planned [`drive-block-linked-manual`](specs/planned/drive-block-linked-manual.md) as rank 2 (after active team-link); bump recurring-rotation. |
+| 2026-09-18 | `/spec manual-event-team-link` amend: MANUAL opt-in RSVP (`YES` only for ride defaults / in-play); park `manual-event-party-size`, `manual-event-adults-only`, `manual-event-relative-timing`; OpenTable stays a Non-goal. |
+| 2026-09-17 | `/spec manual-event-team-link`: promote — optional feed UUID on manual events; `CAL:MANUAL:{id}` carpool key; Agenda/Ask for the creating circle; no teammate Agenda fan-out. Branch `manual-event-team-link`. |
 | 2026-09-17 | `/pr block-route-origin`: independent Leaving from / Returning to on Route; per-leg itinerary home-side override (itinerary-only); flatten kid place == HOME. Spec archived. Next up `manual-event-team-link`. |
 | 2026-09-17 | `/spec block-route-origin`: promote — independent Leaving from / Returning to on Route (singleton + combined); per-leg member-set itinerary override (itinerary-only); flatten kid place == HOME; reuse LeaveFromControls. Branch `block-route-origin`. |
 | 2026-09-17 | `/pr day-block-route`: block Route There/Back + member-set cache; combined HOME = membership default; household CONFIRMED plan middles; park follow-up `block-route-origin` as Next up. Spec archived. |

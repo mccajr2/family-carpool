@@ -45,7 +45,7 @@ public class FeedsService implements FeedsApi {
 
     @Transactional(readOnly = true)
     public List<FeedResponse> list(AdultResponse adult) {
-        UUID circleId = familyMembershipApi.requireOrganizerCircleId(adult.id());
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         return listByCircle(circleId);
     }
 

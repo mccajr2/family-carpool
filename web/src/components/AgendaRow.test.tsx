@@ -538,6 +538,83 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("No response")).not.toBeInTheDocument()
   })
 
+  it("shows Ride needed and Ask the team for linked MANUAL with NO_RESPONSE", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    const linked = item({
+      id: "banquet",
+      title: "Banquet",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "CAL:MANUAL:banquet",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    })
+    const rideEvent = {
+      eventKey: "CAL:MANUAL:banquet",
+      title: "Banquet",
+      startsAt: linked.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+      ownRequest: null,
+      ownRequests: [],
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaRow
+        item={linked}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={rideEvent}
+        onCreateRide={onCreateRide}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-banquet")
+    expect(within(row).getByText(RIDE_NEEDED)).toBeInTheDocument()
+    expect(within(row).queryByText(ATTENDANCE_NOT_GOING_CHIP)).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(row).getByRole("button", { name: "Post to team — round trip" }))
+    expect(onCreateRide).toHaveBeenCalledWith("CAL:MANUAL:banquet", ["k1"])
+  })
+
+  it("hides Ask the team on standalone MANUAL even when onCreateRide is provided", async () => {
+    const user = userEvent.setup()
+    render(
+      <AgendaRow
+        item={item({
+          id: "dentist",
+          title: "Dentist",
+          feedId: null,
+          eventKey: null,
+          uncoveredKidIds: ["k1"],
+          rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+        })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        rideEvent={null}
+        onCreateRide={vi.fn()}
+        onCancelRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-dentist")
+    expect(within(row).getByText(RIDE_NEEDED)).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByRole("button", { name: "Ask the team" })).not.toBeInTheDocument()
+  })
+
   it("shows Confirm you'll drive tag when pending for the signed-in adult", () => {
     renderRow(
       item({

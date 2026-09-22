@@ -12,4 +12,5 @@ public record UpdateManualEventRequest(
         @NotNull Instant startsAt,
         Instant endsAt,
         @Size(max = 500) String location,
-        List<UUID> kidIds) {}
+        List<UUID> kidIds,
+        UUID feedId) {}

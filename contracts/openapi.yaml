@@ -1402,16 +1402,19 @@ paths:
         Any circle member. Returns feed-imported and manual events whose
         startsAt falls in the half-open interval [from, to), ordered by
         startsAt ascending, then source, then id. Feed items include feedId /
-        feedName and kidIds from the feed; manual items omit feed fields.
-        Each item is enriched for the **current adult** with leave-from
-        (coverage leave-from when that adult is actively covering, else item
-        override, else membership default / first located — database and
-        geocode_cache only). Active coverage rows include their own
-        leave-from / leave-by (cache-only on this list). This list does **not** call Nominatim or OSRM.
-        leaveByStatus is UNAVAILABLE when origin or destination text is missing
-        (NO_ORIGIN / NO_DESTINATION), or when a one-time origin geocode is
-        known to have failed (GEOCODE_FAILED on fill-in / mutation only),
-        OK when destination geocode and driving
+        feedName, kidIds from the feed, and eventKey (`UID:` / `FP:`).
+        Standalone MANUAL items omit feed fields and eventKey. MANUAL items
+        optionally linked to a circle activity feed include that feedId /
+        feedName and eventKey `CAL:MANUAL:{id}` (source stays MANUAL; kidIds
+        are the feed roster persisted on the event at save). Each item is enriched for the **current adult**
+        with leave-from (coverage leave-from when that adult is actively
+        covering, else item override, else membership default / first located —
+        database and geocode_cache only). Active coverage rows include their own
+        leave-from / leave-by (cache-only on this list). This list does **not** call Nominatim
+        or OSRM. leaveByStatus is UNAVAILABLE when origin or
+        destination text is missing (NO_ORIGIN / NO_DESTINATION), or when a
+        one-time origin geocode is known to have failed (GEOCODE_FAILED on
+        fill-in / mutation only), OK when destination geocode and driving
         duration are already in server caches (computed in-process; still an
         estimate — never live traffic), and PENDING when a live geocode or
         OSRM lookup is still required (including uncached one-time origins).
@@ -1419,21 +1422,22 @@ paths:
         /api/family/circle/calendar/leave-by to fill PENDING rows. Each item
         also includes coverage assignments for the circle (all members'
         assignments on that item), per-kid rsvps (YES / NO / NO_RESPONSE;
-        missing row materializes as NO_RESPONSE), uncoveredKidIds (in-play
-        kids — YES or NO_RESPONSE — not covered by any active PENDING or
-        CONFIRMED assignment; RSVP NO kids are never uncovered), and conflicts
-        (server-computed kid time-overlaps ignore RSVP NO kids; adult coverage
-        overlaps using event startsAt/endsAt only; peers may lie outside the
-        requested window). When the viewing adult is the confirmed driver on the
-        carpool TO leg, items also include driveBlockLinks — time-adjacent
-        confirmed-driving TO siblings with combined vs splittable state (auto
-        merge rule, or FORCE_MERGE / FORCE_SPLIT override). Interim Agenda copy
-        is TO-only (household confirms often set TO+FROM; dual links were
-        duplicate noise). Each link includes otherTitle + otherStartsAt (event
-        start, not leave-by). Driving blocks are still computed for TO and FROM
-        on each read from live ride legs + leave-by cache (no Nominatim/OSRM on
-        this list); overrides are the only persisted block state. Empty array
-        when none match. from must be strictly before to (400 otherwise). Adults
+        missing row materializes as NO_RESPONSE), uncoveredKidIds (in-play kids
+        not covered by any active PENDING or CONFIRMED assignment — FEED and
+        MANUAL: YES or NO_RESPONSE count as going; RSVP NO never uncovered),
+        and conflicts (server-computed kid time-overlaps use the
+        same in-play bag; adult coverage overlaps using event
+        startsAt/endsAt only; peers may lie outside the requested window). When
+        the viewing adult is the confirmed driver on the carpool TO leg, items
+        also include driveBlockLinks — time-adjacent confirmed-driving TO
+        siblings with combined vs splittable state (auto merge rule, or
+        FORCE_MERGE / FORCE_SPLIT override). Interim Agenda copy is TO-only
+        (household confirms often set TO+FROM; dual links were duplicate
+        noise). Each link includes otherTitle + otherStartsAt (event start, not
+        leave-by). Driving blocks are still computed for TO and FROM on each
+        read from live ride legs + leave-by cache (no Nominatim/OSRM on this
+        list); overrides are the only persisted block state. Empty array when
+        none match. from must be strictly before to (400 otherwise). Adults
         without a circle receive 404. Does not mutate feed snapshots or manual
         events.
       security:
@@ -1475,6 +1479,7 @@ paths:
                     - 01900000-0000-7000-8000-000000000021
                   feedId: null
                   feedName: null
+                  eventKey: null
                   leaveFromPlaceId: 01900000-0000-7000-8000-000000000031
                   leaveFromPlaceName: Mom's house
                   leaveFromAddress: null
@@ -1510,6 +1515,7 @@ paths:
                     - 01900000-0000-7000-8000-000000000021
                   feedId: 01900000-0000-7000-8000-000000000041
                   feedName: U12
+                  eventKey: "UID:abc123@example.com"
                   leaveFromPlaceId: null
                   leaveFromPlaceName: null
                   leaveFromAddress: null
@@ -2864,9 +2870,12 @@ paths:
       summary: Create a manual event
       description: >
         Any circle member. Creates a one-off schedule item with a required title
-        and startsAt, optional endsAt and location, and one or more kids from
-        the circle. Empty kidIds, kids not in the circle, blank title, or endsAt
-        before startsAt return 400.
+        and startsAt, optional endsAt and location. Standalone (null/omit
+        feedId): send 1+ kidIds from the circle. Linked (feedId of a circle
+        feed): kidIds are optional and ignored — the server sets kidIds to that
+        feed's linked kids; a feed with zero kids returns 400. Unknown feedId,
+        kids not in the circle (standalone), blank title, or endsAt before
+        startsAt also return 400.
       security:
         - bearerAuth: []
       requestBody:
@@ -2891,8 +2900,9 @@ paths:
                 $ref: "#/components/schemas/ManualEvent"
         "400":
           description: >
-            Validation failed (blank title, missing startsAt, empty kidIds,
-            kid not in circle, or endsAt before startsAt)
+            Validation failed (blank title, missing startsAt, standalone empty
+            kidIds, linked feed with zero kids, unknown feedId, kid not in
+            circle, or endsAt before startsAt)
           content:
             application/json:
               schema:
@@ -2953,8 +2963,12 @@ paths:
       summary: Update a manual event
       description: >
         Any circle member. Replaces title, startsAt, optional endsAt/location,
-        and kid associations (still 1+ kids required). Same 400 rules as create.
-        Unknown event id returns 404.
+        feedId, and kids. Standalone: 1+ client kidIds required. Linked
+        (feedId set): kidIds optional/ignored — server derives roster from the
+        feed (zero feed kids → 400). Same other 400 rules as create. Changing
+        or clearing feedId while space-scoped PENDING/ACCEPTED rides exist for
+        this event's `CAL:MANUAL:{id}` returns 409. Unknown event id returns
+        404.
       security:
         - bearerAuth: []
       parameters:
@@ -2986,8 +3000,9 @@ paths:
                 $ref: "#/components/schemas/ManualEvent"
         "400":
           description: >
-            Validation failed (blank title, missing startsAt, empty kidIds,
-            kid not in circle, or endsAt before startsAt)
+            Validation failed (blank title, missing startsAt, standalone empty
+            kidIds, linked feed with zero kids, unknown feedId, kid not in
+            circle, or endsAt before startsAt)
           content:
             application/json:
               schema:
@@ -3000,6 +3015,14 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Event not found in the current adult's circle (or no circle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            feedId changed or cleared while a space-scoped PENDING or ACCEPTED
+            ride exists for this event's `CAL:MANUAL:{id}`
           content:
             application/json:
               schema:
@@ -5138,10 +5161,21 @@ components:
         kidIds:
           type: array
           minItems: 1
-          description: One or more kids in this circle associated with the event
+          description: >
+            Kids on the event. Standalone: client-chosen circle kids.
+            Linked (`feedId` set): the feed's linked kids at last save.
           items:
             type: string
             format: uuid
+        feedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional circle activity feed this one-off is linked to for team
+            carpool. Null/omitted = standalone (family only). Must be a feed in
+            this circle when set. When set, kidIds are the feed roster (not a
+            custom subset).
 
     CalendarItemSource:
       type: string
@@ -5961,7 +5995,8 @@ components:
         kidIds:
           type: array
           description: >
-            Manual: event↔kids. Feed: kids linked to the parent activity feed.
+            Manual standalone: event↔kids. Manual linked or FEED: kids linked
+            to the activity feed (linked MANUAL persists that roster at save).
           items:
             type: string
             format: uuid
@@ -5969,20 +6004,25 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Present when source is FEED; omitted/null for MANUAL
+          description: >
+            Present for FEED rows and for MANUAL rows linked to a circle
+            activity feed. Null for standalone MANUAL.
         feedName:
           type: string
           nullable: true
-          description: Present when source is FEED; omitted/null for MANUAL
+          description: >
+            Present for FEED rows and for MANUAL rows linked to a circle
+            activity feed. Null for standalone MANUAL.
           example: U12
         eventKey:
           type: string
           nullable: true
           description: >
             Carpool-compatible event identity, same formula as
-            CarpoolRide.eventKey. `UID:<icalUid>` when the feed event has an
-            iCal UID; otherwise `FP:<normalized title>|<startsAt>|<normalized
-            location>`. Null for MANUAL items.
+            CarpoolRide.eventKey. FEED: `UID:<icalUid>` when the feed event has
+            an iCal UID; otherwise `FP:<normalized title>|<startsAt>|<normalized
+            location>`. Linked MANUAL: `CAL:MANUAL:{id}`. Null for standalone
+            MANUAL.
           example: "UID:abc123@example.com"
         leaveFromPlaceId:
           type: string
@@ -6031,9 +6071,10 @@ components:
         uncoveredKidIds:
           type: array
           description: >
-            In-play kids on this item (RSVP YES or NO_RESPONSE) not covered by
-            any active (PENDING or CONFIRMED) assignment. Kids with RSVP NO are
-            never included.
+            In-play kids on this item not covered by any active (PENDING or
+            CONFIRMED) assignment. FEED and MANUAL in-play = RSVP YES or
+            NO_RESPONSE (missing / NO_RESPONSE counts as going). Kids with
+            RSVP NO are never included.
           items:
             type: string
             format: uuid
@@ -6153,7 +6194,6 @@ components:
       required:
         - title
         - startsAt
-        - kidIds
       properties:
         title:
           type: string
@@ -6176,17 +6216,28 @@ components:
           example: Clinic
         kidIds:
           type: array
-          minItems: 1
+          description: >
+            Standalone (null/omit feedId): required, 1+ circle kids.
+            Linked (feedId set): optional and ignored — server sets kidIds from
+            the feed roster (feed with zero kids → 400).
           items:
             type: string
             format: uuid
+        feedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional circle activity feed to link for team carpool. Null/omit
+            for standalone. Must be a feed in this circle when set. When set,
+            client kidIds are ignored and the response kidIds are the feed's
+            linked kids.
 
     UpdateManualEventRequest:
       type: object
       required:
         - title
         - startsAt
-        - kidIds
       properties:
         title:
           type: string
@@ -6209,10 +6260,22 @@ components:
           example: Clinic
         kidIds:
           type: array
-          minItems: 1
+          description: >
+            Standalone (null feedId): required, 1+ circle kids.
+            Linked (feedId set): optional and ignored — server overwrites
+            kidIds from the feed roster (feed with zero kids → 400).
           items:
             type: string
             format: uuid
+        feedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional circle activity feed to link for team carpool. Null clears
+            the link (409 when space-scoped PENDING/ACCEPTED rides exist for
+            this event's `CAL:MANUAL:{id}`). Must be a feed in this circle when
+            set. When set, client kidIds are ignored.
 
     CarpoolSpaceMembership:
       type: string

@@ -9,6 +9,7 @@
 
 import type {
   CalendarItem,
+  CalendarItemSource,
   CarpoolRide,
   CarpoolRideEvent,
   CarpoolRideLeg,
@@ -473,8 +474,11 @@ export type MapCoverageGamesOptions = {
   members: FamilyMember[]
 }
 
-/** Single read mapper: YES / NO_RESPONSE / missing → going; NO → not_going. */
-export function mapRsvpToAttendance(status: RsvpStatus): Attendance {
+/** Single read mapper: missing / NO_RESPONSE → going; NO → not_going (FEED and MANUAL). */
+export function mapRsvpToAttendance(
+  status: RsvpStatus,
+  _source: CalendarItemSource = "FEED",
+): Attendance {
   return status === "NO" ? "not_going" : "going"
 }
 
@@ -600,7 +604,7 @@ export function mapCalendarItemToCoverageGames(
       title: item.title,
       startsAt: item.startsAt,
       order,
-      attendance: mapRsvpToAttendance(rsvpStatusForKid(item, kidId)),
+      attendance: mapRsvpToAttendance(rsvpStatusForKid(item, kidId), item.source),
       ownRide: mapOwnRideStatusForKid(kidId, item, rideEvent, options),
       requests,
       ...(ownLegs != null ? { ownLegs } : {}),

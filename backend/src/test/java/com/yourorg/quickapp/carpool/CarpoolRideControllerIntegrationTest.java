@@ -1558,6 +1558,211 @@ class CarpoolRideControllerIntegrationTest {
                                 .value(kidB));
     }
 
+    @Test
+    void linkedManualListRidesDefaultGoingEnableAttachAndRelink409() throws Exception {
+        String orgA = signIn("carpool-manual-link-org-a@example.com");
+        String orgB = signIn("carpool-manual-link-org-b@example.com");
+
+        createCircle(orgA, "Alex", "Manual Link House A");
+        createCircle(orgB, "Sam", "Manual Link House B");
+
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA =
+                createFeed(
+                        orgA,
+                        "Soccer",
+                        "https://example.com/carpool-manual-link.ics",
+                        kidA);
+        createFeed(orgB, "Soccer", "https://example.com/carpool-manual-link.ics", kidB);
+
+        String eventId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/events")
+                                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                                + kidA
+                                                                + "\"],\"feedId\":\""
+                                                                + feedA
+                                                                + "\"}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+        String eventKey = "CAL:MANUAL:" + eventId;
+
+        MvcResult circleA =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> organizerIds =
+                JsonPath.read(
+                        circleA.getResponse().getContentAsString(),
+                        "$.members[?(@.role=='ORGANIZER')].adultId");
+        String alexAdultId = organizerIds.getFirst();
+        addPlace(orgA, "Home A", "12 Oak St");
+
+        mockMvc.perform(
+                        post("/api/carpool/ride-plans")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"eventKey\":\""
+                                                + eventKey
+                                                + "\",\"plans\":[{\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"legs\":["
+                                                + "{\"kind\":\"TO\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
+                                                + alexAdultId
+                                                + "\"},"
+                                                + "{\"kind\":\"FROM\",\"action\":\"HOUSEHOLD\",\"assigneeAdultId\":\""
+                                                + alexAdultId
+                                                + "\"}"
+                                                + "]}]}"))
+                .andExpect(status().isOk());
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.eventKey=='" + eventKey + "')].title").value("Banquet"))
+                .andExpect(
+                        jsonPath("$[?(@.eventKey=='" + eventKey + "')].ownRequests[0].status")
+                                .value("PLAN"))
+                .andExpect(
+                        jsonPath("$[?(@.eventKey=='" + eventKey + "')].defaultKidIds[0]")
+                                .value(kidA));
+
+        mockMvc.perform(
+                        put("/api/family/circle/events/" + eventId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"feedId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feedId").value((Object) null));
+
+        mockMvc.perform(
+                        put("/api/family/circle/events/" + eventId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"feedId\":\""
+                                                + feedA
+                                                + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feedId").value(feedA));
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"eventKey\":\"" + eventKey + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.kidIds[0]").value(kidA));
+
+        mockMvc.perform(
+                        put("/api/family/circle/events/" + eventId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                + kidA
+                                                + "\"],\"feedId\":null}"))
+                .andExpect(status().isConflict());
+
+        addPlace(orgB, "Home B", "Unlocateable Lane");
+        MvcResult ridesForB =
+                mockMvc.perform(
+                                get("/api/carpool/spaces/" + spaceId + "/rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                        .param("from", FROM)
+                                        .param("to", TO))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<String> rideIds =
+                JsonPath.read(
+                        ridesForB.getResponse().getContentAsString(),
+                        "$.[?(@.eventKey=='" + eventKey + "')].otherRequests[0].id");
+        String rideId = rideIds.getFirst();
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/" + spaceId + "/rides/" + rideId + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        setManualRsvpNo(orgA, eventId, kidA);
+
+        mockMvc.perform(
+                        get("/api/carpool/spaces/" + spaceId + "/rides")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                .param("from", FROM)
+                                .param("to", TO))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$[?(@.eventKey=='" + eventKey + "')].ownRequest")
+                                .value((Object) null));
+
+        mockMvc.perform(
+                        get("/api/family/circle/calendar")
+                                .param("from", FROM)
+                                .param("to", TO)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='" + eventId + "')]").isEmpty());
+    }
+
+    private void setManualRsvpYes(String token, String itemId, String kidId) throws Exception {
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + itemId + "/rsvps/" + kidId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"YES\"}"))
+                .andExpect(status().isOk());
+    }
+
+    private void setManualRsvpNo(String token, String itemId, String kidId) throws Exception {
+        mockMvc.perform(
+                        put("/api/family/circle/calendar/MANUAL/" + itemId + "/rsvps/" + kidId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"NO\"}"))
+                .andExpect(status().isOk());
+    }
+
     private String feedEventId(String token, String title) throws Exception {
         MvcResult calendar =
                 mockMvc.perform(

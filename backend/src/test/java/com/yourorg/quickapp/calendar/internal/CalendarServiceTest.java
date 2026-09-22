@@ -284,6 +284,39 @@ class CalendarServiceTest {
     }
 
     @Test
+    void linkedManualMapsFeedIdFeedNameAndEventKey() {
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-09-01T00:00:00Z");
+        when(familyMembershipApi.requireMemberCircleId(adult.id())).thenReturn(circleId);
+
+        UUID manualId = UUID.fromString("00000000-0000-0000-0000-0000000000cc");
+        UUID feedId = UUID.fromString("00000000-0000-0000-0000-0000000000dd");
+        UUID kidId = UUID.randomUUID();
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of());
+        when(manualEventCalendarApi.listInRange(circleId, from, to))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        manualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-15T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        List.of(kidId),
+                                        feedId,
+                                        "U12")));
+
+        List<CalendarItemResponse> items = calendarService.list(adult, from, to);
+
+        assertThat(items).hasSize(1);
+        assertThat(items.get(0).source()).isEqualTo(CalendarItemSource.MANUAL);
+        assertThat(items.get(0).feedId()).isEqualTo(feedId);
+        assertThat(items.get(0).feedName()).isEqualTo("U12");
+        assertThat(items.get(0).eventKey()).isEqualTo("CAL:MANUAL:" + manualId);
+        assertThat(items.get(0).uncoveredKidIds()).containsExactly(kidId);
+    }
+
+    @Test
     void feedItemWithoutUidUsesFingerprintEventKey() {
         Instant from = Instant.parse("2026-08-01T00:00:00Z");
         Instant to = Instant.parse("2026-09-01T00:00:00Z");
@@ -346,6 +379,13 @@ class CalendarServiceTest {
                         Instant.parse("2026-08-01T00:00:00Z"));
         when(coverageApi.listForItems(eq(circleId), eq(CoverageItemSource.MANUAL), any()))
                 .thenReturn(List.of(coverage));
+        when(rsvpApi.listForItems(eq(circleId), eq(RsvpItemSource.MANUAL), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidCovered, RsvpStatus.YES),
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL, itemId, kidOpen, RsvpStatus.YES)));
         when(adultSessionApi.requireAdult(adult.id())).thenReturn(adult);
 
         List<CalendarItemResponse> items = calendarService.list(adult, from, to);
@@ -1343,15 +1383,46 @@ class CalendarServiceTest {
         UUID itemId = UUID.randomUUID();
         assertThat(
                         CalendarService.uncoveredKidIds(
+                                CalendarItemSource.FEED,
                                 List.of(kidYes, kidNo),
+                                List.of(),
+                                List.of(
+                                        new RsvpDto(
+                                                RsvpItemSource.FEED,
+                                                itemId,
+                                                kidNo,
+                                                RsvpStatus.NO))))
+                .containsExactly(kidYes);
+    }
+
+    @Test
+    void uncoveredKidIdsManualTreatsNoResponseAsGoing() {
+        UUID kidYes = UUID.randomUUID();
+        UUID kidSilent = UUID.randomUUID();
+        UUID kidNo = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        assertThat(
+                        CalendarService.uncoveredKidIds(
+                                CalendarItemSource.MANUAL,
+                                List.of(kidYes, kidSilent, kidNo),
                                 List.of(),
                                 List.of(
                                         new RsvpDto(
                                                 RsvpItemSource.MANUAL,
                                                 itemId,
+                                                kidYes,
+                                                RsvpStatus.YES),
+                                        new RsvpDto(
+                                                RsvpItemSource.MANUAL,
+                                                itemId,
+                                                kidSilent,
+                                                RsvpStatus.NO_RESPONSE),
+                                        new RsvpDto(
+                                                RsvpItemSource.MANUAL,
+                                                itemId,
                                                 kidNo,
                                                 RsvpStatus.NO))))
-                .containsExactly(kidYes);
+                .containsExactly(kidYes, kidSilent);
     }
 
     @Test

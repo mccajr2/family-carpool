@@ -6,6 +6,7 @@ dependencies {
     implementation(project(":auth"))
     implementation(project(":family"))
     implementation(project(":feeds"))
+    implementation(project(":events"))
     implementation(project(":leaveby"))
     implementation(project(":rsvp"))
     implementation(libs.spring.boot.starter.web)

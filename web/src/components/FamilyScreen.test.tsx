@@ -47,6 +47,7 @@ function heroSlideIn(agenda: HTMLElement, title?: string) {
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
+    listFeeds: vi.fn().mockResolvedValue([]),
     getCalendarRoute: vi.fn().mockResolvedValue({
       status: "OK",
       reason: null,
@@ -180,7 +181,9 @@ function calendarItem(
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
-    rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "NO_RESPONSE" as const })),
+    // Default YES keeps older fixtures explicit; missing / NO_RESPONSE also
+    // counts as going for MANUAL and FEED (ADR-0003). Override rsvps when needed.
+    rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
     driveBlockLinks: [],
     ...partial,
   }
@@ -718,6 +721,7 @@ describe("FamilyScreen", () => {
         endsAt: created.endsAt,
         location: created.location,
         kidIds: created.kidIds,
+        feedId: null,
       }
     })
     const deleteEvent = vi.fn().mockImplementation(async () => {
@@ -796,6 +800,7 @@ describe("FamilyScreen", () => {
       ["k1"],
       expect.stringMatching(/2030-08-15T/),
       "Clinic",
+      null,
     )
     expect(screen.queryByRole("dialog", { name: "Add event" })).not.toBeInTheDocument()
 
@@ -806,6 +811,195 @@ describe("FamilyScreen", () => {
       expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("shows Team select when feeds exist and round-trips feedId without kid picker", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const linked = calendarItem({
+      id: "e-banquet",
+      source: "MANUAL",
+      title: "Banquet",
+      startsAt: "2030-08-16T18:00:00.000Z",
+      endsAt: null,
+      location: null,
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "CAL:MANUAL:e-banquet",
+    })
+    let calendar: CalendarItem[] = []
+    const createEvent = vi.fn().mockImplementation(async (_t, _title, _s, _kids, _e, _loc, feedId) => {
+      calendar = [{ ...linked, feedId: feedId ?? null }]
+      return {
+        id: linked.id,
+        title: linked.title,
+        startsAt: linked.startsAt,
+        endsAt: linked.endsAt,
+        location: linked.location,
+        kidIds: linked.kidIds,
+        feedId: feedId ?? null,
+      }
+    })
+    const updateEvent = vi.fn().mockImplementation(async (_t, _id, title, _s, kids, _e, _loc, feedId) => {
+      calendar = [
+        {
+          ...linked,
+          title,
+          feedId: feedId ?? null,
+          kidIds: kids.length > 0 ? kids : linked.kidIds,
+          feedName: feedId ? "U12" : null,
+          eventKey: feedId ? linked.eventKey : null,
+        },
+      ]
+      return {
+        id: linked.id,
+        title,
+        startsAt: linked.startsAt,
+        endsAt: linked.endsAt,
+        location: linked.location,
+        kidIds: kids.length > 0 ? kids : linked.kidIds,
+        feedId: feedId ?? null,
+      }
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "ABCD1234" }),
+          listFeeds: vi.fn().mockResolvedValue([
+            {
+              id: "f1",
+              name: "U12",
+              sourceUrl: "https://example.com/u12.ics",
+              kidIds: ["k1"],
+              lastSyncedAt: null,
+              lastSyncError: null,
+              eventCount: 0,
+            },
+          ]),
+          listCalendar: vi.fn().mockImplementation(async () => [...calendar]),
+          createEvent,
+          updateEvent,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+    const compose = await screen.findByRole("dialog", { name: "Add event" })
+    expect(within(compose).getByLabelText("Team")).toBeInTheDocument()
+    expect(within(compose).getByLabelText("Team")).toHaveDisplayValue("Standalone (family only)")
+    expect(within(compose).getByLabelText("Assign Sam to event")).toBeInTheDocument()
+    await user.type(within(compose).getByLabelText("Event title"), "Banquet")
+    await user.selectOptions(within(compose).getByLabelText("Team"), "f1")
+    expect(within(compose).queryByLabelText("Assign Sam to event")).not.toBeInTheDocument()
+    await user.click(within(compose).getByRole("button", { name: "Save" }))
+
+    expect(createEvent).toHaveBeenCalledWith(
+      "tok",
+      "Banquet",
+      expect.any(String),
+      [],
+      null,
+      null,
+      "f1",
+    )
+    expect(await within(agenda).findByText("Banquet")).toBeInTheDocument()
+
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e-banquet")
+    const edit = await screen.findByRole("dialog", { name: "Edit event" })
+    expect(within(edit).getByLabelText("Team")).toHaveDisplayValue("U12")
+    expect(within(edit).queryByLabelText("Assign Sam to event")).not.toBeInTheDocument()
+    await user.selectOptions(within(edit).getByLabelText("Team"), "")
+    expect(within(edit).getByLabelText("Assign Sam to event")).toBeInTheDocument()
+    await user.click(within(edit).getByRole("button", { name: "Save" }))
+    expect(updateEvent).toHaveBeenCalledWith(
+      "tok",
+      "e-banquet",
+      "Banquet",
+      expect.any(String),
+      ["k1"],
+      null,
+      null,
+      null,
+    )
+  })
+
+  it("omits Team select when the circle has no feeds", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "ABCD1234" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+          createEvent: vi.fn().mockResolvedValue({
+            id: "e1",
+            title: "Dentist",
+            startsAt: "2030-08-16T18:00:00.000Z",
+            endsAt: null,
+            location: null,
+            kidIds: ["k1"],
+            feedId: null,
+          }),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    await screen.findByLabelText("Agenda")
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+    const compose = await screen.findByRole("dialog", { name: "Add event" })
+    expect(within(compose).queryByLabelText("Team")).not.toBeInTheDocument()
   })
 
   it("cancels edit compose without updating the event", async () => {
@@ -1039,6 +1233,7 @@ describe("FamilyScreen", () => {
       ["k1"],
       expect.stringMatching(/2030-08-15T/),
       "Ortho",
+      null,
     )
     expect(screen.queryByRole("dialog", { name: "Edit event" })).not.toBeInTheDocument()
   })
@@ -2206,6 +2401,136 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
         eventKey: "UID:practice-1",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "ASK_TEAM", meetSide: "REQUESTER" },
+              { kind: "FROM", action: "ASK_TEAM", meetSide: "REQUESTER" },
+            ],
+          },
+        ],
+      })
+    })
+  })
+
+  it("asks the team from hero for linked MANUAL with NO_RESPONSE (FEED parity)", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const linked = calendarItem({
+      id: "e-banquet",
+      source: "MANUAL",
+      title: "Banquet",
+      startsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "CAL:MANUAL:e-banquet",
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "CAL:MANUAL:e-banquet",
+        title: "Banquet",
+        startsAt: "2030-08-15T18:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        otherRequests: [],
+      },
+    ])
+    const saveRidePlan = vi.fn().mockResolvedValue({
+      ownRequests: [],
+      ownRequest: null,
+      ownLegs: null,
+    })
+    const getSummary = vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "U12",
+          status: "OWNER",
+          spaceId: "s1",
+          spaceName: "U12",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "U12",
+          membership: "OWNER",
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [{ circleId: "c1", circleName: "House", membership: "OWNER" }],
+          pendingRequests: [],
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [
+              {
+                id: "p1",
+                name: "Home",
+                address: "1 Main",
+                latitude: 40,
+                longitude: -74,
+              },
+            ],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([linked]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, saveRidePlan })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
+    const agenda = await screen.findByLabelText("Agenda")
+    const focus = heroSlideIn(agenda)
+    expect(within(focus).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e-banquet")).toHaveTextContent(
+      "Ride needed",
+    )
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e-banquet")).toHaveAttribute(
+        "data-carpool-ride-key",
+        "CAL:MANUAL:e-banquet",
+      )
+    })
+    await user.click(within(focus).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(focus).getByRole("button", { name: "Post to team — round trip" }))
+
+    await waitFor(() => {
+      expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "CAL:MANUAL:e-banquet",
         plans: [
           {
             kidIds: ["k1"],
