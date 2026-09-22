@@ -24,6 +24,7 @@ import com.yourorg.quickapp.family.FamilyCircleName;
 import com.yourorg.quickapp.family.FamilyKidName;
 import com.yourorg.quickapp.family.FamilyMembershipApi;
 import com.yourorg.quickapp.family.FamilyPlaceApi;
+import com.yourorg.quickapp.events.ManualCalendarEventDto;
 import com.yourorg.quickapp.events.ManualEventCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarApi;
 import com.yourorg.quickapp.feeds.FeedCalendarEventDto;
@@ -2213,6 +2214,294 @@ class CarpoolRideServiceTest {
         verify(rides).save(localB);
     }
 
+    @Test
+    void listIncludesLinkedManualEvents() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000071");
+        String manualKey = "CAL:MANUAL:" + manualId;
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of());
+        when(manualEventCalendarApi.listLinkedToFeedInRange(circleId, feedId, from, to))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        manualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-20T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        List.of(kidA),
+                                        feedId,
+                                        "Soccer")));
+        when(memberships.findBySpaceIdOrderByCreatedAtAsc(spaceId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of());
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, manualKey, circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        when(rsvpApi.statusesForKids(eq(circleId), eq(RsvpItemSource.MANUAL), eq(manualId), any()))
+                .thenReturn(List.of(new RsvpDto(RsvpItemSource.MANUAL, manualId, kidA, RsvpStatus.YES)));
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed).hasSize(1);
+        assertThat(listed.getFirst().eventKey()).isEqualTo(manualKey);
+        assertThat(listed.getFirst().title()).isEqualTo("Banquet");
+        assertThat(listed.getFirst().defaultKidIds()).containsExactly(kidA);
+    }
+
+    @Test
+    void listIncludesPeerCircleLinkedManualsForAccept() {
+        stubMemberSpace();
+        Instant from = Instant.parse("2026-08-01T00:00:00Z");
+        Instant to = Instant.parse("2026-08-31T00:00:00Z");
+        UUID peerManualId = UUID.fromString("01900000-0000-7000-8000-000000000076");
+        UUID peerFeedId = UUID.fromString("01900000-0000-7000-8000-000000000042");
+        String peerKey = "CAL:MANUAL:" + peerManualId;
+        FeedResponse peerFeed =
+                new FeedResponse(
+                        peerFeedId,
+                        "Soccer",
+                        "https://example.com/team.ics",
+                        List.of(kidA),
+                        Instant.parse("2026-08-01T00:00:00Z"),
+                        null,
+                        0);
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedsApi.findByCircleAndNormalizedUrl(otherCircleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(peerFeed));
+        when(feedCalendarApi.listEventsInRange(circleId, from, to)).thenReturn(List.of());
+        when(manualEventCalendarApi.listLinkedToFeedInRange(circleId, feedId, from, to))
+                .thenReturn(List.of());
+        when(manualEventCalendarApi.listLinkedToFeedInRange(otherCircleId, peerFeedId, from, to))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        peerManualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-20T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        List.of(kidA),
+                                        peerFeedId,
+                                        "Soccer")));
+        when(memberships.findBySpaceIdOrderByCreatedAtAsc(spaceId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now()),
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        otherCircleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity peerPending =
+                new CarpoolRideRequestEntity(
+                        UUID.randomUUID(),
+                        spaceId,
+                        peerKey,
+                        otherCircleId,
+                        otherAdultId,
+                        "Home",
+                        "1 Main St",
+                        List.of(new RideKidSnapshot(kidA, "Sam")),
+                        EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM),
+                        Instant.now());
+        when(rides.findBySpaceIdAndEventKeyInAndStatusIn(eq(spaceId), any(), any()))
+                .thenReturn(List.of(peerPending));
+        when(passes.findByRideIdIn(any())).thenReturn(List.of());
+        when(familyMembershipApi.findCircles(any()))
+                .thenReturn(List.of(new FamilyCircleName(otherCircleId, "House B")));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, peerKey, circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        when(rsvpApi.statusesForKids(eq(circleId), eq(RsvpItemSource.MANUAL), eq(peerManualId), any()))
+                .thenReturn(List.of());
+
+        var listed = service.list(adult, spaceId, from, to);
+
+        assertThat(listed).hasSize(1);
+        assertThat(listed.getFirst().eventKey()).isEqualTo(peerKey);
+        assertThat(listed.getFirst().otherRequests()).hasSize(1);
+        assertThat(listed.getFirst().otherRequests().getFirst().id()).isEqualTo(peerPending.id());
+        assertThat(listed.getFirst().defaultKidIds()).isEmpty();
+    }
+
+    @Test
+    void createManualDefaultsYesOnlyExcludesNoResponse() {
+        stubMemberSpace();
+        UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000072");
+        String manualKey = "CAL:MANUAL:" + manualId;
+        stubLinkedManualSpaceEvent(manualId, List.of(kidA, kidB));
+        when(rsvpApi.statusesForKids(eq(circleId), eq(RsvpItemSource.MANUAL), eq(manualId), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(RsvpItemSource.MANUAL, manualId, kidA, RsvpStatus.YES),
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL,
+                                        manualId,
+                                        kidB,
+                                        RsvpStatus.NO_RESPONSE)));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, manualKey, circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+        stubPickup();
+        stubKidNames();
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(familyMembershipApi.findCircles(List.of(circleId)))
+                .thenReturn(List.of(new FamilyCircleName(circleId, "House A")));
+
+        var created =
+                service.create(adult, spaceId, new CreateCarpoolRideRequest(manualKey, null, null));
+
+        assertThat(created.kidIds()).containsExactly(kidA);
+        assertThat(created.seats()).isEqualTo(1);
+    }
+
+    @Test
+    void createManual400WhenZeroYesKids() {
+        stubMemberSpace();
+        UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000073");
+        String manualKey = "CAL:MANUAL:" + manualId;
+        stubLinkedManualSpaceEvent(manualId, List.of(kidA, kidB));
+        when(rsvpApi.statusesForKids(eq(circleId), eq(RsvpItemSource.MANUAL), eq(manualId), any()))
+                .thenReturn(
+                        List.of(
+                                new RsvpDto(
+                                        RsvpItemSource.MANUAL,
+                                        manualId,
+                                        kidA,
+                                        RsvpStatus.NO_RESPONSE),
+                                new RsvpDto(RsvpItemSource.MANUAL, manualId, kidB, RsvpStatus.NO)));
+        when(rides.findBySpaceIdAndEventKeyAndRequestingCircleIdAndStatus(
+                        spaceId, manualKey, circleId, CarpoolRideStatus.ACCEPTED))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(
+                        () ->
+                                service.create(
+                                        adult,
+                                        spaceId,
+                                        new CreateCarpoolRideRequest(manualKey, null, null)))
+                .isInstanceOf(CarpoolException.class)
+                .extracting(ex -> ((CarpoolException) ex).status())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(rides, never()).save(any());
+    }
+
+    @Test
+    void attachCircleLocalPlansToSpaceAttachesManualKeys() {
+        UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000074");
+        String manualKey = "CAL:MANUAL:" + manualId;
+        CarpoolRideRequestEntity local =
+                new CarpoolRideRequestEntity(
+                        UUID.randomUUID(),
+                        null,
+                        manualKey,
+                        circleId,
+                        adultId,
+                        "Home",
+                        "1 Main St",
+                        List.of(new RideKidSnapshot(kidA, "Sam")),
+                        EnumSet.noneOf(CarpoolLegKind.class),
+                        Instant.now());
+        when(feedCalendarApi.listEventsInRange(
+                        circleId, CarpoolRideService.EVENT_LOOKUP_FROM, CarpoolRideService.EVENT_LOOKUP_TO))
+                .thenReturn(List.of());
+        when(manualEventCalendarApi.listLinkedToFeedInRange(
+                        eq(circleId),
+                        eq(feedId),
+                        eq(CarpoolRideService.EVENT_LOOKUP_FROM),
+                        eq(CarpoolRideService.EVENT_LOOKUP_TO)))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        manualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-20T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        List.of(kidA),
+                                        feedId,
+                                        "Soccer")));
+        when(rides.findByRequestingCircleIdAndEventKeyInAndSpaceIdIsNullAndStatusIn(
+                        eq(circleId), any(), any()))
+                .thenReturn(List.of(local));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.attachCircleLocalPlansToSpace(circleId, spaceId, feedId);
+
+        assertThat(local.spaceId()).isEqualTo(spaceId);
+        verify(rides).save(local);
+    }
+
+    @Test
+    void clearTransportForNotGoingKidOnLinkedManual() {
+        UUID manualId = UUID.fromString("01900000-0000-7000-8000-000000000075");
+        String manualKey = "CAL:MANUAL:" + manualId;
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedCalendarApi.findEventInCircle(circleId, manualId)).thenReturn(Optional.empty());
+        when(manualEventCalendarApi.findInCircle(circleId, manualId))
+                .thenReturn(
+                        Optional.of(
+                                new ManualCalendarEventDto(
+                                        manualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-20T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        List.of(kidA),
+                                        feedId,
+                                        "Soccer")));
+        when(memberships.findByCircleIdOrderByCreatedAtAsc(circleId))
+                .thenReturn(
+                        List.of(
+                                new CarpoolMembershipEntity(
+                                        UUID.randomUUID(),
+                                        spaceId,
+                                        circleId,
+                                        CarpoolSpaceMembership.MEMBER,
+                                        Instant.now())));
+        CarpoolRideRequestEntity pending =
+                new CarpoolRideRequestEntity(
+                        UUID.randomUUID(),
+                        spaceId,
+                        manualKey,
+                        circleId,
+                        adultId,
+                        "Home",
+                        "1 Main St",
+                        List.of(new RideKidSnapshot(kidA, "Sam")),
+                        EnumSet.of(CarpoolLegKind.TO, CarpoolLegKind.FROM),
+                        Instant.now());
+        when(rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                        eq(List.of(spaceId)), eq(manualKey), eq(circleId), any()))
+                .thenReturn(List.of(pending));
+        when(rides.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.clearTransportForNotGoingKid(adultId, manualId, kidA);
+
+        assertThat(pending.status()).isEqualTo(CarpoolRideStatus.CANCELLED);
+        verify(passes).deleteByRideId(pending.id());
+    }
+
     private void stubMemberSpace() {
         when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
         when(spaces.findById(spaceId)).thenReturn(Optional.of(space()));
@@ -2233,6 +2522,30 @@ class CarpoolRideServiceTest {
         when(feedCalendarApi.listEventsInRange(
                         circleId, CarpoolRideService.EVENT_LOOKUP_FROM, CarpoolRideService.EVENT_LOOKUP_TO))
                 .thenReturn(List.of(event));
+    }
+
+    private void stubLinkedManualSpaceEvent(UUID manualId, List<UUID> kidIds) {
+        when(feedsApi.findByCircleAndNormalizedUrl(circleId, "https://example.com/team.ics"))
+                .thenReturn(Optional.of(feed));
+        when(feedCalendarApi.listEventsInRange(
+                        circleId, CarpoolRideService.EVENT_LOOKUP_FROM, CarpoolRideService.EVENT_LOOKUP_TO))
+                .thenReturn(List.of());
+        when(manualEventCalendarApi.listLinkedToFeedInRange(
+                        eq(circleId),
+                        eq(feedId),
+                        eq(CarpoolRideService.EVENT_LOOKUP_FROM),
+                        eq(CarpoolRideService.EVENT_LOOKUP_TO)))
+                .thenReturn(
+                        List.of(
+                                new ManualCalendarEventDto(
+                                        manualId,
+                                        "Banquet",
+                                        Instant.parse("2026-08-20T18:00:00Z"),
+                                        null,
+                                        "Hall",
+                                        kidIds,
+                                        feedId,
+                                        "Soccer")));
     }
 
     @SuppressWarnings("unchecked")

@@ -1,37 +1,58 @@
-# ADR-0003: Attendance defaults — FEED vs MANUAL
+# ADR-0003: Attendance defaults — going is the default
 
-**Status:** Accepted (amended 2026-09-21)  
+**Status:** Accepted (restored 2026-09-21)  
 **Date:** 2026-08-28  
-**Amended:** 2026-09-21 · [`manual-event-team-link`](../specs/active/manual-event-team-link.md)  
+**Amended:** 2026-09-21 · [`manual-event-team-link`](../specs/active/manual-event-team-link.md)
+briefly tried MANUAL opt-in; smoke testing showed that broke Hero / Ride
+needed for one-offs. Restored default-going for **FEED and MANUAL**.  
 **Governs:** [`coverage-priority-engine`](../specs/archive/coverage-priority-engine.md), [`attendance-manual-toggle`](../specs/archive/attendance-manual-toggle.md), manual-event team link
 
 ## Context
 
 An earlier iteration modeled attendance as a three-way RSVP: "going," "not sure," "not going," shown as a segmented control the parent was implicitly prompted to resolve.
 
-Manual one-offs can now optionally link to a circle activity feed for team carpool. Those rows stay `source=MANUAL` and must not inherit FEED's default-going bag for ride defaults or uncovered kids.
+Manual events can optionally link to a circle activity feed for team carpool
+(`manual-event-team-link`). Those rows stay `source=MANUAL` but keep the same
+attendance default as FEED so one-offs still surface as Ride needed until the
+parent opts out.
 
 ## Decision
 
-- **FEED events:** **"Going" is the default state** for every child, with no action required. Missing RSVP / `NO_RESPONSE` counts as going. **"Not going"** (`NO`) is the only real opt-out signal — never inferred, defaulted to, or reminded.
-- **MANUAL events (including team-linked):** **Opt-in.** Missing / `NO_RESPONSE` is **not going**. Only explicit **`YES`** counts as going (Agenda toggle, `uncoveredKidIds`, Hero/queue, linked-manual ride `defaultKidIds`).
-- **There is no "not sure" state** as a product concept beyond the stored `NO_RESPONSE` enum (FEED: treated as going; MANUAL: treated as not going).
-- **Attendance never generates a hero/queue item.** Marking a child "not going" removes a ride-needed gap from the queue; it is not a task itself.
-- Assigning any real driver / accepting a ride implicitly resets attendance back to `"going"` (`YES`) for those kids.
+- **"Going" is the default state** for every child on FEED and MANUAL events,
+  with no action required. Missing RSVP / `NO_RESPONSE` counts as going.
+  **"Not going"** (`NO`) is the only real opt-out signal — never inferred,
+  defaulted to, or reminded.
+- **There is no "not sure" state** as a product concept beyond the stored
+  `NO_RESPONSE` enum (treated as going on read).
+- **Attendance never generates a hero/queue item.** Marking a child "not
+  going" removes a ride-needed gap from the queue; it is not a task itself.
+- Assigning any real driver / accepting a ride implicitly resets attendance
+  back to `"going"` (`YES`) for those kids.
+- A future reservation / headcount flow may want “no explicit RSVP → assume
+  NO”; that is **out of scope** here and must not silently change this ADR.
 
 ## Consequences
 
 - No RSVP reminder feature without revisiting this ADR.
-- Copy for the toggle must use "going" / "not going" explicitly — lexically distinct from ride-side "drive" language (see [`coverage-copy-a11y-polish`](../specs/planned/coverage-copy-a11y-polish.md)).
-- Clients and server must be **source-aware** when mapping RSVP → attendance / uncovered / ride defaults.
+- Copy for the toggle must use "going" / "not going" explicitly — lexically
+  distinct from ride-side "drive" language (see
+  [`coverage-copy-a11y-polish`](../specs/planned/coverage-copy-a11y-polish.md)).
+- Clients and server share one read mapper: missing / `NO_RESPONSE` → going;
+  `NO` → not going; `YES` → going — for both `FEED` and `MANUAL`.
 
 ## Supersedes
 
-- Three-way **Yes / No / No response** RSVP UX on Agenda for this feature area (locked decision updated 2026-08-28). [`attendance-manual-toggle`](../specs/archive/attendance-manual-toggle.md) ships the two-state UI; OpenAPI enum rename remains deferred.
-- The original wording that default-going applied to **every** event — default-going is **FEED-only** after the 2026-09-21 amend.
+- Three-way **Yes / No / No response** RSVP UX on Agenda for this feature
+  area (locked decision updated 2026-08-28).
+  [`attendance-manual-toggle`](../specs/archive/attendance-manual-toggle.md)
+  ships the two-state UI; OpenAPI enum rename remains deferred.
+- The 2026-09-21 wording that default-going was **FEED-only** (rolled back
+  the same day after smoke testing).
 
 ## Alternatives considered
 
 - **Three-way going / not sure / not going control** — built, then rejected.
 - **Time-based RSVP escalation** — explicitly not pursued.
-- **Treat linked manuals like FEED (default-going)** — rejected; one-offs stay opt-in even when carpool-eligible.
+- **MANUAL opt-in (YES-only)** — tried in `manual-event-team-link`; rejected
+  for this product surface because new one-offs disappeared from Hero / Ride
+  needed until an extra tap. Park for reservation-style flows if needed.

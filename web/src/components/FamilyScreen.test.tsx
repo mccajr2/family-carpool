@@ -938,6 +938,58 @@ describe("FamilyScreen", () => {
     )
   })
 
+  it("omits Team select when the circle has no feeds", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "ABCD1234" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([]),
+          createEvent: vi.fn().mockResolvedValue({
+            id: "e1",
+            title: "Dentist",
+            startsAt: "2030-08-16T18:00:00.000Z",
+            endsAt: null,
+            location: null,
+            kidIds: ["k1"],
+            feedId: null,
+          }),
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    await screen.findByLabelText("Agenda")
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+    const compose = await screen.findByRole("dialog", { name: "Add event" })
+    expect(within(compose).queryByLabelText("Team")).not.toBeInTheDocument()
+  })
+
   it("cancels edit compose without updating the event", async () => {
     const user = userEvent.setup()
     const session = new AuthSessionHolder()

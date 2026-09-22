@@ -32,6 +32,7 @@ total headcount is available for whoever books.
 - Touches the same RSVP row as attendance (`YES`/`NO`/`NO_RESPONSE`); likely
   a nullable extra-seats / `partySize` field on that row + calendar
   headcount rollup.
-- Depends on MANUAL opt-in polarity from `manual-event-team-link` (count
-  extra seats only when `YES`).
+- May introduce a **reservation-style polarity** (no explicit RSVP → assume
+  NO / omit from headcount) — that is **not** the default MANUAL rule in
+  ADR-0003 (default-going). Do not silently change team-link or Agenda.
 - **Web first.**

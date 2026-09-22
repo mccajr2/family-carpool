@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.events.CreateManualEventRequest;
+import com.yourorg.quickapp.events.ManualEventRideConflictException;
 import com.yourorg.quickapp.events.ManualEventRideGuard;
 import com.yourorg.quickapp.events.UpdateManualEventRequest;
 import com.yourorg.quickapp.family.FamilyAccessException;
@@ -277,6 +278,158 @@ class EventsServiceTest {
         assertThat(response.title()).isEqualTo("School concert");
         verify(familyMembershipApi).requireMemberCircleId(adultId);
         verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+    }
+
+    @Test
+    void caregiverCanCreateWithValidFeedId() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "c@example.com", "Care");
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                eventsService.create(
+                        adult,
+                        new CreateManualEventRequest(
+                                "Banquet",
+                                Instant.parse("2026-09-01T23:00:00Z"),
+                                null,
+                                null,
+                                List.of(kidId),
+                                feedId));
+
+        assertThat(response.feedId()).isEqualTo(feedId);
+        verify(familyMembershipApi, never()).requireOrganizerCircleId(any());
+    }
+
+    @Test
+    void updateChangingFeedIdRequiresNoActiveSpaceRides() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ManualEventEntity event =
+                new ManualEventEntity(
+                        eventId,
+                        circleId,
+                        "Banquet",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        Instant.now());
+        event.setKidIds(Set.of(kidId));
+        event.setFeedId(feedId);
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(events.findByIdAndCircleId(eventId, circleId)).thenReturn(Optional.of(event));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                eventsService.update(
+                        adult,
+                        eventId,
+                        new UpdateManualEventRequest(
+                                "Banquet",
+                                Instant.parse("2026-08-15T17:00:00Z"),
+                                null,
+                                null,
+                                List.of(kidId),
+                                null));
+
+        assertThat(response.feedId()).isNull();
+        verify(rideGuard).requireNoActiveSpaceRides(circleId, "CAL:MANUAL:" + eventId);
+    }
+
+    @Test
+    void updateSameFeedIdSkipsRideGuard() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ManualEventEntity event =
+                new ManualEventEntity(
+                        eventId,
+                        circleId,
+                        "Banquet",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        Instant.now());
+        event.setKidIds(Set.of(kidId));
+        event.setFeedId(feedId);
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(events.findByIdAndCircleId(eventId, circleId)).thenReturn(Optional.of(event));
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId, "U12", "https://example.com/u12.ics", List.of(), null, null, 0)));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        eventsService.update(
+                adult,
+                eventId,
+                new UpdateManualEventRequest(
+                        "Banquet updated",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        List.of(kidId),
+                        feedId));
+
+        verify(rideGuard, never()).requireNoActiveSpaceRides(any(), any());
+    }
+
+    @Test
+    void updatePropagatesRideConflictAsUnchecked() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID kidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ManualEventEntity event =
+                new ManualEventEntity(
+                        eventId,
+                        circleId,
+                        "Banquet",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        Instant.now());
+        event.setKidIds(Set.of(kidId));
+        event.setFeedId(feedId);
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(events.findByIdAndCircleId(eventId, circleId)).thenReturn(Optional.of(event));
+        org.mockito.Mockito.doThrow(new ManualEventRideConflictException("blocked"))
+                .when(rideGuard)
+                .requireNoActiveSpaceRides(circleId, "CAL:MANUAL:" + eventId);
+
+        assertThatThrownBy(
+                        () ->
+                                eventsService.update(
+                                        adult,
+                                        eventId,
+                                        new UpdateManualEventRequest(
+                                                "Banquet",
+                                                Instant.parse("2026-08-15T17:00:00Z"),
+                                                null,
+                                                null,
+                                                List.of(kidId),
+                                                null)))
+                .isInstanceOf(ManualEventRideConflictException.class);
+        verify(events, never()).save(any());
     }
 
     @Test

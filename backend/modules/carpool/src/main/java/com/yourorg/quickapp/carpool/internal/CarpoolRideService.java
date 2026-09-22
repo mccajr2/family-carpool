@@ -120,7 +120,7 @@ public class CarpoolRideService {
         requireValidRange(from, to);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         CarpoolSpaceEntity space = requireMemberSpace(spaceId, circleId);
-        List<SpaceRideEvent> events = spaceEvents(circleId, space, from, to);
+        List<SpaceRideEvent> events = spaceEventsForList(circleId, space, from, to);
         if (events.isEmpty()) {
             return List.of();
         }
@@ -1752,6 +1752,43 @@ public class CarpoolRideService {
         return spaceEvents(circleId, space, EVENT_LOOKUP_FROM, EVENT_LOOKUP_TO).stream()
                 .filter(event -> eventKey.equals(event.eventKey()))
                 .findFirst();
+    }
+
+    /**
+     * Viewer feed snapshots + this circle's linked manuals, plus other space
+     * members' linked manuals for the same URL (Carpool-tab Accept without
+     * Agenda fan-out).
+     */
+    private List<SpaceRideEvent> spaceEventsForList(
+            UUID viewerCircleId, CarpoolSpaceEntity space, Instant from, Instant to) {
+        List<SpaceRideEvent> out = new ArrayList<>(spaceEvents(viewerCircleId, space, from, to));
+        Set<String> seen =
+                out.stream().map(SpaceRideEvent::eventKey).collect(Collectors.toCollection(HashSet::new));
+        for (CarpoolMembershipEntity member :
+                memberships.findBySpaceIdOrderByCreatedAtAsc(space.id())) {
+            if (viewerCircleId.equals(member.circleId())) {
+                continue;
+            }
+            Optional<FeedResponse> feed =
+                    feedsApi.findByCircleAndNormalizedUrl(
+                            member.circleId(), space.normalizedSourceUrl());
+            if (feed.isEmpty()) {
+                continue;
+            }
+            String feedName = feed.get().name();
+            for (ManualCalendarEventDto manual :
+                    manualEventCalendarApi.listLinkedToFeedInRange(
+                            member.circleId(), feed.get().id(), from, to)) {
+                String key = ManualEventKey.of(manual.id());
+                if (seen.add(key)) {
+                    out.add(SpaceRideEvent.fromManual(manual, feedName));
+                }
+            }
+        }
+        out.sort(
+                Comparator.comparing(SpaceRideEvent::startsAt)
+                        .thenComparing(SpaceRideEvent::id));
+        return out;
     }
 
     private List<SpaceRideEvent> spaceEvents(

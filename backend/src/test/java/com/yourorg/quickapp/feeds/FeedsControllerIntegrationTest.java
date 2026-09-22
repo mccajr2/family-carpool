@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.yourorg.quickapp.PostgresTestcontainers;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -158,6 +159,105 @@ class FeedsControllerIntegrationTest {
         mockMvc.perform(get("/api/family/circle/feeds").header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void deletingFeedUnlinksManualEventsWithoutDeletingThem() throws Exception {
+        String organizerToken = signIn("feeds-unlink-org@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        String kidId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/kids")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content("{\"displayName\":\"Sam\"}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        String feedId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/feeds")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"name\":\"U12\",\"sourceUrl\":\"https://example.com/feeds-unlink.ics\",\"kidIds\":[\""
+                                                                + kidId
+                                                                + "\"]}"))
+                                .andExpect(status().isCreated())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        String eventId =
+                JsonPath.read(
+                        mockMvc.perform(
+                                        post("/api/family/circle/events")
+                                                .header(
+                                                        HttpHeaders.AUTHORIZATION,
+                                                        bearer(organizerToken))
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(
+                                                        "{\"title\":\"Banquet\",\"startsAt\":\"2026-08-20T18:00:00Z\",\"kidIds\":[\""
+                                                                + kidId
+                                                                + "\"],\"feedId\":\""
+                                                                + feedId
+                                                                + "\"}"))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.feedId").value(feedId))
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString(),
+                        "$.id");
+
+        mockMvc.perform(
+                        delete("/api/family/circle/feeds/" + feedId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(
+                        get("/api/family/circle/events/" + eventId)
+                                .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Banquet"))
+                .andExpect(jsonPath("$.feedId").value(org.hamcrest.Matchers.nullValue()));
+
+        MvcResult calendar =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .param("from", "2026-08-01T00:00:00Z")
+                                        .param("to", "2026-09-01T00:00:00Z")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        @SuppressWarnings("unchecked")
+        List<Object> eventKeys =
+                JsonPath.read(
+                        calendar.getResponse().getContentAsString(),
+                        "$[?(@.id=='" + eventId + "')].eventKey");
+        @SuppressWarnings("unchecked")
+        List<Object> feedIds =
+                JsonPath.read(
+                        calendar.getResponse().getContentAsString(),
+                        "$[?(@.id=='" + eventId + "')].feedId");
+        org.assertj.core.api.Assertions.assertThat(eventKeys).containsExactly((Object) null);
+        org.assertj.core.api.Assertions.assertThat(feedIds).containsExactly((Object) null);
     }
 
     @Test
