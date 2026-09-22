@@ -1,6 +1,6 @@
 # Spec stub: drive-block-linked-manual
 
-Status: planned  
+Status: parking  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-09-21  
 Added: 2026-09-21 · enhancement
@@ -28,23 +28,30 @@ separate Agenda card and route even when both rows show You're driving.
 - Standalone manuals (`feedId` null) joining FEED blocks
 - Changing ADR-0004 merge rules (gap / buffer / FORCE_MERGE|SPLIT) beyond
   which item sources are eligible
+- Travel-impossibility merge / early-leave (`drive-block-home-hop-merge`,
+  `drive-block-early-leave-late-arrive`)
+- Relative compose timing (`manual-event-relative-timing`) — may later
+  strengthen “associated with” beyond clock proximity
 - `agenda-block-api` / RN block chrome
 
 ## Notes
 
-- **Depends on** [`manual-event-team-link`](../active/manual-event-team-link.md)
-  (linked MANUAL has `feedId` + `eventKey` `CAL:MANUAL:{id}` + FEED-parity
-  carpool). Do not `/spec` until that ships (or is on the same branch only if
-  explicitly combining — prefer separate PR).
+- **Parked 2026-09-21** — manuals remain useful without this; promote only
+  when the drive-block intelligence cluster is ready to design (not Next up
+  solely for Extra-Practice → outing dogfood).
+- **Depends on** archived
+  [`manual-event-team-link`](../archive/manual-event-team-link.md) (linked
+  MANUAL has `feedId` + `eventKey` `CAL:MANUAL:{id}` + FEED-parity carpool).
 - Hotspots: `DriveBlockEnricher` (FEED-only filter + coverage CONFIRMED → TO),
   `DriveBlockRouteResolver` (FEED-only), `CarpoolApi.listConfirmedDrivingLegs`
   (today keyed as feed event ids — needs MANUAL + `CAL:MANUAL:{id}` plans /
   confirmed legs), leave-by venue reads for MANUAL destinations, web Agenda
   block grouping (already source-agnostic over `driveBlockLinks` once server
   emits them).
-- Dogfood case that promoted this: Extra-Practice (FEED) → Aeronaut Outing
-  (linked MANUAL), same SHARKS team, same Declan / same household PLAN, ~10
-  min gap around the corner in Somerville.
-- Same-feed filter? Prefer “same circle feed id” (or matching space) so a
-  dentist after practice does not merge; confirm at `/spec`.
+- Dogfood case: Extra-Practice (FEED) → Aeronaut Outing (linked MANUAL), same
+  SHARKS team, same Declan / same household PLAN, ~10 min gap around the
+  corner in Somerville.
+- Same-feed filter? Prefer “same circle feed id” so a dentist after practice
+  does not merge; confirm at `/spec`. Explicit association via
+  `manual-event-relative-timing` is a later strengthening path.
 - **Web first.**
