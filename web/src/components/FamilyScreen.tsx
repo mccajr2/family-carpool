@@ -303,12 +303,14 @@ export function FamilyScreen({
   const [newEventEndsAt, setNewEventEndsAt] = useState("")
   const [newEventLocation, setNewEventLocation] = useState("")
   const [newEventKidIds, setNewEventKidIds] = useState<string[]>([])
+  const [newEventFeedId, setNewEventFeedId] = useState<string | null>(null)
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [editingEventTitle, setEditingEventTitle] = useState("")
   const [editingEventStartsAt, setEditingEventStartsAt] = useState("")
   const [editingEventEndsAt, setEditingEventEndsAt] = useState("")
   const [editingEventLocation, setEditingEventLocation] = useState("")
   const [editingEventKidIds, setEditingEventKidIds] = useState<string[]>([])
+  const [editingEventFeedId, setEditingEventFeedId] = useState<string | null>(null)
   const [editingEventLeaveFromPlaceId, setEditingEventLeaveFromPlaceId] = useState("")
   const [destination, setDestination] = useState<ShellDestination>("calendar")
   /** Calendar overlay: open ride-detail for this item key. */
@@ -887,6 +889,10 @@ export function FamilyScreen({
               setInviteCode(null)
             }
           }
+        } else {
+          setInviteCode(null)
+        }
+        if (loaded) {
           try {
             const loadedFeeds = await familyClient.listFeeds(token)
             if (!cancelled) {
@@ -899,8 +905,7 @@ export function FamilyScreen({
               setFeeds([])
             }
           }
-        } else {
-          setInviteCode(null)
+        } else if (!cancelled) {
           setFeeds([])
         }
         if (!cancelled && loaded && adultId) {
@@ -1902,6 +1907,7 @@ export function FamilyScreen({
         newEventKidIds,
         endsAt,
         newEventLocation.trim() ? newEventLocation.trim() : null,
+        newEventFeedId,
       )
       const nextTo = ensureCalendarWindowCovers(calendarLoadedTo, startsAt)
       setCalendarLoadedTo(nextTo)
@@ -1911,6 +1917,7 @@ export function FamilyScreen({
       setNewEventEndsAt("")
       setNewEventLocation("")
       setNewEventKidIds([])
+      setNewEventFeedId(null)
       setEventComposeOpen(false)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -1942,6 +1949,7 @@ export function FamilyScreen({
         editingEventKidIds,
         endsAt,
         editingEventLocation.trim() ? editingEventLocation.trim() : null,
+        editingEventFeedId,
       )
       const originalItem = calendarItems.find(
         (row) => row.source === "MANUAL" && row.id === eventId,
@@ -1964,6 +1972,7 @@ export function FamilyScreen({
       setEditingEventEndsAt("")
       setEditingEventLocation("")
       setEditingEventKidIds([])
+      setEditingEventFeedId(null)
       setEditingEventLeaveFromPlaceId("")
       setEventComposeOpen(false)
       setStatus({ kind: "idle" })
@@ -2669,7 +2678,7 @@ export function FamilyScreen({
           { status: write.status },
         )
         byItemKey.set(key, updated)
-        if (write.status === "NO" && current.source === "FEED") {
+        if (write.status === "NO" && (current.source === "FEED" || current.feedId != null)) {
           touchedFeed = true
         }
       }
@@ -2693,6 +2702,7 @@ export function FamilyScreen({
     setEditingEventEndsAt(item.endsAt ? toDatetimeLocalValue(item.endsAt) : "")
     setEditingEventLocation(item.location ?? "")
     setEditingEventKidIds([...item.kidIds])
+    setEditingEventFeedId(item.feedId)
     setEditingEventLeaveFromPlaceId(item.leaveFromPlaceId ?? "")
     setEventComposeOpen(true)
   }
@@ -3473,12 +3483,14 @@ export function FamilyScreen({
                 setEditingEventEndsAt("")
                 setEditingEventLocation("")
                 setEditingEventKidIds([])
+                setEditingEventFeedId(null)
                 setEditingEventLeaveFromPlaceId("")
                 setNewEventTitle("")
                 setNewEventStartsAt(defaultNewEventStartsLocal())
                 setNewEventEndsAt("")
                 setNewEventLocation("")
                 setNewEventKidIds([])
+                setNewEventFeedId(null)
                 setEventComposeOpen(true)
               }}
               disabled={status.kind === "loading"}
@@ -4191,6 +4203,26 @@ export function FamilyScreen({
                     placeholder="Location (optional)"
                     disabled={status.kind === "loading"}
                   />
+                  {feeds.length > 0 ? (
+                    <FieldRow label="Team">
+                      <select
+                        aria-label="Team"
+                        className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                        value={editingEventFeedId ?? ""}
+                        onChange={(e) =>
+                          setEditingEventFeedId(e.target.value === "" ? null : e.target.value)
+                        }
+                        disabled={status.kind === "loading"}
+                      >
+                        <option value="">Standalone (family only)</option>
+                        {feeds.map((feed) => (
+                          <option key={feed.id} value={feed.id}>
+                            {feed.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldRow>
+                  ) : null}
                   <FieldRow label="Leave from">
                     {locatedPlaces.length <= 1 ? (
                       <span className="text-sm font-medium">
@@ -4288,6 +4320,7 @@ export function FamilyScreen({
                         setEditingEventEndsAt("")
                         setEditingEventLocation("")
                         setEditingEventKidIds([])
+                        setEditingEventFeedId(null)
                         setEditingEventLeaveFromPlaceId("")
                       }}
                       disabled={status.kind === "loading"}
@@ -4340,6 +4373,26 @@ export function FamilyScreen({
                     placeholder="Location (optional)"
                     disabled={status.kind === "loading"}
                   />
+                  {feeds.length > 0 ? (
+                    <FieldRow label="Team">
+                      <select
+                        aria-label="Team"
+                        className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                        value={newEventFeedId ?? ""}
+                        onChange={(e) =>
+                          setNewEventFeedId(e.target.value === "" ? null : e.target.value)
+                        }
+                        disabled={status.kind === "loading"}
+                      >
+                        <option value="">Standalone (family only)</option>
+                        {feeds.map((feed) => (
+                          <option key={feed.id} value={feed.id}>
+                            {feed.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldRow>
+                  ) : null}
                   {circle.kids.length > 0 ? (
                     <fieldset className="flex flex-col gap-1">
                       <legend className="text-xs text-muted-foreground">Kids on event</legend>
@@ -4398,6 +4451,7 @@ export function FamilyScreen({
                         setNewEventEndsAt("")
                         setNewEventLocation("")
                         setNewEventKidIds([])
+                        setNewEventFeedId(null)
                       }}
                       disabled={status.kind === "loading"}
                     >

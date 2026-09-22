@@ -52,7 +52,24 @@ describe("rsvpDisplay", () => {
     ).toBe("NO_RESPONSE")
   })
 
-  it("lists going kids excluding RSVP NO", () => {
+  it("lists going kids excluding RSVP NO on FEED (NO_RESPONSE still going)", () => {
+    expect(
+      goingKidIdsForItem({
+        ...item({
+          id: "e1",
+          kidIds: ["k1", "k2", "k3"],
+          rsvps: [
+            { kidId: "k1", status: "YES" },
+            { kidId: "k2", status: "NO" },
+            { kidId: "k3", status: "NO_RESPONSE" },
+          ],
+        }),
+        source: "FEED",
+      }),
+    ).toEqual(["k1", "k3"])
+  })
+
+  it("lists going kids as YES-only on MANUAL", () => {
     expect(
       goingKidIdsForItem(
         item({
@@ -65,7 +82,7 @@ describe("rsvpDisplay", () => {
           ],
         }),
       ),
-    ).toEqual(["k1", "k3"])
+    ).toEqual(["k1"])
   })
 
   it("treats omitted rsvps array (stale cache) as NO_RESPONSE", () => {
@@ -73,7 +90,9 @@ describe("rsvpDisplay", () => {
     // Simulate pre-RSVP localStorage rows that never had the field.
     delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
     expect(rsvpStatusForKid(stale, "k1")).toBe("NO_RESPONSE")
-    expect(isAgendaItemOutOfPlay(stale)).toBe(false)
+    // MANUAL helper defaults source MANUAL on this fixture → opt-in out of play.
+    expect(isAgendaItemOutOfPlay(stale)).toBe(true)
+    expect(isAgendaItemOutOfPlay({ ...stale, source: "FEED" })).toBe(false)
   })
 
   it("marks one-kid No and all-No as out of play", () => {

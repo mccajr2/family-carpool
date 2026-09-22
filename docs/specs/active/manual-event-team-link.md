@@ -192,7 +192,7 @@ planned stubs.
 - [x] **Contract:** OpenAPI `feedId` on manual event schemas; `CalendarItem`
       + calendar GET descriptions for linked MANUAL `feedId`/`eventKey`;
       web types + `familyClient` create/update bodies. No party-size field
-- [ ] **Web:** compose Team select; `matchCalendarItemToRideEvent` allows
+- [x] **Web:** compose Team select; `matchCalendarItemToRideEvent` allows
       MANUAL with member/owner `feedId` (exact key); source-aware
       `mapRsvpToAttendance` / `goingKidIdsForItem` (MANUAL YES-only); no
       new tokens

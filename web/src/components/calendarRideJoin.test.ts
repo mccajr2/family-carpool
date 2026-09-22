@@ -143,7 +143,7 @@ describe("matchCalendarItemToRideEvent", () => {
   const practice = rideEvent()
   const rides = new Map<string, CarpoolRideEvent[]>([["s1", [practice]]])
 
-  it("returns null for MANUAL and non-member feeds", () => {
+  it("returns null for standalone MANUAL and non-member feeds", () => {
     expect(
       matchCalendarItemToRideEvent(
         item({
@@ -166,6 +166,55 @@ describe("matchCalendarItemToRideEvent", () => {
         }),
         spaceIds,
         rides,
+      ),
+    ).toBeNull()
+  })
+
+  it("matches linked MANUAL by exact eventKey on member/owner feed", () => {
+    const banquet = rideEvent({
+      eventKey: "CAL:MANUAL:m1",
+      title: "Banquet",
+      startsAt: "2026-08-22T18:00:00Z",
+    })
+    const banquetRides = new Map<string, CarpoolRideEvent[]>([["s1", [banquet]]])
+
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "MANUAL",
+          feedId: "f1",
+          title: "Banquet",
+          startsAt: "2026-08-22T18:00:00Z",
+          eventKey: "CAL:MANUAL:m1",
+        }),
+        spaceIds,
+        banquetRides,
+      ),
+    ).toBe(banquet)
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "MANUAL",
+          feedId: "f1",
+          title: "Banquet",
+          startsAt: "2026-08-22T18:00:00Z",
+          eventKey: null,
+        }),
+        spaceIds,
+        banquetRides,
+      ),
+    ).toBeNull()
+    expect(
+      matchCalendarItemToRideEvent(
+        item({
+          source: "MANUAL",
+          feedId: "f2",
+          title: "Banquet",
+          startsAt: "2026-08-22T18:00:00Z",
+          eventKey: "CAL:MANUAL:m1",
+        }),
+        spaceIds,
+        banquetRides,
       ),
     ).toBeNull()
   })

@@ -47,6 +47,7 @@ function heroSlideIn(agenda: HTMLElement, title?: string) {
 function mockFamilyClient(partial: Partial<FamilyClient>): FamilyClient {
   return {
     listCalendarLeaveBy: vi.fn().mockResolvedValue([]),
+    listFeeds: vi.fn().mockResolvedValue([]),
     getCalendarRoute: vi.fn().mockResolvedValue({
       status: "OK",
       reason: null,
@@ -180,7 +181,9 @@ function calendarItem(
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
-    rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "NO_RESPONSE" as const })),
+    // Default YES so MANUAL fixtures stay in-play for coverage/hero tests.
+    // Opt-in NO_RESPONSE cases set rsvps explicitly.
+    rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
     driveBlockLinks: [],
     ...partial,
   }
@@ -718,6 +721,7 @@ describe("FamilyScreen", () => {
         endsAt: created.endsAt,
         location: created.location,
         kidIds: created.kidIds,
+        feedId: null,
       }
     })
     const deleteEvent = vi.fn().mockImplementation(async () => {
@@ -796,6 +800,7 @@ describe("FamilyScreen", () => {
       ["k1"],
       expect.stringMatching(/2030-08-15T/),
       "Clinic",
+      null,
     )
     expect(screen.queryByRole("dialog", { name: "Add event" })).not.toBeInTheDocument()
 
@@ -806,6 +811,131 @@ describe("FamilyScreen", () => {
       expect(within(agenda).queryByText("Dentist")).not.toBeInTheDocument()
     })
     expect(deleteEvent).toHaveBeenCalledWith("tok", "e1")
+  })
+
+  it("shows Team select when feeds exist and round-trips feedId", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const linked = calendarItem({
+      id: "e-banquet",
+      source: "MANUAL",
+      title: "Banquet",
+      startsAt: "2030-08-16T18:00:00.000Z",
+      endsAt: null,
+      location: null,
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "CAL:MANUAL:e-banquet",
+    })
+    let calendar: CalendarItem[] = []
+    const createEvent = vi.fn().mockImplementation(async (_t, _title, _s, _kids, _e, _loc, feedId) => {
+      calendar = [{ ...linked, feedId: feedId ?? null }]
+      return {
+        id: linked.id,
+        title: linked.title,
+        startsAt: linked.startsAt,
+        endsAt: linked.endsAt,
+        location: linked.location,
+        kidIds: linked.kidIds,
+        feedId: feedId ?? null,
+      }
+    })
+    const updateEvent = vi.fn().mockImplementation(async (_t, _id, title, _s, _kids, _e, _loc, feedId) => {
+      calendar = [{ ...linked, title, feedId: feedId ?? null }]
+      return {
+        id: linked.id,
+        title,
+        startsAt: linked.startsAt,
+        endsAt: linked.endsAt,
+        location: linked.location,
+        kidIds: linked.kidIds,
+        feedId: feedId ?? null,
+      }
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "ABCD1234" }),
+          listFeeds: vi.fn().mockResolvedValue([
+            {
+              id: "f1",
+              name: "U12",
+              sourceUrl: "https://example.com/u12.ics",
+              kidIds: ["k1"],
+              lastSyncedAt: null,
+              lastSyncError: null,
+              eventCount: 0,
+            },
+          ]),
+          listCalendar: vi.fn().mockImplementation(async () => [...calendar]),
+          createEvent,
+          updateEvent,
+        })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    const agenda = await screen.findByLabelText("Agenda")
+    await user.click(screen.getByRole("button", { name: "Add event" }))
+    const compose = await screen.findByRole("dialog", { name: "Add event" })
+    expect(within(compose).getByLabelText("Team")).toBeInTheDocument()
+    expect(within(compose).getByLabelText("Team")).toHaveDisplayValue("Standalone (family only)")
+    await user.type(within(compose).getByLabelText("Event title"), "Banquet")
+    await user.selectOptions(within(compose).getByLabelText("Team"), "f1")
+    await user.click(within(compose).getByLabelText("Assign Sam to event"))
+    await user.click(within(compose).getByRole("button", { name: "Save" }))
+
+    expect(createEvent).toHaveBeenCalledWith(
+      "tok",
+      "Banquet",
+      expect.any(String),
+      ["k1"],
+      null,
+      null,
+      "f1",
+    )
+    expect(await within(agenda).findByText("Banquet")).toBeInTheDocument()
+
+    await editAgendaItemById(user, agenda, "agenda-item-MANUAL-e-banquet")
+    const edit = await screen.findByRole("dialog", { name: "Edit event" })
+    expect(within(edit).getByLabelText("Team")).toHaveDisplayValue("U12")
+    await user.selectOptions(within(edit).getByLabelText("Team"), "")
+    await user.click(within(edit).getByRole("button", { name: "Save" }))
+    expect(updateEvent).toHaveBeenCalledWith(
+      "tok",
+      "e-banquet",
+      "Banquet",
+      expect.any(String),
+      ["k1"],
+      null,
+      null,
+      null,
+    )
   })
 
   it("cancels edit compose without updating the event", async () => {
@@ -1039,6 +1169,7 @@ describe("FamilyScreen", () => {
       ["k1"],
       expect.stringMatching(/2030-08-15T/),
       "Ortho",
+      null,
     )
     expect(screen.queryByRole("dialog", { name: "Edit event" })).not.toBeInTheDocument()
   })

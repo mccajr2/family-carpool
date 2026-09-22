@@ -145,6 +145,12 @@ class FeedsControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2));
 
         mockMvc.perform(
+                        get("/api/family/circle/feeds")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(caregiverToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        mockMvc.perform(
                         delete("/api/family/circle/feeds/" + feedId)
                                 .header(HttpHeaders.AUTHORIZATION, bearer(organizerToken)))
                 .andExpect(status().isNoContent());

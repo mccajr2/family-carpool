@@ -1087,9 +1087,10 @@ describe("mapCalendarItemToCoverageGames", () => {
     })
   })
 
-  it("maps NO_RESPONSE and missing RSVP rows to going attendance", () => {
+  it("maps NO_RESPONSE and missing RSVP rows to going attendance on FEED", () => {
     const withNoResponse = mapCalendarItemToCoverageGames(
       calendarItem({
+        source: "FEED",
         kidIds: ["k1"],
         rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
         uncoveredKidIds: ["k1"],
@@ -1100,6 +1101,7 @@ describe("mapCalendarItemToCoverageGames", () => {
     expect(withNoResponse[0]?.attendance).toBe("going")
 
     const stale = calendarItem({
+      source: "FEED",
       kidIds: ["k1"],
       rsvps: [],
       driveBlockLinks: [],
@@ -1108,6 +1110,20 @@ describe("mapCalendarItemToCoverageGames", () => {
     delete (stale as { rsvps?: CalendarItem["rsvps"] }).rsvps
     const withoutRow = mapCalendarItemToCoverageGames(stale, null, mapOptions)
     expect(withoutRow[0]?.attendance).toBe("going")
+  })
+
+  it("maps NO_RESPONSE to not_going attendance on MANUAL", () => {
+    const rows = mapCalendarItemToCoverageGames(
+      calendarItem({
+        source: "MANUAL",
+        kidIds: ["k1"],
+        rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+        uncoveredKidIds: [],
+      }),
+      null,
+      mapOptions,
+    )
+    expect(rows[0]?.attendance).toBe("not_going")
   })
 
   it("maps pending household confirm and requested own rides from API shapes", () => {

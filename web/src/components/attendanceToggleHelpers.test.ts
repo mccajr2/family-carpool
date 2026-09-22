@@ -27,5 +27,8 @@ describe("attendance toggle helpers", () => {
     expect(mapRsvpToAttendance("YES")).toBe("going")
     expect(mapRsvpToAttendance("NO_RESPONSE")).toBe("going")
     expect(mapRsvpToAttendance("NO")).toBe("not_going")
+    expect(mapRsvpToAttendance("YES", "MANUAL")).toBe("going")
+    expect(mapRsvpToAttendance("NO_RESPONSE", "MANUAL")).toBe("not_going")
+    expect(mapRsvpToAttendance("NO", "MANUAL")).toBe("not_going")
   })
 })

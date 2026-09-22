@@ -1,4 +1,4 @@
-import type { CalendarItem, RsvpStatus } from "@/api/types"
+import type { CalendarItem, CalendarItemSource, RsvpStatus } from "@/api/types"
 
 export function rsvpStatusLabel(status: RsvpStatus): string {
   switch (status) {
@@ -16,17 +16,33 @@ export function rsvpStatusForKid(item: CalendarItem, kidId: string): RsvpStatus 
   return (item.rsvps ?? []).find((row) => row.kidId === kidId)?.status ?? "NO_RESPONSE"
 }
 
-/** In-play kids on the item (not RSVP NO). Simple coverage/attendance uses this bag. */
-export function goingKidIdsForItem(item: CalendarItem): string[] {
-  return item.kidIds.filter((kidId) => rsvpStatusForKid(item, kidId) !== "NO")
+/**
+ * FEED (ADR-0003): missing / NO_RESPONSE counts as going. MANUAL is opt-in:
+ * only explicit YES counts as going.
+ */
+export function isGoingRsvp(
+  status: RsvpStatus,
+  source: CalendarItemSource = "FEED",
+): boolean {
+  if (source === "MANUAL") {
+    return status === "YES"
+  }
+  return status !== "NO"
 }
 
-/** Out of play when every kid on the item is RSVP No (includes one-kid No). */
+/** In-play kids on the item (source-aware going bag). */
+export function goingKidIdsForItem(item: CalendarItem): string[] {
+  return item.kidIds.filter((kidId) =>
+    isGoingRsvp(rsvpStatusForKid(item, kidId), item.source),
+  )
+}
+
+/** Out of play when no kid is going (source-aware). */
 export function isAgendaItemOutOfPlay(item: CalendarItem): boolean {
   if (item.kidIds.length === 0) {
     return false
   }
-  return item.kidIds.every((kidId) => rsvpStatusForKid(item, kidId) === "NO")
+  return goingKidIdsForItem(item).length === 0
 }
 
 export function kidHasActiveCoverage(item: CalendarItem, kidId: string): boolean {
