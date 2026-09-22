@@ -30,6 +30,10 @@ Sharks practice ends”) and an **open-ended / no-fixed-end** flag.
 
 - This is a **compose/scheduling** concern (same surface as
   `agenda-event-compose`), not a carpool identity slice. Same-feed anchor
-  may depend on `manual-event-team-link` when the one-off is team-linked,
-  but standalone relative-to-another-manual is in play too.
+  may depend on archived `manual-event-team-link` when the one-off is
+  team-linked, but standalone relative-to-another-manual is in play too.
+- Explicit “starts after practice” association may later strengthen
+  parking [`drive-block-linked-manual`](drive-block-linked-manual.md)
+  beyond clock proximity — keep compose and merge eligibility as separate
+  PRs.
 - **Web first.**
