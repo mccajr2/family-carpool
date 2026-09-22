@@ -181,8 +181,8 @@ function calendarItem(
     coverages: [],
     uncoveredKidIds: [],
     conflicts: [],
-    // Default YES so MANUAL fixtures stay in-play for coverage/hero tests.
-    // Opt-in NO_RESPONSE cases set rsvps explicitly.
+    // Default YES keeps older fixtures explicit; missing / NO_RESPONSE also
+    // counts as going for MANUAL and FEED (ADR-0003). Override rsvps when needed.
     rsvps: partial.kidIds.map((kidId) => ({ kidId, status: "YES" as const })),
     driveBlockLinks: [],
     ...partial,
@@ -2401,6 +2401,136 @@ describe("FamilyScreen", () => {
     await waitFor(() => {
       expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
         eventKey: "UID:practice-1",
+        plans: [
+          {
+            kidIds: ["k1"],
+            legs: [
+              { kind: "TO", action: "ASK_TEAM", meetSide: "REQUESTER" },
+              { kind: "FROM", action: "ASK_TEAM", meetSide: "REQUESTER" },
+            ],
+          },
+        ],
+      })
+    })
+  })
+
+  it("asks the team from hero for linked MANUAL with NO_RESPONSE (FEED parity)", async () => {
+    const user = userEvent.setup()
+    const session = new AuthSessionHolder()
+    session.setSession("tok", {
+      id: "1",
+      email: "parent@example.com",
+      displayName: "Alex",
+    })
+
+    const linked = calendarItem({
+      id: "e-banquet",
+      source: "MANUAL",
+      title: "Banquet",
+      startsAt: "2030-08-15T18:00:00.000Z",
+      kidIds: ["k1"],
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "CAL:MANUAL:e-banquet",
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "NO_RESPONSE" }],
+    })
+    const listRides = vi.fn().mockResolvedValue([
+      {
+        eventKey: "CAL:MANUAL:e-banquet",
+        title: "Banquet",
+        startsAt: "2030-08-15T18:00:00.000Z",
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        otherRequests: [],
+      },
+    ])
+    const saveRidePlan = vi.fn().mockResolvedValue({
+      ownRequests: [],
+      ownRequest: null,
+      ownLegs: null,
+    })
+    const getSummary = vi.fn().mockResolvedValue({
+      circleRole: "ORGANIZER",
+      feeds: [
+        {
+          feedId: "f1",
+          feedName: "U12",
+          status: "OWNER",
+          spaceId: "s1",
+          spaceName: "U12",
+        },
+      ],
+      spaces: [
+        {
+          id: "s1",
+          name: "U12",
+          membership: "OWNER",
+          inviteCode: "AB12CD34",
+          callerFeedId: "f1",
+          members: [{ circleId: "c1", circleName: "House", membership: "OWNER" }],
+          pendingRequests: [],
+        },
+      ],
+    })
+
+    render(
+      <FamilyScreen
+        now={AGENDA_TEST_NOW}
+        session={session}
+        familyClient={mockFamilyClient({
+          getCircle: vi.fn().mockResolvedValue({
+            id: "c1",
+            name: "House",
+            role: "ORGANIZER",
+            members: [
+              {
+                adultId: "1",
+                email: "parent@example.com",
+                displayName: "Alex",
+                role: "ORGANIZER",
+              },
+            ],
+            kids: [{ id: "k1", displayName: "Sam" }],
+            places: [
+              {
+                id: "p1",
+                name: "Home",
+                address: "1 Main",
+                latitude: 40,
+                longitude: -74,
+              },
+            ],
+          }),
+          getInvite: vi.fn().mockResolvedValue({ code: "AB12CD34" }),
+          listFeeds: vi.fn().mockResolvedValue([]),
+          listCalendar: vi.fn().mockResolvedValue([linked]),
+        })}
+        carpoolClient={mockCarpoolClient({ getSummary, listRides, saveRidePlan })}
+        onSignedOut={vi.fn()}
+      />,
+    )
+
+    expect(await findCalendarPageHeading()).toBeInTheDocument()
+    const agenda = await screen.findByLabelText("Agenda")
+    const focus = heroSlideIn(agenda)
+    expect(within(focus).getByText("Sam needs a ride")).toBeInTheDocument()
+    expect(within(agenda).getByTestId("agenda-row-MANUAL-e-banquet")).toHaveTextContent(
+      "Ride needed",
+    )
+    await waitFor(() => {
+      expect(within(agenda).getByTestId("agenda-item-MANUAL-e-banquet")).toHaveAttribute(
+        "data-carpool-ride-key",
+        "CAL:MANUAL:e-banquet",
+      )
+    })
+    await user.click(within(focus).getByRole("button", { name: "Ask the team" }))
+    await user.click(within(focus).getByRole("button", { name: "Post to team — round trip" }))
+
+    await waitFor(() => {
+      expect(saveRidePlan).toHaveBeenCalledWith("tok", "s1", {
+        eventKey: "CAL:MANUAL:e-banquet",
         plans: [
           {
             kidIds: ["k1"],

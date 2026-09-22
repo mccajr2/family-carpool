@@ -1,9 +1,10 @@
 # Spec: manual-event-team-link
 
-Status: draft
+Status: done
 Created: 2026-08-13
 Promoted: 2026-09-17 · `/spec`
 Updated: 2026-09-21 · amend — FEED-parity when linked + revert MANUAL opt-in
+Completed: 2026-09-21 · `/pr`
 Parent: [docs/roadmap.md](../../roadmap.md)
 Added: 2026-08-13 · re-rank split
 Branch: `manual-event-team-link`
@@ -162,42 +163,42 @@ planned stubs.
 
 ## Acceptance criteria
 
-- [ ] Create a manual event with `feedId` of a circle feed: response and
+- [x] Create a manual event with `feedId` of a circle feed: response and
       calendar row include that `feedId`/`feedName` and `eventKey`
       `CAL:MANUAL:{id}`; source stays `MANUAL`. Omit/`null` `feedId` keeps
       today’s standalone row (`eventKey` null).
-- [ ] Create/update with a `feedId` that is not a feed in this circle →
+- [x] Create/update with a `feedId` that is not a feed in this circle →
       **400**. Caregiver create with a valid `feedId` succeeds (any-member
       write). When `feedId` is set, response **`kidIds` = that feed’s linked
       kids** (server-derived); feed with zero kids → **400**. Standalone
       create still requires **1+ client `kidIds`** (any circle kids).
-- [ ] Web Add/Edit compose shows **Team** when the circle has feeds
+- [x] Web Add/Edit compose shows **Team** when the circle has feeds
       (Standalone default + feed names); saving Standalone vs a named team
       round-trips `feedId`. **Team selected → no kid picker**; create/update
       does not require checking kids. No feeds → no Team control; standalone
       kid picker still works.
-- [ ] When that feed has a MEMBER/OWNER space, Agenda/Focus/Hero treat the
+- [x] When that feed has a MEMBER/OWNER space, Agenda/Focus/Hero treat the
       linked manual like a **FEED** row for carpool: default ask ride,
       status / reverse-action chrome, and **split ride plan** (per-kid /
       per-leg) via exact `eventKey` join. Standalone manuals still have no
       team Ask chrome.
-- [ ] `listRides` for that space includes the linked manual in the window;
+- [x] `listRides` for that space includes the linked manual in the window;
       another space member can Accept from the Carpool tab. The accepter’s
       Agenda does **not** gain a new calendar row.
-- [ ] Ride default kids on a linked manual are the **feed roster kids** on
+- [x] Ride default kids on a linked manual are the **feed roster kids** on
       the event who are **not RSVP NO** (same in-play bag as FEED — includes
       missing / `NO_RESPONSE`). RSVP **not going** (`NO`) still clears that
       kid’s transport like FEED. Zero in-play kids → ride create **400**.
-- [ ] On `source=MANUAL`, missing / `NO_RESPONSE` reads as **going** (same
+- [x] On `source=MANUAL`, missing / `NO_RESPONSE` reads as **going** (same
       as FEED): Hero / queue show Ride needed for uncovered kids; Agenda
       chip is Ride needed, not “marked not going.” Marking going still
       persists `YES`; marking not going persists `NO`.
-- [ ] Update that clears or changes `feedId` while a space-scoped
+- [x] Update that clears or changes `feedId` while a space-scoped
       PENDING/ACCEPTED ride exists for that `eventKey` → **409**; household
       PLAN-only does not block. Deleting a linked manual cancels this
       circle’s active plans for the key. Deleting the feed unlinks remaining
       manuals (they become standalone); it does not delete them.
-- [ ] Enable carpool on the feed attaches matching null-space PLANs whose
+- [x] Enable carpool on the feed attaches matching null-space PLANs whose
       `eventKey` is `CAL:MANUAL:{id}` for manuals linked to that feed, same
       as feed-snapshot keys.
 
@@ -226,7 +227,7 @@ planned stubs.
 - [x] **Tests (link):** events/calendar/carpool for link / 400 unknown feed /
       409 / listRides + peer Accept / Enable-attach / feed-delete unlink;
       web Team round-trip; `calendarRideJoin` MANUAL+feedId; Caregiver path
-- [ ] **Tests (amend):** server derives linked `kidIds` from feed; compose
+- [x] **Tests (amend):** server derives linked `kidIds` from feed; compose
       hides kid picker when Team set; FEED-parity ride/plan paths for linked
       MANUAL; default-going / Ride needed; remove YES-only assertions. No
       new Playwright e2e
@@ -239,8 +240,9 @@ planned stubs.
   still required for Ask-the-team.
 - No teammate Agenda fan-out this PR. If dogfood hates Carpool-tab-only
   Accept for one-offs, that is a follow-up slice (do not sneak it in).
-- Driving-block merge of linked manuals stays out; revisit only if a banquet
-  needs to sit in a same-day FEED block.
+- Driving-block merge of linked manuals → planned
+  [`drive-block-linked-manual`](../planned/drive-block-linked-manual.md)
+  (dogfood: practice → same-team outing).
 - **RSVP polarity:** manuals stay default-going with FEED. “No RSVP → assume
   NO” is reserved for a future reservation / headcount slice — not a silent
   extension of team-link.

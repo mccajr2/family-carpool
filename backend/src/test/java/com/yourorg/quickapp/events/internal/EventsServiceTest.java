@@ -487,6 +487,59 @@ class EventsServiceTest {
     }
 
     @Test
+    void updateWithFeedIdDerivesKidIdsFromFeedRoster() {
+        UUID adultId = UUID.randomUUID();
+        UUID circleId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID staleKidId = UUID.randomUUID();
+        UUID feedKidId = UUID.randomUUID();
+        UUID feedId = UUID.randomUUID();
+        AdultResponse adult = new AdultResponse(adultId, "a@example.com", "Alex");
+        ManualEventEntity event =
+                new ManualEventEntity(
+                        eventId,
+                        circleId,
+                        "Banquet",
+                        Instant.parse("2026-08-15T17:00:00Z"),
+                        null,
+                        null,
+                        Instant.now());
+        event.setKidIds(Set.of(staleKidId));
+        event.setFeedId(null);
+        when(familyMembershipApi.requireMemberCircleId(adultId)).thenReturn(circleId);
+        when(events.findByIdAndCircleId(eventId, circleId)).thenReturn(Optional.of(event));
+        when(feedsApi.listByCircle(circleId))
+                .thenReturn(
+                        List.of(
+                                new FeedResponse(
+                                        feedId,
+                                        "U12",
+                                        "https://example.com/u12.ics",
+                                        List.of(feedKidId),
+                                        null,
+                                        null,
+                                        0)));
+        when(events.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response =
+                eventsService.update(
+                        adult,
+                        eventId,
+                        new UpdateManualEventRequest(
+                                "Banquet",
+                                Instant.parse("2026-08-15T17:00:00Z"),
+                                null,
+                                null,
+                                List.of(staleKidId),
+                                feedId));
+
+        assertThat(response.feedId()).isEqualTo(feedId);
+        assertThat(response.kidIds()).containsExactly(feedKidId);
+        verify(familyMembershipApi).requireKidsInCircle(circleId, Set.of(feedKidId));
+        verify(familyMembershipApi, never()).requireKidsInCircle(circleId, Set.of(staleKidId));
+    }
+
+    @Test
     void updatePropagatesRideConflictAsUnchecked() {
         UUID adultId = UUID.randomUUID();
         UUID circleId = UUID.randomUUID();

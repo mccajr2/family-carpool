@@ -429,7 +429,7 @@ describe("matchCalendarItemToRideEvent", () => {
     ).toBe(practice)
   })
 
-  it("does not match MANUAL even when eventKey is set", () => {
+  it("does not match standalone MANUAL even when a stray eventKey is set", () => {
     expect(
       matchCalendarItemToRideEvent(
         item({
