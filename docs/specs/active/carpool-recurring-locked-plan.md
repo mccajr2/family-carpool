@@ -186,9 +186,9 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       auto-clear template when every fingerprint has zero upcoming matches
 - [x] Backend: Reuse existing coverage + Save ride plan + route-origin write
       paths for apply (no parallel mute semantics)
-- [ ] Contract: OpenAPI Lock / Remove + calendar/block eligibility & locked
+- [x] Contract: OpenAPI Lock / Remove + calendar/block eligibility & locked
       state fields
-- [ ] Web: API client updates for new contract fields/endpoints
+- [x] Web: API client updates for new contract fields/endpoints
 - [ ] Web: Agenda drive-block Lock CTA (gated) + Remove recurring coverage
       when locked; copy for one-off vs remove-pattern
 - [ ] Tests: Module unit + controller/integration for gate/lock/apply/remove

@@ -26,4 +26,7 @@ public record CalendarItemResponse(
         List<UUID> uncoveredKidIds,
         List<CalendarConflictResponse> conflicts,
         List<CalendarRsvpResponse> rsvps,
-        List<CalendarDriveBlockLinkResponse> driveBlockLinks) {}
+        List<CalendarDriveBlockLinkResponse> driveBlockLinks,
+        boolean standingLockEligible,
+        boolean standingLocked,
+        UUID standingBlockTemplateId) {}

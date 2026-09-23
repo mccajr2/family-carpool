@@ -146,6 +146,11 @@ class CalendarServiceTest {
                 .thenReturn(List.of());
         lenient().doNothing().when(standingBlockLockService).applyAndAutoClear(any(), any(), any());
         lenient()
+                .when(
+                        standingBlockLockService.enrichStandingFields(
+                                any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        lenient()
                 .when(coverageApi.listForItems(any(), any(), any()))
                 .thenReturn(List.of());
         lenient()

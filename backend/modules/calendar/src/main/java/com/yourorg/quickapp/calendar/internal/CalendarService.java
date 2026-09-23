@@ -125,7 +125,8 @@ public class CalendarService {
         this.standingBlockLockService = standingBlockLockService;
     }
 
-    public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
+    public List<CalendarItemResponse> list(
+            AdultResponse adult, Instant from, Instant to, String timeZone) {
         requireValidRange(from, to);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         standingBlockLockService.applyAndAutoClear(circleId, from, to);
@@ -214,7 +215,15 @@ public class CalendarService {
                 Comparator.comparing(CalendarItemResponse::startsAt)
                         .thenComparing(item -> item.source().name())
                         .thenComparing(CalendarItemResponse::id));
-        return driveBlockEnricher.attach(adult.id(), circleId, List.copyOf(items));
+        List<CalendarItemResponse> withBlocks =
+                driveBlockEnricher.attach(adult.id(), circleId, List.copyOf(items));
+        return standingBlockLockService.enrichStandingFields(
+                circleId, withBlocks, from, to, timeZone);
+    }
+
+    /** Overload for callers that do not pass a viewer time zone. */
+    public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
+        return list(adult, from, to, null);
     }
 
     public List<CalendarLeaveByResponse> listLeaveBy(
@@ -1216,7 +1225,10 @@ public class CalendarService {
                 uncoveredKidIds(source, kidIds, coverages, rsvps),
                 conflicts == null ? List.of() : List.copyOf(conflicts),
                 rsvpResponses,
-                List.of());
+                List.of(),
+                false,
+                false,
+                null);
     }
 
     private static CalendarCoverageAssignmentResponse toCoverageResponse(
@@ -1854,7 +1866,10 @@ public class CalendarService {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                false,
+                false,
+                null);
     }
 
     private List<CalendarRoutePickupInput> assembleMiddles(

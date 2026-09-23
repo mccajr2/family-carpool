@@ -2,6 +2,9 @@ package com.yourorg.quickapp.calendar.internal;
 
 import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
+import com.yourorg.quickapp.calendar.CalendarDriveBlockLinkResponse;
+import com.yourorg.quickapp.calendar.CalendarItemResponse;
+import com.yourorg.quickapp.calendar.CalendarItemSource;
 import com.yourorg.quickapp.calendar.StandingBlockMemberSnapshotDto;
 import com.yourorg.quickapp.calendar.StandingBlockTemplateDto;
 import com.yourorg.quickapp.calendar.StandingCoverageSnapshotDto;
@@ -175,6 +178,227 @@ public class StandingBlockLockService {
     public List<StandingBlockTemplateDto> listTemplates(UUID circleId) {
         return templates.listForCircle(circleId);
     }
+
+    /**
+     * Attach standing Lock eligibility / locked state onto calendar rows for
+     * the viewing adult's FEED drive-block components. When {@code timeZone} is
+     * null/blank, eligibility stays false (locked can still resolve using each
+     * template's stored zone).
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarItemResponse> enrichStandingFields(
+            UUID circleId,
+            List<CalendarItemResponse> items,
+            Instant horizonFrom,
+            Instant horizonTo,
+            String timeZone) {
+        if (items == null || items.isEmpty()) {
+            return items == null ? List.of() : items;
+        }
+        ZoneId viewerZone = null;
+        if (timeZone != null && !timeZone.isBlank()) {
+            try {
+                viewerZone = ZoneId.of(timeZone.trim());
+            } catch (Exception ignored) {
+                viewerZone = null;
+            }
+        }
+        List<FeedCalendarEventDto> horizon =
+                feedCalendarApi.listEventsInRange(circleId, horizonFrom, horizonTo);
+        Map<UUID, FeedCalendarEventDto> feedById = new HashMap<>();
+        for (FeedCalendarEventDto event : horizon) {
+            feedById.put(event.id(), event);
+        }
+        for (CalendarItemResponse item : items) {
+            if (item.source() == CalendarItemSource.FEED && !feedById.containsKey(item.id())) {
+                feedCalendarApi
+                        .findEventInCircle(circleId, item.id())
+                        .ifPresent(event -> feedById.put(event.id(), event));
+            }
+        }
+
+        List<StandingBlockTemplateDto> active = templates.listForCircle(circleId);
+        List<List<CalendarItemResponse>> blocks = driveBlockComponents(items);
+        Map<UUID, StandingFields> byItemId = new HashMap<>();
+        for (List<CalendarItemResponse> block : blocks) {
+            List<FeedCalendarEventDto> feedMembers = new ArrayList<>();
+            for (CalendarItemResponse member : block) {
+                if (member.source() != CalendarItemSource.FEED) {
+                    continue;
+                }
+                FeedCalendarEventDto event = feedById.get(member.id());
+                if (event != null) {
+                    feedMembers.add(event);
+                }
+            }
+            if (feedMembers.isEmpty()) {
+                continue;
+            }
+            boolean eligible = false;
+            if (viewerZone != null) {
+                eligible =
+                        ForwardRecurrenceGate.isLockEligible(
+                                feedMembers, horizon, viewerZone, horizonFrom, horizonTo);
+            }
+            StandingBlockTemplateDto matched =
+                    matchTemplate(active, feedMembers, viewerZone);
+            for (FeedCalendarEventDto member : feedMembers) {
+                byItemId.put(
+                        member.id(),
+                        new StandingFields(
+                                eligible,
+                                matched != null,
+                                matched == null ? null : matched.id()));
+            }
+        }
+
+        List<CalendarItemResponse> out = new ArrayList<>(items.size());
+        for (CalendarItemResponse item : items) {
+            StandingFields fields = byItemId.get(item.id());
+            if (fields == null) {
+                out.add(withStanding(item, false, false, null));
+            } else {
+                out.add(
+                        withStanding(
+                                item,
+                                fields.eligible(),
+                                fields.locked(),
+                                fields.templateId()));
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private StandingBlockTemplateDto matchTemplate(
+            List<StandingBlockTemplateDto> active,
+            List<FeedCalendarEventDto> feedMembers,
+            ZoneId viewerZone) {
+        for (StandingBlockTemplateDto template : active) {
+            ZoneId zone =
+                    viewerZone != null ? viewerZone : ZoneId.of(template.timeZone());
+            if (template.members().size() != feedMembers.size()) {
+                continue;
+            }
+            boolean allMatch = true;
+            for (int i = 0; i < feedMembers.size(); i++) {
+                RecurringFeedFingerprint expected = template.members().get(i).fingerprint();
+                RecurringFeedFingerprint actual =
+                        RecurringFeedFingerprint.of(feedMembers.get(i), zone);
+                if (!expected.equals(actual)) {
+                    allMatch = false;
+                    break;
+                }
+            }
+            if (allMatch) {
+                return template;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * FEED drive-block components: union items linked by combined
+     * driveBlockLinks; unlinked FEED items are singleton components.
+     */
+    private static List<List<CalendarItemResponse>> driveBlockComponents(
+            List<CalendarItemResponse> items) {
+        Map<UUID, CalendarItemResponse> byId = new HashMap<>();
+        for (CalendarItemResponse item : items) {
+            byId.put(item.id(), item);
+        }
+        Map<UUID, UUID> parent = new HashMap<>();
+        for (CalendarItemResponse item : items) {
+            parent.put(item.id(), item.id());
+        }
+        for (CalendarItemResponse item : items) {
+            if (item.driveBlockLinks() == null) {
+                continue;
+            }
+            for (CalendarDriveBlockLinkResponse link : item.driveBlockLinks()) {
+                if (!link.combined()) {
+                    continue;
+                }
+                UUID otherId = link.otherId();
+                if (!byId.containsKey(otherId)) {
+                    continue;
+                }
+                union(parent, item.id(), otherId);
+            }
+        }
+        Map<UUID, List<CalendarItemResponse>> components = new LinkedHashMap<>();
+        for (CalendarItemResponse item : items) {
+            if (item.source() != CalendarItemSource.FEED) {
+                continue;
+            }
+            UUID root = find(parent, item.id());
+            components.computeIfAbsent(root, ignored -> new ArrayList<>()).add(item);
+        }
+        // Stable member order by startsAt within each component
+        for (List<CalendarItemResponse> component : components.values()) {
+            component.sort(
+                    (a, b) -> {
+                        int cmp = a.startsAt().compareTo(b.startsAt());
+                        return cmp != 0 ? cmp : a.id().compareTo(b.id());
+                    });
+        }
+        return List.copyOf(components.values());
+    }
+
+    private static void union(Map<UUID, UUID> parent, UUID a, UUID b) {
+        UUID ra = find(parent, a);
+        UUID rb = find(parent, b);
+        if (!ra.equals(rb)) {
+            parent.put(ra, rb);
+        }
+    }
+
+    private static UUID find(Map<UUID, UUID> parent, UUID id) {
+        UUID p = parent.get(id);
+        if (p == null) {
+            parent.put(id, id);
+            return id;
+        }
+        if (!p.equals(id)) {
+            UUID root = find(parent, p);
+            parent.put(id, root);
+            return root;
+        }
+        return id;
+    }
+
+    private static CalendarItemResponse withStanding(
+            CalendarItemResponse item,
+            boolean eligible,
+            boolean locked,
+            UUID templateId) {
+        return new CalendarItemResponse(
+                item.id(),
+                item.source(),
+                item.title(),
+                item.startsAt(),
+                item.endsAt(),
+                item.location(),
+                item.kidIds(),
+                item.feedId(),
+                item.feedName(),
+                item.eventKey(),
+                item.leaveFromPlaceId(),
+                item.leaveFromPlaceName(),
+                item.leaveFromAddress(),
+                item.leaveByAt(),
+                item.leaveByStatus(),
+                item.leaveByReason(),
+                item.coverages(),
+                item.uncoveredKidIds(),
+                item.conflicts(),
+                item.rsvps(),
+                item.driveBlockLinks(),
+                eligible,
+                locked,
+                templateId);
+    }
+
+    private record StandingFields(boolean eligible, boolean locked, UUID templateId) {}
 
     /**
      * Auto-clear schedule-ended templates, then apply snapshots onto blank

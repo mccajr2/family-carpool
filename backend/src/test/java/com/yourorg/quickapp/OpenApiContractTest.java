@@ -170,6 +170,17 @@ class OpenApiContractTest {
         assertThat(yaml).contains("otherStartsAt:");
         assertThat(yaml).contains("otherTitle:");
         assertThat(yaml).contains("CalendarDriveBlockLink:");
+        assertThat(yaml).contains("operationId: lockStandingBlock");
+        assertThat(yaml).contains("operationId: listStandingBlocks");
+        assertThat(yaml).contains("operationId: removeStandingBlock");
+        assertThat(yaml).contains("/api/family/circle/calendar/standing-blocks/lock");
+        assertThat(yaml).contains("LockStandingBlockRequest:");
+        assertThat(yaml).contains("StandingBlockTemplate:");
+        assertThat(yaml).contains("standingLockEligible:");
+        assertThat(yaml).contains("standingLocked:");
+        assertThat(yaml).contains("standingBlockTemplateId:");
+        assertThat(yaml).contains("RecurringFeedFingerprint:");
+        assertThat(yaml).contains("name: timeZone");
         assertThat(yaml).contains("driveBlockLinks:");
         assertThat(yaml).contains("defaultLeaveFromPlaceId:");
         assertThat(yaml).contains("defaultLeaveFromPlaceName:");

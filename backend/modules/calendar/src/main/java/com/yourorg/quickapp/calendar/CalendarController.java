@@ -39,9 +39,10 @@ public class CalendarController {
     public List<CalendarItemResponse> list(
             @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(value = "timeZone", required = false) String timeZone,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return calendarService.list(adult, from, to);
+        return calendarService.list(adult, from, to, timeZone);
     }
 
     @GetMapping("/leave-by")

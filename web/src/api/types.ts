@@ -296,6 +296,10 @@ export type CalendarItem = {
   conflicts: CalendarConflict[]
   rsvps: CalendarRsvp[]
   driveBlockLinks: CalendarDriveBlockLink[]
+  /** Present when server sends standing Lock fields (listCalendar + timeZone). */
+  standingLockEligible?: boolean
+  standingLocked?: boolean
+  standingBlockTemplateId?: string | null
 }
 
 export type SetCalendarLeaveFromRequest = {
@@ -433,6 +437,77 @@ export type ClearDriveBlockOverrideRequest = {
   leftItemId: string
   rightSource: CalendarItemSource
   rightItemId: string
+}
+
+export type LockStandingBlockRequest = {
+  memberItemIds: string[]
+  timeZone: string
+  horizonFrom: string
+  horizonTo: string
+}
+
+export type RecurringFeedFingerprint = {
+  feedId: string
+  dayOfWeek:
+    | "MONDAY"
+    | "TUESDAY"
+    | "WEDNESDAY"
+    | "THURSDAY"
+    | "FRIDAY"
+    | "SATURDAY"
+    | "SUNDAY"
+  minuteOfDay: number
+  normalizedLocation: string
+}
+
+export type StandingCoverageSnapshot = {
+  coveringAdultId: string
+  assignedByAdultId: string
+  status: CoverageStatus
+  kidIds: string[]
+  leaveFromPlaceId?: string | null
+  leaveFromAddress?: string | null
+}
+
+export type StandingRidePlanLegSnapshot = {
+  kind: CarpoolLegKind
+  phase: CarpoolLegPhase
+  assigneeAdultId?: string | null
+  assigneeCircleId?: string | null
+  placeId?: string | null
+  placeName?: string | null
+  placeAddress?: string | null
+  meetSide?: CarpoolMeetSide | null
+}
+
+export type StandingRidePlanSnapshot = {
+  kidIds: string[]
+  legs: StandingRidePlanLegSnapshot[]
+}
+
+export type StandingRouteOriginSnapshot = {
+  adultId: string
+  leg: CarpoolLegKind
+  leaveFromPlaceId?: string | null
+  leaveFromPlaceName?: string | null
+  leaveFromAddress?: string | null
+}
+
+export type StandingBlockMemberSnapshot = {
+  fingerprint: RecurringFeedFingerprint
+  position: number
+  coverages: StandingCoverageSnapshot[]
+  ridePlans: StandingRidePlanSnapshot[]
+  routeOrigins: StandingRouteOriginSnapshot[]
+}
+
+export type StandingBlockTemplate = {
+  id: string
+  circleId: string
+  createdByAdultId: string
+  timeZone: string
+  createdAt: string
+  members: StandingBlockMemberSnapshot[]
 }
 
 export type CarpoolLegPhase =

@@ -24,6 +24,8 @@ import type {
   SetDefaultLeaveFromRequest,
   SetDriveBlockOverrideRequest,
   ClearDriveBlockOverrideRequest,
+  LockStandingBlockRequest,
+  StandingBlockTemplate,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
 
@@ -396,8 +398,12 @@ export class FamilyClient {
     accessToken: string,
     from: string,
     to: string,
+    timeZone?: string,
   ): Promise<CalendarItem[]> {
     const params = new URLSearchParams({ from, to })
+    if (timeZone) {
+      params.set("timeZone", timeZone)
+    }
     const response = await this.fetchFn(
       authUrl(this.baseUrl, `/api/family/circle/calendar?${params}`),
       {
@@ -782,6 +788,56 @@ export class FamilyClient {
       throw new Error(await readErrorMessage(response, "Clear drive-block override failed"))
     }
     return (await response.json()) as CalendarItem[]
+  }
+
+  async listStandingBlocks(accessToken: string): Promise<StandingBlockTemplate[]> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/calendar/standing-blocks"),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List standing blocks failed"))
+    }
+    return (await response.json()) as StandingBlockTemplate[]
+  }
+
+  async lockStandingBlock(
+    accessToken: string,
+    body: LockStandingBlockRequest,
+  ): Promise<StandingBlockTemplate> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, "/api/family/circle/calendar/standing-blocks/lock"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Lock standing block failed"))
+    }
+    return (await response.json()) as StandingBlockTemplate
+  }
+
+  async removeStandingBlock(accessToken: string, templateId: string): Promise<void> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/family/circle/calendar/standing-blocks/${templateId}`,
+      ),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Remove standing block failed"))
+    }
   }
 
   async listEvents(accessToken: string): Promise<ManualEvent[]> {
