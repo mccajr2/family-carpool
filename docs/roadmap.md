@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-21 (`/roadmap`: recurring carve-up — locked → standing → rotation → neighborhood)
+Updated: 2026-09-23 (`/spec carpool-recurring-locked-plan`: household drive-block lock active)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,7 +105,7 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-recurring-locked-plan   | planned | 2026-09-21 · re-rank split | Lock same driver + leave-from / return-to across recurring same events week over week (no weekly re-confirm)                  |
+| 1    | carpool-recurring-locked-plan   | active  | 2026-09-21 · re-rank split | Lock same driver + leave-from / return-to across recurring same events week over week (no weekly re-confirm)                  |
 | 2    | carpool-recurring-standing      | planned | 2026-09-21 · re-rank split | Same teammate carpool pattern for a recurring event week over week (no turn-taking)                                           |
 | 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only                   |
 | 4    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)                      |
@@ -205,7 +205,7 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| —  | —      | —    |
+| carpool-recurring-locked-plan | `carpool-recurring-locked-plan` | [active](specs/active/carpool-recurring-locked-plan.md) |
 
 ## Done
 
@@ -306,6 +306,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-23 | `/spec carpool-recurring-locked-plan`: promote — explicit Lock on Agenda drive block; fingerprint (feed+weekday+time+location); ≥3 other upcoming matches gate; apply coverage+plans+route home-side to blank future weeks; one-off edits stick; Remove recurring clears template. Branch `carpool-recurring-locked-plan`. |
 | 2026-09-21 | `/roadmap` recurring carve-up: cases → `carpool-recurring-locked-plan` (household lock) → `carpool-recurring-standing` (same carpool WoW) → `carpool-recurring-rotation` (2+ families + subset driver pool) → `neighborhood-carpool` (proximity recommendations). Next up `carpool-recurring-locked-plan`. |
 | 2026-09-21 | `/roadmap`: demote `drive-block-linked-manual` to parking; split/park drive-block intelligence stubs (`drive-block-home-hop-merge`, `drive-block-early-leave-late-arrive`); no manual-event / drive-block slice as Next up. Next up `carpool-recurring-rotation`. |
 | 2026-09-21 | `/pr manual-event-team-link`: optional `feedId` on manuals; FEED-parity carpool when linked; server-derived feed roster; restore ADR-0003 default-going. Spec archived. Next up `drive-block-linked-manual`. |
