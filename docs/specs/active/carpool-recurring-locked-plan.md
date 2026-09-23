@@ -177,7 +177,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Tasks
 
-- [ ] Backend: Fingerprint helper + forward “≥3 other upcoming matches” gate
+- [x] Backend: Fingerprint helper + forward “≥3 other upcoming matches” gate
       over synced FEED events
 - [ ] Backend: Persist circle standing-block template (member fingerprints +
       per-member coverage / ride-plan / route-origin snapshots); Flyway
