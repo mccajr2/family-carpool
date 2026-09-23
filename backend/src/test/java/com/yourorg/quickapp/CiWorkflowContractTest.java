@@ -69,9 +69,9 @@ class CiWorkflowContractTest {
         String pkg = Files.readString(packageJson);
         // jsdom 30 rejects Node 20 and Node 24 below 24.15 — keep engines aligned.
         assertThat(pkg).contains("\"node\": \"^22.22.2 || ^24.15.0 || >=26.0.0\"");
-        assertThat(pkg).contains("\"jsdom\": \"^30.0.1\"");
+        assertThat(pkg).contains("\"jsdom\": \"^30.1.0\"");
         assertThat(pkg).contains("\"@testing-library/jest-dom\": \"^7.0.1\"");
-        assertThat(pkg).contains("\"@testing-library/dom\": \"^10.4.1\"");
+        assertThat(pkg).contains("\"@testing-library/dom\": \"^10.4.2\"");
         assertThat(pkg).doesNotContain("\"node\": \">=20\"");
     }
 
