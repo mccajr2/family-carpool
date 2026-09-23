@@ -821,4 +821,80 @@ describe("AgendaBlockCard", () => {
       undefined,
     )
   })
+
+  it("shows Lock this plan only when every FEED member is standingLockEligible", async () => {
+    const user = userEvent.setup()
+    const onLockStandingBlock = vi.fn()
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLockEligible: true,
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLockEligible: true,
+    })
+
+    const { rerender } = render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onLockStandingBlock={onLockStandingBlock}
+      />,
+    )
+
+    expect(screen.getByTestId("agenda-block-lock-standing")).toHaveTextContent(
+      "Lock this plan",
+    )
+    expect(screen.queryByTestId("agenda-block-remove-standing")).not.toBeInTheDocument()
+    await user.click(screen.getByTestId("agenda-block-lock-standing"))
+    expect(onLockStandingBlock).toHaveBeenCalledWith([a, b])
+
+    rerender(
+      <AgendaBlockCard
+        items={[
+          a,
+          { ...b, standingLockEligible: false },
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onLockStandingBlock={onLockStandingBlock}
+      />,
+    )
+    expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
+  })
+
+  it("shows Remove recurring coverage and hint when standingLocked", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-1",
+      standingLockEligible: true,
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-1",
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onRemoveStandingBlock={onRemoveStandingBlock}
+      />,
+    )
+
+    expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-standing-hint")).toHaveTextContent(
+      /Recurring/,
+    )
+    expect(screen.getByTestId("agenda-block-remove-standing")).toHaveTextContent(
+      "Remove recurring coverage",
+    )
+    await user.click(screen.getByTestId("agenda-block-remove-standing"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1")
+  })
 })

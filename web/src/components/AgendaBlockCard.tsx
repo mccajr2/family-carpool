@@ -31,6 +31,12 @@ import { EventLocationLine } from "@/components/EventLocationLine"
 import { formatAgendaBlockDayLabel } from "@/components/eventTimes"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
+import {
+  LOCK_THIS_PLAN,
+  RECURRING_ONE_OFF_HINT,
+  REMOVE_RECURRING_COVERAGE,
+  standingBlockChrome,
+} from "@/components/standingBlockChrome"
 import type { DecidedAssignee } from "@/components/transportPlan"
 
 export type AgendaBlockCardProps = {
@@ -74,6 +80,10 @@ export type AgendaBlockCardProps = {
     rideId: string,
     legs?: ("TO" | "FROM")[],
   ) => void
+  /** Lock household plan as standing (gated by standingLockEligible). */
+  onLockStandingBlock?: (items: CalendarItem[]) => void
+  /** Remove recurring coverage template for this locked block. */
+  onRemoveStandingBlock?: (templateId: string) => void
 }
 
 function isRunRoutable(
@@ -268,6 +278,8 @@ export function AgendaBlockCard({
   onSetNotGoing,
   onSetLeaveFrom,
   onWithdrawRide,
+  onLockStandingBlock,
+  onRemoveStandingBlock,
 }: AgendaBlockCardProps) {
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
@@ -282,6 +294,7 @@ export function AgendaBlockCard({
     rideEventFor,
   })
   const driveBlockControls = agendaBlockDriveBlockControls(items)
+  const standingChrome = standingBlockChrome(items)
   const commitmentActions = agendaCommitmentActionsForItems(items, {
     circle,
     currentAdultId,
@@ -505,6 +518,43 @@ export function AgendaBlockCard({
                 {control.label}
               </button>
             ))}
+          </div>
+        ) : null}
+
+        {standingChrome.showLock && onLockStandingBlock != null ? (
+          <button
+            type="button"
+            disabled={loading}
+            className={overrideLinkClass}
+            data-testid="agenda-block-lock-standing"
+            onClick={() => onLockStandingBlock(items)}
+          >
+            {LOCK_THIS_PLAN}
+          </button>
+        ) : null}
+
+        {standingChrome.showRemove ? (
+          <div
+            data-testid="agenda-block-standing-locked"
+            className="flex flex-col gap-[var(--fc-space-xs)]"
+          >
+            <p
+              data-testid="agenda-block-standing-hint"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+            >
+              {RECURRING_ONE_OFF_HINT}
+            </p>
+            {onRemoveStandingBlock != null && standingChrome.templateId != null ? (
+              <button
+                type="button"
+                disabled={loading}
+                className={overrideLinkClass}
+                data-testid="agenda-block-remove-standing"
+                onClick={() => onRemoveStandingBlock(standingChrome.templateId!)}
+              >
+                {REMOVE_RECURRING_COVERAGE}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

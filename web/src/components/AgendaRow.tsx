@@ -20,6 +20,12 @@ import {
   coverageLeaveByLine,
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
+import {
+  LOCK_THIS_PLAN,
+  RECURRING_ONE_OFF_HINT,
+  REMOVE_RECURRING_COVERAGE,
+  standingBlockChrome,
+} from "@/components/standingBlockChrome"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
 import {
@@ -148,6 +154,10 @@ type AgendaRowProps = {
    * `driveBlockLinks` render here — combined pairs use AgendaBlockCard.
    */
   onDriveBlockLink?: (link: CalendarDriveBlockLink) => void
+  /** Lock household plan as standing (gated by standingLockEligible). */
+  onLockStandingBlock?: (item: CalendarItem) => void
+  /** Remove recurring coverage template for this locked item. */
+  onRemoveStandingBlock?: (templateId: string) => void
   onEdit: () => void
   onRemoveEvent: () => void
 }
@@ -202,6 +212,8 @@ export function AgendaRow({
   onOpenPlaces,
   onOpenRide,
   onDriveBlockLink,
+  onLockStandingBlock,
+  onRemoveStandingBlock,
   onEdit,
   onRemoveEvent,
 }: AgendaRowProps) {
@@ -211,6 +223,7 @@ export function AgendaRow({
   const recombineDriveBlockLinks = item.driveBlockLinks.filter(
     (link) => !link.combined,
   )
+  const standingChrome = standingBlockChrome([item])
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
   const active = activeCoverages(item)
@@ -581,6 +594,48 @@ export function AgendaRow({
                   {driveBlockLinkLabel(link)}
                 </button>
               ))}
+            </div>
+          ) : null}
+
+          {!outOfPlay &&
+          standingChrome.showLock &&
+          onLockStandingBlock != null ? (
+            <button
+              type="button"
+              disabled={loading}
+              className={`${overrideLinkClass} text-left`}
+              data-testid="agenda-row-lock-standing"
+              onClick={() => onLockStandingBlock(item)}
+            >
+              {LOCK_THIS_PLAN}
+            </button>
+          ) : null}
+
+          {!outOfPlay && standingChrome.showRemove ? (
+            <div
+              data-testid="agenda-row-standing-locked"
+              className="flex flex-col gap-[var(--fc-space-xs)]"
+            >
+              <p
+                data-testid="agenda-row-standing-hint"
+                className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+              >
+                {RECURRING_ONE_OFF_HINT}
+              </p>
+              {onRemoveStandingBlock != null &&
+              standingChrome.templateId != null ? (
+                <button
+                  type="button"
+                  disabled={loading}
+                  className={`${overrideLinkClass} text-left`}
+                  data-testid="agenda-row-remove-standing"
+                  onClick={() =>
+                    onRemoveStandingBlock(standingChrome.templateId!)
+                  }
+                >
+                  {REMOVE_RECURRING_COVERAGE}
+                </button>
+              ) : null}
             </div>
           ) : null}
 

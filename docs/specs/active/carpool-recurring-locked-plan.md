@@ -189,7 +189,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Contract: OpenAPI Lock / Remove + calendar/block eligibility & locked
       state fields
 - [x] Web: API client updates for new contract fields/endpoints
-- [ ] Web: Agenda drive-block Lock CTA (gated) + Remove recurring coverage
+- [x] Web: Agenda drive-block Lock CTA (gated) + Remove recurring coverage
       when locked; copy for one-off vs remove-pattern
 - [ ] Tests: Module unit + controller/integration for gate/lock/apply/remove
       + schedule-ended auto-clear; web tests for CTA gating; multi-member block

@@ -3279,4 +3279,84 @@ describe("AgendaRow", () => {
       within(row).queryByRole("button", { name: /Split this out|Combine these/ }),
     ).not.toBeInTheDocument()
   })
+
+  it("shows Lock this plan on eligible FEED singleton when expanded", async () => {
+    const user = userEvent.setup()
+    const onLockStandingBlock = vi.fn()
+    const feedItem = item({
+      id: "eligible",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:eligible",
+      standingLockEligible: true,
+    })
+
+    renderRow(feedItem, { onLockStandingBlock })
+
+    const row = screen.getByTestId("agenda-row-FEED-eligible")
+    expect(
+      within(row).queryByTestId("agenda-row-lock-standing"),
+    ).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-row-lock-standing")).toHaveTextContent(
+      "Lock this plan",
+    )
+    await user.click(within(row).getByTestId("agenda-row-lock-standing"))
+    expect(onLockStandingBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "eligible" }),
+    )
+  })
+
+  it("hides Lock when not standingLockEligible", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "one-off",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:one-off",
+        standingLockEligible: false,
+      }),
+      { onLockStandingBlock: vi.fn() },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-one-off")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).queryByTestId("agenda-row-lock-standing"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows Remove recurring coverage when standingLocked", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    renderRow(
+      item({
+        id: "locked",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:locked",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-9",
+      }),
+      { onRemoveStandingBlock },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-locked")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).queryByTestId("agenda-row-lock-standing"),
+    ).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-standing-hint")).toHaveTextContent(
+      /Recurring/,
+    )
+    await user.click(within(row).getByTestId("agenda-row-remove-standing"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-9")
+  })
 })

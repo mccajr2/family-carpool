@@ -168,6 +168,11 @@ function circleTitle(circle: FamilyCircle): string {
   return circle.name?.trim() ? circle.name : "Your family"
 }
 
+/** Browser zone — same local calendar Agenda uses for day grouping. */
+function viewerTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
 /** Horizontal single-value field: label leading, control/value trailing. */
 function FieldRow({
   label,
@@ -683,7 +688,12 @@ export function FamilyScreen({
       loadedTo: string,
     ): Promise<{ items: CalendarItem[]; from: string; to: string }> => {
       const window = calendarWindowThrough(loadedTo, now)
-      const items = await familyClient.listCalendar(token, window.from, window.to)
+      const items = await familyClient.listCalendar(
+        token,
+        window.from,
+        window.to,
+        viewerTimeZone(),
+      )
       let merged: CalendarItem[] = items
       setCalendarItems((current) => {
         const previous = current.length > 0 ? current : calendarCache.load(adultId, circleId)?.items ?? []
@@ -700,7 +710,12 @@ export function FamilyScreen({
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
     if (!adult || !circle) {
       const window = calendarWindowThrough(loadedTo)
-      const items = await familyClient.listCalendar(token, window.from, window.to)
+      const items = await familyClient.listCalendar(
+        token,
+        window.from,
+        window.to,
+        viewerTimeZone(),
+      )
       setCalendarItems(items)
       startLeaveByFill(token, window.from, window.to)
       return
@@ -749,7 +764,12 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       const page = advanceCalendarWindow(calendarLoadedTo)
-      const more = await familyClient.listCalendar(token, page.from, page.to)
+      const more = await familyClient.listCalendar(
+        token,
+        page.from,
+        page.to,
+        viewerTimeZone(),
+      )
       setCalendarItems((current) => {
         const merged = mergeCalendarItems(current, more)
         if (adult && circle) {
@@ -2063,6 +2083,48 @@ export function FamilyScreen({
         itemKey,
         error instanceof Error ? error.message : "Something went wrong",
       )
+    }
+  }
+
+  async function onLockStandingBlockAgenda(items: CalendarItem[]) {
+    const feedIds = items
+      .filter((row) => row.source === "FEED")
+      .map((row) => row.id)
+    if (feedIds.length === 0) {
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const window = calendarWindowThrough(calendarLoadedTo, now)
+      await familyClient.lockStandingBlock(token, {
+        memberItemIds: feedIds,
+        timeZone: viewerTimeZone(),
+        horizonFrom: window.from,
+        horizonTo: window.to,
+      })
+      await reloadCalendar(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onRemoveStandingBlockAgenda(templateId: string) {
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.removeStandingBlock(token, templateId)
+      await reloadCalendar(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
     }
   }
 
@@ -3978,6 +4040,12 @@ export function FamilyScreen({
                               onWithdrawRide={(member, rideId, legs) =>
                                 void onWithdrawAgendaRide(member, rideId, legs)
                               }
+                              onLockStandingBlock={(members) =>
+                                void onLockStandingBlockAgenda(members)
+                              }
+                              onRemoveStandingBlock={(templateId) =>
+                                void onRemoveStandingBlockAgenda(templateId)
+                              }
                             />
                           </li>
                         )
@@ -4116,6 +4184,12 @@ export function FamilyScreen({
                             }}
                             onDriveBlockLink={(link) =>
                               void onDriveBlockLinkAgenda(item, link)
+                            }
+                            onLockStandingBlock={(row) =>
+                              void onLockStandingBlockAgenda([row])
+                            }
+                            onRemoveStandingBlock={(templateId) =>
+                              void onRemoveStandingBlockAgenda(templateId)
                             }
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
