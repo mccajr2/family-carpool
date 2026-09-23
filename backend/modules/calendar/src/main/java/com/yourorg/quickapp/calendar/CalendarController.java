@@ -209,4 +209,32 @@ public class CalendarController {
                 new ClearDriveBlockOverrideRequest(
                         leg, leftSource, leftItemId, rightSource, rightItemId));
     }
+
+    @PostMapping("/standing-blocks/lock")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StandingBlockTemplateDto lockStandingBlock(
+            @Valid @RequestBody LockStandingBlockRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.lockStandingBlock(
+                adult,
+                request.memberItemIds(),
+                request.timeZone(),
+                request.horizonFrom(),
+                request.horizonTo());
+    }
+
+    @GetMapping("/standing-blocks")
+    public List<StandingBlockTemplateDto> listStandingBlocks(HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return calendarService.listStandingBlocks(adult);
+    }
+
+    @DeleteMapping("/standing-blocks/{templateId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeStandingBlock(
+            @PathVariable("templateId") UUID templateId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        calendarService.removeStandingBlock(adult, templateId);
+    }
 }

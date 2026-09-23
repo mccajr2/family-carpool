@@ -94,7 +94,7 @@ class StandingBlockTemplateServiceTest {
                                         null,
                                         "1 Main St")));
 
-        StandingBlockTemplateDto saved = service.save(circleId, adultId, List.of(member));
+        StandingBlockTemplateDto saved = service.save(circleId, adultId, "America/New_York", List.of(member));
 
         ArgumentCaptor<StandingBlockTemplateEntity> captor =
                 ArgumentCaptor.forClass(StandingBlockTemplateEntity.class);
@@ -125,7 +125,7 @@ class StandingBlockTemplateServiceTest {
 
     @Test
     void saveRejectsEmptyMembersAndDeclinedCoverage() {
-        assertThatThrownBy(() -> service.save(circleId, adultId, List.of()))
+        assertThatThrownBy(() -> service.save(circleId, adultId, "America/New_York", List.of()))
                 .isInstanceOf(CalendarException.class)
                 .satisfies(
                         ex ->
@@ -148,7 +148,10 @@ class StandingBlockTemplateServiceTest {
                                         null)),
                         List.of(),
                         List.of());
-        assertThatThrownBy(() -> service.save(circleId, adultId, List.of(declined)))
+        assertThatThrownBy(
+                        () ->
+                                service.save(
+                                        circleId, adultId, "America/New_York", List.of(declined)))
                 .isInstanceOf(CalendarException.class);
     }
 
@@ -175,6 +178,7 @@ class StandingBlockTemplateServiceTest {
                         circleId,
                         fp.encoded(),
                         adultId,
+                        "America/New_York",
                         Instant.parse("2026-09-01T12:00:00Z"));
         entity.replaceMembers(
                 List.of(

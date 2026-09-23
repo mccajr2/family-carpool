@@ -181,10 +181,10 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       over synced FEED events
 - [x] Backend: Persist circle standing-block template (member fingerprints +
       per-member coverage / ride-plan / route-origin snapshots); Flyway
-- [ ] Backend: Lock / Remove recurring APIs; apply-on-sync and/or calendar
+- [x] Backend: Lock / Remove recurring APIs; apply-on-sync and/or calendar
       enrich for blank matching future items (never overwrite non-blank);
       auto-clear template when every fingerprint has zero upcoming matches
-- [ ] Backend: Reuse existing coverage + Save ride plan + route-origin write
+- [x] Backend: Reuse existing coverage + Save ride plan + route-origin write
       paths for apply (no parallel mute semantics)
 - [ ] Contract: OpenAPI Lock / Remove + calendar/block eligibility & locked
       state fields

@@ -61,4 +61,24 @@ public interface CarpoolApi {
      */
     List<CarpoolHouseholdStopDto> listConfirmedHouseholdStopsForFeedEvent(
             UUID adultId, UUID circleId, UUID feedEventId, CarpoolLegKind leg);
+
+    /**
+     * Active own-circle ride plans for a FEED event (space-backed or
+     * circle-local). Empty when the event is missing or there are no active
+     * plans.
+     */
+    List<CarpoolRideResponse> listActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId);
+
+    /** True when {@link #listActiveOwnPlansForFeedEvent} is non-empty. */
+    boolean hasActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId);
+
+    /**
+     * Household-only Save ride plan for a FEED event (rejects Ask-the-team).
+     * Uses the event's carpool space when the circle is a member; otherwise
+     * circle-local null-space plans.
+     */
+    SaveCarpoolRidePlanResponse saveHouseholdPlanForFeedEvent(
+            com.yourorg.quickapp.auth.AdultResponse adult,
+            UUID feedEventId,
+            java.util.List<SaveCarpoolRidePlanGroup> plans);
 }

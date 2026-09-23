@@ -9,6 +9,7 @@ import com.yourorg.quickapp.coverage.CoverageStatus;
 import com.yourorg.quickapp.feeds.RecurringFeedFingerprint;
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -40,9 +41,11 @@ public class StandingBlockTemplateService {
     public StandingBlockTemplateDto save(
             UUID circleId,
             UUID createdByAdultId,
+            String timeZone,
             List<StandingBlockMemberSnapshotDto> members) {
         Objects.requireNonNull(circleId, "circleId");
         Objects.requireNonNull(createdByAdultId, "createdByAdultId");
+        String zone = requireTimeZone(timeZone);
         List<StandingBlockMemberSnapshotDto> normalized = normalizeMembers(members);
         String setKey = fingerprintSetKey(normalized);
         Instant now = Instant.now();
@@ -54,7 +57,7 @@ public class StandingBlockTemplateService {
         if (entity == null) {
             entity =
                     new StandingBlockTemplateEntity(
-                            UUID.randomUUID(), circleId, setKey, createdByAdultId, now);
+                            UUID.randomUUID(), circleId, setKey, createdByAdultId, zone, now);
             entity.replaceMembers(toMemberEntities(normalized));
             return toDto(repository.save(entity));
         }
@@ -208,8 +211,20 @@ public class StandingBlockTemplateService {
                 entity.id(),
                 entity.circleId(),
                 entity.createdByAdultId(),
+                entity.timeZone(),
                 entity.createdAt(),
                 members);
+    }
+
+    private static String requireTimeZone(String timeZone) {
+        if (timeZone == null || timeZone.isBlank()) {
+            throw new CalendarException(HttpStatus.BAD_REQUEST, "timeZone is required");
+        }
+        try {
+            return ZoneId.of(timeZone.trim()).getId();
+        } catch (Exception ex) {
+            throw new CalendarException(HttpStatus.BAD_REQUEST, "timeZone is invalid");
+        }
     }
 
     private static StandingBlockMemberSnapshotDto toMemberDto(

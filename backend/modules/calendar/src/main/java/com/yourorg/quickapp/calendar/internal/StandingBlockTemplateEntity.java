@@ -29,6 +29,9 @@ class StandingBlockTemplateEntity {
     @Column(name = "created_by_adult_id", nullable = false)
     private UUID createdByAdultId;
 
+    @Column(name = "time_zone", nullable = false, length = 64)
+    private String timeZone;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -47,11 +50,13 @@ class StandingBlockTemplateEntity {
             UUID circleId,
             String fingerprintSetKey,
             UUID createdByAdultId,
+            String timeZone,
             Instant createdAt) {
         this.id = id;
         this.circleId = circleId;
         this.fingerprintSetKey = fingerprintSetKey;
         this.createdByAdultId = createdByAdultId;
+        this.timeZone = timeZone;
         this.createdAt = createdAt;
     }
 
@@ -69,6 +74,10 @@ class StandingBlockTemplateEntity {
 
     UUID createdByAdultId() {
         return createdByAdultId;
+    }
+
+    String timeZone() {
+        return timeZone;
     }
 
     Instant createdAt() {

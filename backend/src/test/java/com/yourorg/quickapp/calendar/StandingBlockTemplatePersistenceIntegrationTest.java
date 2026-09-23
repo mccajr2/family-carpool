@@ -137,7 +137,7 @@ class StandingBlockTemplatePersistenceIntegrationTest {
                         List.of());
 
         StandingBlockTemplateDto saved =
-                templateService.save(circleId, adultId, List.of(memberA, memberB));
+                templateService.save(circleId, adultId, "America/New_York", List.of(memberA, memberB));
         assertThat(saved.id()).isNotNull();
         assertThat(saved.members()).hasSize(2);
         assertThat(saved.members().get(0).fingerprint()).isEqualTo(fpA);
@@ -170,7 +170,8 @@ class StandingBlockTemplatePersistenceIntegrationTest {
                         List.of(),
                         List.of());
         StandingBlockTemplateDto replaced =
-                templateService.save(circleId, adultId, List.of(memberAUpdated, memberB));
+                templateService.save(
+                        circleId, adultId, "America/New_York", List.of(memberAUpdated, memberB));
         assertThat(replaced.id()).isEqualTo(saved.id());
         assertThat(replaced.members().get(0).coverages().getFirst().leaveFromAddress())
                 .isEqualTo("One-time");

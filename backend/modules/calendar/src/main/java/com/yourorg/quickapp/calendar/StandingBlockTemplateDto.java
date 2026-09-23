@@ -9,5 +9,6 @@ public record StandingBlockTemplateDto(
         UUID id,
         UUID circleId,
         UUID createdByAdultId,
+        String timeZone,
         Instant createdAt,
         List<StandingBlockMemberSnapshotDto> members) {}

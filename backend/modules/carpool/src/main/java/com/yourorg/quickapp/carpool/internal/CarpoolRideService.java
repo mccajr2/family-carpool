@@ -1458,6 +1458,77 @@ public class CarpoolRideService {
         return List.copyOf(out);
     }
 
+    @Transactional(readOnly = true)
+    public List<CarpoolRideResponse> listActiveOwnPlansForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
+            return List.of();
+        }
+        List<CarpoolRideRequestEntity> plans =
+                rides.findByRequestingCircleIdAndEventKeyAndStatusIn(
+                        circleId, resolvedKey.get(), OWN_PLAN_STATUSES);
+        if (plans.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> names = circleNames(List.of(circleId));
+        Map<UUID, String> assigneeNames = new HashMap<>();
+        for (CarpoolRideRequestEntity ride : plans) {
+            assigneeNames.putAll(assigneeDisplayNames(ride));
+        }
+        List<CarpoolRideResponse> out = new ArrayList<>(plans.size());
+        for (CarpoolRideRequestEntity ride : plans) {
+            out.add(toRideResponse(ride, names, false, List.of(), null, assigneeNames));
+        }
+        return List.copyOf(out);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId) {
+        return !listActiveOwnPlansForFeedEvent(circleId, feedEventId).isEmpty();
+    }
+
+    /**
+     * Apply a household Save ride plan onto a FEED event. Uses space Save when
+     * the circle belongs to a space for the event's feed URL; otherwise
+     * circle-local Save. Rejects Ask-the-team via those write paths.
+     */
+    @Transactional
+    public SaveCarpoolRidePlanResponse saveHouseholdPlanForFeedEvent(
+            AdultResponse adult, UUID feedEventId, List<SaveCarpoolRidePlanGroup> plans) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        FeedCalendarEventDto event =
+                feedCalendarApi
+                        .findEventInCircle(circleId, feedEventId)
+                        .orElseThrow(
+                                () ->
+                                        new CarpoolException(
+                                                HttpStatus.BAD_REQUEST, "Unknown event"));
+        String eventKey = FeedEventKey.of(event);
+        SaveCarpoolRidePlanRequest request = new SaveCarpoolRidePlanRequest(eventKey, plans);
+        Optional<UUID> spaceId = spaceIdForCircleFeed(circleId, event.feedId());
+        if (spaceId.isPresent()) {
+            return savePlan(adult, spaceId.get(), request);
+        }
+        return saveCirclePlan(adult, request);
+    }
+
+    private Optional<UUID> spaceIdForCircleFeed(UUID circleId, UUID feedId) {
+        for (CarpoolMembershipEntity membership :
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId)) {
+            CarpoolSpaceEntity space = spaces.findById(membership.spaceId()).orElse(null);
+            if (space == null) {
+                continue;
+            }
+            Optional<FeedResponse> feed =
+                    feedsApi.findByCircleAndNormalizedUrl(circleId, space.normalizedSourceUrl());
+            if (feed.isPresent() && feed.get().id().equals(feedId)) {
+                return Optional.of(space.id());
+            }
+        }
+        return Optional.empty();
+    }
+
     private void collectHouseholdStop(
             UUID adultId,
             UUID feedEventId,

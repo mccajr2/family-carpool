@@ -18,6 +18,7 @@ import com.yourorg.quickapp.calendar.CalendarRouteStopResponse;
 import com.yourorg.quickapp.calendar.CalendarRsvpResponse;
 import com.yourorg.quickapp.calendar.ClearDriveBlockOverrideRequest;
 import com.yourorg.quickapp.calendar.SetDriveBlockOverrideRequest;
+import com.yourorg.quickapp.calendar.StandingBlockTemplateDto;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolApi;
 import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
@@ -91,6 +92,7 @@ public class CalendarService {
     private final DriveBlockOverrideService driveBlockOverrideService;
     private final DriveBlockRouteResolver driveBlockRouteResolver;
     private final FamilyPlaceApi familyPlaceApi;
+    private final StandingBlockLockService standingBlockLockService;
 
     public CalendarService(
             FamilyMembershipApi familyMembershipApi,
@@ -105,7 +107,8 @@ public class CalendarService {
             DriveBlockEnricher driveBlockEnricher,
             DriveBlockOverrideService driveBlockOverrideService,
             DriveBlockRouteResolver driveBlockRouteResolver,
-            FamilyPlaceApi familyPlaceApi) {
+            FamilyPlaceApi familyPlaceApi,
+            StandingBlockLockService standingBlockLockService) {
         this.familyMembershipApi = familyMembershipApi;
         this.feedCalendarApi = feedCalendarApi;
         this.manualEventCalendarApi = manualEventCalendarApi;
@@ -119,11 +122,13 @@ public class CalendarService {
         this.driveBlockOverrideService = driveBlockOverrideService;
         this.driveBlockRouteResolver = driveBlockRouteResolver;
         this.familyPlaceApi = familyPlaceApi;
+        this.standingBlockLockService = standingBlockLockService;
     }
 
     public List<CalendarItemResponse> list(AdultResponse adult, Instant from, Instant to) {
         requireValidRange(from, to);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        standingBlockLockService.applyAndAutoClear(circleId, from, to);
 
         List<FeedCalendarEventDto> feedEvents =
                 feedCalendarApi.listEventsInRange(circleId, from, to);
@@ -620,6 +625,32 @@ public class CalendarService {
                 pair.rightSource(),
                 pair.rightItemId());
         return enrichDriveBlockPair(adult.id(), circleId, pair);
+    }
+
+    @Transactional
+    public StandingBlockTemplateDto lockStandingBlock(
+            AdultResponse adult,
+            List<UUID> memberItemIds,
+            String timeZone,
+            Instant horizonFrom,
+            Instant horizonTo) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        return standingBlockLockService.lock(
+                adult, circleId, memberItemIds, timeZone, horizonFrom, horizonTo);
+    }
+
+    @Transactional
+    public void removeStandingBlock(AdultResponse adult, UUID templateId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        if (!standingBlockLockService.remove(circleId, templateId)) {
+            throw new CalendarException(HttpStatus.NOT_FOUND, "Standing block template not found");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<StandingBlockTemplateDto> listStandingBlocks(AdultResponse adult) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        return standingBlockLockService.listTemplates(circleId);
     }
 
     /**

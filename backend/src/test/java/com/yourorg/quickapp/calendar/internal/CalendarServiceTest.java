@@ -111,6 +111,9 @@ class CalendarServiceTest {
     @Mock
     private com.yourorg.quickapp.family.FamilyPlaceApi familyPlaceApi;
 
+    @Mock
+    private StandingBlockLockService standingBlockLockService;
+
     @InjectMocks
     private CalendarService calendarService;
 
@@ -141,6 +144,7 @@ class CalendarServiceTest {
         lenient()
                 .when(carpoolApi.listConfirmedDrivingLegs(any(), any(), any()))
                 .thenReturn(List.of());
+        lenient().doNothing().when(standingBlockLockService).applyAndAutoClear(any(), any(), any());
         lenient()
                 .when(coverageApi.listForItems(any(), any(), any()))
                 .thenReturn(List.of());

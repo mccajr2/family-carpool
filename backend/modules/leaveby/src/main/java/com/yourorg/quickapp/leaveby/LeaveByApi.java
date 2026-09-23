@@ -217,6 +217,14 @@ public interface LeaveByApi {
             String homeAddress);
 
     /**
+     * Peek the persisted itinerary home-side override for {@code (adult, leg,
+     * member set)} without rebuilding the route. Empty when no itinerary row
+     * exists or the override is Default (both null).
+     */
+    java.util.Optional<ItineraryHomeSideDto> findItineraryHomeSide(
+            UUID drivingAdultId, CalendarRouteLeg leg, List<CalendarRouteMemberRef> memberItems);
+
+    /**
      * Persist item-level leave-from for this adult. Modes: named located place,
      * one-time address, or both null to clear (Default). Place and address are
      * mutually exclusive.
