@@ -1,8 +1,9 @@
 # Spec: carpool-recurring-locked-plan
 
-Status: draft  
+Status: done  
 Created: 2026-09-21  
 Promoted: 2026-09-23 · `/spec`  
+Completed: 2026-09-23 · `/pr`  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-09-21 · re-rank split  
 Branch: `carpool-recurring-locked-plan`
@@ -191,7 +192,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Web: API client updates for new contract fields/endpoints
 - [x] Web: Agenda drive-block Lock CTA (gated) + Remove recurring coverage
       when locked; copy for one-off vs remove-pattern
-- [ ] Tests: Module unit + controller/integration for gate/lock/apply/remove
+- [x] Tests: Module unit + controller/integration for gate/lock/apply/remove
       + schedule-ended auto-clear; web tests for CTA gating; multi-member block
       apply path that would fail if overwrite-on-edit or UID-only matching
       were used
