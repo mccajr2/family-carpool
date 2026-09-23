@@ -179,7 +179,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 - [x] Backend: Fingerprint helper + forward “≥3 other upcoming matches” gate
       over synced FEED events
-- [ ] Backend: Persist circle standing-block template (member fingerprints +
+- [x] Backend: Persist circle standing-block template (member fingerprints +
       per-member coverage / ride-plan / route-origin snapshots); Flyway
 - [ ] Backend: Lock / Remove recurring APIs; apply-on-sync and/or calendar
       enrich for blank matching future items (never overwrite non-blank);
