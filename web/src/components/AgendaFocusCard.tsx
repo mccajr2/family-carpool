@@ -170,7 +170,9 @@ export function AgendaFocusCard({
     pendingForSelf == null &&
     hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
-    onDeclineHouseholdPlan != null
+    onDeclineHouseholdPlan != null &&
+    // Standing Lock: confirm once via Hero — not per Focus occurrence.
+    item.standingLocked !== true
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const statusChips = useMemo(() => {
     const games = mapCalendarItemToCoverageGames(item, rideEvent, {

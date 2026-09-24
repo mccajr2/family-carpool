@@ -1066,4 +1066,61 @@ describe("HeroAttentionSlide", () => {
     expect(onResolvePlayerConflict).toHaveBeenCalledWith("neither", ["k2"])
     expect(within(slide).queryByRole("button", { name: /undo/i })).not.toBeInTheDocument()
   })
+
+  it("FROM-only WAITING_HOUSEHOLD confirm hides Leave from and round-trip copy", async () => {
+    const user = userEvent.setup()
+    const onConfirmHouseholdPlan = vi.fn()
+    const onSetLeaveFrom = vi.fn()
+    const fromOnlyRide: CarpoolRideEvent = {
+      ...rideEvent,
+      ownLegs: [
+        carpoolLeg("TO", "CONFIRMED", {
+          assigneeAdultId: "a2",
+          assigneeDisplayName: "Jordan",
+        }),
+        carpoolLeg("FROM", "WAITING_HOUSEHOLD", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Alex",
+        }),
+      ],
+      ownRequest: null,
+      ownRequests: [],
+      otherRequests: [],
+      requestedByAdultId: "a2",
+      requestedByDisplayName: "Jordan",
+    }
+    const item: QueueItem = { kind: "ownRide", game: game({ id: "UID:game1:k1" }) }
+
+    render(
+      <HeroAttentionCarousel
+        queue={[item]}
+        slidePropsForItem={() =>
+          baseSlideProps(item, 0, {
+            queueLength: 1,
+            rideEvent: fromOnlyRide,
+            calendarItem: calendarItem({
+              uncoveredKidIds: [],
+              standingLocked: true,
+              standingBlockTemplateId: "tmpl-1",
+            }),
+            onConfirmHouseholdPlan,
+            onDeclineHouseholdPlan: vi.fn(),
+            onSetLeaveFrom,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(
+      within(slide).getByRole("button", { name: "Confirm — You'll drive home" }),
+    ).toBeInTheDocument()
+    expect(within(slide).queryByTestId("hero-attention-leave-from")).not.toBeInTheDocument()
+    expect(within(slide).queryByText(/round trip/i)).not.toBeInTheDocument()
+
+    await user.click(
+      within(slide).getByRole("button", { name: "Confirm — You'll drive home" }),
+    )
+    expect(onConfirmHouseholdPlan).toHaveBeenCalledTimes(1)
+  })
 })

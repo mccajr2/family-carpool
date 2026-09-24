@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { CalendarItem, FamilyCircle } from "@/api/types"
 import { AgendaRow } from "@/components/AgendaRow"
 import { ASKED_THE_TEAM, ATTENDANCE_NOT_GOING_CHIP, RIDE_CONFLICT_CHIP, RIDE_NEEDED, alsoDrivingKidLabel } from "@/components/coverageCopy"
-import { carpoolLegsBoth } from "@/api/carpoolLegs"
+import { carpoolLeg, carpoolLegsBoth } from "@/api/carpoolLegs"
 
 function item(
   partial: Pick<CalendarItem, "id" | "title"> & Partial<CalendarItem>,
@@ -3278,5 +3278,319 @@ describe("AgendaRow", () => {
     expect(
       within(row).queryByRole("button", { name: /Split this out|Combine these/ }),
     ).not.toBeInTheDocument()
+  })
+
+  it("offers Lock checkbox on DriverPicker when eligible FEED has a gap", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    const feedItem = item({
+      id: "eligible",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:eligible",
+      standingLockEligible: true,
+      uncoveredKidIds: ["k1"],
+      kidIds: ["k1"],
+    })
+
+    renderRow(feedItem, {
+      onAssignCoverage,
+      onCreateRide: vi.fn(),
+      rideEvent: {
+        eventKey: "UID:eligible",
+        title: "Practice",
+        startsAt: feedItem.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        ownRequests: [],
+        ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+        otherRequests: [],
+      },
+    })
+
+    const row = screen.getByTestId("agenda-row-FEED-eligible")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).queryByTestId("agenda-row-lock-standing"),
+    ).not.toBeInTheDocument()
+    expect(
+      within(row).queryByText("Lock this plan"),
+    ).not.toBeInTheDocument()
+    const checkbox = within(row).getByTestId("driver-picker-lock-standing-checkbox")
+    expect(checkbox).not.toBeChecked()
+    expect(
+      within(row).getByRole("button", {
+        name: /Confirm — You'll drive round trip/,
+      }),
+    ).toBeInTheDocument()
+    await user.click(checkbox)
+    expect(
+      within(row).getByRole("button", { name: /Confirm and lock for/ }),
+    ).toBeInTheDocument()
+    await user.click(
+      within(row).getByRole("button", { name: /Confirm and lock for/ }),
+    )
+    expect(onAssignCoverage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      { lockStanding: true },
+    )
+  })
+
+  it("hides Lock checkbox when not standingLockEligible", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "one-off",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:one-off",
+        standingLockEligible: false,
+        uncoveredKidIds: ["k1"],
+        kidIds: ["k1"],
+      }),
+      {
+        onCreateRide: vi.fn(),
+        rideEvent: {
+          eventKey: "UID:one-off",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-one-off")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).queryByTestId("driver-picker-lock-standing"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows locked summary; Edit reveals Different plans without calling Remove", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    const onSetNotGoing = vi.fn()
+    renderRow(
+      item({
+        id: "locked",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:locked",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-9",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        onRemoveStandingBlock,
+        onSetNotGoing,
+        rideEvent: {
+          eventKey: "UID:locked",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-locked")
+    // Locked chrome is visible without expanding the accordion.
+    expect(
+      within(row).queryByTestId("agenda-row-lock-standing"),
+    ).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+    expect(
+      within(row).queryByText("Different plans for each leg."),
+    ).not.toBeInTheDocument()
+
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-edit"))
+    expect(onRemoveStandingBlock).not.toHaveBeenCalled()
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-remove"),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-done-editing"),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByTestId("driver-picker"),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByText("Different plans for each leg."),
+    ).toBeInTheDocument()
+
+    await user.click(within(row).getByText("Different plans for each leg."))
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-remove"),
+    ).toBeInTheDocument()
+
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-9", "2030-08-15T17:00:00.000Z")
+  })
+
+  it("keeps locked Remove visible for split-leg confirmed plans", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    renderRow(
+      item({
+        id: "locked-split",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:locked-split",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-split",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        onRemoveStandingBlock,
+        rideEvent: {
+          eventKey: "UID:locked-split",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: [
+            carpoolLeg("TO", "CONFIRMED", {
+              assigneeAdultId: "a1",
+              assigneeDisplayName: "Alex",
+            }),
+            carpoolLeg("FROM", "CONFIRMED", {
+              assigneeAdultId: "a2",
+              assigneeDisplayName: "Jordan",
+            }),
+          ],
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-locked-split")
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-split", "2030-08-15T17:00:00.000Z")
+  })
+
+  it("keeps Remove wired when locked without expanding, and shows action errors", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    renderRow(
+      item({
+        id: "locked-err",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:locked-err",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-err",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov1",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        onRemoveStandingBlock,
+        coverageActionError: "Remove standing block failed",
+        rideEvent: {
+          eventKey: "UID:locked-err",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-locked-err")
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-error"),
+    ).toHaveTextContent(/Remove standing block failed/)
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-err", "2030-08-15T17:00:00.000Z")
   })
 })

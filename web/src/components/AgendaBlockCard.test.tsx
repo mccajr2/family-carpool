@@ -821,4 +821,145 @@ describe("AgendaBlockCard", () => {
       undefined,
     )
   })
+
+  it("does not show a standalone Lock this plan link when eligible", () => {
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLockEligible: true,
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLockEligible: true,
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onLockStandingBlock={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
+    expect(screen.queryByText("Lock this plan")).not.toBeInTheDocument()
+  })
+
+  it("shows locked summary with Edit and Remove; Edit reveals leave-from without Remove", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-1",
+      standingLockEligible: true,
+      leaveFromPlaceId: "p1",
+      leaveFromPlaceName: "Home",
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-1",
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onRemoveStandingBlock={onRemoveStandingBlock}
+        onSetLeaveFrom={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-standing-locked-title")).toHaveTextContent(
+      /Plan locked/,
+    )
+    expect(screen.getByTestId("agenda-block-standing-locked-caption")).toHaveTextContent(
+      /Editing changes just this week/,
+    )
+    expect(screen.queryByTestId("agenda-block-leave-from")).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId("agenda-block-standing-locked-edit"))
+    expect(onRemoveStandingBlock).not.toHaveBeenCalled()
+    expect(screen.getByTestId("agenda-block-leave-from")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-standing-locked-title")).toHaveTextContent(
+      /Plan locked/,
+    )
+    expect(screen.getByTestId("agenda-block-standing-locked-done-editing")).toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-standing-locked-remove")).toBeInTheDocument()
+
+    await user.click(screen.getByTestId("agenda-block-standing-locked-remove"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1", "2030-08-15T17:00:00.000Z")
+  })
+
+  it("surfaces Remove failures on the locked summary", () => {
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-err",
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onRemoveStandingBlock={vi.fn()}
+        actionError="Remove standing block failed"
+      />,
+    )
+
+    expect(screen.getByTestId("agenda-block-standing-locked-error")).toHaveTextContent(
+      /Remove standing block failed/,
+    )
+    expect(screen.getByTestId("agenda-block-standing-locked-remove")).toBeInTheDocument()
+  })
 })

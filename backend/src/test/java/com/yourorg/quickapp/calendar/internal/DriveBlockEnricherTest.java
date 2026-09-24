@@ -372,6 +372,9 @@ class DriveBlockEnricherTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of());
+                List.of(),
+                false,
+                false,
+                null);
     }
 }

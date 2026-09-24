@@ -776,6 +776,7 @@ describe("FamilyScreen", () => {
       "tok",
       expect.any(String),
       expect.any(String),
+      expect.any(String),
     )
 
     await user.click(screen.getByRole("button", { name: "Add event" }))

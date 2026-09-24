@@ -1437,9 +1437,11 @@ paths:
         leave-by). Driving blocks are still computed for TO and FROM on each
         read from live ride legs + leave-by cache (no Nominatim/OSRM on this
         list); overrides are the only persisted block state. Empty array when
-        none match. from must be strictly before to (400 otherwise). Adults
-        without a circle receive 404. Does not mutate feed snapshots or manual
-        events.
+        none match. When `timeZone` (IANA) is supplied, FEED drive-block
+        members also carry standingLockEligible / standingLocked /
+        standingBlockTemplateId for Lock CTA chrome. from must be strictly
+        before to (400 otherwise). Adults without a circle receive 404. Does
+        not mutate feed snapshots or manual events.
       security:
         - bearerAuth: []
       parameters:
@@ -1459,6 +1461,17 @@ paths:
             type: string
             format: date-time
           example: "2026-09-01T00:00:00Z"
+        - name: timeZone
+          in: query
+          required: false
+          description: >
+            IANA zone matching Agenda local day grouping (browser zone). Used
+            for standing Lock eligibility fingerprints. When omitted,
+            standingLockEligible is false; standingLocked may still resolve
+            from each template's stored zone.
+          schema:
+            type: string
+            example: America/New_York
       responses:
         "200":
           description: Calendar items in the window (possibly empty)
@@ -2305,6 +2318,138 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: No circle or unknown calendar item for a source/id in the pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/standing-blocks:
+    get:
+      operationId: listStandingBlocks
+      tags: [family]
+      summary: List active standing drive-block templates for the circle
+      description: >
+        Any circle member. Returns circle-scoped Lock templates (ordered FEED
+        member fingerprints + household coverage / ride-plan / route-origin
+        snapshots). Empty when none are locked.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active standing templates (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StandingBlockTemplate"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle for the signed-in adult
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/standing-blocks/lock:
+    post:
+      operationId: lockStandingBlock
+      tags: [family]
+      summary: Lock the household plan on a drive block as a standing template
+      description: >
+        Any circle member adult. `memberItemIds` are the ordered FEED calendar
+        item ids of the viewing adult's current drive block. Requires the
+        forward recurrence gate (≥3 other upcoming fingerprint matches for
+        every FEED member in `[horizonFrom, horizonTo)` using `timeZone`).
+        Snapshots active household coverage, circle ride plans (no Ask-the-team),
+        and itinerary home-side overrides; persists a circle template; then
+        applies onto blank future fingerprint matches in the horizon. Ask-the-
+        team legs → 400. Gate fail → 409.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockStandingBlockRequest"
+      responses:
+        "201":
+          description: Template created or replaced for this fingerprint set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingBlockTemplate"
+        "400":
+          description: Invalid members, zone, horizon, or Ask-the-team present
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown FEED member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Forward recurrence gate failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/family/circle/calendar/standing-blocks/{templateId}:
+    delete:
+      operationId: removeStandingBlock
+      tags: [family]
+      summary: Remove recurring coverage (delete standing template)
+      description: >
+        Any circle member. Deletes the template; clears household coverage and
+        active ride plans on fingerprint-matching FEED occurrences from `from`
+        (inclusive) forward through the known schedule; stops further auto-apply.
+        Weeks before `from` keep their data. When `from` is omitted, uses
+        server now. Idempotent 404 when the template is missing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: >
+            Inclusive Instant cutoff (UTC). Typically the Agenda occurrence
+            `startsAt` where Remove was clicked. Defaults to now.
+      responses:
+        "204":
+          description: Template deleted and forward assignments cleared
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No circle or unknown template
           content:
             application/json:
               schema:
@@ -5964,6 +6109,8 @@ components:
         - conflicts
         - rsvps
         - driveBlockLinks
+        - standingLockEligible
+        - standingLocked
       properties:
         id:
           type: string
@@ -6110,6 +6257,26 @@ components:
             list endpoint.
           items:
             $ref: "#/components/schemas/CalendarDriveBlockLink"
+        standingLockEligible:
+          type: boolean
+          description: >
+            True when this FEED item is in the viewing adult's drive-block
+            component and every FEED member of that block has ≥3 other upcoming
+            fingerprint matches in the calendar window (requires `timeZone` on
+            listCircleCalendar). False for MANUAL rows, when timeZone is
+            omitted, or when the gate fails.
+        standingLocked:
+          type: boolean
+          description: >
+            True when an active circle standing template matches this item's
+            drive-block fingerprint set.
+        standingBlockTemplateId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Id of the matching standing template when standingLocked is true;
+            otherwise null.
 
     CalendarDriveBlockLink:
       type: object
@@ -6188,6 +6355,219 @@ components:
           description: Later item in the ordered pair
         action:
           $ref: "#/components/schemas/DriveBlockOverrideAction"
+
+    LockStandingBlockRequest:
+      type: object
+      required:
+        - memberItemIds
+        - timeZone
+        - horizonFrom
+        - horizonTo
+      properties:
+        memberItemIds:
+          type: array
+          minItems: 1
+          description: Ordered FEED calendar item ids of the drive block to lock
+          items:
+            type: string
+            format: uuid
+        timeZone:
+          type: string
+          description: IANA zone for fingerprint weekday / time-of-day (Agenda zone)
+          example: America/New_York
+        horizonFrom:
+          type: string
+          format: date-time
+          description: Inclusive synced/Agenda horizon start (typically local today)
+        horizonTo:
+          type: string
+          format: date-time
+          description: Exclusive synced/Agenda horizon end
+
+    StandingBlockTemplate:
+      type: object
+      required:
+        - id
+        - circleId
+        - createdByAdultId
+        - timeZone
+        - createdAt
+        - members
+      properties:
+        id:
+          type: string
+          format: uuid
+        circleId:
+          type: string
+          format: uuid
+        createdByAdultId:
+          type: string
+          format: uuid
+        timeZone:
+          type: string
+          description: IANA zone stored at Lock time
+        createdAt:
+          type: string
+          format: date-time
+        members:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/StandingBlockMemberSnapshot"
+
+    StandingBlockMemberSnapshot:
+      type: object
+      required:
+        - fingerprint
+        - position
+        - coverages
+        - ridePlans
+        - routeOrigins
+      properties:
+        fingerprint:
+          $ref: "#/components/schemas/RecurringFeedFingerprint"
+        position:
+          type: integer
+          minimum: 0
+          description: Order within the locked block (0-based)
+        coverages:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingCoverageSnapshot"
+        ridePlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingRidePlanSnapshot"
+        routeOrigins:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingRouteOriginSnapshot"
+
+    RecurringFeedFingerprint:
+      type: object
+      required:
+        - feedId
+        - dayOfWeek
+        - minuteOfDay
+        - normalizedLocation
+      properties:
+        feedId:
+          type: string
+          format: uuid
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        minuteOfDay:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          description: Local start time as minutes since midnight
+        normalizedLocation:
+          type: string
+          description: Trimmed lower-case location (empty when blank)
+
+    StandingCoverageSnapshot:
+      type: object
+      required:
+        - coveringAdultId
+        - assignedByAdultId
+        - status
+        - kidIds
+      properties:
+        coveringAdultId:
+          type: string
+          format: uuid
+        assignedByAdultId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/CoverageStatus"
+        kidIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+        leaveFromAddress:
+          type: string
+          nullable: true
+
+    StandingRidePlanSnapshot:
+      type: object
+      required:
+        - kidIds
+        - legs
+      properties:
+        kidIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/StandingRidePlanLegSnapshot"
+
+    StandingRidePlanLegSnapshot:
+      type: object
+      required:
+        - kind
+        - phase
+      properties:
+        kind:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        phase:
+          $ref: "#/components/schemas/CarpoolLegPhase"
+        assigneeAdultId:
+          type: string
+          format: uuid
+          nullable: true
+        assigneeCircleId:
+          type: string
+          format: uuid
+          nullable: true
+        placeId:
+          type: string
+          format: uuid
+          nullable: true
+        placeName:
+          type: string
+          nullable: true
+        placeAddress:
+          type: string
+          nullable: true
+        meetSide:
+          $ref: "#/components/schemas/CarpoolMeetSide"
+          nullable: true
+
+    StandingRouteOriginSnapshot:
+      type: object
+      required:
+        - adultId
+        - leg
+      properties:
+        adultId:
+          type: string
+          format: uuid
+        leg:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        leaveFromPlaceId:
+          type: string
+          format: uuid
+          nullable: true
+        leaveFromPlaceName:
+          type: string
+          nullable: true
+        leaveFromAddress:
+          type: string
+          nullable: true
 
     CreateManualEventRequest:
       type: object

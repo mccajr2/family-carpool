@@ -8,12 +8,13 @@ import type {
 } from "@/api/types"
 import type { QueueItem } from "@/components/coverageQueue"
 import {
-  hasWaitingHouseholdForAdult,
   isOwnRideGap,
   mapCalendarItemToCoverageGames,
+  waitingHouseholdLegsForAdult,
 } from "@/components/coverageQueue"
 import {
   DriverPicker,
+  type DriverPickerConfirmOptions,
   type DriverPickerKidPlan,
   type DriverPickerSavePlanLegs,
 } from "@/components/DriverPicker"
@@ -27,6 +28,11 @@ import {
   heroVenueLine,
   keepConflictEventLabel,
 } from "@/components/heroAttentionCopy"
+import {
+  standingAssignedYouCaption,
+  standingAssignedYouTitle,
+  standingWeekdayNames,
+} from "@/components/standingBlockChrome"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
@@ -38,7 +44,9 @@ import {
   HERO_MOST_URGENT,
   HERO_ON_INVERSE,
   HERO_UP_NEXT,
+  confirmHouseholdCoverageLabel,
   heroQueueCountLabel,
+  householdConfirmShowsLeaveFrom,
   kidAlreadyGoingSuffix,
   markAsNotGoingLabel,
   markKidsAsNotGoingLabel,
@@ -69,11 +77,21 @@ export type HeroAttentionSlideProps = {
   rideEvent?: CarpoolRideEvent | null
   assignDraft: { adultId: string; kidIds: string[] }
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
-  onAssignCoverage: (adultId: string, kidIds: string[]) => void
+  onAssignCoverage: (
+    adultId: string,
+    kidIds: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   /** Omit when the feed has no MEMBER/OWNER carpool space — hides Ask the team. */
   onAskTeam?: () => void
-  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
-  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
+  onSaveRidePlan?: (
+    legs: DriverPickerSavePlanLegs,
+    options?: DriverPickerConfirmOptions,
+  ) => void
+  onSaveKidPlans?: (
+    plans: DriverPickerKidPlan[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   onConfirmCoverage?: (assignmentId: string) => void
   onDeclineCoverage?: (assignmentId: string) => void
   /** Confirm WAITING_HOUSEHOLD legs assigned to the signed-in adult. */
@@ -119,6 +137,9 @@ export type HeroAttentionSlideProps = {
    * block member on this slide.
    */
   blockSupportingContext?: HeroBlockSupportingContext | null
+  /** Opt-in Lock checkbox on Confirm when gate passes (weekday singular). */
+  standingLockWeekdaySingular?: string | null
+  standingLockWeekdayPlural?: string | null
 }
 
 function requestRideForSlide(
@@ -159,6 +180,8 @@ export function HeroAttentionSlide({
   hasPickupPlace = true,
   now = new Date(),
   blockSupportingContext = null,
+  standingLockWeekdaySingular = null,
+  standingLockWeekdayPlural = null,
 }: HeroAttentionSlideProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const [confirmPerKidNotGoing, setConfirmPerKidNotGoing] = useState(false)
@@ -182,12 +205,31 @@ export function HeroAttentionSlide({
       : [heroKidFirstName(item.game.kidId, circle.kids)]
   const kidFirstName = titleKidFirstNames[0] ?? "Kid"
   const pendingForSelf = pendingCoverageForAdult(calendarItem, currentAdultId)
+  const waitingHouseholdLegs = waitingHouseholdLegsForAdult(
+    allOwnPlanLegs(rideEvent),
+    currentAdultId,
+  )
+  const waitingLegKinds = waitingHouseholdLegs.map((leg) => leg.kind)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
-    hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
+    waitingHouseholdLegs.length > 0 &&
     onConfirmHouseholdPlan != null &&
     onDeclineHouseholdPlan != null
+  const standingHouseholdConfirm =
+    pendingHouseholdPlan &&
+    calendarItem.standingLocked === true &&
+    calendarItem.standingBlockTemplateId != null
   const showConfirmChrome = pendingForSelf != null || pendingHouseholdPlan
+  const householdConfirmLabel =
+    pendingHouseholdPlan && waitingLegKinds.length > 0
+      ? confirmHouseholdCoverageLabel(waitingLegKinds)
+      : CONFIRM_COVERAGE
+  const showLeaveFrom = item.kind === "ownRide" && onSetLeaveFrom != null
+  const showLeaveFromOnConfirm =
+    showLeaveFrom &&
+    (pendingForSelf != null ||
+      waitingLegKinds.length === 0 ||
+      householdConfirmShowsLeaveFrom(waitingLegKinds))
   const assignerFirstName = showConfirmChrome
     ? heroAdultFirstName(
         pendingForSelf?.assignedByAdultId ?? rideEvent?.requestedByAdultId,
@@ -195,20 +237,29 @@ export function HeroAttentionSlide({
         rideEvent?.requestedByDisplayName,
       )
     : null
-  const ownRideTitle = heroOwnRideTitle({
-    kidFirstNames:
-      pendingForSelf != null && pendingForSelf.kidIds.length > 0
-        ? pendingForSelf.kidIds.map((kidId) => heroKidFirstName(kidId, circle.kids))
-        : titleKidFirstNames,
-    pendingConfirm: showConfirmChrome,
-    assignerFirstName,
-  })
+  const standingWeekdays = standingWeekdayNames(calendarItem.startsAt)
+  const ownRideTitle =
+    standingHouseholdConfirm && assignerFirstName != null
+      ? standingAssignedYouTitle(assignerFirstName, standingWeekdays.singular)
+      : heroOwnRideTitle({
+          kidFirstNames:
+            pendingForSelf != null && pendingForSelf.kidIds.length > 0
+              ? pendingForSelf.kidIds.map((kidId) =>
+                  heroKidFirstName(kidId, circle.kids),
+                )
+              : titleKidFirstNames,
+          pendingConfirm: showConfirmChrome,
+          assignerFirstName,
+        })
+  const standingConfirmCaption =
+    standingHouseholdConfirm
+      ? standingAssignedYouCaption(standingWeekdays.plural)
+      : null
   const leaveFromFields: LeaveFromFields = leaveFromValue ?? {
     leaveFromPlaceId: calendarItem.leaveFromPlaceId,
     leaveFromPlaceName: calendarItem.leaveFromPlaceName,
     leaveFromAddress: calendarItem.leaveFromAddress,
   }
-  const showLeaveFrom = item.kind === "ownRide" && onSetLeaveFrom != null
   const originForConfirm =
     confirmOriginLabel || resolvedLeaveFromLabel(leaveFromFields, circle)
 
@@ -597,6 +648,15 @@ export function HeroAttentionSlide({
               >
                 {ownRideTitle}
               </h2>
+              {standingConfirmCaption != null ? (
+                <p
+                  data-testid="hero-attention-standing-caption"
+                  className="mb-[var(--fc-space-sm)] text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)]"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {standingConfirmCaption}
+                </p>
+              ) : null}
               <p
                 data-testid="hero-attention-when"
                 className="text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)] font-[number:var(--fc-font-focus-when-weight)]"
@@ -616,7 +676,7 @@ export function HeroAttentionSlide({
                   className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-col gap-[var(--fc-space-md)] border-t pt-[var(--fc-space-md)]"
                   style={{ borderColor: "rgba(255,255,255,0.14)" }}
                 >
-                  {showLeaveFrom ? (
+                  {showLeaveFromOnConfirm ? (
                     <div
                       style={{ color: "var(--fc-hero-on-secondary)" }}
                       data-testid="hero-attention-leave-from"
@@ -647,7 +707,7 @@ export function HeroAttentionSlide({
                         }
                       }}
                     >
-                      {CONFIRM_COVERAGE}
+                      {householdConfirmLabel}
                     </button>
                     <button
                       type="button"
@@ -706,6 +766,8 @@ export function HeroAttentionSlide({
                     onSetNotGoing={onSetNotGoing}
                     hasPickupPlace={hasPickupPlace}
                     actionError={actionError}
+                    standingLockWeekdaySingular={standingLockWeekdaySingular}
+                    standingLockWeekdayPlural={standingLockWeekdayPlural}
                   />
                 </div>
               )}

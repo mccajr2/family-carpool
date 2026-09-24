@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-21 (`/roadmap`: recurring carve-up — locked → standing → rotation → neighborhood)
+Updated: 2026-09-24 (`/pr carpool-recurring-locked-plan` dogfood amend re-ship; Next up `carpool-recurring-standing`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -105,18 +105,17 @@ Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-recurring-locked-plan   | planned | 2026-09-21 · re-rank split | Lock same driver + leave-from / return-to across recurring same events week over week (no weekly re-confirm)                  |
-| 2    | carpool-recurring-standing      | planned | 2026-09-21 · re-rank split | Same teammate carpool pattern for a recurring event week over week (no turn-taking)                                           |
-| 3    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only                   |
-| 4    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)                      |
-| 5    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
-| 6    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
-| 7    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
-| 8    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
-| 9    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
-| 10   | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
-| 11   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 12   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | carpool-recurring-standing      | planned | 2026-09-21 · re-rank split | Same teammate carpool pattern for a recurring event week over week (no turn-taking)                                           |
+| 2    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only                   |
+| 3    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)                      |
+| 4    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
+| 5    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
+| 6    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
+| 7    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
+| 8    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
+| 9    | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
+| 10   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
+| 11   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -205,13 +204,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| —  | —      | —    |
+| — | — | *(none)* |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-recurring-locked-plan | 2026-09-24 | [archive](specs/archive/carpool-recurring-locked-plan.md) |
 | manual-event-team-link     | 2026-09-21 | [archive](specs/archive/manual-event-team-link.md)     |
 | block-route-origin         | 2026-09-17 | [archive](specs/archive/block-route-origin.md)         |
 | day-block-route            | 2026-09-17 | [archive](specs/archive/day-block-route.md)            |
@@ -306,6 +306,10 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-24 | `/pr carpool-recurring-locked-plan` dogfood amend re-ship: confirm-time Lock + locked summary, place triad, confirm restore + soft-fail apply, standing hero collapse, known-schedule apply, split-leg Hero chrome, page-slice auto-clear safety. Spec archived. Next up `carpool-recurring-standing`. |
+| 2026-09-24 | Reactivate `carpool-recurring-locked-plan` (same branch): amend dogfood — confirm-time Lock chrome, place/confirm apply correctness, known-schedule (feed-backed) apply vs Agenda window, split-leg Hero chrome, page-slice auto-clear safety. Standing stays Next up after this re-ships. |
+| 2026-09-23 | `/pr carpool-recurring-locked-plan`: standing Lock on Agenda drive blocks — fingerprint gate (≥3 other matches), circle template, apply to blank future weeks (never overwrite), Remove recurring + schedule-ended auto-clear. Spec archived. Next up `carpool-recurring-standing`. |
+| 2026-09-23 | `/spec carpool-recurring-locked-plan`: promote — explicit Lock on Agenda drive block; fingerprint (feed+weekday+time+location); ≥3 other upcoming matches gate; apply coverage+plans+route home-side to blank future weeks; one-off edits stick; Remove recurring clears template. Branch `carpool-recurring-locked-plan`. |
 | 2026-09-21 | `/roadmap` recurring carve-up: cases → `carpool-recurring-locked-plan` (household lock) → `carpool-recurring-standing` (same carpool WoW) → `carpool-recurring-rotation` (2+ families + subset driver pool) → `neighborhood-carpool` (proximity recommendations). Next up `carpool-recurring-locked-plan`. |
 | 2026-09-21 | `/roadmap`: demote `drive-block-linked-manual` to parking; split/park drive-block intelligence stubs (`drive-block-home-hop-merge`, `drive-block-early-leave-late-arrive`); no manual-event / drive-block slice as Next up. Next up `carpool-recurring-rotation`. |
 | 2026-09-21 | `/pr manual-event-team-link`: optional `feedId` on manuals; FEED-parity carpool when linked; server-derived feed roster; restore ADR-0003 default-going. Spec archived. Next up `drive-block-linked-manual`. |

@@ -1,0 +1,311 @@
+# Spec: carpool-recurring-locked-plan
+
+Status: done  
+Created: 2026-09-21  
+Promoted: 2026-09-23 · `/spec`  
+Updated: 2026-09-24 · amend — Remove clears assignments from cutoff forward  
+Completed: 2026-09-24 · `/pr` (dogfood amend re-ship)  
+Parent: [docs/roadmap.md](../../roadmap.md)  
+Added: 2026-09-21 · re-rank split  
+Branch: `carpool-recurring-locked-plan`
+
+## Problem
+
+Families repeat the same weekday logistics every week — e.g. dad leaves the
+home office, picks kid 1 up at the community center and kid 2 at school, drives
+both to the rink for kid 2’s practice (kid 1 waits), mom leaves her office and
+takes kid 2 home after that practice, dad stays for kid 1’s later practice and
+brings kid 1 home. Today each week’s FEED occurrences still need fresh
+coverage confirm, Save ride plan, and leave-from / return-to setup even when
+nothing changed. Adults need an **explicit locked standing household plan** on
+the drive block that applies week over week until they remove it — no ritual
+re-confirm when the pattern is unchanged.
+
+## Non-goals
+
+- Teammate Ask/Accept standing or rotation
+  (`carpool-recurring-standing`, `carpool-recurring-rotation`)
+- Neighborhood proximity discovery (`neighborhood-carpool`)
+- Gap-fill when a locked driver can’t cover that week
+  (`carpool-driver-gap-fill`)
+- Hybrid “Use last Tuesday’s plan?” prompt (future enhancement after this
+  explicit Lock ships)
+- iCal `RRULE` / `RECURRENCE-ID` series identity as the primary matcher (sports
+  feeds are expanded one-off UIDs; series parsing is a later upgrade if feeds
+  start shipping real recurrence)
+- Inventing new drive-block merge rules (reuse existing day-block membership;
+  no FORCE_MERGE/SPLIT changes)
+- Linked MANUAL members in the locked pattern
+  (`drive-block-linked-manual` stays parked)
+- Auto-copy without an explicit Lock
+- Expo / KMP / RN
+- Changing teammate ride Accept / Pass semantics
+- Changing confirm-household write semantics for split legs (already correct;
+  dogfood F is display-only)
+
+## Approach
+
+**Web-first. Explicit Lock on an Agenda drive block; server-persisted circle
+template; fingerprint match + forward recurrence gate; apply coverage + ride
+plans + route home-side to blank future weeks; one-off edits stick; Remove
+recurring deletes the template and clears assignments from the clicked date
+forward (past weeks keep data; never orphan locked chrome).**
+
+**Fingerprint (series substitute).** For a FEED calendar item:
+`feedId` + local weekday + local start time-of-day (minute) + normalized
+location string. Do **not** key locks on per-occurrence iCal UID / item UUID
+(those change every week on typical sports feeds).
+
+**Synced horizon (amended 2026-09-24).** Gate, Lock apply, and schedule-ended
+auto-clear use the **known schedule**: upcoming FEED rows already persisted for
+the circle after sync — **not** the Agenda UI loaded window (`calendarLoadedTo`).
+Agenda pagination stays display-only. Server derives
+`[localToday, end)` over circle FEED events (long fixed cap, e.g. +400 days).
+Client may still send `horizonFrom`/`horizonTo` on Lock for diagnostics; server
+must not clip apply breadth to Agenda pagination. Calendar `list` must never
+run auto-clear on a Load-more page-only slice that can miss fingerprint matches.
+
+**Forward recurrence gate (Lock CTA).** Show Lock only when the signed-in
+adult’s **current drive block** has ≥1 FEED member, and **every** FEED member
+of that block has **≥3 other upcoming** FEED rows in the synced horizon
+that share that member’s fingerprint (excluding the member itself). Irregular
+games (varying time/destination) fail the gate — no accidental Lock on a short
+coincidence of 8am home games unless the same fingerprint truly repeats ≥4
+times upcoming (current + 3 others). Singleton blocks (one event) are allowed
+when that one event passes the gate.
+
+**What Lock stores.** Circle-scoped standing template keyed by an ordered set
+of member fingerprints (the block’s FEED members at lock time) plus, for each
+member fingerprint, a snapshot of **all household state on that calendar
+item** — not only the viewing adult’s TO/FROM leg:
+
+- Active coverage rows (adult + kids + `CONFIRMED` / `PENDING` as set)
+- Active circle ride plan(s) (per-kid / per-leg phases, assignees, family-side
+  places, meet sides — same shape as Save ride plan)
+- Per-adult itinerary home-side overrides for TO Leaving from / FROM Returning
+  to on the member-set route when present (`block-route-origin`)
+
+Drive blocks remain **computed** (no new trip entity). The template is the
+new persisted artifact. Lock is available to any circle member adult; storing
+other adults’ coverage/legs is intentional (mom’s FROM on kid 2 is part of
+dad’s Tuesday block pattern).
+
+**Apply.** On calendar read enrichment for the circle (feed-backed horizon), for
+each active template: find future FEED items matching each member fingerprint on
+the same local calendar day (same weekday instance), and when those items
+would form the same block membership for the template’s drivers, copy the
+snapshot onto items that are still **blank for the circle** — no active
+coverage rows and no active ride plans yet. **Never overwrite** an item that
+already has household coverage or plans (one-off edits and manual setup
+stick). Re-apply only fills newly appeared blank matches. Snapshot place fields
+use `placeId` XOR `oneTimeAddress` (never both). After apply, restore
+`CONFIRMED` for non-actor household assignees when the lock-week snapshot had
+them confirmed. Lock persist and apply run in separate transactions so an apply
+failure does not roll back the template (soft-fail apply).
+
+**Remove (amended 2026-09-24).** Deletes the template **and** clears household
+coverage + active ride plans on every fingerprint-matching FEED occurrence with
+`startsAt >= from` (Agenda passes the clicked occurrence’s `startsAt`). Weeks
+before the cutoff keep their data.
+
+**One-off vs pattern change.** Adults may edit any single week’s coverage /
+plans / places at any time; that does not clear the lock. To change the
+standing pattern going forward: **Remove recurring coverage** deletes the
+template and clears household coverage + active ride plans on fingerprint-
+matching FEED occurrences from the clicked occurrence’s `startsAt` forward
+(past weeks before that cutoff keep their data); future weeks stop receiving
+auto-apply until the household replans a week and Locks again.
+
+**Schedule ended (mid-season shift).** When youth ice time / half-season
+schedules wipe the standing practices (e.g. Tuesdays vanish from the feed),
+do **not** leave the template orphaned. On calendar enrich over the feed-backed
+horizon: if **every** fingerprint in an active template has **zero upcoming**
+FEED matches, **auto-clear** the template with the same effect as Remove
+recurring (stop apply; keep already-written weeks; locked chrome goes away).
+Optionally surface a **one-time dismissible** Agenda note the first time this
+happens (“Recurring coverage ended — schedule changed”); copy may be toned
+down or omitted if block density makes it noisy — auto-clear itself is
+required.
+
+**Web Lock chrome (amended).** Lock is offered at Save/confirm time (checkbox
+keyed by weekday) rather than a separate Agenda-only link; locked weeks show a
+compact summary with Edit this week / Remove recurring. Hero collapses pending
+standing household confirms to **one queue item per** `standingBlockTemplateId`.
+
+**Split-leg hero confirm (amended).** When the viewer is WAITING_HOUSEHOLD on
+FROM only (or TO only), Hero must not imply round trip or show Leave from for a
+drive-home leg. Confirm write semantics stay as today.
+
+**Contract.** OpenAPI changes: Lock / Remove recurring endpoints (or calendar
+sub-resource), calendar/block response fields for lock eligibility + locked
+state (+ optional schedule-ended signal for the dismissible note), web clients
+updated in the same change. No KMP `sharedLogic` updates.
+
+## Context
+
+Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
+
+- Architecture: `docs/architecture.md` → Team carpool space (detail) **Rides**;
+  Leave-by (detail) **Multi-stop itinerary** / home-side override; Coverage
+  (detail); Activity feeds upsert-by-UID note
+- ADR: `docs/decisions/ADR-0004-carpool-card-perspective-rules.md` (block /
+  perspective chrome)
+- Archived reuse: `docs/specs/archive/day-block-domain.md` (membership rule —
+  do not change); `docs/specs/archive/day-block-agenda.md` (block card
+  surface); `docs/specs/archive/day-block-route.md` +
+  `docs/specs/archive/block-route-origin.md` (route member-set + Leaving from /
+  Returning to)
+- Sibling stubs (boundaries only): `docs/specs/planned/carpool-recurring-standing.md`,
+  `docs/specs/planned/carpool-recurring-rotation.md`
+- Source: `backend/modules/calendar/internal/StandingBlockLockService.java`,
+  `CalendarService.java` (lock / list apply); `DriveBlockEnricher.java`,
+  `DriveBlockRouteResolver.java`; `backend/modules/coverage/`;
+  `backend/modules/carpool/internal/CarpoolRideService.java` (Save ride plan /
+  confirm-household / standing snapshots); `backend/modules/feeds/FeedEventKey.java`,
+  `ForwardRecurrenceGate.java`, `internal/FeedsService.java` (sync upsert);
+  `web/src/components/AgendaBlockCard.tsx`, `AgendaRow.tsx`, `DriverPicker.tsx`,
+  `HeroAttentionSlide.tsx`, `LockedStandingPlanSummary.tsx`,
+  `standingBlockChrome.ts`, `coverageQueue.ts`, `coverageCopy.ts`,
+  `FamilyScreen.tsx`, `eventTimes.ts`; `web/src/api/carpoolClient.ts`,
+  `familyClient.ts`; `contracts/openapi.yaml` (calendar + carpool ride-plan paths)
+
+## Amend — dogfood (2026-09-24)
+
+Numbered dogfood / correctness items after the archived MVP ship. Implement
+only these; do not absorb teammate standing.
+
+1. **A — Confirm-time Lock + locked summary:** Lock checkbox at Save/confirm;
+   locked Agenda chrome via compact summary (Edit this week / Remove).
+2. **B — Place triad on snapshot/apply:** Named place never re-saves display
+   address beside `placeId`.
+3. **C — Household confirm restore + Lock/apply TX split:** Locked CONFIRMED
+   multi-adult plans stay CONFIRMED on blank weeks; Lock ≠ HTTP 500 if apply
+   confirm CONFLICT.
+4. **D — Standing hero collapse:** One pending confirm slide per
+   `standingBlockTemplateId`.
+5. **E — Known-schedule apply:** After Lock, every blank fingerprint match in
+   the feed-backed known schedule receives apply — not only the Agenda page
+   window (~one future week).
+6. **F — Split-leg hero chrome:** FROM-only (or TO-only) pending household
+   confirm must not show round-trip Leave from / “round trip” copy.
+7. **G — Page-slice auto-clear:** Load-more / partial calendar `list` ranges
+   must not auto-clear a live template when the page slice has zero matches.
+
+## Acceptance criteria
+
+### Original (MVP)
+
+- [x] **Lock CTA gated:** Web Agenda drive-block chrome shows Lock only when
+      every FEED member of that block has ≥3 other upcoming fingerprint matches
+      in the synced horizon; otherwise Lock is hidden (one-off Confirm / Save
+      unchanged).
+- [x] **Lock persists household block pattern:** With Lock on a multi-member
+      block whose items already have CONFIRMED split coverage (e.g. adult A TO
+      both kids, adult B FROM kid 2, adult A FROM kid 1) and matching ride plans
+      + route home-side places, the server stores a circle template for that
+      ordered fingerprint set and returns locked state on subsequent reads.
+- [x] **Apply to blank future weeks:** After Lock, when later weeks’ matching
+      FEED rows exist and are blank for the circle, calendar/sync apply creates
+      the same coverage + ride plans (+ home-side overrides when snapshotted)
+      so Agenda/Hero do not treat those kids as coverage gaps and Route reflects
+      the locked places without Confirm / Assign / Save that week.
+- [x] **One-off edit sticks:** Editing coverage or plan on one applied future
+      week does not clear the template; later blank weeks still receive the
+      original locked pattern; the edited week is not overwritten on re-apply.
+- [x] **Remove recurring:** Explicit Remove recurring coverage deletes the
+      template; clears coverage + ride plans on fingerprint matches from the
+      Remove cutoff (`from` / occurrence `startsAt`) forward; does not wipe
+      weeks before that cutoff; Lock can be used again only after a week is
+      fully planned and the gate still passes.
+- [x] **Schedule-ended auto-clear:** After Lock, when the feed no longer has
+      any upcoming match for every template fingerprint (half-season ice-time
+      shift), the next sync/enrich deletes the template (same effect as Remove);
+      locked chrome is gone; already-applied weeks are untouched; template is
+      not left orphaned.
+- [x] **No teammate standing:** Lock never creates or repeats Ask-the-team /
+      Accept rides for other circles (household / circle-local plans + coverage
+      only).
+- [x] **Fingerprint, not UID:** Two FEED rows with different iCal UIDs but the
+      same feed + weekday + time-of-day + location match for gate and apply;
+      a row that only shares time but differs in location does not match.
+- [x] **OpenAPI + web clients:** Contract documents Lock / Remove + eligibility
+      / locked fields; `web/src/api/` clients updated in the same change.
+- [x] **Tests:** Backend unit + integration cover gate, lock snapshot, apply to
+      blank match, skip non-blank (one-off), remove template, and schedule-ended
+      auto-clear; web component/unit tests cover Lock visibility and Remove; at
+      least one e2e or integration path covers multi-member block lock →
+      next-week blank apply.
+
+### Amend — dogfood
+
+- [x] **A — Confirm-time Lock + locked summary:** Save/confirm offers Lock
+      checkbox when eligible; locked weeks show compact summary with Edit this
+      week / Remove recurring (not a bare Lock link only).
+- [x] **B — Place triad:** Standing snapshot/apply omits one-time address when
+      `placeId` is set (and the reverse); named place never re-saves display
+      address beside `placeId`.
+- [x] **C — Confirm restore + soft-fail apply:** Blank-week apply leaves
+      non-actor assignees CONFIRMED when the lock snapshot had them confirmed;
+      Lock succeeds even if a subsequent apply confirm CONFLICT is soft-failed.
+- [x] **D — Standing hero collapse:** Multiple pending standing weeks for the
+      same `standingBlockTemplateId` produce one Hero queue item.
+- [x] **E — Known-schedule apply:** After Lock with a 14-day client window,
+      every blank fingerprint match across the feed-backed known schedule
+      (≥4 future weeks in DB) receives apply — not only ~one future week.
+- [x] **F — Split-leg hero chrome:** WAITING_HOUSEHOLD FROM-only → no “Leave
+      from”, no “round trip” copy, Confirm still callable; TO-only and both
+      legs covered symmetrically.
+- [x] **G — Page-slice auto-clear:** Calendar `list` on a Load-more page-only
+      range that contains zero fingerprint matches does not delete an active
+      template that still has upcoming matches in the known schedule.
+- [x] **Tests (amend):** Backend integration for E + G; web component tests for
+      A/D/F (and B/C unit coverage where already started).
+
+## Tasks
+
+### Original (done)
+
+- [x] Backend: Fingerprint helper + forward “≥3 other upcoming matches” gate
+      over synced FEED events
+- [x] Backend: Persist circle standing-block template (member fingerprints +
+      per-member coverage / ride-plan / route-origin snapshots); Flyway
+- [x] Backend: Lock / Remove recurring APIs; apply-on-sync and/or calendar
+      enrich for blank matching future items (never overwrite non-blank);
+      auto-clear template when every fingerprint has zero upcoming matches
+- [x] Backend: Reuse existing coverage + Save ride plan + route-origin write
+      paths for apply (no parallel mute semantics)
+- [x] Contract: OpenAPI Lock / Remove + calendar/block eligibility & locked
+      state fields
+- [x] Web: API client updates for new contract fields/endpoints
+- [x] Web: Agenda drive-block Lock CTA (gated) + Remove recurring coverage
+      when locked; copy for one-off vs remove-pattern
+- [x] Tests: Module unit + controller/integration for gate/lock/apply/remove
+      + schedule-ended auto-clear; web tests for CTA gating; multi-member block
+      apply path that would fail if overwrite-on-edit or UID-only matching
+      were used
+
+### Amend — dogfood
+
+- [x] Web: Confirm-time Lock checkbox + LockedStandingPlanSummary / Edit this
+      week (A)
+- [x] Backend: Standing plan snapshot place triad on apply (B)
+- [x] Backend: Confirm restore for non-actor assignees; Lock TX ≠ apply TX (C)
+- [x] Web: Hero standing collapse one-per-template (D)
+- [x] Backend: Feed-backed known-schedule horizon for gate / apply / auto-clear;
+      calendar list never auto-clears on page-only slices (E, G)
+- [x] Web: Leg-aware Hero confirm chrome for FROM-only / TO-only (F)
+- [x] Tests: Integration E+G; component/unit A/B/C/D/F
+
+## Open questions
+
+- Exact chrome strings (“Lock this plan” vs “Repeat weekly” / “Remove
+  recurring coverage”) — tune at implement against Agenda block density;
+  behavior above is fixed.
+- Schedule-ended dismissible Agenda note — ship if cheap; omit in v1 if it
+  fights block density (auto-clear remains mandatory either way).
+- Circle timezone for “local weekday / time-of-day” — use the same zone the
+  calendar Agenda already uses for day grouping (do not invent a second zone
+  rule).
+- Long fixed apply cap (+400 days) vs last matching fingerprint — prefer long
+  fixed cap + existing `listEventsInRange` for simplicity unless dogfood shows
+  seasons longer than the cap.

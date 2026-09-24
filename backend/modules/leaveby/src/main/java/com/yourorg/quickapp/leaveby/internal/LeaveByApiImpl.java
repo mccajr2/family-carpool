@@ -28,6 +28,7 @@ import com.yourorg.quickapp.leaveby.LeaveByVenueDriveDto;
 import com.yourorg.quickapp.leaveby.LeaveFromEnrichmentInput;
 import com.yourorg.quickapp.leaveby.LeaveFromPlaceDto;
 import com.yourorg.quickapp.leaveby.DetourItemInput;
+import com.yourorg.quickapp.leaveby.ItineraryHomeSideDto;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -714,6 +715,29 @@ class LeaveByApiImpl implements LeaveByApi {
                 middles == null ? List.of() : middles,
                 destinationName,
                 destinationAddress);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ItineraryHomeSideDto> findItineraryHomeSide(
+            UUID drivingAdultId, CalendarRouteLeg leg, List<CalendarRouteMemberRef> memberItems) {
+        if (drivingAdultId == null || memberItems == null || memberItems.isEmpty()) {
+            return Optional.empty();
+        }
+        CalendarRouteLeg safeLeg = leg == null ? CalendarRouteLeg.TO : leg;
+        String memberSetKey = MemberSetKeys.compute(memberItems);
+        Optional<ItineraryEntity> row =
+                itineraryRepository.findByDrivingAdultIdAndLegAndMemberSetKey(
+                        drivingAdultId, safeLeg, memberSetKey);
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        ItineraryEntity entity = row.get();
+        if (entity.homePlaceId() == null
+                && (entity.homeAddress() == null || entity.homeAddress().isBlank())) {
+            return Optional.empty();
+        }
+        return Optional.of(new ItineraryHomeSideDto(entity.homePlaceId(), entity.homeAddress()));
     }
 
     private ItineraryEntity ensureItineraryRow(

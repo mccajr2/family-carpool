@@ -309,7 +309,10 @@ class DriveBlockEnricher {
                 item.uncoveredKidIds(),
                 item.conflicts(),
                 item.rsvps(),
-                links);
+                links,
+                item.standingLockEligible(),
+                item.standingLocked(),
+                item.standingBlockTemplateId());
     }
 
     private record ItemLegKey(UUID id, CalendarItemSource source) {}

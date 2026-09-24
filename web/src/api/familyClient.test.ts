@@ -1029,6 +1029,93 @@ describe("FamilyClient", () => {
     expect(fetchFn.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" })
   })
 
+  it("locks lists and removes standing blocks", async () => {
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    const template = {
+      id: "t1",
+      circleId: "c1",
+      createdByAdultId: "a1",
+      timeZone: "America/New_York",
+      createdAt: "2026-09-01T12:00:00Z",
+      members: [
+        {
+          fingerprint: {
+            feedId: "f1",
+            dayOfWeek: "TUESDAY",
+            minuteOfDay: 1020,
+            normalizedLocation: "rink a",
+          },
+          position: 0,
+          coverages: [],
+          ridePlans: [],
+          routeOrigins: [],
+        },
+      ],
+    }
+
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(json(template, 201))
+      .mockResolvedValueOnce(json([template]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+
+    await expect(
+      client.lockStandingBlock("tok", {
+        memberItemIds: ["e1"],
+        timeZone: "America/New_York",
+        horizonFrom: "2026-09-01T04:00:00Z",
+        horizonTo: "2026-10-01T04:00:00Z",
+      }),
+    ).resolves.toMatchObject({ id: "t1", timeZone: "America/New_York" })
+    expect(fetchFn.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/standing-blocks/lock",
+    )
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: "POST" })
+
+    await expect(client.listStandingBlocks("tok")).resolves.toEqual([template])
+    expect(fetchFn.mock.calls[1]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/standing-blocks",
+    )
+
+    await expect(client.removeStandingBlock("tok", "t1")).resolves.toBeUndefined()
+    expect(fetchFn.mock.calls[2]?.[0]).toBe(
+      "http://localhost:8080/api/family/circle/calendar/standing-blocks/t1",
+    )
+    expect(fetchFn.mock.calls[2]?.[1]).toMatchObject({ method: "DELETE" })
+
+    await expect(
+      client.removeStandingBlock("tok", "t1", "2026-09-08T21:00:00.000Z"),
+    ).resolves.toBeUndefined()
+    expect(String(fetchFn.mock.calls[3]?.[0])).toContain(
+      "standing-blocks/t1?from=2026-09-08T21%3A00%3A00.000Z",
+    )
+  })
+
+  it("passes timeZone on listCalendar when provided", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    const client = new FamilyClient("http://localhost:8080", fetchFn)
+    await client.listCalendar(
+      "tok",
+      "2026-09-01T04:00:00Z",
+      "2026-10-01T04:00:00Z",
+      "America/New_York",
+    )
+    expect(String(fetchFn.mock.calls[0]?.[0])).toContain("timeZone=America%2FNew_York")
+  })
+
   it("sets coverage leave-from (one-time address)", async () => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {

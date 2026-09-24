@@ -251,21 +251,40 @@ export function askMemberToDriveLabel(name: string): string {
 /**
  * Dynamic Confirm CTA for household driver + leave-from:
  * "Confirm — You'll drive round trip from Home".
+ * When {@code legKinds} is set, one-way assignments avoid round-trip copy.
  */
 export function confirmDriveFromLabel(options: {
   selectedAdultId: string
   members: { adultId: string; displayName: string | null }[]
   currentAdultId: string
   leaveFromLabel: string
+  /** Assigned TO/FROM kinds when already known (split plan). */
+  legKinds?: readonly ("TO" | "FROM")[]
 }): string {
   const origin = options.leaveFromLabel.trim() || LEAVE_FROM_ADDRESS_PLACEHOLDER
-  if (options.selectedAdultId === options.currentAdultId) {
-    return `Confirm — You'll drive round trip from ${origin}`
-  }
+  const kinds = options.legKinds ?? null
+  const hasTo = kinds == null ? true : kinds.includes("TO")
+  const hasFrom = kinds == null ? true : kinds.includes("FROM")
+  const you = options.selectedAdultId === options.currentAdultId
   const member = options.members.find((row) => row.adultId === options.selectedAdultId)
   const name = member?.displayName?.trim() || "them"
   const first = name.split(/\s+/)[0] ?? name
-  return `Confirm — ${first}'ll drive round trip from ${origin}`
+  const who = you ? "You'll" : `${first}'ll`
+
+  if (hasTo && hasFrom) {
+    return `Confirm — ${who} drive round trip from ${origin}`
+  }
+  if (hasFrom && !hasTo) {
+    return you
+      ? "Confirm — You'll drive home"
+      : `Confirm — ${first}'ll drive home`
+  }
+  if (hasTo && !hasFrom) {
+    return you
+      ? `Confirm — You'll drive there from ${origin}`
+      : `Confirm — ${first}'ll drive there from ${origin}`
+  }
+  return `Confirm — ${who} drive round trip from ${origin}`
 }
 
 /** "Luke", "Luke and Graham", "Luke, Graham, and Mia". */
@@ -374,6 +393,33 @@ export const DECLINE_COVERAGE = "Decline coverage" as const
 export const AWAITING_CONFIRM = "Awaiting confirm" as const
 export const COVERAGE_CONFIRMED = "Confirmed" as const
 export const ALL_SET = "All set" as const
+
+/**
+ * Hero / Agenda Confirm CTA when the viewer is WAITING_HOUSEHOLD on specific legs.
+ */
+export function confirmHouseholdCoverageLabel(
+  legKinds: readonly ("TO" | "FROM")[],
+): string {
+  const hasTo = legKinds.includes("TO")
+  const hasFrom = legKinds.includes("FROM")
+  if (hasTo && hasFrom) {
+    return CONFIRM_COVERAGE
+  }
+  if (hasFrom && !hasTo) {
+    return "Confirm — You'll drive home"
+  }
+  if (hasTo && !hasFrom) {
+    return "Confirm — You'll drive there"
+  }
+  return CONFIRM_COVERAGE
+}
+
+/** Leave-from applies to TO (and round-trip); not to FROM-only drive-home. */
+export function householdConfirmShowsLeaveFrom(
+  legKinds: readonly ("TO" | "FROM")[],
+): boolean {
+  return legKinds.includes("TO")
+}
 
 export function needsCoverageWithKids(kidNames: string): string {
   return kidNames ? `${NEEDS_COVERAGE}: ${kidNames}` : NEEDS_COVERAGE

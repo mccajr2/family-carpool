@@ -37,6 +37,8 @@ import com.yourorg.quickapp.leaveby.LeaveByItemSource;
 import com.yourorg.quickapp.carpool.CarpoolAcceptedPickupDto;
 import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
 import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
+import com.yourorg.quickapp.carpool.CarpoolStandingPlanGroupDto;
+import com.yourorg.quickapp.carpool.CarpoolStandingPlanLegDto;
 import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
@@ -1456,6 +1458,193 @@ public class CarpoolRideService {
             collectHouseholdStop(adultId, feedEventId, safeLeg, ride, seenAddresses, out);
         }
         return List.copyOf(out);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CarpoolRideResponse> listActiveOwnPlansForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
+            return List.of();
+        }
+        List<CarpoolRideRequestEntity> plans =
+                rides.findByRequestingCircleIdAndEventKeyAndStatusIn(
+                        circleId, resolvedKey.get(), OWN_PLAN_STATUSES);
+        if (plans.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> names = circleNames(List.of(circleId));
+        Map<UUID, String> assigneeNames = new HashMap<>();
+        for (CarpoolRideRequestEntity ride : plans) {
+            assigneeNames.putAll(assigneeDisplayNames(ride));
+        }
+        List<CarpoolRideResponse> out = new ArrayList<>(plans.size());
+        for (CarpoolRideRequestEntity ride : plans) {
+            out.add(toRideResponse(ride, names, false, List.of(), null, assigneeNames));
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * Standing Lock snapshot: active own plans with write-shaped place triad
+     * (named place id XOR one-time address; Default = both null).
+     */
+    @Transactional(readOnly = true)
+    public List<CarpoolStandingPlanGroupDto> listStandingPlanSnapshotsForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
+            return List.of();
+        }
+        List<CarpoolRideRequestEntity> plans =
+                rides.findByRequestingCircleIdAndEventKeyAndStatusIn(
+                        circleId, resolvedKey.get(), OWN_PLAN_STATUSES);
+        if (plans.isEmpty()) {
+            return List.of();
+        }
+        List<CarpoolStandingPlanGroupDto> out = new ArrayList<>(plans.size());
+        for (CarpoolRideRequestEntity ride : plans) {
+            List<CarpoolStandingPlanLegDto> legs = new ArrayList<>(2);
+            for (RideLegSlot leg : ride.legs()) {
+                legs.add(
+                        new CarpoolStandingPlanLegDto(
+                                leg.kind(),
+                                leg.phase(),
+                                leg.assigneeAdultId(),
+                                leg.assigneeCircleId(),
+                                leg.placeId(),
+                                leg.oneTimeAddress(),
+                                leg.meetSide()));
+            }
+            out.add(
+                    new CarpoolStandingPlanGroupDto(
+                            ride.kids().stream().map(RideKidSnapshot::kidId).toList(),
+                            List.copyOf(legs)));
+        }
+        return List.copyOf(out);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId) {
+        return !listActiveOwnPlansForFeedEvent(circleId, feedEventId).isEmpty();
+    }
+
+    /**
+     * Cancel every active own plan for a FEED event (space-backed + circle-local).
+     * Standing Remove uses this to unwind applied weeks from a cutoff forward.
+     */
+    @Transactional
+    public void cancelActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId) {
+        Optional<String> resolvedKey = resolveItemEventKey(circleId, feedEventId);
+        if (resolvedKey.isEmpty()) {
+            return;
+        }
+        String eventKey = resolvedKey.get();
+        List<UUID> spaceIds =
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId).stream()
+                        .map(CarpoolMembershipEntity::spaceId)
+                        .toList();
+        List<CarpoolRideRequestEntity> all = new ArrayList<>();
+        if (!spaceIds.isEmpty()) {
+            all.addAll(
+                    rides.findBySpaceIdInAndEventKeyAndRequestingCircleIdAndStatusIn(
+                            spaceIds, eventKey, circleId, OWN_PLAN_STATUSES));
+        }
+        all.addAll(
+                rides.findByRequestingCircleIdAndEventKeyAndSpaceIdIsNullAndStatusIn(
+                        circleId, eventKey, OWN_PLAN_STATUSES));
+        for (CarpoolRideRequestEntity ride : all) {
+            UUID previousDriverId = ride.acceptedByAdultId();
+            boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
+            ride.cancel();
+            rides.save(ride);
+            passes.deleteByRideId(ride.id());
+            if (wasAccepted && previousDriverId != null && ride.spaceId() != null) {
+                refreshDriverRouteAfterAcceptedChange(
+                        previousDriverId, ride.spaceId(), eventKey);
+            }
+        }
+    }
+
+    /**
+     * Apply a household Save ride plan onto a FEED event. Uses space Save when
+     * the circle belongs to a space for the event's feed URL; otherwise
+     * circle-local Save. Rejects Ask-the-team via those write paths.
+     */
+    @Transactional
+    public SaveCarpoolRidePlanResponse saveHouseholdPlanForFeedEvent(
+            AdultResponse adult, UUID feedEventId, List<SaveCarpoolRidePlanGroup> plans) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        FeedCalendarEventDto event =
+                feedCalendarApi
+                        .findEventInCircle(circleId, feedEventId)
+                        .orElseThrow(
+                                () ->
+                                        new CarpoolException(
+                                                HttpStatus.BAD_REQUEST, "Unknown event"));
+        String eventKey = FeedEventKey.of(event);
+        SaveCarpoolRidePlanRequest request = new SaveCarpoolRidePlanRequest(eventKey, plans);
+        Optional<UUID> spaceId = spaceIdForCircleFeed(circleId, event.feedId());
+        if (spaceId.isPresent()) {
+            return savePlan(adult, spaceId.get(), request);
+        }
+        return saveCirclePlan(adult, request);
+    }
+
+    /**
+     * Confirms WAITING_HOUSEHOLD legs for {@code adult} on a FEED event (space
+     * Save when enrolled; otherwise circle-local).
+     */
+    @Transactional
+    public SaveCarpoolRidePlanResponse confirmHouseholdPlanForFeedEvent(
+            AdultResponse adult, UUID feedEventId) {
+        UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
+        FeedCalendarEventDto event =
+                feedCalendarApi
+                        .findEventInCircle(circleId, feedEventId)
+                        .orElseThrow(
+                                () ->
+                                        new CarpoolException(
+                                                HttpStatus.BAD_REQUEST, "Unknown event"));
+        String eventKey = FeedEventKey.of(event);
+        Optional<UUID> spaceId = spaceIdForCircleFeed(circleId, event.feedId());
+        if (spaceId.isPresent()) {
+            return confirmHouseholdPlan(adult, spaceId.get(), eventKey);
+        }
+        return confirmCircleHouseholdPlan(adult, eventKey);
+    }
+
+    /**
+     * Standing apply helper: confirm in a nested transaction so CONFLICT (already
+     * confirmed / nothing waiting) does not mark the outer Lock TX rollback-only.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean tryConfirmHouseholdPlanForFeedEvent(AdultResponse adult, UUID feedEventId) {
+        try {
+            confirmHouseholdPlanForFeedEvent(adult, feedEventId);
+            return true;
+        } catch (CarpoolException ex) {
+            if (ex.status() == HttpStatus.CONFLICT) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
+    private Optional<UUID> spaceIdForCircleFeed(UUID circleId, UUID feedId) {
+        for (CarpoolMembershipEntity membership :
+                memberships.findByCircleIdOrderByCreatedAtAsc(circleId)) {
+            CarpoolSpaceEntity space = spaces.findById(membership.spaceId()).orElse(null);
+            if (space == null) {
+                continue;
+            }
+            Optional<FeedResponse> feed =
+                    feedsApi.findByCircleAndNormalizedUrl(circleId, space.normalizedSourceUrl());
+            if (feed.isPresent() && feed.get().id().equals(feedId)) {
+                return Optional.of(space.id());
+            }
+        }
+        return Optional.empty();
     }
 
     private void collectHouseholdStop(

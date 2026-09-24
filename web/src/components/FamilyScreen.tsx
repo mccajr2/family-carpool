@@ -62,6 +62,11 @@ import { HeroAttentionCarousel } from "@/components/HeroAttentionCarousel"
 import type { HeroAttentionSlideProps } from "@/components/HeroAttentionSlide"
 import type { DriverPickerKidPlan, DriverPickerSavePlanLegs } from "@/components/DriverPicker"
 import { AgendaBlockCard } from "@/components/AgendaBlockCard"
+import {
+  mergeStandingFieldsFromPrevious,
+  standingBlockChrome,
+  standingWeekdayNames,
+} from "@/components/standingBlockChrome"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
@@ -94,6 +99,7 @@ import {
   coverageGameEventKey,
   getQueue,
   filterQueueWithinHorizon,
+  hasWaitingHouseholdForAdult,
   isConfirmedDriver,
   isOwnRideGap,
   mapCalendarItemToCoverageGames,
@@ -102,6 +108,7 @@ import {
   type QueueItem,
 } from "@/components/coverageQueue"
 import {
+  allOwnPlanLegs,
   ownPlansCoveringKids,
   ownPlansMatchingAssignee,
   ownRidePlanForKid,
@@ -166,6 +173,11 @@ type FamilyScreenProps = {
 
 function circleTitle(circle: FamilyCircle): string {
   return circle.name?.trim() ? circle.name : "Your family"
+}
+
+/** Browser zone — same local calendar Agenda uses for day grouping. */
+function viewerTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
 /** Horizontal single-value field: label leading, control/value trailing. */
@@ -683,7 +695,12 @@ export function FamilyScreen({
       loadedTo: string,
     ): Promise<{ items: CalendarItem[]; from: string; to: string }> => {
       const window = calendarWindowThrough(loadedTo, now)
-      const items = await familyClient.listCalendar(token, window.from, window.to)
+      const items = await familyClient.listCalendar(
+        token,
+        window.from,
+        window.to,
+        viewerTimeZone(),
+      )
       let merged: CalendarItem[] = items
       setCalendarItems((current) => {
         const previous = current.length > 0 ? current : calendarCache.load(adultId, circleId)?.items ?? []
@@ -700,7 +717,12 @@ export function FamilyScreen({
   async function reloadCalendar(token: string, loadedTo: string = calendarLoadedTo) {
     if (!adult || !circle) {
       const window = calendarWindowThrough(loadedTo)
-      const items = await familyClient.listCalendar(token, window.from, window.to)
+      const items = await familyClient.listCalendar(
+        token,
+        window.from,
+        window.to,
+        viewerTimeZone(),
+      )
       setCalendarItems(items)
       startLeaveByFill(token, window.from, window.to)
       return
@@ -749,7 +771,12 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       const page = advanceCalendarWindow(calendarLoadedTo)
-      const more = await familyClient.listCalendar(token, page.from, page.to)
+      const more = await familyClient.listCalendar(
+        token,
+        page.from,
+        page.to,
+        viewerTimeZone(),
+      )
       setCalendarItems((current) => {
         const merged = mergeCalendarItems(current, more)
         if (adult && circle) {
@@ -1375,6 +1402,7 @@ export function FamilyScreen({
     eventKey: string,
     legs: DriverPickerSavePlanLegs,
     kidIds?: string[],
+    options?: { lockStanding?: boolean },
   ): Promise<boolean> {
     const resolvedEventKey = eventKey || circleLocalEventKey(item)
     if (resolvedEventKey == null) {
@@ -1434,6 +1462,9 @@ export function FamilyScreen({
       }
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
+      if (options?.lockStanding) {
+        await onLockStandingBlockAgenda(lockMembersForItem(item))
+      }
       return true
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong"
@@ -1447,6 +1478,7 @@ export function FamilyScreen({
     item: CalendarItem,
     eventKey: string,
     plans: DriverPickerKidPlan[],
+    options?: { lockStanding?: boolean },
   ) {
     const resolvedEventKey = eventKey || circleLocalEventKey(item)
     if (resolvedEventKey == null || plans.length === 0) {
@@ -1501,6 +1533,9 @@ export function FamilyScreen({
       }
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
+      if (options?.lockStanding) {
+        await onLockStandingBlockAgenda(lockMembersForItem(item))
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong"
       setCoverageActionError(itemKey, message)
@@ -2004,10 +2039,15 @@ export function FamilyScreen({
   function replaceCalendarItem(updated: CalendarItem) {
     setCalendarItems((current) => {
       const next = current.map((row) =>
-        row.source === updated.source && row.id === updated.id ? updated : row,
+        row.source === updated.source && row.id === updated.id
+          ? mergeStandingFieldsFromPrevious(updated, row)
+          : row,
       )
       if (adult && circle) {
-        calendarCache.patchItem(adult.id, circle.id, updated)
+        const merged = next.find(
+          (row) => row.source === updated.source && row.id === updated.id,
+        )
+        calendarCache.patchItem(adult.id, circle.id, merged ?? updated)
       }
       return next
     })
@@ -2021,10 +2061,15 @@ export function FamilyScreen({
       const byKey = new Map(
         updated.map((row) => [`${row.source}:${row.id}`, row] as const),
       )
-      const next = current.map((row) => byKey.get(`${row.source}:${row.id}`) ?? row)
+      const next = current.map((row) => {
+        const incoming = byKey.get(`${row.source}:${row.id}`)
+        return incoming != null ? mergeStandingFieldsFromPrevious(incoming, row) : row
+      })
       if (adult && circle) {
-        for (const item of updated) {
-          calendarCache.patchItem(adult.id, circle.id, item)
+        for (const item of next) {
+          if (byKey.has(`${item.source}:${item.id}`)) {
+            calendarCache.patchItem(adult.id, circle.id, item)
+          }
         }
       }
       return next
@@ -2063,6 +2108,84 @@ export function FamilyScreen({
         itemKey,
         error instanceof Error ? error.message : "Something went wrong",
       )
+    }
+  }
+
+  async function onLockStandingBlockAgenda(items: CalendarItem[]) {
+    const feedIds = items
+      .filter((row) => row.source === "FEED")
+      .map((row) => row.id)
+    if (feedIds.length === 0) {
+      return
+    }
+    const anchor = items.find((row) => row.source === "FEED") ?? items[0]!
+    const itemKey = calendarItemKey(anchor)
+    clearCoverageActionError(itemKey)
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      const window = calendarWindowThrough(calendarLoadedTo, now)
+      await familyClient.lockStandingBlock(token, {
+        memberItemIds: feedIds,
+        timeZone: viewerTimeZone(),
+        horizonFrom: window.from,
+        horizonTo: window.to,
+      })
+      await reloadCalendar(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({ kind: "idle" })
+      setCoverageActionError(
+        itemKey,
+        error instanceof Error ? error.message : "Something went wrong",
+      )
+    }
+  }
+
+  async function onRemoveStandingBlockAgenda(templateId: string, fromStartsAt: string) {
+    const lockedItem = calendarItems.find(
+      (row) => row.standingBlockTemplateId === templateId,
+    )
+    const itemKey = lockedItem != null ? calendarItemKey(lockedItem) : null
+    if (itemKey != null) {
+      clearCoverageActionError(itemKey)
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await familyClient.removeStandingBlock(token, templateId, fromStartsAt)
+      // Clear locked chrome + forward-window assignments immediately so Remove
+      // never looks like a no-op if reload is slow.
+      setCalendarItems((current) =>
+        current.map((row) => {
+          if (row.standingBlockTemplateId !== templateId) {
+            return row
+          }
+          if (row.startsAt < fromStartsAt) {
+            return {
+              ...row,
+              standingLocked: false,
+              standingBlockTemplateId: null,
+            }
+          }
+          return {
+            ...row,
+            standingLocked: false,
+            standingBlockTemplateId: null,
+            coverages: [],
+            uncoveredKidIds: row.kidIds,
+          }
+        }),
+      )
+      await reloadCalendar(token)
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Something went wrong"
+      setStatus({ kind: "error", message })
+      if (itemKey != null) {
+        setCoverageActionError(itemKey, message)
+      }
     }
   }
 
@@ -2139,17 +2262,22 @@ export function FamilyScreen({
       return next
     }
     const assignment = activeCoverages(updated).find((row) => row.id === assignmentId)
-    if (
+        if (
       assignment != null &&
       assignment.leaveFromPlaceId == null &&
       (assignment.leaveFromAddress == null || assignment.leaveFromAddress.trim() === "")
     ) {
       // Prefer item-level leave-from (saved with the ride plan) over forcing
       // membership default home — default home strips household pickup middles.
-      if (updated.leaveFromPlaceId != null || (updated.leaveFromAddress?.trim() ?? "") !== "") {
+      if (updated.leaveFromPlaceId != null) {
         return familyClient.setCoverageLeaveFrom(token, assignmentId, {
-          leaveFromPlaceId: updated.leaveFromPlaceId ?? undefined,
-          leaveFromAddress: updated.leaveFromAddress?.trim() || undefined,
+          leaveFromPlaceId: updated.leaveFromPlaceId,
+        })
+      }
+      const leaveFromAddress = updated.leaveFromAddress?.trim() ?? ""
+      if (leaveFromAddress !== "") {
+        return familyClient.setCoverageLeaveFrom(token, assignmentId, {
+          leaveFromAddress,
         })
       }
       if (circle?.defaultLeaveFromPlaceId) {
@@ -2270,11 +2398,13 @@ export function FamilyScreen({
   /**
    * Simple DriverPicker Confirm: one shared round-trip plan for every going kid
    * (when ride-plan save is available) plus calendar coverage for those kids.
+   * When `lockStanding`, Lock the standing template after the plan is saved.
    */
   async function onConfirmSimpleHousehold(
     item: CalendarItem,
     coveringAdultId: string,
     kidIds: string[],
+    options?: { lockStanding?: boolean },
   ) {
     const going = kidIds.length > 0 ? kidIds : goingKidIdsForItem(item)
     const rideEvent = calendarRideByItemKey.get(calendarItemKey(item)) ?? null
@@ -2291,10 +2421,15 @@ export function FamilyScreen({
       const draft = leaveFromDrafts[calendarItemKey(item)]
       const place =
         draft != null
-          ? {
-              placeId: draft.leaveFromPlaceId ?? null,
-              placeAddress: draft.leaveFromAddress?.trim() || null,
-            }
+          ? draft.leaveFromPlaceId != null
+            ? {
+                placeId: draft.leaveFromPlaceId,
+                placeAddress: null,
+              }
+            : {
+                placeId: null,
+                placeAddress: draft.leaveFromAddress?.trim() || null,
+              }
           : { placeId: null, placeAddress: null }
       const saved = await onSaveAgendaRidePlan(
         item,
@@ -2314,6 +2449,22 @@ export function FamilyScreen({
       }
     }
     await onAssignCoverage(item, coveringAdultId, going)
+    if (options?.lockStanding) {
+      await onLockStandingBlockAgenda(lockMembersForItem(item))
+    }
+  }
+
+  function lockMembersForItem(item: CalendarItem): CalendarItem[] {
+    const combinedIds = new Set(
+      item.driveBlockLinks
+        .filter((link) => link.combined)
+        .map((link) => `${link.otherSource}-${link.otherId}`),
+    )
+    if (combinedIds.size === 0) {
+      return [item]
+    }
+    combinedIds.add(calendarItemKey(item))
+    return calendarItems.filter((row) => combinedIds.has(calendarItemKey(row)))
   }
 
   async function onConfirmCoverage(item: CalendarItem, assignmentId: string) {
@@ -2359,19 +2510,40 @@ export function FamilyScreen({
   }
 
   async function onConfirmHouseholdRidePlan(item: CalendarItem, eventKey: string) {
-    const spaceId =
-      item.feedId != null && calendarCarpoolSummary != null
-        ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
-        : undefined
     const itemKey = calendarItemKey(item)
     clearCoverageActionError(itemKey)
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      if (spaceId != null) {
-        await carpoolClient.confirmHouseholdRidePlan(token, spaceId, { eventKey })
-      } else {
-        await carpoolClient.confirmCircleHouseholdRidePlan(token, { eventKey })
+      const targets =
+        item.standingLocked === true && item.standingBlockTemplateId != null
+          ? calendarItems.filter(
+              (row) =>
+                row.standingBlockTemplateId === item.standingBlockTemplateId &&
+                hasWaitingHouseholdForAdult(
+                  allOwnPlanLegs(calendarRideByItemKey.get(calendarItemKey(row)) ?? null),
+                  adult?.id,
+                ),
+            )
+          : [item]
+      for (const target of targets) {
+        const ride = calendarRideByItemKey.get(calendarItemKey(target))
+        const key =
+          target === item
+            ? eventKey
+            : (ride?.eventKey ?? circleLocalEventKey(target) ?? "")
+        if (key.length === 0) {
+          continue
+        }
+        const spaceId =
+          target.feedId != null && calendarCarpoolSummary != null
+            ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(target.feedId)
+            : undefined
+        if (spaceId != null) {
+          await carpoolClient.confirmHouseholdRidePlan(token, spaceId, { eventKey: key })
+        } else {
+          await carpoolClient.confirmCircleHouseholdRidePlan(token, { eventKey: key })
+        }
       }
       const draft = leaveFromDrafts[itemKey]
       if (draft != null) {
@@ -2396,17 +2568,38 @@ export function FamilyScreen({
   }
 
   async function onDeclineHouseholdRidePlan(item: CalendarItem, eventKey: string) {
-    const spaceId =
-      item.feedId != null && calendarCarpoolSummary != null
-        ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(item.feedId)
-        : undefined
     setStatus({ kind: "loading" })
     try {
       const token = await requireToken()
-      if (spaceId != null) {
-        await carpoolClient.declineHouseholdRidePlan(token, spaceId, { eventKey })
-      } else {
-        await carpoolClient.declineCircleHouseholdRidePlan(token, { eventKey })
+      const targets =
+        item.standingLocked === true && item.standingBlockTemplateId != null
+          ? calendarItems.filter(
+              (row) =>
+                row.standingBlockTemplateId === item.standingBlockTemplateId &&
+                hasWaitingHouseholdForAdult(
+                  allOwnPlanLegs(calendarRideByItemKey.get(calendarItemKey(row)) ?? null),
+                  adult?.id,
+                ),
+            )
+          : [item]
+      for (const target of targets) {
+        const ride = calendarRideByItemKey.get(calendarItemKey(target))
+        const key =
+          target === item
+            ? eventKey
+            : (ride?.eventKey ?? circleLocalEventKey(target) ?? "")
+        if (key.length === 0) {
+          continue
+        }
+        const spaceId =
+          target.feedId != null && calendarCarpoolSummary != null
+            ? feedSpaceIdsFromSummary(calendarCarpoolSummary).get(target.feedId)
+            : undefined
+        if (spaceId != null) {
+          await carpoolClient.declineHouseholdRidePlan(token, spaceId, { eventKey: key })
+        } else {
+          await carpoolClient.declineCircleHouseholdRidePlan(token, { eventKey: key })
+        }
       }
       clearLeaveFromDraft(calendarItemKey(item))
       await reloadCalendarCarpoolRides(token)
@@ -3155,8 +3348,13 @@ export function FamilyScreen({
       assignDraft: { adultId: baseAssign.adultId, kidIds: assignKidIds },
       blockSupportingContext,
       onUpdateAssignDraft: (patch) => updateAssignCoverageDraft(itemKey, patch),
-      onAssignCoverage: (coveringAdultId, kidIds) =>
-        void onConfirmSimpleHousehold(calendarItemForSlide, coveringAdultId, kidIds),
+      onAssignCoverage: (coveringAdultId, kidIds, options) =>
+        void onConfirmSimpleHousehold(
+          calendarItemForSlide,
+          coveringAdultId,
+          kidIds,
+          options,
+        ),
       onConfirmCoverage: (assignmentId) =>
         void onConfirmCoverage(calendarItemForSlide, assignmentId),
       onDeclineCoverage: (assignmentId) => void onDeclineCoverage(assignmentId),
@@ -3197,12 +3395,13 @@ export function FamilyScreen({
         (calendarItemForSlide.feedId != null &&
           calendarCarpoolSummary != null &&
           feedSpaceIdsFromSummary(calendarCarpoolSummary).has(calendarItemForSlide.feedId))
-          ? (legs) =>
+          ? (legs, options) =>
               void onSaveAgendaRidePlan(
                 calendarItemForSlide,
                 rideEvent?.eventKey ?? circleLocalEventKey(calendarItemForSlide) ?? "",
                 legs,
                 goingKidIds.length > 0 ? goingKidIds : undefined,
+                options,
               )
           : undefined,
       onSaveKidPlans:
@@ -3211,11 +3410,12 @@ export function FamilyScreen({
         (calendarItemForSlide.feedId != null &&
           calendarCarpoolSummary != null &&
           feedSpaceIdsFromSummary(calendarCarpoolSummary).has(calendarItemForSlide.feedId))
-          ? (plans) =>
+          ? (plans, options) =>
               void onSaveAgendaKidPlans(
                 calendarItemForSlide,
                 rideEvent?.eventKey ?? circleLocalEventKey(calendarItemForSlide) ?? "",
                 plans,
+                options,
               )
           : undefined,
       onAcceptRide: (rideId) =>
@@ -3269,6 +3469,20 @@ export function FamilyScreen({
       },
       actionError: coverageActionErrors[itemKey],
       hasPickupPlace,
+      ...(() => {
+        const chrome = standingBlockChrome(blockMembers)
+        if (!chrome.showLock || blockMembers[0] == null) {
+          return {
+            standingLockWeekdaySingular: null,
+            standingLockWeekdayPlural: null,
+          }
+        }
+        const names = standingWeekdayNames(blockMembers[0].startsAt)
+        return {
+          standingLockWeekdaySingular: names.singular,
+          standingLockWeekdayPlural: names.plural,
+        }
+      })(),
     }
   }
 
@@ -3953,6 +4167,9 @@ export function FamilyScreen({
                               }
                               isFocused={blockFocused}
                               loading={status.kind === "loading"}
+                              actionError={entry.items
+                                .map((member) => coverageActionErrors[calendarItemKey(member)])
+                                .find((message) => message != null && message.length > 0)}
                               onDriveBlockLink={(member, link) =>
                                 void onDriveBlockLinkAgenda(member, link)
                               }
@@ -3977,6 +4194,12 @@ export function FamilyScreen({
                               }
                               onWithdrawRide={(member, rideId, legs) =>
                                 void onWithdrawAgendaRide(member, rideId, legs)
+                              }
+                              onLockStandingBlock={(members) =>
+                                void onLockStandingBlockAgenda(members)
+                              }
+                              onRemoveStandingBlock={(templateId, fromStartsAt) =>
+                                void onRemoveStandingBlockAgenda(templateId, fromStartsAt)
                               }
                             />
                           </li>
@@ -4024,7 +4247,7 @@ export function FamilyScreen({
                               (item.feedId != null &&
                                 calendarCarpoolSummary != null &&
                                 feedSpaceIdsFromSummary(calendarCarpoolSummary).has(item.feedId))
-                                ? (legs, kidIds) =>
+                                ? (legs, kidIds, options) =>
                                     void onSaveAgendaRidePlan(
                                       item,
                                       calendarRideByItemKey.get(itemKey)?.eventKey ??
@@ -4032,6 +4255,7 @@ export function FamilyScreen({
                                         "",
                                       legs,
                                       kidIds,
+                                      options,
                                     )
                                 : undefined
                             }
@@ -4041,13 +4265,14 @@ export function FamilyScreen({
                               (item.feedId != null &&
                                 calendarCarpoolSummary != null &&
                                 feedSpaceIdsFromSummary(calendarCarpoolSummary).has(item.feedId))
-                                ? (plans) =>
+                                ? (plans, options) =>
                                     void onSaveAgendaKidPlans(
                                       item,
                                       calendarRideByItemKey.get(itemKey)?.eventKey ??
                                         circleLocalEventKey(item) ??
                                         "",
                                       plans,
+                                      options,
                                     )
                                 : undefined
                             }
@@ -4066,8 +4291,13 @@ export function FamilyScreen({
                             onUpdateAssignDraft={(patch) =>
                               updateAssignCoverageDraft(itemKey, patch)
                             }
-                            onAssignCoverage={(coveringAdultId, kidIds) =>
-                              void onConfirmSimpleHousehold(item, coveringAdultId, kidIds)
+                            onAssignCoverage={(coveringAdultId, kidIds, options) =>
+                              void onConfirmSimpleHousehold(
+                                item,
+                                coveringAdultId,
+                                kidIds,
+                                options,
+                              )
                             }
                             onConfirmCoverage={(assignmentId) =>
                               void onConfirmCoverage(item, assignmentId)
@@ -4116,6 +4346,12 @@ export function FamilyScreen({
                             }}
                             onDriveBlockLink={(link) =>
                               void onDriveBlockLinkAgenda(item, link)
+                            }
+                            onLockStandingBlock={(row) =>
+                              void onLockStandingBlockAgenda([row])
+                            }
+                            onRemoveStandingBlock={(templateId, fromStartsAt) =>
+                              void onRemoveStandingBlockAgenda(templateId, fromStartsAt)
                             }
                             onEdit={() => openEditEvent(item)}
                             onRemoveEvent={() => void onRemoveEvent(item.id)}
@@ -4706,10 +4942,10 @@ function toSavePlanLeg(
   if (choice.action === "ASK_TEAM" && meetSide === "ACCEPTOR") {
     return entry
   }
+  // Named place and one-time address are mutually exclusive — prefer placeId.
   if (place.placeId != null) {
     entry.placeId = place.placeId
-  }
-  if (place.placeAddress != null && place.placeAddress.trim() !== "") {
+  } else if (place.placeAddress != null && place.placeAddress.trim() !== "") {
     entry.placeAddress = place.placeAddress
   }
   return entry
