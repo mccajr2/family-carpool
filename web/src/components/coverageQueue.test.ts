@@ -286,6 +286,46 @@ describe("getQueue", () => {
     expect(queue.map((item) => item.game.id)).toEqual(["unassigned", "confirm-you"])
   })
 
+  it("collapses standing-locked pending household confirms to one queue item per template", () => {
+    const week1 = game({
+      id: "FEED-w1:k1",
+      order: 100,
+      ownRide: { driver: "You", confirmed: false },
+      standingBlockTemplateId: "tmpl-standing",
+      ownLegs: [
+        carpoolLeg("TO", "CONFIRMED", { assigneeAdultId: "a2", assigneeDisplayName: "Jason" }),
+        carpoolLeg("FROM", "WAITING_HOUSEHOLD", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Katy",
+        }),
+      ],
+    })
+    const week2 = game({
+      id: "FEED-w2:k1",
+      order: 200,
+      ownRide: { driver: "You", confirmed: false },
+      standingBlockTemplateId: "tmpl-standing",
+      ownLegs: [
+        carpoolLeg("TO", "CONFIRMED", { assigneeAdultId: "a2", assigneeDisplayName: "Jason" }),
+        carpoolLeg("FROM", "WAITING_HOUSEHOLD", {
+          assigneeAdultId: "a1",
+          assigneeDisplayName: "Katy",
+        }),
+      ],
+    })
+    const otherGap = game({
+      id: "FEED-other:k1",
+      order: 150,
+      ownRide: "unassigned",
+    })
+
+    const queue = getQueue([week1, otherGap, week2])
+    expect(queue.map((item) => item.game.id)).toEqual([
+      "FEED-w1:k1",
+      "FEED-other:k1",
+    ])
+  })
+
   it("queues when any ownLegs phase is NEEDS_RIDE even if rollup ownRide looks covered or asked", () => {
     const mixedConfirmed = game({
       id: "mixed-confirmed",
@@ -1150,6 +1190,17 @@ describe("mapCalendarItemToCoverageGames", () => {
       mapOptions,
     )
     expect(pendingConfirm[0]?.ownRide).toEqual({ driver: "Jordan", confirmed: false })
+
+    const standingLocked = mapCalendarItemToCoverageGames(
+      calendarItem({
+        source: "FEED",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-9",
+      }),
+      null,
+      mapOptions,
+    )
+    expect(standingLocked[0]?.standingBlockTemplateId).toBe("tmpl-9")
 
     const selfConfirmed = mapCalendarItemToCoverageGames(
       calendarItem({

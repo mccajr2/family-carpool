@@ -73,6 +73,11 @@ export type CoverageGameEvent = {
    * Omitted or empty when the calendar item has no such conflicts for the kid.
    */
   kidTimeOverlapPeerKeys?: readonly string[]
+  /**
+   * Standing Lock template id when this event is under an active locked
+   * household plan. Used to collapse per-week assignee confirms into one hero.
+   */
+  standingBlockTemplateId?: string | null
 }
 
 export type QueueItem =
@@ -102,6 +107,21 @@ export function isPendingHouseholdConfirm(
   ownRide: OwnRideStatus,
 ): ownRide is { driver: string; confirmed: false } {
   return typeof ownRide === "object" && !ownRide.confirmed
+}
+
+/**
+ * Pending household confirm on a standing-locked occurrence — assignee should
+ * see one hero for the template, not one per week.
+ */
+export function isStandingPendingHouseholdConfirm(
+  game: CoverageGameEvent,
+): boolean {
+  return (
+    game.standingBlockTemplateId != null &&
+    game.standingBlockTemplateId.length > 0 &&
+    isPendingHouseholdConfirm(game.ownRide) &&
+    game.ownRide.driver === "You"
+  )
 }
 
 export function isConfirmedDriver(
@@ -338,6 +358,7 @@ export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
   const queue: QueueItem[] = []
   const emittedRequestIds = new Set<string>()
   const emittedConflictPairs = new Set<string>()
+  const emittedStandingTemplates = new Set<string>()
 
   for (const eventKey of eventKeys) {
     const eventGames = sortByOrder(byEvent.get(eventKey) ?? [])
@@ -356,9 +377,21 @@ export function getQueue(games: readonly CoverageGameEvent[]): QueueItem[] {
     }
 
     // One own-ride slide per event — the slide already has per-kid coverage chrome.
+    // Standing-locked pending household confirms collapse to one slide per template.
     const ownGaps = eventGames.filter(isOwnRideGap)
     if (ownGaps.length > 0) {
-      queue.push({ kind: "ownRide", game: ownGaps[0]! })
+      const gap = ownGaps[0]!
+      if (isStandingPendingHouseholdConfirm(gap)) {
+        const templateId = gap.standingBlockTemplateId!
+        if (emittedStandingTemplates.has(templateId)) {
+          // Skip — earlier week already queued the standing assignment hero.
+        } else {
+          emittedStandingTemplates.add(templateId)
+          queue.push({ kind: "ownRide", game: gap })
+        }
+      } else {
+        queue.push({ kind: "ownRide", game: gap })
+      }
     }
 
     for (const game of eventGames) {
@@ -610,6 +643,9 @@ export function mapCalendarItemToCoverageGames(
       ...(ownLegs != null ? { ownLegs } : {}),
       ...(kidTimeOverlapPeerKeys.length > 0
         ? { kidTimeOverlapPeerKeys }
+        : {}),
+      ...(item.standingLocked === true && item.standingBlockTemplateId != null
+        ? { standingBlockTemplateId: item.standingBlockTemplateId }
         : {}),
     }
   })

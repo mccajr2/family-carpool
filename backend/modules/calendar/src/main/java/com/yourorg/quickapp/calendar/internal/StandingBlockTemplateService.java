@@ -92,6 +92,13 @@ public class StandingBlockTemplateService {
                 .map(StandingBlockTemplateService::toDto);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<StandingBlockTemplateDto> findByCircleAndId(UUID circleId, UUID templateId) {
+        Objects.requireNonNull(circleId, "circleId");
+        Objects.requireNonNull(templateId, "templateId");
+        return repository.findByIdAndCircleId(templateId, circleId).map(StandingBlockTemplateService::toDto);
+    }
+
     /** Deletes by id within the circle. Returns true when a row was removed. */
     @Transactional
     public boolean delete(UUID circleId, UUID templateId) {

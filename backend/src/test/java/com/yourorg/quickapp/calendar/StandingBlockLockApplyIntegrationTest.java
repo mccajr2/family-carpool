@@ -32,7 +32,10 @@ class StandingBlockLockApplyIntegrationTest {
     private static final String FEED_URL =
             "https://example.com/standing-block-recurring.ics";
     private static final String HORIZON_FROM = "2026-09-01T04:00:00Z";
-    private static final String HORIZON_TO = "2026-10-01T04:00:00Z";
+    /** Wide list window so assertions can see all six stub weeks after apply. */
+    private static final String HORIZON_TO = "2026-11-01T04:00:00Z";
+    /** 14-day Agenda-style client Lock window (must not clip known-schedule apply). */
+    private static final String NARROW_HORIZON_TO = "2026-09-15T04:00:00Z";
     private static final String ZONE = "America/New_York";
 
     @DynamicPropertySource
@@ -120,7 +123,7 @@ class StandingBlockLockApplyIntegrationTest {
 
         @SuppressWarnings("unchecked")
         List<Object> allIds = JsonPath.read(calBody, "$[*].id");
-        assertThat(allIds).hasSize(8);
+        assertThat(allIds).hasSize(12);
 
         assignAndConfirmSelf(token, idA1, adultId, kidA);
         assignAndConfirmSelf(token, idB1, adultId, kidB);
@@ -165,6 +168,20 @@ class StandingBlockLockApplyIntegrationTest {
                         .andReturn();
         String afterBody = afterLock.getResponse().getContentAsString();
 
+        // Week-1 members must stamp standingLocked so Agenda shows Remove chrome.
+        @SuppressWarnings("unchecked")
+        List<Boolean> week1Locked =
+                JsonPath.read(
+                        afterBody,
+                        "$.[?(@.eventKey=='UID:stub-standing-a-w1@example.com')].standingLocked");
+        @SuppressWarnings("unchecked")
+        List<String> week1TemplateIds =
+                JsonPath.read(
+                        afterBody,
+                        "$.[?(@.eventKey=='UID:stub-standing-a-w1@example.com')].standingBlockTemplateId");
+        assertThat(week1Locked).containsExactly(true);
+        assertThat(week1TemplateIds).containsExactly(templateId);
+
         // Week-2 UIDs differ — fingerprint apply must still fill blank coverage.
         @SuppressWarnings("unchecked")
         List<Integer> week2ACoverageCount =
@@ -191,6 +208,7 @@ class StandingBlockLockApplyIntegrationTest {
 
         mockMvc.perform(
                         delete("/api/family/circle/calendar/standing-blocks/" + templateId)
+                                .param("from", "2026-09-01T21:00:00Z")
                                 .header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isNoContent());
 
@@ -200,7 +218,7 @@ class StandingBlockLockApplyIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        // Already-applied weeks keep coverage after Remove.
+        // Remove from lock-week forward clears applied coverage on future weeks.
         MvcResult afterRemove =
                 mockMvc.perform(
                                 get("/api/family/circle/calendar")
@@ -212,11 +230,136 @@ class StandingBlockLockApplyIntegrationTest {
                         .andReturn();
         String removeBody = afterRemove.getResponse().getContentAsString();
         @SuppressWarnings("unchecked")
-        List<Integer> stillApplied =
+        List<Integer> week2Cleared =
                 JsonPath.read(
                         removeBody,
                         "$.[?(@.eventKey=='UID:stub-standing-a-w2@example.com')].coverages.length()");
-        assertThat(stillApplied.getFirst()).isGreaterThanOrEqualTo(1);
+        assertThat(week2Cleared.getFirst()).isZero();
+        @SuppressWarnings("unchecked")
+        List<Boolean> week2Unlocked =
+                JsonPath.read(
+                        removeBody,
+                        "$.[?(@.eventKey=='UID:stub-standing-a-w2@example.com')].standingLocked");
+        assertThat(week2Unlocked).containsExactly(false);
+    }
+
+    @Test
+    void lockWithFourteenDayClientWindowAppliesAcrossKnownSchedule() throws Exception {
+        String token = signIn("standing-lock-known-schedule@example.com");
+
+        mockMvc.perform(
+                        post("/api/family/circle")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"adultDisplayName\":\"Alex\",\"name\":\"House\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult circle =
+                mockMvc.perform(
+                                get("/api/family/circle")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String adultId =
+                JsonPath.read(circle.getResponse().getContentAsString(), "$.members[0].adultId");
+
+        String kidA = addKid(token, "Sam");
+        String kidB = addKid(token, "Riley");
+
+        mockMvc.perform(
+                        post("/api/family/circle/feeds")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Mites\",\"sourceUrl\":\""
+                                                + FEED_URL
+                                                + "\",\"kidIds\":[\""
+                                                + kidA
+                                                + "\",\""
+                                                + kidB
+                                                + "\"]}"))
+                .andExpect(status().isCreated());
+
+        MvcResult cal =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .param("from", HORIZON_FROM)
+                                        .param("to", HORIZON_TO)
+                                        .param("timeZone", ZONE))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String calBody = cal.getResponse().getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        List<String> week1A =
+                JsonPath.read(
+                        calBody,
+                        "$.[?(@.eventKey=='UID:stub-standing-a-w1@example.com')].id");
+        @SuppressWarnings("unchecked")
+        List<String> week1B =
+                JsonPath.read(
+                        calBody,
+                        "$.[?(@.eventKey=='UID:stub-standing-b-w1@example.com')].id");
+        assertThat(week1A).hasSize(1);
+        assertThat(week1B).hasSize(1);
+        String idA1 = week1A.getFirst();
+        String idB1 = week1B.getFirst();
+
+        assignAndConfirmSelf(token, idA1, adultId, kidA);
+        assignAndConfirmSelf(token, idB1, adultId, kidB);
+
+        // Client sends a 14-day Agenda window; server must still apply w2–w6.
+        mockMvc.perform(
+                        post("/api/family/circle/calendar/standing-blocks/lock")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"memberItemIds\":[\""
+                                                + idA1
+                                                + "\",\""
+                                                + idB1
+                                                + "\"],\"timeZone\":\""
+                                                + ZONE
+                                                + "\",\"horizonFrom\":\""
+                                                + HORIZON_FROM
+                                                + "\",\"horizonTo\":\""
+                                                + NARROW_HORIZON_TO
+                                                + "\"}"))
+                .andExpect(status().isCreated());
+
+        MvcResult afterLock =
+                mockMvc.perform(
+                                get("/api/family/circle/calendar")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                                        .param("from", HORIZON_FROM)
+                                        .param("to", HORIZON_TO)
+                                        .param("timeZone", ZONE))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        String afterBody = afterLock.getResponse().getContentAsString();
+
+        for (String uid :
+                List.of(
+                        "stub-standing-a-w2@example.com",
+                        "stub-standing-a-w3@example.com",
+                        "stub-standing-a-w4@example.com",
+                        "stub-standing-a-w5@example.com",
+                        "stub-standing-a-w6@example.com")) {
+            @SuppressWarnings("unchecked")
+            List<Integer> coverageCount =
+                    JsonPath.read(
+                            afterBody, "$.[?(@.eventKey=='UID:" + uid + "')].coverages.length()");
+            if (coverageCount.isEmpty() || coverageCount.getFirst() < 1) {
+                throw new AssertionError(
+                        "expected known-schedule apply coverage for "
+                                + uid
+                                + " got "
+                                + coverageCount
+                                + " body="
+                                + afterBody);
+            }
+        }
     }
 
     private void assignAndConfirmSelf(

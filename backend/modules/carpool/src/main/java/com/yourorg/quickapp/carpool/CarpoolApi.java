@@ -69,6 +69,20 @@ public interface CarpoolApi {
      */
     List<CarpoolRideResponse> listActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId);
 
+    /**
+     * Save-shaped standing Lock snapshots for active own plans on a FEED event
+     * ({@code placeId} XOR one-time address). Empty when missing / no plans.
+     */
+    List<CarpoolStandingPlanGroupDto> listStandingPlanSnapshotsForFeedEvent(
+            UUID circleId, UUID feedEventId);
+
+    /**
+     * Cancel every active own-circle ride plan for a FEED event (PENDING /
+     * ACCEPTED / PLAN). Used when Remove recurring clears applied weeks.
+     * No-op when the event is missing or there are no active plans.
+     */
+    void cancelActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId);
+
     /** True when {@link #listActiveOwnPlansForFeedEvent} is non-empty. */
     boolean hasActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId);
 
@@ -81,4 +95,20 @@ public interface CarpoolApi {
             com.yourorg.quickapp.auth.AdultResponse adult,
             UUID feedEventId,
             java.util.List<SaveCarpoolRidePlanGroup> plans);
+
+    /**
+     * Confirms WAITING_HOUSEHOLD legs assigned to {@code adult} on the FEED
+     * event's active own plans (space or circle-local). No-op conflict when
+     * nothing is waiting for them.
+     */
+    SaveCarpoolRidePlanResponse confirmHouseholdPlanForFeedEvent(
+            com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId);
+
+    /**
+     * Standing apply: attempt confirm in a nested transaction. Returns false on
+     * CONFLICT (already confirmed / nothing waiting) without poisoning the
+     * caller's transaction.
+     */
+    boolean tryConfirmHouseholdPlanForFeedEvent(
+            com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId);
 }

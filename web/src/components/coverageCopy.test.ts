@@ -34,7 +34,9 @@ import {
   agendaBlockRunSummaryLine,
   agendaBlockViewerRunChipLabel,
   confirmDriveFromLabel,
+  confirmHouseholdCoverageLabel,
   cancelRequestToDriverLabel,
+  householdConfirmShowsLeaveFrom,
   legConfirmedStatusLabel,
   legKindLabel,
   legStatusChipLabel,
@@ -109,6 +111,37 @@ describe("coverageCopy", () => {
         leaveFromLabel: "  Work  ",
       }),
     ).toBe("Confirm — Katy'll drive round trip from Work")
+    expect(
+      confirmDriveFromLabel({
+        selectedAdultId: "a1",
+        members,
+        currentAdultId: "a1",
+        leaveFromLabel: "Home",
+        legKinds: ["FROM"],
+      }),
+    ).toBe("Confirm — You'll drive home")
+    expect(
+      confirmDriveFromLabel({
+        selectedAdultId: "a1",
+        members,
+        currentAdultId: "a1",
+        leaveFromLabel: "Home",
+        legKinds: ["TO"],
+      }),
+    ).toBe("Confirm — You'll drive there from Home")
+  })
+
+  it("builds household confirm labels for split legs", () => {
+    expect(confirmHouseholdCoverageLabel(["TO", "FROM"])).toBe("Confirm coverage")
+    expect(confirmHouseholdCoverageLabel(["FROM"])).toBe(
+      "Confirm — You'll drive home",
+    )
+    expect(confirmHouseholdCoverageLabel(["TO"])).toBe(
+      "Confirm — You'll drive there",
+    )
+    expect(householdConfirmShowsLeaveFrom(["FROM"])).toBe(false)
+    expect(householdConfirmShowsLeaveFrom(["TO"])).toBe(true)
+    expect(householdConfirmShowsLeaveFrom(["TO", "FROM"])).toBe(true)
   })
 
   it("exports Ask the team chip and Post / Different plans DriverPicker copy", () => {

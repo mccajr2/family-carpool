@@ -29,13 +29,13 @@ import {
 } from "@/components/driveBlockAgendaLinks"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { formatAgendaBlockDayLabel } from "@/components/eventTimes"
+import { heroKidFirstName } from "@/components/heroAttentionCopy"
 import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
+import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import {
-  LOCK_THIS_PLAN,
-  RECURRING_ONE_OFF_HINT,
-  REMOVE_RECURRING_COVERAGE,
   standingBlockChrome,
+  standingWeekdayNames,
 } from "@/components/standingBlockChrome"
 import type { DecidedAssignee } from "@/components/transportPlan"
 
@@ -48,6 +48,8 @@ export type AgendaBlockCardProps = {
   /** True when any member is the focused Agenda attention row. */
   isFocused?: boolean
   loading?: boolean
+  /** Standing Remove / other block-level action failures. */
+  actionError?: string
   /**
    * Combine/split override — one place for the block (not on Hero / AgendaRow).
    * Anchor item is the member whose link was clicked.
@@ -82,8 +84,8 @@ export type AgendaBlockCardProps = {
   ) => void
   /** Lock household plan as standing (gated by standingLockEligible). */
   onLockStandingBlock?: (items: CalendarItem[]) => void
-  /** Remove recurring coverage template for this locked block. */
-  onRemoveStandingBlock?: (templateId: string) => void
+  /** Remove recurring coverage template for this locked block (from this date forward). */
+  onRemoveStandingBlock?: (templateId: string, fromStartsAt: string) => void
 }
 
 function isRunRoutable(
@@ -257,6 +259,20 @@ function runCommitmentAction(
   }
 }
 
+function blockLockedPlanSummaryLine(sections: {
+  roundTripBanner: string | null
+  toRun: AgendaBlockRunSection | null
+  fromRun: AgendaBlockRunSection | null
+}): string | null {
+  if (sections.roundTripBanner != null && sections.roundTripBanner.length > 0) {
+    return sections.roundTripBanner
+  }
+  const parts = [sections.toRun?.summaryLine, sections.fromRun?.summaryLine].filter(
+    (line): line is string => line != null && line.length > 0,
+  )
+  return parts.length > 0 ? parts.join(" · ") : null
+}
+
 /**
  * Multi-item Agenda driving-block card: drop-off / event bands / muted other
  * jobs / pickup (mockup order). Combine/split + commitment actions + hang
@@ -269,6 +285,7 @@ export function AgendaBlockCard({
   rideEventFor,
   isFocused = false,
   loading = false,
+  actionError,
   now = new Date(),
   onDriveBlockLink,
   onOpenRide,
@@ -278,9 +295,10 @@ export function AgendaBlockCard({
   onSetNotGoing,
   onSetLeaveFrom,
   onWithdrawRide,
-  onLockStandingBlock,
+  onLockStandingBlock: _onLockStandingBlock,
   onRemoveStandingBlock,
 }: AgendaBlockCardProps) {
+  const [editingLockedPlan, setEditingLockedPlan] = useState(false)
   const locationLabel = sharedLocation(items)
   const teamLabel = sharedFeedName(items)
   const dayLabel =
@@ -295,11 +313,29 @@ export function AgendaBlockCard({
   })
   const driveBlockControls = agendaBlockDriveBlockControls(items)
   const standingChrome = standingBlockChrome(items)
+  const weekdays =
+    items[0] != null ? standingWeekdayNames(items[0].startsAt) : { singular: "week", plural: "weeks" }
+  const isStandingLocked = standingChrome.showRemove
+  const settledLockedView = isStandingLocked && !editingLockedPlan
+  const showLockedSummary = isStandingLocked
   const commitmentActions = agendaCommitmentActionsForItems(items, {
     circle,
     currentAdultId,
     rideEventFor,
   })
+  const lockedNotGoingActions = commitmentActions
+    .filter((action) => action.kind === "not-going")
+    .map((action) => ({
+      key: action.key,
+      kidIds: action.kidIds,
+      firstNames: action.kidIds.map((kidId) =>
+        heroKidFirstName(kidId, circle.kids),
+      ),
+      testId: action.testId,
+    }))
+  const visibleCommitmentActions = settledLockedView
+    ? []
+    : commitmentActions
   const departureItem = blockDepartureItem({
     items,
     currentAdultId,
@@ -308,7 +344,8 @@ export function AgendaBlockCard({
   const showLeaveFrom =
     onSetLeaveFrom != null &&
     departureItem != null &&
-    sections.toRun != null
+    sections.toRun != null &&
+    !settledLockedView
   const overrideLinkClass =
     "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
   const focusRingStyle = isFocused
@@ -326,6 +363,8 @@ export function AgendaBlockCard({
     onOpenRide != null &&
     sections.fromRun != null &&
     isRunRoutable(sections.fromRun, circle, currentAdultId, rideEventFor)
+  // Avoid unused-prop lint when Lock is confirm-time only (DriverPicker / Focus).
+  void _onLockStandingBlock
 
   return (
     <div
@@ -371,7 +410,7 @@ export function AgendaBlockCard({
           ) : null}
         </header>
 
-        {sections.roundTripBanner != null ? (
+        {sections.roundTripBanner != null && !settledLockedView ? (
           <p
             data-testid="agenda-block-round-trip-banner"
             className="rounded-[var(--fc-radius-lg)] bg-[color-mix(in_srgb,var(--fc-success)_14%,transparent)] px-[var(--fc-space-md)] py-[var(--fc-space-sm)] text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-success)]"
@@ -471,12 +510,52 @@ export function AgendaBlockCard({
           />
         ) : null}
 
-        {commitmentActions.length > 0 ? (
+        {showLockedSummary ? (
+          <LockedStandingPlanSummary
+            testIdPrefix="agenda-block-standing-locked"
+            weekdays={weekdays}
+            editing={editingLockedPlan}
+            planSummaryLine={blockLockedPlanSummaryLine(sections)}
+            loading={loading}
+            onEditPlan={() => setEditingLockedPlan((open) => !open)}
+            onRemoveRecurring={
+              onRemoveStandingBlock != null && standingChrome.templateId != null
+                ? () => {
+                    const fromStartsAt = items.reduce(
+                      (earliest, row) =>
+                        row.startsAt < earliest ? row.startsAt : earliest,
+                      items[0]?.startsAt ?? new Date().toISOString(),
+                    )
+                    onRemoveStandingBlock(standingChrome.templateId!, fromStartsAt)
+                  }
+                : undefined
+            }
+            actionError={actionError}
+            notGoingActions={lockedNotGoingActions}
+            onNotGoing={
+              onSetNotGoing != null
+                ? (kidIds) => {
+                    const action = commitmentActions.find(
+                      (row) =>
+                        row.kind === "not-going" &&
+                        row.kidIds.length === kidIds.length &&
+                        kidIds.every((id) => row.kidIds.includes(id)),
+                    )
+                    if (action?.kind === "not-going") {
+                      onSetNotGoing(action.item, kidIds)
+                    }
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+
+        {visibleCommitmentActions.length > 0 ? (
           <div
             data-testid="agenda-block-commitment-actions"
             className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
           >
-            {commitmentActions.map((action) => (
+            {visibleCommitmentActions.map((action) => (
               <button
                 key={action.key}
                 type="button"
@@ -518,43 +597,6 @@ export function AgendaBlockCard({
                 {control.label}
               </button>
             ))}
-          </div>
-        ) : null}
-
-        {standingChrome.showLock && onLockStandingBlock != null ? (
-          <button
-            type="button"
-            disabled={loading}
-            className={overrideLinkClass}
-            data-testid="agenda-block-lock-standing"
-            onClick={() => onLockStandingBlock(items)}
-          >
-            {LOCK_THIS_PLAN}
-          </button>
-        ) : null}
-
-        {standingChrome.showRemove ? (
-          <div
-            data-testid="agenda-block-standing-locked"
-            className="flex flex-col gap-[var(--fc-space-xs)]"
-          >
-            <p
-              data-testid="agenda-block-standing-hint"
-              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-            >
-              {RECURRING_ONE_OFF_HINT}
-            </p>
-            {onRemoveStandingBlock != null && standingChrome.templateId != null ? (
-              <button
-                type="button"
-                disabled={loading}
-                className={overrideLinkClass}
-                data-testid="agenda-block-remove-standing"
-                onClick={() => onRemoveStandingBlock(standingChrome.templateId!)}
-              >
-                {REMOVE_RECURRING_COVERAGE}
-              </button>
-            ) : null}
           </div>
         ) : null}
       </div>

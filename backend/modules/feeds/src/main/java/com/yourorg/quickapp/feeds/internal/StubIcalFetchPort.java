@@ -58,9 +58,9 @@ class StubIcalFetchPort implements IcalFetchPort {
             """;
 
     /**
-     * Four consecutive Tuesdays (America/New_York 17:00 + 18:00) with distinct
-     * UIDs — standing Lock gate (≥3 other matches) + multi-member apply.
-     * Instants are 21:00Z / 22:00Z (EDT).
+     * Four consecutive Tuesdays was enough for the gate; six weeks let dogfood
+     * assert known-schedule apply beyond a 14-day Agenda window (w1 lock +
+     * blank w2–w6). Instants are 21:00Z / 22:00Z (EDT).
      */
     static final String STANDING_BLOCK_RECURRING_FIXTURE =
             """
@@ -120,6 +120,34 @@ class StubIcalFetchPort implements IcalFetchPort {
             UID:stub-standing-b-w4@example.com
             DTSTART:20260922T220000Z
             DTEND:20260922T230000Z
+            SUMMARY:Practice B
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-a-w5@example.com
+            DTSTART:20260929T210000Z
+            DTEND:20260929T220000Z
+            SUMMARY:Practice A
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-b-w5@example.com
+            DTSTART:20260929T220000Z
+            DTEND:20260929T230000Z
+            SUMMARY:Practice B
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-a-w6@example.com
+            DTSTART:20261006T210000Z
+            DTEND:20261006T220000Z
+            SUMMARY:Practice A
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-b-w6@example.com
+            DTSTART:20261006T220000Z
+            DTEND:20261006T230000Z
             SUMMARY:Practice B
             LOCATION:Field 3
             END:VEVENT

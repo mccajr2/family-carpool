@@ -21,11 +21,10 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
-  LOCK_THIS_PLAN,
-  RECURRING_ONE_OFF_HINT,
-  REMOVE_RECURRING_COVERAGE,
   standingBlockChrome,
+  standingWeekdayNames,
 } from "@/components/standingBlockChrome"
+import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
 import {
@@ -45,6 +44,7 @@ import {
 } from "@/components/coverageQueue"
 import {
   DriverPicker,
+  type DriverPickerConfirmOptions,
   type DriverPickerKidPlan,
   type DriverPickerSavePlanLegs,
 } from "@/components/DriverPicker"
@@ -60,6 +60,7 @@ import {
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
+  alreadyDrivingRoundTripBanner,
   markAsNotGoingLabel,
   markKidsAsNotGoingLabel,
   needsCoverageWithKids,
@@ -121,8 +122,15 @@ type AgendaRowProps = {
   /** Session-local auto-decline ids — inbound chip + Reconsider until Accept. */
   autoDeclinedRideIds?: ReadonlySet<string>
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
-  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs, kidIds?: string[]) => void
-  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
+  onSaveRidePlan?: (
+    legs: DriverPickerSavePlanLegs,
+    kidIds?: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
+  onSaveKidPlans?: (
+    plans: DriverPickerKidPlan[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onAcceptRide?: (rideId: string) => void
@@ -132,7 +140,11 @@ type AgendaRowProps = {
   /** Per-assignee revert from decided ownLegs (preferred over rollup onCantMakeIt). */
   onRevertDecidedAssignee?: (assignee: DecidedAssignee) => void
   onUpdateAssignDraft: (patch: Partial<{ adultId: string; kidIds: string[] }>) => void
-  onAssignCoverage: (adultId: string, kidIds: string[]) => void
+  onAssignCoverage: (
+    adultId: string,
+    kidIds: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   onConfirmCoverage: (assignmentId: string) => void
   onDeclineCoverage: (assignmentId: string) => void
   onConfirmHouseholdPlan?: () => void
@@ -154,10 +166,13 @@ type AgendaRowProps = {
    * `driveBlockLinks` render here — combined pairs use AgendaBlockCard.
    */
   onDriveBlockLink?: (link: CalendarDriveBlockLink) => void
-  /** Lock household plan as standing (gated by standingLockEligible). */
+  /** Remove recurring coverage template for this locked item (from this date forward). */
+  onRemoveStandingBlock?: (templateId: string, fromStartsAt: string) => void
+  /**
+   * @deprecated Lock is offered on DriverPicker confirm when eligible —
+   * kept optional for callers that still pass it.
+   */
   onLockStandingBlock?: (item: CalendarItem) => void
-  /** Remove recurring coverage template for this locked item. */
-  onRemoveStandingBlock?: (templateId: string) => void
   onEdit: () => void
   onRemoveEvent: () => void
 }
@@ -212,27 +227,36 @@ export function AgendaRow({
   onOpenPlaces,
   onOpenRide,
   onDriveBlockLink,
-  onLockStandingBlock,
+  onLockStandingBlock: _onLockStandingBlock,
   onRemoveStandingBlock,
   onEdit,
   onRemoveEvent,
 }: AgendaRowProps) {
+  void _onLockStandingBlock
   const [open, setOpen] = useState(false)
   const [selectedRideKidIds, setSelectedRideKidIds] = useState<string[] | null>(null)
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
+  const [editingLockedPlan, setEditingLockedPlan] = useState(false)
   const recombineDriveBlockLinks = item.driveBlockLinks.filter(
     (link) => !link.combined,
   )
   const standingChrome = standingBlockChrome([item])
+  const weekdays = standingWeekdayNames(item.startsAt)
   const isManual = item.source === "MANUAL"
   const outOfPlay = isAgendaItemOutOfPlay(item)
+  const isStandingLocked = standingChrome.showRemove
+  /** Settled locked view: hide assign/overrides until Edit. */
+  const settledLockedView = isStandingLocked && !editingLockedPlan
+  const showLockedSummary = isStandingLocked && !outOfPlay
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const pendingHouseholdPlan =
     pendingForSelf == null &&
     hasWaitingHouseholdForAdult(allOwnPlanLegs(rideEvent), currentAdultId) &&
     onConfirmHouseholdPlan != null &&
-    onDeclineHouseholdPlan != null
+    onDeclineHouseholdPlan != null &&
+    // Standing Lock: confirm once via Hero — not per Agenda occurrence.
+    item.standingLocked !== true
   const selfCoverage = activeCoverageForAdult(item, currentAdultId)
   const conflictLines = conflictDisplayLines(item.conflicts, circle.kids)
   const ownPlans = resolveOwnRidePlans(rideEvent)
@@ -295,8 +319,10 @@ export function AgendaRow({
     !outOfPlay &&
     !pendingForSelf &&
     !pendingHouseholdPlan &&
-    assignableGapKidIds.length > 0 &&
-    circle.members.length > 0
+    circle.members.length > 0 &&
+    !settledLockedView &&
+    (assignableGapKidIds.length > 0 ||
+      (editingLockedPlan && goingKids.length > 0))
   const hasOwnRideGap = hasInPlayOwnRideGap(coverageGames)
   // Request is recovery after a gap re-opens — not a default when transport is settled.
   const showRequestInCarpool = canAskTeam && hasOwnRideGap && !showAssign
@@ -347,6 +373,7 @@ export function AgendaRow({
   )
   const showOverrideLinks =
     !outOfPlay &&
+    !settledLockedView &&
     (decidedAssignees.length > 0 ||
       confirmedGames.length > 0 ||
       waitingOnOtherGames.length > 0)
@@ -543,6 +570,65 @@ export function AgendaRow({
       )}
       </div>
 
+      {/* Locked chrome stays visible when collapsed — Remove must not require expand. */}
+      {showLockedSummary ? (
+        <div className="border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-md)]">
+          <LockedStandingPlanSummary
+            testIdPrefix="agenda-row-standing-locked"
+            weekdays={weekdays}
+            editing={editingLockedPlan}
+            planSummaryLine={
+              goingKids.length > 0
+                ? alreadyDrivingRoundTripBanner(
+                    goingKids.map((kid) => kid.firstName),
+                  )
+                : null
+            }
+            loading={loading}
+            onEditPlan={() => {
+              setEditingLockedPlan((wasEditing) => !wasEditing)
+              if (!open) {
+                setOpen(true)
+              }
+            }}
+            onRemoveRecurring={
+              onRemoveStandingBlock != null && standingChrome.templateId != null
+                ? () => onRemoveStandingBlock(standingChrome.templateId!, item.startsAt)
+                : undefined
+            }
+            actionError={coverageActionError}
+            notGoingActions={
+              goingKids.length > 0
+                ? [
+                    {
+                      key: "not-going",
+                      kidIds: goingKids.map((kid) => kid.id),
+                      firstNames: goingKids.map((kid) => kid.firstName),
+                      testId:
+                        goingKids.length >= 2
+                          ? "agenda-row-not-going-locked-all"
+                          : `agenda-row-not-going-locked-${goingKids[0]!.id}`,
+                    },
+                  ]
+                : []
+            }
+            onNotGoing={
+              onSetNotGoing != null || onSetRsvp != null
+                ? (kidIds) => {
+                    if (onSetNotGoing != null) {
+                      onSetNotGoing(kidIds)
+                      return
+                    }
+                    for (const id of kidIds) {
+                      onSetRsvp(id, "NO")
+                    }
+                  }
+                : undefined
+            }
+          />
+        </div>
+      ) : null}
+
       {open ? (
         <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
           {!outOfPlay && conflictLines.length > 0 ? (
@@ -594,48 +680,6 @@ export function AgendaRow({
                   {driveBlockLinkLabel(link)}
                 </button>
               ))}
-            </div>
-          ) : null}
-
-          {!outOfPlay &&
-          standingChrome.showLock &&
-          onLockStandingBlock != null ? (
-            <button
-              type="button"
-              disabled={loading}
-              className={`${overrideLinkClass} text-left`}
-              data-testid="agenda-row-lock-standing"
-              onClick={() => onLockStandingBlock(item)}
-            >
-              {LOCK_THIS_PLAN}
-            </button>
-          ) : null}
-
-          {!outOfPlay && standingChrome.showRemove ? (
-            <div
-              data-testid="agenda-row-standing-locked"
-              className="flex flex-col gap-[var(--fc-space-xs)]"
-            >
-              <p
-                data-testid="agenda-row-standing-hint"
-                className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-              >
-                {RECURRING_ONE_OFF_HINT}
-              </p>
-              {onRemoveStandingBlock != null &&
-              standingChrome.templateId != null ? (
-                <button
-                  type="button"
-                  disabled={loading}
-                  className={`${overrideLinkClass} text-left`}
-                  data-testid="agenda-row-remove-standing"
-                  onClick={() =>
-                    onRemoveStandingBlock(standingChrome.templateId!)
-                  }
-                >
-                  {REMOVE_RECURRING_COVERAGE}
-                </button>
-              ) : null}
             </div>
           ) : null}
 
@@ -871,10 +915,11 @@ export function AgendaRow({
                     }}
                     onSaveRidePlan={
                       onSaveRidePlan != null
-                        ? (legs) =>
+                        ? (legs, options) =>
                             onSaveRidePlan(
                               legs,
                               goingKids.map((kid) => kid.id),
+                              options,
                             )
                         : undefined
                     }
@@ -885,6 +930,19 @@ export function AgendaRow({
                       (place) => place.address.trim().length > 0,
                     )}
                     actionError={coverageActionError}
+                    standingLockWeekdaySingular={
+                      standingChrome.showLock ? weekdays.singular : null
+                    }
+                    standingLockWeekdayPlural={
+                      standingChrome.showLock ? weekdays.plural : null
+                    }
+                    notGoingThisWeek={standingChrome.showRemove}
+                    onSetRsvp={
+                      standingChrome.showRemove ? onSetRsvp : undefined
+                    }
+                    onSetNotGoing={
+                      standingChrome.showRemove ? onSetNotGoing : undefined
+                    }
                   />
                 </div>
               ) : null}

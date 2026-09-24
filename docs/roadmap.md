@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-23 (`/pr carpool-recurring-locked-plan`: standing Lock shipped; Next up `carpool-recurring-standing`)
+Updated: 2026-09-24 (`/pr carpool-recurring-locked-plan` dogfood amend re-ship; Next up `carpool-recurring-standing`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -204,14 +204,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| — | — | _(none)_ |
+| — | — | *(none)* |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
-| carpool-recurring-locked-plan | 2026-09-23 | [archive](specs/archive/carpool-recurring-locked-plan.md) |
+| carpool-recurring-locked-plan | 2026-09-24 | [archive](specs/archive/carpool-recurring-locked-plan.md) |
 | manual-event-team-link     | 2026-09-21 | [archive](specs/archive/manual-event-team-link.md)     |
 | block-route-origin         | 2026-09-17 | [archive](specs/archive/block-route-origin.md)         |
 | day-block-route            | 2026-09-17 | [archive](specs/archive/day-block-route.md)            |
@@ -306,6 +306,8 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-24 | `/pr carpool-recurring-locked-plan` dogfood amend re-ship: confirm-time Lock + locked summary, place triad, confirm restore + soft-fail apply, standing hero collapse, known-schedule apply, split-leg Hero chrome, page-slice auto-clear safety. Spec archived. Next up `carpool-recurring-standing`. |
+| 2026-09-24 | Reactivate `carpool-recurring-locked-plan` (same branch): amend dogfood — confirm-time Lock chrome, place/confirm apply correctness, known-schedule (feed-backed) apply vs Agenda window, split-leg Hero chrome, page-slice auto-clear safety. Standing stays Next up after this re-ships. |
 | 2026-09-23 | `/pr carpool-recurring-locked-plan`: standing Lock on Agenda drive blocks — fingerprint gate (≥3 other matches), circle template, apply to blank future weeks (never overwrite), Remove recurring + schedule-ended auto-clear. Spec archived. Next up `carpool-recurring-standing`. |
 | 2026-09-23 | `/spec carpool-recurring-locked-plan`: promote — explicit Lock on Agenda drive block; fingerprint (feed+weekday+time+location); ≥3 other upcoming matches gate; apply coverage+plans+route home-side to blank future weeks; one-off edits stick; Remove recurring clears template. Branch `carpool-recurring-locked-plan`. |
 | 2026-09-21 | `/roadmap` recurring carve-up: cases → `carpool-recurring-locked-plan` (household lock) → `carpool-recurring-standing` (same carpool WoW) → `carpool-recurring-rotation` (2+ families + subset driver pool) → `neighborhood-carpool` (proximity recommendations). Next up `carpool-recurring-locked-plan`. |

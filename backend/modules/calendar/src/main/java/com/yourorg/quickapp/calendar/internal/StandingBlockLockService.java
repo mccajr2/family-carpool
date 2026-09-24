@@ -18,6 +18,8 @@ import com.yourorg.quickapp.carpool.CarpoolMeetSide;
 import com.yourorg.quickapp.carpool.CarpoolRideLegResponse;
 import com.yourorg.quickapp.carpool.CarpoolRidePlanLegAction;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
+import com.yourorg.quickapp.carpool.CarpoolStandingPlanGroupDto;
+import com.yourorg.quickapp.carpool.CarpoolStandingPlanLegDto;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanGroup;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanLeg;
 import com.yourorg.quickapp.coverage.CoverageApi;
@@ -32,6 +34,7 @@ import com.yourorg.quickapp.leaveby.CalendarRouteLeg;
 import com.yourorg.quickapp.leaveby.CalendarRouteMemberRef;
 import com.yourorg.quickapp.leaveby.LeaveByApi;
 import com.yourorg.quickapp.leaveby.LeaveByItemSource;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -42,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -55,6 +59,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class StandingBlockLockService {
+
+    /**
+     * Feed-backed known schedule length for gate / apply / auto-clear. Agenda UI
+     * pagination must not clip this window.
+     */
+    public static final int KNOWN_SCHEDULE_DAYS = 400;
 
     private final StandingBlockTemplateService templates;
     private final FeedCalendarApi feedCalendarApi;
@@ -78,6 +88,33 @@ public class StandingBlockLockService {
         this.adultSessionApi = adultSessionApi;
     }
 
+    /**
+     * Upper bound for the known schedule: at least {@code from + KNOWN_SCHEDULE_DAYS},
+     * never clipped to a short Agenda page {@code requestTo}.
+     */
+    public static Instant knownScheduleTo(Instant from, Instant requestTo) {
+        Objects.requireNonNull(from, "from");
+        Instant knownTo = from.plus(Duration.ofDays(KNOWN_SCHEDULE_DAYS));
+        if (requestTo != null && requestTo.isAfter(knownTo)) {
+            return requestTo;
+        }
+        return knownTo;
+    }
+
+    /**
+     * Lower bound for apply/auto-clear. Load-more page starts after "now" must
+     * not become the horizon start (that would miss upcoming matches and
+     * falsely auto-clear).
+     */
+    static Instant knownScheduleFrom(Instant requestFrom, Instant now) {
+        Objects.requireNonNull(requestFrom, "requestFrom");
+        Objects.requireNonNull(now, "now");
+        if (requestFrom.isAfter(now)) {
+            return now;
+        }
+        return requestFrom;
+    }
+
     @Transactional
     public StandingBlockTemplateDto lock(
             AdultResponse adult,
@@ -90,10 +127,12 @@ public class StandingBlockLockService {
         Objects.requireNonNull(circleId, "circleId");
         ZoneId zone = parseZone(timeZone);
         Instant from = Objects.requireNonNull(horizonFrom, "horizonFrom");
-        Instant to = Objects.requireNonNull(horizonTo, "horizonTo");
-        if (!from.isBefore(to)) {
+        Instant requestTo = Objects.requireNonNull(horizonTo, "horizonTo");
+        if (!from.isBefore(requestTo)) {
             throw new CalendarException(HttpStatus.BAD_REQUEST, "horizonFrom must be before horizonTo");
         }
+        // Gate/apply use the feed-backed known schedule — not the Agenda page.
+        Instant to = knownScheduleTo(from, requestTo);
         if (orderedMemberItemIds == null || orderedMemberItemIds.isEmpty()) {
             throw new CalendarException(
                     HttpStatus.BAD_REQUEST, "memberItemIds must not be empty");
@@ -159,7 +198,8 @@ public class StandingBlockLockService {
 
         StandingBlockTemplateDto saved =
                 templates.save(circleId, adult.id(), zone.getId(), snapshots);
-        applyAndAutoClear(circleId, from, to);
+        // Caller (CalendarService) runs applyAndAutoClear in a separate step so
+        // apply-time failures cannot roll back the persisted template.
         return templates
                 .findByCircleAndFingerprints(
                         circleId,
@@ -169,9 +209,76 @@ public class StandingBlockLockService {
                 .orElse(saved);
     }
 
+    /**
+     * Delete the standing template and clear household coverage + ride plans on
+     * every fingerprint-matching FEED occurrence with {@code startsAt >= from}
+     * (inclusive). Past weeks before {@code from} keep their data. When
+     * {@code from} is null, uses {@link Instant#now()}.
+     */
     @Transactional
-    public boolean remove(UUID circleId, UUID templateId) {
+    public boolean remove(UUID circleId, UUID actorAdultId, UUID templateId, Instant from) {
+        Objects.requireNonNull(circleId, "circleId");
+        Objects.requireNonNull(actorAdultId, "actorAdultId");
+        Objects.requireNonNull(templateId, "templateId");
+        Optional<StandingBlockTemplateDto> found = templates.findByCircleAndId(circleId, templateId);
+        if (found.isEmpty()) {
+            return false;
+        }
+        StandingBlockTemplateDto template = found.get();
+        Instant clearFrom = from != null ? from : Instant.now();
+        clearAppliedFrom(circleId, actorAdultId, template, clearFrom);
         return templates.delete(circleId, templateId);
+    }
+
+    /**
+     * Clear coverage + active own ride plans on fingerprint matches at/after
+     * {@code from} in the known schedule.
+     */
+    private void clearAppliedFrom(
+            UUID circleId,
+            UUID actorAdultId,
+            StandingBlockTemplateDto template,
+            Instant from) {
+        ZoneId zone = ZoneId.of(template.timeZone());
+        Instant listTo = from.plus(Duration.ofDays(KNOWN_SCHEDULE_DAYS));
+        List<FeedCalendarEventDto> horizon =
+                feedCalendarApi.listEventsInRange(circleId, from, listTo);
+        Set<RecurringFeedFingerprint> fingerprints = new HashSet<>();
+        for (StandingBlockMemberSnapshotDto member : template.members()) {
+            fingerprints.add(member.fingerprint());
+        }
+        if (fingerprints.isEmpty()) {
+            return;
+        }
+        for (FeedCalendarEventDto event : horizon) {
+            if (event.startsAt().isBefore(from)) {
+                continue;
+            }
+            RecurringFeedFingerprint fingerprint = RecurringFeedFingerprint.of(event, zone);
+            if (!fingerprints.contains(fingerprint)) {
+                continue;
+            }
+            clearFeedEventAssignments(circleId, actorAdultId, event.id());
+        }
+    }
+
+    private void clearFeedEventAssignments(UUID circleId, UUID actorAdultId, UUID feedEventId) {
+        for (CoverageAssignmentDto row :
+                coverageApi.listForItem(circleId, CoverageItemSource.FEED, feedEventId)) {
+            if (row.status() != CoverageStatus.PENDING && row.status() != CoverageStatus.CONFIRMED) {
+                continue;
+            }
+            try {
+                coverageApi.remove(actorAdultId, row.id());
+            } catch (RuntimeException ignored) {
+                // Soft-fail one row; continue clearing the rest.
+            }
+        }
+        try {
+            carpoolApi.cancelActiveOwnPlansForFeedEvent(circleId, feedEventId);
+        } catch (RuntimeException ignored) {
+            // Soft-fail plans; coverage already cleared above.
+        }
     }
 
     @Transactional(readOnly = true)
@@ -203,8 +310,10 @@ public class StandingBlockLockService {
                 viewerZone = null;
             }
         }
+        Instant knownFrom = knownScheduleFrom(horizonFrom, Instant.now());
+        Instant knownTo = knownScheduleTo(knownFrom, horizonTo);
         List<FeedCalendarEventDto> horizon =
-                feedCalendarApi.listEventsInRange(circleId, horizonFrom, horizonTo);
+                feedCalendarApi.listEventsInRange(circleId, knownFrom, knownTo);
         Map<UUID, FeedCalendarEventDto> feedById = new HashMap<>();
         for (FeedCalendarEventDto event : horizon) {
             feedById.put(event.id(), event);
@@ -220,6 +329,7 @@ public class StandingBlockLockService {
         List<StandingBlockTemplateDto> active = templates.listForCircle(circleId);
         List<List<CalendarItemResponse>> blocks = driveBlockComponents(items);
         Map<UUID, StandingFields> byItemId = new HashMap<>();
+        // Eligibility still uses drive-block components + forward gate.
         for (List<CalendarItemResponse> block : blocks) {
             List<FeedCalendarEventDto> feedMembers = new ArrayList<>();
             for (CalendarItemResponse member : block) {
@@ -238,19 +348,17 @@ public class StandingBlockLockService {
             if (viewerZone != null) {
                 eligible =
                         ForwardRecurrenceGate.isLockEligible(
-                                feedMembers, horizon, viewerZone, horizonFrom, horizonTo);
+                                feedMembers, horizon, viewerZone, knownFrom, knownTo);
             }
-            StandingBlockTemplateDto matched =
-                    matchTemplate(active, feedMembers, viewerZone);
             for (FeedCalendarEventDto member : feedMembers) {
-                byItemId.put(
-                        member.id(),
-                        new StandingFields(
-                                eligible,
-                                matched != null,
-                                matched == null ? null : matched.id()));
+                byItemId.put(member.id(), new StandingFields(eligible, false, null));
             }
         }
+
+        // Locked chrome is fingerprint-based — not drive-block size/order. A
+        // singleton card, a merged combined block, or reverse member order must
+        // still stamp standingLocked when the item's fingerprint is in a template.
+        stampLockedByFingerprint(byItemId, active, feedById, items, viewerZone);
 
         List<CalendarItemResponse> out = new ArrayList<>(items.size());
         for (CalendarItemResponse item : items) {
@@ -269,31 +377,50 @@ public class StandingBlockLockService {
         return List.copyOf(out);
     }
 
-    private StandingBlockTemplateDto matchTemplate(
+    /**
+     * Stamp {@code standingLocked} onto every FEED item whose fingerprint
+     * appears in an active template. Does not require the current drive-block
+     * component to equal the locked membership set.
+     */
+    private void stampLockedByFingerprint(
+            Map<UUID, StandingFields> byItemId,
             List<StandingBlockTemplateDto> active,
-            List<FeedCalendarEventDto> feedMembers,
+            Map<UUID, FeedCalendarEventDto> feedById,
+            List<CalendarItemResponse> items,
             ZoneId viewerZone) {
+        if (active == null || active.isEmpty()) {
+            return;
+        }
         for (StandingBlockTemplateDto template : active) {
             ZoneId zone =
                     viewerZone != null ? viewerZone : ZoneId.of(template.timeZone());
-            if (template.members().size() != feedMembers.size()) {
+            Set<RecurringFeedFingerprint> templateFingerprints = new HashSet<>();
+            for (StandingBlockMemberSnapshotDto member : template.members()) {
+                templateFingerprints.add(member.fingerprint());
+            }
+            if (templateFingerprints.isEmpty()) {
                 continue;
             }
-            boolean allMatch = true;
-            for (int i = 0; i < feedMembers.size(); i++) {
-                RecurringFeedFingerprint expected = template.members().get(i).fingerprint();
-                RecurringFeedFingerprint actual =
-                        RecurringFeedFingerprint.of(feedMembers.get(i), zone);
-                if (!expected.equals(actual)) {
-                    allMatch = false;
-                    break;
+            for (CalendarItemResponse item : items) {
+                if (item.source() != CalendarItemSource.FEED) {
+                    continue;
                 }
-            }
-            if (allMatch) {
-                return template;
+                FeedCalendarEventDto event = feedById.get(item.id());
+                if (event == null) {
+                    continue;
+                }
+                RecurringFeedFingerprint fingerprint =
+                        RecurringFeedFingerprint.of(event, zone);
+                if (!templateFingerprints.contains(fingerprint)) {
+                    continue;
+                }
+                StandingFields existing = byItemId.get(item.id());
+                boolean eligible = existing != null && existing.eligible();
+                byItemId.put(
+                        item.id(),
+                        new StandingFields(eligible, true, template.id()));
             }
         }
-        return null;
     }
 
     /**
@@ -402,26 +529,29 @@ public class StandingBlockLockService {
 
     /**
      * Auto-clear schedule-ended templates, then apply snapshots onto blank
-     * future fingerprint matches in the horizon.
+     * future fingerprint matches in the feed-backed known schedule (not the
+     * Agenda UI page window).
      */
     @Transactional
     public void applyAndAutoClear(UUID circleId, Instant horizonFrom, Instant horizonTo) {
         Objects.requireNonNull(circleId, "circleId");
         Objects.requireNonNull(horizonFrom, "horizonFrom");
         Objects.requireNonNull(horizonTo, "horizonTo");
-        if (!horizonFrom.isBefore(horizonTo)) {
+        Instant knownFrom = knownScheduleFrom(horizonFrom, Instant.now());
+        Instant knownTo = knownScheduleTo(knownFrom, horizonTo);
+        if (!knownFrom.isBefore(knownTo)) {
             return;
         }
         List<FeedCalendarEventDto> horizon =
-                feedCalendarApi.listEventsInRange(circleId, horizonFrom, horizonTo);
+                feedCalendarApi.listEventsInRange(circleId, knownFrom, knownTo);
         List<StandingBlockTemplateDto> active = templates.listForCircle(circleId);
         for (StandingBlockTemplateDto template : active) {
             ZoneId templateZone = ZoneId.of(template.timeZone());
-            if (shouldAutoClear(template, horizon, templateZone, horizonFrom, horizonTo)) {
+            if (shouldAutoClear(template, horizon, templateZone, knownFrom, knownTo)) {
                 templates.delete(circleId, template.id());
                 continue;
             }
-            applyTemplate(circleId, template, horizon, templateZone, horizonFrom, horizonTo);
+            applyTemplate(circleId, template, horizon, templateZone, knownFrom, knownTo);
         }
     }
 
@@ -513,6 +643,35 @@ public class StandingBlockLockService {
             UUID actorId = pickApplyActor(snapshot);
             AdultResponse actor = adultSessionApi.requireAdult(actorId);
             carpoolApi.saveHouseholdPlanForFeedEvent(actor, target.id(), groups);
+            // Save writes WAITING_HOUSEHOLD for non-caller assignees — restore
+            // CONFIRMED when the locked snapshot had already confirmed them.
+            // Use tryConfirm (REQUIRES_NEW) so CONFLICT on the apply actor does
+            // not mark the outer Lock transaction rollback-only (→ HTTP 500).
+            confirmStandingHouseholdAssignees(snapshot, target.id(), actorId);
+        }
+    }
+
+    private void confirmStandingHouseholdAssignees(
+            StandingBlockMemberSnapshotDto snapshot, UUID feedEventId, UUID applyActorId) {
+        Set<UUID> confirmedAssignees = new HashSet<>();
+        for (StandingRidePlanSnapshotDto plan : snapshot.ridePlans()) {
+            for (StandingRidePlanLegSnapshotDto leg : plan.legs()) {
+                if (leg.phase() == CarpoolLegPhase.CONFIRMED && leg.assigneeAdultId() != null) {
+                    confirmedAssignees.add(leg.assigneeAdultId());
+                }
+            }
+        }
+        for (UUID assigneeId : confirmedAssignees) {
+            if (assigneeId.equals(applyActorId)) {
+                // Save-as-actor already wrote CONFIRMED for this adult.
+                continue;
+            }
+            try {
+                AdultResponse assignee = adultSessionApi.requireAdult(assigneeId);
+                carpoolApi.tryConfirmHouseholdPlanForFeedEvent(assignee, feedEventId);
+            } catch (RuntimeException ignored) {
+                // Soft-fail: leave WAITING_HOUSEHOLD for the assignee to confirm.
+            }
         }
     }
 
@@ -572,7 +731,8 @@ public class StandingBlockLockService {
                                     ? null
                                     : leg.assigneeAdultId(),
                             action == CarpoolRidePlanLegAction.NEEDS_RIDE ? null : leg.placeId(),
-                            action == CarpoolRidePlanLegAction.NEEDS_RIDE
+                            // placeAddress in the snapshot is one-time only (never display).
+                            action == CarpoolRidePlanLegAction.NEEDS_RIDE || leg.placeId() != null
                                     ? null
                                     : leg.placeAddress(),
                             null));
@@ -670,14 +830,16 @@ public class StandingBlockLockService {
 
     private List<StandingRidePlanSnapshotDto> snapshotRidePlans(UUID circleId, UUID itemId) {
         List<StandingRidePlanSnapshotDto> out = new ArrayList<>();
-        for (CarpoolRideResponse plan : carpoolApi.listActiveOwnPlansForFeedEvent(circleId, itemId)) {
+        for (CarpoolStandingPlanGroupDto plan :
+                carpoolApi.listStandingPlanSnapshotsForFeedEvent(circleId, itemId)) {
             List<StandingRidePlanLegSnapshotDto> legs = new ArrayList<>();
-            for (CarpoolRideLegResponse leg : plan.legs()) {
+            for (CarpoolStandingPlanLegDto leg : plan.legs()) {
                 if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
                     throw new CalendarException(
                             HttpStatus.BAD_REQUEST,
                             "Lock does not support Ask-the-team ride plans");
                 }
+                // Save triad only: placeId XOR oneTimeAddress (never display address).
                 legs.add(
                         new StandingRidePlanLegSnapshotDto(
                                 leg.kind(),
@@ -685,8 +847,8 @@ public class StandingBlockLockService {
                                 leg.assigneeAdultId(),
                                 leg.assigneeCircleId(),
                                 leg.placeId(),
-                                leg.placeName(),
-                                leg.placeAddress(),
+                                null,
+                                leg.oneTimeAddress(),
                                 leg.meetSide() == null ? CarpoolMeetSide.REQUESTER : leg.meetSide()));
             }
             out.add(new StandingRidePlanSnapshotDto(plan.kidIds(), List.copyOf(legs)));

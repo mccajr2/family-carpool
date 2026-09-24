@@ -13,6 +13,8 @@ interface StandingBlockTemplateRepository
     Optional<StandingBlockTemplateEntity> findByCircleIdAndFingerprintSetKey(
             UUID circleId, String fingerprintSetKey);
 
+    Optional<StandingBlockTemplateEntity> findByIdAndCircleId(UUID id, UUID circleId);
+
     long deleteByCircleIdAndFingerprintSetKey(UUID circleId, String fingerprintSetKey);
 
     long deleteByIdAndCircleId(UUID id, UUID circleId);

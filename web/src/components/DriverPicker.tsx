@@ -30,6 +30,12 @@ import {
 } from "@/components/coverageCopy"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
 import type { LeaveFromFields } from "@/components/leaveFromDisplay"
+import {
+  confirmAndLockLabel,
+  lockCheckboxLabel,
+  markAsNotGoingThisWeekLabel,
+  markKidsAsNotGoingThisWeekLabel,
+} from "@/components/standingBlockChrome"
 import { Button } from "@/components/ui/button"
 
 /** Per-leg driver intent for Save ride plan. */
@@ -72,8 +78,12 @@ const EMPTY_PLACE: LeaveFromFields = {
 }
 
 export function placeFieldsFromLeaveFrom(fields: LeaveFromFields): DriverPickerPlaceFields {
+  // Prefer named place; never send placeId + address together.
+  if (fields.leaveFromPlaceId != null) {
+    return { placeId: fields.leaveFromPlaceId, placeAddress: null }
+  }
   return {
-    placeId: fields.leaveFromPlaceId,
+    placeId: null,
     placeAddress: fields.leaveFromAddress,
   }
 }
@@ -93,6 +103,11 @@ function placeFromBody(body: SetCalendarLeaveFromRequest): DriverPickerPlaceFiel
   }
 }
 
+export type DriverPickerConfirmOptions = {
+  /** When true, parent should Lock after the household plan is saved. */
+  lockStanding?: boolean
+}
+
 export type DriverPickerProps = {
   members: FamilyMember[]
   currentAdultId: string
@@ -100,7 +115,11 @@ export type DriverPickerProps = {
   onSelectedAdultChange: (adultId: string) => void
   kidIds: string[]
   loading?: boolean
-  onAssignCoverage: (adultId: string, kidIds: string[]) => void
+  onAssignCoverage: (
+    adultId: string,
+    kidIds: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   /** Required when showTeamSection is true; unused when the Ask chip is hidden. */
   onAskTeam?: () => void
   /**
@@ -108,14 +127,20 @@ export type DriverPickerProps = {
    * Save ride plan calls this with both leg choices for `kidIds`. Simple Ask
    * the team also prefers this (both legs ASK_TEAM + shared place) when set.
    */
-  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
+  onSaveRidePlan?: (
+    legs: DriverPickerSavePlanLegs,
+    options?: DriverPickerConfirmOptions,
+  ) => void
   /**
    * Going kids on the event (not RSVP NO). When length ≥ 2 and
    * `onSaveKidPlans` is set, shows Different plans for each kid.
    */
   goingKids?: DriverPickerGoingKid[]
   /** Atomic multi-plan Save for the kid-split editor (required to activate). */
-  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
+  onSaveKidPlans?: (
+    plans: DriverPickerKidPlan[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
   /**
    * Optional attendance escape (Hero gap). Per-kid not-going inside kid-split;
    * 1-kid simple/legSplit also uses this.
@@ -147,6 +172,19 @@ export type DriverPickerProps = {
   hasPickupPlace?: boolean
   /** Inline error under the primary button (near Save / Confirm). */
   actionError?: string
+  /**
+   * When set (weekday singular e.g. "Tuesday"), show opt-in Lock checkbox above
+   * Confirm for household plans. Hidden entirely when Ask the team is selected.
+   * Default unchecked — adults must opt in.
+   */
+  standingLockWeekdaySingular?: string | null
+  /** Plural weekday for Confirm-and-lock label (e.g. "Tuesdays"). */
+  standingLockWeekdayPlural?: string | null
+  /**
+   * Scope not-going links to this occurrence only (locked-summary edit / locked
+   * chrome). Does not touch the standing template.
+   */
+  notGoingThisWeek?: boolean
 }
 
 export function householdDriverChipLabel(
@@ -498,9 +536,13 @@ export function DriverPicker({
   confirmLabel: confirmLabelProp,
   hasPickupPlace = true,
   actionError,
+  standingLockWeekdaySingular = null,
+  standingLockWeekdayPlural = null,
+  notGoingThisWeek = false,
 }: DriverPickerProps) {
   const [askTeamSelected, setAskTeamSelected] = useState(false)
   const [mode, setMode] = useState<EditorMode>("simple")
+  const [lockStanding, setLockStanding] = useState(false)
   const [toSelection, setToSelection] = useState<LegChipSelection>(currentAdultId)
   const [fromSelection, setFromSelection] = useState<LegChipSelection>(currentAdultId)
   const [kidStates, setKidStates] = useState<Record<string, KidSectionState>>({})
@@ -523,10 +565,26 @@ export function DriverPicker({
     goingKids.length > 0 ? goingKids.map((kid) => kid.id) : kidIds
   const placeVariant = hero ? "subtle" : "field-row"
 
+  const showStandingLockOffer =
+    !teamSelected &&
+    standingLockWeekdaySingular != null &&
+    standingLockWeekdaySingular.length > 0
+  const lockWeekdayPlural =
+    standingLockWeekdayPlural?.trim() ||
+    (standingLockWeekdaySingular != null
+      ? standingLockWeekdaySingular.endsWith("s")
+        ? standingLockWeekdaySingular
+        : `${standingLockWeekdaySingular}s`
+      : "")
+  const confirmOptions: DriverPickerConfirmOptions | undefined =
+    showStandingLockOffer && lockStanding ? { lockStanding: true } : undefined
+
   const primaryLabel = teamSelected
     ? POST_TO_TEAM_ROUND_TRIP
-    : (confirmLabelProp ??
-      confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
+    : showStandingLockOffer && lockStanding
+      ? confirmAndLockLabel(lockWeekdayPlural)
+      : (confirmLabelProp ??
+        confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
 
   const simpleNeedsRequesterPlace =
     askSelectionNeedsRequesterPlace("ASK_TEAM", simpleToMeetSide) ||
@@ -721,6 +779,10 @@ export function DriverPicker({
       onAskTeam?.()
       return
     }
+    if (confirmOptions != null) {
+      onAssignCoverage(selectedAdultId, actionKidIds, confirmOptions)
+      return
+    }
     onAssignCoverage(selectedAdultId, actionKidIds)
   }
 
@@ -728,14 +790,19 @@ export function DriverPicker({
     if (onSaveRidePlan == null) {
       return
     }
-    onSaveRidePlan({
+    const legs: DriverPickerSavePlanLegs = {
       to: choiceFromSelection(toSelection),
       from: choiceFromSelection(fromSelection),
       toPlace: placeForSelection(toSelection, toMeetSide, toPlace),
       fromPlace: placeForSelection(fromSelection, fromMeetSide, fromPlace),
       toMeetSide: meetForSelection(toSelection, toMeetSide),
       fromMeetSide: meetForSelection(fromSelection, fromMeetSide),
-    })
+    }
+    if (confirmOptions != null) {
+      onSaveRidePlan(legs, confirmOptions)
+      return
+    }
+    onSaveRidePlan(legs)
   }
 
   function handleSaveKidPlans() {
@@ -747,6 +814,10 @@ export function DriverPicker({
         kidStates[kid.id] ?? initialKidState(currentAdultId, sharedPlaceSeed)
       return { kidId: kid.id, legs: legsFromKidState(state) }
     })
+    if (confirmOptions != null) {
+      onSaveKidPlans(plans, confirmOptions)
+      return
+    }
     onSaveKidPlans(plans)
   }
 
@@ -863,8 +934,12 @@ export function DriverPicker({
         onClick={markGoingKidsNotAttending}
       >
         {goingKids.length >= 2
-          ? markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))
-          : markAsNotGoingLabel(goingKids[0]!.firstName)}
+          ? notGoingThisWeek
+            ? markKidsAsNotGoingThisWeekLabel(goingKids.map((kid) => kid.firstName))
+            : markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))
+          : notGoingThisWeek
+            ? markAsNotGoingThisWeekLabel(goingKids[0]!.firstName)
+            : markAsNotGoingLabel(goingKids[0]!.firstName)}
       </button>
     )
   }
@@ -882,8 +957,37 @@ export function DriverPicker({
         disabled={loading}
         onClick={() => onSetRsvp(kid.id, "NO")}
       >
-        {markAsNotGoingLabel(kid.firstName)}
+        {notGoingThisWeek
+          ? markAsNotGoingThisWeekLabel(kid.firstName)
+          : markAsNotGoingLabel(kid.firstName)}
       </button>
+    )
+  }
+
+  function renderStandingLockCheckbox() {
+    if (!showStandingLockOffer) {
+      return null
+    }
+    return (
+      <label
+        data-testid="driver-picker-lock-standing"
+        className={
+          hero
+            ? "flex items-start gap-[var(--fc-space-sm)] text-xs opacity-90"
+            : "flex items-start gap-[var(--fc-space-sm)] text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+        }
+        style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+      >
+        <input
+          type="checkbox"
+          data-testid="driver-picker-lock-standing-checkbox"
+          className="mt-0.5"
+          checked={lockStanding}
+          disabled={loading}
+          onChange={(event) => setLockStanding(event.target.checked)}
+        />
+        <span>{lockCheckboxLabel(standingLockWeekdaySingular!)}</span>
+      </label>
     )
   }
 
@@ -1051,6 +1155,7 @@ export function DriverPicker({
               </div>
             )
           })}
+          {renderStandingLockCheckbox()}
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveKidPlans, kidSplitPrimaryDisabled)}
           {renderInlineError()}
           {renderDisclosureLink(
@@ -1126,6 +1231,7 @@ export function DriverPicker({
               fromMeetSide,
             )}
           </div>
+          {renderStandingLockCheckbox()}
           {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
           {renderInlineError()}
           {kidSplitEligible
@@ -1200,6 +1306,7 @@ export function DriverPicker({
           </>
         ) : null}
         {!teamSelected || simpleNeedsRequesterPlace ? leaveFromSlot : null}
+        {renderStandingLockCheckbox()}
         {renderPrimaryButton(primaryLabel, handlePrimaryClick, primaryDisabled)}
         {renderInlineError()}
         {renderDisclosureLink(

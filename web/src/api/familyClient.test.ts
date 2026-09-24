@@ -1063,6 +1063,7 @@ describe("FamilyClient", () => {
       .mockResolvedValueOnce(json(template, 201))
       .mockResolvedValueOnce(json([template]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
 
     const client = new FamilyClient("http://localhost:8080", fetchFn)
 
@@ -1089,6 +1090,13 @@ describe("FamilyClient", () => {
       "http://localhost:8080/api/family/circle/calendar/standing-blocks/t1",
     )
     expect(fetchFn.mock.calls[2]?.[1]).toMatchObject({ method: "DELETE" })
+
+    await expect(
+      client.removeStandingBlock("tok", "t1", "2026-09-08T21:00:00.000Z"),
+    ).resolves.toBeUndefined()
+    expect(String(fetchFn.mock.calls[3]?.[0])).toContain(
+      "standing-blocks/t1?from=2026-09-08T21%3A00%3A00.000Z",
+    )
   })
 
   it("passes timeZone on listCalendar when provided", async () => {

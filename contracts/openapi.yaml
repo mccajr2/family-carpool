@@ -2416,8 +2416,11 @@ paths:
       tags: [family]
       summary: Remove recurring coverage (delete standing template)
       description: >
-        Any circle member. Deletes the template; stops further auto-apply;
-        does not wipe already-written weeks. Idempotent 404 when missing.
+        Any circle member. Deletes the template; clears household coverage and
+        active ride plans on fingerprint-matching FEED occurrences from `from`
+        (inclusive) forward through the known schedule; stops further auto-apply.
+        Weeks before `from` keep their data. When `from` is omitted, uses
+        server now. Idempotent 404 when the template is missing.
       security:
         - bearerAuth: []
       parameters:
@@ -2427,9 +2430,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: >
+            Inclusive Instant cutoff (UTC). Typically the Agenda occurrence
+            `startsAt` where Remove was clicked. Defaults to now.
       responses:
         "204":
-          description: Template deleted
+          description: Template deleted and forward assignments cleared
         "401":
           description: Missing, invalid, or revoked Bearer token
           content:

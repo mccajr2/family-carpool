@@ -58,6 +58,7 @@ import com.yourorg.quickapp.rsvp.RsvpApi;
 import com.yourorg.quickapp.rsvp.RsvpDto;
 import com.yourorg.quickapp.rsvp.RsvpItemSource;
 import com.yourorg.quickapp.rsvp.RsvpStatus;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -636,7 +637,11 @@ public class CalendarService {
         return enrichDriveBlockPair(adult.id(), circleId, pair);
     }
 
-    @Transactional
+    /**
+     * Lock persists the standing template in its own transaction, then applies
+     * onto blank future weeks in a second transaction so apply failures cannot
+     * roll back the Lock.
+     */
     public StandingBlockTemplateDto lockStandingBlock(
             AdultResponse adult,
             List<UUID> memberItemIds,
@@ -644,14 +649,21 @@ public class CalendarService {
             Instant horizonFrom,
             Instant horizonTo) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
-        return standingBlockLockService.lock(
-                adult, circleId, memberItemIds, timeZone, horizonFrom, horizonTo);
+        StandingBlockTemplateDto saved =
+                standingBlockLockService.lock(
+                        adult, circleId, memberItemIds, timeZone, horizonFrom, horizonTo);
+        try {
+            standingBlockLockService.applyAndAutoClear(circleId, horizonFrom, horizonTo);
+        } catch (RuntimeException ignored) {
+            // Template stays; next calendar/sync enrich retries blank matches.
+        }
+        return saved;
     }
 
     @Transactional
-    public void removeStandingBlock(AdultResponse adult, UUID templateId) {
+    public void removeStandingBlock(AdultResponse adult, UUID templateId, Instant from) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
-        if (!standingBlockLockService.remove(circleId, templateId)) {
+        if (!standingBlockLockService.remove(circleId, adult.id(), templateId, from)) {
             throw new CalendarException(HttpStatus.NOT_FOUND, "Standing block template not found");
         }
     }
@@ -823,7 +835,10 @@ public class CalendarService {
                                     List.of()),
                             leaveBy,
                             coverageLeaveBys);
-            return driveBlockEnricher.attach(adultId, circleId, List.of(item)).getFirst();
+            return withStandingFields(
+                            circleId,
+                            driveBlockEnricher.attach(adultId, circleId, List.of(item)))
+                    .getFirst();
         }
         // Widen past half-open overlap so back-to-back (0-gap) siblings still
         // appear for drive-block adjacency on single-item mutation responses.
@@ -888,13 +903,24 @@ public class CalendarService {
         }
         List<CalendarItemResponse> enriched =
                 driveBlockEnricher.attach(adultId, circleId, nearbyItems);
-        return enriched.stream()
+        return withStandingFields(circleId, enriched).stream()
                 .filter(item -> item.id().equals(feed.id()))
                 .findFirst()
                 .orElseThrow(
                         () ->
                                 new CalendarException(
                                         HttpStatus.NOT_FOUND, "Calendar item not found"));
+    }
+
+    /**
+     * Stamp standing Lock fields onto single-item mutation responses so Agenda
+     * Replace does not wipe locked chrome / template id until Remove.
+     */
+    private List<CalendarItemResponse> withStandingFields(
+            UUID circleId, List<CalendarItemResponse> items) {
+        Instant from = Instant.now();
+        return standingBlockLockService.enrichStandingFields(
+                circleId, items, from, from.plus(Duration.ofDays(1)), null);
     }
 
     private Map<CalendarConflictDetector.ItemKey, CalendarConflictDetector.ScheduleItem>

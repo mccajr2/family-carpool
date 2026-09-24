@@ -824,11 +824,20 @@ export class FamilyClient {
     return (await response.json()) as StandingBlockTemplate
   }
 
-  async removeStandingBlock(accessToken: string, templateId: string): Promise<void> {
+  async removeStandingBlock(
+    accessToken: string,
+    templateId: string,
+    from?: string,
+  ): Promise<void> {
+    const params = new URLSearchParams()
+    if (from != null && from.length > 0) {
+      params.set("from", from)
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : ""
     const response = await this.fetchFn(
       authUrl(
         this.baseUrl,
-        `/api/family/circle/calendar/standing-blocks/${templateId}`,
+        `/api/family/circle/calendar/standing-blocks/${templateId}${query}`,
       ),
       {
         method: "DELETE",

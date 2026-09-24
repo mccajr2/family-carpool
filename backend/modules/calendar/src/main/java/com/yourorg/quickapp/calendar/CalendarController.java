@@ -234,8 +234,12 @@ public class CalendarController {
     @DeleteMapping("/standing-blocks/{templateId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeStandingBlock(
-            @PathVariable("templateId") UUID templateId, HttpServletRequest httpRequest) {
+            @PathVariable("templateId") UUID templateId,
+            @RequestParam(value = "from", required = false)
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        calendarService.removeStandingBlock(adult, templateId);
+        calendarService.removeStandingBlock(adult, templateId, from);
     }
 }

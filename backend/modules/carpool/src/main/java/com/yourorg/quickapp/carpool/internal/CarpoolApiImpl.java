@@ -6,6 +6,7 @@ import com.yourorg.quickapp.carpool.CarpoolConfirmedDrivingLegDto;
 import com.yourorg.quickapp.carpool.CarpoolHouseholdStopDto;
 import com.yourorg.quickapp.carpool.CarpoolLegKind;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
+import com.yourorg.quickapp.carpool.CarpoolStandingPlanGroupDto;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanGroup;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanResponse;
 import java.util.Collection;
@@ -59,6 +60,17 @@ class CarpoolApiImpl implements CarpoolApi {
     }
 
     @Override
+    public List<CarpoolStandingPlanGroupDto> listStandingPlanSnapshotsForFeedEvent(
+            UUID circleId, UUID feedEventId) {
+        return rideService.listStandingPlanSnapshotsForFeedEvent(circleId, feedEventId);
+    }
+
+    @Override
+    public void cancelActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId) {
+        rideService.cancelActiveOwnPlansForFeedEvent(circleId, feedEventId);
+    }
+
+    @Override
     public boolean hasActiveOwnPlansForFeedEvent(UUID circleId, UUID feedEventId) {
         return rideService.hasActiveOwnPlansForFeedEvent(circleId, feedEventId);
     }
@@ -69,5 +81,17 @@ class CarpoolApiImpl implements CarpoolApi {
             UUID feedEventId,
             java.util.List<SaveCarpoolRidePlanGroup> plans) {
         return rideService.saveHouseholdPlanForFeedEvent(adult, feedEventId, plans);
+    }
+
+    @Override
+    public SaveCarpoolRidePlanResponse confirmHouseholdPlanForFeedEvent(
+            com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId) {
+        return rideService.confirmHouseholdPlanForFeedEvent(adult, feedEventId);
+    }
+
+    @Override
+    public boolean tryConfirmHouseholdPlanForFeedEvent(
+            com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId) {
+        return rideService.tryConfirmHouseholdPlanForFeedEvent(adult, feedEventId);
     }
 }

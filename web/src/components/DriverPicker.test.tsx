@@ -160,6 +160,74 @@ describe("DriverPicker", () => {
     expect(onAssignCoverage).toHaveBeenCalledWith("a2", ["k1", "k2"])
   })
 
+  it("hides standing Lock checkbox when weekday is not offered", () => {
+    render(<DriverPicker {...defaultProps} leaveFromLabel="Home" />)
+    expect(screen.queryByTestId("driver-picker-lock-standing")).not.toBeInTheDocument()
+  })
+
+  it("shows unchecked Lock checkbox and changes Confirm label when checked", async () => {
+    const user = userEvent.setup()
+    const onAssignCoverage = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        standingLockWeekdaySingular="Tuesday"
+        standingLockWeekdayPlural="Tuesdays"
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    const checkbox = screen.getByTestId("driver-picker-lock-standing-checkbox")
+    expect(checkbox).not.toBeChecked()
+    expect(
+      screen.getByRole("button", {
+        name: "Confirm — You'll drive round trip from Home",
+      }),
+    ).toBeInTheDocument()
+
+    await user.click(checkbox)
+    expect(
+      screen.getByRole("button", { name: "Confirm and lock for Tuesdays" }),
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole("button", { name: "Confirm and lock for Tuesdays" }),
+    )
+    expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"], {
+      lockStanding: true,
+    })
+  })
+
+  it("hides Lock checkbox when Ask the team is selected", async () => {
+    const user = userEvent.setup()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        standingLockWeekdaySingular="Tuesday"
+        standingLockWeekdayPlural="Tuesdays"
+      />,
+    )
+    expect(screen.getByTestId("driver-picker-lock-standing")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ask the team" }))
+    expect(screen.queryByTestId("driver-picker-lock-standing")).not.toBeInTheDocument()
+  })
+
+  it("scopes not-going copy to this week when notGoingThisWeek", () => {
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        goingKids={[{ id: "k1", firstName: "Declan" }]}
+        onSetRsvp={vi.fn()}
+        notGoingThisWeek
+      />,
+    )
+    expect(
+      screen.getByRole("button", { name: "Mark Declan as not going this week" }),
+    ).toBeInTheDocument()
+  })
+
   it("Confirm uses goingKids rather than a stale kidIds subset", async () => {
     const user = userEvent.setup()
     const onAssignCoverage = vi.fn()
