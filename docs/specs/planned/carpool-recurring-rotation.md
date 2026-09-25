@@ -37,8 +37,10 @@ who never take a turn).
 ## Notes
 
 - Depends on `carpool-request-accept` + team-linked / FEED event identity +
-  existing RSVP. Prefer after `carpool-recurring-standing` so fixed patterns
-  ship first.
+  existing RSVP. Prefer after `carpool-recurring-standing` (series
+  arrangement + fixed primary) and `carpool-standing-week-exception`
+  (per-week skip/bail holes) so rotation reuses the same series object and
+  hole semantics.
 - Happy-path rotation: who drives which week; occupancy from RSVP Yes;
   **explicit driver-pool membership** (subset) at setup.
 - Gap-fill when it is that family’s turn and they cannot drive stays
