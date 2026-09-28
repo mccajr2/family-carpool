@@ -18,6 +18,7 @@ import com.yourorg.quickapp.carpool.StandingRideAskTemplateDto;
 import com.yourorg.quickapp.carpool.StandingRideAssignment;
 import com.yourorg.quickapp.feeds.RecurringFeedFingerprint;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,7 +57,7 @@ class StandingRideArrangementServiceTest {
         StandingRideAskTemplateDto ask = sampleAsk(CarpoolMeetSide.ACCEPTOR);
 
         StandingRideArrangementDto saved =
-                service.create(spaceId, circleId, adultId, fp, "America/New_York", ask);
+                service.create(spaceId, circleId, adultId, fp, "America/New_York", Instant.parse("2026-09-29T21:00:00Z"), ask);
 
         ArgumentCaptor<StandingRideArrangementEntity> captor =
                 ArgumentCaptor.forClass(StandingRideArrangementEntity.class);
@@ -106,6 +107,7 @@ class StandingRideArrangementServiceTest {
                         "rink a",
                         fp.encoded(),
                         "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
                         List.of(new RideKidSnapshot(kidId, "Sam")),
                         List.of(
                                 new StandingRideAskLegSlot(
@@ -137,6 +139,7 @@ class StandingRideArrangementServiceTest {
                                         adultId,
                                         fp,
                                         "America/New_York",
+                                        Instant.parse("2026-09-29T21:00:00Z"),
                                         sampleAsk(CarpoolMeetSide.REQUESTER)))
                 .isInstanceOf(CarpoolException.class)
                 .satisfies(
@@ -163,6 +166,7 @@ class StandingRideArrangementServiceTest {
                         "rink a",
                         fp.encoded(),
                         "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
                         List.of(new RideKidSnapshot(kidId, "Sam")),
                         List.of(
                                 new StandingRideAskLegSlot(
@@ -212,6 +216,7 @@ class StandingRideArrangementServiceTest {
                         "rink a",
                         fp.encoded(),
                         "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
                         List.of(new RideKidSnapshot(kidId, "Sam")),
                         List.of(
                                 new StandingRideAskLegSlot(
@@ -241,6 +246,101 @@ class StandingRideArrangementServiceTest {
         assertThat(ended.primaryAdultId()).isNull();
         assertThat(ended.primaryCircleId()).isNull();
         assertThat(ended.endedAt()).isNotNull();
+    }
+
+    @Test
+    void expireOpenIfDueEndsWhenAnchorLocalDayHasStarted() {
+        RecurringFeedFingerprint fp =
+                new RecurringFeedFingerprint(feedId, DayOfWeek.TUESDAY, 17 * 60, "rink a");
+        UUID arrangementId = UUID.randomUUID();
+        // Anchor Tuesday 2026-09-29 17:00 EDT = 21:00Z; local day starts 2026-09-29T04:00:00Z
+        StandingRideArrangementEntity entity =
+                new StandingRideArrangementEntity(
+                        arrangementId,
+                        spaceId,
+                        circleId,
+                        adultId,
+                        feedId,
+                        "TUESDAY",
+                        17 * 60,
+                        "rink a",
+                        fp.encoded(),
+                        "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
+                        List.of(new RideKidSnapshot(kidId, "Sam")),
+                        List.of(
+                                new StandingRideAskLegSlot(
+                                        CarpoolLegKind.TO,
+                                        CarpoolLegPhase.ASKED_TEAM,
+                                        CarpoolMeetSide.REQUESTER,
+                                        null,
+                                        null,
+                                        null,
+                                        null),
+                                new StandingRideAskLegSlot(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolLegPhase.ASKED_TEAM,
+                                        CarpoolMeetSide.REQUESTER,
+                                        null,
+                                        null,
+                                        null,
+                                        null)),
+                        Instant.now());
+        when(repository.findBySpaceIdAndStatusInOrderByCreatedAtAsc(eq(spaceId), any()))
+                .thenReturn(List.of(entity));
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        int ended =
+                service.expireOpenIfDue(spaceId, Instant.parse("2026-09-29T04:00:00Z"));
+
+        assertThat(ended).isEqualTo(1);
+        assertThat(entity.status()).isEqualTo(StandingRideArrangementStatus.ENDED);
+    }
+
+    @Test
+    void expireOpenIfDueLeavesOpenBeforeAnchorLocalDay() {
+        RecurringFeedFingerprint fp =
+                new RecurringFeedFingerprint(feedId, DayOfWeek.TUESDAY, 17 * 60, "rink a");
+        StandingRideArrangementEntity entity =
+                new StandingRideArrangementEntity(
+                        UUID.randomUUID(),
+                        spaceId,
+                        circleId,
+                        adultId,
+                        feedId,
+                        "TUESDAY",
+                        17 * 60,
+                        "rink a",
+                        fp.encoded(),
+                        "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
+                        List.of(new RideKidSnapshot(kidId, "Sam")),
+                        List.of(
+                                new StandingRideAskLegSlot(
+                                        CarpoolLegKind.TO,
+                                        CarpoolLegPhase.ASKED_TEAM,
+                                        CarpoolMeetSide.REQUESTER,
+                                        null,
+                                        null,
+                                        null,
+                                        null),
+                                new StandingRideAskLegSlot(
+                                        CarpoolLegKind.FROM,
+                                        CarpoolLegPhase.ASKED_TEAM,
+                                        CarpoolMeetSide.REQUESTER,
+                                        null,
+                                        null,
+                                        null,
+                                        null)),
+                        Instant.now());
+        when(repository.findBySpaceIdAndStatusInOrderByCreatedAtAsc(eq(spaceId), any()))
+                .thenReturn(List.of(entity));
+
+        int ended =
+                service.expireOpenIfDue(spaceId, Instant.parse("2026-09-29T03:59:59Z"));
+
+        assertThat(ended).isZero();
+        assertThat(entity.status()).isEqualTo(StandingRideArrangementStatus.OPEN);
     }
 
     private StandingRideAskTemplateDto sampleAsk(CarpoolMeetSide toMeet) {

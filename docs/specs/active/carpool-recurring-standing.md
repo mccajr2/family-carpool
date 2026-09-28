@@ -157,7 +157,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 - [x] Backend: Standing ride arrangement persistence (`FIXED_PRIMARY`, statuses,
       fingerprint, ask template snapshot) in `carpool`
-- [ ] Backend: Create (gated) / Accept / Pass / End APIs; unanswered expire on
+- [x] Backend: Create (gated) / Accept / Pass / End APIs; unanswered expire on
       enrich or scheduled path tied to known schedule
 - [ ] Backend: Materialise onto blank fingerprint matches; soft-fail apply;
       never overwrite; link via `arrangementId`

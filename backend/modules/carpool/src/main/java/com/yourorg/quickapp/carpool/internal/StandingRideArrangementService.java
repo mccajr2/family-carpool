@@ -49,11 +49,13 @@ public class StandingRideArrangementService {
             UUID requestedByAdultId,
             RecurringFeedFingerprint fingerprint,
             String timeZone,
+            Instant anchorStartsAt,
             StandingRideAskTemplateDto askTemplate) {
         Objects.requireNonNull(spaceId, "spaceId");
         Objects.requireNonNull(requestingCircleId, "requestingCircleId");
         Objects.requireNonNull(requestedByAdultId, "requestedByAdultId");
         Objects.requireNonNull(fingerprint, "fingerprint");
+        Objects.requireNonNull(anchorStartsAt, "anchorStartsAt");
         String zone = requireTimeZone(timeZone);
         StandingRideAskTemplateDto normalized = normalizeAskTemplate(askTemplate);
 
@@ -78,6 +80,7 @@ public class StandingRideArrangementService {
                         fingerprint.normalizedLocation(),
                         fingerprint.encoded(),
                         zone,
+                        anchorStartsAt,
                         toKidEntities(normalized.kids()),
                         toLegEntities(normalized.legs()),
                         Instant.now());
@@ -117,6 +120,42 @@ public class StandingRideArrangementService {
         return repository.findBySpaceIdAndStatusInOrderByCreatedAtAsc(spaceId, NON_ENDED).stream()
                 .map(StandingRideArrangementService::toDto)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StandingRideArrangementDto> listOpenForSpace(UUID spaceId) {
+        Objects.requireNonNull(spaceId, "spaceId");
+        return repository
+                .findBySpaceIdAndStatusInOrderByCreatedAtAsc(
+                        spaceId, List.of(StandingRideArrangementStatus.OPEN))
+                .stream()
+                .map(StandingRideArrangementService::toDto)
+                .toList();
+    }
+
+    /**
+     * Ends still-{@code OPEN} arrangements whose anchor occurrence's local
+     * calendar day has started ({@code now >= local midnight of anchor day}).
+     * Returns how many were ended.
+     */
+    @Transactional
+    public int expireOpenIfDue(UUID spaceId, Instant now) {
+        Objects.requireNonNull(spaceId, "spaceId");
+        Objects.requireNonNull(now, "now");
+        int ended = 0;
+        for (StandingRideArrangementEntity entity :
+                repository.findBySpaceIdAndStatusInOrderByCreatedAtAsc(
+                        spaceId, List.of(StandingRideArrangementStatus.OPEN))) {
+            ZoneId zone = ZoneId.of(entity.timeZone());
+            Instant dayStart =
+                    entity.anchorStartsAt().atZone(zone).toLocalDate().atStartOfDay(zone).toInstant();
+            if (!now.isBefore(dayStart)) {
+                entity.end(now);
+                repository.save(entity);
+                ended++;
+            }
+        }
+        return ended;
     }
 
     /** OPEN → ACTIVE with fixed primary. */
@@ -293,6 +332,7 @@ public class StandingRideArrangementService {
                 entity.requestedByAdultId(),
                 fingerprint,
                 entity.timeZone(),
+                entity.anchorStartsAt(),
                 entity.assignment(),
                 entity.status(),
                 entity.primaryAdultId(),

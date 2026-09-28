@@ -145,6 +145,7 @@ class CalendarServiceTest {
                 .when(carpoolApi.listConfirmedDrivingLegs(any(), any(), any()))
                 .thenReturn(List.of());
         lenient().doNothing().when(standingBlockLockService).applyAndAutoClear(any(), any(), any());
+        lenient().when(carpoolApi.expireOpenStandingArrangements(any())).thenReturn(0);
         lenient()
                 .when(
                         standingBlockLockService.enrichStandingFields(

@@ -66,6 +66,9 @@ class StandingRideArrangementEntity {
     @Column(name = "primary_circle_id")
     private UUID primaryCircleId;
 
+    @Column(name = "anchor_starts_at", nullable = false)
+    private Instant anchorStartsAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -99,6 +102,7 @@ class StandingRideArrangementEntity {
             String normalizedLocation,
             String fingerprintEncoded,
             String timeZone,
+            Instant anchorStartsAt,
             List<RideKidSnapshot> kids,
             List<StandingRideAskLegSlot> legs,
             Instant createdAt) {
@@ -112,6 +116,7 @@ class StandingRideArrangementEntity {
         this.normalizedLocation = normalizedLocation;
         this.fingerprintEncoded = fingerprintEncoded;
         this.timeZone = timeZone;
+        this.anchorStartsAt = anchorStartsAt;
         this.assignment = StandingRideAssignment.FIXED_PRIMARY;
         this.status = StandingRideArrangementStatus.OPEN;
         this.kids = new ArrayList<>(kids);
@@ -173,6 +178,10 @@ class StandingRideArrangementEntity {
 
     UUID primaryCircleId() {
         return primaryCircleId;
+    }
+
+    Instant anchorStartsAt() {
+        return anchorStartsAt;
     }
 
     Instant createdAt() {

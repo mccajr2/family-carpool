@@ -131,6 +131,7 @@ public class CalendarService {
         requireValidRange(from, to);
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         standingBlockLockService.applyAndAutoClear(circleId, from, to);
+        carpoolApi.expireOpenStandingArrangements(circleId);
 
         List<FeedCalendarEventDto> feedEvents =
                 feedCalendarApi.listEventsInRange(circleId, from, to);

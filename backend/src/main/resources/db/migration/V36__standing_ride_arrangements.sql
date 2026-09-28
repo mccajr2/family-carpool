@@ -15,6 +15,8 @@ CREATE TABLE standing_ride_arrangements (
     status                  VARCHAR(16) NOT NULL,
     primary_adult_id        UUID REFERENCES adults (id),
     primary_circle_id       UUID REFERENCES family_circles (id),
+    -- FEED occurrence used at create; unanswered expire uses its local calendar day.
+    anchor_starts_at        TIMESTAMPTZ NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ended_at                TIMESTAMPTZ,
     CONSTRAINT standing_ride_arrangements_dow_check

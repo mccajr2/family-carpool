@@ -12,6 +12,7 @@ import com.yourorg.quickapp.carpool.internal.CarpoolException;
 import com.yourorg.quickapp.carpool.internal.StandingRideArrangementService;
 import com.yourorg.quickapp.feeds.RecurringFeedFingerprint;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -126,7 +127,13 @@ class StandingRideArrangementPersistenceIntegrationTest {
 
         StandingRideArrangementDto created =
                 arrangementService.create(
-                        spaceId, circleId, adultId, fp, "America/New_York", ask);
+                        spaceId,
+                        circleId,
+                        adultId,
+                        fp,
+                        "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
+                        ask);
         assertThat(created.id()).isNotNull();
         assertThat(created.status()).isEqualTo(StandingRideArrangementStatus.OPEN);
         assertThat(created.assignment()).isEqualTo(StandingRideAssignment.FIXED_PRIMARY);
@@ -156,7 +163,13 @@ class StandingRideArrangementPersistenceIntegrationTest {
         assertThatThrownBy(
                         () ->
                                 arrangementService.create(
-                                        spaceId, circleId, adultId, fp, "America/New_York", ask))
+                                        spaceId,
+                                        circleId,
+                                        adultId,
+                                        fp,
+                                        "America/New_York",
+                                        Instant.parse("2026-09-29T21:00:00Z"),
+                                        ask))
                 .isInstanceOf(CarpoolException.class)
                 .satisfies(
                         ex ->
@@ -182,7 +195,13 @@ class StandingRideArrangementPersistenceIntegrationTest {
         // After ENDED, a new OPEN arrangement for the same fingerprint is allowed.
         StandingRideArrangementDto recreated =
                 arrangementService.create(
-                        spaceId, circleId, adultId, fp, "America/New_York", ask);
+                        spaceId,
+                        circleId,
+                        adultId,
+                        fp,
+                        "America/New_York",
+                        Instant.parse("2026-09-29T21:00:00Z"),
+                        ask);
         assertThat(recreated.id()).isNotEqualTo(created.id());
         assertThat(recreated.status()).isEqualTo(StandingRideArrangementStatus.OPEN);
     }

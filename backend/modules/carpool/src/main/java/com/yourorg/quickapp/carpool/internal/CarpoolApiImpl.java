@@ -18,9 +18,11 @@ import org.springframework.stereotype.Component;
 class CarpoolApiImpl implements CarpoolApi {
 
     private final CarpoolRideService rideService;
+    private final StandingRideAskService standingRideAskService;
 
-    CarpoolApiImpl(CarpoolRideService rideService) {
+    CarpoolApiImpl(CarpoolRideService rideService, StandingRideAskService standingRideAskService) {
         this.rideService = rideService;
+        this.standingRideAskService = standingRideAskService;
     }
 
     @Override
@@ -93,5 +95,10 @@ class CarpoolApiImpl implements CarpoolApi {
     public boolean tryConfirmHouseholdPlanForFeedEvent(
             com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId) {
         return rideService.tryConfirmHouseholdPlanForFeedEvent(adult, feedEventId);
+    }
+
+    @Override
+    public int expireOpenStandingArrangements(UUID circleId) {
+        return standingRideAskService.expireOpenForCircle(circleId, java.time.Instant.now());
     }
 }

@@ -12,6 +12,7 @@ public record StandingRideArrangementDto(
         UUID requestedByAdultId,
         RecurringFeedFingerprint fingerprint,
         String timeZone,
+        Instant anchorStartsAt,
         StandingRideAssignment assignment,
         StandingRideArrangementStatus status,
         UUID primaryAdultId,
