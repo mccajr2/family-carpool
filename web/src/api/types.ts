@@ -628,6 +628,57 @@ export type SaveCarpoolRidePlanLeg = {
   meetSide?: CarpoolMeetSide | null
 }
 
+export type StandingRideAssignment = "FIXED_PRIMARY"
+
+export type StandingRideArrangementStatus = "OPEN" | "ACTIVE" | "ENDED"
+
+export type StandingRideAskKid = {
+  kidId: string
+  firstName: string
+}
+
+export type StandingRideAskLeg = {
+  kind: CarpoolLegKind
+  phase: "NEEDS_RIDE" | "ASKED_TEAM"
+  placeId?: string | null
+  oneTimeAddress?: string | null
+  placeName?: string | null
+  placeAddress?: string | null
+  meetSide: CarpoolMeetSide
+}
+
+export type StandingRideAskTemplate = {
+  kids: StandingRideAskKid[]
+  /** Exactly one TO and one FROM. */
+  legs: StandingRideAskLeg[]
+}
+
+export type StandingRideArrangement = {
+  id: string
+  spaceId: string
+  requestingCircleId: string
+  requestedByAdultId: string
+  fingerprint: RecurringFeedFingerprint
+  timeZone: string
+  anchorStartsAt: string
+  assignment: StandingRideAssignment
+  status: StandingRideArrangementStatus
+  primaryAdultId?: string | null
+  primaryCircleId?: string | null
+  askTemplate: StandingRideAskTemplate
+  createdAt: string
+  endedAt?: string | null
+  passedByMe: boolean
+}
+
+export type CreateStandingRideArrangementRequest = {
+  eventKey: string
+  timeZone: string
+  kidIds?: string[]
+  /** Exactly one TO and one FROM; ASK_TEAM or NEEDS_RIDE only. */
+  legs: SaveCarpoolRidePlanLeg[]
+}
+
 /** One kid bag + TO/FROM outcomes; server may merge identical groups. */
 export type SaveCarpoolRidePlanGroup = {
   kidIds: string[]

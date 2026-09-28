@@ -161,12 +161,12 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       enrich or scheduled path tied to known schedule
 - [x] Backend: Materialise onto blank fingerprint matches; soft-fail apply;
       never overwrite; link via `arrangementId`
-- [ ] Contract: OpenAPI schemas + paths; bump `info.version`
+- [x] Contract: OpenAPI schemas + paths; bump `info.version`
 - [ ] Web: Standing Ask entry (Calendar/Carpool) when gate passes; reuse Ask
       legs/places/meet chrome
 - [ ] Web: Inbound Hero/Agenda series chrome — one Accept/Pass per arrangement;
       End standing for requester; expire → calm one-off path
-- [ ] Web: `carpoolClient` / types aligned with OpenAPI
+- [x] Web: `carpoolClient` / types aligned with OpenAPI
 - [ ] Tests: Backend unit + integration as in AC; web tests for standing Hero
       collapse / series copy
 

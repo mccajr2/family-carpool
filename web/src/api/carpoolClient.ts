@@ -9,10 +9,12 @@ import type {
   CarpoolSummary,
   ClearCarpoolRidePlanRequest,
   CreateCarpoolRideRequest,
+  CreateStandingRideArrangementRequest,
   SaveCarpoolRidePlanGroup,
   SaveCarpoolRidePlanLeg,
   SaveCarpoolRidePlanRequest,
   SaveCarpoolRidePlanResponse,
+  StandingRideArrangement,
   WithdrawCarpoolRideRequest,
 } from "@/api/types"
 import { apiBaseUrl } from "@/config"
@@ -471,6 +473,115 @@ export class CarpoolClient {
     }
     return (await response.json()) as CarpoolRide
   }
+
+  async listStandingRides(
+    accessToken: string,
+    spaceId: string,
+  ): Promise<StandingRideArrangement[]> {
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/standing-rides`),
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "List standing rides failed"))
+    }
+    return (await response.json()) as StandingRideArrangement[]
+  }
+
+  async createStandingRide(
+    accessToken: string,
+    spaceId: string,
+    request: CreateStandingRideArrangementRequest,
+  ): Promise<StandingRideArrangement> {
+    const body: CreateStandingRideArrangementRequest = {
+      eventKey: request.eventKey,
+      timeZone: request.timeZone,
+      legs: request.legs.map(serializeStandingAskLeg),
+    }
+    if (request.kidIds != null) {
+      body.kidIds = request.kidIds
+    }
+    const response = await this.fetchFn(
+      authUrl(this.baseUrl, `/api/carpool/spaces/${spaceId}/standing-rides`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Create standing ride failed"))
+    }
+    return (await response.json()) as StandingRideArrangement
+  }
+
+  async acceptStandingRide(
+    accessToken: string,
+    spaceId: string,
+    arrangementId: string,
+  ): Promise<StandingRideArrangement> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/carpool/spaces/${spaceId}/standing-rides/${arrangementId}/accept`,
+      ),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Accept standing ride failed"))
+    }
+    return (await response.json()) as StandingRideArrangement
+  }
+
+  async passStandingRide(
+    accessToken: string,
+    spaceId: string,
+    arrangementId: string,
+  ): Promise<StandingRideArrangement> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/carpool/spaces/${spaceId}/standing-rides/${arrangementId}/pass`,
+      ),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Pass standing ride failed"))
+    }
+    return (await response.json()) as StandingRideArrangement
+  }
+
+  async endStandingRide(
+    accessToken: string,
+    spaceId: string,
+    arrangementId: string,
+  ): Promise<StandingRideArrangement> {
+    const response = await this.fetchFn(
+      authUrl(
+        this.baseUrl,
+        `/api/carpool/spaces/${spaceId}/standing-rides/${arrangementId}/end`,
+      ),
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "End standing ride failed"))
+    }
+    return (await response.json()) as StandingRideArrangement
+  }
 }
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -488,24 +599,26 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
 function serializePlanGroup(group: SaveCarpoolRidePlanGroup): SaveCarpoolRidePlanGroup {
   return {
     kidIds: [...group.kidIds],
-    legs: group.legs.map((leg) => {
-      const entry: SaveCarpoolRidePlanLeg = {
-        kind: leg.kind,
-        action: leg.action,
-      }
-      if (leg.assigneeAdultId != null) {
-        entry.assigneeAdultId = leg.assigneeAdultId
-      }
-      // Named place and one-time address are mutually exclusive — prefer placeId.
-      if (leg.placeId != null) {
-        entry.placeId = leg.placeId
-      } else if (leg.placeAddress != null && leg.placeAddress.trim() !== "") {
-        entry.placeAddress = leg.placeAddress
-      }
-      if (leg.meetSide != null) {
-        entry.meetSide = leg.meetSide
-      }
-      return entry
-    }),
+    legs: group.legs.map(serializeStandingAskLeg),
   }
+}
+
+function serializeStandingAskLeg(leg: SaveCarpoolRidePlanLeg): SaveCarpoolRidePlanLeg {
+  const entry: SaveCarpoolRidePlanLeg = {
+    kind: leg.kind,
+    action: leg.action,
+  }
+  if (leg.assigneeAdultId != null) {
+    entry.assigneeAdultId = leg.assigneeAdultId
+  }
+  // Named place and one-time address are mutually exclusive — prefer placeId.
+  if (leg.placeId != null) {
+    entry.placeId = leg.placeId
+  } else if (leg.placeAddress != null && leg.placeAddress.trim() !== "") {
+    entry.placeAddress = leg.placeAddress
+  }
+  if (leg.meetSide != null) {
+    entry.meetSide = leg.meetSide
+  }
+  return entry
 }

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.36.0
+  version: 0.37.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -100,7 +100,12 @@ info:
     ASKED_TEAM leg with meet side `ACCEPTOR`, Accept binds that leg's
     family-side place from the accepter's resolved leave-from (membership
     default, else first located by name); Accept returns **400** when that
-    cannot resolve. Cancel /
+    cannot resolve. Standing series Ask (HTTP under
+    `/api/carpool/spaces/{spaceId}/standing-rides`) persists an OPEN arrangement
+    gated on ≥3 other upcoming fingerprint matches; Accept by another circle
+    sets ACTIVE + fixed primary and materialises ACCEPTED rides onto blank
+    matching weeks; Pass is soft per-adult; requester End marks ENDED.
+    Still-OPEN arrangements expire at local start of the anchor day. Cancel /
     Withdraw may omit `legs` to clear every leg this action covers when
     assignees match, or pass specific leg(s) when assignees differ. An Organizer
     whose circle already has the feed may enable a space (that circle owns it).
@@ -4599,6 +4604,264 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/carpool/spaces/{spaceId}/standing-rides:
+    parameters:
+      - name: spaceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listStandingRideArrangements
+      tags: [carpool]
+      summary: List non-ENDED standing ride arrangements for a space
+      description: >
+        Any space-member adult. Returns OPEN and ACTIVE arrangements for the
+        space (ENDED omitted), ordered by createdAt ascending. Each row includes
+        `passedByMe` for the calling adult (soft Pass while OPEN). Expires
+        still-OPEN arrangements whose anchor local day has started before
+        listing. Empty array when none. Non-member or unknown space returns 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Standing arrangements (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StandingRideArrangement"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStandingRideArrangement
+      tags: [carpool]
+      summary: Create a gated standing series Ask
+      description: >
+        Any space-member adult. Creates an OPEN standing ride arrangement for
+        the FEED event's recurring fingerprint (`feedId` + local weekday +
+        minute-of-day + normalized location) with the same kids / TO+FROM legs /
+        family-side places / meet side shape as Save ride plan (ASK_TEAM or
+        NEEDS_RIDE only — no HOUSEHOLD). Requires ≥3 other upcoming fingerprint
+        matches in the feed-backed known schedule (~400 days); otherwise **409**.
+        At most one non-ENDED arrangement per (space, requesting circle,
+        fingerprint) — duplicate returns **409**. Unknown event, invalid
+        timeZone / legs / places, or no resolvable REQUESTER pickup returns
+        **400**. Non-member or unknown space returns **404**.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStandingRideArrangementRequest"
+      responses:
+        "201":
+          description: Standing Ask created (OPEN)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingRideArrangement"
+        "400":
+          description: >
+            Invalid eventKey, timeZone, kids, legs, place triad, or meetSide;
+            or no resolvable REQUESTER family-side place
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space, or caller's circle is not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: >
+            Fewer than 3 other upcoming fingerprint matches, or a non-ENDED
+            arrangement already exists for this circle + fingerprint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/standing-rides/{arrangementId}/accept:
+    post:
+      operationId: acceptStandingRideArrangement
+      tags: [carpool]
+      summary: Accept a standing series Ask as fixed primary
+      description: >
+        Empty-body Accept. Any space-member adult from another circle may
+        Accept an OPEN arrangement. Sets ACTIVE + primary adult/circle, clears
+        Pass rows, and materialises ACCEPTED ride snapshots onto blank
+        fingerprint-matching FEED weeks in the known schedule (never overwrites
+        an existing PENDING / ACCEPTED / PLAN for the requesting circle). Soft-
+        fail materialise does not roll back Accept. Own-circle Accept returns
+        **409**. Not OPEN returns **409**. Unknown arrangement / non-member
+        returns **404**.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: arrangementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Arrangement is ACTIVE with fixed primary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingRideArrangement"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or arrangement, or caller not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Own-circle Accept, or arrangement is not OPEN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/standing-rides/{arrangementId}/pass:
+    post:
+      operationId: passStandingRideArrangement
+      tags: [carpool]
+      summary: Soft-pass a standing series Ask
+      description: >
+        Empty-body Pass. Any space-member adult from another circle may Pass an
+        OPEN arrangement (soft decline; arrangement stays OPEN; `passedByMe`
+        becomes true for the caller). Idempotent when already passed. Own-circle
+        Pass returns **409**. Not OPEN returns **409**. Unknown arrangement /
+        non-member returns **404**.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: arrangementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pass recorded (or already passed); arrangement still OPEN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingRideArrangement"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or arrangement, or caller not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Own-circle Pass, or arrangement is not OPEN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/carpool/spaces/{spaceId}/standing-rides/{arrangementId}/end:
+    post:
+      operationId: endStandingRideArrangement
+      tags: [carpool]
+      summary: End a standing ride arrangement (requester)
+      description: >
+        Empty-body End. Only an adult in the requesting circle may End.
+        Marks the arrangement ENDED (idempotent when already ENDED) and stops
+        further materialise. Driver End-whole is out of v1. Wrong circle
+        returns **403**. Unknown arrangement / non-member returns **404**.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: spaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: arrangementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Arrangement is ENDED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingRideArrangement"
+        "401":
+          description: Missing, invalid, or revoked Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller's circle is not the requesting circle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown space or arrangement, or caller not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/carpool/spaces/{spaceId}/ride-plans:
     post:
       operationId: saveCarpoolRidePlan
@@ -6465,6 +6728,192 @@ components:
         normalizedLocation:
           type: string
           description: Trimmed lower-case location (empty when blank)
+
+    StandingRideAssignment:
+      type: string
+      enum: [FIXED_PRIMARY]
+      description: >
+        How the standing arrangement assigns drivers. FIXED_PRIMARY — one
+        accepting circle is the primary until End (rotation policies later).
+
+    StandingRideArrangementStatus:
+      type: string
+      enum: [OPEN, ACTIVE, ENDED]
+      description: >
+        OPEN — series Ask awaiting Accept. ACTIVE — accepted with fixed
+        primary; materialise onto blank fingerprint matches. ENDED — requester
+        End or unanswered expire.
+
+    StandingRideAskKid:
+      type: object
+      required:
+        - kidId
+        - firstName
+      properties:
+        kidId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+          maxLength: 80
+
+    StandingRideAskLeg:
+      type: object
+      required:
+        - kind
+        - phase
+        - meetSide
+      properties:
+        kind:
+          $ref: "#/components/schemas/CarpoolLegKind"
+        phase:
+          type: string
+          enum: [NEEDS_RIDE, ASKED_TEAM]
+          description: >
+            Standing Ask template legs are ASKED_TEAM or NEEDS_RIDE (one-way)
+            only — never WAITING_HOUSEHOLD / CONFIRMED / HOUSEHOLD.
+        placeId:
+          type: string
+          format: uuid
+          nullable: true
+        oneTimeAddress:
+          type: string
+          nullable: true
+          maxLength: 255
+        placeName:
+          type: string
+          nullable: true
+          maxLength: 80
+        placeAddress:
+          type: string
+          nullable: true
+          maxLength: 255
+        meetSide:
+          $ref: "#/components/schemas/CarpoolMeetSide"
+
+    StandingRideAskTemplate:
+      type: object
+      required:
+        - kids
+        - legs
+      properties:
+        kids:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/StandingRideAskKid"
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: Exactly one TO and one FROM
+          items:
+            $ref: "#/components/schemas/StandingRideAskLeg"
+
+    StandingRideArrangement:
+      type: object
+      required:
+        - id
+        - spaceId
+        - requestingCircleId
+        - requestedByAdultId
+        - fingerprint
+        - timeZone
+        - anchorStartsAt
+        - assignment
+        - status
+        - askTemplate
+        - createdAt
+        - passedByMe
+      properties:
+        id:
+          type: string
+          format: uuid
+        spaceId:
+          type: string
+          format: uuid
+        requestingCircleId:
+          type: string
+          format: uuid
+        requestedByAdultId:
+          type: string
+          format: uuid
+        fingerprint:
+          $ref: "#/components/schemas/RecurringFeedFingerprint"
+        timeZone:
+          type: string
+          description: IANA zone used for fingerprint weekday / time-of-day
+          example: America/New_York
+        anchorStartsAt:
+          type: string
+          format: date-time
+          description: >
+            FEED occurrence startsAt used at create; unanswered expire uses
+            local midnight of this day in `timeZone`
+        assignment:
+          $ref: "#/components/schemas/StandingRideAssignment"
+        status:
+          $ref: "#/components/schemas/StandingRideArrangementStatus"
+        primaryAdultId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when ACTIVE; null when OPEN or ENDED
+        primaryCircleId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when ACTIVE; null when OPEN or ENDED
+        askTemplate:
+          $ref: "#/components/schemas/StandingRideAskTemplate"
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        passedByMe:
+          type: boolean
+          description: >
+            True when the calling adult has soft-passed this OPEN arrangement
+
+    CreateStandingRideArrangementRequest:
+      type: object
+      required:
+        - eventKey
+        - timeZone
+        - legs
+      properties:
+        eventKey:
+          type: string
+          minLength: 1
+          description: >
+            Feed event key for an occurrence in the series (UID:… or FP:…)
+          example: "UID:stub-standing-ride-w1@example.com"
+        timeZone:
+          type: string
+          minLength: 1
+          description: IANA zone for fingerprint and unanswered-expire day
+          example: America/New_York
+        kidIds:
+          type: array
+          description: >
+            Optional subset of feed-linked kids. When omitted, defaults to the
+            event's feed kid roster.
+          items:
+            type: string
+            format: uuid
+        legs:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: >
+            Exactly one TO and one FROM. Actions must be ASK_TEAM or NEEDS_RIDE
+            (HOUSEHOLD is rejected). Same place triad + meetSide rules as Save
+            ride plan Ask legs.
+          items:
+            $ref: "#/components/schemas/SaveCarpoolRidePlanLeg"
 
     StandingCoverageSnapshot:
       type: object
