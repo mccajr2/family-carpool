@@ -56,6 +56,10 @@ class CarpoolRideRequestEntity {
     @Column(name = "accepting_circle_id")
     private UUID acceptingCircleId;
 
+    /** Set when this ride was materialised from (or linked to) a standing arrangement. */
+    @Column(name = "arrangement_id")
+    private UUID arrangementId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -158,6 +162,14 @@ class CarpoolRideRequestEntity {
 
     UUID acceptingCircleId() {
         return acceptingCircleId;
+    }
+
+    UUID arrangementId() {
+        return arrangementId;
+    }
+
+    void attachArrangementId(UUID arrangementId) {
+        this.arrangementId = arrangementId;
     }
 
     List<RideKidSnapshot> kids() {

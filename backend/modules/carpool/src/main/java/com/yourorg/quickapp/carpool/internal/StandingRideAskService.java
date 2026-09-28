@@ -43,7 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * HTTP-facing standing Ask: gated create, Accept, Pass, requester End, and
- * unanswered expire. Materialise onto weeks is a later task.
+ * unanswered expire. Materialise after Accept is soft-failed (separate TX).
  */
 @Service
 public class StandingRideAskService {
@@ -55,6 +55,7 @@ public class StandingRideAskService {
 
     private final StandingRideArrangementService arrangements;
     private final StandingRideArrangementPassRepository passes;
+    private final StandingRideMaterialiseService materialise;
     private final FamilyMembershipApi familyMembershipApi;
     private final FamilyPlaceApi familyPlaceApi;
     private final FeedsApi feedsApi;
@@ -65,6 +66,7 @@ public class StandingRideAskService {
     public StandingRideAskService(
             StandingRideArrangementService arrangements,
             StandingRideArrangementPassRepository passes,
+            StandingRideMaterialiseService materialise,
             FamilyMembershipApi familyMembershipApi,
             FamilyPlaceApi familyPlaceApi,
             FeedsApi feedsApi,
@@ -73,6 +75,7 @@ public class StandingRideAskService {
             CarpoolMembershipRepository memberships) {
         this.arrangements = arrangements;
         this.passes = passes;
+        this.materialise = materialise;
         this.familyMembershipApi = familyMembershipApi;
         this.familyPlaceApi = familyPlaceApi;
         this.feedsApi = feedsApi;
@@ -125,7 +128,11 @@ public class StandingRideAskService {
         return withPassFlags(rows, adult.id());
     }
 
-    @Transactional
+    /**
+     * Accept activates the arrangement in its own transaction, then materialises
+     * blank fingerprint matches in a second step so apply failures cannot roll
+     * back Accept (same TX-split spirit as household Lock).
+     */
     public StandingRideArrangementResponse accept(
             AdultResponse adult, UUID spaceId, UUID arrangementId) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
@@ -148,6 +155,11 @@ public class StandingRideAskService {
         StandingRideArrangementDto activated =
                 arrangements.activate(spaceId, arrangementId, adult.id(), circleId);
         passes.deleteByArrangementId(arrangementId);
+        try {
+            materialise.materialiseArrangement(spaceId, arrangementId);
+        } catch (RuntimeException ignored) {
+            // Arrangement stays ACTIVE; calendar/sync enrich retries blank matches.
+        }
         return StandingRideArrangementResponse.from(activated, false);
     }
 

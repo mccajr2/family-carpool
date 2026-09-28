@@ -67,4 +67,10 @@ interface CarpoolRideRequestRepository extends JpaRepository<CarpoolRideRequestE
 
     List<CarpoolRideRequestEntity> findByRequestingCircleIdAndEventKeyAndStatusIn(
             UUID requestingCircleId, String eventKey, Collection<CarpoolRideStatus> statuses);
+
+    List<CarpoolRideRequestEntity> findByArrangementIdAndStatusIn(
+            UUID arrangementId, Collection<CarpoolRideStatus> statuses);
+
+    boolean existsByArrangementIdAndEventKeyAndStatusIn(
+            UUID arrangementId, String eventKey, Collection<CarpoolRideStatus> statuses);
 }

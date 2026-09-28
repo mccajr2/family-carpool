@@ -118,4 +118,12 @@ public interface CarpoolApi {
      * has started. Returns how many were ended.
      */
     int expireOpenStandingArrangements(UUID circleId);
+
+    /**
+     * Calendar enrich path: materialise ACTIVE standing arrangements onto blank
+     * fingerprint matches in the feed-backed known schedule. Soft-fails per
+     * occurrence; never overwrites existing active rides for the requesting circle.
+     */
+    int materialiseActiveStandingArrangements(
+            UUID circleId, java.time.Instant horizonFrom, java.time.Instant horizonTo);
 }

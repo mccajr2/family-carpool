@@ -56,6 +56,9 @@ class StandingRideAskServiceTest {
     private StandingRideArrangementPassRepository passes;
 
     @Mock
+    private StandingRideMaterialiseService materialise;
+
+    @Mock
     private FamilyMembershipApi familyMembershipApi;
 
     @Mock
@@ -248,6 +251,41 @@ class StandingRideAskServiceTest {
                 .isInstanceOf(CarpoolException.class)
                 .satisfies(
                         ex -> assertThat(((CarpoolException) ex).status()).isEqualTo(HttpStatus.CONFLICT));
+        verify(materialise, never()).materialiseArrangement(any(), any());
+    }
+
+    @Test
+    void acceptActivatesThenMaterialisesSoftFailSafe() {
+        UUID arrangementId = UUID.randomUUID();
+        UUID otherCircle = UUID.randomUUID();
+        StandingRideArrangementDto open = openDto(arrangementId, otherCircle);
+        StandingRideArrangementDto active =
+                new StandingRideArrangementDto(
+                        arrangementId,
+                        spaceId,
+                        otherCircle,
+                        adultId,
+                        open.fingerprint(),
+                        open.timeZone(),
+                        open.anchorStartsAt(),
+                        StandingRideAssignment.FIXED_PRIMARY,
+                        StandingRideArrangementStatus.ACTIVE,
+                        adultId,
+                        circleId,
+                        open.askTemplate(),
+                        Instant.now(),
+                        null);
+        when(arrangements.expireOpenIfDue(eq(spaceId), any())).thenReturn(0);
+        when(arrangements.findBySpaceAndId(spaceId, arrangementId)).thenReturn(Optional.of(open));
+        when(arrangements.activate(spaceId, arrangementId, adultId, circleId)).thenReturn(active);
+        when(materialise.materialiseArrangement(spaceId, arrangementId))
+                .thenThrow(new RuntimeException("apply boom"));
+
+        StandingRideArrangementResponse response = service.accept(adult, spaceId, arrangementId);
+
+        assertThat(response.status()).isEqualTo(StandingRideArrangementStatus.ACTIVE);
+        verify(arrangements).activate(spaceId, arrangementId, adultId, circleId);
+        verify(materialise).materialiseArrangement(spaceId, arrangementId);
     }
 
     @Test

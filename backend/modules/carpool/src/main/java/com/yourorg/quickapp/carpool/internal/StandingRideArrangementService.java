@@ -22,8 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Persists space-scoped standing ride arrangements (series Ask). Create gate,
- * Accept/Pass/End HTTP, and materialise live in later tasks.
+ * Persists space-scoped standing ride arrangements (series Ask). Create /
+ * activate / end / expire live here; Accept HTTP and materialise are
+ * orchestrated by StandingRideAskService / StandingRideMaterialiseService.
  */
 @Service
 public class StandingRideArrangementService {
@@ -128,6 +129,17 @@ public class StandingRideArrangementService {
         return repository
                 .findBySpaceIdAndStatusInOrderByCreatedAtAsc(
                         spaceId, List.of(StandingRideArrangementStatus.OPEN))
+                .stream()
+                .map(StandingRideArrangementService::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StandingRideArrangementDto> listActiveForSpace(UUID spaceId) {
+        Objects.requireNonNull(spaceId, "spaceId");
+        return repository
+                .findBySpaceIdAndStatusInOrderByCreatedAtAsc(
+                        spaceId, List.of(StandingRideArrangementStatus.ACTIVE))
                 .stream()
                 .map(StandingRideArrangementService::toDto)
                 .toList();

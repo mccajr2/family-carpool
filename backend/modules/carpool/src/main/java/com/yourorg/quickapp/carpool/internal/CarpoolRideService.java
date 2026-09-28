@@ -10,6 +10,11 @@ import com.yourorg.quickapp.carpool.CarpoolRideLegResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideResponse;
 import com.yourorg.quickapp.carpool.CarpoolRideStatus;
 import com.yourorg.quickapp.carpool.CreateCarpoolRideRequest;
+import com.yourorg.quickapp.carpool.StandingRideArrangementDto;
+import com.yourorg.quickapp.carpool.StandingRideArrangementStatus;
+import com.yourorg.quickapp.carpool.StandingRideAskKidDto;
+import com.yourorg.quickapp.carpool.StandingRideAskLegDto;
+import com.yourorg.quickapp.carpool.StandingRideAskTemplateDto;
 import com.yourorg.quickapp.carpool.CarpoolRidePlanLegAction;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanGroup;
 import com.yourorg.quickapp.carpool.SaveCarpoolRidePlanLeg;
@@ -54,6 +59,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -1628,6 +1634,130 @@ public class CarpoolRideService {
                 return false;
             }
             throw ex;
+        }
+    }
+
+    /**
+     * Soft-fail materialise for one fingerprint match. Nested TX so a failure
+     * (e.g. missing accepter place) does not poison Accept or outer enrich.
+     *
+     * @return true when an ACCEPTED ride was created
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean tryMaterialiseStandingOccurrence(
+            StandingRideArrangementDto arrangement, String eventKey) {
+        try {
+            return materialiseStandingOccurrence(arrangement, eventKey);
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Creates an ACCEPTED ride snapshot from an ACTIVE standing arrangement onto
+     * a blank eventKey. Never overwrites an existing PENDING / ACCEPTED / PLAN
+     * for the requesting circle.
+     *
+     * @return true when created; false when skipped (not blank / not ACTIVE)
+     */
+    @Transactional
+    public boolean materialiseStandingOccurrence(
+            StandingRideArrangementDto arrangement, String eventKey) {
+        Objects.requireNonNull(arrangement, "arrangement");
+        if (arrangement.status() != StandingRideArrangementStatus.ACTIVE) {
+            return false;
+        }
+        if (arrangement.primaryAdultId() == null || arrangement.primaryCircleId() == null) {
+            return false;
+        }
+        if (eventKey == null || eventKey.isBlank()) {
+            return false;
+        }
+        String key = eventKey.trim();
+        UUID spaceId = arrangement.spaceId();
+        UUID requestingCircleId = arrangement.requestingCircleId();
+        if (rides.existsBySpaceIdAndEventKeyAndRequestingCircleIdAndStatusIn(
+                spaceId, key, requestingCircleId, OWN_PLAN_STATUSES)) {
+            return false;
+        }
+        StandingRideAskTemplateDto ask = arrangement.askTemplate();
+        if (ask == null || ask.kids() == null || ask.kids().isEmpty()) {
+            throw new CarpoolException(HttpStatus.BAD_REQUEST, "standing ask template has no kids");
+        }
+        if (ask.legs() == null || ask.legs().size() != 2) {
+            throw new CarpoolException(HttpStatus.BAD_REQUEST, "standing ask template legs invalid");
+        }
+
+        Set<CarpoolLegKind> askedLegs = EnumSet.noneOf(CarpoolLegKind.class);
+        for (StandingRideAskLegDto leg : ask.legs()) {
+            if (leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                askedLegs.add(leg.kind());
+            }
+        }
+        if (askedLegs.isEmpty()) {
+            throw new CarpoolException(
+                    HttpStatus.BAD_REQUEST, "standing ask template has no ASK_TEAM legs");
+        }
+
+        List<RideKidSnapshot> kids = new ArrayList<>(ask.kids().size());
+        for (StandingRideAskKidDto kid : ask.kids()) {
+            kids.add(new RideKidSnapshot(kid.kidId(), kid.firstName()));
+        }
+
+        String pickupName = "Home";
+        String pickupAddress = "";
+        for (StandingRideAskLegDto leg : ask.legs()) {
+            if (leg.kind() == CarpoolLegKind.TO && leg.phase() == CarpoolLegPhase.ASKED_TEAM) {
+                if (hasText(leg.placeName())) {
+                    pickupName = leg.placeName();
+                }
+                if (hasText(leg.placeAddress())) {
+                    pickupAddress = leg.placeAddress();
+                }
+                break;
+            }
+        }
+
+        CarpoolRideRequestEntity created =
+                new CarpoolRideRequestEntity(
+                        UUID.randomUUID(),
+                        spaceId,
+                        key,
+                        requestingCircleId,
+                        arrangement.requestedByAdultId(),
+                        pickupName,
+                        pickupAddress,
+                        kids,
+                        askedLegs,
+                        Instant.now());
+        applyStandingAskLegs(created, ask.legs());
+        bindAcceptorPlacesOnAccept(created, arrangement.primaryAdultId());
+        created.accept(arrangement.primaryAdultId(), arrangement.primaryCircleId());
+        created.attachArrangementId(arrangement.id());
+        syncRidePickupFromToLeg(created);
+        rides.save(created);
+        ensureRequestingKidsYes(created, arrangement.primaryAdultId());
+        upsertAcceptedDriverRoute(created, spaceId);
+        return true;
+    }
+
+    private void applyStandingAskLegs(
+            CarpoolRideRequestEntity ride, List<StandingRideAskLegDto> templateLegs) {
+        for (StandingRideAskLegDto template : templateLegs) {
+            RideLegSlot slot = ride.leg(template.kind());
+            slot.setMeetSide(template.meetSide());
+            if (template.phase() == CarpoolLegPhase.NEEDS_RIDE) {
+                continue;
+            }
+            if (template.meetSide() == CarpoolMeetSide.ACCEPTOR) {
+                slot.setFamilyPlace(null, null, DRIVER_PLACE_DISPLAY, "");
+            } else {
+                slot.setFamilyPlace(
+                        template.placeId(),
+                        template.oneTimeAddress(),
+                        template.placeName(),
+                        template.placeAddress());
+            }
         }
     }
 

@@ -159,7 +159,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
       fingerprint, ask template snapshot) in `carpool`
 - [x] Backend: Create (gated) / Accept / Pass / End APIs; unanswered expire on
       enrich or scheduled path tied to known schedule
-- [ ] Backend: Materialise onto blank fingerprint matches; soft-fail apply;
+- [x] Backend: Materialise onto blank fingerprint matches; soft-fail apply;
       never overwrite; link via `arrangementId`
 - [ ] Contract: OpenAPI schemas + paths; bump `info.version`
 - [ ] Web: Standing Ask entry (Calendar/Carpool) when gate passes; reuse Ask
