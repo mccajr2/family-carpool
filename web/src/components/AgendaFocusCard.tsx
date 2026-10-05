@@ -21,7 +21,10 @@ import {
   incomingRideAskSummary,
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
-import { hasWaitingHouseholdForAdult, isOwnRideGap, mapCalendarItemToCoverageGames } from "@/components/coverageQueue"
+import {
+  standingBlockChrome,
+  standingWeekdayNames,
+} from "@/components/standingBlockChrome"
 import {
   allOwnPlanLegs,
   inboundWithdrawLegs,

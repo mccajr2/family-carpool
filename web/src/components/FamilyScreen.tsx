@@ -1402,7 +1402,7 @@ export function FamilyScreen({
     eventKey: string,
     legs: DriverPickerSavePlanLegs,
     kidIds?: string[],
-    options?: { lockStanding?: boolean },
+    options?: { lockStanding?: boolean; standingAsk?: boolean },
   ): Promise<boolean> {
     const resolvedEventKey = eventKey || circleLocalEventKey(item)
     if (resolvedEventKey == null) {
@@ -1426,6 +1426,22 @@ export function FamilyScreen({
         toSavePlanLeg("TO", legs.to, legs.toPlace, legs.toMeetSide),
         toSavePlanLeg("FROM", legs.from, legs.fromPlace, legs.fromMeetSide),
       ]
+      if (options?.standingAsk) {
+        if (spaceId == null) {
+          setCoverageActionError(itemKey, "Standing Ask requires a carpool space")
+          setStatus({ kind: "idle" })
+          return false
+        }
+        await carpoolClient.createStandingRide(token, spaceId, {
+          eventKey: resolvedEventKey,
+          timeZone: viewerTimeZone(),
+          kidIds: resolvedKidIds,
+          legs: planLegs,
+        })
+        await reloadCalendarCarpoolRides(token)
+        setStatus({ kind: "idle" })
+        return true
+      }
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
           eventKey: resolvedEventKey,

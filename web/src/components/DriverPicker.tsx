@@ -36,6 +36,10 @@ import {
   markAsNotGoingThisWeekLabel,
   markKidsAsNotGoingThisWeekLabel,
 } from "@/components/standingBlockChrome"
+import {
+  postStandingAskLabel,
+  standingAskCheckboxLabel,
+} from "@/components/standingRideChrome"
 import { Button } from "@/components/ui/button"
 
 /** Per-leg driver intent for Save ride plan. */
@@ -106,6 +110,11 @@ function placeFromBody(body: SetCalendarLeaveFromRequest): DriverPickerPlaceFiel
 export type DriverPickerConfirmOptions = {
   /** When true, parent should Lock after the household plan is saved. */
   lockStanding?: boolean
+  /**
+   * When true, parent should create a standing series Ask (OPEN arrangement)
+   * instead of a one-off Ask / Save with ASK_TEAM.
+   */
+  standingAsk?: boolean
 }
 
 export type DriverPickerProps = {
@@ -543,6 +552,7 @@ export function DriverPicker({
   const [askTeamSelected, setAskTeamSelected] = useState(false)
   const [mode, setMode] = useState<EditorMode>("simple")
   const [lockStanding, setLockStanding] = useState(false)
+  const [standingAsk, setStandingAsk] = useState(false)
   const [toSelection, setToSelection] = useState<LegChipSelection>(currentAdultId)
   const [fromSelection, setFromSelection] = useState<LegChipSelection>(currentAdultId)
   const [kidStates, setKidStates] = useState<Record<string, KidSectionState>>({})
@@ -576,11 +586,28 @@ export function DriverPicker({
         ? standingLockWeekdaySingular
         : `${standingLockWeekdaySingular}s`
       : "")
+  const standingAskEligible =
+    standingLockWeekdaySingular != null && standingLockWeekdaySingular.length > 0
+  const legSplitStandingAskReady =
+    mode === "legSplit" &&
+    (toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM") &&
+    (toSelection === "ASK_TEAM" || toSelection == null || toSelection === "") &&
+    (fromSelection === "ASK_TEAM" || fromSelection == null || fromSelection === "")
+  const showStandingAskOffer =
+    standingAskEligible &&
+    mode !== "kidSplit" &&
+    ((mode === "simple" && teamSelected) || legSplitStandingAskReady)
   const confirmOptions: DriverPickerConfirmOptions | undefined =
-    showStandingLockOffer && lockStanding ? { lockStanding: true } : undefined
+    showStandingLockOffer && lockStanding
+      ? { lockStanding: true }
+      : showStandingAskOffer && standingAsk
+        ? { standingAsk: true }
+        : undefined
 
   const primaryLabel = teamSelected
-    ? POST_TO_TEAM_ROUND_TRIP
+    ? showStandingAskOffer && standingAsk
+      ? postStandingAskLabel(lockWeekdayPlural)
+      : POST_TO_TEAM_ROUND_TRIP
     : showStandingLockOffer && lockStanding
       ? confirmAndLockLabel(lockWeekdayPlural)
       : (confirmLabelProp ??
@@ -734,6 +761,7 @@ export function DriverPicker({
     if (!kidSplitEnabled) {
       return
     }
+    setStandingAsk(false)
     const seed = sharedSeedSelection()
     const place =
       mode === "legSplit"
@@ -766,14 +794,19 @@ export function DriverPicker({
     if (teamSelected) {
       if (onSaveRidePlan != null) {
         const place = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
-        onSaveRidePlan({
+        const legs: DriverPickerSavePlanLegs = {
           to: { action: "ASK_TEAM" },
           from: { action: "ASK_TEAM" },
           toPlace: placeForSelection("ASK_TEAM", simpleToMeetSide, place),
           fromPlace: placeForSelection("ASK_TEAM", simpleFromMeetSide, place),
           toMeetSide: simpleToMeetSide,
           fromMeetSide: simpleFromMeetSide,
-        })
+        }
+        if (confirmOptions != null) {
+          onSaveRidePlan(legs, confirmOptions)
+        } else {
+          onSaveRidePlan(legs)
+        }
         return
       }
       onAskTeam?.()
@@ -987,6 +1020,33 @@ export function DriverPicker({
           onChange={(event) => setLockStanding(event.target.checked)}
         />
         <span>{lockCheckboxLabel(standingLockWeekdaySingular!)}</span>
+      </label>
+    )
+  }
+
+  function renderStandingAskCheckbox() {
+    if (!showStandingAskOffer) {
+      return null
+    }
+    return (
+      <label
+        data-testid="driver-picker-standing-ask"
+        className={
+          hero
+            ? "flex items-start gap-[var(--fc-space-sm)] text-xs opacity-90"
+            : "flex items-start gap-[var(--fc-space-sm)] text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+        }
+        style={hero ? { color: "var(--fc-hero-on-secondary)" } : undefined}
+      >
+        <input
+          type="checkbox"
+          data-testid="driver-picker-standing-ask-checkbox"
+          className="mt-0.5"
+          checked={standingAsk}
+          disabled={loading}
+          onChange={(event) => setStandingAsk(event.target.checked)}
+        />
+        <span>{standingAskCheckboxLabel(standingLockWeekdaySingular!)}</span>
       </label>
     )
   }
@@ -1232,7 +1292,14 @@ export function DriverPicker({
             )}
           </div>
           {renderStandingLockCheckbox()}
-          {renderPrimaryButton(SAVE_RIDE_PLAN, handleSaveRidePlan, splitPrimaryDisabled)}
+          {renderStandingAskCheckbox()}
+          {renderPrimaryButton(
+            showStandingAskOffer && standingAsk
+              ? postStandingAskLabel(lockWeekdayPlural)
+              : SAVE_RIDE_PLAN,
+            handleSaveRidePlan,
+            splitPrimaryDisabled,
+          )}
           {renderInlineError()}
           {kidSplitEligible
             ? renderDisclosureLink(
@@ -1262,9 +1329,11 @@ export function DriverPicker({
       onSelectionChange={(next) => {
         if (next === "ASK_TEAM") {
           setAskTeamSelected(true)
+          setLockStanding(false)
           return
         }
         setAskTeamSelected(false)
+        setStandingAsk(false)
         if (next != null) {
           onSelectedAdultChange(next)
         }
@@ -1307,6 +1376,7 @@ export function DriverPicker({
         ) : null}
         {!teamSelected || simpleNeedsRequesterPlace ? leaveFromSlot : null}
         {renderStandingLockCheckbox()}
+        {renderStandingAskCheckbox()}
         {renderPrimaryButton(primaryLabel, handlePrimaryClick, primaryDisabled)}
         {renderInlineError()}
         {renderDisclosureLink(

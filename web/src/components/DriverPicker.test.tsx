@@ -211,6 +211,60 @@ describe("DriverPicker", () => {
     expect(screen.getByTestId("driver-picker-lock-standing")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Ask the team" }))
     expect(screen.queryByTestId("driver-picker-lock-standing")).not.toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker-standing-ask")).toBeInTheDocument()
+  })
+
+  it("offers standing Ask checkbox only when weekday gate props are set", async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <DriverPicker {...defaultProps} leaveFromLabel="Home" />,
+    )
+    await user.click(screen.getByRole("button", { name: "Ask the team" }))
+    expect(screen.queryByTestId("driver-picker-standing-ask")).not.toBeInTheDocument()
+
+    rerender(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        standingLockWeekdaySingular="Tuesday"
+        standingLockWeekdayPlural="Tuesdays"
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: "Ask the team" }))
+    expect(screen.getByTestId("driver-picker-standing-ask-checkbox")).not.toBeChecked()
+    expect(
+      screen.getByRole("button", { name: POST_TO_TEAM_ROUND_TRIP }),
+    ).toBeInTheDocument()
+  })
+
+  it("posts standing Ask options when checkbox is checked", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        standingLockWeekdaySingular="Tuesday"
+        standingLockWeekdayPlural="Tuesdays"
+        onSaveRidePlan={onSaveRidePlan}
+        hasPickupPlace
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: "Ask the team" }))
+    await user.click(screen.getByTestId("driver-picker-standing-ask-checkbox"))
+    expect(
+      screen.getByRole("button", { name: "Post standing Ask for Tuesdays" }),
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole("button", { name: "Post standing Ask for Tuesdays" }),
+    )
+    expect(onSaveRidePlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: { action: "ASK_TEAM" },
+        from: { action: "ASK_TEAM" },
+      }),
+      { standingAsk: true },
+    )
   })
 
   it("scopes not-going copy to this week when notGoingThisWeek", () => {
