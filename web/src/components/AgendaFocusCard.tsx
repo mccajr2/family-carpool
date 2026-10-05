@@ -31,6 +31,12 @@ import {
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
 import {
+  endStandingAskLabel,
+  standingAskActivePrimaryStatus,
+  standingAskOpenOwnStatus,
+  type StandingRideAgendaChrome,
+} from "@/components/standingRideChrome"
+import {
   allOwnPlanLegs,
   inboundWithdrawLegs,
   resolveOwnRidePlans,
@@ -96,6 +102,8 @@ type AgendaFocusCardProps = {
   onEdit: () => void
   /** Item or coverage leave-from write (Focus subtle override). */
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
+  standingRideSeries?: StandingRideAgendaChrome | null
+  onEndStandingRide?: (arrangementId: string) => void
 }
 
 /** Matches design-tokens spacing.focusRing (88) and focusRingStroke (6). */
@@ -160,6 +168,8 @@ export function AgendaFocusCard({
   onOpenPlaces,
   onEdit,
   onSetLeaveFrom,
+  standingRideSeries = null,
+  onEndStandingRide,
 }: AgendaFocusCardProps) {
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const isManual = item.source === "MANUAL"
@@ -683,6 +693,41 @@ export function AgendaFocusCard({
               Cancel
             </Button>
           </>
+        ) : null}
+        {standingRideSeries != null &&
+        (standingRideSeries.ownOpen || standingRideSeries.ownActive) &&
+        onEndStandingRide != null ? (
+          <>
+            <p
+              data-testid="agenda-focus-standing-ride-status"
+              className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+              style={{ color: onSecondaryVar }}
+            >
+              {standingRideSeries.ownOpen
+                ? standingAskOpenOwnStatus(standingRideSeries.weekdaySingular)
+                : `Standing primary set — every ${standingRideSeries.weekdaySingular}`}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-testid="agenda-focus-end-standing-ride"
+              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              onClick={() => onEndStandingRide(standingRideSeries.arrangementId)}
+              disabled={loading}
+            >
+              {endStandingAskLabel(standingRideSeries.weekdayPlural)}
+            </Button>
+          </>
+        ) : null}
+        {standingRideSeries?.primaryActive === true ? (
+          <p
+            data-testid="agenda-focus-standing-ride-primary"
+            className="w-full text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)]"
+            style={{ color: onSecondaryVar }}
+          >
+            {standingAskActivePrimaryStatus(standingRideSeries.weekdayPlural)}
+          </p>
         ) : null}
         {showWithdrawAcceptedByUs && acceptedByUs ? (
           <>

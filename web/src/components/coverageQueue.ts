@@ -84,6 +84,22 @@ export type QueueItem =
   | { kind: "ownRide"; game: CoverageGameEvent }
   | { kind: "request"; game: CoverageGameEvent; request: CarpoolRequest }
   | {
+      kind: "standingAsk"
+      game: CoverageGameEvent
+      standingAsk: {
+        arrangementId: string
+        spaceId: string
+        requestingCircleId: string
+        requestingCircleName: string | null
+        kidFirstNames: string[]
+        seats: number
+        weekdaySingular: string
+        weekdayPlural: string
+        passedByMe: boolean
+        anchorStartsAt: string
+      }
+    }
+  | {
       kind: "playerConflict"
       /** Sooner peer row (emit / horizon anchor). */
       game: CoverageGameEvent

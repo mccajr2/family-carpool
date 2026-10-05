@@ -164,7 +164,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Contract: OpenAPI schemas + paths; bump `info.version`
 - [x] Web: Standing Ask entry (Calendar/Carpool) when gate passes; reuse Ask
       legs/places/meet chrome
-- [ ] Web: Inbound Hero/Agenda series chrome — one Accept/Pass per arrangement;
+- [x] Web: Inbound Hero/Agenda series chrome — one Accept/Pass per arrangement;
       End standing for requester; expire → calm one-off path
 - [x] Web: `carpoolClient` / types aligned with OpenAPI
 - [ ] Tests: Backend unit + integration as in AC; web tests for standing Hero

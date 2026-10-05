@@ -39,6 +39,9 @@ function slideKey(item: QueueItem): string {
   if (item.kind === "request") {
     return `req-${item.request.id}`
   }
+  if (item.kind === "standingAsk") {
+    return `standing-${item.standingAsk.arrangementId}`
+  }
   if (item.kind === "playerConflict") {
     return `conflict-${coverageGameEventKey(item.game.id)}-${coverageGameEventKey(item.peerGame.id)}`
   }
@@ -59,11 +62,13 @@ function slideAriaLabel(
   const kidFirstNames =
     item.kind === "playerConflict"
       ? item.kidIds.map((kidId) => heroKidFirstName(kidId, slideProps.circle.kids))
-      : item.kind === "ownRide" && slideProps.assignDraft.kidIds.length > 0
-        ? slideProps.assignDraft.kidIds.map((kidId) =>
-            heroKidFirstName(kidId, slideProps.circle.kids),
-          )
-        : [heroKidFirstName(item.game.kidId, slideProps.circle.kids)]
+      : item.kind === "standingAsk"
+        ? item.standingAsk.kidFirstNames
+        : item.kind === "ownRide" && slideProps.assignDraft.kidIds.length > 0
+          ? slideProps.assignDraft.kidIds.map((kidId) =>
+              heroKidFirstName(kidId, slideProps.circle.kids),
+            )
+          : [heroKidFirstName(item.game.kidId, slideProps.circle.kids)]
   return heroAttentionSlideAriaLabel(item, {
     kidFirstNames,
     pendingConfirm: Boolean(

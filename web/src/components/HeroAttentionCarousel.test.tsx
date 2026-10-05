@@ -460,6 +460,65 @@ describe("HeroAttentionSlide", () => {
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
   })
 
+  it("renders standingAsk once with series copy and Accept/Pass", async () => {
+    const user = userEvent.setup()
+    const onAcceptStandingAsk = vi.fn()
+    const onPassStandingAsk = vi.fn()
+    const standingItem: QueueItem = {
+      kind: "standingAsk",
+      game: game({
+        id: "FEED-e1:standing-ask",
+        startsAt: "2030-09-03T17:00:00.000Z",
+        order: Date.parse("2030-09-03T17:00:00.000Z"),
+      }),
+      standingAsk: {
+        arrangementId: "arr-1",
+        spaceId: "s1",
+        requestingCircleId: "c-other",
+        requestingCircleName: "the Nguyens",
+        kidFirstNames: ["Ben"],
+        seats: 1,
+        weekdaySingular: "Tuesday",
+        weekdayPlural: "Tuesdays",
+        passedByMe: false,
+        anchorStartsAt: "2030-09-03T17:00:00.000Z",
+      },
+    }
+
+    render(
+      <HeroAttentionCarousel
+        queue={[standingItem]}
+        slidePropsForItem={(item, index) =>
+          baseSlideProps(item, index, {
+            queueLength: 1,
+            calendarItem: calendarItem({
+              id: "e1",
+              startsAt: "2030-09-03T17:00:00.000Z",
+              endsAt: "2030-09-03T18:00:00.000Z",
+            }),
+            onAcceptStandingAsk,
+            onPassStandingAsk,
+          })
+        }
+      />,
+    )
+
+    const slide = screen.getByTestId("hero-attention-slide")
+    expect(slide).toHaveAttribute("data-slide-kind", "standingAsk")
+    expect(
+      within(slide).getByText("the Nguyens needs a standing ride every Tuesday"),
+    ).toBeInTheDocument()
+    expect(
+      within(slide).getByTestId("hero-attention-standing-ask-caption"),
+    ).toHaveTextContent(/Accept once — you're the fixed primary for future Tuesdays/)
+    expect(screen.getAllByTestId("hero-attention-standing-accept")).toHaveLength(1)
+
+    await user.click(within(slide).getByRole("button", { name: "Accept" }))
+    expect(onAcceptStandingAsk).toHaveBeenCalledWith("arr-1")
+    await user.click(within(slide).getByRole("button", { name: "Pass" }))
+    expect(onPassStandingAsk).toHaveBeenCalledWith("arr-1")
+  })
+
   it("shows TO-only inbound asks as distinct from round-trip on the hero", () => {
     const toOnlyRideEvent: CarpoolRideEvent = {
       ...rideEvent,
