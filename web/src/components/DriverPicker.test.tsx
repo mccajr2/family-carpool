@@ -267,6 +267,36 @@ describe("DriverPicker", () => {
     )
   })
 
+  it("posts standing Ask from leg-split when both asked legs are team", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        standingLockWeekdaySingular="Tuesday"
+        standingLockWeekdayPlural="Tuesdays"
+        onSaveRidePlan={onSaveRidePlan}
+        hasPickupPlace
+      />,
+    )
+    await user.click(screen.getByTestId("driver-picker-different-plans"))
+    await user.click(screen.getByTestId("driver-picker-to-ask-team-chip"))
+    await user.click(screen.getByTestId("driver-picker-from-ask-team-chip"))
+    expect(screen.getByTestId("driver-picker-standing-ask")).toBeInTheDocument()
+    await user.click(screen.getByTestId("driver-picker-standing-ask-checkbox"))
+    await user.click(
+      screen.getByRole("button", { name: "Post standing Ask for Tuesdays" }),
+    )
+    expect(onSaveRidePlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: { action: "ASK_TEAM" },
+        from: { action: "ASK_TEAM" },
+      }),
+      { standingAsk: true },
+    )
+  })
+
   it("scopes not-going copy to this week when notGoingThisWeek", () => {
     render(
       <DriverPicker

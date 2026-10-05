@@ -39,6 +39,7 @@ import {
 import {
   postStandingAskLabel,
   standingAskCheckboxLabel,
+  standingAskGateOpen,
 } from "@/components/standingRideChrome"
 import { Button } from "@/components/ui/button"
 
@@ -586,8 +587,7 @@ export function DriverPicker({
         ? standingLockWeekdaySingular
         : `${standingLockWeekdaySingular}s`
       : "")
-  const standingAskEligible =
-    standingLockWeekdaySingular != null && standingLockWeekdaySingular.length > 0
+  const standingAskEligible = standingAskGateOpen(standingLockWeekdaySingular)
   const legSplitStandingAskReady =
     mode === "legSplit" &&
     (toSelection === "ASK_TEAM" || fromSelection === "ASK_TEAM") &&

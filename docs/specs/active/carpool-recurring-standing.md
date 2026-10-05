@@ -162,7 +162,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Backend: Materialise onto blank fingerprint matches; soft-fail apply;
       never overwrite; link via `arrangementId`
 - [x] Contract: OpenAPI schemas + paths; bump `info.version`
-- [ ] Web: Standing Ask entry (Calendar/Carpool) when gate passes; reuse Ask
+- [x] Web: Standing Ask entry (Calendar/Carpool) when gate passes; reuse Ask
       legs/places/meet chrome
 - [ ] Web: Inbound Hero/Agenda series chrome — one Accept/Pass per arrangement;
       End standing for requester; expire → calm one-off path

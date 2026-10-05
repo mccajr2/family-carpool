@@ -22,6 +22,11 @@ import {
   ownRideDetailLine,
 } from "@/components/carpoolDisplay"
 import {
+  hasWaitingHouseholdForAdult,
+  isOwnRideGap,
+  mapCalendarItemToCoverageGames,
+} from "@/components/coverageQueue"
+import {
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -77,8 +82,14 @@ type AgendaFocusCardProps = {
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
   onCreateRide?: (eventKey: string, kidIds?: string[]) => void
-  onSaveRidePlan?: (legs: DriverPickerSavePlanLegs) => void
-  onSaveKidPlans?: (plans: DriverPickerKidPlan[]) => void
+  onSaveRidePlan?: (
+    legs: DriverPickerSavePlanLegs,
+    options?: { lockStanding?: boolean; standingAsk?: boolean },
+  ) => void
+  onSaveKidPlans?: (
+    plans: DriverPickerKidPlan[],
+    options?: { lockStanding?: boolean },
+  ) => void
   onCancelRide?: (rideId: string) => void
   onWithdrawRide?: (rideId: string, legs?: ("TO" | "FROM")[]) => void
   onOpenPlaces: () => void
@@ -204,6 +215,14 @@ export function AgendaFocusCard({
     )
     return conflict != null ? rideCommitmentConflictLine(conflict) : null
   }, [item, rideEvent, currentAdultId, circle.id, circle.members, circle.kids])
+  const standingChrome = standingBlockChrome([item])
+  const standingWeekdays = standingWeekdayNames(item.startsAt)
+  const standingLockWeekdaySingular = standingChrome.showLock
+    ? standingWeekdays.singular
+    : null
+  const standingLockWeekdayPlural = standingChrome.showLock
+    ? standingWeekdays.plural
+    : null
   const gapKidIds = transportGapKidIds(
     item.uncoveredKidIds,
     rideEvent?.ownRequest,
@@ -639,6 +658,8 @@ export function AgendaFocusCard({
                 (place) => place.address.trim().length > 0,
               )}
               actionError={coverageActionError}
+              standingLockWeekdaySingular={standingLockWeekdaySingular}
+              standingLockWeekdayPlural={standingLockWeekdayPlural}
             />
           </div>
         ) : null}
