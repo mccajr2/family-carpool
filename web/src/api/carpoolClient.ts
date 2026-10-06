@@ -566,11 +566,17 @@ export class CarpoolClient {
     accessToken: string,
     spaceId: string,
     arrangementId: string,
+    from?: string,
   ): Promise<StandingRideArrangement> {
+    const params = new URLSearchParams()
+    if (from != null && from.length > 0) {
+      params.set("from", from)
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : ""
     const response = await this.fetchFn(
       authUrl(
         this.baseUrl,
-        `/api/carpool/spaces/${spaceId}/standing-rides/${arrangementId}/end`,
+        `/api/carpool/spaces/${spaceId}/standing-rides/${arrangementId}/end${query}`,
       ),
       {
         method: "POST",

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Family Carpool API
-  version: 0.37.0
+  version: 0.38.0
   description: >
     Contract-first API for family-carpool. Adult authentication uses email
     one-time codes and Bearer sessions. Family circles (one per adult in v1)
@@ -4818,9 +4818,13 @@ paths:
       summary: End a standing ride arrangement (requester)
       description: >
         Empty-body End. Only an adult in the requesting circle may End.
-        Marks the arrangement ENDED (idempotent when already ENDED) and stops
-        further materialise. Driver End-whole is out of v1. Wrong circle
-        returns **403**. Unknown arrangement / non-member returns **404**.
+        Marks the arrangement ENDED (idempotent when already ENDED), stops
+        further materialise, and clears materialised rides on fingerprint
+        matches from `from` (inclusive) forward through the known schedule.
+        Weeks before `from` keep their data. When `from` is omitted, uses
+        server now. Soft-fail clear does not roll back ENDED. Driver
+        End-whole is out of v1. Wrong circle returns **403**. Unknown
+        arrangement / non-member returns **404**.
       security:
         - bearerAuth: []
       parameters:
@@ -4836,9 +4840,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: >
+            Inclusive Instant cutoff (UTC). Typically the Agenda occurrence
+            `startsAt` where End was clicked. Defaults to now.
       responses:
         "200":
-          description: Arrangement is ENDED
+          description: Arrangement is ENDED; forward materialised rides cleared
           content:
             application/json:
               schema:

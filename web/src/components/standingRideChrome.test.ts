@@ -46,12 +46,12 @@ function arrangement(
         {
           kind: "TO",
           phase: "ASKED_TEAM",
-          meetSide: "CURB",
+          meetSide: "REQUESTER",
         },
         {
           kind: "FROM",
           phase: "NEEDS_RIDE",
-          meetSide: "CURB",
+          meetSide: "REQUESTER",
         },
       ],
     },

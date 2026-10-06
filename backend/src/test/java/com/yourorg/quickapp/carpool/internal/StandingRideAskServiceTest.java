@@ -295,12 +295,63 @@ class StandingRideAskServiceTest {
         when(arrangements.findBySpaceAndId(spaceId, arrangementId))
                 .thenReturn(Optional.of(openDto(arrangementId, otherCircle)));
 
-        assertThatThrownBy(() -> service.end(adult, spaceId, arrangementId))
+        assertThatThrownBy(() -> service.end(adult, spaceId, arrangementId, null))
                 .isInstanceOf(CarpoolException.class)
                 .satisfies(
                         ex ->
                                 assertThat(((CarpoolException) ex).status())
                                         .isEqualTo(HttpStatus.FORBIDDEN));
+        verify(materialise, never()).clearArrangementFrom(any(), any());
+    }
+
+    @Test
+    void endMarksEndedThenClearsFromCutoffSoftFailSafe() {
+        UUID arrangementId = UUID.randomUUID();
+        Instant cutoff = Instant.parse("2026-10-13T21:00:00Z");
+        StandingRideArrangementDto active =
+                new StandingRideArrangementDto(
+                        arrangementId,
+                        spaceId,
+                        circleId,
+                        adultId,
+                        new RecurringFeedFingerprint(feedId, DayOfWeek.TUESDAY, 17 * 60, "field 3"),
+                        "America/New_York",
+                        Instant.parse("2026-10-06T21:00:00Z"),
+                        StandingRideAssignment.FIXED_PRIMARY,
+                        StandingRideArrangementStatus.ACTIVE,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        new StandingRideAskTemplateDto(List.of(), List.of()),
+                        Instant.now(),
+                        null);
+        StandingRideArrangementDto ended =
+                new StandingRideArrangementDto(
+                        arrangementId,
+                        spaceId,
+                        circleId,
+                        adultId,
+                        active.fingerprint(),
+                        active.timeZone(),
+                        active.anchorStartsAt(),
+                        StandingRideAssignment.FIXED_PRIMARY,
+                        StandingRideArrangementStatus.ENDED,
+                        null,
+                        null,
+                        active.askTemplate(),
+                        active.createdAt(),
+                        Instant.now());
+        when(arrangements.findBySpaceAndId(spaceId, arrangementId)).thenReturn(Optional.of(active));
+        when(arrangements.end(spaceId, arrangementId)).thenReturn(ended);
+        when(materialise.clearArrangementFrom(active, cutoff))
+                .thenThrow(new RuntimeException("clear boom"));
+
+        StandingRideArrangementResponse response =
+                service.end(adult, spaceId, arrangementId, cutoff);
+
+        assertThat(response.status()).isEqualTo(StandingRideArrangementStatus.ENDED);
+        verify(arrangements).end(spaceId, arrangementId);
+        verify(passes).deleteByArrangementId(arrangementId);
+        verify(materialise).clearArrangementFrom(active, cutoff);
     }
 
     private StandingRideArrangementDto openDto(UUID arrangementId, UUID requestingCircle) {

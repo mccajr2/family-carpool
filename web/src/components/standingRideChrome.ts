@@ -192,7 +192,7 @@ export function standingAskQueuePayload(
 
 function syntheticStandingAskGame(
   anchor: CalendarItem,
-  payload: StandingAskQueuePayload,
+  _payload: StandingAskQueuePayload,
 ): CoverageGameEvent {
   const kidId = "standing-ask"
   return {

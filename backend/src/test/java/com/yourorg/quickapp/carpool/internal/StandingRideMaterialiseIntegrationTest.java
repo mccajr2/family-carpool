@@ -163,6 +163,108 @@ class StandingRideMaterialiseIntegrationTest {
                 .hasSize(linked.size());
     }
 
+    @Test
+    void endClearsMaterialisedFromCutoffKeepsEarlierWeeks() throws Exception {
+        String orgA = signIn("standing-end-org-a@example.com");
+        String orgB = signIn("standing-end-org-b@example.com");
+
+        createCircle(orgA, "Alex", "House A");
+        createCircle(orgB, "Sam", "House B");
+        String kidA = addKid(orgA, "Sam");
+        String kidB = addKid(orgB, "Riley");
+        String feedA = createFeed(orgA, "Soccer", "https://example.com/standing-ride-series-end.ics", kidA);
+        createFeed(orgB, "Soccer", "https://example.com/standing-ride-series-end.ics", kidB);
+
+        MvcResult enabled =
+                mockMvc.perform(
+                                post("/api/carpool/enable")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"feedId\":\"" + feedA + "\"}"))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String spaceId = JsonPath.read(enabled.getResponse().getContentAsString(), "$.id");
+        String code = JsonPath.read(enabled.getResponse().getContentAsString(), "$.inviteCode");
+        mockMvc.perform(
+                        post("/api/carpool/join")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk());
+
+        addPlace(orgA, "Home A", "12 Oak St");
+        addPlace(orgB, "Home B", "34 Pine St");
+
+        MvcResult created =
+                mockMvc.perform(
+                                post("/api/carpool/spaces/" + spaceId + "/standing-rides")
+                                        .header(HttpHeaders.AUTHORIZATION, bearer(orgA))
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                """
+                                                {
+                                                  "eventKey":"%s",
+                                                  "timeZone":"%s",
+                                                  "kidIds":["%s"],
+                                                  "legs":[
+                                                    {"kind":"TO","action":"ASK_TEAM"},
+                                                    {"kind":"FROM","action":"ASK_TEAM"}
+                                                  ]
+                                                }
+                                                """
+                                                        .formatted(EVENT_KEY_W1, ZONE, kidA)))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        String arrangementId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(
+                        post("/api/carpool/spaces/"
+                                        + spaceId
+                                        + "/standing-rides/"
+                                        + arrangementId
+                                        + "/accept")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        UUID arrangementUuid = UUID.fromString(arrangementId);
+        List<CarpoolRideRequestEntity> beforeEnd =
+                rides.findByArrangementIdAndStatusIn(
+                        arrangementUuid, List.of(CarpoolRideStatus.ACCEPTED));
+        assertThat(beforeEnd.size()).isGreaterThanOrEqualTo(3);
+        assertThat(beforeEnd.stream().map(CarpoolRideRequestEntity::eventKey))
+                .contains(EVENT_KEY_W1, EVENT_KEY_W2);
+
+        // Cutoff at week 2: keep week 1 materialised; clear week 2+.
+        mockMvc.perform(
+                        post("/api/carpool/spaces/"
+                                        + spaceId
+                                        + "/standing-rides/"
+                                        + arrangementId
+                                        + "/end")
+                                .param("from", "2026-12-08T21:00:00Z")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(orgA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ENDED"));
+
+        List<CarpoolRideRequestEntity> stillAccepted =
+                rides.findByArrangementIdAndStatusIn(
+                        arrangementUuid, List.of(CarpoolRideStatus.ACCEPTED));
+        assertThat(stillAccepted)
+                .extracting(CarpoolRideRequestEntity::eventKey)
+                .containsExactly(EVENT_KEY_W1);
+        assertThat(
+                        rides.findByArrangementIdAndStatusIn(
+                                arrangementUuid, List.of(CarpoolRideStatus.CANCELLED)))
+                .extracting(CarpoolRideRequestEntity::eventKey)
+                .doesNotContain(EVENT_KEY_W1)
+                .contains(EVENT_KEY_W2);
+
+        // Ended arrangement must not re-materialise.
+        assertThat(materialise.materialiseArrangement(UUID.fromString(spaceId), arrangementUuid))
+                .isEqualTo(0);
+    }
+
     private String signIn(String email) throws Exception {
         MvcResult requestResult =
                 mockMvc.perform(

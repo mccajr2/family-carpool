@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-09-24 (`/spec carpool-recurring-standing` slice A; split `carpool-standing-week-exception`)
+Updated: 2026-10-06 (`/pr carpool-recurring-standing`; next up `carpool-standing-week-exception`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -204,13 +204,14 @@ In-progress work (locked for re-rank — finish, amend, or abandon before reshuf
 
 | Id | Branch | Spec |
 | -- | ------ | ---- |
-| carpool-recurring-standing | `carpool-recurring-standing` | [active](specs/active/carpool-recurring-standing.md) |
+| — | — | *(none)* |
 
 ## Done
 
 
 | Id                         | Completed  | Spec                                                   |
 | -------------------------- | ---------- | ------------------------------------------------------ |
+| carpool-recurring-standing | 2026-10-06 | [archive](specs/archive/carpool-recurring-standing.md) |
 | carpool-recurring-locked-plan | 2026-09-24 | [archive](specs/archive/carpool-recurring-locked-plan.md) |
 | manual-event-team-link     | 2026-09-21 | [archive](specs/archive/manual-event-team-link.md)     |
 | block-route-origin         | 2026-09-17 | [archive](specs/archive/block-route-origin.md)         |
@@ -306,6 +307,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-06 | `/pr carpool-recurring-standing`: series standing Ask (FIXED_PRIMARY arrangement), gated create, Accept+materialise, End-from-cutoff clear, unanswered expire; OpenAPI 0.38 + web Hero/Agenda chrome. Spec archived. Next up `carpool-standing-week-exception`. |
 | 2026-09-24 | `/spec carpool-recurring-standing`: promote slice A — series standing Ask (FIXED_PRIMARY arrangement), Accept commits all matching weeks, materialise blank weeks, End + unanswered expire (first occurrence local day start). Split week skip/driver-bail Hero → planned `carpool-standing-week-exception` (Upcoming rank 1 after this ships). Branch `carpool-recurring-standing`. |
 | 2026-09-24 | `/pr carpool-recurring-locked-plan` dogfood amend re-ship: confirm-time Lock + locked summary, place triad, confirm restore + soft-fail apply, standing hero collapse, known-schedule apply, split-leg Hero chrome, page-slice auto-clear safety. Spec archived. Next up `carpool-recurring-standing`. |
 | 2026-09-24 | Reactivate `carpool-recurring-locked-plan` (same branch): amend dogfood — confirm-time Lock chrome, place/confirm apply correctness, known-schedule (feed-backed) apply vs Agenda window, split-leg Hero chrome, page-slice auto-clear safety. Standing stays Next up after this re-ships. |

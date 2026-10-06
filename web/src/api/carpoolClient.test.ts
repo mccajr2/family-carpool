@@ -907,6 +907,19 @@ describe("CarpoolClient", () => {
           },
         ),
       )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...arrangement,
+            status: "ENDED",
+            endedAt: "2026-09-28T13:00:00Z",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
     const client = new CarpoolClient("http://localhost:8080", fetchFn)
 
     await expect(client.listStandingRides("tok", "s1")).resolves.toEqual([arrangement])
@@ -930,6 +943,11 @@ describe("CarpoolClient", () => {
     await expect(client.endStandingRide("tok", "s1", "arr-1")).resolves.toMatchObject({
       status: "ENDED",
     })
+    await expect(
+      client.endStandingRide("tok", "s1", "arr-1", "2026-10-06T21:00:00.000Z"),
+    ).resolves.toMatchObject({
+      status: "ENDED",
+    })
 
     const urls = fetchFn.mock.calls.map((call) => (call as [string, RequestInit])[0])
     expect(urls).toEqual([
@@ -938,6 +956,7 @@ describe("CarpoolClient", () => {
       "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/accept",
       "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/pass",
       "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/end",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/end?from=2026-10-06T21%3A00%3A00.000Z",
     ])
     expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
       JSON.stringify({

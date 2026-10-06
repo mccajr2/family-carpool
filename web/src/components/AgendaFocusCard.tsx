@@ -103,7 +103,7 @@ type AgendaFocusCardProps = {
   /** Item or coverage leave-from write (Focus subtle override). */
   onSetLeaveFrom?: (body: SetCalendarLeaveFromRequest) => void
   standingRideSeries?: StandingRideAgendaChrome | null
-  onEndStandingRide?: (arrangementId: string) => void
+  onEndStandingRide?: (arrangementId: string, fromStartsAt: string) => void
 }
 
 /** Matches design-tokens spacing.focusRing (88) and focusRingStroke (6). */
@@ -713,7 +713,9 @@ export function AgendaFocusCard({
               variant="outline"
               data-testid="agenda-focus-end-standing-ride"
               className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
-              onClick={() => onEndStandingRide(standingRideSeries.arrangementId)}
+              onClick={() =>
+                onEndStandingRide(standingRideSeries.arrangementId, item.startsAt)
+              }
               disabled={loading}
             >
               {endStandingAskLabel(standingRideSeries.weekdayPlural)}

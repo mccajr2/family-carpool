@@ -182,7 +182,7 @@ type AgendaRowProps = {
   standingRideSeries?: StandingRideAgendaChrome | null
   /** Arrangement ids already represented as standingAsk Hero slides. */
   heroQueuedStandingArrangementIds?: ReadonlySet<string>
-  onEndStandingRide?: (arrangementId: string) => void
+  onEndStandingRide?: (arrangementId: string, fromStartsAt: string) => void
   /**
    * @deprecated Lock is offered on DriverPicker confirm when eligible —
    * kept optional for callers that still pass it.
@@ -680,7 +680,10 @@ export function AgendaRow({
                   disabled={loading}
                   data-testid="agenda-row-end-standing-ride"
                   onClick={() =>
-                    onEndStandingRide(standingRideSeries.arrangementId)
+                    onEndStandingRide(
+                      standingRideSeries.arrangementId,
+                      item.startsAt,
+                    )
                   }
                 >
                   {endStandingAskLabel(standingRideSeries.weekdayPlural)}
@@ -704,7 +707,10 @@ export function AgendaRow({
                   disabled={loading}
                   data-testid="agenda-row-end-standing-ride"
                   onClick={() =>
-                    onEndStandingRide(standingRideSeries.arrangementId)
+                    onEndStandingRide(
+                      standingRideSeries.arrangementId,
+                      item.startsAt,
+                    )
                   }
                 >
                   {endStandingAskLabel(standingRideSeries.weekdayPlural)}

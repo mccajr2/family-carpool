@@ -284,8 +284,9 @@ public class CarpoolController {
     public StandingRideArrangementResponse endStandingRide(
             @PathVariable("spaceId") UUID spaceId,
             @PathVariable("arrangementId") UUID arrangementId,
+            @RequestParam(value = "from", required = false) Instant from,
             HttpServletRequest httpRequest) {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
-        return standingRideAskService.end(adult, spaceId, arrangementId);
+        return standingRideAskService.end(adult, spaceId, arrangementId, from);
     }
 }

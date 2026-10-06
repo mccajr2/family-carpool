@@ -1831,7 +1831,7 @@ export function FamilyScreen({
     }
   }
 
-  async function onEndStandingRide(arrangementId: string) {
+  async function onEndStandingRide(arrangementId: string, fromStartsAt?: string) {
     const arrangement = standingArrangements.find((row) => row.id === arrangementId)
     if (arrangement == null) {
       setStatus({
@@ -1847,6 +1847,7 @@ export function FamilyScreen({
         token,
         arrangement.spaceId,
         arrangementId,
+        fromStartsAt,
       )
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
@@ -4379,8 +4380,8 @@ export function FamilyScreen({
                               standingArrangements,
                               circle.id,
                             )}
-                            onEndStandingRide={(arrangementId) =>
-                              void onEndStandingRide(arrangementId)
+                            onEndStandingRide={(arrangementId, fromStartsAt) =>
+                              void onEndStandingRide(arrangementId, fromStartsAt)
                             }
                             recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
                             autoDeclinedRideIds={autoDeclinedRideIds}

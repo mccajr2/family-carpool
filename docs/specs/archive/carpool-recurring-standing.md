@@ -1,11 +1,12 @@
 # Spec: carpool-recurring-standing
 
-Status: draft  
+Status: done  
 Created: 2026-09-21  
 Promoted: 2026-09-24 · `/spec` (slice A — series Ask)  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Added: 2026-09-21 · re-rank split  
 Updated: 2026-09-24 · `/spec` split — week exceptions → `carpool-standing-week-exception`  
+Completed: 2026-10-06 · `/pr`  
 Branch: `carpool-recurring-standing`
 
 ## Problem
@@ -126,30 +127,30 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 
 ## Acceptance criteria
 
-- [ ] **Standing create gated:** Web offers standing Ask only when the FEED
+- [x] **Standing create gated:** Web offers standing Ask only when the FEED
       event fingerprint has ≥3 other upcoming matches in the feed-backed known
       schedule; otherwise only one-off Ask.
-- [ ] **Series-obvious Ask:** Creating a standing Ask persists an `OPEN`
+- [x] **Series-obvious Ask:** Creating a standing Ask persists an `OPEN`
       arrangement with the same kids/legs/places/meet options as a normal Ask
       (including one-way). Teammate Hero/inbound chrome shows it is standing /
       every matching weekday — not a single practice — and Accept appears **once
       per arrangement**, not once per future week.
-- [ ] **Accept = fixed primary:** Accept by another circle’s adult sets
+- [x] **Accept = fixed primary:** Accept by another circle’s adult sets
       `ACTIVE` + primary and materialises accepted rides onto blank fingerprint
       matches in the known schedule; later blank matches also receive
       materialise; already-filled occurrences are never overwritten.
-- [ ] **Requester End:** End standing marks `ENDED`, stops materialise, and
+- [x] **Requester End:** End standing marks `ENDED`, stops materialise, and
       clears materialised rides from the cutoff forward; weeks before cutoff
       keep data.
-- [ ] **Unanswered expire:** Still-`OPEN` arrangement at local start of the
+- [x] **Unanswered expire:** Still-`OPEN` arrangement at local start of the
       first matching occurrence day becomes `ENDED`; no automatic one-off Ask
       is posted to the team; requester can create a one-off or re-post standing.
-- [ ] **No week-exception Hero:** Driver withdraw / requester cancel of a
+- [x] **No week-exception Hero:** Driver withdraw / requester cancel of a
       single materialised week is **out of scope** — do not invent the distinct
       “need coverage this week” standing-gap Hero here (follow-up id).
-- [ ] **Contract + web:** OpenAPI + web clients updated together; no KMP
+- [x] **Contract + web:** OpenAPI + web clients updated together; no KMP
       `sharedLogic` updates.
-- [ ] **Tests:** Unit + integration for create gate, Accept+materialise,
+- [x] **Tests:** Unit + integration for create gate, Accept+materialise,
       never-overwrite, End-from-cutoff, unanswered expire; web component/unit
       coverage for series Hero chrome (one Accept per arrangement).
 
@@ -167,7 +168,7 @@ Allowlist for `/implement`. Paths and **headings**, not whole-doc dumps.
 - [x] Web: Inbound Hero/Agenda series chrome — one Accept/Pass per arrangement;
       End standing for requester; expire → calm one-off path
 - [x] Web: `carpoolClient` / types aligned with OpenAPI
-- [ ] Tests: Backend unit + integration as in AC; web tests for standing Hero
+- [x] Tests: Backend unit + integration as in AC; web tests for standing Hero
       collapse / series copy
 
 ## Open questions

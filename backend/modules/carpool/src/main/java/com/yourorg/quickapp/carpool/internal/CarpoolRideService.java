@@ -1638,6 +1638,45 @@ public class CarpoolRideService {
     }
 
     /**
+     * Cancel active rides linked to a standing arrangement for one eventKey.
+     * Soft-fails per ride so End can continue clearing later weeks.
+     *
+     * @return true when at least one ride was cancelled
+     */
+    @Transactional
+    public boolean cancelStandingMaterialisedOccurrence(UUID arrangementId, String eventKey) {
+        Objects.requireNonNull(arrangementId, "arrangementId");
+        if (eventKey == null || eventKey.isBlank()) {
+            return false;
+        }
+        String key = eventKey.trim();
+        List<CarpoolRideRequestEntity> linked =
+                rides.findByArrangementIdAndEventKeyAndStatusIn(
+                        arrangementId, key, OWN_PLAN_STATUSES);
+        if (linked.isEmpty()) {
+            return false;
+        }
+        boolean any = false;
+        for (CarpoolRideRequestEntity ride : linked) {
+            try {
+                UUID previousDriverId = ride.acceptedByAdultId();
+                boolean wasAccepted = ride.status() == CarpoolRideStatus.ACCEPTED;
+                ride.cancel();
+                rides.save(ride);
+                passes.deleteByRideId(ride.id());
+                if (wasAccepted && previousDriverId != null && ride.spaceId() != null) {
+                    refreshDriverRouteAfterAcceptedChange(
+                            previousDriverId, ride.spaceId(), key);
+                }
+                any = true;
+            } catch (RuntimeException ignored) {
+                // Soft-fail one ride; continue clearing the rest.
+            }
+        }
+        return any;
+    }
+
+    /**
      * Soft-fail materialise for one fingerprint match. Nested TX so a failure
      * (e.g. missing accepter place) does not poison Accept or outer enrich.
      *

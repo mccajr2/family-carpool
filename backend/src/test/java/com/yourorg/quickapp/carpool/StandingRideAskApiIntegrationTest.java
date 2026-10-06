@@ -191,7 +191,7 @@ class StandingRideAskApiIntegrationTest {
         // Force anchor into the past via service expire with "now" after local day start.
         assertThat(
                         arrangementService.expireOpenIfDue(
-                                UUID.fromString(spaceId), Instant.parse("2026-10-06T04:00:00Z")))
+                                UUID.fromString(spaceId), Instant.parse("2026-12-01T05:00:00Z")))
                 .isEqualTo(1);
         assertThat(arrangementService.findBySpaceAndId(UUID.fromString(spaceId), openId))
                 .isPresent()

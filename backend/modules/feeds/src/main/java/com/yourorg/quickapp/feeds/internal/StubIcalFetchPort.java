@@ -157,8 +157,9 @@ class StubIcalFetchPort implements IcalFetchPort {
             """;
 
     /**
-     * Nine Tuesday practices starting 2026-10-06 — enough ≥3 other upcoming
-     * matches when "today" is late September 2026 (standing Ask gate).
+     * Nine Tuesday practices starting 2026-12-01 — enough ≥3 other upcoming
+     * matches when "today" is autumn 2026 (standing Ask gate). Keep w1 after
+     * Instant.now() in CI so unanswered-expire does not fire mid-test.
      */
     static final String STANDING_RIDE_SERIES_FIXTURE =
             """
@@ -167,64 +168,64 @@ class StubIcalFetchPort implements IcalFetchPort {
             PRODID:-//family-carpool//stub-standing-ride-series//EN
             BEGIN:VEVENT
             UID:stub-standing-ride-w1@example.com
-            DTSTART:20261006T210000Z
-            DTEND:20261006T220000Z
+            DTSTART:20261201T210000Z
+            DTEND:20261201T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w2@example.com
-            DTSTART:20261013T210000Z
-            DTEND:20261013T220000Z
+            DTSTART:20261208T210000Z
+            DTEND:20261208T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w3@example.com
-            DTSTART:20261020T210000Z
-            DTEND:20261020T220000Z
+            DTSTART:20261215T210000Z
+            DTEND:20261215T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w4@example.com
-            DTSTART:20261027T210000Z
-            DTEND:20261027T220000Z
+            DTSTART:20261222T210000Z
+            DTEND:20261222T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w5@example.com
-            DTSTART:20261103T210000Z
-            DTEND:20261103T220000Z
+            DTSTART:20261229T210000Z
+            DTEND:20261229T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w6@example.com
-            DTSTART:20261110T210000Z
-            DTEND:20261110T220000Z
+            DTSTART:20270105T210000Z
+            DTEND:20270105T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w7@example.com
-            DTSTART:20261117T210000Z
-            DTEND:20261117T220000Z
+            DTSTART:20270112T210000Z
+            DTEND:20270112T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w8@example.com
-            DTSTART:20261124T210000Z
-            DTEND:20261124T220000Z
+            DTSTART:20270119T210000Z
+            DTEND:20270119T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT
             BEGIN:VEVENT
             UID:stub-standing-ride-w9@example.com
-            DTSTART:20261201T210000Z
-            DTEND:20261201T220000Z
+            DTSTART:20270126T210000Z
+            DTEND:20270126T220000Z
             SUMMARY:Standing Practice
             LOCATION:Field 3
             END:VEVENT

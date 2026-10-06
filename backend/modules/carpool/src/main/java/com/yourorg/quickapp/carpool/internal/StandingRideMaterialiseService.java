@@ -64,6 +64,40 @@ public class StandingRideMaterialiseService {
         return requestFrom;
     }
 
+    /**
+     * Clear materialised rides for an arrangement on fingerprint matches with
+     * {@code startsAt >= from} (inclusive) through the known schedule. Weeks
+     * before {@code from} keep their data. When {@code from} is null, uses
+     * {@link Instant#now()}. Soft-fails per occurrence.
+     *
+     * @return count of eventKeys where at least one ride was cancelled
+     */
+    @Transactional
+    public int clearArrangementFrom(StandingRideArrangementDto arrangement, Instant from) {
+        Objects.requireNonNull(arrangement, "arrangement");
+        Instant clearFrom = from != null ? from : Instant.now();
+        Instant knownTo = clearFrom.plus(Duration.ofDays(KNOWN_SCHEDULE_DAYS));
+        ZoneId zone = ZoneId.of(arrangement.timeZone());
+        List<FeedCalendarEventDto> horizon =
+                feedCalendarApi.listEventsInRange(
+                        arrangement.requestingCircleId(), clearFrom, knownTo);
+        RecurringFeedFingerprint fingerprint = arrangement.fingerprint();
+        int cleared = 0;
+        for (FeedCalendarEventDto event : horizon) {
+            if (event.startsAt().isBefore(clearFrom)) {
+                continue;
+            }
+            if (!fingerprint.equals(RecurringFeedFingerprint.of(event, zone))) {
+                continue;
+            }
+            if (rideService.cancelStandingMaterialisedOccurrence(
+                    arrangement.id(), FeedEventKey.of(event))) {
+                cleared++;
+            }
+        }
+        return cleared;
+    }
+
     /** Materialise one ACTIVE arrangement over the feed-backed known schedule. */
     @Transactional
     public int materialiseArrangement(UUID spaceId, UUID arrangementId) {

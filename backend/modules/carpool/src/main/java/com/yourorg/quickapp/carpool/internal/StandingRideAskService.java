@@ -191,10 +191,15 @@ public class StandingRideAskService {
         return StandingRideArrangementResponse.from(found, true);
     }
 
-    /** Requester-only End whole arrangement (driver End-whole is out of v1). */
+    /**
+     * Requester-only End whole arrangement (driver End-whole is out of v1).
+     * Marks ENDED (stops further materialise), then clears materialised rides
+     * on fingerprint matches from {@code from} forward (null → now). Soft-fail
+     * clear does not roll back ENDED.
+     */
     @Transactional
     public StandingRideArrangementResponse end(
-            AdultResponse adult, UUID spaceId, UUID arrangementId) {
+            AdultResponse adult, UUID spaceId, UUID arrangementId, Instant from) {
         UUID circleId = familyMembershipApi.requireMemberCircleId(adult.id());
         requireMemberSpace(spaceId, circleId);
         StandingRideArrangementDto found =
@@ -213,6 +218,12 @@ public class StandingRideAskService {
         }
         StandingRideArrangementDto ended = arrangements.end(spaceId, arrangementId);
         passes.deleteByArrangementId(arrangementId);
+        try {
+            // Use pre-end snapshot (fingerprint / zone / circle) for clear.
+            materialise.clearArrangementFrom(found, from);
+        } catch (RuntimeException ignored) {
+            // Arrangement stays ENDED; enrich will not re-materialise.
+        }
         return StandingRideArrangementResponse.from(ended, false);
     }
 

@@ -194,6 +194,27 @@ class StandingRideMaterialiseServiceTest {
         verify(rideService, never()).tryMaterialiseStandingOccurrence(any(), any());
     }
 
+    @Test
+    void clearArrangementFromCancelsMatchesAtOrAfterCutoff() {
+        Instant cutoff = week2;
+        FeedCalendarEventDto before = tuesday(week1, "w1");
+        FeedCalendarEventDto atCutoff = tuesday(week2, "w2");
+        FeedCalendarEventDto after = tuesday(week3, "w3");
+        when(feedCalendarApi.listEventsInRange(eq(requestingCircle), eq(cutoff), any()))
+                .thenReturn(List.of(before, atCutoff, after));
+        when(rideService.cancelStandingMaterialisedOccurrence(
+                        eq(arrangementId), eq(FeedEventKey.of(atCutoff))))
+                .thenReturn(true);
+        when(rideService.cancelStandingMaterialisedOccurrence(
+                        eq(arrangementId), eq(FeedEventKey.of(after))))
+                .thenReturn(true);
+
+        assertThat(service.clearArrangementFrom(active, cutoff)).isEqualTo(2);
+        verify(rideService, never())
+                .cancelStandingMaterialisedOccurrence(
+                        eq(arrangementId), eq(FeedEventKey.of(before)));
+    }
+
     private FeedCalendarEventDto tuesday(Instant startsAt, String uidSuffix) {
         return new FeedCalendarEventDto(
                 UUID.randomUUID(),
