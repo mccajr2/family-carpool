@@ -54,9 +54,11 @@ class StandingRideMaterialiseServiceTest {
     private final UUID requestingCircle = UUID.randomUUID();
     private final UUID feedId = UUID.randomUUID();
     private final UUID kidId = UUID.randomUUID();
-    private final Instant week1 = Instant.parse("2026-10-06T21:00:00Z");
-    private final Instant week2 = Instant.parse("2026-10-13T21:00:00Z");
-    private final Instant week3 = Instant.parse("2026-10-20T21:00:00Z");
+    // Keep ahead of Instant.now() — materialiseArrangement starts at now.
+    // 21:00Z during EDT = 17:00 America/New_York (matches fingerprint minute).
+    private final Instant week1 = Instant.parse("2026-10-13T21:00:00Z");
+    private final Instant week2 = Instant.parse("2026-10-20T21:00:00Z");
+    private final Instant week3 = Instant.parse("2026-10-27T21:00:00Z");
 
     private StandingRideArrangementDto active;
 
@@ -164,8 +166,8 @@ class StandingRideMaterialiseServiceTest {
         assertThat(
                         service.materialiseForCircle(
                                 requestingCircle,
-                                Instant.parse("2026-09-28T00:00:00Z"),
-                                Instant.parse("2026-11-01T00:00:00Z")))
+                                Instant.parse("2026-10-06T00:00:00Z"),
+                                Instant.parse("2026-11-15T00:00:00Z")))
                 .isEqualTo(0);
         verify(rideService).tryMaterialiseStandingOccurrence(eq(active), eq(FeedEventKey.of(e1)));
     }
