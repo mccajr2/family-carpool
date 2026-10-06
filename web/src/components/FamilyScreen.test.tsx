@@ -110,6 +110,11 @@ function mockCarpoolClient(partial: Partial<CarpoolClient> = {}): CarpoolClient 
       spaces: [],
     }),
     listRides: vi.fn().mockResolvedValue([]),
+    listStandingRides: vi.fn().mockResolvedValue([]),
+    createStandingRide: vi.fn(),
+    acceptStandingRide: vi.fn(),
+    passStandingRide: vi.fn(),
+    endStandingRide: vi.fn(),
     listCircleRidePlans: vi.fn().mockResolvedValue([]),
     saveRidePlan: vi.fn().mockResolvedValue({
       ownRequests: [],

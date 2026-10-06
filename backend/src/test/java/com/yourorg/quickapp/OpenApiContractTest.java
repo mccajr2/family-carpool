@@ -202,7 +202,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("CAREGIVER");
         assertThat(yaml).contains("\"403\"");
         assertThat(yaml).contains("\"409\"");
-        assertThat(yaml).contains("version: 0.37.0");
+        assertThat(yaml).contains("version: 0.38.0");
         assertThat(yaml).contains("background poller");
         assertThat(yaml).contains("manual events");
         assertThat(yaml).contains("unified circle calendar");
@@ -278,7 +278,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("SetKidPlaylistDesignationRequest:");
         assertThat(yaml).contains("encrypted refresh");
         assertThat(yaml).contains("Carpool merge");
-        assertThat(yaml).contains("version: 0.37.0");
+        assertThat(yaml).contains("version: 0.38.0");
     }
 
     @Test
@@ -335,7 +335,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("A space already exists for this feed's normalized URL");
         assertThat(yaml).contains("Invite code unknown or no longer valid");
         assertThat(yaml).contains("Does not add a feed");
-        assertThat(yaml).contains("version: 0.37.0");
+        assertThat(yaml).contains("version: 0.38.0");
     }
 
     @Test
@@ -401,7 +401,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("StandingRideAskTemplate:");
         assertThat(yaml).contains("StandingRideAssignment:");
         assertThat(yaml).contains("StandingRideArrangementStatus:");
-        assertThat(yaml).contains("version: 0.37.0");
+        assertThat(yaml).contains("version: 0.38.0");
         assertThat(yaml).contains("CarpoolRideLeg:");
         assertThat(yaml).contains("CarpoolMeetSide:");
         assertThat(yaml).contains("meetSide:");
@@ -452,7 +452,7 @@ class OpenApiContractTest {
         assertThat(yaml).contains("Save ride plan");
         assertThat(yaml).doesNotContain("no per-leg place");
         assertThat(yaml).contains("withdraw first");
-        assertThat(yaml).contains("version: 0.37.0");
+        assertThat(yaml).contains("version: 0.38.0");
     }
 
     /**
