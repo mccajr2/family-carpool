@@ -127,6 +127,14 @@ export function heroAttentionSlideAriaLabel(
     assignerFirstName?: string | null
   },
 ): string {
+  if (item.kind === "standingAsk") {
+    const circle =
+      item.standingAsk.requestingCircleName != null &&
+      item.standingAsk.requestingCircleName.trim().length > 0
+        ? item.standingAsk.requestingCircleName.trim()
+        : "A family"
+    return `${circle} needs a standing ride every ${item.standingAsk.weekdaySingular}`
+  }
   if (item.kind === "request") {
     return heroRequestTitle(item.request)
   }

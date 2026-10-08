@@ -814,4 +814,162 @@ describe("CarpoolClient", () => {
       "http://localhost:8080/api/carpool/ride-plans/decline-household",
     )
   })
+
+  it("lists creates accepts passes and ends standing rides", async () => {
+    const arrangement = {
+      id: "arr-1",
+      spaceId: "s1",
+      requestingCircleId: "c1",
+      requestedByAdultId: "a1",
+      fingerprint: {
+        feedId: "f1",
+        dayOfWeek: "TUESDAY",
+        minuteOfDay: 1020,
+        normalizedLocation: "field 3",
+      },
+      timeZone: "America/New_York",
+      anchorStartsAt: "2026-10-06T21:00:00Z",
+      assignment: "FIXED_PRIMARY",
+      status: "OPEN",
+      primaryAdultId: null,
+      primaryCircleId: null,
+      askTemplate: {
+        kids: [{ kidId: "k1", firstName: "Sam" }],
+        legs: [
+          {
+            kind: "TO",
+            phase: "ASKED_TEAM",
+            placeId: null,
+            oneTimeAddress: null,
+            placeName: "Home",
+            placeAddress: "1 Main",
+            meetSide: "REQUESTER",
+          },
+          {
+            kind: "FROM",
+            phase: "ASKED_TEAM",
+            placeId: null,
+            oneTimeAddress: null,
+            placeName: "Driver's place",
+            placeAddress: "",
+            meetSide: "ACCEPTOR",
+          },
+        ],
+      },
+      createdAt: "2026-09-28T12:00:00Z",
+      endedAt: null,
+      passedByMe: false,
+    }
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([arrangement]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(arrangement), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...arrangement,
+            status: "ACTIVE",
+            primaryAdultId: "a2",
+            primaryCircleId: "c2",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...arrangement, passedByMe: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...arrangement,
+            status: "ENDED",
+            endedAt: "2026-09-28T13:00:00Z",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...arrangement,
+            status: "ENDED",
+            endedAt: "2026-09-28T13:00:00Z",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+    const client = new CarpoolClient("http://localhost:8080", fetchFn)
+
+    await expect(client.listStandingRides("tok", "s1")).resolves.toEqual([arrangement])
+    await expect(
+      client.createStandingRide("tok", "s1", {
+        eventKey: "UID:practice",
+        timeZone: "America/New_York",
+        kidIds: ["k1"],
+        legs: [
+          { kind: "TO", action: "ASK_TEAM" },
+          { kind: "FROM", action: "ASK_TEAM", meetSide: "ACCEPTOR" },
+        ],
+      }),
+    ).resolves.toMatchObject({ id: "arr-1", status: "OPEN" })
+    await expect(client.acceptStandingRide("tok", "s1", "arr-1")).resolves.toMatchObject({
+      status: "ACTIVE",
+    })
+    await expect(client.passStandingRide("tok", "s1", "arr-1")).resolves.toMatchObject({
+      passedByMe: true,
+    })
+    await expect(client.endStandingRide("tok", "s1", "arr-1")).resolves.toMatchObject({
+      status: "ENDED",
+    })
+    await expect(
+      client.endStandingRide("tok", "s1", "arr-1", "2026-10-06T21:00:00.000Z"),
+    ).resolves.toMatchObject({
+      status: "ENDED",
+    })
+
+    const urls = fetchFn.mock.calls.map((call) => (call as [string, RequestInit])[0])
+    expect(urls).toEqual([
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/accept",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/pass",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/end",
+      "http://localhost:8080/api/carpool/spaces/s1/standing-rides/arr-1/end?from=2026-10-06T21%3A00%3A00.000Z",
+    ])
+    expect((fetchFn.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({
+        eventKey: "UID:practice",
+        timeZone: "America/New_York",
+        legs: [
+          { kind: "TO", action: "ASK_TEAM" },
+          { kind: "FROM", action: "ASK_TEAM", meetSide: "ACCEPTOR" },
+        ],
+        kidIds: ["k1"],
+      }),
+    )
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].method).toBe("POST")
+    expect((fetchFn.mock.calls[2] as [string, RequestInit])[1].body).toBeUndefined()
+  })
 })

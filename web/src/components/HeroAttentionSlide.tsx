@@ -33,6 +33,10 @@ import {
   standingAssignedYouTitle,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
+import {
+  standingInboundAskCaption,
+  standingInboundAskTitle,
+} from "@/components/standingRideChrome"
 import { EventLocationLine } from "@/components/EventLocationLine"
 import { HeroAttentionDaysRing } from "@/components/HeroAttentionDaysRing"
 import { pendingCoverageForAdult } from "@/components/coverageDisplay"
@@ -99,6 +103,9 @@ export type HeroAttentionSlideProps = {
   onDeclineHouseholdPlan?: () => void
   onAcceptRide?: (rideId: string) => void
   onPassRide?: (rideId: string) => void
+  /** Accept / Pass an inbound OPEN standing series Ask (one CTA per arrangement). */
+  onAcceptStandingAsk?: (arrangementId: string) => void
+  onPassStandingAsk?: (arrangementId: string) => void
   /**
    * Own-kid gap / Confirm attendance escape — Agenda RSVP write path
    * (`NO` = not going). Omit on inbound ask slides.
@@ -170,6 +177,8 @@ export function HeroAttentionSlide({
   onDeclineHouseholdPlan,
   onAcceptRide,
   onPassRide,
+  onAcceptStandingAsk,
+  onPassStandingAsk,
   onSetRsvp,
   onSetNotGoing,
   peerCalendarItem,
@@ -801,6 +810,77 @@ export function HeroAttentionSlide({
               </div>
               {conflictCollapsedChrome}
               {conflictPerKidChrome}
+            </>
+          ) : item.kind === "standingAsk" ? (
+            <>
+              <h2
+                className="fc-display mb-[var(--fc-space-sm)] text-[length:var(--fc-font-focus-title-size)] leading-[var(--fc-font-focus-title-line)] font-[number:var(--fc-font-focus-title-weight)]"
+                data-testid="hero-attention-slide-title"
+              >
+                {standingInboundAskTitle(
+                  item.standingAsk.requestingCircleName,
+                  item.standingAsk.weekdaySingular,
+                )}
+              </h2>
+              <p
+                data-testid="hero-attention-when"
+                className="text-[length:var(--fc-font-focus-when-size)] leading-[var(--fc-font-focus-when-line)] font-[number:var(--fc-font-focus-when-weight)]"
+                style={{ color: "var(--fc-hero-on-secondary)" }}
+              >
+                {whenLabel}
+              </p>
+              <EventLocationLine
+                location={venue}
+                color="var(--fc-hero-on-secondary)"
+                className="mt-1"
+                data-testid="hero-attention-where"
+              />
+              <p
+                data-testid="hero-attention-standing-ask-caption"
+                className="mt-1 text-sm"
+                style={{ color: "var(--fc-hero-on-secondary)" }}
+              >
+                {standingInboundAskCaption(item.standingAsk.weekdayPlural)}
+              </p>
+              {item.standingAsk.kidFirstNames.length > 0 ? (
+                <p
+                  className="mt-1 text-sm"
+                  style={{ color: "var(--fc-hero-on-secondary)" }}
+                >
+                  {item.standingAsk.kidFirstNames.join(", ")}
+                  {item.standingAsk.seats > 0
+                    ? ` · ${item.standingAsk.seats} seat${item.standingAsk.seats === 1 ? "" : "s"}`
+                    : ""}
+                </p>
+              ) : null}
+              {onAcceptStandingAsk != null && onPassStandingAsk != null ? (
+                <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
+                  <button
+                    type="button"
+                    data-testid="hero-attention-standing-accept"
+                    className="rounded-xl px-5 py-3 font-semibold"
+                    style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
+                    disabled={loading}
+                    onClick={() =>
+                      onAcceptStandingAsk(item.standingAsk.arrangementId)
+                    }
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="hero-attention-standing-pass"
+                    className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-hero-on)]"
+                    style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
+                    disabled={loading}
+                    onClick={() =>
+                      onPassStandingAsk(item.standingAsk.arrangementId)
+                    }
+                  >
+                    Pass
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : (
             <>

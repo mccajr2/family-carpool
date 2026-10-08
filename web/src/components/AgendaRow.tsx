@@ -24,6 +24,13 @@ import {
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
+import {
+  endStandingAskLabel,
+  standingAskActivePrimaryStatus,
+  standingAskHandleInHeroHint,
+  standingAskOpenOwnStatus,
+  type StandingRideAgendaChrome,
+} from "@/components/standingRideChrome"
 import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
@@ -169,6 +176,14 @@ type AgendaRowProps = {
   /** Remove recurring coverage template for this locked item (from this date forward). */
   onRemoveStandingBlock?: (templateId: string, fromStartsAt: string) => void
   /**
+   * Standing series Ask chrome (inbound handoff / own End / primary status).
+   * Resolved by parent from listStandingRides + fingerprint match.
+   */
+  standingRideSeries?: StandingRideAgendaChrome | null
+  /** Arrangement ids already represented as standingAsk Hero slides. */
+  heroQueuedStandingArrangementIds?: ReadonlySet<string>
+  onEndStandingRide?: (arrangementId: string, fromStartsAt: string) => void
+  /**
    * @deprecated Lock is offered on DriverPicker confirm when eligible —
    * kept optional for callers that still pass it.
    */
@@ -229,6 +244,9 @@ export function AgendaRow({
   onDriveBlockLink,
   onLockStandingBlock: _onLockStandingBlock,
   onRemoveStandingBlock,
+  standingRideSeries = null,
+  heroQueuedStandingArrangementIds,
+  onEndStandingRide,
   onEdit,
   onRemoveEvent,
 }: AgendaRowProps) {
@@ -626,6 +644,88 @@ export function AgendaRow({
                 : undefined
             }
           />
+        </div>
+      ) : null}
+
+      {standingRideSeries != null ? (
+        <div
+          data-testid="agenda-row-standing-ride-series"
+          className="border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-md)]"
+        >
+          {standingRideSeries.inboundOpen ? (
+            <p
+              data-testid="agenda-row-standing-ride-inbound"
+              className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] text-[var(--fc-text-secondary)]"
+            >
+              {heroQueuedStandingArrangementIds?.has(
+                standingRideSeries.arrangementId,
+              )
+                ? standingAskHandleInHeroHint()
+                : `Standing Ask every ${standingRideSeries.weekdaySingular} — handle in Needs your attention above`}
+            </p>
+          ) : null}
+          {standingRideSeries.ownOpen ? (
+            <div className="flex flex-wrap items-center justify-between gap-[var(--fc-space-sm)]">
+              <p
+                data-testid="agenda-row-standing-ride-own-open"
+                className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] text-[var(--fc-text-secondary)]"
+              >
+                {standingAskOpenOwnStatus(standingRideSeries.weekdaySingular)}
+              </p>
+              {onEndStandingRide != null ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={loading}
+                  data-testid="agenda-row-end-standing-ride"
+                  onClick={() =>
+                    onEndStandingRide(
+                      standingRideSeries.arrangementId,
+                      item.startsAt,
+                    )
+                  }
+                >
+                  {endStandingAskLabel(standingRideSeries.weekdayPlural)}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {standingRideSeries.ownActive ? (
+            <div className="flex flex-wrap items-center justify-between gap-[var(--fc-space-sm)]">
+              <p
+                data-testid="agenda-row-standing-ride-own-active"
+                className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] text-[var(--fc-text-secondary)]"
+              >
+                Standing primary set — every {standingRideSeries.weekdaySingular}
+              </p>
+              {onEndStandingRide != null ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={loading}
+                  data-testid="agenda-row-end-standing-ride"
+                  onClick={() =>
+                    onEndStandingRide(
+                      standingRideSeries.arrangementId,
+                      item.startsAt,
+                    )
+                  }
+                >
+                  {endStandingAskLabel(standingRideSeries.weekdayPlural)}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {standingRideSeries.primaryActive ? (
+            <p
+              data-testid="agenda-row-standing-ride-primary"
+              className="text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] text-[var(--fc-text-secondary)]"
+            >
+              {standingAskActivePrimaryStatus(standingRideSeries.weekdayPlural)}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

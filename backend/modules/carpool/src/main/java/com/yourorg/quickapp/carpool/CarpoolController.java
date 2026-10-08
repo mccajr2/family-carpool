@@ -4,6 +4,7 @@ import com.yourorg.quickapp.auth.AdultResponse;
 import com.yourorg.quickapp.auth.AdultSessionApi;
 import com.yourorg.quickapp.carpool.internal.CarpoolRideService;
 import com.yourorg.quickapp.carpool.internal.CarpoolService;
+import com.yourorg.quickapp.carpool.internal.StandingRideAskService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Instant;
@@ -27,14 +28,17 @@ public class CarpoolController {
     private final AdultSessionApi adultSessionApi;
     private final CarpoolService carpoolService;
     private final CarpoolRideService carpoolRideService;
+    private final StandingRideAskService standingRideAskService;
 
     public CarpoolController(
             AdultSessionApi adultSessionApi,
             CarpoolService carpoolService,
-            CarpoolRideService carpoolRideService) {
+            CarpoolRideService carpoolRideService,
+            StandingRideAskService standingRideAskService) {
         this.adultSessionApi = adultSessionApi;
         this.carpoolService = carpoolService;
         this.carpoolRideService = carpoolRideService;
+        this.standingRideAskService = standingRideAskService;
     }
 
     @GetMapping
@@ -239,5 +243,50 @@ public class CarpoolController {
         AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
         return carpoolRideService.withdraw(
                 adult, spaceId, rideId, request == null ? null : request.legs());
+    }
+
+    @GetMapping("/spaces/{spaceId}/standing-rides")
+    public List<StandingRideArrangementResponse> listStandingRides(
+            @PathVariable("spaceId") UUID spaceId, HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return standingRideAskService.list(adult, spaceId);
+    }
+
+    @PostMapping("/spaces/{spaceId}/standing-rides")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StandingRideArrangementResponse createStandingRide(
+            @PathVariable("spaceId") UUID spaceId,
+            @Valid @RequestBody CreateStandingRideArrangementRequest request,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return standingRideAskService.create(adult, spaceId, request);
+    }
+
+    @PostMapping("/spaces/{spaceId}/standing-rides/{arrangementId}/accept")
+    public StandingRideArrangementResponse acceptStandingRide(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("arrangementId") UUID arrangementId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return standingRideAskService.accept(adult, spaceId, arrangementId);
+    }
+
+    @PostMapping("/spaces/{spaceId}/standing-rides/{arrangementId}/pass")
+    public StandingRideArrangementResponse passStandingRide(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("arrangementId") UUID arrangementId,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return standingRideAskService.pass(adult, spaceId, arrangementId);
+    }
+
+    @PostMapping("/spaces/{spaceId}/standing-rides/{arrangementId}/end")
+    public StandingRideArrangementResponse endStandingRide(
+            @PathVariable("spaceId") UUID spaceId,
+            @PathVariable("arrangementId") UUID arrangementId,
+            @RequestParam(value = "from", required = false) Instant from,
+            HttpServletRequest httpRequest) {
+        AdultResponse adult = adultSessionApi.requireCurrentAdult(httpRequest);
+        return standingRideAskService.end(adult, spaceId, arrangementId, from);
     }
 }

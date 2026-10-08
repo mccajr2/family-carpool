@@ -29,6 +29,7 @@ import {
   type RsvpStatus,
   type SaveCarpoolRidePlanLeg,
   type SetCalendarLeaveFromRequest,
+  type StandingRideArrangement,
 } from "@/api/types"
 import { CarpoolFeedActions, CarpoolFeedStatusChip } from "@/components/CarpoolFeedActions"
 import { CarpoolPanel } from "@/components/CarpoolPanel"
@@ -67,6 +68,12 @@ import {
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
+import {
+  mergeStandingAsksIntoQueue,
+  ownOpenStandingCoversCalendarItem,
+  standingAskHeroMergeItems,
+  standingRideAgendaChromeForItem,
+} from "@/components/standingRideChrome"
 import { AgendaKidFilterChip } from "@/components/AgendaKidFilterChip"
 import { AgendaRow } from "@/components/AgendaRow"
 import { AgendaWeekGlance } from "@/components/AgendaWeekGlance"
@@ -349,6 +356,9 @@ export function FamilyScreen({
   const [calendarCirclePlans, setCalendarCirclePlans] = useState<CarpoolRideEvent[]>(
     [],
   )
+  const [standingArrangements, setStandingArrangements] = useState<
+    StandingRideArrangement[]
+  >([])
   const [calendarCarpoolError, setCalendarCarpoolError] = useState<string | null>(null)
   const [eventComposeOpen, setEventComposeOpen] = useState(false)
   const [assignCoverageDrafts, setAssignCoverageDrafts] = useState<
@@ -521,8 +531,13 @@ export function FamilyScreen({
       try {
         const summary = await carpoolClient.getSummary(token)
         const window = defaultCalendarWindow()
-        const [circlePlans, ...rideLists] = await Promise.all([
+        const [circlePlans, standingLists, ...rideLists] = await Promise.all([
           carpoolClient.listCircleRidePlans(token),
+          Promise.all(
+            summary.spaces.map((space) =>
+              carpoolClient.listStandingRides(token, space.id),
+            ),
+          ),
           ...summary.spaces.map((space) =>
             carpoolClient.listRides(token, space.id, window.from, window.to),
           ),
@@ -534,6 +549,7 @@ export function FamilyScreen({
         setCalendarCarpoolSummary(summary)
         setCalendarRidesBySpace(nextRides)
         setCalendarCirclePlans(circlePlans)
+        setStandingArrangements(standingLists.flat())
         setCalendarCarpoolError(null)
       } catch (error: unknown) {
         setCalendarCarpoolError(
@@ -552,41 +568,8 @@ export function FamilyScreen({
     if (!token) {
       return
     }
-    let cancelled = false
-    void (async () => {
-      try {
-        const summary = await carpoolClient.getSummary(token)
-        const window = defaultCalendarWindow()
-        const [circlePlans, ...rideLists] = await Promise.all([
-          carpoolClient.listCircleRidePlans(token),
-          ...summary.spaces.map((space) =>
-            carpoolClient.listRides(token, space.id, window.from, window.to),
-          ),
-        ])
-        const nextRides: Record<string, CarpoolRideEvent[]> = {}
-        summary.spaces.forEach((space, index) => {
-          nextRides[space.id] = rideLists[index] ?? []
-        })
-        if (cancelled) {
-          return
-        }
-        setCalendarCarpoolSummary(summary)
-        setCalendarRidesBySpace(nextRides)
-        setCalendarCirclePlans(circlePlans)
-        setCalendarCarpoolError(null)
-      } catch (error: unknown) {
-        if (cancelled) {
-          return
-        }
-        setCalendarCarpoolError(
-          error instanceof Error ? error.message : "Something went wrong",
-        )
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [destination, circle, carpoolClient, session])
+    void reloadCalendarCarpoolRides(token)
+  }, [destination, circle, reloadCalendarCarpoolRides, session])
 
   useEffect(() => {
     if (destination !== "calendar") {
@@ -1402,7 +1385,7 @@ export function FamilyScreen({
     eventKey: string,
     legs: DriverPickerSavePlanLegs,
     kidIds?: string[],
-    options?: { lockStanding?: boolean },
+    options?: { lockStanding?: boolean; standingAsk?: boolean },
   ): Promise<boolean> {
     const resolvedEventKey = eventKey || circleLocalEventKey(item)
     if (resolvedEventKey == null) {
@@ -1426,6 +1409,22 @@ export function FamilyScreen({
         toSavePlanLeg("TO", legs.to, legs.toPlace, legs.toMeetSide),
         toSavePlanLeg("FROM", legs.from, legs.fromPlace, legs.fromMeetSide),
       ]
+      if (options?.standingAsk) {
+        if (spaceId == null) {
+          setCoverageActionError(itemKey, "Standing Ask requires a carpool space")
+          setStatus({ kind: "idle" })
+          return false
+        }
+        await carpoolClient.createStandingRide(token, spaceId, {
+          eventKey: resolvedEventKey,
+          timeZone: viewerTimeZone(),
+          kidIds: resolvedKidIds,
+          legs: planLegs,
+        })
+        await reloadCalendarCarpoolRides(token)
+        setStatus({ kind: "idle" })
+        return true
+      }
       if (spaceId != null) {
         await carpoolClient.saveRidePlan(token, spaceId, {
           eventKey: resolvedEventKey,
@@ -1768,6 +1767,88 @@ export function FamilyScreen({
     try {
       const token = await requireToken()
       await carpoolClient.passRide(token, spaceId, rideId)
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onAcceptStandingAsk(arrangementId: string) {
+    const arrangement = standingArrangements.find((row) => row.id === arrangementId)
+    if (arrangement == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find standing Ask.",
+      })
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.acceptStandingRide(
+        token,
+        arrangement.spaceId,
+        arrangementId,
+      )
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onPassStandingAsk(arrangementId: string) {
+    const arrangement = standingArrangements.find((row) => row.id === arrangementId)
+    if (arrangement == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find standing Ask.",
+      })
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.passStandingRide(
+        token,
+        arrangement.spaceId,
+        arrangementId,
+      )
+      await reloadCalendarCarpoolRides(token)
+      setStatus({ kind: "idle" })
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Something went wrong",
+      })
+    }
+  }
+
+  async function onEndStandingRide(arrangementId: string, fromStartsAt?: string) {
+    const arrangement = standingArrangements.find((row) => row.id === arrangementId)
+    if (arrangement == null) {
+      setStatus({
+        kind: "error",
+        message: "Could not find standing Ask.",
+      })
+      return
+    }
+    setStatus({ kind: "loading" })
+    try {
+      const token = await requireToken()
+      await carpoolClient.endStandingRide(
+        token,
+        arrangement.spaceId,
+        arrangementId,
+        fromStartsAt,
+      )
       await reloadCalendarCarpoolRides(token)
       setStatus({ kind: "idle" })
     } catch (error) {
@@ -3232,7 +3313,54 @@ export function FamilyScreen({
       return changed ? next : current
     })
   }
-  const attentionQueue = filterQueueWithinHorizon(getQueue(coverageGames), now)
+  const attentionQueue = (() => {
+    const base = filterQueueWithinHorizon(getQueue(coverageGames), now)
+    const viewerCircleId = circle.id
+    const withoutOwnGapsUnderOpenStanding = base.filter((queueItem) => {
+      if (queueItem.kind !== "ownRide") {
+        return true
+      }
+      const itemKey = coverageGameEventKey(queueItem.game.id)
+      const calendarItem = agendaWindowItems.find(
+        (row) => calendarItemKey(row) === itemKey,
+      )
+      if (calendarItem == null) {
+        return true
+      }
+      return !ownOpenStandingCoversCalendarItem(
+        calendarItem,
+        standingArrangements,
+        viewerCircleId,
+      )
+    })
+    const circleNameById = new Map<string, string>()
+    for (const events of Object.values(calendarRidesBySpace)) {
+      for (const event of events) {
+        for (const ride of [
+          ...(event.ownRequests ?? []),
+          ...(event.otherRequests ?? []),
+          event.ownRequest,
+        ]) {
+          if (
+            ride?.requestingCircleId != null &&
+            ride.requestingCircleName != null &&
+            ride.requestingCircleName.trim().length > 0
+          ) {
+            circleNameById.set(ride.requestingCircleId, ride.requestingCircleName.trim())
+          }
+        }
+      }
+    }
+    return mergeStandingAsksIntoQueue(
+      withoutOwnGapsUnderOpenStanding,
+      standingAskHeroMergeItems(
+        standingArrangements,
+        agendaWindowItems,
+        viewerCircleId,
+        (requestingCircleId) => circleNameById.get(requestingCircleId) ?? null,
+      ),
+    )
+  })()
   const focusedCalendarItemKey =
     attentionQueue[0] != null
       ? coverageGameEventKey(attentionQueue[0].game.id)
@@ -3243,6 +3371,14 @@ export function FamilyScreen({
         queueItem.kind === "request",
       )
       .map((queueItem) => queueItem.request.id),
+  )
+  const heroQueuedStandingArrangementIds = new Set(
+    attentionQueue
+      .filter(
+        (queueItem): queueItem is Extract<typeof queueItem, { kind: "standingAsk" }> =>
+          queueItem.kind === "standingAsk",
+      )
+      .map((queueItem) => queueItem.standingAsk.arrangementId),
   )
   const { sections: agendaSections } = groupAgendaListSections(agendaWindowItems, {
     now,
@@ -3421,6 +3557,9 @@ export function FamilyScreen({
       onAcceptRide: (rideId) =>
         void onAcceptAgendaRide(calendarItemForSlide, rideId),
       onPassRide: (rideId) => void onPassAgendaRide(calendarItemForSlide, rideId),
+      onAcceptStandingAsk: (arrangementId) =>
+        void onAcceptStandingAsk(arrangementId),
+      onPassStandingAsk: (arrangementId) => void onPassStandingAsk(arrangementId),
       onSetRsvp: (kidId, rsvpStatus) =>
         void onSetCalendarRsvp(calendarItemForSlide, kidId, rsvpStatus),
       onSetNotGoing: (kidIds) =>
@@ -4233,6 +4372,17 @@ export function FamilyScreen({
                             coverageActionError={coverageActionErrors[itemKey]}
                             rideEvent={calendarRideByItemKey.get(itemKey) ?? null}
                             heroQueuedRequestIds={heroQueuedRequestIds}
+                            heroQueuedStandingArrangementIds={
+                              heroQueuedStandingArrangementIds
+                            }
+                            standingRideSeries={standingRideAgendaChromeForItem(
+                              item,
+                              standingArrangements,
+                              circle.id,
+                            )}
+                            onEndStandingRide={(arrangementId, fromStartsAt) =>
+                              void onEndStandingRide(arrangementId, fromStartsAt)
+                            }
                             recentlyWithdrawnRideIds={recentlyWithdrawnRideIds}
                             autoDeclinedRideIds={autoDeclinedRideIds}
                             onCreateRide={

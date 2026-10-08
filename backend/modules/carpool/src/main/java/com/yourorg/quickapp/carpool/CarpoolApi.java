@@ -111,4 +111,19 @@ public interface CarpoolApi {
      */
     boolean tryConfirmHouseholdPlanForFeedEvent(
             com.yourorg.quickapp.auth.AdultResponse adult, UUID feedEventId);
+
+    /**
+     * Calendar enrich path: end still-{@code OPEN} standing ride arrangements
+     * for spaces this circle belongs to when the anchor occurrence's local day
+     * has started. Returns how many were ended.
+     */
+    int expireOpenStandingArrangements(UUID circleId);
+
+    /**
+     * Calendar enrich path: materialise ACTIVE standing arrangements onto blank
+     * fingerprint matches in the feed-backed known schedule. Soft-fails per
+     * occurrence; never overwrites existing active rides for the requesting circle.
+     */
+    int materialiseActiveStandingArrangements(
+            UUID circleId, java.time.Instant horizonFrom, java.time.Instant horizonTo);
 }

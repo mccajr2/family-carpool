@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
  * Deterministic fetch for tests. URLs containing {@code fail} throw; URLs
  * containing {@code standing-block-recurring} return four Tuesdays of a
  * two-member drive block (different UIDs each week); URLs containing
- * {@code drive-block} return two back-to-back same-venue practices; others
- * return a small two-event fixture (one with UID, one without).
+ * {@code standing-ride-series} return nine future Tuesdays for standing Ask
+ * gate tests; URLs containing {@code drive-block} return two back-to-back
+ * same-venue practices; others return a small two-event fixture (one with
+ * UID, one without).
  */
 @Component
 @ConditionalOnProperty(name = "app.feeds.fetch-provider", havingValue = "stub")
@@ -154,6 +156,82 @@ class StubIcalFetchPort implements IcalFetchPort {
             END:VCALENDAR
             """;
 
+    /**
+     * Nine Tuesday practices starting 2026-12-01 — enough ≥3 other upcoming
+     * matches when "today" is autumn 2026 (standing Ask gate). Keep w1 after
+     * Instant.now() in CI so unanswered-expire does not fire mid-test.
+     */
+    static final String STANDING_RIDE_SERIES_FIXTURE =
+            """
+            BEGIN:VCALENDAR
+            VERSION:2.0
+            PRODID:-//family-carpool//stub-standing-ride-series//EN
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w1@example.com
+            DTSTART:20261201T210000Z
+            DTEND:20261201T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w2@example.com
+            DTSTART:20261208T210000Z
+            DTEND:20261208T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w3@example.com
+            DTSTART:20261215T210000Z
+            DTEND:20261215T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w4@example.com
+            DTSTART:20261222T210000Z
+            DTEND:20261222T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w5@example.com
+            DTSTART:20261229T210000Z
+            DTEND:20261229T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w6@example.com
+            DTSTART:20270105T210000Z
+            DTEND:20270105T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w7@example.com
+            DTSTART:20270112T210000Z
+            DTEND:20270112T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w8@example.com
+            DTSTART:20270119T210000Z
+            DTEND:20270119T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:stub-standing-ride-w9@example.com
+            DTSTART:20270126T210000Z
+            DTEND:20270126T220000Z
+            SUMMARY:Standing Practice
+            LOCATION:Field 3
+            END:VEVENT
+            END:VCALENDAR
+            """;
+
     @Override
     public String fetch(String httpsUrl) {
         String lower = httpsUrl == null ? "" : httpsUrl.toLowerCase();
@@ -162,6 +240,9 @@ class StubIcalFetchPort implements IcalFetchPort {
         }
         if (lower.contains("standing-block-recurring")) {
             return STANDING_BLOCK_RECURRING_FIXTURE;
+        }
+        if (lower.contains("standing-ride-series")) {
+            return STANDING_RIDE_SERIES_FIXTURE;
         }
         if (lower.contains("drive-block")) {
             return DRIVE_BLOCK_FIXTURE;
