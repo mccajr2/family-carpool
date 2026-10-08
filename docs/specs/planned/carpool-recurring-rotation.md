@@ -45,4 +45,7 @@ who never take a turn).
   **explicit driver-pool membership** (subset) at setup.
 - Gap-fill when it is that family’s turn and they cannot drive stays
   parking — do not invent shift vs double-duty here.
+- **After the beta gate** (Upcoming rank 11). Depends on the gate’s
+  `carpool-standing-week-exception` so rotation reuses hole semantics.
+  Not required for the first outside families.
 - **Web first.**

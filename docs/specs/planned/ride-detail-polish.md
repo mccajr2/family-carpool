@@ -32,5 +32,8 @@ number. The Route-only detail surface needs explicit loading and error states.
   [`ride-detail-route-only`](ride-detail-route-only.md)).
 - Depends on [`ride-route-tab`](../archive/ride-route-tab.md) and
   [`ride-detail-route-only`](ride-detail-route-only.md) (Playlist chrome hidden).
+- **Beta gate, rank 8** — last row above **beta ready**. Honest leave-by is
+  the gate; editable arrival buffers (`event-arrival-lead-time`) and the
+  soft travel warn (`conflict-travel-margin`) are after beta.
 - Explicit “couldn’t compute drive time” when OSRM fails (do not fall back to a
   fake leave-by without labeling it).

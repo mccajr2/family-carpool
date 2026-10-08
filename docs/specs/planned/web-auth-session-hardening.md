@@ -14,8 +14,9 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 
 ## Problem
 
-v1 uses Bearer tokens on web for parity with Android/iOS. A JS-readable token is
-an XSS risk that should not ship as the long-term web default for beta.
+The web session is an in-memory Bearer token. A reload signs the adult out,
+and the next sign-in needs a new OTP. That cannot ship to parents. A
+JS-readable token is also the wrong long-term web default.
 
 ## Non-goals (sketch)
 
@@ -26,6 +27,6 @@ an XSS risk that should not ship as the long-term web default for beta.
 ## Notes
 
 - Depends on `adult-auth-magic-link`.
-- **Pre-beta gate** for web with real users — not a blocker for local/dev smoke
-  (Bearer is fine until then); mobile stays Bearer.
-- Likely HTTP-only cookie (or equivalent) + CSRF/`SameSite`.
+- **Beta gate, rank 4.** Parent-facing result: reload keeps the session.
+  Likely HTTP-only cookie (or equivalent) + CSRF/`SameSite`. Not a blocker
+  for local/dev smoke. Expo stays Bearer when revived.

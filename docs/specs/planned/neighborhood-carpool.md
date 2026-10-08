@@ -42,4 +42,6 @@ request/accept and beyond “only people already in this feed space.”
 - Likely depends on leave-from, stop-order optimize, and recurring standing
   or rotation for “then carpool together” — `/spec` must name minimum
   shipped deps.
+- **After the beta gate** (Upcoming rank 12), after
+  `carpool-recurring-rotation`. Not required for the first outside families.
 - Web first.

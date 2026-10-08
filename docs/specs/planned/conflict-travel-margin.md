@@ -27,6 +27,7 @@ not the same amber as hard overlap, and not a 409.
 
 ## Notes
 
+- **After the beta gate** (Upcoming rank 10).
 - **Depends on** leave-by maturity: prefer after
   [`coverage-leave-from`](coverage-leave-from.md) and
   [`event-arrival-lead-time`](event-arrival-lead-time.md) so origin and arrival

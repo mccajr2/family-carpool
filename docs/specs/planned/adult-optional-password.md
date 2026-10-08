@@ -25,5 +25,5 @@ are not email-bound every session.
 ## Notes
 
 - Depends on `adult-auth-magic-link` (done).
-- Pre-beta convenience — do not block family/calendar/carpool slices.
-- Ranked with `auth-email-delivery` and `web-auth-session-hardening` near beta.
+- **After the beta gate** (Upcoming rank 14). OTP remains the way parents
+  sign in. Do not block the web parent beta.

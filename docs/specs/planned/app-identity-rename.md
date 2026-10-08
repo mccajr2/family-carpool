@@ -14,8 +14,9 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap` **spli
 ## Problem
 
 Packages, bundle ids, and client chrome still say **quickapp** / template
-identity. That must change before public beta so TestFlight, Play, and
-production mail match the product name.
+identity. That must change before store listings and a public mobile build.
+It does not block the web parent beta. OTP From-address copy can move with
+`auth-email-delivery` if it is only a string.
 
 ## Non-goals (sketch)
 
@@ -25,7 +26,8 @@ production mail match the product name.
 
 ## Notes
 
-- Pre-beta gate, ranked with auth hardening — do not block calendar/carpool.
+- **After the beta gate** (Upcoming rank 15). Do not block Calendar or the
+  web parent beta.
 - Touches Gradle ids, iOS bundle id, Android applicationId, web title, and
   user-visible strings. One PR if the rename is mechanical; split if store
   listings / signing require a pause.
