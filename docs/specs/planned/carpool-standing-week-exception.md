@@ -39,5 +39,9 @@ while the standing primary remains for future weeks.
   arrangement `ACTIVE`.
 - Driver bail-one-week clears that week’s materialised ride; arrangement
   stays `ACTIVE`; Hero is **not** a fresh PENDING standing/one-off Ask.
-- Ships **before** rotation so hole semantics exist for dogfood.
+- **Beta gate, rank 7.** After `action-undo-parity` (series-level undo,
+  including the accepting primary ending the arrangement). This id is one
+  week only: the series stays active.
+- Ships **before** rotation so hole semantics exist for dogfood. Rotation
+  itself is after the beta gate.
 - **Web first.**

@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-10-06 (`/pr carpool-recurring-standing`; next up `carpool-standing-week-exception`)
+Updated: 2026-10-08 (`/roadmap` beta gate; next up `calendar-card-hierarchy`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -33,7 +33,9 @@ administering software.
 **Look and feel:** Simple and intuitive — a distinct custom UI, not a clone of
 any rideshare app. Interaction quality matters as much as features: few choices
 per step, clear primary actions, fast feedback, reachable targets, and grouped
-related controls (see Locked decisions → Interaction UX).
+related controls (see Locked decisions → Interaction UX). The resting card is
+the simple plan — one round-trip for every going kid. Separate kids or legs
+are one step inside that card, not the view you land on (see Simple plan first).
 
 **Primary users:** single- and multi-adult care networks (parents in one or two
 homes, grandparents, nannies, etc.).
@@ -43,12 +45,14 @@ be, whether the circle can cover it, when to leave, and whether a teammate can
 share the ride — without fighting the UI.
 
 **Clients (beta):** **Web** remains the product reference (OpenAPI → backend →
-web). **Nail carpool on web first** (leave-from, one-way legs, meet-at,
-stop-order optimize, recurring, neighborhood, priority) before Expo. Mobile target is
-still **Expo (React Native)** — parked until the carpool Beta cluster is
-dogfoodable; push is **not** a gate that pulls Expo ahead of product. Do not
-ship every product slice on web + RN together. KMP is **frozen**; retire via
-`kmp-mobile-retire`.
+web). **Beta ready** means every row under Upcoming → **Beta gate** has
+shipped: a parent outside the household can sign in on a phone, stay signed
+in, see the simple plan, take an action back, and hear about an Ask by email.
+Rotation, neighborhood discovery, Expo, and push are below that line. Mobile
+target is still **Expo (React Native)** — parked until outside families have
+dogfooded the gate; push is **not** a gate that pulls Expo ahead of product.
+Do not ship every product slice on web + RN together. KMP is **frozen**;
+retire via `kmp-mobile-retire`.
 
 ## Product non-goals
 
@@ -94,6 +98,8 @@ ship every product slice on web + RN together. KMP is **frozen**; retire via
 | Carpool music            | **Parked for dogfood (2026-09-08).** Spotify OAuth/playlist path shipped in `[ride-playlist-tab](specs/archive/ride-playlist-tab.md)` but Spotify developer/Premium constraints make it unsuitable as a required path (no Spotify Premium solely for API/dev; never ask users for music-service passwords/API keys). **Hide Playlist UI** Done: `[ride-detail-route-only](specs/archive/ride-detail-route-only.md)`; keep Spotify code **dormant** (do not delete — reuse domain/`mergeTracks`). Resume via provider-neutral model then **Apple Music first** (parking: `music-provider-model` → `apple-music-connect` → `apple-music-playlist-ingest` → `apple-music-web-playback` → `apple-music-native-playback` → `music-playback-host`). Product: short generated **DJ mix** (~60–90 min), app owns overlap/fairness merge; **participation ≠ playback** (one supported host can play). Spotify may return later as an optional provider. Cancelled supersession: `playlist-open-in-streaming`. |
 | Focus card selection     | **Hero & coverage redesign (2026-08-28):** "Needs your attention" is a **swipeable carousel** over shared `getQueue` ([ADR-0001](decisions/ADR-0001-coverage-priority-rule.md)) — **event-grouped** priority: for each event soonest-first, own-child gaps then pending carpool asks (family-first within an event; same-event asks before later own gaps). Every slide independently actionable; empty queue → all caught up. Done: [`coverage-priority-same-event`](specs/archive/coverage-priority-same-event.md) (amends ADR-0001). Done chain: [`coverage-priority-engine`](specs/archive/coverage-priority-engine.md) → [`unified-ride-status-chip`](specs/archive/unified-ride-status-chip.md) → [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md) → [`weekly-list-focus-sync`](specs/archive/weekly-list-focus-sync.md) → [`coverage-priority-same-event`](specs/archive/coverage-priority-same-event.md). Ride-side reverts are one-click, no dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)); Assign→cancel open team ask + ask-team auto-decline Done: [`auto-decline-unofferable`](specs/archive/auto-decline-unofferable.md). **Hero not-going** Done: [`hero-not-going`](specs/archive/hero-not-going.md). **Player-conflict Hero** Done: [`player-conflict-hero`](specs/archive/player-conflict-hero.md) (same-kid overlap keep/not-going before ride assign). **Agenda list section labels** (Done): **NEEDS YOUR ATTENTION** / **REST OF TODAY** / etc. — `[agenda-chip-section-headers](specs/archive/agenda-chip-section-headers.md)`. Prior single-hero rules: Done `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`, `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`. Rider initials chips (Done): `[agenda-ride-rider-chips](specs/archive/agenda-ride-rider-chips.md)`. Contradictory ride commitments (Done): `[ride-commitment-conflict](specs/archive/ride-commitment-conflict.md)` — amber conflict chip + Focus/expanded callout; server fences remain on `client-server-invariant-audit`. Solid Agenda↔ride id: Done `[calendar-item-event-key](specs/archive/calendar-item-event-key.md)`. |
 | Schedule conflicts       | **Overlap math** Done: [`conflict-detection`](specs/archive/conflict-detection.md) (event `startsAt`/`endsAt`; kid + adult-coverage amber; CONFIRMED double-book **409**). **Player conflict (urgent)** Done: [`player-conflict-hero`](specs/archive/player-conflict-hero.md) — same kid on two overlapping events → Hero shows both, force keep one / **not going** on the other, then ride assign (builds on `KID_TIME_OVERLAP`; depends on Done [`hero-not-going`](specs/archive/hero-not-going.md)). **Family conflict (lower urgency, report only)** Done: [`family-conflict-report`](specs/archive/family-conflict-report.md) — different kids’ events overlap → clear Agenda signal (who + which events); split family or use carpool; quieter chrome; off Hero. Do **not** conflate with adult-coverage amber. Soft travel “cutting it close” stays [`conflict-travel-margin`](specs/planned/conflict-travel-margin.md). |
+| Simple plan first        | **Beta gate (2026-10-08).** The resting card is one round-trip for every going kid. Per-leg plans and per-kid plans stay fully available, one explicit step inside the same card, at the same weight as each other, and they are not the view you land on. A single event and a drive block use the **same chevron**. One primary action when a decision is waiting, visually larger than chips, meta, and undo links. [`calendar-card-hierarchy`](specs/planned/calendar-card-hierarchy.md). |
+| Reversible actions       | **Beta gate (2026-10-08).** Every assign, schedule, request, accept, pass, lock, and merge has a same-surface one-click reverse. No confirmation dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)). **Un-pass** is in scope — supersedes the “no un-pass” line from [`carpool-pass-reconsider`](specs/archive/carpool-pass-reconsider.md). Accepting standing primary can end the series. One-week bail stays [`carpool-standing-week-exception`](specs/planned/carpool-standing-week-exception.md), not this row. [`action-undo-parity`](specs/planned/action-undo-parity.md). |
 
 
 
@@ -101,21 +107,54 @@ ship every product slice on web + RN together. KMP is **frozen**; retire via
 ## Upcoming (ranked)
 
 Reorder only via `/roadmap` re-rank. Rank **1** is **Next up** for `/spec`.
+Ranks stay continuous through the beta line so there is still one Next up.
+
+### Beta gate
+
+Ship every row in this table before handing the app to a family outside the
+household. Web only. The line under the table is **beta ready**.
 
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | carpool-standing-week-exception | planned | 2026-09-24 · re-rank split | Standing per-week skip / driver bail + distinct “need coverage” Hero (after standing Ask)                                     |
-| 2    | carpool-recurring-rotation      | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only                   |
-| 3    | neighborhood-carpool            | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)                      |
-| 4    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Route loading / notify errors / explicit OSRM-unreachable leave-by (playlist chrome parked)                                   |
-| 5    | event-arrival-lead-time         | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                                         |
-| 6    | conflict-travel-margin          | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                                         |
-| 7    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production SMTP/API mail for OTP — still needed for real-user Beta; not blocking carpool product dogfood                      |
-| 8    | client-server-invariant-audit   | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; punch-list server fences before a second client                      |
-| 9    | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | HTTP-only cookie (or equivalent) for web — pre-beta gate; Expo stays Bearer when revived                                      |
-| 10   | adult-optional-password         | planned | 2026-08-07 · re-rank split | Optional password for frequent users — pre-beta convenience (OTP remains primary)                                             |
-| 11   | app-identity-rename             | planned | 2026-08-07 · initial       | Rename packages/clients from quickapp template identity before public beta                                                    |
+| 1    | calendar-card-hierarchy         | planned | 2026-10-08 · enhancement   | One chevron for event and drive-block cards; one large primary action; round-trip for all kids is the resting view; per-kid and per-leg editors one step inside |
+| 2    | action-undo-parity              | planned | 2026-10-08 · enhancement   | Same-surface undo for every assign, schedule, request, accept, and pass. Known hole: un-pass. Accepting standing primary can end the series |
+| 3    | calendar-phone-frame            | planned | 2026-10-08 · enhancement   | Phone-width Calendar using the card rules above. Other destinations stay reachable; they are not restyled                     |
+| 4    | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | Session survives refresh. In-memory Bearer dies on reload today. HTTP-only cookie (or equivalent); Expo stays Bearer          |
+| 5    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production mail for OTP. Dev code-echo stays local-only                                                                      |
+| 6    | carpool-ask-accept-email        | planned | 2026-10-08 · enhancement   | Email other households on Ask, and the requesting household on Accept. Not push, not an inbox                                |
+| 7    | carpool-standing-week-exception | planned | 2026-09-24 · re-rank split | One-week skip or driver bail without ending the standing series. Distinct Hero. Not the series-level undo from rank 2       |
+| 8    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Honest leave-by: loading and an explicit failure. No unlabeled fallback time                                                 |
+
+
+**Beta ready.** A parent outside the house can sign in, stay signed in, use
+Calendar on a phone, act on the simple plan, take that action back, and hear
+about an Ask by email.
+
+### After beta
+
+Ranked. Not required for the first outside families.
+
+
+| Rank | Id                            | Status  | Added                      | Summary                                                                                                      |
+| ---- | ----------------------------- | ------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 9    | event-arrival-lead-time       | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                       |
+| 10   | conflict-travel-margin        | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                       |
+| 11   | carpool-recurring-rotation    | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only |
+| 12   | neighborhood-carpool          | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)    |
+| 13   | client-server-invariant-audit | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; server fences before a second client (Expo)        |
+| 14   | adult-optional-password       | planned | 2026-08-07 · re-rank split | Optional password for frequent users — OTP remains primary                                                  |
+| 15   | app-identity-rename           | planned | 2026-08-07 · initial       | Rename packages and bundle ids off the quickapp template. Does not block the web parent beta                |
+
+
+**Why this order.** Parents already have the coordination engine. What they
+feel next is a card that opens one way, a button that looks like the action,
+and a way to take the tap back. Sign-in, mail, and a one-week standing hole
+come after that, still above the line. Rotation and neighborhood add new
+plans; they wait until a real week has survived the gate. Arrival buffers and
+travel-margin warns improve leave-by after the number is honest. The
+invariant audit is for a second client, not for the first web families.
+Password and the package rename are the same.
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -134,8 +173,8 @@ Unranked ideas. Promote into **Upcoming** with `/roadmap` (re-rank).
 | manual-event-adults-only      | 2026-09-18 · enhancement | Parents/adults-only manual events (zero `kidIds`, per-adult RSVP) — after `manual-event-team-link` |
 | manual-event-relative-timing  | 2026-09-18 · enhancement | Compose: time relative to another same-feed event + open-ended/no-fixed-end — scheduling; may later feed `drive-block-linked-manual` association |
 | agenda-block-api              | 2026-09-16 · enhancement | Server block-shaped Agenda contract (grouping + ADR-0004 perspective + “not your job” rows) so RN does not re-implement web client chrome — **gate:** merge-rule buffer dogfood-stable (override rate + `day-block-agenda` usage); **hard dep** of whichever RN/Expo spec first renders Agenda blocks (scaffold/auth may precede) |
-| rn-expo-scaffold              | 2026-08-25 · enhancement | Expo app: OTP auth + shell + push-token registration — **parked for carpool Beta** (revive after web carpool cluster dogfoods); Agenda **block** rendering waits on parking `agenda-block-api` |
-| push-notifications            | 2026-08-07 · initial     | Expo push for carpool ride request / accept / deny — **parked with Expo**; not a gate that pulls mobile ahead of web carpool                                      |
+| rn-expo-scaffold              | 2026-08-25 · enhancement | Expo app: OTP auth + shell + push-token registration — **parked** until the Upcoming **beta gate** is dogfooded with outside families; Agenda **block** rendering waits on parking `agenda-block-api` |
+| push-notifications            | 2026-08-07 · initial     | Expo push for carpool ride request / accept / deny — **parked with Expo**; web beta uses `carpool-ask-accept-email` instead                                      |
 | calendar-conditional-get      | 2026-08-12 · re-rank split | Server `ETag` + client `If-None-Match` / `304` on calendar revalidate — polish, not Beta carpool                                                                  |
 | event-venue-display-label     | 2026-08-17 · enhancement | Short venue label from geocoded destination — polish, not Beta carpool                                                                                            |
 | music-provider-model          | 2026-09-08 · re-rank split | Provider-neutral music domain (provider + normalized tracks); preserve `mergeTracks`/ride-playlist product rules; isolate Spotify-specific API/OAuth assumptions — no Apple API yet |
@@ -307,6 +346,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-08 | `/roadmap` beta gate from parent-beta review: Next up `calendar-card-hierarchy` → `action-undo-parity` (un-pass + standing-primary end) → `calendar-phone-frame` → session → OTP mail → `carpool-ask-accept-email` → `carpool-standing-week-exception` → `ride-detail-polish`. **Beta ready** under rank 8. Demoted below the line: rotation, neighborhood, arrival lead time, travel margin, invariant audit, optional password, package rename. |
 | 2026-10-06 | `/pr carpool-recurring-standing`: series standing Ask (FIXED_PRIMARY arrangement), gated create, Accept+materialise, End-from-cutoff clear, unanswered expire; OpenAPI 0.38 + web Hero/Agenda chrome. Spec archived. Next up `carpool-standing-week-exception`. |
 | 2026-09-24 | `/spec carpool-recurring-standing`: promote slice A — series standing Ask (FIXED_PRIMARY arrangement), Accept commits all matching weeks, materialise blank weeks, End + unanswered expire (first occurrence local day start). Split week skip/driver-bail Hero → planned `carpool-standing-week-exception` (Upcoming rank 1 after this ships). Branch `carpool-recurring-standing`. |
 | 2026-09-24 | `/pr carpool-recurring-locked-plan` dogfood amend re-ship: confirm-time Lock + locked summary, place triad, confirm restore + soft-fail apply, standing hero collapse, known-schedule apply, split-leg Hero chrome, page-slice auto-clear safety. Spec archived. Next up `carpool-recurring-standing`. |

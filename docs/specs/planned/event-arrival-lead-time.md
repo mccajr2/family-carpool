@@ -22,6 +22,8 @@ earlier than practices; other one-offs are often “on time is fine.” Adults n
 
 ## Notes
 
+- **After the beta gate** (Upcoming rank 9). Honest failure states ship
+  first in `ride-detail-polish`.
 - Depends on `event-leave-by-estimate` shipping first (leave-by = arrival target − travel − buffer).
 - **Route interim lock** ([`ride-route-tab`](../archive/ride-route-tab.md)): game
   **45** / practice **20** / other **0** (not editable). This slice should make

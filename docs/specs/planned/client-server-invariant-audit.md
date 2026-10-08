@@ -31,9 +31,9 @@ pass that separates presentation from enforceable invariants.
 
 ## Notes
 
-- **Pre-beta gate** — run after hero/coverage client slices settle; **before**
-  Expo push beta relies on a second client (`rn-expo-scaffold` /
-  `push-notifications`).
+- **After the web parent beta** (Upcoming rank 13), **before** Expo or any
+  second client (`rn-expo-scaffold` / `push-notifications`). One web client
+  can dogfood without this audit.
 - Inventory starting points: `autoDeclined` /
   [`auto-decline-unofferable`](../archive/auto-decline-unofferable.md);
   `recentlyWithdrawnRideIds` / [`ride-revert-undo`](../archive/ride-revert-undo.md);
@@ -44,5 +44,5 @@ pass that separates presentation from enforceable invariants.
   (create/accept fences for contradictory commitments) ships before this audit
   and adds entries to the punch-list.
 - Done looks like: a short punch-list of rules that need API 409 / transactional
-  side effects / persisted flags, ranked for beta — not a vague “tech debt”
+  side effects / persisted flags, ranked before a second client — not a vague “tech debt”
   cleanup.
