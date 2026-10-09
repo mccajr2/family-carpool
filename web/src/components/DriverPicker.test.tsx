@@ -114,6 +114,42 @@ describe("DriverPicker", () => {
     ).toBeInTheDocument()
   })
 
+  it("mounts in simple mode with accent primary tokens and quieter equal disclosure links", () => {
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={vi.fn()}
+        goingKids={[
+          { id: "k1", firstName: "Sam" },
+          { id: "k2", firstName: "Lee" },
+        ]}
+      />,
+    )
+
+    const picker = screen.getByTestId("driver-picker")
+    expect(picker).toHaveAttribute("data-mode", "simple")
+
+    const confirm = screen.getByTestId("driver-picker-confirm")
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-pad-x/)
+    expect(confirm.className).toMatch(/--fc-accent/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
+    // Locked min-height token is present on the primary (jsdom may not resolve var→px).
+    expect(confirm.className).toMatch(/min-h-\[var\(--fc-space-focus-action-min-height\)\]/)
+
+    const legLink = screen.getByTestId("driver-picker-different-plans")
+    const kidLink = screen.getByTestId("driver-picker-different-plans-kid")
+    expect(legLink).toHaveTextContent(DIFFERENT_PLANS_FOR_EACH_LEG)
+    expect(kidLink).toHaveTextContent(DIFFERENT_PLANS_FOR_EACH_KID)
+    expect(legLink.className).toMatch(/--fc-font-focus-action-ghost-size/)
+    expect(kidLink.className).toMatch(/--fc-font-focus-action-ghost-size/)
+    expect(legLink.className).toBe(kidLink.className)
+    expect(legLink.className).not.toMatch(/--fc-font-focus-action-size(?!-ghost)/)
+  })
+
   it("updates selection when another adult is chosen", async () => {
     const user = userEvent.setup()
     const onSelectedAdultChange = vi.fn()
@@ -975,10 +1011,15 @@ describe("DriverPicker hero styling", () => {
     expect(jordanChip).toHaveStyle({ color: "var(--fc-hero-on)" })
     expect(jordanChip.getAttribute("style") ?? "").toMatch(/transparent/)
 
-    expect(screen.getByTestId("driver-picker-confirm")).toHaveStyle({
+    const confirm = screen.getByTestId("driver-picker-confirm")
+    expect(confirm).toHaveStyle({
       backgroundColor: "var(--fc-hero-on)",
       color: "var(--fc-hero-on-inverse)",
     })
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-pad-x/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
   })
 
   it("styles Ask the team as a trailing chip on hero without a team footer", async () => {

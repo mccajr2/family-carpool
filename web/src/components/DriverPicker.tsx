@@ -862,9 +862,13 @@ export function DriverPicker({
     })
   }
 
+  const primaryActionClass =
+    "w-full min-h-[var(--fc-space-focus-action-min-height)] px-[var(--fc-space-focus-action-pad-x)] text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)] disabled:cursor-not-allowed disabled:opacity-50"
+
+  // Progressive-disclosure links share ghost weight — quieter than Confirm, equal to each other.
   const linkClass = hero
-    ? "text-left text-xs underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current"
-    : "text-left text-[length:var(--fc-font-subtitle-size)] leading-[var(--fc-font-subtitle-line)] font-[number:var(--fc-font-subtitle-weight)] text-[var(--fc-text-secondary)] underline-offset-2 underline decoration-transparent hover:decoration-current"
+    ? "text-left text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)] underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current"
+    : "text-left text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)] text-[var(--fc-text-secondary)] underline-offset-2 underline decoration-transparent hover:decoration-current"
 
   const sectionLabelClass = hero
     ? "text-xs font-semibold uppercase tracking-wide opacity-90"
@@ -876,7 +880,7 @@ export function DriverPicker({
         <button
           type="button"
           data-testid="driver-picker-confirm"
-          className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          className={`rounded-lg ${primaryActionClass}`}
           style={{
             backgroundColor: "var(--fc-hero-on)",
             color: HERO_ON_INVERSE,
@@ -891,9 +895,8 @@ export function DriverPicker({
     return (
       <Button
         type="button"
-        size="sm"
         data-testid="driver-picker-confirm"
-        className="w-full text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+        className={`h-auto rounded-[var(--fc-radius-md)] bg-[var(--fc-accent)] text-[var(--fc-accent-on)] hover:bg-[var(--fc-accent)]/90 ${primaryActionClass}`}
         onClick={onClick}
         disabled={disabled}
       >

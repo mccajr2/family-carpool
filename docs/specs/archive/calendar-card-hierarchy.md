@@ -1,6 +1,7 @@
 # Spec: calendar-card-hierarchy
 
-Status: draft  
+Status: done  
+
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-10-08  
 Added: 2026-10-08 · enhancement  
@@ -42,39 +43,69 @@ leave-from, commitment actions, and locked chrome. Remove the block-only
 “Show details” underline as a second disclosure pattern. Reuse the same
 chevron icon sizing token (`listRowChevron`).
 
-### Collapsed drive-block identity (Agenda only)
+### Combined-event identity (Agenda only)
 
-Drop the opaque count title (“Two events tonight” / “N events tonight”).
-Collapsed identity is one **event band row per member**, always visible:
+A combined card uses the same header structure as a single event. The title
+consumes `listRowTitle` (the single-card title role — same size and weight).
+Do not invent a larger title size for the pair.
 
-- Line copy: `time · (feedName if set, else title)` — so U10 then U12 reads
-  as two different teams, not a fake shared eyebrow.
-- Going kid(s) for that member: the same compact **`RiderChips`** used on
-  `AgendaRow` (not plain-text names in the line).
-- Shared day/team eyebrow only when every member actually shares a feed
-  (today’s `sharedFeedName` rule). Where line stays when shared.
-- Status / divergence chips and the chevron stay on the collapsed card.
+- Eyebrow: feed names in member order, joined with ` + ` when teams differ
+  (`Mite 3 + Squirt 1`). One shared feed stays a single eyebrow. No feeds →
+  no eyebrow.
+- Title: the shared event name. Identical titles stay as-is. Titles that
+  share a leading and trailing word (`CYH Mite 3 Practice` +
+  `CYH Squirt 1 Practice`) collapse to those shared words (`CYH Practice`).
+  Unrelated titles join with ` + `.
+- When: the block span, same compact format as a single card
+  (`Oct 13, 6:00 – 7:50 PM`).
+- One header chip when every leg is assigned: `You · round trip` when one
+  person drives every leg, otherwise `You · N of M legs`. If any leg still
+  needs a ride or is asked of the team, keep the urgent status chips instead.
+- Chevron is its own button, 44px hit target (`focusActionMinHeight`),
+  labeled Expand / Collapse.
 
-**Compare — single event (`AgendaRow`, unchanged pattern):**
+Collapsed body is one kid row per going kid on each member: avatar, name,
+that kid’s event and clock, and `There {driver} · Back {driver}` on the right.
+
+Expanded body replaces those rows with the same Getting there / Coming back
+pair used on a single card, then one shared control row: Edit plan, per-kid
+not going, Split into N events, and Remove recurring coverage (danger). Drop
+the old run panels and the separate “not your job” band — the other driver
+is the Back (or There) name. View route stays on the routable leg box.
+Leave-from and commitment actions stay available when the plan is not in the
+settled locked view.
+
+**Compare — single event (`AgendaRow`):**
 
 ```
-U10 Soccer
-Practice
-6:00–7:00 PM · Field 3
-[Emma]  [status]  ⌄
+U10 SOCCER
+Practice                          [status]  ⌄
+Oct 13, 6:00 – 7:00 PM
+Field 3
+[Emma]
 ```
 
-**Compare — back-to-back kids, different teams (`AgendaBlockCard` collapsed):**
+**Compare — combined, different teams (`AgendaBlockCard` collapsed):**
 
 ```
-TODAY
-6:00–7:00 PM · U10 Soccer   [Emma]
-7:15–8:15 PM · U12 Soccer   [Noah]
-[status]  ⌄
+MITE 3 + SQUIRT 1
+CYH Practice                      You · 3 of 4 legs  ⌄
+Oct 13, 6:00 – 7:50 PM
+155 Gore St
+[K] Kian          Mite 3 · 6:00 – 6:50 PM     There You · Back Katy
+[D] Declan        Squirt 1 · 7:00 – 7:50 PM   There You · Back You
 ```
 
-Expanded body still holds run panels, leave-from, commitment actions, and
-locked chrome. Hero stays out of this — block cards are Agenda-only.
+Hero stays out of this — block cards are Agenda-only.
+
+### Recurring plans stay collapsed until expand
+
+`Plan locked` (title, Edit / not going / Remove, and the scope caption) is
+inside the expanded body on both single rows and combined cards. A collapsed
+recurring row shows only `↻ Every {weekday}` beside the kid, plus the status
+chip, so it stays the same height as a ride-needed card. Expanding a locked
+single row shows the There / Back pair, then Plan locked. The scope caption
+stays in that expanded section.
 
 ### Simple plan first
 
@@ -147,58 +178,67 @@ Allowlist for `/implement`.
 
 ## Acceptance criteria
 
-- [ ] `AgendaBlockCard` expands and collapses via one header chevron shared
+- [x] `AgendaBlockCard` expands and collapses via one header chevron shared
       with the `AgendaRow` pattern; status/divergence chips stay visible
       when collapsed if plans already diverge.
-- [ ] Collapsed block drops “Two events tonight” / “N events tonight”; shows
-      one band row per member as `time · (feedName else title)` with
-      compact `RiderChips` for that member’s going kid(s) — same chip
-      component as `AgendaRow`, not text names in the line.
-- [ ] Shared team eyebrow appears on the block only when all members share
-      a feed; mixed teams (e.g. U10 then U12) rely on per-row feed labels.
-- [ ] Block-only **Show details** / **Hide details** underline controls are
+- [x] Collapsed block drops “Two events tonight” / “N events tonight”. Header
+      matches a single card: feed eyebrow, `listRowTitle` title, compact when
+      line, and one plan chip (`You · round trip` or `You · N of M legs`)
+      when every leg is assigned. Urgent status chips stay when a leg is open.
+- [x] Collapsed body is one kid row per going kid: avatar, name, that kid’s
+      event and clock, and `There {driver} · Back {driver}`. Mixed feeds read
+      in the eyebrow (`U10 Soccer + U12 Soccer`) and on the kid row.
+- [x] Expanded body shows each kid’s Getting there / Coming back pair, then
+      shared controls (Edit plan, not going, Split into N events, Remove).
+      Run panels and the separate not-your-job band are gone. View route
+      stays on the routable leg.
+- [x] Plan locked chrome is hidden until the card is expanded, on single rows
+      and combined cards. Collapsed recurring rows show `↻ Every {weekday}`
+      beside the kid. The scope caption stays in the expanded section.
+- [x] Block-only **Show details** / **Hide details** underline controls are
       gone; run detail lines appear in the expanded body (or an equivalent
       single chevron disclosure), not a second text-link pattern.
-- [ ] Mounting `DriverPicker` on Focus, Hero, and expanded Agenda starts in
+- [x] Mounting `DriverPicker` on Focus, Hero, and expanded Agenda starts in
       simple mode (`data-mode="simple"`); leg-split and kid-split open only
       after activating their disclosure links.
-- [ ] **Different plans for each leg** and **Different plans for each kid**
+- [x] **Different plans for each leg** and **Different plans for each kid**
       are both present when eligible, same visual weight as each other, and
       quieter than the primary Confirm / Post button.
-- [ ] When a Hero decision is picking a driver, the slide shows the simple
+- [x] When a Hero decision is picking a driver, the slide shows the simple
       round-trip picker — not the split editor — as the resting view.
-- [ ] `focusAction` is bumped in `tokens.json` (starting point ~16px / 700)
+- [x] `focusAction` is bumped in `tokens.json` (starting point ~16px / 700)
       with min-height (~44) and horizontal pad (~20) spacing roles; primary
       CTAs on Focus, Hero, and DriverPicker consume those tokens (no
       one-off class sizes for those buttons).
-- [ ] On light Calendar surfaces the primary is solid accent fill; secondary
+- [x] On light Calendar surfaces the primary is solid accent fill; secondary
       Decline / Pass stay outlined or text-only at ghost weight.
-- [ ] Token/generate test asserts `focusAction.size` is greater than
+- [x] Token/generate test asserts `focusAction.size` is greater than
       `filterChip.size` and `listRowMeta.size`; primary button computed
       min-height is at least the locked min-height token; undo /
       `RevertRideLink` font size is less than or equal to `focusAction.size`.
-- [ ] No OpenAPI, backend, or non-Calendar destination restyles in this PR.
-- [ ] Desktop Calendar only — no phone breakpoint restyle in this PR.
+- [x] No OpenAPI, backend, or non-Calendar destination restyles in this PR.
+- [x] Desktop Calendar only — no phone breakpoint restyle in this PR.
 
 ## Tasks
 
-- [ ] Tokens: bump `focusAction` (+ companion min-height / padX spacing);
+- [x] Tokens: bump `focusAction` (+ companion min-height / padX spacing);
       adjust `focusActionGhost` if needed for secondary hierarchy; regenerate
       CSS; extend `design-tokens/generate.test.mjs` relative-size assertions
-- [ ] Web: `AgendaBlockCard` — header chevron collapse/expand; remove Show
+- [x] Web: `AgendaBlockCard` — header chevron collapse/expand; remove Show
       details and count title; collapsed event bands + per-row compact
       `RiderChips`; shared-feed eyebrow rule unchanged
-- [ ] Web: `DriverPicker` — primary button consumes bumped tokens + accent
+- [x] Web: `DriverPicker` — primary button consumes bumped tokens + accent
       fill; confirm resting simple mode; disclosure links stay quieter /
       equal weight
-- [ ] Web: `AgendaFocusCard` + `HeroAttentionSlide` — Confirm / Accept /
+- [x] Web: `AgendaFocusCard` + `HeroAttentionSlide` — Confirm / Accept /
       Ask (and DriverPicker Confirm / Post) use the same primary tokens;
       Hero inverse fill preserved where required
-- [ ] Tests: block chevron + no Show details/count title; collapsed bands
-      show feed/title + RiderChips; mixed-feed block has no shared team
-      eyebrow; DriverPicker starts simple; token hierarchy; Hero / Focus
-      primary uses token classes (not hardcoded `text-sm`)
-- [ ] Manual: desktop Calendar — single-event row vs U10/U12 back-to-back
+- [x] Tests: block chevron + no Show details/count title; combined header
+      uses the single-card title role; collapsed kid rows show There/Back;
+      mixed feeds join on the eyebrow; Plan locked is expanded-only;
+      DriverPicker starts simple; token hierarchy; Hero / Focus primary uses
+      token classes (not hardcoded `text-sm`)
+- [x] Manual: desktop Calendar — single-event row vs U10/U12 back-to-back
       block (chip parity); gap → Confirm / Post reads larger than chips
       and undo; open Different plans → back to simple
 

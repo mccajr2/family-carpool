@@ -309,6 +309,16 @@ export function AgendaFocusCard({
   const borderVar = needsDecision ? "transparent" : "var(--fc-border)"
   const dividerVar = needsDecision ? "rgba(255,255,255,0.12)" : "var(--fc-border)"
   const ringTrackVar = needsDecision ? "rgba(255,255,255,0.14)" : "var(--fc-border)"
+  const focusPrimaryClass =
+    "h-auto min-h-[var(--fc-space-focus-action-min-height)] px-[var(--fc-space-focus-action-pad-x)] text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
+  const focusPrimaryFillClass = needsDecision
+    ? focusPrimaryClass
+    : `${focusPrimaryClass} bg-[var(--fc-accent)] text-[var(--fc-accent-on)] hover:bg-[var(--fc-accent)]/90`
+  const focusPrimaryStyle = needsDecision
+    ? { backgroundColor: onVar, color: surfaceVar }
+    : undefined
+  const focusGhostClass =
+    "h-auto px-[var(--fc-space-focus-action-pad-x)] text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
   const assignLeaveFromSlot =
     showAssign && onSetLeaveFrom != null ? (
       <div style={{ color: onSecondaryVar }} data-testid="agenda-focus-leave-from">
@@ -534,9 +544,9 @@ export function AgendaFocusCard({
           <>
             <Button
               type="button"
-              size="sm"
-              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              data-testid="agenda-focus-confirm-coverage"
+              className={focusPrimaryFillClass}
+              style={focusPrimaryStyle}
               onClick={() => onConfirmCoverage(pendingForSelf.id)}
               disabled={loading}
             >
@@ -544,9 +554,8 @@ export function AgendaFocusCard({
             </Button>
             <Button
               type="button"
-              size="sm"
               variant={needsDecision ? "secondary" : "outline"}
-              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              className={focusGhostClass}
               onClick={() => onDeclineCoverage(pendingForSelf.id)}
               disabled={loading}
             >
@@ -558,9 +567,9 @@ export function AgendaFocusCard({
           <>
             <Button
               type="button"
-              size="sm"
-              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              data-testid="agenda-focus-confirm-coverage"
+              className={focusPrimaryFillClass}
+              style={focusPrimaryStyle}
               onClick={() => onConfirmHouseholdPlan?.()}
               disabled={loading}
             >
@@ -568,9 +577,8 @@ export function AgendaFocusCard({
             </Button>
             <Button
               type="button"
-              size="sm"
               variant={needsDecision ? "secondary" : "outline"}
-              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              className={focusGhostClass}
               onClick={() => onDeclineHouseholdPlan?.()}
               disabled={loading}
             >
@@ -597,9 +605,9 @@ export function AgendaFocusCard({
             </div>
             <Button
               type="button"
-              size="sm"
-              className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-              style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
+              data-testid="agenda-focus-accept"
+              className={focusPrimaryFillClass}
+              style={focusPrimaryStyle}
               onClick={() => onAcceptRide?.(eligibleRide.id)}
               disabled={loading}
             >
@@ -607,9 +615,8 @@ export function AgendaFocusCard({
             </Button>
             <Button
               type="button"
-              size="sm"
               variant={needsDecision ? "secondary" : "outline"}
-              className="text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)]"
+              className={focusGhostClass}
               onClick={() => onPassRide?.(eligibleRide.id)}
               disabled={loading}
             >
@@ -620,10 +627,9 @@ export function AgendaFocusCard({
         {showRequest && rideEvent != null ? (
           <Button
             type="button"
-            size="sm"
-            className="text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)]"
-            style={needsDecision ? { backgroundColor: onVar, color: surfaceVar } : undefined}
-            variant={!needsDecision ? "default" : undefined}
+            data-testid="agenda-focus-request"
+            className={focusPrimaryFillClass}
+            style={focusPrimaryStyle}
             onClick={() => onCreateRide?.(rideEvent.eventKey)}
             disabled={loading}
           >

@@ -24,14 +24,14 @@ card hierarchy has to stay obvious.
 
 - Redesigning Carpool, Family, Places, or Feeds
   (`carpool-page-redesign`, `family-places-garage-redesign`)
-- Changing card rules (`calendar-card-hierarchy`)
+- Changing card language (`agenda-card-one-language`; hierarchy already shipped)
 - Expo bottom tabs (`rn-expo-scaffold`)
 - Month/week grid (`family-calendar-grid`)
 
 ## Notes
 
-- **Beta gate, rank 3.** After `calendar-card-hierarchy`, so the phone
-  layout is judged with the simple plan already prominent.
+- **Beta gate, rank 4.** After `agenda-card-one-language`, so the phone
+  layout consumes one Agenda card language, not the mixed week.
 - Narrow widths: one column. Navigation still reaches Calendar, Carpool,
   Family, Places, and Feeds. The week-glance aside may hide or stack; it
   does not have to be restyled.

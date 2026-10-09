@@ -50,7 +50,7 @@ export type AgendaBlockRunSection = {
 }
 
 export type AgendaBlockEventBand = {
-  /** e.g. "6:00–7:00 PM · Practice A" */
+  /** e.g. "6:00–7:00 PM · U10 Soccer" (feedName when set, else title) */
   line: string
   itemKey: string
 }
@@ -344,10 +344,13 @@ export function buildAgendaBlockSections(
   )
   const other = owned.filter((row) => row.ownerAdultId !== currentAdultId)
 
-  const eventBands: AgendaBlockEventBand[] = items.map((item) => ({
-    itemKey: calendarItemKey(item),
-    line: `${formatEventBandClock(item.startsAt, item.endsAt)} · ${item.title}`,
-  }))
+  const eventBands: AgendaBlockEventBand[] = items.map((item) => {
+    const feedOrTitle = item.feedName?.trim() || item.title
+    return {
+      itemKey: calendarItemKey(item),
+      line: `${formatEventBandClock(item.startsAt, item.endsAt)} · ${feedOrTitle}`,
+    }
+  })
 
   const viewerHasRun = viewerTo.length > 0 || viewerFrom.length > 0
   let mutedBand: AgendaBlockMutedBand | null = null

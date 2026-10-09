@@ -153,6 +153,8 @@ enum UiTokens {
         static let focusStatusPillY: CGFloat = 6
         static let focusCoveringPadY: CGFloat = 7
         static let focusActionsGap: CGFloat = 18
+        static let focusActionMinHeight: CGFloat = 44
+        static let focusActionPadX: CGFloat = 20
         static let filterChipGap: CGFloat = 8
         static let filterChipPadY: CGFloat = 9
         static let filterChipPadX: CGFloat = 16
@@ -251,8 +253,8 @@ enum UiTokens {
         static let focusRingUnit = TypeScale(size: 9.5, lineHeight: 12, weight: "600")
         static let focusStatusPill = TypeScale(size: 12.5, lineHeight: 16, weight: "600")
         static let focusCovering = TypeScale(size: 12.5, lineHeight: 16, weight: "600")
-        static let focusAction = TypeScale(size: 13.5, lineHeight: 18, weight: "700")
-        static let focusActionGhost = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
+        static let focusAction = TypeScale(size: 16, lineHeight: 22, weight: "700")
+        static let focusActionGhost = TypeScale(size: 14.5, lineHeight: 20, weight: "600")
         static let statusChip = TypeScale(size: 11, lineHeight: 14, weight: "700")
         static let filterChip = TypeScale(size: 13.5, lineHeight: 18, weight: "600")
         static let listRowAvatarLabel = TypeScale(size: 10.5, lineHeight: 14, weight: "700")

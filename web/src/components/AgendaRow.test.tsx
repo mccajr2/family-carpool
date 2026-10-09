@@ -1343,10 +1343,15 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-feed-gap")
     await user.click(within(row).getByRole("button", { expanded: false }))
-    expect(within(row).getByTestId("driver-picker")).toBeInTheDocument()
+    const picker = within(row).getByTestId("driver-picker")
+    expect(picker).toHaveAttribute("data-mode", "simple")
     const household = within(row).getByTestId("driver-picker-household-section")
     const leaveFrom = within(household).getByTestId("leave-from-FEED-feed-gap-field-row")
     const confirm = within(household).getByTestId("driver-picker-confirm")
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).toMatch(/--fc-accent/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
     expect(
       leaveFrom.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
@@ -3430,16 +3435,29 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-locked")
-    // Locked chrome is visible without expanding the accordion.
     expect(
       within(row).queryByTestId("agenda-row-lock-standing"),
     ).not.toBeInTheDocument()
     expect(
-      within(row).getByTestId("agenda-row-standing-locked-title"),
-    ).toHaveTextContent(/Plan locked/)
+      within(row).queryByTestId("agenda-row-standing-locked-title"),
+    ).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
+      /Every/,
+    )
     expect(
       within(row).queryByText("Different plans for each leg."),
     ).not.toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).getByTestId("agenda-row-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+    expect(within(row).getByTestId("agenda-row-legs-k1")).toHaveTextContent(
+      /Getting there/,
+    )
+    expect(within(row).getByTestId("agenda-row-legs-k1")).toHaveTextContent(
+      /Coming back/,
+    )
 
     await user.click(within(row).getByTestId("agenda-row-standing-locked-edit"))
     expect(onRemoveStandingBlock).not.toHaveBeenCalled()
@@ -3529,6 +3547,10 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-locked-split")
     expect(
+      within(row).queryByTestId("agenda-row-standing-locked-title"),
+    ).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
       within(row).getByTestId("agenda-row-standing-locked-title"),
     ).toHaveTextContent(/Plan locked/)
     await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
@@ -3587,6 +3609,10 @@ describe("AgendaRow", () => {
     )
 
     const row = screen.getByTestId("agenda-row-FEED-locked-err")
+    expect(
+      within(row).queryByTestId("agenda-row-standing-locked-error"),
+    ).not.toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { expanded: false }))
     expect(
       within(row).getByTestId("agenda-row-standing-locked-error"),
     ).toHaveTextContent(/Remove standing block failed/)

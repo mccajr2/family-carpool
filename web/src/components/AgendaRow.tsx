@@ -9,6 +9,8 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
+import { AgendaLegPair } from "@/components/AgendaLegPair"
+import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { AttendanceToggle, rsvpWriteForAttendanceAction } from "@/components/AttendanceToggle"
 import { Button } from "@/components/ui/button"
@@ -21,6 +23,7 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
+  recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -67,7 +70,6 @@ import {
 import {
   CONFIRM_COVERAGE,
   DECLINE_COVERAGE,
-  alreadyDrivingRoundTripBanner,
   markAsNotGoingLabel,
   markKidsAsNotGoingLabel,
   needsCoverageWithKids,
@@ -266,6 +268,16 @@ export function AgendaRow({
   /** Settled locked view: hide assign/overrides until Edit. */
   const settledLockedView = isStandingLocked && !editingLockedPlan
   const showLockedSummary = isStandingLocked && !outOfPlay
+  const lockedLayout = showLockedSummary
+    ? buildCombinedEventLayout({
+        items: [item],
+        currentAdultId,
+        circleId: circle.id,
+        kids: circle.kids,
+        members: circle.members,
+        rideEventFor: () => rideEvent,
+      })
+    : null
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const pendingHouseholdPlan =
@@ -495,12 +507,12 @@ export function AgendaRow({
       style={focusRingStyle}
     >
       <div data-testid="agenda-band-primary">
-      <button
-        type="button"
-        className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-list-row-pad-y)] pb-[var(--fc-space-sm)] text-left"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
+      <div className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-list-row-pad-y)] pb-[var(--fc-space-sm)]">
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={() => setOpen((v) => !v)}
+        >
         <span className="min-w-0 flex-1">
           {teamLabel != null ? (
             <span
@@ -530,6 +542,7 @@ export function AgendaRow({
             className="mt-0.5"
           />
         </span>
+        </button>
         <span
           data-testid="agenda-row-chip-strip"
           className="flex min-w-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)] max-[390px]:w-full max-[390px]:max-w-none max-[390px]:justify-start min-[391px]:max-w-[50%] min-[391px]:shrink-0"
@@ -564,88 +577,51 @@ export function AgendaRow({
               <Navigation aria-hidden size={14} />
             </span>
           ) : null}
-          <ChevronIcon
-            aria-hidden
+          <button
+            type="button"
             data-testid="agenda-row-chevron"
-            className="shrink-0 text-[var(--fc-text-secondary)]"
+            aria-expanded={open}
+            aria-label={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
+            className="inline-flex shrink-0 items-center justify-center text-[var(--fc-text-secondary)]"
             style={{
-              width: "var(--fc-font-list-row-chevron-size)",
-              height: "var(--fc-font-list-row-chevron-size)",
+              minWidth: "var(--fc-space-focus-action-min-height)",
+              minHeight: "var(--fc-space-focus-action-min-height)",
             }}
-          />
+            onClick={() => setOpen((v) => !v)}
+          >
+            <ChevronIcon
+              aria-hidden
+              style={{
+                width: "var(--fc-font-list-row-chevron-size)",
+                height: "var(--fc-font-list-row-chevron-size)",
+              }}
+            />
+          </button>
         </span>
-      </button>
-      {itemRiders.length > 0 ? (
-        <div className="px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
-          <RiderChips
-            riders={itemRiders}
-            variant="compact"
-            data-testid="agenda-row-rider-chips"
-          />
+      </div>
+      {itemRiders.length > 0 || showLockedSummary ? (
+        <div className="flex flex-wrap items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
+          {itemRiders.length > 0 ? (
+            <RiderChips
+              riders={itemRiders}
+              variant="compact"
+              data-testid="agenda-row-rider-chips"
+            />
+          ) : null}
+          {showLockedSummary ? (
+            <span
+              data-testid="agenda-row-recurrence"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+            >
+              <span aria-hidden>↻ </span>
+              {recurrenceHintLabel(weekdays.singular)}
+            </span>
+          ) : null}
         </div>
       ) : (
         <div className="pb-[var(--fc-space-sm)]" />
       )}
       </div>
-
-      {/* Locked chrome stays visible when collapsed — Remove must not require expand. */}
-      {showLockedSummary ? (
-        <div className="border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-md)]">
-          <LockedStandingPlanSummary
-            testIdPrefix="agenda-row-standing-locked"
-            weekdays={weekdays}
-            editing={editingLockedPlan}
-            planSummaryLine={
-              goingKids.length > 0
-                ? alreadyDrivingRoundTripBanner(
-                    goingKids.map((kid) => kid.firstName),
-                  )
-                : null
-            }
-            loading={loading}
-            onEditPlan={() => {
-              setEditingLockedPlan((wasEditing) => !wasEditing)
-              if (!open) {
-                setOpen(true)
-              }
-            }}
-            onRemoveRecurring={
-              onRemoveStandingBlock != null && standingChrome.templateId != null
-                ? () => onRemoveStandingBlock(standingChrome.templateId!, item.startsAt)
-                : undefined
-            }
-            actionError={coverageActionError}
-            notGoingActions={
-              goingKids.length > 0
-                ? [
-                    {
-                      key: "not-going",
-                      kidIds: goingKids.map((kid) => kid.id),
-                      firstNames: goingKids.map((kid) => kid.firstName),
-                      testId:
-                        goingKids.length >= 2
-                          ? "agenda-row-not-going-locked-all"
-                          : `agenda-row-not-going-locked-${goingKids[0]!.id}`,
-                    },
-                  ]
-                : []
-            }
-            onNotGoing={
-              onSetNotGoing != null || onSetRsvp != null
-                ? (kidIds) => {
-                    if (onSetNotGoing != null) {
-                      onSetNotGoing(kidIds)
-                      return
-                    }
-                    for (const id of kidIds) {
-                      onSetRsvp(id, "NO")
-                    }
-                  }
-                : undefined
-            }
-          />
-        </div>
-      ) : null}
 
       {standingRideSeries != null ? (
         <div
@@ -731,6 +707,61 @@ export function AgendaRow({
 
       {open ? (
         <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
+          {settledLockedView && lockedLayout != null
+            ? lockedLayout.kidRows.map((row) => (
+                <AgendaLegPair
+                  key={row.key}
+                  testId={`agenda-row-legs-${row.kidId}`}
+                  thereDetail={row.there.detail}
+                  backDetail={row.back.detail}
+                />
+              ))
+            : null}
+          {showLockedSummary ? (
+            <LockedStandingPlanSummary
+              testIdPrefix="agenda-row-standing-locked"
+              weekdays={weekdays}
+              editing={editingLockedPlan}
+              planSummaryLine={null}
+              notGoingScope="week"
+              loading={loading}
+              onEditPlan={() => setEditingLockedPlan((wasEditing) => !wasEditing)}
+              onRemoveRecurring={
+                onRemoveStandingBlock != null && standingChrome.templateId != null
+                  ? () => onRemoveStandingBlock(standingChrome.templateId!, item.startsAt)
+                  : undefined
+              }
+              actionError={coverageActionError}
+              notGoingActions={
+                goingKids.length > 0
+                  ? [
+                      {
+                        key: "not-going",
+                        kidIds: goingKids.map((kid) => kid.id),
+                        firstNames: goingKids.map((kid) => kid.firstName),
+                        testId:
+                          goingKids.length >= 2
+                            ? "agenda-row-not-going-locked-all"
+                            : `agenda-row-not-going-locked-${goingKids[0]!.id}`,
+                      },
+                    ]
+                  : []
+              }
+              onNotGoing={
+                onSetNotGoing != null || onSetRsvp != null
+                  ? (kidIds) => {
+                      if (onSetNotGoing != null) {
+                        onSetNotGoing(kidIds)
+                        return
+                      }
+                      for (const id of kidIds) {
+                        onSetRsvp(id, "NO")
+                      }
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
           {!outOfPlay && conflictLines.length > 0 ? (
             <ul
               data-testid={`agenda-conflicts-${item.source}-${item.id}`}
