@@ -454,9 +454,16 @@ describe("HeroAttentionSlide", () => {
       within(slide).getByTestId("hero-attention-incoming-leg-chips").textContent,
     ).not.toMatch(/Getting there:|Coming back:/)
 
-    await user.click(within(slide).getByRole("button", { name: "Accept" }))
+    const accept = within(slide).getByTestId("hero-attention-accept")
+    expect(accept.className).toMatch(/--fc-font-focus-action-size/)
+    expect(accept.className).not.toMatch(/\btext-sm\b/)
+    expect(accept).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-on-inverse)",
+    })
+    await user.click(accept)
     expect(onAcceptRide).toHaveBeenCalledWith("ride-1")
-    await user.click(within(slide).getByRole("button", { name: "Decline" }))
+    await user.click(within(slide).getByTestId("hero-attention-decline"))
     expect(onPassRide).toHaveBeenCalledWith("ride-1")
   })
 
@@ -511,9 +518,16 @@ describe("HeroAttentionSlide", () => {
     expect(
       within(slide).getByTestId("hero-attention-standing-ask-caption"),
     ).toHaveTextContent(/Accept once — you're the fixed primary for future Tuesdays/)
+    const standingAccept = within(slide).getByTestId("hero-attention-standing-accept")
+    expect(standingAccept.className).toMatch(/--fc-font-focus-action-size/)
+    expect(standingAccept.className).not.toMatch(/\btext-sm\b/)
+    expect(standingAccept).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-on-inverse)",
+    })
     expect(screen.getAllByTestId("hero-attention-standing-accept")).toHaveLength(1)
 
-    await user.click(within(slide).getByRole("button", { name: "Accept" }))
+    await user.click(standingAccept)
     expect(onAcceptStandingAsk).toHaveBeenCalledWith("arr-1")
     await user.click(within(slide).getByRole("button", { name: "Pass" }))
     expect(onPassStandingAsk).toHaveBeenCalledWith("arr-1")
@@ -803,7 +817,17 @@ describe("HeroAttentionSlide", () => {
     )
 
     const slide = screen.getByTestId("hero-attention-slide")
-    expect(within(slide).getByTestId("hero-attention-confirm-coverage")).toBeInTheDocument()
+    const confirm = within(slide).getByTestId("hero-attention-confirm-coverage")
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-pad-x/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
+    expect(confirm).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-on-inverse)",
+    })
+    const decline = within(slide).getByTestId("hero-attention-decline-coverage")
+    expect(decline.className).toMatch(/--fc-font-focus-action-ghost-size/)
     expect(within(slide).queryByTestId("driver-picker")).not.toBeInTheDocument()
     await user.click(within(slide).getByRole("button", { name: "Mark Declan as not going" }))
     expect(onSetRsvp).toHaveBeenCalledWith("k1", "NO")

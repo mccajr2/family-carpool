@@ -191,8 +191,10 @@ describe("buildAgendaBlockSections", () => {
     expect(sections.toRun?.heading).toMatch(/Drop-off run$/)
     expect(sections.toRun?.representativeItem.id).toBe("a")
     expect(sections.eventBands).toHaveLength(2)
-    expect(sections.eventBands[0]?.line).toContain("Practice A")
-    expect(sections.eventBands[1]?.line).toContain("Practice B")
+    // Shared feedName wins over title for collapsed band identity.
+    expect(sections.eventBands[0]?.line).toContain("U12")
+    expect(sections.eventBands[1]?.line).toContain("U12")
+    expect(sections.eventBands[0]?.line).not.toContain("Practice A")
     expect(sections.mutedBand?.heading).toBe(NOT_YOUR_JOB_TONIGHT)
     expect(sections.mutedBand?.lines.some((line) => line.includes("Kian"))).toBe(
       true,

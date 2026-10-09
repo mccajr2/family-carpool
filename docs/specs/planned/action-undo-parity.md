@@ -35,9 +35,8 @@ series back from the surface that offered Accept.
 
 ## Notes
 
-- **Beta gate, rank 2.** Depends on `calendar-card-hierarchy` for the quiet
-  slot. If this slices first, use the existing text link and let hierarchy
-  restyle it.
+- **Beta gate, rank 3.** After `agenda-card-one-language`. Depends on
+  `calendar-card-hierarchy` for the quiet slot.
 - Locked: [Reversible actions](../../roadmap.md) in `docs/roadmap.md`.
   Un-pass supersedes the “no un-pass” line in
   `carpool-pass-reconsider`.

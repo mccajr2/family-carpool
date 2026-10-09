@@ -5357,6 +5357,7 @@ describe("FamilyScreen", () => {
   })
 
   it("collapses combined driveBlockLinks items into one Agenda block card", async () => {
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -5489,15 +5490,21 @@ describe("FamilyScreen", () => {
     const list = within(agenda).getByTestId("agenda-list")
     expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
     const block = within(list).getByTestId("agenda-block-card")
-    expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-a")).toBeInTheDocument()
-    expect(within(block).getByTestId("agenda-block-event-band-FEED-drive-b")).toBeInTheDocument()
-    expect(within(block).getByTestId("agenda-block-run-to")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-kid-FEED-drive-a-k1")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-kid-FEED-drive-b-k1")).toBeInTheDocument()
+    expect(within(block).getByTestId("agenda-block-title")).toHaveTextContent(
+      "Practice A + Practice B",
+    )
+    expect(within(block).getByTestId("agenda-block-chevron")).toBeInTheDocument()
+    expect(within(block).queryByText(/Plan locked/)).not.toBeInTheDocument()
+    await user.click(within(block).getByTestId("agenda-block-header"))
+    expect(within(block).getByTestId("agenda-block-kid-plan-FEED-drive-a-k1")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-run-to-view-route")).toHaveTextContent(
       "View route",
     )
     expect(within(block).getByTestId("agenda-block-drive-block-links")).toBeInTheDocument()
     expect(
-      within(block).getByRole("button", { name: /Split this out/ }),
+      within(block).getByRole("button", { name: "Split into 2 events" }),
     ).toBeInTheDocument()
     expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
     expect(within(list).queryByTestId("agenda-drive-block-links")).not.toBeInTheDocument()
@@ -5796,6 +5803,7 @@ describe("FamilyScreen", () => {
 
     const agenda = await screen.findByLabelText("Agenda")
     const block = within(agenda).getByTestId("agenda-block-card")
+    await user.click(within(block).getByTestId("agenda-block-header"))
     await user.click(within(block).getByTestId("agenda-block-run-to-view-route"))
 
     expect(await screen.findByTestId("ride-detail-screen")).toBeInTheDocument()
@@ -5815,6 +5823,7 @@ describe("FamilyScreen", () => {
       configurable: true,
       value: vi.fn(),
     })
+    const user = userEvent.setup()
     const session = new AuthSessionHolder()
     session.setSession("tok", {
       id: "1",
@@ -5926,8 +5935,10 @@ describe("FamilyScreen", () => {
     expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
     expect(within(list).queryByTestId("agenda-row-FEED-drive-a")).not.toBeInTheDocument()
     expect(within(list).queryByTestId("agenda-row-FEED-drive-b")).not.toBeInTheDocument()
+    const block = within(list).getByTestId("agenda-block-card")
+    await user.click(within(block).getByTestId("agenda-block-header"))
     expect(
-      within(list).getByTestId("agenda-block-drive-block-links"),
+      within(block).getByTestId("agenda-block-drive-block-links"),
     ).toBeInTheDocument()
   })
 

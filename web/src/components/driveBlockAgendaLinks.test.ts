@@ -5,6 +5,7 @@ import {
   agendaBlockDriveBlockControls,
   driveBlockLinkLabel,
   driveBlockWriteForClick,
+  splitIntoEventsLabel,
   formatSiblingDriveClock,
   orderedDriveBlockPair,
 } from "@/components/driveBlockAgendaLinks"
@@ -42,6 +43,7 @@ describe("driveBlockAgendaLinks", () => {
     expect(driveBlockLinkLabel(link({ combined: false }))).toBe(
       `Split from Practice B · ${clock} · Combine these`,
     )
+    expect(splitIntoEventsLabel(2)).toBe("Split into 2 events")
   })
 
   it("orders the pair with earlier startsAt as left", () => {

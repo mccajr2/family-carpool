@@ -317,9 +317,19 @@ describe("AgendaFocusCard hero surface", () => {
     expect(within(screen.getByTestId("agenda-focus-chips")).getByText("Confirm you'll drive")).toBeInTheDocument()
     expect(screen.queryByText("Ride needed")).not.toBeInTheDocument()
     expect(screen.queryByText("Assigned to you")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Confirm coverage" })).toBeInTheDocument()
+    const confirm = screen.getByTestId("agenda-focus-confirm-coverage")
+    expect(confirm).toBeInTheDocument()
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(confirm.className).toMatch(/--fc-space-focus-action-pad-x/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
+    expect(confirm).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-surface)",
+    })
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Decline coverage" })).toBeInTheDocument()
+    const decline = screen.getByRole("button", { name: "Decline coverage" })
+    expect(decline.className).toMatch(/--fc-font-focus-action-ghost-size/)
     expect(screen.queryByRole("button", { name: "Remove coverage" })).not.toBeInTheDocument()
   })
 
@@ -382,17 +392,21 @@ describe("AgendaFocusCard assign", () => {
         onSetLeaveFrom: vi.fn(),
       },
     )
-    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    const picker = screen.getByTestId("driver-picker")
+    expect(picker).toHaveAttribute("data-mode", "simple")
     expect(screen.queryByTestId("agenda-focus-covering")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "You" })).toHaveAttribute("aria-pressed", "true")
     const household = screen.getByTestId("driver-picker-household-section")
     expect(within(household).getByTestId("agenda-focus-leave-from")).toBeInTheDocument()
+    const confirm = screen.getByTestId("driver-picker-confirm")
+    expect(confirm.className).toMatch(/--fc-font-focus-action-size/)
+    expect(confirm.className).not.toMatch(/\btext-sm\b/)
     expect(
       screen.getByRole("button", {
         name: "Confirm — You'll drive round trip from Mom's house",
       }),
     ).toBeInTheDocument()
-    await user.click(screen.getByTestId("driver-picker-confirm"))
+    await user.click(confirm)
     expect(onAssignCoverage).toHaveBeenCalledWith("a1", ["k1"])
   })
 
@@ -694,8 +708,17 @@ describe("AgendaFocusCard ride Accept/Pass", () => {
     })
     const card = screen.getByTestId("agenda-focus-MANUAL-ride-focus")
     expect(card).toHaveStyle({ backgroundColor: "var(--fc-hero-surface)" })
-    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Pass" })).toBeInTheDocument()
+    const accept = screen.getByTestId("agenda-focus-accept")
+    expect(accept.className).toMatch(/--fc-font-focus-action-size/)
+    expect(accept.className).toMatch(/--fc-space-focus-action-min-height/)
+    expect(accept.className).not.toMatch(/\btext-sm\b/)
+    expect(accept).toHaveStyle({
+      backgroundColor: "var(--fc-hero-on)",
+      color: "var(--fc-hero-surface)",
+    })
+    expect(screen.getByRole("button", { name: "Pass" }).className).toMatch(
+      /--fc-font-focus-action-ghost-size/,
+    )
     expect(screen.queryByTestId("driver-picker")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-focus-incoming-ask")).toHaveTextContent(
       "House B · Mia · 1 seat · Home, 1 Main",
@@ -1527,7 +1550,7 @@ describe("AgendaFocusCard kid-split DriverPicker", () => {
       },
     )
 
-    expect(screen.getByTestId("driver-picker")).toBeInTheDocument()
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
     expect(screen.getByTestId("driver-picker-different-plans-kid")).toBeInTheDocument()
     await user.click(screen.getByTestId("driver-picker-different-plans-kid"))
     expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "kid-split")

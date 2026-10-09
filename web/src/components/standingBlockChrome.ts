@@ -46,7 +46,40 @@ export function confirmAndLockLabel(weekdayPlural: string): string {
 }
 
 export function lockedPlanTitle(weekdaySingular: string): string {
-  return `Plan locked — repeats every ${weekdaySingular}`
+  return `Plan locked · repeats every ${weekdaySingular}`
+}
+
+/** Collapsed recurring hint beside the kid, e.g. "Every Thursday". */
+export function recurrenceHintLabel(weekdaySingular: string): string {
+  return `Every ${weekdaySingular}`
+}
+
+/** Expanded locked card, one kid: "Declan not going this week". */
+export function notGoingThisWeekLabel(displayName: string): string {
+  const name = displayName.trim() || "Kid"
+  return `${name} not going this week`
+}
+
+/** Expanded combined card: "Kian not going". */
+export function notGoingKidLabel(displayName: string): string {
+  const name = displayName.trim() || "Kid"
+  return `${name} not going`
+}
+
+export function notGoingNamesLabel(
+  kidFirstNames: readonly string[],
+  scope: "week" | "name",
+): string {
+  const names = kidFirstNames.map((name) => name.trim()).filter(Boolean)
+  const who =
+    names.length === 0
+      ? "Kid"
+      : names.length === 1
+        ? names[0]!
+        : names.length === 2
+          ? `${names[0]} and ${names[1]}`
+          : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+  return scope === "week" ? `${who} not going this week` : `${who} not going`
 }
 
 export function lockedPlanScopeCaption(weekdayPlural: string): string {

@@ -9,6 +9,9 @@ import {
   lockedPlanScopeCaption,
   lockedPlanTitle,
   markAsNotGoingThisWeekLabel,
+  notGoingKidLabel,
+  notGoingThisWeekLabel,
+  recurrenceHintLabel,
   mergeStandingFieldsFromPrevious,
   standingAssignedYouCaption,
   standingAssignedYouTitle,
@@ -156,8 +159,11 @@ describe("standingBlockChrome", () => {
     )
     expect(confirmAndLockLabel("Tuesdays")).toBe("Confirm and lock for Tuesdays")
     expect(lockedPlanTitle("Tuesday")).toBe(
-      "Plan locked — repeats every Tuesday",
+      "Plan locked · repeats every Tuesday",
     )
+    expect(recurrenceHintLabel("Thursday")).toBe("Every Thursday")
+    expect(notGoingThisWeekLabel("Declan")).toBe("Declan not going this week")
+    expect(notGoingKidLabel("Kian")).toBe("Kian not going")
     expect(lockedPlanScopeCaption("Tuesdays")).toMatch(/from this date forward/)
     expect(standingAssignedYouTitle("Jason", "Tuesday")).toBe(
       "Jason assigned you to drive every Tuesday",

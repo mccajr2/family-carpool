@@ -1,10 +1,11 @@
+import type { ReactNode } from "react"
+
 import {
   EDIT_LOCKED_PLAN,
   REMOVE_RECURRING_COVERAGE,
   lockedPlanScopeCaption,
   lockedPlanTitle,
-  markAsNotGoingThisWeekLabel,
-  markKidsAsNotGoingThisWeekLabel,
+  notGoingNamesLabel,
   type StandingWeekdayNames,
 } from "@/components/standingBlockChrome"
 
@@ -29,6 +30,13 @@ export type LockedStandingPlanSummaryProps = {
   actionError?: string | null
   notGoingActions?: LockedStandingNotGoingAction[]
   onNotGoing?: (kidIds: string[]) => void
+  /**
+   * `week` — "Declan not going this week" on a single recurring card.
+   * `name` — "Kian not going" on a combined card.
+   */
+  notGoingScope?: "week" | "name"
+  /** Quiet siblings of Edit plan, e.g. Split into 2 events. */
+  extraActions?: ReactNode
   testIdPrefix?: string
 }
 
@@ -48,10 +56,14 @@ export function LockedStandingPlanSummary({
   actionError = null,
   notGoingActions = [],
   onNotGoing,
+  notGoingScope = "week",
+  extraActions,
   testIdPrefix = "standing-locked",
 }: LockedStandingPlanSummaryProps) {
   const linkClass =
-    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+    "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+  const removeClass =
+    "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-danger)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
 
   return (
     <div
@@ -102,22 +114,38 @@ export function LockedStandingPlanSummary({
         >
           {editing ? "Done editing this week" : EDIT_LOCKED_PLAN}
         </button>
-        {onRemoveRecurring != null ? (
-          <button
-            type="button"
-            disabled={loading}
-            className={linkClass}
-            data-testid={`${testIdPrefix}-remove`}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onRemoveRecurring()
-            }}
-          >
-            {REMOVE_RECURRING_COVERAGE}
-          </button>
-        ) : null}
+        {!editing && onNotGoing != null
+          ? notGoingActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                disabled={loading}
+                className={linkClass}
+                data-testid={action.testId}
+                onClick={() => onNotGoing(action.kidIds)}
+              >
+                {notGoingNamesLabel(action.firstNames, notGoingScope)}
+              </button>
+            ))
+          : null}
+        {extraActions}
       </div>
+
+      {onRemoveRecurring != null ? (
+        <button
+          type="button"
+          disabled={loading}
+          className={removeClass}
+          data-testid={`${testIdPrefix}-remove`}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onRemoveRecurring()
+          }}
+        >
+          {REMOVE_RECURRING_COVERAGE}
+        </button>
+      ) : null}
 
       {actionError != null && actionError.length > 0 ? (
         <p
@@ -135,28 +163,6 @@ export function LockedStandingPlanSummary({
       >
         {lockedPlanScopeCaption(weekdays.plural)}
       </p>
-
-      {!editing && onNotGoing != null && notGoingActions.length > 0 ? (
-        <div
-          data-testid={`${testIdPrefix}-not-going`}
-          className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
-        >
-          {notGoingActions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              disabled={loading}
-              className={linkClass}
-              data-testid={action.testId}
-              onClick={() => onNotGoing(action.kidIds)}
-            >
-              {action.firstNames.length >= 2
-                ? markKidsAsNotGoingThisWeekLabel(action.firstNames)
-                : markAsNotGoingThisWeekLabel(action.firstNames[0] ?? "kid")}
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   )
 }

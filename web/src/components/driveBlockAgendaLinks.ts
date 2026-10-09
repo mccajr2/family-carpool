@@ -30,6 +30,12 @@ export function driveBlockLinkLabel(link: CalendarDriveBlockLink): string {
   return `Split from ${title} · ${clock} · Combine these`
 }
 
+/** Block-card control. One action undoes the whole combined card. */
+export function splitIntoEventsLabel(eventCount: number): string {
+  const count = Math.max(2, eventCount)
+  return `Split into ${count} events`
+}
+
 export type DriveBlockOrderedPair = {
   leg: CalendarDriveBlockLink["leg"]
   leftSource: CalendarItemSource

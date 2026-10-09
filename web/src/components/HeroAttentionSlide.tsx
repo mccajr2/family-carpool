@@ -370,8 +370,12 @@ export function HeroAttentionSlide({
     (onSetRsvp != null || onSetNotGoing != null)
   const confirmKidSplitEligible = showConfirmChrome && goingKids.length >= 2
   const confirmKidSplitEnabled = confirmKidSplitEligible && onSetRsvp != null
+  const heroPrimaryActionClass =
+    "rounded-lg min-h-[var(--fc-space-focus-action-min-height)] px-[var(--fc-space-focus-action-pad-x)] text-[length:var(--fc-font-focus-action-size)] leading-[var(--fc-font-focus-action-line)] font-[number:var(--fc-font-focus-action-weight)] disabled:cursor-not-allowed disabled:opacity-50"
+  const heroGhostActionClass =
+    "rounded-lg min-h-[var(--fc-space-focus-action-min-height)] px-[var(--fc-space-focus-action-pad-x)] text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)] text-[var(--fc-hero-on)] disabled:cursor-not-allowed disabled:opacity-50"
   const heroSecondaryLinkClass =
-    "text-left text-xs underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current disabled:cursor-not-allowed disabled:opacity-50"
+    "text-left text-[length:var(--fc-font-focus-action-ghost-size)] leading-[var(--fc-font-focus-action-ghost-line)] font-[number:var(--fc-font-focus-action-ghost-weight)] underline-offset-2 opacity-90 underline decoration-transparent hover:decoration-current disabled:cursor-not-allowed disabled:opacity-50"
 
   function markGoingKidsNotAttending() {
     const ids = goingKids.map((kid) => kid.id)
@@ -507,7 +511,7 @@ export function HeroAttentionSlide({
       <button
         type="button"
         data-testid={`hero-attention-conflict-keep-a${testIdSuffix}`}
-        className="rounded-lg px-4 py-2 text-left text-sm font-semibold"
+        className={`text-left ${heroPrimaryActionClass}`}
         style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
         disabled={loading}
         onClick={() => resolveConflict("keepA", kidIds)}
@@ -517,7 +521,7 @@ export function HeroAttentionSlide({
       <button
         type="button"
         data-testid={`hero-attention-conflict-keep-b${testIdSuffix}`}
-        className="rounded-lg px-4 py-2 text-left text-sm font-semibold"
+        className={`text-left ${heroPrimaryActionClass}`}
         style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
         disabled={loading}
         onClick={() => resolveConflict("keepB", kidIds)}
@@ -705,7 +709,7 @@ export function HeroAttentionSlide({
                     <button
                       type="button"
                       data-testid="hero-attention-confirm-coverage"
-                      className="rounded-lg px-4 py-2 text-sm font-semibold"
+                      className={heroPrimaryActionClass}
                       style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                       disabled={loading}
                       onClick={() => {
@@ -721,7 +725,7 @@ export function HeroAttentionSlide({
                     <button
                       type="button"
                       data-testid="hero-attention-decline-coverage"
-                      className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--fc-hero-on)]"
+                      className={heroGhostActionClass}
                       style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
                       disabled={loading}
                       onClick={() => {
@@ -746,7 +750,7 @@ export function HeroAttentionSlide({
                 </div>
               ) : (
                 <div
-                  className="mt-[var(--fc-space-xl)] min-w-0 max-w-full border-t pt-[var(--fc-space-md)] [&_button]:text-sm"
+                  className="mt-[var(--fc-space-xl)] min-w-0 max-w-full border-t pt-[var(--fc-space-md)]"
                   style={{ borderColor: "rgba(255,255,255,0.14)" }}
                 >
                   <DriverPicker
@@ -858,7 +862,7 @@ export function HeroAttentionSlide({
                   <button
                     type="button"
                     data-testid="hero-attention-standing-accept"
-                    className="rounded-xl px-5 py-3 font-semibold"
+                    className={heroPrimaryActionClass}
                     style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                     disabled={loading}
                     onClick={() =>
@@ -870,7 +874,7 @@ export function HeroAttentionSlide({
                   <button
                     type="button"
                     data-testid="hero-attention-standing-pass"
-                    className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-hero-on)]"
+                    className={heroGhostActionClass}
                     style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
                     disabled={loading}
                     onClick={() =>
@@ -942,7 +946,8 @@ export function HeroAttentionSlide({
                 <div className="mt-[var(--fc-space-xl)] flex min-w-0 max-w-full flex-wrap gap-[var(--fc-space-md)]">
                   <button
                     type="button"
-                    className="rounded-xl px-5 py-3 font-semibold"
+                    data-testid="hero-attention-accept"
+                    className={heroPrimaryActionClass}
                     style={{ backgroundColor: "var(--fc-hero-on)", color: HERO_ON_INVERSE }}
                     disabled={loading}
                     onClick={() => onAcceptRide(requestAccept.id)}
@@ -951,7 +956,8 @@ export function HeroAttentionSlide({
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl px-5 py-3 font-semibold text-[var(--fc-hero-on)]"
+                    data-testid="hero-attention-decline"
+                    className={heroGhostActionClass}
                     style={{ backgroundColor: "var(--fc-hero-decline-bg)" }}
                     disabled={loading}
                     onClick={() => onPassRide(requestAccept.id)}

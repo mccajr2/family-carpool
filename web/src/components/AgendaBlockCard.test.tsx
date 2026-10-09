@@ -10,7 +10,6 @@ import type {
   FamilyCircle,
 } from "@/api/types"
 import { AgendaBlockCard } from "@/components/AgendaBlockCard"
-import { NOT_YOUR_JOB_TONIGHT } from "@/components/coverageCopy"
 
 const circle: FamilyCircle = {
   id: "c1",
@@ -95,8 +94,16 @@ function rideEventForMap(
   return (row) => byId[row.id] ?? null
 }
 
+async function expandBlock(
+  user: ReturnType<typeof userEvent.setup>,
+  card: HTMLElement = screen.getByTestId("agenda-block-card"),
+) {
+  await user.click(within(card).getByTestId("agenda-block-header"))
+}
+
 describe("AgendaBlockCard", () => {
-  it("renders one card with runs, event bands, and muted not-your-job band", () => {
+  it("renders one card with runs, event bands, and muted not-your-job band", async () => {
+    const user = userEvent.setup()
     const members = [
       item("a", "2030-08-15T18:00:00.000Z", {
         endsAt: "2030-08-15T19:00:00.000Z",
@@ -204,38 +211,172 @@ describe("AgendaBlockCard", () => {
     )
 
     const card = screen.getByTestId("agenda-block-card")
-    expect(within(card).getByTestId("agenda-block-day")).toHaveTextContent(
-      /Sep|Aug/,
-    )
-    expect(within(card).getByTestId("agenda-block-day").textContent).toMatch(/U12/)
     expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent(
-      "Two events tonight",
+      "Practice A + Practice B",
     )
-    expect(within(card).getByTestId("agenda-block-run-to")).toBeInTheDocument()
-    expect(within(card).getByTestId("agenda-block-run-to-chip")).toHaveTextContent(
-      "You're driving · 2 riders",
+    expect(within(card).getByTestId("agenda-block-title").className).toContain(
+      "--fc-font-list-row-title-size",
     )
-    expect(within(card).getByTestId("agenda-block-event-bands").children).toHaveLength(
-      2,
+    expect(within(card).getByTestId("agenda-block-eyebrow")).toHaveTextContent("U12")
+    expect(within(card).getByTestId("agenda-block-when").textContent).toMatch(
+      /Aug|Sep/,
     )
-    const muted = within(card).getByTestId("agenda-block-muted-band")
-    expect(within(muted).getByTestId("agenda-block-muted-heading")).toHaveTextContent(
-      NOT_YOUR_JOB_TONIGHT,
+    expect(card.textContent).not.toMatch(/Two events tonight|\d+ events tonight/)
+    expect(within(card).getByTestId("agenda-block-chevron")).toHaveAttribute(
+      "aria-label",
+      "Expand Practice A + Practice B",
     )
-    expect(within(muted).getByTestId("agenda-block-muted-lines").textContent).toMatch(
-      /Kian/,
+    expect(within(card).getByTestId("agenda-block-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
     )
-    expect(within(card).getByTestId("agenda-block-run-from")).toBeInTheDocument()
-    expect(within(card).getByTestId("agenda-block-run-from-summary")).toHaveTextContent(
-      /Simoni Rink → home/,
+    expect(within(card).getByTestId("agenda-block-kid-rows").children).toHaveLength(3)
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1")).toHaveTextContent(
+      /Declan/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k2")).toHaveTextContent(
+      /There You · Back Mom/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-b-k1")).toHaveTextContent(
+      /Declan/,
+    )
+    expect(within(card).queryByText(/Plan locked/)).not.toBeInTheDocument()
+    expect(screen.queryByText("Show details")).not.toBeInTheDocument()
+    expect(screen.queryByText("Hide details")).not.toBeInTheDocument()
+
+    await expandBlock(user, card)
+    expect(within(card).getByTestId("agenda-block-header")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
+    expect(within(card).queryByTestId("agenda-block-kid-rows")).not.toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-block-kid-plan-FEED-a-k2")).toHaveTextContent(
+      /Getting there/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-plan-FEED-a-k2")).toHaveTextContent(
+      /Coming back/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-plan-FEED-a-k2")).toHaveTextContent(
+      /Mom/,
     )
     const links = within(card).getByTestId("agenda-block-drive-block-links")
     expect(within(links).getAllByRole("button")).toHaveLength(1)
-    expect(within(links).getByRole("button", { name: /Split this out/ })).toBeInTheDocument()
+    expect(within(links).getByRole("button", { name: "Split into 2 events" })).toBeInTheDocument()
     expect(screen.queryByTestId("agenda-row-FEED-a")).not.toBeInTheDocument()
     // No handler → no View route (same gate as AgendaRow).
     expect(screen.queryByTestId("agenda-block-run-to-view-route")).not.toBeInTheDocument()
     expect(screen.queryByTestId("agenda-block-run-from-view-route")).not.toBeInTheDocument()
+  })
+
+  it("omits shared team eyebrow when members have mixed feeds", () => {
+    render(
+      <AgendaBlockCard
+        items={[
+          item("a", "2030-08-15T18:00:00.000Z", {
+            feedName: "U10 Soccer",
+            title: "Practice",
+            kidIds: ["k1"],
+            rsvps: [{ kidId: "k1", status: "YES" }],
+          }),
+          item("b", "2030-08-15T19:15:00.000Z", {
+            feedName: "U12 Soccer",
+            title: "Practice",
+            kidIds: ["k2"],
+            rsvps: [{ kidId: "k2", status: "YES" }],
+          }),
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent("Practice")
+    expect(within(card).getByTestId("agenda-block-eyebrow")).toHaveTextContent(
+      "U10 Soccer + U12 Soccer",
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1")).toHaveTextContent(
+      /Declan/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1")).toHaveTextContent(
+      /U10 Soccer/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-b-k2")).toHaveTextContent(
+      /Kian/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-b-k2")).toHaveTextContent(
+      /U12 Soccer/,
+    )
+  })
+
+  it("uses title in band lines when feedName is absent", () => {
+    render(
+      <AgendaBlockCard
+        items={[
+          item("a", "2030-08-15T18:00:00.000Z", {
+            feedName: null,
+            title: "Piano lesson",
+            kidIds: ["k1"],
+            rsvps: [{ kidId: "k1", status: "YES" }],
+          }),
+          item("b", "2030-08-15T19:15:00.000Z", {
+            feedName: null,
+            title: "Swim practice",
+            kidIds: ["k2"],
+            rsvps: [{ kidId: "k2", status: "YES" }],
+          }),
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).queryByTestId("agenda-block-eyebrow")).not.toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent(
+      "Piano lesson + Swim practice",
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1")).toHaveTextContent(
+      /Piano lesson/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-b-k2")).toHaveTextContent(
+      /Swim practice/,
+    )
+  })
+
+  it("keeps status chips visible on the collapsed header when plans diverge", () => {
+    render(
+      <AgendaBlockCard
+        items={[
+          item("a", "2030-08-15T18:00:00.000Z", {
+            uncoveredKidIds: ["k1"],
+            kidIds: ["k1"],
+            rsvps: [{ kidId: "k1", status: "YES" }],
+          }),
+          item("b", "2030-08-15T19:15:00.000Z", {
+            uncoveredKidIds: ["k2"],
+            kidIds: ["k2"],
+            rsvps: [{ kidId: "k2", status: "YES" }],
+          }),
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    expect(within(card).getByTestId("agenda-block-chevron")).toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-block-chip-strip").textContent).toMatch(
+      /Ride needed/i,
+    )
+    expect(within(card).queryByText(/Plan locked/)).not.toBeInTheDocument()
   })
 
   it("opens dual-leg Route for the earliest member via View route on a TO run", async () => {
@@ -338,6 +479,7 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    await expandBlock(user)
     const viewRoute = screen.getByTestId("agenda-block-run-to-view-route")
     expect(viewRoute).toHaveTextContent("View route")
     await user.click(viewRoute)
@@ -447,6 +589,7 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    await expandBlock(user)
     const viewRoute = screen.getByTestId("agenda-block-run-from-view-route")
     expect(viewRoute).toHaveTextContent("View route")
     await user.click(viewRoute)
@@ -499,6 +642,7 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    await expandBlock(user)
     await user.click(
       screen.getByTestId("agenda-block-drive-block-link-TO-b"),
     )
@@ -633,6 +777,7 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    await expandBlock(user)
     const actions = screen.getByTestId("agenda-block-commitment-actions")
     expect(within(actions).getAllByTestId("agenda-reassign-link")).toHaveLength(2)
     expect(within(actions).getByText(/Mark Kian as not going/)).toBeInTheDocument()
@@ -794,13 +939,9 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
-    expect(screen.getByTestId("agenda-block-run-to-chip")).toHaveTextContent(
-      "You're driving · 3 riders",
-    )
-    expect(screen.getByTestId("agenda-block-run-to-summary")).toHaveTextContent(
-      /Apollo/,
-    )
-    expect(screen.getByTestId("agenda-block-run-from-summary")).toHaveTextContent(
+    await expandBlock(user)
+    expect(screen.getByTestId("agenda-block-title")).toHaveTextContent("CYH Practice")
+    expect(screen.getByTestId("agenda-block-kid-plan-FEED-squirt-k-apollo")).toHaveTextContent(
       /Apollo/,
     )
 
@@ -902,6 +1043,8 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    expect(screen.queryByTestId("agenda-block-standing-locked-title")).not.toBeInTheDocument()
+    await expandBlock(user)
     expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-block-standing-locked-title")).toHaveTextContent(
       /Plan locked/,
@@ -924,7 +1067,8 @@ describe("AgendaBlockCard", () => {
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1", "2030-08-15T17:00:00.000Z")
   })
 
-  it("surfaces Remove failures on the locked summary", () => {
+  it("surfaces Remove failures on the locked summary", async () => {
+    const user = userEvent.setup()
     const a = item("a", "2030-08-15T17:00:00.000Z", {
       standingLocked: true,
       standingBlockTemplateId: "tmpl-err",
@@ -948,7 +1092,7 @@ describe("AgendaBlockCard", () => {
 
     render(
       <AgendaBlockCard
-        items={[a]}
+        items={[a, item("b", "2030-08-15T18:00:00.000Z", { standingLocked: true })]}
         circle={circle}
         currentAdultId="a1"
         rideEventFor={() => null}
@@ -957,6 +1101,7 @@ describe("AgendaBlockCard", () => {
       />,
     )
 
+    await expandBlock(user)
     expect(screen.getByTestId("agenda-block-standing-locked-error")).toHaveTextContent(
       /Remove standing block failed/,
     )

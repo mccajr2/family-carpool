@@ -21,6 +21,7 @@ describe("RevertRideLink", () => {
     })
     expect(link.className).toMatch(/underline/)
     expect(link.className).toMatch(/underline-offset-2/)
+    // Quiet reverse: text-xs stays ≤ focusAction (asserted in design-tokens/generate.test.mjs).
     expect(link.className).toMatch(/text-xs/)
     expect(link.className).toMatch(/--fc-text-secondary/)
 

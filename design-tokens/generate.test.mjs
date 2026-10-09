@@ -40,6 +40,12 @@ test("generated token outputs match tokens.json (no drift)", () => {
   assert.match(css, /--fc-font-focus-title-weight: 700;/)
   assert.match(css, /--fc-font-focus-when-weight: 600;/)
   assert.match(css, /--fc-font-focus-status-pill-size: 12.5px;/)
+  assert.match(css, /--fc-font-focus-action-size: 16px;/)
+  assert.match(css, /--fc-font-focus-action-line: 22px;/)
+  assert.match(css, /--fc-font-focus-action-weight: 700;/)
+  assert.match(css, /--fc-font-focus-action-ghost-size: 14.5px;/)
+  assert.match(css, /--fc-space-focus-action-min-height: 44px;/)
+  assert.match(css, /--fc-space-focus-action-pad-x: 20px;/)
   assert.match(css, /--fc-font-filter-chip-size: 13.5px;/)
   assert.match(css, /--fc-space-filter-chip-gap: 8px;/)
   assert.match(css, /--fc-space-list-row-avatar: 26px;/)
@@ -202,8 +208,31 @@ test("tokens.json declares light and dark color roles and icons", () => {
   assert.equal(tokens.typography.scale.focusStatusPill.size, 12.5)
   assert.equal(tokens.typography.scale.focusStatusPill.weight, "600")
   assert.equal(tokens.typography.scale.focusCovering.weight, "600")
+  assert.equal(tokens.typography.scale.focusAction.size, 16)
+  assert.equal(tokens.typography.scale.focusAction.lineHeight, 22)
   assert.equal(tokens.typography.scale.focusAction.weight, "700")
+  assert.equal(tokens.typography.scale.focusActionGhost.size, 14.5)
+  assert.equal(tokens.typography.scale.focusActionGhost.lineHeight, 20)
   assert.equal(tokens.typography.scale.focusActionGhost.weight, "600")
+  assert.ok(
+    tokens.typography.scale.focusAction.size > tokens.typography.scale.filterChip.size,
+    "focusAction must be larger than filterChip",
+  )
+  assert.ok(
+    tokens.typography.scale.focusAction.size > tokens.typography.scale.listRowMeta.size,
+    "focusAction must be larger than listRowMeta",
+  )
+  assert.ok(
+    tokens.typography.scale.focusActionGhost.size < tokens.typography.scale.focusAction.size,
+    "focusActionGhost must be quieter than focusAction",
+  )
+  assert.equal(tokens.spacing.focusActionMinHeight, 44)
+  assert.equal(tokens.spacing.focusActionPadX, 20)
+  // Undo / RevertRideLink uses Tailwind text-xs (12px) — must stay ≤ primary.
+  assert.ok(
+    12 <= tokens.typography.scale.focusAction.size,
+    "RevertRideLink text-xs must be ≤ focusAction.size",
+  )
   assert.equal(tokens.typography.scale.statusChip.size, 11)
   assert.equal(tokens.typography.scale.feedName.size, 16.5)
   assert.equal(tokens.typography.scale.feedName.weight, "700")
