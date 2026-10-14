@@ -31,7 +31,7 @@ pass that separates presentation from enforceable invariants.
 
 ## Notes
 
-- **After the web parent beta** (Upcoming rank 13), **before** Expo or any
+- **After the web parent beta** (Upcoming rank 14), **before** Expo or any
   second client (`rn-expo-scaffold` / `push-notifications`). One web client
   can dogfood without this audit.
 - Inventory starting points: `autoDeclined` /

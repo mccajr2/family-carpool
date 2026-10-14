@@ -27,6 +27,6 @@ JS-readable token is also the wrong long-term web default.
 ## Notes
 
 - Depends on `adult-auth-magic-link`.
-- **Beta gate, rank 4.** Parent-facing result: reload keeps the session.
+- **Beta gate, rank 5.** Parent-facing result: reload keeps the session.
   Likely HTTP-only cookie (or equivalent) + CSRF/`SameSite`. Not a blocker
   for local/dev smoke. Expo stays Bearer when revived.

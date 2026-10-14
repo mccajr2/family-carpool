@@ -25,5 +25,5 @@ are not email-bound every session.
 ## Notes
 
 - Depends on `adult-auth-magic-link` (done).
-- **After the beta gate** (Upcoming rank 14). OTP remains the way parents
+- **After the beta gate** (Upcoming rank 15). OTP remains the way parents
   sign in. Do not block the web parent beta.

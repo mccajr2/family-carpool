@@ -9,62 +9,57 @@ Thin stub from `/roadmap`. **Not implementable yet.** Run
 `/spec agenda-card-one-language` to flesh out Approach, Acceptance Criteria,
 and Tasks before any code.
 
-If fleshing out reveals more than one PR-sized slice, stop and `/roadmap`
-**split** (`Added: … · re-rank split`) — do not grow this stub into a
-mega-spec. If the matrix below will not fit one PR, stop and split.
+Split 2026-10-14: expanded bodies → [`agenda-card-expanded-bodies`](agenda-card-expanded-bodies.md).
+Do not re-grow this stub into that work.
 
 ## Problem
 
-`calendar-card-hierarchy` matched a four-frame mock (combined night and locked
-recurring event, each collapsed and expanded). Neighboring Agenda cards still
-use the previous language, so one week shows two card systems.
+`calendar-card-hierarchy` matched a four-frame mock for combined and locked
+cards. Neighboring Agenda rows still use the previous language — compact
+RiderChips on a single event beside kid + There/Back lines on a drive block —
+so one week shows two card systems.
 
-The next spec is one Agenda card language on desktop web. Before any layout
-work, write a matrix and one rule per cell. The mock for `/spec` must show
-every cell below, collapsed and expanded. Do not restyle a cell that is
-missing from that mock.
+This slice is **one collapsed Agenda card language** on desktop web: shared
+header (eyebrow, title role, when, chip family) and shared collapsed body
+(kid row + There/Back). Derive variants from the real chip/plan inventory, not
+a 16-cell yes/no matrix. Mock every in-scope composite before restyle; missing
+from the mock → out of scope for this PR.
 
-Cells:
+Slots this slice owns (closed sets; do not cross-multiply):
 
-- Single event vs combined drive block
-- Ride needed vs fully assigned
-- Locked recurring vs not locked
-- Collapsed vs expanded
+- Shell: single `AgendaRow` vs combined `AgendaBlockCard`
+- Header identity + header chip family (urgent ride chips and combined plan
+  chips such as `You · N of M legs` / `{Who} · round trip`)
+- Collapsed body: kid row language on both shells (retire compact RiderChips
+  as the resting single-event body)
 
-Rules to make consistent (decide the words in `/spec`; do not invent a third
-pattern):
+Composite stress cards (collapsed; expand only if needed to prove a chip):
 
-- **Header:** same eyebrow, title role (`listRowTitle`), when line, and chip
-  treatment. Combined may say "You · N of M legs"; a single assigned round
-  trip and a ride-needed row must use that same chip family, not "You're
-  driving" beside "You · round trip".
-- **Collapsed body:** same kid row (avatar, name, event, clock). Combined
-  keeps "There {driver} · Back {driver}". A single row uses the same row,
-  not compact RiderChips on one card and kid lines on the next.
-- **Expanded body:** Getting there / Coming back for every assigned card,
-  single and combined. Ride needed still opens the simple DriverPicker.
-  Plan locked, Edit, not-going, and Remove appear only after expand.
-- **Action words:** one not-going phrase, one split phrase ("Split into N
-  events" on a combined card; a single row's Combine / Split matches that
-  voice), Remove in danger text. Drop "Mark {name} as not going" on these
-  cards if the short label wins.
+1. Single, one kid, ride needed
+2. Combined 3 events, mixed coverage
+3. Combined fully assigned, viewer drives nothing
+4. Locked + open gap (chip + lock stamp can coexist)
+5. Combined locked with one kid skipped (optional)
 
 ## Non-goals (sketch)
 
+- Expanded bodies, DriverPicker modes, locked Edit/Done, commitment action
+  words — [`agenda-card-expanded-bodies`](agenda-card-expanded-bodies.md)
 - New ride states, coverage rules, or OpenAPI fields
 - Hero, Focus, Carpool, Family, Places, Feeds, Route
 - Phone-width Calendar (`calendar-phone-frame`)
 - Undo holes (`action-undo-parity`)
+- Inbound Accept/Pass row restyle (`AgendaInboundRequestRow`)
 - Changing who is queued in the Hero
 
 ## Notes
 
-- **Beta gate, rank 2.** After `calendar-card-hierarchy` ships; before
-  `action-undo-parity` and before `calendar-phone-frame` (phone layout
-  consumes this language, not the mixed one).
-- Desktop web Agenda only. Relative order of ranks below the insert stays
-  as they were.
-- At `/spec`: matrix + one rule per cell first; mock must cover every cell
-  collapsed and expanded. Missing from mock → out of scope for that PR.
-- If the matrix is too large for one PR → `/roadmap` split; do not grow
-  this stub.
+- **Beta gate, rank 1.** After `calendar-card-hierarchy`; before
+  `agenda-card-expanded-bodies` (rank 2). Phone layout waits until both card
+  slices ship.
+- Desktop web Agenda only.
+- At `/spec`: lock slot variants + composites against the mock; one rule per
+  in-scope slot. Do not invent a third chip or body pattern.
+- Code inventory (2026-10-14): `rideStatusChipsForItem` + `combinedPlanChip`
+  are the chip sources; `agendaItemStatusTags` is unused on these cards;
+  `AgendaBlockCard` has no DriverPicker (expanded slice).

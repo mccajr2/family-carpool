@@ -1,7 +1,7 @@
 # Product roadmap
 
 Status: active  
-Updated: 2026-10-09 (`/pr calendar-card-hierarchy`; next up `agenda-card-one-language`)
+Updated: 2026-10-14 (`/roadmap` split `agenda-card-one-language` → collapsed + `agenda-card-expanded-bodies`; next up `agenda-card-one-language`)
 
 Living backlog for this product repo. **One roadmap ↔ many specs** (1:1 by
 kebab-case id). `/roadmap` updates and re-ranks; `/spec <id>` fleshes out the
@@ -98,7 +98,7 @@ retire via `kmp-mobile-retire`.
 | Carpool music            | **Parked for dogfood (2026-09-08).** Spotify OAuth/playlist path shipped in `[ride-playlist-tab](specs/archive/ride-playlist-tab.md)` but Spotify developer/Premium constraints make it unsuitable as a required path (no Spotify Premium solely for API/dev; never ask users for music-service passwords/API keys). **Hide Playlist UI** Done: `[ride-detail-route-only](specs/archive/ride-detail-route-only.md)`; keep Spotify code **dormant** (do not delete — reuse domain/`mergeTracks`). Resume via provider-neutral model then **Apple Music first** (parking: `music-provider-model` → `apple-music-connect` → `apple-music-playlist-ingest` → `apple-music-web-playback` → `apple-music-native-playback` → `music-playback-host`). Product: short generated **DJ mix** (~60–90 min), app owns overlap/fairness merge; **participation ≠ playback** (one supported host can play). Spotify may return later as an optional provider. Cancelled supersession: `playlist-open-in-streaming`. |
 | Focus card selection     | **Hero & coverage redesign (2026-08-28):** "Needs your attention" is a **swipeable carousel** over shared `getQueue` ([ADR-0001](decisions/ADR-0001-coverage-priority-rule.md)) — **event-grouped** priority: for each event soonest-first, own-child gaps then pending carpool asks (family-first within an event; same-event asks before later own gaps). Every slide independently actionable; empty queue → all caught up. Done: [`coverage-priority-same-event`](specs/archive/coverage-priority-same-event.md) (amends ADR-0001). Done chain: [`coverage-priority-engine`](specs/archive/coverage-priority-engine.md) → [`unified-ride-status-chip`](specs/archive/unified-ride-status-chip.md) → [`hero-attention-carousel`](specs/archive/hero-attention-carousel.md) → [`weekly-list-focus-sync`](specs/archive/weekly-list-focus-sync.md) → [`coverage-priority-same-event`](specs/archive/coverage-priority-same-event.md). Ride-side reverts are one-click, no dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)); Assign→cancel open team ask + ask-team auto-decline Done: [`auto-decline-unofferable`](specs/archive/auto-decline-unofferable.md). **Hero not-going** Done: [`hero-not-going`](specs/archive/hero-not-going.md). **Player-conflict Hero** Done: [`player-conflict-hero`](specs/archive/player-conflict-hero.md) (same-kid overlap keep/not-going before ride assign). **Agenda list section labels** (Done): **NEEDS YOUR ATTENTION** / **REST OF TODAY** / etc. — `[agenda-chip-section-headers](specs/archive/agenda-chip-section-headers.md)`. Prior single-hero rules: Done `[agenda-focus-next-action](specs/archive/agenda-focus-next-action.md)`, `[agenda-focus-carpool-actions](specs/archive/agenda-focus-carpool-actions.md)`. Rider initials chips (Done): `[agenda-ride-rider-chips](specs/archive/agenda-ride-rider-chips.md)`. Contradictory ride commitments (Done): `[ride-commitment-conflict](specs/archive/ride-commitment-conflict.md)` — amber conflict chip + Focus/expanded callout; server fences remain on `client-server-invariant-audit`. Solid Agenda↔ride id: Done `[calendar-item-event-key](specs/archive/calendar-item-event-key.md)`. |
 | Schedule conflicts       | **Overlap math** Done: [`conflict-detection`](specs/archive/conflict-detection.md) (event `startsAt`/`endsAt`; kid + adult-coverage amber; CONFIRMED double-book **409**). **Player conflict (urgent)** Done: [`player-conflict-hero`](specs/archive/player-conflict-hero.md) — same kid on two overlapping events → Hero shows both, force keep one / **not going** on the other, then ride assign (builds on `KID_TIME_OVERLAP`; depends on Done [`hero-not-going`](specs/archive/hero-not-going.md)). **Family conflict (lower urgency, report only)** Done: [`family-conflict-report`](specs/archive/family-conflict-report.md) — different kids’ events overlap → clear Agenda signal (who + which events); split family or use carpool; quieter chrome; off Hero. Do **not** conflate with adult-coverage amber. Soft travel “cutting it close” stays [`conflict-travel-margin`](specs/planned/conflict-travel-margin.md). |
-| Simple plan first        | **Beta gate (2026-10-08).** The resting card is one round-trip for every going kid. Per-leg plans and per-kid plans stay fully available, one explicit step inside the same card, at the same weight as each other, and they are not the view you land on. A single event and a drive block use the **same chevron**. One primary action when a decision is waiting, visually larger than chips, meta, and undo links. Done: [`calendar-card-hierarchy`](specs/archive/calendar-card-hierarchy.md). Follow-up: one Agenda card language across single and combined rows — [`agenda-card-one-language`](specs/planned/agenda-card-one-language.md) — before phone layout. |
+| Simple plan first        | **Beta gate (2026-10-08).** The resting card is one round-trip for every going kid. Per-leg plans and per-kid plans stay fully available, one explicit step inside the same card, at the same weight as each other, and they are not the view you land on. A single event and a drive block use the **same chevron**. One primary action when a decision is waiting, visually larger than chips, meta, and undo links. Done: [`calendar-card-hierarchy`](specs/archive/calendar-card-hierarchy.md). Follow-up (split 2026-10-14): collapsed Agenda language — [`agenda-card-one-language`](specs/planned/agenda-card-one-language.md) — then expanded bodies — [`agenda-card-expanded-bodies`](specs/planned/agenda-card-expanded-bodies.md) — before phone layout. |
 | Reversible actions       | **Beta gate (2026-10-08).** Every assign, schedule, request, accept, pass, lock, and merge has a same-surface one-click reverse. No confirmation dialog ([ADR-0002](decisions/ADR-0002-automatic-non-blocking-cancellation.md)). **Un-pass** is in scope — supersedes the “no un-pass” line from [`carpool-pass-reconsider`](specs/archive/carpool-pass-reconsider.md). Accepting standing primary can end the series. One-week bail stays [`carpool-standing-week-exception`](specs/planned/carpool-standing-week-exception.md), not this row. [`action-undo-parity`](specs/planned/action-undo-parity.md). |
 
 
@@ -117,14 +117,15 @@ household. Web only. The line under the table is **beta ready**.
 
 | Rank | Id                              | Status  | Added                      | Summary                                                                                                                       |
 | ---- | ------------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1    | agenda-card-one-language        | planned | 2026-10-09 · enhancement   | One Agenda card language on desktop web: matrix of single/combined × ride-needed/assigned × locked/not × collapsed/expanded; mock every cell before restyle |
-| 2    | action-undo-parity              | planned | 2026-10-08 · enhancement   | Same-surface undo for every assign, schedule, request, accept, and pass. Known hole: un-pass. Accepting standing primary can end the series |
-| 3    | calendar-phone-frame            | planned | 2026-10-08 · enhancement   | Phone-width Calendar using the one card language above. Other destinations stay reachable; they are not restyled              |
-| 4    | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | Session survives refresh. In-memory Bearer dies on reload today. HTTP-only cookie (or equivalent); Expo stays Bearer          |
-| 5    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production mail for OTP. Dev code-echo stays local-only                                                                      |
-| 6    | carpool-ask-accept-email        | planned | 2026-10-08 · enhancement   | Email other households on Ask, and the requesting household on Accept. Not push, not an inbox                                |
-| 7    | carpool-standing-week-exception | planned | 2026-09-24 · re-rank split | One-week skip or driver bail without ending the standing series. Distinct Hero. Not the series-level undo from rank 2       |
-| 8    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Honest leave-by: loading and an explicit failure. No unlabeled fallback time                                                 |
+| 1    | agenda-card-one-language        | planned | 2026-10-09 · enhancement   | Collapsed Agenda language on desktop web: shared header chips + kid/There-Back body on single and combined cards; mock composites before restyle |
+| 2    | agenda-card-expanded-bodies     | planned | 2026-10-14 · re-rank split | Expanded Agenda bodies in that same language: read legs, resting DriverPicker, locked Edit, action words; mock after collapsed |
+| 3    | action-undo-parity              | planned | 2026-10-08 · enhancement   | Same-surface undo for every assign, schedule, request, accept, and pass. Known hole: un-pass. Accepting standing primary can end the series |
+| 4    | calendar-phone-frame            | planned | 2026-10-08 · enhancement   | Phone-width Calendar using the collapsed + expanded card language above. Other destinations stay reachable; they are not restyled |
+| 5    | web-auth-session-hardening      | planned | 2026-08-07 · enhancement   | Session survives refresh. In-memory Bearer dies on reload today. HTTP-only cookie (or equivalent); Expo stays Bearer          |
+| 6    | auth-email-delivery             | planned | 2026-08-07 · enhancement   | Production mail for OTP. Dev code-echo stays local-only                                                                      |
+| 7    | carpool-ask-accept-email        | planned | 2026-10-08 · enhancement   | Email other households on Ask, and the requesting household on Accept. Not push, not an inbox                                |
+| 8    | carpool-standing-week-exception | planned | 2026-09-24 · re-rank split | One-week skip or driver bail without ending the standing series. Distinct Hero. Not the series-level undo from rank 3       |
+| 9    | ride-detail-polish              | planned | 2026-09-06 · enhancement   | Honest leave-by: loading and an explicit failure. No unlabeled fallback time                                                 |
 
 
 **Beta ready.** A parent outside the house can sign in, stay signed in, use
@@ -138,23 +139,23 @@ Ranked. Not required for the first outside families.
 
 | Rank | Id                            | Status  | Added                      | Summary                                                                                                      |
 | ---- | ----------------------------- | ------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 9    | event-arrival-lead-time       | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                       |
-| 10   | conflict-travel-margin        | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                       |
-| 11   | carpool-recurring-rotation    | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only |
-| 12   | neighborhood-carpool          | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)    |
-| 13   | client-server-invariant-audit | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; server fences before a second client (Expo)        |
-| 14   | adult-optional-password       | planned | 2026-08-07 · re-rank split | Optional password for frequent users — OTP remains primary                                                  |
-| 15   | app-identity-rename           | planned | 2026-08-07 · initial       | Rename packages and bundle ids off the quickapp template. Does not block the web parent beta                |
+| 10   | event-arrival-lead-time       | planned | 2026-08-11 · enhancement   | Editable arrival lead times; reconcile Agenda + Route `bufferMinutes`                                       |
+| 11   | conflict-travel-margin        | planned | 2026-08-12 · enhancement   | Soft "cutting it close" warn from leave-by/travel gaps (after leave-from / lead-time)                       |
+| 12   | carpool-recurring-rotation    | planned | 2026-08-16 · enhancement   | 2+ families rotate same-day recurring team event; driver pool may be a subset; RSVP No drops that week only |
+| 13   | neighborhood-carpool          | planned | 2026-09-08 · enhancement   | Neighborhood carpool: proximity-based family recommendations (+ standing patterns; may split at `/spec`)    |
+| 14   | client-server-invariant-audit | planned | 2026-08-31 · enhancement   | Audit “must not happen” rules — UI-only vs API-enforced; server fences before a second client (Expo)        |
+| 15   | adult-optional-password       | planned | 2026-08-07 · re-rank split | Optional password for frequent users — OTP remains primary                                                  |
+| 16   | app-identity-rename           | planned | 2026-08-07 · initial       | Rename packages and bundle ids off the quickapp template. Does not block the web parent beta                |
 
 
-**Why this order.** Hierarchy shipped the four-frame mock; one card language
-closes the mixed week before undo and before phone layout consumes those
-rules. Sign-in, mail, and a one-week standing hole stay above the line after
-that. Relative order below the insert is unchanged. Rotation and neighborhood
-wait until a real week has survived the gate. Arrival buffers and
-travel-margin warns improve leave-by after the number is honest. The
-invariant audit is for a second client, not for the first web families.
-Password and the package rename are the same.
+**Why this order.** Hierarchy shipped the four-frame mock; collapsed card
+language closes the mixed week, then expanded bodies match that language,
+then undo and phone layout consume both. Sign-in, mail, and a one-week
+standing hole stay above the line after that. Relative order below the insert
+is unchanged. Rotation and neighborhood wait until a real week has survived
+the gate. Arrival buffers and travel-margin warns improve leave-by after the
+number is honest. The invariant audit is for a second client, not for the
+first web families. Password and the package rename are the same.
 
 Status values: `parking` · `planned` · `active` · `done` · `cancelled`  
 Added: `YYYY-MM-DD · initial` | `enhancement` | `re-rank split`
@@ -347,6 +348,7 @@ Only notable events (first carve-up, major re-rank, cancelled theme) — not eve
 
 | Date       | Event                                                                                                                                                                                                                             |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-14 | `/roadmap` **re-rank split**: `agenda-card-one-language` → collapsed header/chips/kid rows only (rank 1); new planned `agenda-card-expanded-bodies` (rank 2). Bump undo → 3, phone-frame → 4 (consumes both); ranks below +1. Next up still `agenda-card-one-language` — mock collapsed composites, then `/spec`. |
 | 2026-10-09 | `/pr calendar-card-hierarchy`: one chevron for event and drive-block cards; combined Agenda identity; Plan locked expanded-only; bumped `focusAction` primary; simple round-trip resting DriverPicker. Spec archived. Insert planned `agenda-card-one-language` as Next up (rank 1); bump undo → 2, phone-frame → 3. |
 | 2026-10-09 | `/roadmap`: finish `calendar-card-hierarchy` as-is (PR next). Insert planned `agenda-card-one-language` as rank 2 (one Agenda card language; matrix before restyle). Bump `action-undo-parity` → 3, `calendar-phone-frame` → 4 (consumes that language); ranks below keep relative order. Next up after archive: `agenda-card-one-language`. |
 | 2026-10-08 | `/roadmap` beta gate from parent-beta review: Next up `calendar-card-hierarchy` → `action-undo-parity` (un-pass + standing-primary end) → `calendar-phone-frame` → session → OTP mail → `carpool-ask-accept-email` → `carpool-standing-week-exception` → `ride-detail-polish`. **Beta ready** under rank 8. Demoted below the line: rotation, neighborhood, arrival lead time, travel margin, invariant audit, optional password, package rename. |
