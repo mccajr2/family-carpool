@@ -26,7 +26,7 @@ It does not block the web parent beta. OTP From-address copy can move with
 
 ## Notes
 
-- **After the beta gate** (Upcoming rank 15). Do not block Calendar or the
+- **After the beta gate** (Upcoming rank 16). Do not block Calendar or the
   web parent beta.
 - Touches Gradle ids, iOS bundle id, Android applicationId, web title, and
   user-visible strings. One PR if the rename is mechanical; split if store

@@ -29,7 +29,7 @@ already being in the app. Email is enough; push can wait for Expo.
 
 ## Notes
 
-- **Beta gate, rank 6.** Depends on `auth-email-delivery` for a real mail
+- **Beta gate, rank 7.** Depends on `auth-email-delivery` for a real mail
   port. Dev log delivery is not this slice.
 - Ask (one-off or standing): email adults in the other member circles.
 - Accept: email adults in the requesting circle.

@@ -25,7 +25,7 @@ and production need real email so adults can sign in without reading server logs
 ## Notes
 
 - Depends on `adult-auth-magic-link` (mail port + OTP flow).
-- **Beta gate, rank 5.** Real users cannot read the server log. Not a blocker
+- **Beta gate, rank 6.** Real users cannot read the server log. Not a blocker
   for local smoke; keep dev log delivery until this ships.
 - Ride Ask/Accept mail is the next id (`carpool-ask-accept-email`), not this
   slice. Package/bundle rename stays `app-identity-rename` (after beta). A
