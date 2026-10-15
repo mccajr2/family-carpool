@@ -2199,7 +2199,53 @@ describe("AgendaRow", () => {
     ).toBeInTheDocument()
   })
 
-  it("wraps collapsed chip tags on narrow widths", () => {
+  it("matches AgendaBlockCard chip-strip + chevron roles (token classes; no new urgent outline)", () => {
+    renderRow(
+      item({
+        id: "chip-parity",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-chip-parity")
+    const strip = within(row).getByTestId("agenda-row-chip-strip")
+    expect(strip.className).toMatch(/shrink-0/)
+    expect(strip.className).toMatch(/--fc-space-list-row-tag-gap/)
+    expect(strip.className).toMatch(/flex-wrap/)
+    expect(strip.className).not.toMatch(/max-\[390px\]:w-full/)
+    expect(within(row).getByTestId("agenda-row-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    const chevron = within(row).getByTestId("agenda-row-chevron")
+    expect(chevron).toHaveAttribute("aria-label", "Expand Practice")
+    expect(chevron.style.minWidth).toBe("var(--fc-space-focus-action-min-height)")
+    expect(chevron.style.minHeight).toBe("var(--fc-space-focus-action-min-height)")
+    expect(within(row).getByText(RIDE_NEEDED)).toBeInTheDocument()
+    // Urgent chip only — no new amber card outline system beyond existing focus ring.
+    expect(row.className).not.toMatch(/--fc-danger/)
+    expect(row.style.borderColor ?? "").not.toMatch(/danger/)
+  })
+
+  it("keeps the existing list-row focus outline when focused", () => {
+    render(
+      <AgendaRow
+        item={item({ id: "focus-outline", title: "Practice", uncoveredKidIds: ["k1"] })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        isFocused
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-focus-outline")
+    expect(row).toHaveAttribute("data-focused", "true")
+    expect(row.className).toMatch(/--fc-list-row-focus-border/)
+    expect(row.style.boxShadow).toContain("--fc-list-row-focus-halo")
+  })
+
+  it("wraps collapsed chip tags with the shared strip flex-wrap role", () => {
     render(
       <div style={{ width: "390px" }}>
         <AgendaRow
@@ -2237,7 +2283,7 @@ describe("AgendaRow", () => {
 
     const strip = screen.getByTestId("agenda-row-chip-strip")
     expect(strip.className).toMatch(/flex-wrap/)
-    expect(strip.className).toMatch(/max-\[390px\]:w-full/)
+    expect(strip.className).toMatch(/shrink-0/)
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText("Overlaps")).toBeInTheDocument()
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText(RIDE_NEEDED)).toBeInTheDocument()
   })

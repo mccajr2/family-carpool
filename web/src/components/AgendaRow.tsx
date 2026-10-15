@@ -503,13 +503,14 @@ export function AgendaRow({
       style={focusRingStyle}
     >
       <div data-testid="agenda-band-primary">
-      <div className="flex min-w-0 w-full flex-wrap items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-list-row-pad-y)] pb-[var(--fc-space-sm)]">
+      <div className="flex min-w-0 items-start justify-between gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-list-row-pad-y)]">
         <button
           type="button"
           className="min-w-0 flex-1 text-left"
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          data-testid="agenda-row-header"
         >
-        <span className="min-w-0 flex-1">
           {teamLabel != null ? (
             <span
               data-testid="agenda-row-team"
@@ -537,11 +538,10 @@ export function AgendaRow({
             data-testid="agenda-row-where"
             className="mt-0.5"
           />
-        </span>
         </button>
         <span
           data-testid="agenda-row-chip-strip"
-          className="flex min-w-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)] max-[390px]:w-full max-[390px]:max-w-none max-[390px]:justify-start min-[391px]:max-w-[50%] min-[391px]:shrink-0"
+          className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-[var(--fc-space-list-row-tag-gap)]"
         >
           {tags.map((tag) => (
             <AgendaStatusChip
@@ -576,7 +576,6 @@ export function AgendaRow({
           <button
             type="button"
             data-testid="agenda-row-chevron"
-            aria-expanded={open}
             aria-label={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
             className="inline-flex shrink-0 items-center justify-center text-[var(--fc-text-secondary)]"
             style={{

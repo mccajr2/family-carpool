@@ -183,7 +183,7 @@ fake per-leg marker in this PR.
 - [x] Web: Collapsed `AgendaRow` body → kid row + `There`/`Back` via
       `buildCombinedEventLayout` (or shared helper extracted for one item);
       remove compact `RiderChips` from collapsed resting state.
-- [ ] Web: Ensure single-event header chip strip + chevron parity with
+- [x] Web: Ensure single-event header chip strip + chevron parity with
       `AgendaBlockCard` (same roles; urgent outline unchanged).
 - [ ] Web: Confirm combined path still prefers `layout.planChip` when fully
       assigned, else deduped `rideStatusChipsForItem` (Frame B/C).
