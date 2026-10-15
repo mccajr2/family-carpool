@@ -597,12 +597,12 @@ export function AgendaRow({
         <div className="pb-[var(--fc-space-sm)]" />
       ) : null}
       {!open && collapsedLayout.kidRows.length > 0 ? (
-        <ul
+        <div
           data-testid="agenda-row-kid-rows"
           className="flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-md)] pb-[var(--fc-space-list-row-pad-y)]"
         >
           {collapsedLayout.kidRows.map((row) => (
-            <li
+            <div
               key={row.key}
               data-testid={`agenda-row-kid-${row.key}`}
               className="flex min-w-0 items-center justify-between gap-[var(--fc-space-md)]"
@@ -636,9 +636,9 @@ export function AgendaRow({
               >
                 {row.assignmentLine}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : null}
       </div>
 

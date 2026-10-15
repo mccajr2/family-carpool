@@ -424,12 +424,12 @@ export function AgendaBlockCard({
         <div className="pb-[var(--fc-space-sm)]" />
       ) : null}
       {!open && layout.kidRows.length > 0 ? (
-        <ul
+        <div
           data-testid="agenda-block-kid-rows"
           className="flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-md)] pb-[var(--fc-space-list-row-pad-y)]"
         >
           {layout.kidRows.map((row) => (
-            <li
+            <div
               key={row.key}
               data-testid={`agenda-block-kid-${row.key}`}
               className="flex min-w-0 items-center justify-between gap-[var(--fc-space-md)]"
@@ -460,9 +460,9 @@ export function AgendaBlockCard({
               <span className="shrink-0 text-right text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]">
                 {row.assignmentLine}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : null}
 
       {open ? (

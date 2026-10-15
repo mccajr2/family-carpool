@@ -1,10 +1,11 @@
 # Spec: agenda-card-one-language
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-10-09  
 Added: 2026-10-09 · enhancement  
 Spec'd: 2026-10-15 · collapsed slice 1 (PDF mock)
+Branch: `agenda-card-one-language`
 
 **PR size:** Fits one PR (desktop web Agenda collapsed shells only). Expanded
 bodies stay in [`agenda-card-expanded-bodies`](../planned/agenda-card-expanded-bodies.md).
@@ -106,67 +107,67 @@ fake per-leg marker in this PR.
 
 ### Shared collapsed language
 
-- [ ] Collapsed single (`AgendaRow`) and combined (`AgendaBlockCard`) cards
+- [x] Collapsed single (`AgendaRow`) and combined (`AgendaBlockCard`) cards
       share the same header structure: eyebrow (when present), title, when,
       location (when present), chip strip, chevron.
-- [ ] Collapsed body on both shells is a kid row: avatar initial, first name,
+- [x] Collapsed body on both shells is a kid row: avatar initial, first name,
       `{event} · {clock}`, and right-aligned `There {who} · Back {who}`.
-- [ ] `{who}` is only one of: `You` | `{FirstName}` | `Needs ride` | `Asked team`
+- [x] `{who}` is only one of: `You` | `{FirstName}` | `Needs ride` | `Asked team`
       (existing `faceFromLeg` / `collapsedAssignmentLine`).
-- [ ] Single collapsed cards do **not** use compact `RiderChips` as the
+- [x] Single collapsed cards do **not** use compact `RiderChips` as the
       resting body.
-- [ ] Combined titles are not `N events tonight` (or similar count titles);
+- [x] Combined titles are not `N events tonight` (or similar count titles);
       use `combinedEventTitle` (shared words / join / `Events` fallback).
-- [ ] Collapsed cards do not show run/timeline bands.
-- [ ] Title role (`listRowTitle`) is the same size/weight on single and
+- [x] Collapsed cards do not show run/timeline bands.
+- [x] Title role (`listRowTitle`) is the same size/weight on single and
       combined; chip role (`statusChip`) is the same size and weight on every
       card in this slice; eyebrow/when/location/meta roles match across shells.
-- [ ] Urgent cards keep the existing amber outline behavior (no new outline
+- [x] Urgent cards keep the existing amber outline behavior (no new outline
       system).
 
 ### Header identity (combined)
 
-- [ ] Eyebrow is feed names joined with ` + ` (`combinedEventEyebrow`).
-- [ ] Title is shared words of member event titles in order
+- [x] Eyebrow is feed names joined with ` + ` (`combinedEventEyebrow`).
+- [x] Title is shared words of member event titles in order
       (`combinedEventTitle`); e.g. titles that only share `Practice` →
       `Practice`.
-- [ ] When line is one compact span across all member events
+- [x] When line is one compact span across all member events
       (`combinedEventWhen`).
-- [ ] When locations differ, one primary location line is shown (existing
+- [x] When locations differ, one primary location line is shown (existing
       block location behavior — do not invent multi-venue chrome).
 
 ### Chips
 
-- [ ] Chip labels render uppercase via existing `AgendaStatusChip` (source
+- [x] Chip labels render uppercase via existing `AgendaStatusChip` (source
       stays sentence case).
-- [ ] Allowed collapsed vocabulary for this slice is the PDF legend (urgent /
+- [x] Allowed collapsed vocabulary for this slice is the PDF legend (urgent /
       calm single / combined plan / attendance). Frames A–D must match the
       labels and tones below; legend-only chips need no new showcase frames.
-- [ ] `combinedPlanChip` appears only when every There/Back who is assigned
+- [x] `combinedPlanChip` appears only when every There/Back who is assigned
       (no `Needs ride` / `Asked team`). Labels:
       `{Who} · round trip` | `You · N of M legs` | `{Other} · N of M legs`.
-- [ ] With any open leg, do **not** show a combined plan chip; show urgent
+- [x] With any open leg, do **not** show a combined plan chip; show urgent
       chips from `rideStatusChipsForItem` (and existing ask append) instead
       (Frame B may show more than one).
-- [ ] Tone follows who: You → `mint`; someone else / inbound `· +n` → `route`;
+- [x] Tone follows who: You → `mint`; someone else / inbound `· +n` → `route`;
       needs action → `amber`; attendance → `muted`.
-- [ ] `You're driving · +n`: `n` is inbound accepted carpool kid count
+- [x] `You're driving · +n`: `n` is inbound accepted carpool kid count
       (existing `drivingChipLabel` / inbound overlay). Unchanged meaning.
 
 ### Frame composites (collapsed)
 
-- [ ] **A — Single, one kid, ride needed:** header + one kid row with
+- [x] **A — Single, one kid, ride needed:** header + one kid row with
       `There Needs ride · Back Needs ride`; header chip `Ride needed`
       (amber); no RiderChips body.
-- [ ] **B — Combined, 3 events, mixed coverage:** eyebrow feeds with ` + `;
+- [x] **B — Combined, 3 events, mixed coverage:** eyebrow feeds with ` + `;
       shared title; one when span; open legs → urgent chips (e.g. Ride needed
       and/or Asked the team), not a plan chip; kid rows show You / FirstName /
       Needs ride / Asked team as applicable; no row invents a fifth who value.
-- [ ] **C — Combined, fully assigned, viewer drives nothing:** one combined
+- [x] **C — Combined, fully assigned, viewer drives nothing:** one combined
       plan chip naming the other parent (e.g. `Katy · 4 of 4 legs`); no kid
       row says `You`; chip same size/weight as A/B/D; tone `route` (someone
       else).
-- [ ] **D — Single, standing + open leg:** who line `There You · Back Needs ride`
+- [x] **D — Single, standing + open leg:** who line `There You · Back Needs ride`
       (or equivalent assigned There + open Back) with `Ride needed` chip.
       **No per-leg ↻** in this PR (`agenda-standing-leg-marker`); do not show a
       fake per-leg marker and do not keep the old RiderChips +
@@ -174,7 +175,7 @@ fake per-leg marker in this PR.
 
 ### Out of scope regressions
 
-- [ ] Expanded interiors, DriverPicker, Plan locked chrome, Split/Combine,
+- [x] Expanded interiors, DriverPicker, Plan locked chrome, Split/Combine,
       Hero/Focus, inbound Accept/Pass, and undo links are unchanged by this
       PR’s collapsed restyle (no drive-by restyle).
 
@@ -199,7 +200,7 @@ fake per-leg marker in this PR.
 - [x] Tests: Assert chip size/weight parity only via shared component
       (`AgendaStatusChip` / `statusChip` tokens), not pixel snapshots of the
       light PDF.
-- [ ] Tests: Run focused Agenda row/block/layout/chip suites; report results
+- [x] Tests: Run focused Agenda row/block/layout/chip suites; report results
       before calling the slice done.
 
 ## Decisions
