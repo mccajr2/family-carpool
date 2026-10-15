@@ -185,7 +185,7 @@ fake per-leg marker in this PR.
       remove compact `RiderChips` from collapsed resting state.
 - [x] Web: Ensure single-event header chip strip + chevron parity with
       `AgendaBlockCard` (same roles; urgent outline unchanged).
-- [ ] Web: Confirm combined path still prefers `layout.planChip` when fully
+- [x] Web: Confirm combined path still prefers `layout.planChip` when fully
       assigned, else deduped `rideStatusChipsForItem` (Frame B/C).
 - [ ] Web: Remove or relocate card-level `↻ Every {weekday}` from collapsed
       single resting body so it does not reintroduce a second body language;

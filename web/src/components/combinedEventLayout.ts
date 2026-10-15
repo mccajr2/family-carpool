@@ -402,7 +402,12 @@ export function combinedPlanChip(rows: readonly CombinedKidRow[]): CombinedPlanC
   const roundTrip =
     new Set(slots).size === 1 && rows.every((row) => row.there.who === row.back.who)
   if (roundTrip) {
-    return { label: `${slots[0]} · round trip`, tone: "mint" }
+    const who = slots[0]!
+    // You → mint; someone else → route (tone map / Frame C).
+    return {
+      label: `${who} · round trip`,
+      tone: who === "You" ? "mint" : "route",
+    }
   }
   const youCount = slots.filter((who) => who === "You").length
   if (youCount > 0) {

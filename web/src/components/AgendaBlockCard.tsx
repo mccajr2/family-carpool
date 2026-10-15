@@ -38,6 +38,7 @@ import { agendaLeaveByLine } from "@/components/leaveByDisplay"
 import { LeaveFromControls } from "@/components/LeaveFromControls"
 import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import {
+  carpoolAskChipForRideEvent,
   rideStatusChipsForItem,
   type RideStatusChipDescriptor,
 } from "@/components/rideStatusChip"
@@ -152,6 +153,11 @@ function blockStatusChips(
       }
       seen.add(chip.label)
       tags.push(chip)
+    }
+    const askChip = carpoolAskChipForRideEvent(games)
+    if (askChip != null && !seen.has(askChip.label)) {
+      seen.add(askChip.label)
+      tags.push(askChip)
     }
   }
   return tags
