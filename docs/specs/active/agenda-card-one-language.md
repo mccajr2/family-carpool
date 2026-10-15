@@ -190,7 +190,7 @@ fake per-leg marker in this PR.
 - [x] Web: Remove or relocate card-level `↻ Every {weekday}` from collapsed
       single resting body so it does not reintroduce a second body language;
       do not invent per-leg ↻ (owned by `agenda-standing-leg-marker`).
-- [ ] Web: No OpenAPI / backend changes.
+- [x] Web: No OpenAPI / backend changes.
 - [ ] Tests: `AgendaRow` — Frame A (kid row + Ride needed, no RiderChips);
       Frame D who line without RiderChips resting body.
 - [ ] Tests: `AgendaBlockCard` / `combinedEventLayout` — Frame B open legs →
