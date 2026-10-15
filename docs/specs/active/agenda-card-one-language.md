@@ -196,7 +196,7 @@ fake per-leg marker in this PR.
 - [x] Tests: `AgendaBlockCard` / `combinedEventLayout` — Frame B open legs →
       no plan chip + urgent chips; Frame C viewer drives nothing → other-parent
       plan chip, no `You` in rows.
-- [ ] Tests: Assert chip size/weight parity only via shared component
+- [x] Tests: Assert chip size/weight parity only via shared component
       (`AgendaStatusChip` / `statusChip` tokens), not pixel snapshots of the
       light PDF.
 - [ ] Tests: Run focused Agenda row/block/layout/chip suites; report results
