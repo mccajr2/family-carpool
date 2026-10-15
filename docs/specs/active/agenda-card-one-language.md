@@ -180,7 +180,7 @@ fake per-leg marker in this PR.
 
 ## Tasks
 
-- [ ] Web: Collapsed `AgendaRow` body → kid row + `There`/`Back` via
+- [x] Web: Collapsed `AgendaRow` body → kid row + `There`/`Back` via
       `buildCombinedEventLayout` (or shared helper extracted for one item);
       remove compact `RiderChips` from collapsed resting state.
 - [ ] Web: Ensure single-event header chip strip + chevron parity with

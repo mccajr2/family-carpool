@@ -82,8 +82,6 @@ import {
   rideCommitmentConflict,
   rideCommitmentConflictLine,
 } from "@/components/rideCommitmentConflict"
-import { ridersForItem } from "@/components/riderChips"
-import { RiderChips } from "@/components/RiderChipsView"
 import { isAgendaItemOutOfPlay } from "@/components/rsvpDisplay"
 import {
   allOwnPlanLegs,
@@ -268,16 +266,15 @@ export function AgendaRow({
   /** Settled locked view: hide assign/overrides until Edit. */
   const settledLockedView = isStandingLocked && !editingLockedPlan
   const showLockedSummary = isStandingLocked && !outOfPlay
-  const lockedLayout = showLockedSummary
-    ? buildCombinedEventLayout({
-        items: [item],
-        currentAdultId,
-        circleId: circle.id,
-        kids: circle.kids,
-        members: circle.members,
-        rideEventFor: () => rideEvent,
-      })
-    : null
+  /** Same collapsed kid-row language as AgendaBlockCard (single-item layout). */
+  const collapsedLayout = buildCombinedEventLayout({
+    items: [item],
+    currentAdultId,
+    circleId: circle.id,
+    kids: circle.kids,
+    members: circle.members,
+    rideEventFor: () => rideEvent,
+  })
   const active = activeCoverages(item)
   const pendingForSelf = pendingCoverageForAdult(item, currentAdultId)
   const pendingHouseholdPlan =
@@ -361,7 +358,6 @@ export function AgendaRow({
   const routable =
     onOpenRide != null && coverageGames.some((game) => canRoute(game, rideEvent))
   const askChip = carpoolAskChipForRideEvent(coverageGames)
-  const itemRiders = ridersForItem(coverageGames, ownRequest, circle.kids)
   const rideChips = rideStatusChipsForItem(item, coverageGames, ownRequest, {
     rideEvent,
     circleId: circle.id,
@@ -599,28 +595,68 @@ export function AgendaRow({
           </button>
         </span>
       </div>
-      {itemRiders.length > 0 || showLockedSummary ? (
-        <div className="flex flex-wrap items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
-          {itemRiders.length > 0 ? (
-            <RiderChips
-              riders={itemRiders}
-              variant="compact"
-              data-testid="agenda-row-rider-chips"
-            />
-          ) : null}
-          {showLockedSummary ? (
-            <span
-              data-testid="agenda-row-recurrence"
-              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-            >
-              <span aria-hidden>↻ </span>
-              {recurrenceHintLabel(weekdays.singular)}
-            </span>
-          ) : null}
-        </div>
-      ) : (
+      {!open && collapsedLayout.kidRows.length === 0 && !showLockedSummary ? (
         <div className="pb-[var(--fc-space-sm)]" />
-      )}
+      ) : null}
+      {!open && collapsedLayout.kidRows.length > 0 ? (
+        <ul
+          data-testid="agenda-row-kid-rows"
+          className={`flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-md)] ${
+            showLockedSummary
+              ? "pb-[var(--fc-space-sm)]"
+              : "pb-[var(--fc-space-list-row-pad-y)]"
+          }`}
+        >
+          {collapsedLayout.kidRows.map((row) => (
+            <li
+              key={row.key}
+              data-testid={`agenda-row-kid-${row.key}`}
+              className="flex min-w-0 items-center justify-between gap-[var(--fc-space-md)]"
+            >
+              <span className="flex min-w-0 items-center gap-[var(--fc-space-sm)]">
+                <span
+                  aria-hidden
+                  className="flex shrink-0 items-center justify-center rounded-full bg-[var(--fc-accent)] text-[var(--fc-accent-on)]"
+                  style={{
+                    width: "var(--fc-space-list-row-kid-avatar)",
+                    height: "var(--fc-space-list-row-kid-avatar)",
+                    fontSize: "var(--fc-font-list-row-avatar-label-size)",
+                    lineHeight: "var(--fc-font-list-row-avatar-label-line)",
+                    fontWeight: "var(--fc-font-list-row-avatar-label-weight)",
+                  }}
+                >
+                  {row.initial}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-text-primary)]">
+                    {row.firstName}
+                  </span>
+                  <span className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]">
+                    {row.eventLabel} · {row.timeLabel}
+                  </span>
+                </span>
+              </span>
+              <span
+                data-testid={`agenda-row-kid-assignment-${row.key}`}
+                className="shrink-0 text-right text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+              >
+                {row.assignmentLine}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!open && showLockedSummary ? (
+        <div className="flex flex-wrap items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
+          <span
+            data-testid="agenda-row-recurrence"
+            className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+          >
+            <span aria-hidden>↻ </span>
+            {recurrenceHintLabel(weekdays.singular)}
+          </span>
+        </div>
+      ) : null}
       </div>
 
       {standingRideSeries != null ? (
@@ -707,8 +743,8 @@ export function AgendaRow({
 
       {open ? (
         <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
-          {settledLockedView && lockedLayout != null
-            ? lockedLayout.kidRows.map((row) => (
+          {settledLockedView
+            ? collapsedLayout.kidRows.map((row) => (
                 <AgendaLegPair
                   key={row.key}
                   testId={`agenda-row-legs-${row.kidId}`}
