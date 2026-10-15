@@ -3698,4 +3698,91 @@ describe("AgendaRow", () => {
     await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-err", "2030-08-15T17:00:00.000Z")
   })
+
+  it("Frame A: single kid ride-needed kid row + amber Ride needed chip, no RiderChips", () => {
+    renderRow(item({ id: "frame-a", title: "Practice", uncoveredKidIds: ["k1"] }))
+
+    const row = screen.getByTestId("agenda-row-MANUAL-frame-a")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-kid-rows").children).toHaveLength(1)
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-frame-a-k1")).toHaveTextContent("Sam")
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-MANUAL-frame-a-k1"),
+    ).toHaveTextContent("There Needs ride · Back Needs ride")
+    const rideNeeded = within(row).getByText(RIDE_NEEDED)
+    expect(rideNeeded.className).toMatch(/--fc-danger/)
+  })
+
+  it("Frame D: standing + open Back who line without RiderChips or card-level ↻", () => {
+    const openBackLegs = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+      carpoolLeg("FROM", "NEEDS_RIDE"),
+    ] as const
+    const ownPlan = {
+      id: "own-frame-d",
+      spaceId: "s1",
+      eventKey: "UID:frame-d",
+      requestingCircleId: "c1",
+      requestingCircleName: "Test",
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      legs: [...openBackLegs],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    renderRow(
+      item({
+        id: "frame-d",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:frame-d",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-frame-d",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:frame-d",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: ownPlan,
+          ownRequests: [ownPlan],
+          ownLegs: [...openBackLegs],
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-frame-d")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
+    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-FEED-frame-d-k1"),
+    ).toHaveTextContent("There You · Back Needs ride")
+    // Open Back → urgent amber chip (rollup Ride needed or dual-leg Coming back: Needs ride).
+    const strip = within(row).getByTestId("agenda-row-chip-strip")
+    expect(strip.textContent).toMatch(/Needs ride/i)
+    const openLegChip =
+      within(strip).queryByText(RIDE_NEEDED) ??
+      within(strip).getByText(/Coming back: Needs ride/i)
+    expect(openLegChip.className).toMatch(/--fc-danger/)
+  })
 })
