@@ -3517,9 +3517,12 @@ describe("AgendaRow", () => {
     expect(
       within(row).queryByTestId("agenda-row-standing-locked-title"),
     ).not.toBeInTheDocument()
-    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
-      /Every/,
-    )
+    // Collapsed body is kid-row language only — no card-level ↻ Every {weekday}.
+    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
+    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-FEED-locked-k1"),
+    ).toHaveTextContent(/There You · Back You/)
     expect(
       within(row).queryByText("Different plans for each leg."),
     ).not.toBeInTheDocument()

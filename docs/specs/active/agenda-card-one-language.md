@@ -187,7 +187,7 @@ fake per-leg marker in this PR.
       `AgendaBlockCard` (same roles; urgent outline unchanged).
 - [x] Web: Confirm combined path still prefers `layout.planChip` when fully
       assigned, else deduped `rideStatusChipsForItem` (Frame B/C).
-- [ ] Web: Remove or relocate card-level `↻ Every {weekday}` from collapsed
+- [x] Web: Remove or relocate card-level `↻ Every {weekday}` from collapsed
       single resting body so it does not reintroduce a second body language;
       do not invent per-leg ↻ (owned by `agenda-standing-leg-marker`).
 - [ ] Web: No OpenAPI / backend changes.

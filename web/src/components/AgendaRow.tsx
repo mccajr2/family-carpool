@@ -23,7 +23,6 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
-  recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -594,17 +593,13 @@ export function AgendaRow({
           </button>
         </span>
       </div>
-      {!open && collapsedLayout.kidRows.length === 0 && !showLockedSummary ? (
+      {!open && collapsedLayout.kidRows.length === 0 ? (
         <div className="pb-[var(--fc-space-sm)]" />
       ) : null}
       {!open && collapsedLayout.kidRows.length > 0 ? (
         <ul
           data-testid="agenda-row-kid-rows"
-          className={`flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-md)] ${
-            showLockedSummary
-              ? "pb-[var(--fc-space-sm)]"
-              : "pb-[var(--fc-space-list-row-pad-y)]"
-          }`}
+          className="flex flex-col gap-[var(--fc-space-md)] px-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-md)] pb-[var(--fc-space-list-row-pad-y)]"
         >
           {collapsedLayout.kidRows.map((row) => (
             <li
@@ -644,17 +639,6 @@ export function AgendaRow({
             </li>
           ))}
         </ul>
-      ) : null}
-      {!open && showLockedSummary ? (
-        <div className="flex flex-wrap items-center gap-[var(--fc-space-sm)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-y)]">
-          <span
-            data-testid="agenda-row-recurrence"
-            className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-          >
-            <span aria-hidden>↻ </span>
-            {recurrenceHintLabel(weekdays.singular)}
-          </span>
-        </div>
       ) : null}
       </div>
 
