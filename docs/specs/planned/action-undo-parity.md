@@ -35,7 +35,8 @@ series back from the surface that offered Accept.
 
 ## Notes
 
-- **Beta gate, rank 3.** After `agenda-card-expanded-bodies` (and thus
+- **Beta gate, rank 5.** After `agenda-card-expanded-bodies`,
+  `agenda-not-going-uncombine`, and `agenda-standing-leg-marker` (and thus
   after `agenda-card-one-language`). Depends on `calendar-card-hierarchy`
   for the quiet slot.
 - Locked: [Reversible actions](../../roadmap.md) in `docs/roadmap.md`.
