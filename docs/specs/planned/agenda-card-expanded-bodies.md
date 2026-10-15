@@ -14,8 +14,8 @@ If fleshing out reveals more than one PR-sized slice, stop and `/roadmap`
 
 ## Problem
 
-Collapsed Agenda cards will share one language
-([`agenda-card-one-language`](agenda-card-one-language.md)). Expanded is still
+Collapsed Agenda cards share one language
+([`agenda-card-one-language`](../archive/agenda-card-one-language.md)). Expanded is still
 several different frames: read Getting there / Coming back, simple
 DriverPicker on single rows only, legSplit / kidSplit editors, locked settled
 vs Edit-this-week, and commitment / Split / Remove words that do not match
@@ -37,8 +37,9 @@ language, not that mix.
 
 ## Notes
 
-- **Beta gate, rank 2.** After `agenda-card-one-language`; before
-  `action-undo-parity` and `calendar-phone-frame`.
+- **Beta gate, rank 1 (Next up).** After Done `agenda-card-one-language`; before
+  `agenda-not-going-uncombine`, `agenda-standing-leg-marker`,
+  `action-undo-parity`, and `calendar-phone-frame`.
 - Desktop web Agenda only. `AgendaBlockCard` has no DriverPicker today —
   decide at `/spec` whether combined expanded stays read + links or gains a
   resting simple picker.

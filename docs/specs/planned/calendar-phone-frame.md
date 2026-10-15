@@ -31,8 +31,9 @@ card hierarchy has to stay obvious.
 
 ## Notes
 
-- **Beta gate, rank 4.** After `agenda-card-one-language` and
-  `agenda-card-expanded-bodies`, so the phone layout consumes one Agenda
+- **Beta gate, rank 6.** After `agenda-card-one-language`,
+  `agenda-card-expanded-bodies`, `agenda-not-going-uncombine`, and
+  `agenda-standing-leg-marker`, so the phone layout consumes one Agenda
   card language (collapsed and expanded), not the mixed week.
 - Narrow widths: one column. Navigation still reaches Calendar, Carpool,
   Family, Places, and Feeds. The week-glance aside may hide or stack; it

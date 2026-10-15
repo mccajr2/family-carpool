@@ -691,7 +691,7 @@ describe("AgendaRow", () => {
     expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
   })
 
-  it("shows rider chips and keeps the accepted-rider suffix when driving with passengers", () => {
+  it("shows kid rows and keeps the accepted-rider suffix when driving with passengers", () => {
     render(
       <AgendaRow
         item={item({
@@ -748,7 +748,10 @@ describe("AgendaRow", () => {
               acceptedByAdultId: "a1",
               acceptingCircleId: "c1",
               acceptingCircleName: null,
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+              legs: carpoolLegsBoth("CONFIRMED", {
+                assigneeAdultId: "a1",
+                assigneeDisplayName: "Alex",
+              }),
             },
           ],
         }}
@@ -759,9 +762,16 @@ describe("AgendaRow", () => {
     const drivingChip = within(row).getByText("You're driving · +1")
     expect(drivingChip.className).toMatch(/--fc-accent/)
     expect(within(row).queryByText("You're driving")).not.toBeInTheDocument()
-    const riderChips = within(row).getByTestId("agenda-row-rider-chips")
-    expect(riderChips).toHaveAttribute("aria-label", "Riding: Sam, Mia")
-    expect(within(riderChips).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent("Sam, Mia")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-route-row-k1")).toHaveTextContent(
+      "Sam",
+    )
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-route-row-k2")).toHaveTextContent(
+      "Mia",
+    )
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-MANUAL-route-row-k1"),
+    ).toHaveTextContent("There You · Back You")
   })
 
   it("shows status chips and a chevron on confirmed in-play rows, without covering avatars or a status dot", () => {
@@ -2189,7 +2199,53 @@ describe("AgendaRow", () => {
     ).toBeInTheDocument()
   })
 
-  it("wraps collapsed chip tags on narrow widths", () => {
+  it("matches AgendaBlockCard chip-strip + chevron roles (token classes; no new urgent outline)", () => {
+    renderRow(
+      item({
+        id: "chip-parity",
+        title: "Practice",
+        uncoveredKidIds: ["k1"],
+      }),
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-chip-parity")
+    const strip = within(row).getByTestId("agenda-row-chip-strip")
+    expect(strip.className).toMatch(/shrink-0/)
+    expect(strip.className).toMatch(/--fc-space-list-row-tag-gap/)
+    expect(strip.className).toMatch(/flex-wrap/)
+    expect(strip.className).not.toMatch(/max-\[390px\]:w-full/)
+    expect(within(row).getByTestId("agenda-row-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    const chevron = within(row).getByTestId("agenda-row-chevron")
+    expect(chevron).toHaveAttribute("aria-label", "Expand Practice")
+    expect(chevron.style.minWidth).toBe("var(--fc-space-focus-action-min-height)")
+    expect(chevron.style.minHeight).toBe("var(--fc-space-focus-action-min-height)")
+    expect(within(row).getByText(RIDE_NEEDED)).toBeInTheDocument()
+    // Urgent chip only — no new amber card outline system beyond existing focus ring.
+    expect(row.className).not.toMatch(/--fc-danger/)
+    expect(row.style.borderColor ?? "").not.toMatch(/danger/)
+  })
+
+  it("keeps the existing list-row focus outline when focused", () => {
+    render(
+      <AgendaRow
+        item={item({ id: "focus-outline", title: "Practice", uncoveredKidIds: ["k1"] })}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        isFocused
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        {...noopHandlers}
+      />,
+    )
+    const row = screen.getByTestId("agenda-row-MANUAL-focus-outline")
+    expect(row).toHaveAttribute("data-focused", "true")
+    expect(row.className).toMatch(/--fc-list-row-focus-border/)
+    expect(row.style.boxShadow).toContain("--fc-list-row-focus-halo")
+  })
+
+  it("wraps collapsed chip tags with the shared strip flex-wrap role", () => {
     render(
       <div style={{ width: "390px" }}>
         <AgendaRow
@@ -2227,7 +2283,7 @@ describe("AgendaRow", () => {
 
     const strip = screen.getByTestId("agenda-row-chip-strip")
     expect(strip.className).toMatch(/flex-wrap/)
-    expect(strip.className).toMatch(/max-\[390px\]:w-full/)
+    expect(strip.className).toMatch(/shrink-0/)
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText("Overlaps")).toBeInTheDocument()
     expect(within(screen.getByTestId("agenda-row-MANUAL-narrow-chips")).getByText(RIDE_NEEDED)).toBeInTheDocument()
   })
@@ -2283,7 +2339,7 @@ describe("AgendaRow", () => {
     expect(line.className).not.toMatch(/--fc-danger/)
   })
 
-  it("shows compact rider chips on teammate rides and not on ride-needed rows", () => {
+  it("shows kid rows on teammate rides and ride-needed gaps (Frame A who line)", () => {
     const feedItem = item({
       id: "feed-accepted",
       source: "FEED",
@@ -2319,7 +2375,10 @@ describe("AgendaRow", () => {
         acceptedByAdultId: "a2",
         acceptingCircleId: "c2",
         acceptingCircleName: "Sharks",
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+        legs: carpoolLegsBoth("CONFIRMED", {
+          assigneeCircleId: "c2",
+          assigneeCircleName: "Sharks",
+        }),
       },
       ownRequests: [],
       otherRequests: [],
@@ -2337,10 +2396,13 @@ describe("AgendaRow", () => {
       />,
     )
     const row = screen.getByTestId("agenda-row-FEED-feed-accepted")
-    expect(within(row).getByTestId("agenda-row-rider-chips")).toHaveAttribute(
-      "aria-label",
-      "Riding: Sam",
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-kid-FEED-feed-accepted-k1")).toHaveTextContent(
+      "Sam",
     )
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-FEED-feed-accepted-k1"),
+    ).toHaveTextContent("There Sharks · Back Sharks")
 
     rerender(
       <AgendaRow
@@ -2355,9 +2417,13 @@ describe("AgendaRow", () => {
     const gapRow = screen.getByTestId("agenda-row-MANUAL-gap")
     expect(within(gapRow).getByText("Ride needed")).toBeInTheDocument()
     expect(within(gapRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(gapRow).getByTestId("agenda-row-kid-MANUAL-gap-k1")).toHaveTextContent("Sam")
+    expect(
+      within(gapRow).getByTestId("agenda-row-kid-assignment-MANUAL-gap-k1"),
+    ).toHaveTextContent("There Needs ride · Back Needs ride")
   })
 
-  it("uses RiderChips below the header for confirmed drivers", () => {
+  it("uses collapsed kid rows below the header for confirmed drivers", () => {
     renderRow(
       item({
         id: "covered",
@@ -2381,13 +2447,13 @@ describe("AgendaRow", () => {
       }),
     )
     const row = screen.getByTestId("agenda-row-MANUAL-covered")
-    expect(within(row).getByTestId("agenda-row-rider-chips")).toHaveAttribute(
-      "aria-label",
-      "Riding: Sam",
-    )
-    const stack = within(row).getByTestId("agenda-row-rider-chips-avatar-stack")
-    expect(within(stack).getByText("S")).toBeInTheDocument()
-    expect(within(row).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent("Sam")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    const kidRow = within(row).getByTestId("agenda-row-kid-MANUAL-covered-k1")
+    expect(within(kidRow).getByText("S")).toBeInTheDocument()
+    expect(kidRow).toHaveTextContent("Sam")
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-MANUAL-covered-k1"),
+    ).toHaveTextContent("There You · Back You")
   })
 
   it("lists both circle kids on a collapsed row when they share a confirmed driver", () => {
@@ -2430,14 +2496,17 @@ describe("AgendaRow", () => {
       />,
     )
     const row = screen.getByTestId("agenda-row-MANUAL-shared-driver")
-    const riderChips = within(row).getByTestId("agenda-row-rider-chips")
-    expect(riderChips).toHaveAttribute("aria-label", "Riding: Sam, Riley")
-    expect(within(riderChips).getByTestId("agenda-row-rider-chips-names")).toHaveTextContent(
-      "Sam, Riley",
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-kid-rows").children).toHaveLength(2)
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-shared-driver-k1")).toHaveTextContent(
+      "Sam",
+    )
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-shared-driver-k2")).toHaveTextContent(
+      "Riley",
     )
   })
 
-  it("omits rider chips for asked-team, pending-confirm, and not-going collapsed rows", () => {
+  it("shows kid-row who lines for asked-team and pending; omits rows when not going", () => {
     const twoKids: FamilyCircle = {
       ...circle,
       kids: [
@@ -2481,7 +2550,7 @@ describe("AgendaRow", () => {
         acceptedByAdultId: null,
         acceptingCircleId: null,
         acceptingCircleName: null,
-    legs: carpoolLegsBoth("ASKED_TEAM"),
+        legs: carpoolLegsBoth("ASKED_TEAM"),
       },
       ownRequests: [],
       otherRequests: [],
@@ -2504,6 +2573,9 @@ describe("AgendaRow", () => {
     expect(within(askedRow).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(askedRow).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(askedRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(
+      within(askedRow).getByTestId("agenda-row-kid-assignment-FEED-feed-asked-k1"),
+    ).toHaveTextContent("There Asked team · Back Asked team")
 
     rerender(
       <AgendaRow
@@ -2537,6 +2609,9 @@ describe("AgendaRow", () => {
     const pendingRow = screen.getByTestId("agenda-row-MANUAL-pending")
     expect(within(pendingRow).getByText("Confirm you'll drive")).toBeInTheDocument()
     expect(within(pendingRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(
+      within(pendingRow).getByTestId("agenda-row-kid-assignment-MANUAL-pending-k1"),
+    ).toHaveTextContent("There You · Back You")
 
     rerender(
       <AgendaRow
@@ -2555,6 +2630,7 @@ describe("AgendaRow", () => {
     const outRow = screen.getByTestId("agenda-row-MANUAL-skip")
     expect(within(outRow).getByText("Not going")).toBeInTheDocument()
     expect(within(outRow).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(outRow).queryByTestId("agenda-row-kid-rows")).not.toBeInTheDocument()
   })
 
   it("shows Type A ride-commitment callout above kid and inbound bands when expanded", async () => {
@@ -3441,9 +3517,12 @@ describe("AgendaRow", () => {
     expect(
       within(row).queryByTestId("agenda-row-standing-locked-title"),
     ).not.toBeInTheDocument()
-    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
-      /Every/,
-    )
+    // Collapsed body is kid-row language only — no card-level ↻ Every {weekday}.
+    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
+    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-FEED-locked-k1"),
+    ).toHaveTextContent(/There You · Back You/)
     expect(
       within(row).queryByText("Different plans for each leg."),
     ).not.toBeInTheDocument()
@@ -3618,5 +3697,92 @@ describe("AgendaRow", () => {
     ).toHaveTextContent(/Remove standing block failed/)
     await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-err", "2030-08-15T17:00:00.000Z")
+  })
+
+  it("Frame A: single kid ride-needed kid row + amber Ride needed chip, no RiderChips", () => {
+    renderRow(item({ id: "frame-a", title: "Practice", uncoveredKidIds: ["k1"] }))
+
+    const row = screen.getByTestId("agenda-row-MANUAL-frame-a")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-kid-rows").children).toHaveLength(1)
+    expect(within(row).getByTestId("agenda-row-kid-MANUAL-frame-a-k1")).toHaveTextContent("Sam")
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-MANUAL-frame-a-k1"),
+    ).toHaveTextContent("There Needs ride · Back Needs ride")
+    const rideNeeded = within(row).getByText(RIDE_NEEDED)
+    expect(rideNeeded.className).toMatch(/--fc-danger/)
+  })
+
+  it("Frame D: standing + open Back who line without RiderChips or card-level ↻", () => {
+    const openBackLegs = [
+      carpoolLeg("TO", "CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+      carpoolLeg("FROM", "NEEDS_RIDE"),
+    ] as const
+    const ownPlan = {
+      id: "own-frame-d",
+      spaceId: "s1",
+      eventKey: "UID:frame-d",
+      requestingCircleId: "c1",
+      requestingCircleName: "Test",
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      legs: [...openBackLegs],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    renderRow(
+      item({
+        id: "frame-d",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:frame-d",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-frame-d",
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:frame-d",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: ownPlan,
+          ownRequests: [ownPlan],
+          ownLegs: [...openBackLegs],
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-frame-d")
+    expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
+    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
+    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("agenda-row-kid-assignment-FEED-frame-d-k1"),
+    ).toHaveTextContent("There You · Back Needs ride")
+    // Open Back → urgent amber chip (rollup Ride needed or dual-leg Coming back: Needs ride).
+    const strip = within(row).getByTestId("agenda-row-chip-strip")
+    expect(strip.textContent).toMatch(/Needs ride/i)
+    const openLegChip =
+      within(strip).queryByText(RIDE_NEEDED) ??
+      within(strip).getByText(/Coming back: Needs ride/i)
+    expect(openLegChip.className).toMatch(/--fc-danger/)
   })
 })

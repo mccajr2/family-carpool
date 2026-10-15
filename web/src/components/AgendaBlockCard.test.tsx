@@ -1067,6 +1067,284 @@ describe("AgendaBlockCard", () => {
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1", "2030-08-15T17:00:00.000Z")
   })
 
+  it("Frame B: open legs prefer urgent status chips over a plan chip", () => {
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      feedName: "Mite 3",
+      title: "CYH Mite 3 Practice",
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      feedName: "Squirt 1",
+      title: "CYH Squirt 1 Practice",
+      kidIds: ["k2"],
+      uncoveredKidIds: ["k2"],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+    const c = item("c", "2030-08-15T20:00:00.000Z", {
+      feedName: "U10",
+      title: "CYH U10 Practice",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const asked: CarpoolRide = {
+      id: "ask-b",
+      spaceId: "s1",
+      eventKey: "UID:b",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds: ["k2"],
+      kidFirstNames: ["Kian"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [
+        {
+          kind: "TO",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+        {
+          kind: "FROM",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const youDrive: CarpoolRideEvent = {
+      eventKey: "UID:c",
+      title: "CYH U10 Practice",
+      startsAt: c.startsAt,
+      endsAt: null,
+      defaultKidIds: ["k1"],
+      ownRequest: null,
+      ownRequests: [
+        {
+          id: "own-c",
+          spaceId: "s1",
+          eventKey: "UID:c",
+          requestingCircleId: "c1",
+          requestingCircleName: "House",
+          requestedByAdultId: "a1",
+          kidIds: ["k1"],
+          kidFirstNames: ["Declan"],
+          seats: 1,
+          pickupPlaceName: "Home",
+          pickupAddress: "1 Main",
+          pickupTown: null,
+          detourMinutes: null,
+          status: "PENDING",
+          legs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+          passedByMe: false,
+          passedByAdultNames: [],
+          acceptedByAdultId: null,
+          acceptingCircleId: null,
+          acceptingCircleName: null,
+        },
+      ],
+      ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+      otherRequests: [],
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b, c]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          b: {
+            eventKey: "UID:b",
+            title: "CYH Squirt 1 Practice",
+            startsAt: b.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k2"],
+            ownRequest: asked,
+            ownRequests: [asked],
+            ownLegs: asked.legs,
+            otherRequests: [],
+          },
+          c: youDrive,
+        })}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    const strip = within(card).getByTestId("agenda-block-chip-strip")
+    expect(strip.textContent).toMatch(/Ride needed/i)
+    expect(strip.textContent).toMatch(/Asked team/i)
+    expect(strip.textContent).not.toMatch(/round trip/i)
+    expect(strip.textContent).not.toMatch(/of \d+ legs/i)
+    expect(within(card).getByTestId("agenda-block-eyebrow")).toHaveTextContent(
+      "Mite 3 + Squirt 1 + U10",
+    )
+    expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent("CYH Practice")
+    expect(within(card).getByTestId("agenda-block-kid-rows").children).toHaveLength(3)
+    expect(
+      within(card).getByTestId("agenda-block-kid-FEED-a-k1"),
+    ).toHaveTextContent(/There Needs ride · Back Needs ride/)
+    expect(
+      within(card).getByTestId("agenda-block-kid-FEED-b-k2"),
+    ).toHaveTextContent(/There Asked team · Back Asked team/)
+    expect(
+      within(card).getByTestId("agenda-block-kid-FEED-c-k1"),
+    ).toHaveTextContent(/There You · Back You/)
+  })
+
+  it("Frame C: fully assigned other-parent plan chip; no You in kid rows", () => {
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      feedName: "Mite 3",
+      title: "CYH Mite 3 Practice",
+      kidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      feedName: "Squirt 1",
+      title: "CYH Squirt 1 Practice",
+      kidIds: ["k2"],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+    const katyLegs = [
+      confirmedLeg("TO", "a2", "Mom"),
+      confirmedLeg("FROM", "a2", "Mom"),
+    ]
+    // Rename a2 display in circle is "Mom"; Frame C uses other-parent first name.
+    const circleWithKaty: FamilyCircle = {
+      ...circle,
+      members: [
+        circle.members[0]!,
+        { ...circle.members[1]!, displayName: "Katy" },
+      ],
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circleWithKaty}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          a: {
+            eventKey: "UID:a",
+            title: a.title,
+            startsAt: a.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            ownRequests: [
+              {
+                id: "own-a",
+                spaceId: "s1",
+                eventKey: "UID:a",
+                requestingCircleId: "c1",
+                requestingCircleName: "House",
+                requestedByAdultId: "a1",
+                kidIds: ["k1"],
+                kidFirstNames: ["Declan"],
+                seats: 1,
+                pickupPlaceName: "Home",
+                pickupAddress: "1 Main",
+                pickupTown: null,
+                detourMinutes: null,
+                status: "PENDING",
+                legs: [
+                  { ...katyLegs[0]!, assigneeDisplayName: "Katy" },
+                  { ...katyLegs[1]!, assigneeDisplayName: "Katy" },
+                ],
+                passedByMe: false,
+                passedByAdultNames: [],
+                acceptedByAdultId: null,
+                acceptingCircleId: null,
+                acceptingCircleName: null,
+              },
+            ],
+            ownLegs: [
+              { ...katyLegs[0]!, assigneeDisplayName: "Katy" },
+              { ...katyLegs[1]!, assigneeDisplayName: "Katy" },
+            ],
+            otherRequests: [],
+          },
+          b: {
+            eventKey: "UID:b",
+            title: b.title,
+            startsAt: b.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k2"],
+            ownRequest: null,
+            ownRequests: [
+              {
+                id: "own-b",
+                spaceId: "s1",
+                eventKey: "UID:b",
+                requestingCircleId: "c1",
+                requestingCircleName: "House",
+                requestedByAdultId: "a1",
+                kidIds: ["k2"],
+                kidFirstNames: ["Kian"],
+                seats: 1,
+                pickupPlaceName: "Home",
+                pickupAddress: "1 Main",
+                pickupTown: null,
+                detourMinutes: null,
+                status: "PENDING",
+                legs: [
+                  { ...katyLegs[0]!, assigneeDisplayName: "Katy" },
+                  { ...katyLegs[1]!, assigneeDisplayName: "Katy" },
+                ],
+                passedByMe: false,
+                passedByAdultNames: [],
+                acceptedByAdultId: null,
+                acceptingCircleId: null,
+                acceptingCircleName: null,
+              },
+            ],
+            ownLegs: [
+              { ...katyLegs[0]!, assigneeDisplayName: "Katy" },
+              { ...katyLegs[1]!, assigneeDisplayName: "Katy" },
+            ],
+            otherRequests: [],
+          },
+        })}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    const strip = within(card).getByTestId("agenda-block-chip-strip")
+    expect(strip.textContent).toMatch(/Katy · round trip/i)
+    expect(strip.textContent).not.toMatch(/Ride needed/i)
+    expect(strip.textContent).not.toMatch(/You're driving/i)
+    const planChip = within(strip).getByText(/Katy · round trip/i)
+    expect(planChip.className).toMatch(/--fc-accent/)
+    expect(planChip.className).not.toMatch(/--fc-success/)
+    for (const kid of within(card).getByTestId("agenda-block-kid-rows").children) {
+      expect(kid.textContent).not.toMatch(/\bYou\b/)
+      expect(kid.textContent).toMatch(/There Katy · Back Katy/)
+    }
+  })
+
   it("surfaces Remove failures on the locked summary", async () => {
     const user = userEvent.setup()
     const a = item("a", "2030-08-15T17:00:00.000Z", {

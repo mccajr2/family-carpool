@@ -10,6 +10,8 @@ import type {
 import {
   buildCombinedEventLayout,
   combinedEventTitle,
+  combinedPlanChip,
+  type CombinedKidRow,
 } from "@/components/combinedEventLayout"
 
 const circle: Pick<FamilyCircle, "kids" | "members" | "id"> = {
@@ -229,5 +231,103 @@ describe("buildCombinedEventLayout", () => {
 
     expect(layout.planChip).toBeNull()
     expect(layout.kidRows[0]?.assignmentLine).toBe("There Needs ride · Back Needs ride")
+  })
+
+  it("Frame C: other-parent round trip plan chip uses route tone (viewer drives nothing)", () => {
+    const mite = item("mite", {
+      title: "CYH Mite 3 Practice",
+      feedName: "Mite 3",
+      kidIds: ["k-kian"],
+      rsvps: [{ kidId: "k-kian", status: "YES" }],
+    })
+    const squirt = item("squirt", {
+      title: "CYH Squirt 1 Practice",
+      feedName: "Squirt 1",
+      startsAt: "2030-10-13T23:00:00.000Z",
+      endsAt: "2030-10-13T23:50:00.000Z",
+      kidIds: ["k-declan"],
+      rsvps: [{ kidId: "k-declan", status: "YES" }],
+    })
+    const layout = buildCombinedEventLayout({
+      items: [mite, squirt],
+      currentAdultId: "a1",
+      circleId: circle.id,
+      kids: circle.kids,
+      members: circle.members,
+      rideEventFor: (row) =>
+        row.id === "mite"
+          ? ride("UID:mite", ["k-kian"], ["Kian"], [
+              leg("TO", "a2", "Katy"),
+              leg("FROM", "a2", "Katy"),
+            ])
+          : ride("UID:squirt", ["k-declan"], ["Declan"], [
+              leg("TO", "a2", "Katy"),
+              leg("FROM", "a2", "Katy"),
+            ]),
+    })
+
+    expect(layout.planChip).toEqual({
+      label: "Katy · round trip",
+      tone: "route",
+    })
+    expect(layout.kidRows.every((row) => !row.assignmentLine.includes("You"))).toBe(
+      true,
+    )
+    expect(layout.kidRows.map((row) => row.assignmentLine)).toEqual([
+      "There Katy · Back Katy",
+      "There Katy · Back Katy",
+    ])
+  })
+})
+
+describe("combinedPlanChip", () => {
+  function row(
+    thereWho: string,
+    backWho: string,
+  ): CombinedKidRow {
+    return {
+      key: `${thereWho}-${backWho}`,
+      itemKey: "FEED-a",
+      kidId: "k1",
+      firstName: "Sam",
+      initial: "S",
+      eventLabel: "Practice",
+      timeLabel: "6:00 PM",
+      there: { who: thereWho, detail: thereWho },
+      back: { who: backWho, detail: backWho },
+      assignmentLine: `There ${thereWho} · Back ${backWho}`,
+    }
+  }
+
+  it("returns null when any leg is open (Frame B)", () => {
+    expect(
+      combinedPlanChip([
+        row("You", "Needs ride"),
+        row("Asked team", "Katy"),
+      ]),
+    ).toBeNull()
+  })
+
+  it("uses mint for You round trip and route for someone else", () => {
+    expect(combinedPlanChip([row("You", "You")])).toEqual({
+      label: "You · round trip",
+      tone: "mint",
+    })
+    expect(combinedPlanChip([row("Katy", "Katy"), row("Katy", "Katy")])).toEqual({
+      label: "Katy · round trip",
+      tone: "route",
+    })
+  })
+
+  it("names the other parent for mixed assigned legs with no You", () => {
+    expect(
+      combinedPlanChip([
+        row("Katy", "Katy"),
+        row("Katy", "Mom"),
+      ]),
+    ).toEqual({
+      label: "Katy · 3 of 4 legs",
+      tone: "route",
+    })
   })
 })
