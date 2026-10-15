@@ -193,7 +193,7 @@ fake per-leg marker in this PR.
 - [x] Web: No OpenAPI / backend changes.
 - [x] Tests: `AgendaRow` — Frame A (kid row + Ride needed, no RiderChips);
       Frame D who line without RiderChips resting body.
-- [ ] Tests: `AgendaBlockCard` / `combinedEventLayout` — Frame B open legs →
+- [x] Tests: `AgendaBlockCard` / `combinedEventLayout` — Frame B open legs →
       no plan chip + urgent chips; Frame C viewer drives nothing → other-parent
       plan chip, no `You` in rows.
 - [ ] Tests: Assert chip size/weight parity only via shared component
