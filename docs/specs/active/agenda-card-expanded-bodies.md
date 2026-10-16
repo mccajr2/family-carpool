@@ -164,7 +164,7 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 
 ### Combined card errors and places
 
-- [ ] `actionError` on the block card renders whether or not the plan is locked (today it renders only inside the locked summary).
+- [x] `actionError` on the block card renders whether or not the plan is locked (today it renders only inside the locked summary).
 - [ ] Departure-item Leave from on the block keeps its current gating (viewer owns a TO leg, not settled-locked).
 
 ### Recurrence visibility (pre-existing hole)
@@ -204,7 +204,7 @@ Order: lock the regression net first, then restyle.
 - [x] Web: Single card — reorder into Legs → decision → Plan locked → quiet actions → caption **without removing** any row in the Functionality inventory. Inbound `AgendaInboundRequestRow`, standing ride series band, Request band, coverage Leave from editors, Open Places, conflict lines, needs-coverage line, going-again, manual Edit/Remove stay mounted.
 - [x] Web: Quiet-action row on both shells; real reverse labels from `agendaCommitmentActions` / `decidedAssigneeRevertLabel`; withdraw separate from reassign; Remove recurring danger.
 - [x] Web: Plan locked section matches H/I; Edit returns to the simple picker with `Save ride plan` and `notGoingThisWeek`.
-- [ ] Web: Block card renders `actionError` when unlocked.
+- [x] Web: Block card renders `actionError` when unlocked.
 - [ ] Web: Collapsed recurrence marker (`Every {weekday}`) back in the header meta on locked cards, single and combined. Not per-leg.
 - [ ] Web: Combined title/location fallbacks for L and M (`combinedEventTitle` / location line). No token palette change.
 - [ ] Web: No OpenAPI / backend changes.

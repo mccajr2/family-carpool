@@ -856,7 +856,6 @@ export function AgendaBlockCard({
                     }
                   : undefined
               }
-              actionError={actionError}
               notGoingActions={lockedNotGoingActions}
               onNotGoing={
                 onSetNotGoing != null
@@ -932,6 +931,16 @@ export function AgendaBlockCard({
               </div>
             ) : null}
           </AgendaQuietActions>
+
+          {actionError != null && actionError.length > 0 ? (
+            <p
+              role="alert"
+              data-testid="agenda-block-action-error"
+              className="text-sm text-[var(--fc-danger)]"
+            >
+              {actionError}
+            </p>
+          ) : null}
 
           {showLockedSummary ? (
             <p

@@ -1543,10 +1543,40 @@ describe("AgendaBlockCard", () => {
     )
 
     await expandBlock(user)
-    expect(screen.getByTestId("agenda-block-standing-locked-error")).toHaveTextContent(
+    expect(screen.getByTestId("agenda-block-action-error")).toHaveTextContent(
       /Remove standing block failed/,
     )
+    expect(screen.queryByTestId("agenda-block-standing-locked-error")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-block-standing-locked-remove")).toBeInTheDocument()
+  })
+
+  it("shows actionError when not locked", async () => {
+    const user = userEvent.setup()
+    render(
+      <AgendaBlockCard
+        items={[
+          item("a", "2030-08-15T17:00:00.000Z", { uncoveredKidIds: ["k1"] }),
+          item("b", "2030-08-15T18:00:00.000Z", {
+            uncoveredKidIds: ["k2"],
+            kidIds: ["k2"],
+            rsvps: [{ kidId: "k2", status: "YES" }],
+          }),
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        actionError="Could not split drive block"
+      />,
+    )
+
+    expect(screen.queryByTestId("agenda-block-action-error")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("agenda-block-standing-locked")).not.toBeInTheDocument()
+    await expandBlock(user)
+    expect(screen.queryByTestId("agenda-block-standing-locked")).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-action-error")).toHaveTextContent(
+      /Could not split drive block/,
+    )
+    expect(screen.getByTestId("agenda-block-action-error")).toHaveAttribute("role", "alert")
   })
 
   it("accepts item-scoped decision props and surfaces shared assign draft wiring", () => {
