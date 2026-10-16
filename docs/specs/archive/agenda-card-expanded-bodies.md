@@ -1,6 +1,6 @@
 # Spec: agenda-card-expanded-bodies
 
-Status: draft  
+Status: done  
 Parent: [docs/roadmap.md](../../roadmap.md)  
 Created: 2026-10-14  
 Added: 2026-10-14 · re-rank split  
@@ -124,48 +124,48 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 
 ### Shared expanded order
 
-- [ ] Expanded single and combined cards use the same order: Legs table, then decision blocks if any, then Plan locked if locked, then quiet actions, then the scope caption when locked.
-- [ ] The Legs table is read-only. It does not replace the collapsed kid rows above the chevron.
-- [ ] Opening the card does not land in the leg-split or kid-split editor.
-- [ ] Collapsed header, chip strip, chevron, and kid rows stay the slice-1 language.
+- [x] Expanded single and combined cards use the same order: Legs table, then decision blocks if any, then Plan locked if locked, then quiet actions, then the scope caption when locked.
+- [x] The Legs table is read-only. It does not replace the collapsed kid rows above the chevron.
+- [x] Opening the card does not land in the leg-split or kid-split editor.
+- [x] Collapsed header, chip strip, chevron, and kid rows stay the slice-1 language.
 
 ### Decision picker
 
-- [ ] When a decision is waiting, the resting control is the existing simple DriverPicker: Driver chips (`You`, other household adults, `Ask the team` when a carpool space exists), one shared Leave from for the round trip, and one primary.
-- [ ] Household selected: Leave from visible, Meet where? hidden. Primary is the existing Confirm label (`Confirm — You'll drive round trip from {place}` or `{Name}'ll drive…`). Confirm assigns in-circle coverage and does not post to the team.
-- [ ] Ask the team selected: Meet where? for Getting there and for Coming back (`Our place` default, `Driver's place`). Leave from shows unless both legs are Driver's place. Driver's place shows “Address appears after someone accepts.” Primary is `Post to team — round trip`, or `Post to team — {Kid}, round trip` / `Post to team — {Kid} + {Kid}, round trip` when the block is named. Selecting the chip does not send; the primary does, via the existing ask/save handler and that block’s kid ids.
-- [ ] After a successful post, that kid’s who line can show `Asked team` and the header can show `ASKED THE TEAM`. A posted open leg may show the status plus the existing cancel-ask control instead of a second live picker.
-- [ ] Combined cards show a picker block per kid (or identical-kid group) that still needs a decision. Fully assigned kids get legs in the table and no picker block. **This rule is combined-only.** The single card keeps today’s behavior: one picker for all going kids on the event.
-- [ ] A grouped block that spans member events issues one call per member event (same choices) when its primary is pressed; a failure on one member shows that item’s error without hiding the others.
-- [ ] `Different plans for each leg` stays a quiet link into the existing split editor. `Different plans for each kid` shows on any picker whose scope has 2+ going kids — a grouped block on a combined card **and** a single event with 2+ kids (`carpool-kid-split-plans`). It is not removed from the single card.
-- [ ] The primary label may also read `Confirm and lock for {weekdays}` or `Post standing Ask for {weekdays}` when the matching checkbox is checked. Both checkboxes and their gates survive on the single card and are passed to the combined picker from `standingBlockChrome(items)`.
-- [ ] Pending-for-self Confirm coverage / Decline and household-plan Confirm / Decline keep rendering as primary + outline pair on the single card and keep their current precedence (hidden while revert/override links show). Combined cards do **not** gain these; pending confirms on a block stay Hero-only. State this in a Decision.
-- [ ] Own ask status with `Cancel this ask` renders on the single card as today. The combined card gains `onCancelRide(item, rideId)` so Frame F’s cancel works for the member whose leg was posted.
-- [ ] Legacy Request band (`showCarpoolBand`) still renders on the single card when the picker is not mounted and a gap exists. Do not delete it in this PR.
+- [x] When a decision is waiting, the resting control is the existing simple DriverPicker: Driver chips (`You`, other household adults, `Ask the team` when a carpool space exists), one shared Leave from for the round trip, and one primary.
+- [x] Household selected: Leave from visible, Meet where? hidden. Primary is the existing Confirm label (`Confirm — You'll drive round trip from {place}` or `{Name}'ll drive…`). Confirm assigns in-circle coverage and does not post to the team.
+- [x] Ask the team selected: Meet where? for Getting there and for Coming back (`Our place` default, `Driver's place`). Leave from shows unless both legs are Driver's place. Driver's place shows “Address appears after someone accepts.” Primary is `Post to team — round trip`, or `Post to team — {Kid}, round trip` / `Post to team — {Kid} + {Kid}, round trip` when the block is named. Selecting the chip does not send; the primary does, via the existing ask/save handler and that block’s kid ids.
+- [x] After a successful post, that kid’s who line can show `Asked team` and the header can show `ASKED THE TEAM`. A posted open leg may show the status plus the existing cancel-ask control instead of a second live picker.
+- [x] Combined cards show a picker block per kid (or identical-kid group) that still needs a decision. Fully assigned kids get legs in the table and no picker block. **This rule is combined-only.** The single card keeps today’s behavior: one picker for all going kids on the event.
+- [x] A grouped block that spans member events issues one call per member event (same choices) when its primary is pressed; a failure on one member shows that item’s error without hiding the others.
+- [x] `Different plans for each leg` stays a quiet link into the existing split editor. `Different plans for each kid` shows on any picker whose scope has 2+ going kids — a grouped block on a combined card **and** a single event with 2+ kids (`carpool-kid-split-plans`). It is not removed from the single card.
+- [x] The primary label may also read `Confirm and lock for {weekdays}` or `Post standing Ask for {weekdays}` when the matching checkbox is checked. Both checkboxes and their gates survive on the single card and are passed to the combined picker from `standingBlockChrome(items)`.
+- [x] Pending-for-self Confirm coverage / Decline and household-plan Confirm / Decline keep rendering as primary + outline pair on the single card and keep their current precedence (hidden while revert/override links show). Combined cards do **not** gain these; pending confirms on a block stay Hero-only. State this in a Decision.
+- [x] Own ask status with `Cancel this ask` renders on the single card as today. The combined card gains `onCancelRide(item, rideId)` so Frame F’s cancel works for the member whose leg was posted.
+- [x] Legacy Request band (`showCarpoolBand`) still renders on the single card when the picker is not mounted and a gap exists. Do not delete it in this PR.
 
 ### Quiet actions and route
 
-- [ ] Quiet actions share one link weight on single and combined, smaller than the primary: Edit plan (when a plan exists), Mark {Kid} not going, Split into N events on a combined card, Combine events on a single card that can recombine, View route when a route exists, Remove recurring on a locked plan (danger, quieter than Edit).
-- [ ] View route calls the existing route opener. Single → that event. Combined → **both** existing leg links survive: TO run opens `onOpenRide(earliestMember, "TO")`, FROM run opens `onOpenRide(latestMember, "FROM")`. They may sit in the Legs table column headers or quiet row, but there is one per routable leg, not one for the block. Multi-venue “N stops” in the location line opens the TO link.
-- [ ] Existing reverses stay reachable from the expanded card with their current labels and handlers: `Cancel this ask`; `Cancel request to {Name}`; `{Name} can't drive anymore? Reassign the ride`; can’t-make-it; remove coverage; withdraw ACCEPTED inbound (its own link, never merged with reassign); inbound Accept / Pass / Reconsider / Undo / Can't take them; pending Confirm coverage / Decline. The mock’s “I can’t drive” and “Take over driving” placeholders do not replace or rename them. Frame G’s override is the existing reassign / cancel-request pair.
-- [ ] Inbound `AgendaInboundRequestRow` (Accept / Pass / Reconsider / Undo, hero-queue hide, auto-decline chip) stays mounted on the single card below the quiet actions. Combined cards do not mount it (Hero handles inbound on blocks; ACCEPTED withdraw keeps working through commitment actions). State this in a Decision.
-- [ ] No confirmation dialog on those reverses (ADR-0002).
+- [x] Quiet actions share one link weight on single and combined, smaller than the primary: Edit plan (when a plan exists), Mark {Kid} not going, Split into N events on a combined card, Combine events on a single card that can recombine, View route when a route exists, Remove recurring on a locked plan (danger, quieter than Edit).
+- [x] View route calls the existing route opener. Single → that event. Combined → **both** existing leg links survive: TO run opens `onOpenRide(earliestMember, "TO")`, FROM run opens `onOpenRide(latestMember, "FROM")`. They may sit in the Legs table column headers or quiet row, but there is one per routable leg, not one for the block. Multi-venue “N stops” in the location line opens the TO link.
+- [x] Existing reverses stay reachable from the expanded card with their current labels and handlers: `Cancel this ask`; `Cancel request to {Name}`; `{Name} can't drive anymore? Reassign the ride`; can’t-make-it; remove coverage; withdraw ACCEPTED inbound (its own link, never merged with reassign); inbound Accept / Pass / Reconsider / Undo / Can't take them; pending Confirm coverage / Decline. The mock’s “I can’t drive” and “Take over driving” placeholders do not replace or rename them. Frame G’s override is the existing reassign / cancel-request pair.
+- [x] Inbound `AgendaInboundRequestRow` (Accept / Pass / Reconsider / Undo, hero-queue hide, auto-decline chip) stays mounted on the single card below the quiet actions. Combined cards do not mount it (Hero handles inbound on blocks; ACCEPTED withdraw keeps working through commitment actions). State this in a Decision.
+- [x] No confirmation dialog on those reverses (ADR-0002).
 
 ### Places, conflicts, errors, attendance (single card)
 
-- [ ] Each active coverage keeps its own editable Leave from (`coverage-leave-from-{id}`, `onSetCoverageLeaveFrom`) in the expanded body. The Legs table does not replace it.
-- [ ] Item-level Leave from (`leave-from-{source}-{id}`) still renders when no coverage is active and the picker is not mounted.
-- [ ] Open Places still renders for `leaveByStatus === "UNAVAILABLE"` + `NO_ORIGIN` (item or self coverage) and calls `onOpenPlaces`.
-- [ ] Family / danger conflict lines and the ride-commitment conflict line render above the decision area when not out of play.
-- [ ] `Needs coverage for {kids}` and the `coverageActionError` alert render under the decision area.
-- [ ] Not-going kids keep **Mark as going again** (`AttendanceToggle`, writes `YES`). Out-of-play items keep the muted shell with attendance controls only.
-- [ ] Standing ride series band (`End standing Ask for {weekdays}`, hero hint, primary status) and `onEndStandingRide` stay reachable in their current position.
-- [ ] Manual events keep Edit and Remove event (`onEdit` / `onRemoveEvent`) in the quiet-action area, Remove quieter than Edit.
+- [x] Each active coverage keeps its own editable Leave from (`coverage-leave-from-{id}`, `onSetCoverageLeaveFrom`) in the expanded body. The Legs table does not replace it.
+- [x] Item-level Leave from (`leave-from-{source}-{id}`) still renders when no coverage is active and the picker is not mounted.
+- [x] Open Places still renders for `leaveByStatus === "UNAVAILABLE"` + `NO_ORIGIN` (item or self coverage) and calls `onOpenPlaces`.
+- [x] Family / danger conflict lines and the ride-commitment conflict line render above the decision area when not out of play.
+- [x] `Needs coverage for {kids}` and the `coverageActionError` alert render under the decision area.
+- [x] Not-going kids keep **Mark as going again** (`AttendanceToggle`, writes `YES`). Out-of-play items keep the muted shell with attendance controls only.
+- [x] Standing ride series band (`End standing Ask for {weekdays}`, hero hint, primary status) and `onEndStandingRide` stay reachable in their current position.
+- [x] Manual events keep Edit and Remove event (`onEdit` / `onRemoveEvent`) in the quiet-action area, Remove quieter than Edit.
 
 ### Combined card errors and places
 
 - [x] `actionError` on the block card renders whether or not the plan is locked (today it renders only inside the locked summary).
-- [ ] Departure-item Leave from on the block keeps its current gating (viewer owns a TO leg, not settled-locked).
+- [x] Departure-item Leave from on the block keeps its current gating (viewer owns a TO leg, not settled-locked). When a decision picker is open it renders inside the picker's Leave from slot instead of as a separate band (Decision 14).
 
 ### Recurrence visibility (pre-existing hole)
 
@@ -173,25 +173,25 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 
 ### Plan locked
 
-- [ ] Plan locked chrome (title `Plan locked · repeats every {weekday}`, Edit plan, not going, Remove recurring, scope caption) is expanded-only on single and combined cards.
-- [ ] Edit on a locked card reveals the same simple round-trip picker (not the split editor). Saving an existing plan uses `Save ride plan`.
+- [x] Plan locked chrome (title `Plan locked · repeats every {weekday}`, Edit plan, not going, Remove recurring, scope caption) is expanded-only on single and combined cards.
+- [x] Edit on a locked card reveals the same simple round-trip picker (not the split editor). Saving an existing plan uses `Save ride plan`.
 
 ### Frames
 
-- [ ] **E** — Single, ride needed, You selected: Legs + shared Leave from + Confirm primary + Mark {Kid} not going. No Meet where?.
-- [ ] **F** — Combined, mixed: Legs for every kid; a status/cancel block for a kid already asked; a live picker only for the kid still open; no picker for a fully assigned kid; Split and View route present.
-- [ ] **G** — Combined, other parent drives every leg: Legs name that parent, not You; no picker and no primary; quiet Edit plan, not going, Split, and the existing `{Name} can't drive anymore? Reassign the ride` / `Cancel request to {Name}` links from `agendaCommitmentActions`.
-- [ ] **H / I** — Plan locked single and combined share the locked section. Combined uses Split into N events where the single card uses Combine events.
-- [ ] **K** — Two kids, identical open legs: one picker titled `{Kid} + {Kid} — ROUND TRIP`, one primary for both (one call per member event carrying both kid ids when they share an event, else one call per event), plus Different plans for each kid.
+- [x] **E** — Single, ride needed, You selected: Legs + shared Leave from + Confirm primary + Mark {Kid} not going. No Meet where?.
+- [x] **F** — Combined, mixed: Legs for every kid; a status/cancel block for a kid already asked; a live picker only for the kid still open; no picker for a fully assigned kid; Split and View route present.
+- [x] **G** — Combined, other parent drives every leg: Legs name that parent, not You; no picker and no primary; quiet Edit plan, not going, Split, and the existing `{Name} can't drive anymore? Reassign the ride` / `Cancel request to {Name}` links from `agendaCommitmentActions`.
+- [x] **H / I** — Plan locked single and combined share the locked section. Combined uses Split into N events where the single card uses Combine events.
+- [x] **K** — Two kids, identical open legs: one picker titled `{Kid} + {Kid} — ROUND TRIP`, one primary for both (one call per member event carrying both kid ids when they share an event, else one call per event), plus Different plans for each kid.
 - [x] **L** — Same kid, back-to-back, one venue, titles share no words: one kid row with a line per event; one Getting there before the first and one Coming back after the last; title falls back to the venue.
 - [x] **M** — Several venues, no shared title words: title `{first venue} + N more stops`; location line `N stops` with the route icon; calm plan chip when every leg is assigned.
 
 ### Regressions
 
-- [ ] Ask, Post, Confirm, Save ride plan, Confirm-and-lock, standing Ask, Leave from, Meet where, leg-split, kid-split, Split/Combine, not going / going again, standing remove, End standing Ask, inbound Accept/Pass/Reconsider, and route navigation still perform the same operations they did before this restyle.
-- [ ] No handler prop on `AgendaRow` loses its JSX consumer. Add a test that enumerates the callback props and asserts each is reachable in some rendered state (or list the exact exceptions in a Decision).
-- [ ] ADR-0004 rules 1, 6, 7 hold on the block card: viewer-owned legs read `You`; the Legs table is the single grouped place that shows every kid’s plan (rule 6 grouping); cancel and withdraw stay independent links (rule 7). Record in Decisions that the Legs table is the rule-6 grouping now that the muted band and round-trip banner are gone.
-- [ ] Hero and Focus are unchanged.
+- [x] Ask, Post, Confirm, Save ride plan, Confirm-and-lock, standing Ask, Leave from, Meet where, leg-split, kid-split, Split/Combine, not going / going again, standing remove, End standing Ask, inbound Accept/Pass/Reconsider, and route navigation still perform the same operations they did before this restyle.
+- [x] No handler prop on `AgendaRow` loses its JSX consumer. Add a test that enumerates the callback props and asserts each is reachable in some rendered state (or list the exact exceptions in a Decision).
+- [x] ADR-0004 rules 1, 6, 7 hold on the block card: viewer-owned legs read `You`; the Legs table is the single grouped place that shows every kid’s plan (rule 6 grouping); cancel and withdraw stay independent links (rule 7). Record in Decisions that the Legs table is the rule-6 grouping now that the muted band and round-trip banner are gone.
+- [x] Hero and Focus are unchanged.
 
 ## Tasks
 
@@ -228,6 +228,7 @@ Order: lock the regression net first, then restyle.
 11. **Collapsed recurrence marker restored (2026-10-16).** Card-level `Every {weekday}` in the header meta. Per-leg ↻ still belongs to `agenda-standing-leg-marker`.
 12. **Callback reachability exception (2026-10-16).** `onLockStandingBlock` is deprecated and intentionally unused in `AgendaRow` (voided). The “every callback prop is reachable” net lists it as the only exception.
 13. **Household-plan Confirm vs self cancel-request (2026-10-16).** Self `WAITING_HOUSEHOLD` no longer hides Confirm/Decline behind “Cancel request to You”; Confirm/Decline is the primary for that state (same precedence as Focus). Override links still hide Confirm when waiting on another adult or when a decided assignee/reassign link applies.
+14. **Block Leave from moves into an open picker (2026-10-16).** `AgendaBlockCard` keeps the departure-item gating (viewer owns a TO leg, not settled-locked) for the standalone Leave from band, and additionally suppresses that band while a decision picker is mounted — the same `LeaveFromControls` (same `onSetLeaveFrom(item, body)`) renders inside the picker's shared Leave from slot instead. Mirrors the single card's `leaveFromInPicker` so the round trip has one Leave from, not two.
 
 ## Known stale references
 

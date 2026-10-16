@@ -2134,6 +2134,64 @@ describe("AgendaBlockCard", () => {
     expect(onCreateRide).toHaveBeenNthCalledWith(2, b, "UID:b", ["k2"])
   })
 
+  it("grouped block: one member's failure shows in the picker without hiding the other member", async () => {
+    const user = userEvent.setup()
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      leaveFromPlaceId: "p1",
+      leaveFromPlaceName: "Home",
+      leaveByStatus: "OK",
+      leaveByReason: null,
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      kidIds: ["k2"],
+      uncoveredKidIds: ["k2"],
+      leaveFromPlaceId: "p1",
+      leaveFromPlaceName: "Home",
+      leaveByStatus: "OK",
+      leaveByReason: null,
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        onUpdateAssignDraft={vi.fn()}
+        onAssignCoverage={vi.fn()}
+        onCreateRide={vi.fn()}
+        canAskTeamForItem={() => true}
+        hasPickupPlace
+        coverageActionErrorForItem={(row) =>
+          row.id === "b" ? "Post failed on B" : undefined
+        }
+        onSetLeaveFrom={vi.fn()}
+      />,
+    )
+
+    await expandBlock(user)
+    const card = screen.getByTestId("agenda-block-card")
+    const picker = within(card).getByTestId("agenda-block-decision-picker-picker-k1-k2")
+    expect(within(picker).getByTestId("driver-picker-action-error")).toHaveTextContent(
+      "Post failed on B",
+    )
+    // Both members' legs and the shared picker stay mounted.
+    expect(within(card).getByTestId("agenda-block-kid-plan-FEED-a-k1")).toBeInTheDocument()
+    expect(within(card).getByTestId("agenda-block-kid-plan-FEED-b-k2")).toBeInTheDocument()
+    expect(within(picker).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-block-action-error")).not.toBeInTheDocument()
+  })
+
   it("Frame F cancel-ask calls onCancelRide with the member ride id", async () => {
     const user = userEvent.setup()
     const onCancelRide = vi.fn()
