@@ -1,5 +1,9 @@
 import type { CombinedKidRow } from "@/components/combinedEventLayout"
 import { AgendaLegPair } from "@/components/AgendaLegPair"
+import {
+  AGENDA_QUIET_LINK_CLASS,
+  VIEW_ROUTE_LABEL,
+} from "@/components/AgendaQuietActions"
 
 export type AgendaLegsTableViewRoute = {
   /** Which kid-row key hosts this View route control. */
@@ -7,9 +11,6 @@ export type AgendaLegsTableViewRoute = {
   onClick: () => void
   testId: string
 }
-
-const viewRouteClass =
-  "mt-[var(--fc-space-sm)] text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
 
 function ViewRouteButton({
   route,
@@ -23,10 +24,10 @@ function ViewRouteButton({
       type="button"
       disabled={loading}
       data-testid={route.testId}
-      className={viewRouteClass}
+      className={`mt-[var(--fc-space-sm)] ${AGENDA_QUIET_LINK_CLASS}`}
       onClick={route.onClick}
     >
-      View route
+      {VIEW_ROUTE_LABEL}
     </button>
   )
 }

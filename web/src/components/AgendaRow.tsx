@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight, ChevronUp, Navigation } from "lucide-react"
+import { ChevronDown, ChevronUp, Navigation } from "lucide-react"
 import type {
   CalendarDriveBlockLink,
   CalendarItem,
@@ -35,6 +35,13 @@ import {
   standingAskOpenOwnStatus,
   type StandingRideAgendaChrome,
 } from "@/components/standingRideChrome"
+import {
+  AgendaQuietActions,
+  AGENDA_QUIET_ACTIONS_ROW_CLASS,
+  AGENDA_QUIET_DANGER_LINK_CLASS,
+  AGENDA_QUIET_LINK_CLASS,
+  VIEW_ROUTE_LABEL,
+} from "@/components/AgendaQuietActions"
 import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
@@ -497,8 +504,8 @@ export function AgendaRow({
     }
   }
 
-  const overrideLinkClass =
-    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+  const quietLinkClass = AGENDA_QUIET_LINK_CLASS
+  const quietDangerLinkClass = AGENDA_QUIET_DANGER_LINK_CLASS
 
   const leaveFromSlotForPicker = (
     <LeaveFromControls
@@ -884,7 +891,7 @@ export function AgendaRow({
                     <button
                       type="button"
                       disabled={loading}
-                      className={`${overrideLinkClass} text-left`}
+                      className={quietLinkClass}
                       onClick={() => onCancelRide(ownRequest.id)}
                     >
                       No longer need a ride? Cancel this ask
@@ -1138,7 +1145,8 @@ export function AgendaRow({
             />
           ) : null}
 
-          {/* 4. Quiet actions */}
+          {/* 4. Quiet actions — shared link weight with AgendaBlockCard */}
+          <AgendaQuietActions testId="agenda-quiet-actions">
           {coverageGames.length > 0 ? (
             <div
               data-testid="agenda-band-kids"
@@ -1147,7 +1155,7 @@ export function AgendaRow({
               {showOverrideLinks ? (
                 <div
                   data-testid="agenda-override-links"
-                  className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
+                  className={AGENDA_QUIET_ACTIONS_ROW_CLASS}
                 >
                   {(() => {
                     const seenKeys = new Set<string>()
@@ -1163,7 +1171,7 @@ export function AgendaRow({
                             key={`revert-${assignee.key}`}
                             type="button"
                             disabled={loading}
-                            className={overrideLinkClass}
+                            className={quietLinkClass}
                             data-testid={
                               assignee.waiting
                                 ? "agenda-cancel-request-link"
@@ -1208,7 +1216,7 @@ export function AgendaRow({
                           key={`cancel-request-${game.kidId}`}
                           type="button"
                           disabled={loading}
-                          className={overrideLinkClass}
+                          className={quietLinkClass}
                           data-testid="agenda-cancel-request-link"
                           onClick={() => cancelPendingRequestForGame(game)}
                         >
@@ -1236,7 +1244,7 @@ export function AgendaRow({
                           key={`reassign-${game.kidId}`}
                           type="button"
                           disabled={loading}
-                          className={overrideLinkClass}
+                          className={quietLinkClass}
                           data-testid="agenda-reassign-link"
                           onClick={() => handleCantMakeIt(game)}
                         >
@@ -1250,7 +1258,7 @@ export function AgendaRow({
                     <button
                       type="button"
                       disabled={loading}
-                      className={overrideLinkClass}
+                      className={quietLinkClass}
                       data-testid={`rsvp-${item.source}-${item.id}-all`}
                       data-attendance="going"
                       onClick={() => markGoingKidsNotAttending()}
@@ -1284,7 +1292,7 @@ export function AgendaRow({
                           key={`not-going-${game.kidId}`}
                           type="button"
                           disabled={loading}
-                          className={overrideLinkClass}
+                          className={quietLinkClass}
                           data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
                           data-attendance="going"
                           onClick={() => onSetRsvp(game.kidId, "NO")}
@@ -1320,7 +1328,7 @@ export function AgendaRow({
                 <button
                   type="button"
                   disabled={loading}
-                  className="mt-2 text-left text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className={quietLinkClass}
                   data-testid={`rsvp-${item.source}-${item.id}-all`}
                   data-attendance="going"
                   onClick={() => markGoingKidsNotAttending()}
@@ -1374,7 +1382,7 @@ export function AgendaRow({
                   key={`${link.leg}-${link.otherSource}-${link.otherId}`}
                   type="button"
                   disabled={loading}
-                  className={`${overrideLinkClass} text-left`}
+                  className={quietLinkClass}
                   data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
                   onClick={() => onDriveBlockLink(link)}
                 >
@@ -1389,29 +1397,38 @@ export function AgendaRow({
               type="button"
               data-testid="agenda-row-open-ride-cta"
               onClick={() => onOpenRide?.()}
-              className="flex w-full items-center justify-between rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-agenda-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-back-size)] leading-[var(--fc-font-ride-detail-back-line)] font-[number:var(--fc-font-ride-detail-back-weight)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
+              className={quietLinkClass}
             >
-              <span className="flex items-center gap-[var(--fc-space-sm)]">
-                <Navigation aria-hidden size={15} />
-                Route for this ride
-              </span>
-              <ChevronRight aria-hidden size={16} />
+              {VIEW_ROUTE_LABEL}
             </button>
           ) : null}
 
           {isManual ? (
             <div
               data-testid="agenda-band-manual-actions"
-              className="flex gap-[var(--fc-space-sm)]"
+              className={AGENDA_QUIET_ACTIONS_ROW_CLASS}
             >
-              <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
+              <button
+                type="button"
+                disabled={loading}
+                className={quietLinkClass}
+                data-testid="agenda-row-edit-event"
+                onClick={onEdit}
+              >
                 Edit
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onRemoveEvent} disabled={loading}>
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                className={quietDangerLinkClass}
+                data-testid="agenda-row-remove-event"
+                onClick={onRemoveEvent}
+              >
                 Remove event
-              </Button>
+              </button>
             </div>
           ) : null}
+          </AgendaQuietActions>
 
           {/* 5. Scope caption when locked (after quiet actions) */}
           {showLockedSummary ? (

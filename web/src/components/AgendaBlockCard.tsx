@@ -36,6 +36,11 @@ import {
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
 import { AgendaLegsTable } from "@/components/AgendaLegsTable"
+import {
+  AgendaQuietActions,
+  AGENDA_QUIET_ACTIONS_ROW_CLASS,
+  AGENDA_QUIET_LINK_CLASS,
+} from "@/components/AgendaQuietActions"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
 import {
   DriverPicker,
@@ -406,10 +411,7 @@ export function AgendaBlockCard({
     sections.toRun != null &&
     !settledLockedView &&
     !hasOpenPicker
-  const overrideLinkClass =
-    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
-  const splitLinkClass =
-    "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+  const quietLinkClass = AGENDA_QUIET_LINK_CLASS
   const decisionTitleClass =
     "block uppercase tracking-wide text-[length:var(--fc-font-list-row-team-size)] leading-[var(--fc-font-list-row-team-line)] font-[number:var(--fc-font-list-row-team-weight)] text-[var(--fc-text-secondary)]"
   const focusRingStyle = isFocused
@@ -683,7 +685,7 @@ export function AgendaBlockCard({
                         <button
                           type="button"
                           disabled={loading}
-                          className={`${overrideLinkClass} text-left`}
+                          className={quietLinkClass}
                           data-testid={`agenda-block-cancel-ask-btn-${section.ride.id}`}
                           onClick={() => onCancelRide(section.item, section.ride.id)}
                         >
@@ -805,7 +807,7 @@ export function AgendaBlockCard({
                         key={`${control.link.leg}-${control.item.source}-${control.item.id}-${control.link.otherSource}-${control.link.otherId}`}
                         type="button"
                         disabled={loading}
-                        className={splitLinkClass}
+                        className={quietLinkClass}
                         data-testid={`agenda-block-drive-block-link-${control.link.leg}-${control.link.otherId}`}
                         onClick={() => onDriveBlockLink(control.item, control.link)}
                       >
@@ -849,59 +851,62 @@ export function AgendaBlockCard({
             />
           ) : null}
 
-          {visibleCommitmentActions.length > 0 ? (
-            <div
-              data-testid="agenda-block-commitment-actions"
-              className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
-            >
-              {visibleCommitmentActions.map((action) => (
-                <button
-                  key={action.key}
-                  type="button"
-                  disabled={loading}
-                  className={overrideLinkClass}
-                  data-testid={action.testId}
-                  data-action-key={action.key}
-                  onClick={() =>
-                    runCommitmentAction(action, {
-                      onRevertDecidedAssignee,
-                      onCantMakeIt,
-                      onRemoveCoverage,
-                      onSetNotGoing,
-                      onWithdrawRide,
-                      currentAdultId,
-                    })
-                  }
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <AgendaQuietActions testId="agenda-block-quiet-actions">
+            {visibleCommitmentActions.length > 0 ? (
+              <div
+                data-testid="agenda-block-commitment-actions"
+                className={AGENDA_QUIET_ACTIONS_ROW_CLASS}
+              >
+                {visibleCommitmentActions.map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    disabled={loading}
+                    className={quietLinkClass}
+                    data-testid={action.testId}
+                    data-action-key={action.key}
+                    data-action-kind={action.kind}
+                    onClick={() =>
+                      runCommitmentAction(action, {
+                        onRevertDecidedAssignee,
+                        onCantMakeIt,
+                        onRemoveCoverage,
+                        onSetNotGoing,
+                        onWithdrawRide,
+                        currentAdultId,
+                      })
+                    }
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-          {onDriveBlockLink != null &&
-          driveBlockControls.length > 0 &&
-          !showLockedSummary ? (
-            <div
-              data-testid="agenda-block-drive-block-links"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
-            >
-              {driveBlockControls.map((control) => (
-                <button
-                  key={`${control.link.leg}-${control.item.source}-${control.item.id}-${control.link.otherSource}-${control.link.otherId}`}
-                  type="button"
-                  disabled={loading}
-                  className={splitLinkClass}
-                  data-testid={`agenda-block-drive-block-link-${control.link.leg}-${control.link.otherId}`}
-                  onClick={() => onDriveBlockLink(control.item, control.link)}
-                >
-                  {control.link.combined
-                    ? splitIntoEventsLabel(items.length)
-                    : control.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+            {onDriveBlockLink != null &&
+            driveBlockControls.length > 0 &&
+            !showLockedSummary ? (
+              <div
+                data-testid="agenda-block-drive-block-links"
+                className="flex flex-col gap-[var(--fc-space-sm)]"
+              >
+                {driveBlockControls.map((control) => (
+                  <button
+                    key={`${control.link.leg}-${control.item.source}-${control.item.id}-${control.link.otherSource}-${control.link.otherId}`}
+                    type="button"
+                    disabled={loading}
+                    className={quietLinkClass}
+                    data-testid={`agenda-block-drive-block-link-${control.link.leg}-${control.link.otherId}`}
+                    onClick={() => onDriveBlockLink(control.item, control.link)}
+                  >
+                    {control.link.combined
+                      ? splitIntoEventsLabel(items.length)
+                      : control.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </AgendaQuietActions>
         </div>
       ) : null}
     </div>

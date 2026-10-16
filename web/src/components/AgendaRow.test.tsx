@@ -2869,7 +2869,9 @@ describe("AgendaRow", () => {
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     const cta = within(row).getByTestId("agenda-row-open-ride-cta")
-    expect(cta).toHaveTextContent("Route for this ride")
+    expect(cta).toHaveTextContent("View route")
+    expect(cta.className).toMatch(/--fc-font-list-row-meta-size/)
+    expect(cta.className).not.toMatch(/--fc-accent/)
     await user.click(cta)
     expect(onOpenRide).toHaveBeenCalledTimes(2)
   })
@@ -4051,10 +4053,15 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-MANUAL-manual-actions")
     await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-quiet-actions")).toBeInTheDocument()
     const actions = within(row).getByTestId("agenda-band-manual-actions")
-    await user.click(within(actions).getByRole("button", { name: "Edit" }))
+    const edit = within(actions).getByRole("button", { name: "Edit" })
+    const remove = within(actions).getByRole("button", { name: "Remove event" })
+    expect(edit.className).toMatch(/--fc-text-secondary/)
+    expect(remove.className).toMatch(/--fc-danger/)
+    await user.click(edit)
     expect(onEdit).toHaveBeenCalledTimes(1)
-    await user.click(within(actions).getByRole("button", { name: "Remove event" }))
+    await user.click(remove)
     expect(onRemoveEvent).toHaveBeenCalledTimes(1)
   })
 

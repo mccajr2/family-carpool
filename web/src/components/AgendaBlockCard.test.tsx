@@ -778,12 +778,16 @@ describe("AgendaBlockCard", () => {
     )
 
     await expandBlock(user)
+    expect(screen.getByTestId("agenda-block-quiet-actions")).toBeInTheDocument()
     const actions = screen.getByTestId("agenda-block-commitment-actions")
-    expect(within(actions).getAllByTestId("agenda-reassign-link")).toHaveLength(2)
+    const reassign = within(actions).getAllByTestId("agenda-reassign-link")
+    expect(reassign).toHaveLength(2)
+    expect(reassign[0]!.className).toMatch(/--fc-font-list-row-meta-size/)
+    expect(reassign[0]!.className).not.toMatch(/--fc-font-focus-action/)
     expect(within(actions).getByText(/Mark Kian as not going/)).toBeInTheDocument()
     expect(within(actions).getByText(/Mark Declan as not going/)).toBeInTheDocument()
 
-    await user.click(within(actions).getAllByTestId("agenda-reassign-link")[0]!)
+    await user.click(reassign[0]!)
     expect(onCantMakeIt).toHaveBeenCalled()
 
     expect(screen.getByTestId("agenda-block-leave-from")).toBeInTheDocument()
@@ -950,10 +954,12 @@ describe("AgendaBlockCard", () => {
       name: "Can't take them anymore",
     })
     expect(withdraw).toBeInTheDocument()
+    expect(withdraw).toHaveAttribute("data-action-kind", "withdraw-inbound")
     // Paired with own-kid reassign (ADR-0004 rule 7) — not collapsed into one link.
-    expect(within(actions).getAllByTestId("agenda-reassign-link").length).toBeGreaterThan(
-      0,
-    )
+    const reassign = within(actions).getAllByTestId("agenda-reassign-link")
+    expect(reassign.length).toBeGreaterThan(0)
+    expect(reassign[0]).toHaveAttribute("data-action-kind", "cant-make-it")
+    expect(withdraw).not.toHaveAttribute("data-action-kind", "cant-make-it")
 
     await user.click(withdraw)
     expect(onWithdrawRide).toHaveBeenCalledWith(
