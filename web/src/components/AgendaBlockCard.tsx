@@ -26,7 +26,7 @@ import {
   mapCalendarItemToCoverageGames,
   type CoverageGameEvent,
 } from "@/components/coverageQueue"
-import { AgendaLegPair } from "@/components/AgendaLegPair"
+import { AgendaLegsTable } from "@/components/AgendaLegsTable"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
 import {
   agendaBlockDriveBlockControls,
@@ -467,72 +467,33 @@ export function AgendaBlockCard({
 
       {open ? (
         <div className="flex flex-col gap-[var(--fc-space-md)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] py-[var(--fc-space-list-row-pad-y)]">
-          {layout.kidRows.map((row) => (
-            <div
-              key={row.key}
-              data-testid={`agenda-block-kid-plan-${row.key}`}
-              className="flex flex-col gap-[var(--fc-space-sm)]"
-            >
-              <div className="flex min-w-0 items-center gap-[var(--fc-space-sm)]">
-                <span
-                  aria-hidden
-                  className="flex shrink-0 items-center justify-center rounded-full bg-[var(--fc-accent)] text-[var(--fc-accent-on)]"
-                  style={{
-                    width: "var(--fc-space-list-row-kid-avatar)",
-                    height: "var(--fc-space-list-row-kid-avatar)",
-                    fontSize: "var(--fc-font-list-row-avatar-label-size)",
-                    lineHeight: "var(--fc-font-list-row-avatar-label-line)",
-                    fontWeight: "var(--fc-font-list-row-avatar-label-weight)",
-                  }}
-                >
-                  {row.initial}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-text-primary)]">
-                    {row.firstName}
-                  </span>
-                  <span className="block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]">
-                    {row.eventLabel} · {row.timeLabel}
-                  </span>
-                </span>
-              </div>
-              <AgendaLegPair
-                testId={`agenda-block-legs-${row.key}`}
-                thereDetail={row.there.detail}
-                backDetail={row.back.detail}
-                thereAction={
-                  row.key === toRouteRowKey ? (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      data-testid="agenda-block-run-to-view-route"
-                      className="mt-[var(--fc-space-sm)] text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
-                      onClick={() =>
-                        onOpenRide?.(sections.toRun!.representativeItem, "TO")
-                      }
-                    >
-                      View route
-                    </button>
-                  ) : undefined
-                }
-                backAction={
-                  row.key === fromRouteRowKey ? (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      data-testid="agenda-block-run-from-view-route"
-                      className="mt-[var(--fc-space-sm)] text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
-                      onClick={() =>
-                        onOpenRide?.(sections.fromRun!.representativeItem, "FROM")
-                      }
-                    >
-                      View route
-                    </button>
-                  ) : undefined
-                }
-              />
-            </div>
-          ))}
+          <AgendaLegsTable
+            testId="agenda-block-legs-table"
+            rows={layout.kidRows}
+            loading={loading}
+            rowTestId={(row) => `agenda-block-kid-plan-${row.key}`}
+            legPairTestId={(row) => `agenda-block-legs-${row.key}`}
+            toViewRoute={
+              toRouteRowKey != null && sections.toRun != null
+                ? {
+                    rowKey: toRouteRowKey,
+                    testId: "agenda-block-run-to-view-route",
+                    onClick: () =>
+                      onOpenRide?.(sections.toRun!.representativeItem, "TO"),
+                  }
+                : null
+            }
+            fromViewRoute={
+              fromRouteRowKey != null && sections.fromRun != null
+                ? {
+                    rowKey: fromRouteRowKey,
+                    testId: "agenda-block-run-from-view-route",
+                    onClick: () =>
+                      onOpenRide?.(sections.fromRun!.representativeItem, "FROM"),
+                  }
+                : null
+            }
+          />
 
           {showLeaveFrom && departureItem != null ? (
             <div data-testid="agenda-block-leave-from">

@@ -9,7 +9,7 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
-import { AgendaLegPair } from "@/components/AgendaLegPair"
+import { AgendaLegsTable } from "@/components/AgendaLegsTable"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { AttendanceToggle, rsvpWriteForAttendanceAction } from "@/components/AttendanceToggle"
@@ -741,16 +741,15 @@ export function AgendaRow({
 
       {open ? (
         <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
-          {settledLockedView
-            ? collapsedLayout.kidRows.map((row) => (
-                <AgendaLegPair
-                  key={row.key}
-                  testId={`agenda-row-legs-${row.kidId}`}
-                  thereDetail={row.there.detail}
-                  backDetail={row.back.detail}
-                />
-              ))
-            : null}
+          {settledLockedView ? (
+            <AgendaLegsTable
+              testId="agenda-row-legs-table"
+              rows={collapsedLayout.kidRows}
+              loading={loading}
+              rowTestId={(row) => `agenda-row-legs-row-${row.kidId}`}
+              legPairTestId={(row) => `agenda-row-legs-${row.kidId}`}
+            />
+          ) : null}
           {showLockedSummary ? (
             <LockedStandingPlanSummary
               testIdPrefix="agenda-row-standing-locked"
