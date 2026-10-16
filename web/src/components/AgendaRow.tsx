@@ -23,6 +23,7 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
+  recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -391,6 +392,11 @@ export function AgendaRow({
     teammateCircleId: ownRequest?.acceptingCircleId,
     teammateCircleName: ownRequest?.acceptingCircleName,
   }).filter((assignee) => assignee.kind !== "team_ask")
+  // Self WAITING_HOUSEHOLD is Confirmed/Declined via the household-plan pair —
+  // do not let "Cancel request to You" hide that primary (Focus has the same precedence).
+  const overrideAssignees = decidedAssignees.filter(
+    (assignee) => !(assignee.waiting && assignee.adultId === currentAdultId),
+  )
   const confirmedGames = inPlayGames.filter((game) => isConfirmedDriver(game.ownRide))
   const waitingOnOtherGames = inPlayGames.filter(
     (game) =>
@@ -399,7 +405,7 @@ export function AgendaRow({
   const showOverrideLinks =
     !outOfPlay &&
     !settledLockedView &&
-    (decidedAssignees.length > 0 ||
+    (overrideAssignees.length > 0 ||
       confirmedGames.length > 0 ||
       waitingOnOtherGames.length > 0)
   /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
@@ -532,6 +538,15 @@ export function AgendaRow({
           >
             {whenLabel}
           </span>
+          {!open && showLockedSummary ? (
+            <span
+              data-testid="agenda-row-recurrence"
+              className="mt-0.5 block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
+            >
+              <span aria-hidden>↻ </span>
+              {recurrenceHintLabel(weekdays.singular)}
+            </span>
+          ) : null}
           <EventLocationLine
             location={locationLabel}
             data-testid="agenda-row-where"
@@ -846,8 +861,8 @@ export function AgendaRow({
                 >
                   {(() => {
                     const seenKeys = new Set<string>()
-                    if (decidedAssignees.length > 0) {
-                      return decidedAssignees.map((assignee) => {
+                    if (overrideAssignees.length > 0) {
+                      return overrideAssignees.map((assignee) => {
                         if (seenKeys.has(assignee.key)) {
                           return null
                         }

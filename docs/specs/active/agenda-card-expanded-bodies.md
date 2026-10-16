@@ -197,7 +197,7 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 
 Order: lock the regression net first, then restyle.
 
-- [ ] Tests (before restyle): add the missing single-card nets listed under **Tests: AgendaRow** so they are green on `main` before any layout change.
+- [x] Tests (before restyle): add the missing single-card nets listed under **Tests: AgendaRow** so they are green on `main` before any layout change.
 - [ ] Web: Shared expanded Legs table used by `AgendaRow` and `AgendaBlockCard`. Read-only. Block card keeps both TO/FROM View route links (one per routable leg) with the current representative items and `leg` argument.
 - [ ] Web: Extend `AgendaBlockCardProps` with item-scoped decision callbacks (`assignDraft` / `onUpdateAssignDraft`, `onAssignCoverage`, `onCreateRide`, `onSaveRidePlan`, `onSaveKidPlans`, `onCancelRide`, `canAskTeam`, `hasPickupPlace`, `coverageActionError`, standing lock weekday props). Wire them in `FamilyScreen` next to the existing `AgendaRow` wiring; grouped blocks share one adult draft and fan out one call per member event.
 - [ ] Web: Mount the existing simple DriverPicker on combined cards for kids (or identical-kid groups) that still need a decision. Titled block. Post / Confirm / Save labels name the kid(s). Posted open leg → status + `Cancel this ask` via `onCancelRide`.
@@ -226,6 +226,8 @@ Order: lock the regression net first, then restyle.
 9. **Picker scope (2026-10-16).** “Fully assigned kids get no picker block” applies to combined cards only. The single card keeps one picker for all going kids.
 10. **ADR-0004 rule 6 (2026-10-16).** The Legs table is the grouped place that shows every kid’s plan now that the muted band and round-trip banner from `calendar-card-hierarchy` are gone. Rule 7 keeps cancel and withdraw as separate links.
 11. **Collapsed recurrence marker restored (2026-10-16).** Card-level `Every {weekday}` in the header meta. Per-leg ↻ still belongs to `agenda-standing-leg-marker`.
+12. **Callback reachability exception (2026-10-16).** `onLockStandingBlock` is deprecated and intentionally unused in `AgendaRow` (voided). The “every callback prop is reachable” net lists it as the only exception.
+13. **Household-plan Confirm vs self cancel-request (2026-10-16).** Self `WAITING_HOUSEHOLD` no longer hides Confirm/Decline behind “Cancel request to You”; Confirm/Decline is the primary for that state (same precedence as Focus). Override links still hide Confirm when waiting on another adult or when a decided assignee/reassign link applies.
 
 ## Known stale references
 
