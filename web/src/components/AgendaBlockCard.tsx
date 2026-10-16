@@ -67,6 +67,7 @@ import {
 } from "@/components/rideStatusChip"
 import {
   lockedPlanScopeCaption,
+  recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -528,6 +529,15 @@ export function AgendaBlockCard({
           >
             {layout.whenLabel}
           </span>
+          {!open && showLockedSummary ? (
+            <span
+              data-testid="agenda-block-recurrence"
+              className="mt-0.5 block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
+            >
+              <span aria-hidden>↻ </span>
+              {recurrenceHintLabel(weekdays.singular)}
+            </span>
+          ) : null}
           {locationLabel != null ? (
             <EventLocationLine
               location={locationLabel}

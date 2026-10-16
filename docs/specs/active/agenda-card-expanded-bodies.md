@@ -169,7 +169,7 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 
 ### Recurrence visibility (pre-existing hole)
 
-- [ ] A collapsed locked/recurring card shows one card-level recurrence marker (text `Every {weekday}` from `recurrenceHintLabel`, or a `↻` prefix on that text) in the header meta line, same role as the when line. This is **not** per-leg; per-leg ↻ stays in `agenda-standing-leg-marker`. Collapsed body height unchanged. Reason: `calendar-card-hierarchy` moved Plan locked expanded-only and `agenda-card-one-language` deleted the `↻ Every {weekday}` stand-in, so a locked card is currently indistinguishable from a one-off when collapsed.
+- [x] A collapsed locked/recurring card shows one card-level recurrence marker (text `Every {weekday}` from `recurrenceHintLabel`, or a `↻` prefix on that text) in the header meta line, same role as the when line. This is **not** per-leg; per-leg ↻ stays in `agenda-standing-leg-marker`. Collapsed body height unchanged. Reason: `calendar-card-hierarchy` moved Plan locked expanded-only and `agenda-card-one-language` deleted the `↻ Every {weekday}` stand-in, so a locked card is currently indistinguishable from a one-off when collapsed.
 
 ### Plan locked
 
@@ -205,7 +205,7 @@ Order: lock the regression net first, then restyle.
 - [x] Web: Quiet-action row on both shells; real reverse labels from `agendaCommitmentActions` / `decidedAssigneeRevertLabel`; withdraw separate from reassign; Remove recurring danger.
 - [x] Web: Plan locked section matches H/I; Edit returns to the simple picker with `Save ride plan` and `notGoingThisWeek`.
 - [x] Web: Block card renders `actionError` when unlocked.
-- [ ] Web: Collapsed recurrence marker (`Every {weekday}`) back in the header meta on locked cards, single and combined. Not per-leg.
+- [x] Web: Collapsed recurrence marker (`Every {weekday}`) back in the header meta on locked cards, single and combined. Not per-leg.
 - [ ] Web: Combined title/location fallbacks for L and M (`combinedEventTitle` / location line). No token palette change.
 - [ ] Web: No OpenAPI / backend changes.
 - [ ] Tests: AgendaRow — `keeps End standing Ask and standing series hints when expanded`; `pending self Confirm/Decline call onConfirmCoverage/onDeclineCoverage`; `household-plan Confirm/Decline call onConfirmHouseholdPlan/onDeclineHouseholdPlan`; `Reconsider and Undo call onAcceptRide`; `Open Places renders for NO_ORIGIN`; `manual Edit and Remove event stay in quiet actions`; `Confirm and lock label when Lock checked`; `coverage leave-from editor survives next to Legs table`; `item-level leave-from renders when no coverage and no picker`; `Request band renders when picker not mounted and gap exists`; `collapsed locked card shows Every {weekday}` (restore the intent of the test at ~3639 that was weakened to expand first); `every callback prop is reachable in some rendered state`.

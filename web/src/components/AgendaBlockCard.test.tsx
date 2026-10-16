@@ -991,6 +991,82 @@ describe("AgendaBlockCard", () => {
     expect(screen.queryByText("Lock this plan")).not.toBeInTheDocument()
   })
 
+  it("collapsed locked card shows Every {weekday} in header meta", async () => {
+    const user = userEvent.setup()
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-recurrence",
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-recurrence",
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        onRemoveStandingBlock={vi.fn()}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    expect(within(card).getByTestId("agenda-block-recurrence")).toHaveTextContent(
+      /^↻ Every /,
+    )
+    expect(
+      within(card).queryByTestId("agenda-block-standing-locked-title"),
+    ).not.toBeInTheDocument()
+    // Card-level only — not repeated on collapsed kid rows.
+    expect(within(card).getByTestId("agenda-block-kid-rows").textContent).not.toMatch(
+      /↻ Every /,
+    )
+
+    await expandBlock(user, card)
+    expect(within(card).queryByTestId("agenda-block-recurrence")).not.toBeInTheDocument()
+    expect(
+      within(card).getByTestId("agenda-block-standing-locked-title"),
+    ).toHaveTextContent(/Plan locked/)
+  })
+
   it("shows locked summary with Edit and Remove; Edit reveals leave-from without Remove", async () => {
     const user = userEvent.setup()
     const onRemoveStandingBlock = vi.fn()
@@ -1050,6 +1126,7 @@ describe("AgendaBlockCard", () => {
     )
 
     expect(screen.queryByTestId("agenda-block-standing-locked-title")).not.toBeInTheDocument()
+    expect(screen.getByTestId("agenda-block-recurrence")).toHaveTextContent(/^↻ Every /)
     await expandBlock(user)
     expect(screen.queryByTestId("agenda-block-lock-standing")).not.toBeInTheDocument()
     expect(screen.getByTestId("agenda-block-standing-locked-title")).toHaveTextContent(
