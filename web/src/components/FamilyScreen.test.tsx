@@ -5490,6 +5490,9 @@ describe("FamilyScreen", () => {
     const list = within(agenda).getByTestId("agenda-list")
     expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
     const block = within(list).getByTestId("agenda-block-card")
+    expect(block).toHaveAttribute("data-decision-wired", "true")
+    expect(block).toHaveAttribute("data-assign-adult", "1")
+    expect(block).toHaveAttribute("data-has-cancel-ride", "true")
     expect(within(block).getByTestId("agenda-block-kid-FEED-drive-a-k1")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-kid-FEED-drive-b-k1")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-title")).toHaveTextContent(

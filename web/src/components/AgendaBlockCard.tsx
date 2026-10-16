@@ -13,6 +13,7 @@ import {
   buildAgendaBlockSections,
   type AgendaBlockRunSection,
 } from "@/components/agendaBlockSections"
+import type { AgendaBlockAssignDraft } from "@/components/agendaBlockDecision"
 import {
   agendaCommitmentActionsForItems,
   blockDepartureItem,
@@ -28,6 +29,11 @@ import {
 } from "@/components/coverageQueue"
 import { AgendaLegsTable } from "@/components/AgendaLegsTable"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
+import type {
+  DriverPickerConfirmOptions,
+  DriverPickerKidPlan,
+  DriverPickerSavePlanLegs,
+} from "@/components/DriverPicker"
 import {
   agendaBlockDriveBlockControls,
   splitIntoEventsLabel,
@@ -98,6 +104,46 @@ export type AgendaBlockCardProps = {
   onLockStandingBlock?: (items: CalendarItem[]) => void
   /** Remove recurring coverage template for this locked block (from this date forward). */
   onRemoveStandingBlock?: (templateId: string, fromStartsAt: string) => void
+  /**
+   * Shared adult draft for the block's decision picker (one adult for the shell).
+   * Parent keys drafts per member and syncs adultId across the block.
+   */
+  assignDraft?: AgendaBlockAssignDraft
+  onUpdateAssignDraft?: (
+    patch: Partial<{ adultId: string; kidIds: string[] }>,
+  ) => void
+  /** Item-scoped Confirm — parent or fan-out helper calls once per member event. */
+  onAssignCoverage?: (
+    item: CalendarItem,
+    adultId: string,
+    kidIds: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
+  onCreateRide?: (
+    item: CalendarItem,
+    eventKey: string,
+    kidIds?: string[],
+  ) => void
+  onSaveRidePlan?: (
+    item: CalendarItem,
+    legs: DriverPickerSavePlanLegs,
+    kidIds?: string[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
+  onSaveKidPlans?: (
+    item: CalendarItem,
+    plans: DriverPickerKidPlan[],
+    options?: DriverPickerConfirmOptions,
+  ) => void
+  onCancelRide?: (item: CalendarItem, rideId: string) => void
+  /** True when this member's feed has a carpool space (Ask the team). */
+  canAskTeamForItem?: (item: CalendarItem) => boolean
+  hasPickupPlace?: boolean
+  /** Per-member coverage / ask action error (fan-out failures stay item-scoped). */
+  coverageActionErrorForItem?: (item: CalendarItem) => string | undefined
+  /** Standing Lock weekday labels from `standingBlockChrome(items)` + startsAt. */
+  standingLockWeekdaySingular?: string | null
+  standingLockWeekdayPlural?: string | null
 }
 
 function isRunRoutable(
@@ -232,6 +278,18 @@ export function AgendaBlockCard({
   onWithdrawRide,
   onLockStandingBlock: _onLockStandingBlock,
   onRemoveStandingBlock,
+  assignDraft,
+  onUpdateAssignDraft,
+  onAssignCoverage,
+  onCreateRide,
+  onSaveRidePlan,
+  onSaveKidPlans,
+  onCancelRide,
+  canAskTeamForItem,
+  hasPickupPlace = false,
+  coverageActionErrorForItem,
+  standingLockWeekdaySingular: standingLockWeekdaySingularProp,
+  standingLockWeekdayPlural: standingLockWeekdayPluralProp,
 }: AgendaBlockCardProps) {
   const [open, setOpen] = useState(false)
   const [editingLockedPlan, setEditingLockedPlan] = useState(false)
@@ -256,6 +314,31 @@ export function AgendaBlockCard({
   const standingChrome = standingBlockChrome(items)
   const weekdays =
     items[0] != null ? standingWeekdayNames(items[0].startsAt) : { singular: "week", plural: "weeks" }
+  const standingLockWeekdaySingular =
+    standingLockWeekdaySingularProp !== undefined
+      ? standingLockWeekdaySingularProp
+      : standingChrome.showLock
+        ? weekdays.singular
+        : null
+  const standingLockWeekdayPlural =
+    standingLockWeekdayPluralProp !== undefined
+      ? standingLockWeekdayPluralProp
+      : standingChrome.showLock
+        ? weekdays.plural
+        : null
+  // Minimum Confirm wiring; Ask/Save/Cancel are optional until the picker mounts.
+  const decisionWiringReady =
+    assignDraft != null &&
+    onUpdateAssignDraft != null &&
+    onAssignCoverage != null
+  const canAskTeamAnywhere =
+    canAskTeamForItem != null && items.some((member) => canAskTeamForItem(member))
+  const memberCoverageError =
+    coverageActionErrorForItem != null
+      ? items
+          .map((member) => coverageActionErrorForItem(member))
+          .find((message) => message != null && message.length > 0)
+      : undefined
   const isStandingLocked = standingChrome.showRemove
   const settledLockedView = isStandingLocked && !editingLockedPlan
   const showLockedSummary = isStandingLocked
@@ -337,6 +420,17 @@ export function AgendaBlockCard({
       data-testid="agenda-block-card"
       data-member-keys={items.map(calendarItemKey).join(",")}
       data-focused={isFocused ? "true" : "false"}
+      data-decision-wired={decisionWiringReady ? "true" : "false"}
+      data-assign-adult={assignDraft?.adultId ?? ""}
+      data-can-ask-team={canAskTeamAnywhere ? "true" : "false"}
+      data-has-pickup-place={hasPickupPlace ? "true" : "false"}
+      data-has-create-ride={onCreateRide != null ? "true" : "false"}
+      data-has-save-ride-plan={onSaveRidePlan != null ? "true" : "false"}
+      data-has-save-kid-plans={onSaveKidPlans != null ? "true" : "false"}
+      data-has-cancel-ride={onCancelRide != null ? "true" : "false"}
+      data-standing-lock-weekday={standingLockWeekdaySingular ?? ""}
+      data-standing-lock-weekdays={standingLockWeekdayPlural ?? ""}
+      data-member-coverage-error={memberCoverageError ?? ""}
       className={`overflow-hidden rounded-[var(--fc-radius-xl)] border bg-[var(--fc-surface-raised)] transition-colors ${
         isFocused
           ? "border-[var(--fc-list-row-focus-border)]"

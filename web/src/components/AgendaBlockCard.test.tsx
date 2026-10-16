@@ -1385,4 +1385,70 @@ describe("AgendaBlockCard", () => {
     )
     expect(screen.getByTestId("agenda-block-standing-locked-remove")).toBeInTheDocument()
   })
+
+  it("accepts item-scoped decision props and surfaces shared assign draft wiring", () => {
+    const members = [
+      item("a", "2030-08-15T18:00:00.000Z", {
+        uncoveredKidIds: ["k1"],
+        standingLockEligible: true,
+      }),
+      item("b", "2030-08-15T19:00:00.000Z", {
+        uncoveredKidIds: ["k2"],
+        kidIds: ["k2"],
+        rsvps: [{ kidId: "k2", status: "YES" }],
+        standingLockEligible: true,
+      }),
+    ]
+    render(
+      <AgendaBlockCard
+        items={members}
+        circle={{
+          ...circle,
+          places: [
+            {
+              id: "p1",
+              name: "Home",
+              address: "1 Main",
+              latitude: 40,
+              longitude: -74,
+            },
+          ],
+        }}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        onUpdateAssignDraft={vi.fn()}
+        onAssignCoverage={vi.fn()}
+        onCreateRide={vi.fn()}
+        onSaveRidePlan={vi.fn()}
+        onSaveKidPlans={vi.fn()}
+        onCancelRide={vi.fn()}
+        canAskTeamForItem={() => true}
+        hasPickupPlace
+        coverageActionErrorForItem={(row) =>
+          row.id === "b" ? "Save failed on B" : undefined
+        }
+        standingLockWeekdaySingular="Thursday"
+        standingLockWeekdayPlural="Thursdays"
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(card).toHaveAttribute("data-decision-wired", "true")
+    expect(card).toHaveAttribute("data-assign-adult", "a1")
+    expect(card).toHaveAttribute("data-can-ask-team", "true")
+    expect(card).toHaveAttribute("data-has-pickup-place", "true")
+    expect(card).toHaveAttribute("data-has-create-ride", "true")
+    expect(card).toHaveAttribute("data-has-save-ride-plan", "true")
+    expect(card).toHaveAttribute("data-has-save-kid-plans", "true")
+    expect(card).toHaveAttribute("data-has-cancel-ride", "true")
+    expect(card).toHaveAttribute("data-standing-lock-weekday", "Thursday")
+    expect(card).toHaveAttribute("data-standing-lock-weekdays", "Thursdays")
+    expect(card).toHaveAttribute("data-member-coverage-error", "Save failed on B")
+  })
 })

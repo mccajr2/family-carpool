@@ -4309,6 +4309,139 @@ export function FamilyScreen({
                               actionError={entry.items
                                 .map((member) => coverageActionErrors[calendarItemKey(member)])
                                 .find((message) => message != null && message.length > 0)}
+                              assignDraft={(() => {
+                                const anchor = entry.items[0]!
+                                const anchorKey = calendarItemKey(anchor)
+                                const base = coverageAssignState(
+                                  anchor,
+                                  anchorKey,
+                                  calendarRideByItemKey.get(anchorKey)?.ownRequest,
+                                )
+                                const blockKidIds: string[] = []
+                                const seenKids = new Set<string>()
+                                for (const member of entry.items) {
+                                  for (const kidId of goingKidIdsForItem(member)) {
+                                    if (seenKids.has(kidId)) {
+                                      continue
+                                    }
+                                    seenKids.add(kidId)
+                                    blockKidIds.push(kidId)
+                                  }
+                                }
+                                return {
+                                  ...base,
+                                  kidIds: blockKidIds,
+                                  soleKid: blockKidIds.length <= 1,
+                                }
+                              })()}
+                              onUpdateAssignDraft={(patch) => {
+                                // Shared adult draft: sync adultId (and kid scope) across members.
+                                for (const member of entry.items) {
+                                  updateAssignCoverageDraft(
+                                    calendarItemKey(member),
+                                    patch,
+                                  )
+                                }
+                              }}
+                              onAssignCoverage={(member, coveringAdultId, kidIds, options) =>
+                                void onConfirmSimpleHousehold(
+                                  member,
+                                  coveringAdultId,
+                                  kidIds,
+                                  options,
+                                )
+                              }
+                              onCreateRide={
+                                entry.items.some((member) =>
+                                  feedHasCarpoolSpace(
+                                    calendarCarpoolSummary,
+                                    member.feedId,
+                                  ),
+                                )
+                                  ? (member, eventKey, kidIds) =>
+                                      void onCreateAgendaRide(member, eventKey, kidIds)
+                                  : undefined
+                              }
+                              onSaveRidePlan={
+                                entry.items.some(
+                                  (member) =>
+                                    calendarRideByItemKey.get(calendarItemKey(member)) !=
+                                      null ||
+                                    circle.members.length > 1 ||
+                                    (member.feedId != null &&
+                                      calendarCarpoolSummary != null &&
+                                      feedSpaceIdsFromSummary(calendarCarpoolSummary).has(
+                                        member.feedId,
+                                      )),
+                                )
+                                  ? (member, legs, kidIds, options) =>
+                                      void onSaveAgendaRidePlan(
+                                        member,
+                                        calendarRideByItemKey.get(calendarItemKey(member))
+                                          ?.eventKey ??
+                                          circleLocalEventKey(member) ??
+                                          "",
+                                        legs,
+                                        kidIds,
+                                        options,
+                                      )
+                                  : undefined
+                              }
+                              onSaveKidPlans={
+                                entry.items.some(
+                                  (member) =>
+                                    calendarRideByItemKey.get(calendarItemKey(member)) !=
+                                      null ||
+                                    circle.members.length > 1 ||
+                                    (member.feedId != null &&
+                                      calendarCarpoolSummary != null &&
+                                      feedSpaceIdsFromSummary(calendarCarpoolSummary).has(
+                                        member.feedId,
+                                      )),
+                                )
+                                  ? (member, plans, options) =>
+                                      void onSaveAgendaKidPlans(
+                                        member,
+                                        calendarRideByItemKey.get(calendarItemKey(member))
+                                          ?.eventKey ??
+                                          circleLocalEventKey(member) ??
+                                          "",
+                                        plans,
+                                        options,
+                                      )
+                                  : undefined
+                              }
+                              onCancelRide={(member, rideId) =>
+                                void onCancelAgendaRide(member, rideId)
+                              }
+                              canAskTeamForItem={(member) =>
+                                feedHasCarpoolSpace(
+                                  calendarCarpoolSummary,
+                                  member.feedId,
+                                )
+                              }
+                              hasPickupPlace={circle.places.some(
+                                (place) => place.address.trim().length > 0,
+                              )}
+                              coverageActionErrorForItem={(member) =>
+                                coverageActionErrors[calendarItemKey(member)]
+                              }
+                              standingLockWeekdaySingular={(() => {
+                                const chrome = standingBlockChrome(entry.items)
+                                if (!chrome.showLock || entry.items[0] == null) {
+                                  return null
+                                }
+                                return standingWeekdayNames(entry.items[0].startsAt)
+                                  .singular
+                              })()}
+                              standingLockWeekdayPlural={(() => {
+                                const chrome = standingBlockChrome(entry.items)
+                                if (!chrome.showLock || entry.items[0] == null) {
+                                  return null
+                                }
+                                return standingWeekdayNames(entry.items[0].startsAt)
+                                  .plural
+                              })()}
                               onDriveBlockLink={(member, link) =>
                                 void onDriveBlockLinkAgenda(member, link)
                               }
