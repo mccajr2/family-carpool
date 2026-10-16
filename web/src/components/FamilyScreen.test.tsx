@@ -5490,6 +5490,9 @@ describe("FamilyScreen", () => {
     const list = within(agenda).getByTestId("agenda-list")
     expect(within(list).getAllByTestId("agenda-block-card")).toHaveLength(1)
     const block = within(list).getByTestId("agenda-block-card")
+    expect(block).toHaveAttribute("data-decision-wired", "true")
+    expect(block).toHaveAttribute("data-assign-adult", "1")
+    expect(block).toHaveAttribute("data-has-cancel-ride", "true")
     expect(within(block).getByTestId("agenda-block-kid-FEED-drive-a-k1")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-kid-FEED-drive-b-k1")).toBeInTheDocument()
     expect(within(block).getByTestId("agenda-block-title")).toHaveTextContent(
@@ -7285,11 +7288,14 @@ describe("FamilyScreen", () => {
     const item = within(agenda).getByTestId("agenda-item-MANUAL-e1")
     await expandAgendaItem(user, item)
     const primary = within(item).getByTestId("agenda-band-primary")
-    const kids = within(item).getByTestId("agenda-band-kids")
+    const legs = within(item).getByTestId("agenda-row-legs-table")
     const travel = within(item).getByTestId("agenda-band-travel")
+    const kids = within(item).getByTestId("agenda-band-kids")
 
-    expect(primary.compareDocumentPosition(kids) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(kids.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Expanded order: Legs → Leave from (travel) → quiet actions (kids band).
+    expect(primary.compareDocumentPosition(legs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(legs.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(travel.compareDocumentPosition(kids) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     expect(within(primary).getByText("Practice")).toBeInTheDocument()
     expect(within(primary).getByText(/Field/)).toBeInTheDocument()
@@ -7308,7 +7314,7 @@ describe("FamilyScreen", () => {
 
     expect(within(item).queryByTestId("agenda-cta-primary")).not.toBeInTheDocument()
     const manualActions = within(item).getByTestId("agenda-band-manual-actions")
-    expect(travel.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(kids.compareDocumentPosition(manualActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(manualActions).getByRole("button", { name: "Edit" })).toBeInTheDocument()
     expect(within(manualActions).getByRole("button", { name: "Remove event" })).toBeInTheDocument()
   })

@@ -1001,7 +1001,10 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Asked team")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-chip-strip")).toHaveTextContent(
+      /Asked team/i,
+    )
+    // Dual-chip labels (Focus) stay off the Agenda row; Legs table uses plain faces.
     expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
@@ -2866,7 +2869,9 @@ describe("AgendaRow", () => {
 
     await user.click(within(row).getByRole("button", { expanded: false }))
     const cta = within(row).getByTestId("agenda-row-open-ride-cta")
-    expect(cta).toHaveTextContent("Route for this ride")
+    expect(cta).toHaveTextContent("View route")
+    expect(cta.className).toMatch(/--fc-font-list-row-meta-size/)
+    expect(cta.className).not.toMatch(/--fc-accent/)
     await user.click(cta)
     expect(onOpenRide).toHaveBeenCalledTimes(2)
   })
@@ -3462,6 +3467,7 @@ describe("AgendaRow", () => {
     const user = userEvent.setup()
     const onRemoveStandingBlock = vi.fn()
     const onSetNotGoing = vi.fn()
+    const onSaveRidePlan = vi.fn()
     renderRow(
       item({
         id: "locked",
@@ -3493,6 +3499,7 @@ describe("AgendaRow", () => {
       {
         onRemoveStandingBlock,
         onSetNotGoing,
+        onSaveRidePlan,
         rideEvent: {
           eventKey: "UID:locked",
           title: "Practice",
@@ -3517,9 +3524,9 @@ describe("AgendaRow", () => {
     expect(
       within(row).queryByTestId("agenda-row-standing-locked-title"),
     ).not.toBeInTheDocument()
-    // Collapsed body is kid-row language only — no card-level ↻ Every {weekday}.
-    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
-    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
+      /Every/,
+    )
     expect(
       within(row).getByTestId("agenda-row-kid-assignment-FEED-locked-k1"),
     ).toHaveTextContent(/There You · Back You/)
@@ -3528,6 +3535,7 @@ describe("AgendaRow", () => {
     ).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
     expect(
       within(row).getByTestId("agenda-row-standing-locked-title"),
     ).toHaveTextContent(/Plan locked/)
@@ -3552,9 +3560,22 @@ describe("AgendaRow", () => {
     expect(
       within(row).getByTestId("driver-picker"),
     ).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toHaveAttribute(
+      "data-mode",
+      "simple",
+    )
+    expect(
+      within(row).getByRole("button", { name: "Save ride plan" }),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByRole("button", { name: /not going this week/ }),
+    ).toBeInTheDocument()
     expect(
       within(row).getByText("Different plans for each leg."),
     ).toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { name: "Save ride plan" }))
+    expect(onSaveRidePlan).toHaveBeenCalled()
 
     await user.click(within(row).getByText("Different plans for each leg."))
     expect(
@@ -3772,8 +3793,9 @@ describe("AgendaRow", () => {
 
     const row = screen.getByTestId("agenda-row-FEED-frame-d")
     expect(within(row).queryByTestId("agenda-row-rider-chips")).not.toBeInTheDocument()
-    expect(within(row).queryByTestId("agenda-row-recurrence")).not.toBeInTheDocument()
-    expect(within(row).queryByText(/↻/)).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
+      /Every/,
+    )
     expect(
       within(row).getByTestId("agenda-row-kid-assignment-FEED-frame-d-k1"),
     ).toHaveTextContent("There You · Back Needs ride")
@@ -3784,5 +3806,1363 @@ describe("AgendaRow", () => {
       within(strip).queryByText(RIDE_NEEDED) ??
       within(strip).getByText(/Coming back: Needs ride/i)
     expect(openLegChip.className).toMatch(/--fc-danger/)
+  })
+
+  it("keeps End standing Ask and standing series hints when expanded", async () => {
+    const user = userEvent.setup()
+    const onEndStandingRide = vi.fn()
+    renderRow(
+      item({
+        id: "standing-series",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:standing-series",
+      }),
+      {
+        standingRideSeries: {
+          arrangementId: "arr-1",
+          weekdaySingular: "Thursday",
+          weekdayPlural: "Thursdays",
+          inboundOpen: true,
+          ownOpen: true,
+          ownActive: false,
+          primaryActive: false,
+        },
+        onEndStandingRide,
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-standing-series")
+    expect(
+      within(row).getByTestId("agenda-row-standing-ride-inbound"),
+    ).toHaveTextContent(/Standing Ask every Thursday/)
+    expect(
+      within(row).getByTestId("agenda-row-standing-ride-own-open"),
+    ).toHaveTextContent(/Standing Ask open — every Thursday/)
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).getByTestId("agenda-row-standing-ride-series"),
+    ).toBeInTheDocument()
+    await user.click(
+      within(row).getByRole("button", { name: "End standing Ask for Thursdays" }),
+    )
+    expect(onEndStandingRide).toHaveBeenCalledWith(
+      "arr-1",
+      "2030-08-15T17:00:00.000Z",
+    )
+  })
+
+  it("pending self Confirm/Decline call onConfirmCoverage/onDeclineCoverage", async () => {
+    const user = userEvent.setup()
+    const onConfirmCoverage = vi.fn()
+    const onDeclineCoverage = vi.fn()
+    renderRow(
+      item({
+        id: "pending-confirm",
+        title: "Practice",
+        coverages: [
+          {
+            id: "cov-pending",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      { onConfirmCoverage, onDeclineCoverage },
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-pending-confirm")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Confirm coverage" }))
+    expect(onConfirmCoverage).toHaveBeenCalledWith("cov-pending")
+    await user.click(within(row).getByRole("button", { name: "Decline coverage" }))
+    expect(onDeclineCoverage).toHaveBeenCalledWith("cov-pending")
+  })
+
+  it("household-plan Confirm/Decline call onConfirmHouseholdPlan/onDeclineHouseholdPlan", async () => {
+    const user = userEvent.setup()
+    const onConfirmHouseholdPlan = vi.fn()
+    const onDeclineHouseholdPlan = vi.fn()
+    renderRow(
+      item({
+        id: "hh-plan",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:hh-plan",
+        uncoveredKidIds: [],
+      }),
+      {
+        onConfirmHouseholdPlan,
+        onDeclineHouseholdPlan,
+        rideEvent: {
+          eventKey: "UID:hh-plan",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("WAITING_HOUSEHOLD", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-hh-plan")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Confirm coverage" }))
+    expect(onConfirmHouseholdPlan).toHaveBeenCalledTimes(1)
+    await user.click(within(row).getByRole("button", { name: "Decline coverage" }))
+    expect(onDeclineHouseholdPlan).toHaveBeenCalledTimes(1)
+  })
+
+  it("Reconsider and Undo call onAcceptRide", async () => {
+    const user = userEvent.setup()
+    const onAcceptRide = vi.fn()
+    const confirmedCoverage = {
+      id: "cov-confirmed",
+      coveringAdultId: "a1",
+      coveringAdultDisplayName: "Alex",
+      assignedByAdultId: "a1",
+      kidIds: ["k1"],
+      status: "CONFIRMED" as const,
+      leaveFromPlaceId: null,
+      leaveFromPlaceName: null,
+      leaveFromAddress: null,
+      leaveByAt: null,
+      leaveByStatus: null,
+      leaveByReason: null,
+    }
+    const inboundAsk = {
+      id: "inbound-ask",
+      spaceId: "s1",
+      eventKey: "UID:reconsider",
+      requestingCircleId: "c2",
+      requestingCircleName: "House B",
+      requestedByAdultId: "a2",
+      kidIds: ["k2"],
+      kidFirstNames: ["Mia"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    }
+    const baseItem = item({
+      id: "reconsider",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:reconsider",
+      uncoveredKidIds: [],
+      coverages: [confirmedCoverage],
+    })
+    const rideEvent = {
+      eventKey: "UID:reconsider",
+      title: "Practice",
+      startsAt: baseItem.startsAt,
+      endsAt: null,
+      defaultKidIds: [],
+      ownRequest: null,
+      ownRequests: [],
+      ownLegs: carpoolLegsBoth("CONFIRMED", {
+        assigneeAdultId: "a1",
+        assigneeDisplayName: "Alex",
+      }),
+      otherRequests: [inboundAsk],
+    }
+
+    const { rerender } = render(
+      <AgendaRow
+        item={baseItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        autoDeclinedRideIds={new Set(["inbound-ask"])}
+        rideEvent={rideEvent}
+        onAcceptRide={onAcceptRide}
+        onPassRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-reconsider")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Reconsider" }))
+    expect(onAcceptRide).toHaveBeenCalledWith("inbound-ask")
+
+    onAcceptRide.mockClear()
+    rerender(
+      <AgendaRow
+        item={baseItem}
+        circle={circle}
+        currentAdultId="a1"
+        loading={false}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        recentlyWithdrawnRideIds={new Set(["inbound-ask"])}
+        rideEvent={rideEvent}
+        onAcceptRide={onAcceptRide}
+        onPassRide={vi.fn()}
+        {...noopHandlers}
+      />,
+    )
+    await user.click(within(row).getByRole("button", { name: "Undo" }))
+    expect(onAcceptRide).toHaveBeenCalledWith("inbound-ask")
+  })
+
+  it("Open Places renders for NO_ORIGIN", async () => {
+    const user = userEvent.setup()
+    const onOpenPlaces = vi.fn()
+    renderRow(
+      item({
+        id: "no-origin",
+        title: "Practice",
+        uncoveredKidIds: [],
+        leaveByStatus: "UNAVAILABLE",
+        leaveByReason: "NO_ORIGIN",
+        leaveFromPlaceId: null,
+        leaveFromPlaceName: null,
+      }),
+      { onOpenPlaces },
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-no-origin")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Open Places" }))
+    expect(onOpenPlaces).toHaveBeenCalledTimes(1)
+  })
+
+  it("manual Edit and Remove event stay in quiet actions", async () => {
+    const user = userEvent.setup()
+    const onEdit = vi.fn()
+    const onRemoveEvent = vi.fn()
+    renderRow(item({ id: "manual-actions", title: "Birthday" }), {
+      onEdit,
+      onRemoveEvent,
+    })
+
+    const row = screen.getByTestId("agenda-row-MANUAL-manual-actions")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-quiet-actions")).toBeInTheDocument()
+    const actions = within(row).getByTestId("agenda-band-manual-actions")
+    const edit = within(actions).getByRole("button", { name: "Edit" })
+    const remove = within(actions).getByRole("button", { name: "Remove event" })
+    expect(edit.className).toMatch(/--fc-text-secondary/)
+    expect(remove.className).toMatch(/--fc-danger/)
+    await user.click(edit)
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    await user.click(remove)
+    expect(onRemoveEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it("Confirm and lock label when Lock checked", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "lock-label",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:lock-label",
+        standingLockEligible: true,
+        uncoveredKidIds: ["k1"],
+      }),
+      {
+        onCreateRide: vi.fn(),
+        rideEvent: {
+          eventKey: "UID:lock-label",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-lock-label")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(
+      within(row).getByRole("button", {
+        name: /Confirm — You'll drive round trip/,
+      }),
+    ).toBeInTheDocument()
+    await user.click(within(row).getByTestId("driver-picker-lock-standing-checkbox"))
+    expect(
+      within(row).getByRole("button", { name: /Confirm and lock for/ }),
+    ).toBeInTheDocument()
+  })
+
+  it("expanded order is Legs → decision → Plan locked → quiet → caption", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "expanded-order",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:expanded-order",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-order",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov-order",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: "p1",
+            leaveFromPlaceName: "Home",
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:expanded-order",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [
+            {
+              id: "inbound-order",
+              spaceId: "s1",
+              eventKey: "UID:expanded-order",
+              requestingCircleId: "c2",
+              requestingCircleName: "Other",
+              requestedByAdultId: "a9",
+              kidIds: ["k9"],
+              kidFirstNames: ["Pat"],
+              seats: 1,
+              pickupPlaceName: "Park",
+              pickupAddress: "2 Oak",
+              pickupTown: null,
+              detourMinutes: null,
+              status: "PENDING",
+              legs: carpoolLegsBoth("ASKED_TEAM"),
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+            },
+          ],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-expanded-order")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    // Settled locked hides the picker until Edit — open the editor for decision.
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-edit"))
+
+    const expanded = within(row).getByTestId("agenda-row-expanded")
+    const legs = within(expanded).getByTestId("agenda-row-legs-table")
+    const travel = within(expanded).getByTestId("agenda-band-travel")
+    const decision = within(expanded).getByTestId("agenda-band-decision")
+    const locked = within(expanded).getByTestId("agenda-row-standing-locked")
+    const quiet = within(expanded).getByTestId("agenda-band-kids")
+    const caption = within(expanded).getByTestId("agenda-row-standing-locked-caption")
+    const inbound = within(expanded).getByTestId("agenda-band-inbound-requests")
+
+    expect(
+      legs.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      travel.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      decision.compareDocumentPosition(locked) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      locked.compareDocumentPosition(quiet) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      quiet.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      caption.compareDocumentPosition(inbound) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(within(decision).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(
+      within(locked).queryByTestId("agenda-row-standing-locked-caption"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("coverage leave-from editor survives next to Legs table", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "legs-leave",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:legs-leave",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-legs",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov-legs",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: "p1",
+            leaveFromPlaceName: "Mom's house",
+            leaveFromAddress: null,
+            leaveByAt: "2030-08-15T16:30:00.000Z",
+            leaveByStatus: "OK",
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:legs-leave",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-legs-leave")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).getByTestId("agenda-row-legs-k1")).toBeInTheDocument()
+    expect(
+      within(row).getByTestId("coverage-leave-from-cov-legs-place-select"),
+    ).toBeInTheDocument()
+  })
+
+  it("item-level leave-from renders when no coverage and no picker", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "item-leave",
+        title: "Practice",
+        uncoveredKidIds: [],
+      }),
+    )
+
+    const row = screen.getByTestId("agenda-row-MANUAL-item-leave")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(
+      within(row).getByTestId("leave-from-MANUAL-item-leave-field-row"),
+    ).toBeInTheDocument()
+  })
+
+  it("Request band renders when picker not mounted and gap exists", async () => {
+    const user = userEvent.setup()
+    const onCreateRide = vi.fn()
+    renderRow(
+      item({
+        id: "request-band",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:request-band",
+        uncoveredKidIds: ["k1"],
+        coverages: [
+          {
+            id: "cov-pending-gap",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a2",
+            kidIds: ["k1"],
+            status: "PENDING",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        onCreateRide,
+        rideEvent: {
+          eventKey: "UID:request-band",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-request-band")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    expect(within(row).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-band-carpool")).toBeInTheDocument()
+    await user.click(within(row).getByRole("button", { name: "Request" }))
+    expect(onCreateRide).toHaveBeenCalledWith("UID:request-band", undefined)
+  })
+
+  it("collapsed locked card shows Every {weekday}", () => {
+    renderRow(
+      item({
+        id: "collapsed-locked",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:collapsed-locked",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-collapsed",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov-collapsed",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: null,
+            leaveFromPlaceName: null,
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:collapsed-locked",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-collapsed-locked")
+    expect(within(row).getByRole("button", { expanded: false })).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-recurrence")).toHaveTextContent(
+      /^↻ Every /,
+    )
+    expect(
+      within(row).queryByTestId("agenda-row-standing-locked-title"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("every callback prop is reachable in some rendered state", async () => {
+    const user = userEvent.setup()
+    const reached = new Set<string>()
+    const track = (name: string) => vi.fn((..._args: unknown[]) => {
+      reached.add(name)
+    })
+
+    // Deprecated; AgendaRow voids it and never mounts a consumer.
+    const intentionalExceptions = ["onLockStandingBlock"] as const
+
+    const handlers = {
+      onUpdateAssignDraft: track("onUpdateAssignDraft"),
+      onAssignCoverage: track("onAssignCoverage"),
+      onConfirmCoverage: track("onConfirmCoverage"),
+      onDeclineCoverage: track("onDeclineCoverage"),
+      onConfirmHouseholdPlan: track("onConfirmHouseholdPlan"),
+      onDeclineHouseholdPlan: track("onDeclineHouseholdPlan"),
+      onRemoveCoverage: track("onRemoveCoverage"),
+      onSetLeaveFrom: track("onSetLeaveFrom"),
+      onSetCoverageLeaveFrom: track("onSetCoverageLeaveFrom"),
+      onSetRsvp: track("onSetRsvp"),
+      onSetNotGoing: track("onSetNotGoing"),
+      onOpenPlaces: track("onOpenPlaces"),
+      onOpenRide: track("onOpenRide"),
+      onEdit: track("onEdit"),
+      onRemoveEvent: track("onRemoveEvent"),
+      onCreateRide: track("onCreateRide"),
+      onSaveRidePlan: track("onSaveRidePlan"),
+      onSaveKidPlans: track("onSaveKidPlans"),
+      onCancelRide: track("onCancelRide"),
+      onWithdrawRide: track("onWithdrawRide"),
+      onAcceptRide: track("onAcceptRide"),
+      onPassRide: track("onPassRide"),
+      onCantMakeIt: track("onCantMakeIt"),
+      onRevertDecidedAssignee: track("onRevertDecidedAssignee"),
+      onDriveBlockLink: track("onDriveBlockLink"),
+      onRemoveStandingBlock: track("onRemoveStandingBlock"),
+      onEndStandingRide: track("onEndStandingRide"),
+    }
+
+    const baseProps = {
+      circle,
+      currentAdultId: "a1" as const,
+      loading: false,
+      ...handlers,
+    }
+
+    // 1) Gap picker: draft update, assign, create ride, kid-split save, not-going.
+    const twoKids: FamilyCircle = {
+      ...circle,
+      kids: [
+        { id: "k1", displayName: "Sam" },
+        { id: "k2", displayName: "Mia" },
+      ],
+      members: [
+        { adultId: "a1", email: "a@example.com", displayName: "Alex", role: "ORGANIZER" },
+        { adultId: "a2", email: "j@example.com", displayName: "Jordan", role: "CAREGIVER" },
+      ],
+    }
+    const gapItem = item({
+      id: "cb-gap",
+      source: "FEED",
+      title: "Practice",
+      feedId: "f1",
+      feedName: "U12",
+      eventKey: "UID:cb-gap",
+      uncoveredKidIds: ["k1", "k2"],
+      kidIds: ["k1", "k2"],
+      rsvps: [
+        { kidId: "k1", status: "YES" },
+        { kidId: "k2", status: "YES" },
+      ],
+    })
+    let view = render(
+      <AgendaRow
+        {...baseProps}
+        circle={twoKids}
+        item={gapItem}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        rideEvent={{
+          eventKey: "UID:cb-gap",
+          title: "Practice",
+          startsAt: gapItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1", "k2"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        }}
+      />,
+    )
+    let row = screen.getByTestId("agenda-row-FEED-cb-gap")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByTestId("driver-picker-chip-a2"))
+    await user.click(
+      within(row).getByRole("button", { name: /Confirm — Jordan'll drive|Confirm —/ }),
+    )
+    await user.click(within(row).getByTestId("driver-picker-different-plans-kid"))
+    const kidSave =
+      within(row).queryByRole("button", { name: /Save ride plan/ }) ??
+      within(row).queryByRole("button", { name: /Post to team/ })
+    if (kidSave != null) {
+      await user.click(kidSave)
+    }
+    await user.click(within(row).getByTestId("rsvp-FEED-cb-gap-all"))
+    view.unmount()
+
+    // 1a) Ask + Post with onSaveRidePlan wired → onSaveRidePlan (not onCreateRide).
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        circle={twoKids}
+        item={gapItem}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        rideEvent={{
+          eventKey: "UID:cb-gap",
+          title: "Practice",
+          startsAt: gapItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1", "k2"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-gap")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(
+      within(row).getByRole("button", { name: "Post to team — round trip" }),
+    )
+    view.unmount()
+
+    // 1b) Post to team → onCreateRide (omit onSaveRidePlan so Post uses onAskTeam).
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        onSaveRidePlan={undefined}
+        onSaveKidPlans={undefined}
+        circle={twoKids}
+        item={gapItem}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1", "k2"],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        rideEvent={{
+          eventKey: "UID:cb-gap",
+          title: "Practice",
+          startsAt: gapItem.startsAt,
+          endsAt: null,
+          defaultKidIds: ["k1", "k2"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-gap")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Ask the team" }))
+    await user.click(
+      within(row).getByRole("button", { name: "Post to team — round trip" }),
+    )
+    view.unmount()
+
+    // 2) Pending self confirm/decline.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        item={item({
+          id: "cb-pending",
+          title: "Practice",
+          coverages: [
+            {
+              id: "cov-cb",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a2",
+              kidIds: ["k1"],
+              status: "PENDING",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-MANUAL-cb-pending")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Confirm coverage" }))
+    await user.click(within(row).getByRole("button", { name: "Decline coverage" }))
+    view.unmount()
+
+    // 3) Household-plan confirm/decline.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        item={item({
+          id: "cb-hh",
+          source: "FEED",
+          title: "Practice",
+          feedId: "f1",
+          feedName: "U12",
+          eventKey: "UID:cb-hh",
+          uncoveredKidIds: [],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-hh",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("WAITING_HOUSEHOLD", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-hh")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Confirm coverage" }))
+    await user.click(within(row).getByRole("button", { name: "Decline coverage" }))
+    view.unmount()
+
+    // 4) Confirmed: reassign, coverage leave-from, Open Places, route, edit/remove, rsvp.
+    const multiPlace: FamilyCircle = {
+      ...circle,
+      places: [
+        ...circle.places,
+        { id: "p2", name: "Dad's", address: "2 Oak", latitude: 40, longitude: -74 },
+      ],
+    }
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        circle={multiPlace}
+        item={item({
+          id: "cb-confirmed",
+          title: "Practice",
+          uncoveredKidIds: [],
+          leaveByStatus: "UNAVAILABLE",
+          leaveByReason: "NO_ORIGIN",
+          coverages: [
+            {
+              id: "cov-ok",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: "p1",
+              leaveFromPlaceName: "Mom's house",
+              leaveFromAddress: null,
+              leaveByAt: "2030-08-15T16:30:00.000Z",
+              leaveByStatus: "OK",
+              leaveByReason: null,
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-confirmed",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-MANUAL-cb-confirmed")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByTestId("agenda-reassign-link"))
+    await user.selectOptions(
+      within(row).getByTestId("coverage-leave-from-cov-ok-place-select"),
+      "p2",
+    )
+    await user.click(within(row).getByRole("button", { name: "Open Places" }))
+    await user.click(within(row).getByTestId("agenda-row-open-ride-cta"))
+    await user.click(within(row).getByRole("button", { name: "Edit" }))
+    await user.click(within(row).getByRole("button", { name: "Remove event" }))
+    await user.click(
+      within(row).getByRole("button", { name: "Mark Sam as not going" }),
+    )
+    view.unmount()
+
+    // 5a) onCantMakeIt when onRevertDecidedAssignee is omitted.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        onRevertDecidedAssignee={undefined}
+        item={item({
+          id: "cb-cant",
+          title: "Practice",
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov-cant",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-cant",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-MANUAL-cb-cant")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByTestId("agenda-reassign-link"))
+    view.unmount()
+
+    // 5b) onRemoveCoverage when both revert helpers are omitted.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        onRevertDecidedAssignee={undefined}
+        onCantMakeIt={undefined}
+        item={item({
+          id: "cb-remove",
+          title: "Practice",
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov-remove",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-remove",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-MANUAL-cb-remove")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByTestId("agenda-reassign-link"))
+    view.unmount()
+
+    // 6) Inbound accept/pass/withdraw + cancel ask.
+    const ownAsk = {
+      id: "own-ask-cb",
+      spaceId: "s1",
+      eventKey: "UID:cb-inbound",
+      requestingCircleId: "c1",
+      requestingCircleName: "Test",
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Sam"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+      legs: carpoolLegsBoth("ASKED_TEAM"),
+    }
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        item={item({
+          id: "cb-inbound",
+          source: "FEED",
+          title: "Practice",
+          feedId: "f1",
+          feedName: "U12",
+          eventKey: "UID:cb-inbound",
+          uncoveredKidIds: [],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-inbound",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: ownAsk,
+          ownRequests: [ownAsk],
+          ownLegs: carpoolLegsBoth("ASKED_TEAM"),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-inbound")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(
+      within(row).getByRole("button", {
+        name: "No longer need a ride? Cancel this ask",
+      }),
+    )
+    view.unmount()
+
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        item={item({
+          id: "cb-accept",
+          source: "FEED",
+          title: "Practice",
+          feedId: "f1",
+          feedName: "U12",
+          eventKey: "UID:cb-accept",
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov-accept",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+        rideEvent={{
+          eventKey: "UID:cb-accept",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: [],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [
+            {
+              id: "pending-accept",
+              spaceId: "s1",
+              eventKey: "UID:cb-accept",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k2"],
+              kidFirstNames: ["Mia"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              pickupTown: null,
+              detourMinutes: null,
+              status: "PENDING",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+              legs: carpoolLegsBoth("ASKED_TEAM"),
+            },
+            {
+              id: "accepted-withdraw",
+              spaceId: "s1",
+              eventKey: "UID:cb-accept",
+              requestingCircleId: "c2",
+              requestingCircleName: "House B",
+              requestedByAdultId: "a2",
+              kidIds: ["k3"],
+              kidFirstNames: ["Leo"],
+              seats: 1,
+              pickupPlaceName: "Home",
+              pickupAddress: "1 Main",
+              pickupTown: null,
+              detourMinutes: null,
+              status: "ACCEPTED",
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: "a1",
+              acceptingCircleId: "c1",
+              acceptingCircleName: "Test",
+              legs: carpoolLegsBoth("ASKED_TEAM"),
+            },
+          ],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-accept")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: "Accept" }))
+    await user.click(within(row).getByRole("button", { name: "Pass" }))
+    await user.click(
+      within(row).getByRole("button", { name: "Can't take them anymore" }),
+    )
+    view.unmount()
+
+    // 7) Drive-block combine, standing end, locked remove, Save ride plan.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        item={item({
+          id: "cb-locked",
+          source: "FEED",
+          title: "Practice",
+          feedId: "f1",
+          feedName: "U12",
+          eventKey: "UID:cb-locked",
+          standingLocked: true,
+          standingBlockTemplateId: "tmpl-cb",
+          uncoveredKidIds: [],
+          coverages: [
+            {
+              id: "cov-locked",
+              coveringAdultId: "a1",
+              coveringAdultDisplayName: "Alex",
+              assignedByAdultId: "a1",
+              kidIds: ["k1"],
+              status: "CONFIRMED",
+              leaveFromPlaceId: null,
+              leaveFromPlaceName: null,
+              leaveFromAddress: null,
+              leaveByAt: null,
+              leaveByStatus: null,
+              leaveByReason: null,
+            },
+          ],
+          driveBlockLinks: [
+            {
+              leg: "TO",
+              otherSource: "FEED",
+              otherId: "other-cb",
+              otherTitle: "Earlier",
+              otherStartsAt: "2030-08-15T16:00:00.000Z",
+              combined: false,
+              overrideAction: "FORCE_SPLIT",
+            },
+          ],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: ["k1"], soleAdult: true, soleKid: true }}
+        standingRideSeries={{
+          arrangementId: "arr-cb",
+          weekdaySingular: "Thursday",
+          weekdayPlural: "Thursdays",
+          inboundOpen: false,
+          ownOpen: true,
+          ownActive: false,
+          primaryActive: false,
+        }}
+        rideEvent={{
+          eventKey: "UID:cb-locked",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [],
+        }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-FEED-cb-locked")
+    await user.click(
+      within(row).getByRole("button", { name: "End standing Ask for Thursdays" }),
+    )
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.click(within(row).getByRole("button", { name: /Combine these/ }))
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-edit"))
+    const saveBtn =
+      within(row).queryByRole("button", { name: /Save ride plan/ }) ??
+      within(row).getByRole("button", { name: /Confirm — You'll drive/ })
+    await user.click(saveBtn)
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-remove"))
+    view.unmount()
+
+    // 8) Item-level leave-from.
+    view = render(
+      <AgendaRow
+        {...baseProps}
+        circle={multiPlace}
+        item={item({
+          id: "cb-leave",
+          title: "Practice",
+          uncoveredKidIds: [],
+        })}
+        assignDraft={{ adultId: "a1", kidIds: [], soleAdult: true, soleKid: true }}
+      />,
+    )
+    row = screen.getByTestId("agenda-row-MANUAL-cb-leave")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    await user.selectOptions(
+      within(row).getByTestId("leave-from-MANUAL-cb-leave-place-select"),
+      "p2",
+    )
+    view.unmount()
+
+    // Kid-split save: force onSaveKidPlans via completing kid-split Ask post if still missing.
+    if (!reached.has("onSaveKidPlans") || !reached.has("onSaveRidePlan")) {
+      view = render(
+        <AgendaRow
+          {...baseProps}
+          circle={twoKids}
+          item={gapItem}
+          assignDraft={{
+            adultId: "a1",
+            kidIds: ["k1", "k2"],
+            soleAdult: false,
+            soleKid: false,
+          }}
+          rideEvent={{
+            eventKey: "UID:cb-gap",
+            title: "Practice",
+            startsAt: gapItem.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k1", "k2"],
+            ownRequest: null,
+            ownRequests: [],
+            ownLegs: carpoolLegsBoth("NEEDS_RIDE"),
+            otherRequests: [],
+          }}
+        />,
+      )
+      row = screen.getByTestId("agenda-row-FEED-cb-gap")
+      await user.click(within(row).getByRole("button", { expanded: false }))
+      if (!reached.has("onSaveKidPlans")) {
+        await user.click(within(row).getByTestId("driver-picker-different-plans-kid"))
+        // In kid-split, confirm household for both kids if Save/Post is enabled.
+        const saveKid = within(row).queryByRole("button", { name: /Save ride plan/ })
+        if (saveKid != null && !saveKid.hasAttribute("disabled")) {
+          await user.click(saveKid)
+        }
+      }
+      view.unmount()
+    }
+
+    const requiredCallbacks = [
+      "onUpdateAssignDraft",
+      "onAssignCoverage",
+      "onConfirmCoverage",
+      "onDeclineCoverage",
+      "onConfirmHouseholdPlan",
+      "onDeclineHouseholdPlan",
+      "onRemoveCoverage",
+      "onSetLeaveFrom",
+      "onSetCoverageLeaveFrom",
+      "onSetRsvp",
+      "onSetNotGoing",
+      "onOpenPlaces",
+      "onOpenRide",
+      "onEdit",
+      "onRemoveEvent",
+      "onCreateRide",
+      "onCancelRide",
+      "onWithdrawRide",
+      "onAcceptRide",
+      "onPassRide",
+      "onCantMakeIt",
+      "onRevertDecidedAssignee",
+      "onDriveBlockLink",
+      "onRemoveStandingBlock",
+      "onEndStandingRide",
+      "onSaveRidePlan",
+      "onSaveKidPlans",
+    ] as const
+
+    const missing = requiredCallbacks.filter((name) => !reached.has(name))
+    expect(
+      missing,
+      `unreachable callbacks (exceptions ok: ${intentionalExceptions.join(", ")}): ${missing.join(", ")}; reached: ${[...reached].sort().join(", ")}`,
+    ).toEqual([])
   })
 })

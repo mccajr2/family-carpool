@@ -9,6 +9,8 @@ import type {
 } from "@/api/types"
 import {
   buildCombinedEventLayout,
+  combinedEventEyebrow,
+  combinedEventLocationLine,
   combinedEventTitle,
   combinedPlanChip,
   type CombinedKidRow,
@@ -127,7 +129,7 @@ function ride(
 }
 
 describe("combinedEventTitle", () => {
-  it("keeps one shared title and joins unrelated titles", () => {
+  it("keeps one shared title and joins unrelated titles without venues", () => {
     expect(combinedEventTitle([{ title: "Practice" }, { title: "Practice" }])).toBe(
       "Practice",
     )
@@ -143,6 +145,71 @@ describe("combinedEventTitle", () => {
         { title: "CYH Squirt 1 Practice" },
       ]),
     ).toBe("CYH Practice")
+  })
+
+  it("keeps joined titles when any word is shared even with one venue", () => {
+    expect(
+      combinedEventTitle([
+        { title: "Practice A", location: "Simoni Rink" },
+        { title: "Practice B", location: "Simoni Rink" },
+      ]),
+    ).toBe("Practice A + Practice B")
+  })
+
+  it("Frame L: unrelated titles at one venue fall back to the venue", () => {
+    expect(
+      combinedEventTitle([
+        { title: "Piano lesson", location: "Community Center" },
+        { title: "Swim practice", location: "Community Center" },
+      ]),
+    ).toBe("Community Center")
+  })
+
+  it("Frame M: unrelated titles at several venues use first venue + N more stops", () => {
+    expect(
+      combinedEventTitle([
+        { title: "Piano lesson", location: "Community Center" },
+        { title: "Swim practice", location: "Town Pool" },
+        { title: "Art class", location: "Library" },
+      ]),
+    ).toBe("Community Center + 2 more stops")
+  })
+})
+
+describe("combinedEventLocationLine", () => {
+  it("uses pin address for one venue and N stops for several", () => {
+    expect(
+      combinedEventLocationLine([
+        { location: "Community Center" },
+        { location: "Community Center" },
+      ]),
+    ).toEqual({ text: "Community Center", multiVenue: false })
+    expect(
+      combinedEventLocationLine([
+        { location: "Community Center" },
+        { location: "Town Pool" },
+      ]),
+    ).toEqual({ text: "2 stops", multiVenue: true })
+  })
+})
+
+describe("combinedEventEyebrow", () => {
+  it("joins up to three feeds then + N MORE", () => {
+    expect(
+      combinedEventEyebrow([
+        { feedName: "U10" },
+        { feedName: "U12" },
+      ]),
+    ).toBe("U10 + U12")
+    expect(
+      combinedEventEyebrow([
+        { feedName: "A" },
+        { feedName: "B" },
+        { feedName: "C" },
+        { feedName: "D" },
+        { feedName: "E" },
+      ]),
+    ).toBe("A + B + C + 2 MORE")
   })
 })
 

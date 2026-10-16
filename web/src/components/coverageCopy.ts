@@ -38,6 +38,38 @@ export const CONFIRM_ILL_DRIVE = "Confirm I'll drive" as const
 export const ASK_THE_TEAM = "Ask the team" as const
 /** Primary CTA when Ask the team is selected on DriverPicker. */
 export const POST_TO_TEAM_ROUND_TRIP = "Post to team — round trip" as const
+
+/**
+ * Combined-card decision block title: `KIAN + DECLAN — ROUND TRIP`.
+ * Uppercase first names joined with ` + `.
+ */
+export function blockDecisionPickerTitle(
+  kidFirstNames: readonly string[],
+): string {
+  const names = kidFirstNames
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+    .map((name) => name.toUpperCase())
+  const joined = names.length > 0 ? names.join(" + ") : "KIDS"
+  return `${joined} — ROUND TRIP`
+}
+
+/**
+ * Named Post primary for a combined decision block:
+ * `Post to team — Kian + Declan, round trip`. One name drops the ` + `.
+ */
+export function postToTeamNamedRoundTrip(
+  kidFirstNames: readonly string[],
+): string {
+  const names = kidFirstNames
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+  if (names.length === 0) {
+    return POST_TO_TEAM_ROUND_TRIP
+  }
+  return `Post to team — ${names.join(" + ")}, round trip`
+}
+
 /** Progressive disclosure under Confirm / Post — opens the split editor. */
 export const DIFFERENT_PLANS_FOR_EACH_LEG = "Different plans for each leg." as const
 /** Progressive disclosure — opens per-kid nested DriverPicker sections. */

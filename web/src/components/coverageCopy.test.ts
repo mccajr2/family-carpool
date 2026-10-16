@@ -33,7 +33,9 @@ import {
   agendaBlockRunHeading,
   agendaBlockRunSummaryLine,
   agendaBlockViewerRunChipLabel,
+  blockDecisionPickerTitle,
   confirmDriveFromLabel,
+  postToTeamNamedRoundTrip,
   confirmHouseholdCoverageLabel,
   cancelRequestToDriverLabel,
   householdConfirmShowsLeaveFrom,
@@ -154,6 +156,20 @@ describe("coverageCopy", () => {
     expect(MEET_WHERE).toBe("Meet where?")
     expect(MEET_OUR_PLACE).toBe("Our place")
     expect(MEET_DRIVERS_PLACE).toBe("Driver's place")
+  })
+
+  it("names combined decision block title and Post label with kid first names", () => {
+    expect(blockDecisionPickerTitle(["Kian", "Declan"])).toBe(
+      "KIAN + DECLAN — ROUND TRIP",
+    )
+    expect(blockDecisionPickerTitle(["Kian"])).toBe("KIAN — ROUND TRIP")
+    expect(postToTeamNamedRoundTrip(["Kian", "Declan"])).toBe(
+      "Post to team — Kian + Declan, round trip",
+    )
+    expect(postToTeamNamedRoundTrip(["Kian"])).toBe(
+      "Post to team — Kian, round trip",
+    )
+    expect(postToTeamNamedRoundTrip([])).toBe(POST_TO_TEAM_ROUND_TRIP)
   })
 
   it("names cancel-request and waiting-on copy for pending household drivers", () => {

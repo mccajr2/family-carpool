@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight, ChevronUp, Navigation } from "lucide-react"
+import { ChevronDown, ChevronUp, Navigation } from "lucide-react"
 import type {
   CalendarDriveBlockLink,
   CalendarItem,
@@ -9,7 +9,7 @@ import type {
   SetCalendarLeaveFromRequest,
 } from "@/api/types"
 import { AgendaInboundRequestRow } from "@/components/AgendaInboundRequestRow"
-import { AgendaLegPair } from "@/components/AgendaLegPair"
+import { AgendaLegsTable } from "@/components/AgendaLegsTable"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { AttendanceToggle, rsvpWriteForAttendanceAction } from "@/components/AttendanceToggle"
@@ -23,6 +23,8 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
+  lockedPlanScopeCaption,
+  recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -33,6 +35,13 @@ import {
   standingAskOpenOwnStatus,
   type StandingRideAgendaChrome,
 } from "@/components/standingRideChrome"
+import {
+  AgendaQuietActions,
+  AGENDA_QUIET_ACTIONS_ROW_CLASS,
+  AGENDA_QUIET_DANGER_LINK_CLASS,
+  AGENDA_QUIET_LINK_CLASS,
+  VIEW_ROUTE_LABEL,
+} from "@/components/AgendaQuietActions"
 import { LockedStandingPlanSummary } from "@/components/LockedStandingPlanSummary"
 import { conflictDisplayLines } from "@/components/conflictDisplay"
 import { kidDisplayName, ownRideDetailLine } from "@/components/carpoolDisplay"
@@ -391,6 +400,11 @@ export function AgendaRow({
     teammateCircleId: ownRequest?.acceptingCircleId,
     teammateCircleName: ownRequest?.acceptingCircleName,
   }).filter((assignee) => assignee.kind !== "team_ask")
+  // Self WAITING_HOUSEHOLD is Confirmed/Declined via the household-plan pair —
+  // do not let "Cancel request to You" hide that primary (Focus has the same precedence).
+  const overrideAssignees = decidedAssignees.filter(
+    (assignee) => !(assignee.waiting && assignee.adultId === currentAdultId),
+  )
   const confirmedGames = inPlayGames.filter((game) => isConfirmedDriver(game.ownRide))
   const waitingOnOtherGames = inPlayGames.filter(
     (game) =>
@@ -399,11 +413,29 @@ export function AgendaRow({
   const showOverrideLinks =
     !outOfPlay &&
     !settledLockedView &&
-    (decidedAssignees.length > 0 ||
+    (overrideAssignees.length > 0 ||
       confirmedGames.length > 0 ||
       waitingOnOtherGames.length > 0)
   /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
   const leaveFromInPicker = showAssign && active.length === 0
+  const showCoverageLeaveFrom = !outOfPlay && active.length > 0
+  const showItemLeaveFrom =
+    !outOfPlay && active.length === 0 && !leaveFromInPicker
+  const showOpenPlacesForCoverage =
+    !outOfPlay &&
+    active.length > 0 &&
+    item.leaveByStatus === "UNAVAILABLE" &&
+    item.leaveByReason === "NO_ORIGIN" &&
+    selfCoverage != null
+  const showTravelBand =
+    showCoverageLeaveFrom || showItemLeaveFrom || showOpenPlacesForCoverage
+  const showDecisionSection =
+    !outOfPlay &&
+    (ownRequest != null ||
+      showAssign ||
+      (pendingForSelf != null && !showOverrideLinks) ||
+      (pendingHouseholdPlan && !showOverrideLinks && pendingForSelf == null) ||
+      showCarpoolBand)
 
   const itemLeaveFromFields = {
     leaveFromPlaceId: item.leaveFromPlaceId,
@@ -472,8 +504,8 @@ export function AgendaRow({
     }
   }
 
-  const overrideLinkClass =
-    "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+  const quietLinkClass = AGENDA_QUIET_LINK_CLASS
+  const quietDangerLinkClass = AGENDA_QUIET_DANGER_LINK_CLASS
 
   const leaveFromSlotForPicker = (
     <LeaveFromControls
@@ -532,6 +564,15 @@ export function AgendaRow({
           >
             {whenLabel}
           </span>
+          {!open && showLockedSummary ? (
+            <span
+              data-testid="agenda-row-recurrence"
+              className="mt-0.5 block text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-meta-weight)] text-[var(--fc-text-secondary)]"
+            >
+              <span aria-hidden>↻ </span>
+              {recurrenceHintLabel(weekdays.singular)}
+            </span>
+          ) : null}
           <EventLocationLine
             location={locationLabel}
             data-testid="agenda-row-where"
@@ -725,62 +766,83 @@ export function AgendaRow({
       ) : null}
 
       {open ? (
-        <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
-          {settledLockedView
-            ? collapsedLayout.kidRows.map((row) => (
-                <AgendaLegPair
-                  key={row.key}
-                  testId={`agenda-row-legs-${row.kidId}`}
-                  thereDetail={row.there.detail}
-                  backDetail={row.back.detail}
-                />
-              ))
-            : null}
-          {showLockedSummary ? (
-            <LockedStandingPlanSummary
-              testIdPrefix="agenda-row-standing-locked"
-              weekdays={weekdays}
-              editing={editingLockedPlan}
-              planSummaryLine={null}
-              notGoingScope="week"
-              loading={loading}
-              onEditPlan={() => setEditingLockedPlan((wasEditing) => !wasEditing)}
-              onRemoveRecurring={
-                onRemoveStandingBlock != null && standingChrome.templateId != null
-                  ? () => onRemoveStandingBlock(standingChrome.templateId!, item.startsAt)
-                  : undefined
-              }
-              actionError={coverageActionError}
-              notGoingActions={
-                goingKids.length > 0
-                  ? [
-                      {
-                        key: "not-going",
-                        kidIds: goingKids.map((kid) => kid.id),
-                        firstNames: goingKids.map((kid) => kid.firstName),
-                        testId:
-                          goingKids.length >= 2
-                            ? "agenda-row-not-going-locked-all"
-                            : `agenda-row-not-going-locked-${goingKids[0]!.id}`,
-                      },
-                    ]
-                  : []
-              }
-              onNotGoing={
-                onSetNotGoing != null || onSetRsvp != null
-                  ? (kidIds) => {
-                      if (onSetNotGoing != null) {
-                        onSetNotGoing(kidIds)
-                        return
-                      }
-                      for (const id of kidIds) {
-                        onSetRsvp(id, "NO")
-                      }
-                    }
-                  : undefined
-              }
-            />
+        <div
+          data-testid="agenda-row-expanded"
+          className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]"
+        >
+          {/* 1. Legs (always when expanded) */}
+          <AgendaLegsTable
+            testId="agenda-row-legs-table"
+            rows={collapsedLayout.kidRows}
+            loading={loading}
+            rowTestId={(row) => `agenda-row-legs-row-${row.kidId}`}
+            legPairTestId={(row) => `agenda-row-legs-${row.kidId}`}
+          />
+
+          {/* Below Legs: coverage / item Leave from + Open Places */}
+          {showTravelBand ? (
+            <div
+              data-testid="agenda-band-travel"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {showCoverageLeaveFrom
+                ? active.map((coverage) => {
+                    const leaveBy = coverageLeaveByLine(coverage)
+                    return (
+                      <div
+                        key={coverage.id}
+                        data-testid={`agenda-coverage-leave-${coverage.id}`}
+                        className="flex flex-col gap-[var(--fc-space-sm)]"
+                      >
+                        <LeaveFromControls
+                          variant="field-row"
+                          value={{
+                            leaveFromPlaceId: coverage.leaveFromPlaceId,
+                            leaveFromPlaceName: coverage.leaveFromPlaceName,
+                            leaveFromAddress: coverage.leaveFromAddress,
+                          }}
+                          circle={circle}
+                          loading={loading}
+                          ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
+                          helperLine={leaveBy}
+                          onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
+                          testIdPrefix={`coverage-leave-from-${coverage.id}`}
+                        />
+                      </div>
+                    )
+                  })
+                : null}
+
+              {showItemLeaveFrom ? (
+                <>
+                  <LeaveFromControls
+                    variant="field-row"
+                    value={itemLeaveFromFields}
+                    circle={circle}
+                    loading={loading}
+                    ariaLabel={`Leave from for ${item.title}`}
+                    helperLine={agendaLeaveByLine(item)}
+                    onChange={onSetLeaveFrom}
+                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
+                  />
+                  {item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                      Open Places
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+
+              {showOpenPlacesForCoverage ? (
+                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                  Open Places
+                </Button>
+              ) : null}
+            </div>
           ) : null}
+
+          {/* Above Decision: conflicts */}
           {!outOfPlay && conflictLines.length > 0 ? (
             <ul
               data-testid={`agenda-conflicts-${item.source}-${item.id}`}
@@ -811,206 +873,12 @@ export function AgendaRow({
             </p>
           ) : null}
 
-          {!outOfPlay &&
-          onDriveBlockLink != null &&
-          recombineDriveBlockLinks.length > 0 ? (
+          {/* 2. Decision */}
+          {showDecisionSection ? (
             <div
-              data-testid="agenda-drive-block-links"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
-            >
-              {recombineDriveBlockLinks.map((link) => (
-                <button
-                  key={`${link.leg}-${link.otherSource}-${link.otherId}`}
-                  type="button"
-                  disabled={loading}
-                  className={`${overrideLinkClass} text-left`}
-                  data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
-                  onClick={() => onDriveBlockLink(link)}
-                >
-                  {driveBlockLinkLabel(link)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Pending assign / confirm per uncovered kid; confirmed rides use override links */}
-          {coverageGames.length > 0 ? (
-            <div
-              data-testid="agenda-band-kids"
+              data-testid="agenda-band-decision"
               className="flex flex-col gap-[var(--fc-space-md)]"
             >
-              {showOverrideLinks ? (
-                <div
-                  data-testid="agenda-override-links"
-                  className="flex flex-wrap items-center gap-x-[var(--fc-space-lg)] gap-y-[var(--fc-space-sm)]"
-                >
-                  {(() => {
-                    const seenKeys = new Set<string>()
-                    if (decidedAssignees.length > 0) {
-                      return decidedAssignees.map((assignee) => {
-                        if (seenKeys.has(assignee.key)) {
-                          return null
-                        }
-                        seenKeys.add(assignee.key)
-                        const label = decidedAssigneeRevertLabel(assignee)
-                        return (
-                          <button
-                            key={`revert-${assignee.key}`}
-                            type="button"
-                            disabled={loading}
-                            className={overrideLinkClass}
-                            data-testid={
-                              assignee.waiting
-                                ? "agenda-cancel-request-link"
-                                : "agenda-reassign-link"
-                            }
-                            onClick={() => {
-                              if (onRevertDecidedAssignee != null) {
-                                onRevertDecidedAssignee(assignee)
-                                return
-                              }
-                              const game =
-                                inPlayGames.find((row) => isConfirmedDriver(row.ownRide)) ??
-                                inPlayGames.find((row) =>
-                                  isPendingHouseholdConfirm(row.ownRide),
-                                ) ??
-                                inPlayGames[0]
-                              if (game != null) {
-                                if (assignee.waiting) {
-                                  cancelPendingRequestForGame(game)
-                                } else {
-                                  handleCantMakeIt(game)
-                                }
-                              }
-                            }}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })
-                    }
-                    const cancelLinks = waitingOnOtherGames.map((game) => {
-                      if (!isPendingHouseholdConfirm(game.ownRide)) {
-                        return null
-                      }
-                      const label = `Cancel request to ${game.ownRide.driver}`
-                      if (seenKeys.has(label)) {
-                        return null
-                      }
-                      seenKeys.add(label)
-                      return (
-                        <button
-                          key={`cancel-request-${game.kidId}`}
-                          type="button"
-                          disabled={loading}
-                          className={overrideLinkClass}
-                          data-testid="agenda-cancel-request-link"
-                          onClick={() => cancelPendingRequestForGame(game)}
-                        >
-                          {label}
-                        </button>
-                      )
-                    })
-                    const reassignLinks = confirmedGames.map((game) => {
-                      const label =
-                        game.ownRide === "requested"
-                          ? null
-                          : isConfirmedDriver(game.ownRide)
-                            ? game.ownRide.driver === "You"
-                              ? "Can't drive anymore? Reassign the ride"
-                              : isTeammateOwnRide(game, rideEvent)
-                                ? `${game.ownRide.driver} can't drive anymore? Find a new ride`
-                                : `${game.ownRide.driver} can't drive anymore? Reassign the ride`
-                            : null
-                      if (label == null || seenKeys.has(label)) {
-                        return null
-                      }
-                      seenKeys.add(label)
-                      return (
-                        <button
-                          key={`reassign-${game.kidId}`}
-                          type="button"
-                          disabled={loading}
-                          className={overrideLinkClass}
-                          data-testid="agenda-reassign-link"
-                          onClick={() => handleCantMakeIt(game)}
-                        >
-                          {label}
-                        </button>
-                      )
-                    })
-                    return [...cancelLinks, ...reassignLinks]
-                  })()}
-                  {goingKids.length >= 2 ? (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      className={overrideLinkClass}
-                      data-testid={`rsvp-${item.source}-${item.id}-all`}
-                      data-attendance="going"
-                      onClick={() => markGoingKidsNotAttending()}
-                    >
-                      {markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))}
-                    </button>
-                  ) : (
-                    coverageGames.map((game) => {
-                      if (game.attendance === "not_going") {
-                        return (
-                          <AttendanceToggle
-                            key={`att-${game.kidId}`}
-                            displayName={
-                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
-                              "Kid"
-                            }
-                            attendance={game.attendance}
-                            disabled={loading}
-                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                            onSetAttendance={(next) =>
-                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
-                            }
-                          />
-                        )
-                      }
-                      const kidName =
-                        circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
-                        "Kid"
-                      return (
-                        <button
-                          key={`not-going-${game.kidId}`}
-                          type="button"
-                          disabled={loading}
-                          className={overrideLinkClass}
-                          data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                          data-attendance="going"
-                          onClick={() => onSetRsvp(game.kidId, "NO")}
-                        >
-                          {markAsNotGoingLabel(kidName)}
-                        </button>
-                      )
-                    })
-                  )}
-                  {goingKids.length >= 2
-                    ? coverageGames
-                        .filter((game) => game.attendance === "not_going")
-                        .map((game) => (
-                          <AttendanceToggle
-                            key={`att-${game.kidId}`}
-                            displayName={
-                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
-                              "Kid"
-                            }
-                            attendance={game.attendance}
-                            disabled={loading}
-                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
-                            onSetAttendance={(next) =>
-                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
-                            }
-                          />
-                        ))
-                    : null}
-                </div>
-              ) : null}
-
               {ownRequest != null ? (
                 <div className="flex flex-col gap-[var(--fc-space-sm)]">
                   <p
@@ -1023,7 +891,7 @@ export function AgendaRow({
                     <button
                       type="button"
                       disabled={loading}
-                      className={`${overrideLinkClass} text-left`}
+                      className={quietLinkClass}
                       onClick={() => onCancelRide(ownRequest.id)}
                     >
                       No longer need a ride? Cancel this ask
@@ -1087,6 +955,7 @@ export function AgendaRow({
                       standingChrome.showLock ? weekdays.plural : null
                     }
                     notGoingThisWeek={standingChrome.showRemove}
+                    saveExistingPlan={editingLockedPlan}
                     onSetRsvp={
                       standingChrome.showRemove ? onSetRsvp : undefined
                     }
@@ -1143,11 +1012,324 @@ export function AgendaRow({
                 </div>
               ) : null}
 
+              {showCarpoolBand && rideEvent != null ? (
+                <div
+                  data-testid="agenda-band-carpool"
+                  className="flex flex-col gap-[var(--fc-space-sm)]"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
+                    Carpool
+                  </span>
+                  {showRequestInCarpool && defaultRideKids.length > 0 ? (
+                    <div className="flex flex-col gap-[var(--fc-space-sm)]">
+                      {defaultRideKids.length > 1
+                        ? defaultRideKids.map((kidId) => {
+                            const name = kidDisplayName(circle.kids, kidId)
+                            return (
+                              <label
+                                key={kidId}
+                                className="flex items-center gap-[var(--fc-space-sm)] text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Request ride for ${name}`}
+                                  checked={rideKidSelection.includes(kidId)}
+                                  disabled={loading}
+                                  onChange={(change) => {
+                                    const current = rideKidSelection
+                                    const next = change.target.checked
+                                      ? [...current, kidId]
+                                      : current.filter((id) => id !== kidId)
+                                    setSelectedRideKidIds(next)
+                                  }}
+                                />
+                                {name}
+                              </label>
+                            )
+                          })
+                        : null}
+                      {onCreateRide != null ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={loading || rideKidSelection.length === 0}
+                          onClick={() => {
+                            const allDefault =
+                              rideKidSelection.length === defaultRideKids.length &&
+                              rideKidSelection.every((id) =>
+                                defaultRideKids.includes(id),
+                              )
+                            onCreateRide(
+                              rideEvent.eventKey,
+                              allDefault ? undefined : rideKidSelection,
+                            )
+                          }}
+                        >
+                          Request
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Under Decision: needs coverage + action error */}
+          {!outOfPlay && (unassignedGapKidIds.length > 0 || coverageActionError) ? (
+            <div
+              data-testid="agenda-band-coverage"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {unassignedGapKidIds.length > 0 ? (
+                <p className="text-sm text-[var(--fc-danger)]">
+                  {needsCoverageWithKids(uncoveredKidNames)}
+                </p>
+              ) : null}
+              {coverageActionError ? (
+                <p
+                  role="alert"
+                  data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
+                  className="text-sm text-[var(--fc-danger)]"
+                >
+                  {coverageActionError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* 3. Plan locked (caption rendered after quiet actions) */}
+          {showLockedSummary ? (
+            <LockedStandingPlanSummary
+              testIdPrefix="agenda-row-standing-locked"
+              weekdays={weekdays}
+              editing={editingLockedPlan}
+              planSummaryLine={null}
+              notGoingScope="week"
+              loading={loading}
+              showCaption={false}
+              onEditPlan={() => setEditingLockedPlan((wasEditing) => !wasEditing)}
+              onRemoveRecurring={
+                onRemoveStandingBlock != null && standingChrome.templateId != null
+                  ? () => onRemoveStandingBlock(standingChrome.templateId!, item.startsAt)
+                  : undefined
+              }
+              actionError={coverageActionError}
+              notGoingActions={
+                goingKids.length > 0
+                  ? [
+                      {
+                        key: "not-going",
+                        kidIds: goingKids.map((kid) => kid.id),
+                        firstNames: goingKids.map((kid) => kid.firstName),
+                        testId:
+                          goingKids.length >= 2
+                            ? "agenda-row-not-going-locked-all"
+                            : `agenda-row-not-going-locked-${goingKids[0]!.id}`,
+                      },
+                    ]
+                  : []
+              }
+              onNotGoing={
+                onSetNotGoing != null || onSetRsvp != null
+                  ? (kidIds) => {
+                      if (onSetNotGoing != null) {
+                        onSetNotGoing(kidIds)
+                        return
+                      }
+                      for (const id of kidIds) {
+                        onSetRsvp(id, "NO")
+                      }
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+
+          {/* 4. Quiet actions — shared link weight with AgendaBlockCard */}
+          <AgendaQuietActions testId="agenda-quiet-actions">
+          {coverageGames.length > 0 ? (
+            <div
+              data-testid="agenda-band-kids"
+              className="flex flex-col gap-[var(--fc-space-md)]"
+            >
+              {showOverrideLinks ? (
+                <div
+                  data-testid="agenda-override-links"
+                  className={AGENDA_QUIET_ACTIONS_ROW_CLASS}
+                >
+                  {(() => {
+                    const seenKeys = new Set<string>()
+                    if (overrideAssignees.length > 0) {
+                      return overrideAssignees.map((assignee) => {
+                        if (seenKeys.has(assignee.key)) {
+                          return null
+                        }
+                        seenKeys.add(assignee.key)
+                        const label = decidedAssigneeRevertLabel(assignee)
+                        return (
+                          <button
+                            key={`revert-${assignee.key}`}
+                            type="button"
+                            disabled={loading}
+                            className={quietLinkClass}
+                            data-testid={
+                              assignee.waiting
+                                ? "agenda-cancel-request-link"
+                                : "agenda-reassign-link"
+                            }
+                            onClick={() => {
+                              if (onRevertDecidedAssignee != null) {
+                                onRevertDecidedAssignee(assignee)
+                                return
+                              }
+                              const game =
+                                inPlayGames.find((row) => isConfirmedDriver(row.ownRide)) ??
+                                inPlayGames.find((row) =>
+                                  isPendingHouseholdConfirm(row.ownRide),
+                                ) ??
+                                inPlayGames[0]
+                              if (game != null) {
+                                if (assignee.waiting) {
+                                  cancelPendingRequestForGame(game)
+                                } else {
+                                  handleCantMakeIt(game)
+                                }
+                              }
+                            }}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })
+                    }
+                    const cancelLinks = waitingOnOtherGames.map((game) => {
+                      if (!isPendingHouseholdConfirm(game.ownRide)) {
+                        return null
+                      }
+                      const label = `Cancel request to ${game.ownRide.driver}`
+                      if (seenKeys.has(label)) {
+                        return null
+                      }
+                      seenKeys.add(label)
+                      return (
+                        <button
+                          key={`cancel-request-${game.kidId}`}
+                          type="button"
+                          disabled={loading}
+                          className={quietLinkClass}
+                          data-testid="agenda-cancel-request-link"
+                          onClick={() => cancelPendingRequestForGame(game)}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })
+                    const reassignLinks = confirmedGames.map((game) => {
+                      const label =
+                        game.ownRide === "requested"
+                          ? null
+                          : isConfirmedDriver(game.ownRide)
+                            ? game.ownRide.driver === "You"
+                              ? "Can't drive anymore? Reassign the ride"
+                              : isTeammateOwnRide(game, rideEvent)
+                                ? `${game.ownRide.driver} can't drive anymore? Find a new ride`
+                                : `${game.ownRide.driver} can't drive anymore? Reassign the ride`
+                            : null
+                      if (label == null || seenKeys.has(label)) {
+                        return null
+                      }
+                      seenKeys.add(label)
+                      return (
+                        <button
+                          key={`reassign-${game.kidId}`}
+                          type="button"
+                          disabled={loading}
+                          className={quietLinkClass}
+                          data-testid="agenda-reassign-link"
+                          onClick={() => handleCantMakeIt(game)}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })
+                    return [...cancelLinks, ...reassignLinks]
+                  })()}
+                  {goingKids.length >= 2 ? (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={quietLinkClass}
+                      data-testid={`rsvp-${item.source}-${item.id}-all`}
+                      data-attendance="going"
+                      onClick={() => markGoingKidsNotAttending()}
+                    >
+                      {markKidsAsNotGoingLabel(goingKids.map((kid) => kid.firstName))}
+                    </button>
+                  ) : (
+                    coverageGames.map((game) => {
+                      if (game.attendance === "not_going") {
+                        return (
+                          <AttendanceToggle
+                            key={`att-${game.kidId}`}
+                            displayName={
+                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                              "Kid"
+                            }
+                            attendance={game.attendance}
+                            disabled={loading}
+                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                            onSetAttendance={(next) =>
+                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                            }
+                          />
+                        )
+                      }
+                      const kidName =
+                        circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                        "Kid"
+                      return (
+                        <button
+                          key={`not-going-${game.kidId}`}
+                          type="button"
+                          disabled={loading}
+                          className={quietLinkClass}
+                          data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                          data-attendance="going"
+                          onClick={() => onSetRsvp(game.kidId, "NO")}
+                        >
+                          {markAsNotGoingLabel(kidName)}
+                        </button>
+                      )
+                    })
+                  )}
+                  {goingKids.length >= 2
+                    ? coverageGames
+                        .filter((game) => game.attendance === "not_going")
+                        .map((game) => (
+                          <AttendanceToggle
+                            key={`att-${game.kidId}`}
+                            displayName={
+                              circle.kids.find((row) => row.id === game.kidId)?.displayName?.trim() ||
+                              "Kid"
+                            }
+                            attendance={game.attendance}
+                            disabled={loading}
+                            data-testid={`rsvp-${item.source}-${item.id}-${game.kidId}`}
+                            onSetAttendance={(next) =>
+                              onSetRsvp(game.kidId, rsvpWriteForAttendanceAction(next))
+                            }
+                          />
+                        ))
+                    : null}
+                </div>
+              ) : null}
+
               {!showOverrideLinks && goingKids.length >= 2 ? (
                 <button
                   type="button"
                   disabled={loading}
-                  className="mt-2 text-left text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className={quietLinkClass}
                   data-testid={`rsvp-${item.source}-${item.id}-all`}
                   data-attendance="going"
                   onClick={() => markGoingKidsNotAttending()}
@@ -1189,26 +1371,25 @@ export function AgendaRow({
             </div>
           ) : null}
 
-          {/* Coverage residuals sit with the decision chrome (below Confirm / overrides) */}
-          {!outOfPlay && (unassignedGapKidIds.length > 0 || coverageActionError) ? (
+          {!outOfPlay &&
+          onDriveBlockLink != null &&
+          recombineDriveBlockLinks.length > 0 ? (
             <div
-              data-testid="agenda-band-coverage"
+              data-testid="agenda-drive-block-links"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
-              {unassignedGapKidIds.length > 0 ? (
-                <p className="text-sm text-[var(--fc-danger)]">
-                  {needsCoverageWithKids(uncoveredKidNames)}
-                </p>
-              ) : null}
-              {coverageActionError ? (
-                <p
-                  role="alert"
-                  data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
-                  className="text-sm text-[var(--fc-danger)]"
+              {recombineDriveBlockLinks.map((link) => (
+                <button
+                  key={`${link.leg}-${link.otherSource}-${link.otherId}`}
+                  type="button"
+                  disabled={loading}
+                  className={quietLinkClass}
+                  data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
+                  onClick={() => onDriveBlockLink(link)}
                 >
-                  {coverageActionError}
-                </p>
-              ) : null}
+                  {driveBlockLinkLabel(link)}
+                </button>
+              ))}
             </div>
           ) : null}
 
@@ -1217,142 +1398,50 @@ export function AgendaRow({
               type="button"
               data-testid="agenda-row-open-ride-cta"
               onClick={() => onOpenRide?.()}
-              className="flex w-full items-center justify-between rounded-[var(--fc-radius-xl)] px-[var(--fc-space-ride-detail-agenda-cta-pad-x)] py-[var(--fc-space-ride-detail-cta-pad-y)] text-[length:var(--fc-font-ride-detail-back-size)] leading-[var(--fc-font-ride-detail-back-line)] font-[number:var(--fc-font-ride-detail-back-weight)] text-[var(--fc-accent)] bg-[color-mix(in_srgb,var(--fc-accent)_16%,transparent)]"
+              className={quietLinkClass}
             >
-              <span className="flex items-center gap-[var(--fc-space-sm)]">
-                <Navigation aria-hidden size={15} />
-                Route for this ride
-              </span>
-              <ChevronRight aria-hidden size={16} />
+              {VIEW_ROUTE_LABEL}
             </button>
           ) : null}
 
-          {/* Travel / origin — coverage leave-from when covering/waiting; else item (unless in picker) */}
-          {!outOfPlay ? (
+          {isManual ? (
             <div
-              data-testid="agenda-band-travel"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
+              data-testid="agenda-band-manual-actions"
+              className={AGENDA_QUIET_ACTIONS_ROW_CLASS}
             >
-              {active.length > 0 ? (
-                active.map((coverage) => {
-                  const leaveBy = coverageLeaveByLine(coverage)
-                  return (
-                    <div
-                      key={coverage.id}
-                      data-testid={`agenda-coverage-leave-${coverage.id}`}
-                      className="flex flex-col gap-[var(--fc-space-sm)]"
-                    >
-                      <LeaveFromControls
-                        variant="field-row"
-                        value={{
-                          leaveFromPlaceId: coverage.leaveFromPlaceId,
-                          leaveFromPlaceName: coverage.leaveFromPlaceName,
-                          leaveFromAddress: coverage.leaveFromAddress,
-                        }}
-                        circle={circle}
-                        loading={loading}
-                        ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
-                        helperLine={leaveBy}
-                        onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
-                        testIdPrefix={`coverage-leave-from-${coverage.id}`}
-                      />
-                    </div>
-                  )
-                })
-              ) : null}
-
-              {/* Item-level only when nobody has coverage — and not already in DriverPicker */}
-              {active.length === 0 && !leaveFromInPicker ? (
-                <>
-                  <LeaveFromControls
-                    variant="field-row"
-                    value={itemLeaveFromFields}
-                    circle={circle}
-                    loading={loading}
-                    ariaLabel={`Leave from for ${item.title}`}
-                    helperLine={agendaLeaveByLine(item)}
-                    onChange={onSetLeaveFrom}
-                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
-                  />
-                  {item.leaveByStatus === "UNAVAILABLE" &&
-                  item.leaveByReason === "NO_ORIGIN" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                      Open Places
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
-
-              {active.length > 0 &&
-              item.leaveByStatus === "UNAVAILABLE" &&
-              item.leaveByReason === "NO_ORIGIN" &&
-              selfCoverage != null ? (
-                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                  Open Places
-                </Button>
-              ) : null}
+              <button
+                type="button"
+                disabled={loading}
+                className={quietLinkClass}
+                data-testid="agenda-row-edit-event"
+                onClick={onEdit}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                className={quietDangerLinkClass}
+                data-testid="agenda-row-remove-event"
+                onClick={onRemoveEvent}
+              >
+                Remove event
+              </button>
             </div>
           ) : null}
+          </AgendaQuietActions>
 
-          {showCarpoolBand && rideEvent != null ? (
-            <div
-              data-testid="agenda-band-carpool"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
+          {/* 5. Scope caption when locked (after quiet actions) */}
+          {showLockedSummary ? (
+            <p
+              data-testid="agenda-row-standing-locked-caption"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
-                Carpool
-              </span>
-              {showRequestInCarpool && defaultRideKids.length > 0 ? (
-                <div className="flex flex-col gap-[var(--fc-space-sm)]">
-                  {defaultRideKids.length > 1
-                    ? defaultRideKids.map((kidId) => {
-                        const name = kidDisplayName(circle.kids, kidId)
-                        return (
-                          <label
-                            key={kidId}
-                            className="flex items-center gap-[var(--fc-space-sm)] text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              aria-label={`Request ride for ${name}`}
-                              checked={rideKidSelection.includes(kidId)}
-                              disabled={loading}
-                              onChange={(change) => {
-                                const current = rideKidSelection
-                                const next = change.target.checked
-                                  ? [...current, kidId]
-                                  : current.filter((id) => id !== kidId)
-                                setSelectedRideKidIds(next)
-                              }}
-                            />
-                            {name}
-                          </label>
-                        )
-                      })
-                    : null}
-                  {onCreateRide != null ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={loading || rideKidSelection.length === 0}
-                      onClick={() => {
-                        const allDefault =
-                          rideKidSelection.length === defaultRideKids.length &&
-                          rideKidSelection.every((id) => defaultRideKids.includes(id))
-                        onCreateRide(
-                          rideEvent.eventKey,
-                          allDefault ? undefined : rideKidSelection,
-                        )
-                      }}
-                    >
-                      Request
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+              {lockedPlanScopeCaption(weekdays.plural)}
+            </p>
           ) : null}
 
+          {/* Below quiet actions: inbound Accept / Pass */}
           {!outOfPlay && rideEvent != null && rideEvent.otherRequests.length > 0 ? (
             <div
               data-testid="agenda-band-inbound-requests"
@@ -1380,20 +1469,6 @@ export function AgendaRow({
                   onWithdrawRide={onWithdrawRide}
                 />
               ))}
-            </div>
-          ) : null}
-
-          {isManual ? (
-            <div
-              data-testid="agenda-band-manual-actions"
-              className="flex gap-[var(--fc-space-sm)]"
-            >
-              <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
-                Edit
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onRemoveEvent} disabled={loading}>
-                Remove event
-              </Button>
             </div>
           ) : null}
         </div>

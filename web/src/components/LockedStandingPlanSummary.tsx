@@ -1,6 +1,10 @@
 import type { ReactNode } from "react"
 
 import {
+  AGENDA_QUIET_DANGER_LINK_CLASS,
+  AGENDA_QUIET_LINK_CLASS,
+} from "@/components/AgendaQuietActions"
+import {
   EDIT_LOCKED_PLAN,
   REMOVE_RECURRING_COVERAGE,
   lockedPlanScopeCaption,
@@ -37,6 +41,11 @@ export type LockedStandingPlanSummaryProps = {
   notGoingScope?: "week" | "name"
   /** Quiet siblings of Edit plan, e.g. Split into 2 events. */
   extraActions?: ReactNode
+  /**
+   * When false, omit the scope caption so the caller can place it after quiet
+   * actions (Agenda expanded order: Plan locked → quiet → caption).
+   */
+  showCaption?: boolean
   testIdPrefix?: string
 }
 
@@ -58,12 +67,11 @@ export function LockedStandingPlanSummary({
   onNotGoing,
   notGoingScope = "week",
   extraActions,
+  showCaption = true,
   testIdPrefix = "standing-locked",
 }: LockedStandingPlanSummaryProps) {
-  const linkClass =
-    "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
-  const removeClass =
-    "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] font-[number:var(--fc-font-list-row-title-weight)] text-[var(--fc-danger)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+  const linkClass = AGENDA_QUIET_LINK_CLASS
+  const removeClass = AGENDA_QUIET_DANGER_LINK_CLASS
 
   return (
     <div
@@ -157,12 +165,14 @@ export function LockedStandingPlanSummary({
         </p>
       ) : null}
 
-      <p
-        data-testid={`${testIdPrefix}-caption`}
-        className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-      >
-        {lockedPlanScopeCaption(weekdays.plural)}
-      </p>
+      {showCaption ? (
+        <p
+          data-testid={`${testIdPrefix}-caption`}
+          className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+        >
+          {lockedPlanScopeCaption(weekdays.plural)}
+        </p>
+      ) : null}
     </div>
   )
 }
