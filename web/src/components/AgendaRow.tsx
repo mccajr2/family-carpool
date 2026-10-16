@@ -955,6 +955,7 @@ export function AgendaRow({
                       standingChrome.showLock ? weekdays.plural : null
                     }
                     notGoingThisWeek={standingChrome.showRemove}
+                    saveExistingPlan={editingLockedPlan}
                     onSetRsvp={
                       standingChrome.showRemove ? onSetRsvp : undefined
                     }

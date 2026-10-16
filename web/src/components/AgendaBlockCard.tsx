@@ -15,10 +15,12 @@ import {
 } from "@/components/agendaBlockSections"
 import {
   buildAgendaBlockDecisionSections,
+  buildLockedEditDecisionSections,
   fanOutAssignCoverage,
   fanOutCreateRide,
   fanOutSaveKidPlans,
   fanOutSaveRidePlan,
+  kidIdsForMemberEvent,
   type AgendaBlockAssignDraft,
 } from "@/components/agendaBlockDecision"
 import {
@@ -64,6 +66,7 @@ import {
   type RideStatusChipDescriptor,
 } from "@/components/rideStatusChip"
 import {
+  lockedPlanScopeCaption,
   standingBlockChrome,
   standingWeekdayNames,
 } from "@/components/standingBlockChrome"
@@ -360,11 +363,16 @@ export function AgendaBlockCard({
   const showLockedSummary = isStandingLocked
   const decisionSections =
     decisionWiringReady && !settledLockedView
-      ? buildAgendaBlockDecisionSections({
-          items,
-          kidRows: layout.kidRows,
-          rideEventFor,
-        })
+      ? editingLockedPlan
+        ? buildLockedEditDecisionSections({
+            items,
+            kidRows: layout.kidRows,
+          })
+        : buildAgendaBlockDecisionSections({
+            items,
+            kidRows: layout.kidRows,
+            rideEventFor,
+          })
       : []
   const hasOpenPicker = decisionSections.some((section) => section.kind === "picker")
   const commitmentActions = agendaCommitmentActionsForItems(items, {
@@ -785,6 +793,22 @@ export function AgendaBlockCard({
                       standingLockWeekdaySingular={standingLockWeekdaySingular}
                       standingLockWeekdayPlural={standingLockWeekdayPlural}
                       notGoingThisWeek={isStandingLocked}
+                      saveExistingPlan={editingLockedPlan}
+                      onSetNotGoing={
+                        isStandingLocked && onSetNotGoing != null
+                          ? (kidIds) => {
+                              for (const member of section.memberItems) {
+                                const memberKids = kidIdsForMemberEvent(
+                                  member,
+                                  kidIds,
+                                )
+                                if (memberKids.length > 0) {
+                                  onSetNotGoing(member, memberKids)
+                                }
+                              }
+                            }
+                          : undefined
+                      }
                     />
                   </div>
                 )
@@ -800,6 +824,7 @@ export function AgendaBlockCard({
               planSummaryLine={null}
               notGoingScope="name"
               loading={loading}
+              showCaption={false}
               extraActions={
                 onDriveBlockLink != null
                   ? driveBlockControls.map((control) => (
@@ -907,6 +932,15 @@ export function AgendaBlockCard({
               </div>
             ) : null}
           </AgendaQuietActions>
+
+          {showLockedSummary ? (
+            <p
+              data-testid="agenda-block-standing-locked-caption"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+            >
+              {lockedPlanScopeCaption(weekdays.plural)}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

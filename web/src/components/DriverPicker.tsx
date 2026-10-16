@@ -200,6 +200,12 @@ export type DriverPickerProps = {
    * chrome). Does not touch the standing template.
    */
   notGoingThisWeek?: boolean
+  /**
+   * Locked Edit / existing-plan save: household primary is Save ride plan and
+   * calls onSaveRidePlan with a simple round-trip (not Confirm → assign).
+   * Ask the team still Posts. Requires onSaveRidePlan.
+   */
+  saveExistingPlan?: boolean
 }
 
 export function householdDriverChipLabel(
@@ -555,6 +561,7 @@ export function DriverPicker({
   standingLockWeekdaySingular = null,
   standingLockWeekdayPlural = null,
   notGoingThisWeek = false,
+  saveExistingPlan = false,
 }: DriverPickerProps) {
   const [askTeamSelected, setAskTeamSelected] = useState(false)
   const [mode, setMode] = useState<EditorMode>("simple")
@@ -616,8 +623,10 @@ export function DriverPicker({
       : (postLabelProp ?? POST_TO_TEAM_ROUND_TRIP)
     : showStandingLockOffer && lockStanding
       ? confirmAndLockLabel(lockWeekdayPlural)
-      : (confirmLabelProp ??
-        confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
+      : saveExistingPlan && onSaveRidePlan != null
+        ? SAVE_RIDE_PLAN
+        : (confirmLabelProp ??
+          confirmDriverLabel(selectedAdultId, members, currentAdultId, leaveFromLabel))
 
   const simpleNeedsRequesterPlace =
     askSelectionNeedsRequesterPlace("ASK_TEAM", simpleToMeetSide) ||
@@ -816,6 +825,25 @@ export function DriverPicker({
         return
       }
       onAskTeam?.()
+      return
+    }
+    if (saveExistingPlan && onSaveRidePlan != null) {
+      const place = placeFieldsFromLeaveFrom(sharedPlaceValue ?? EMPTY_PLACE)
+      const selection: LegChipSelection = selectedAdultId || currentAdultId
+      const both = choiceFromSelection(selection)
+      const legs: DriverPickerSavePlanLegs = {
+        to: both,
+        from: both,
+        toPlace: placeForSelection(selection, DEFAULT_MEET, place),
+        fromPlace: placeForSelection(selection, DEFAULT_MEET, place),
+        toMeetSide: DEFAULT_MEET,
+        fromMeetSide: DEFAULT_MEET,
+      }
+      if (confirmOptions != null) {
+        onSaveRidePlan(legs, confirmOptions)
+      } else {
+        onSaveRidePlan(legs)
+      }
       return
     }
     if (confirmOptions != null) {

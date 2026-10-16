@@ -4,6 +4,7 @@ import type { CalendarItem } from "@/api/types"
 import { carpoolLegsBoth } from "@/api/carpoolLegs"
 import {
   buildAgendaBlockDecisionSections,
+  buildLockedEditDecisionSections,
   classifyCombinedKidRow,
   eventKeyForMember,
   fanOutAssignCoverage,
@@ -333,5 +334,62 @@ describe("agendaBlockDecision", () => {
     if (sections[0]?.kind === "picker") {
       expect(sections[0].memberItems.map((row) => row.id)).toEqual(["a", "b"])
     }
+  })
+
+  it("locked Edit builds one picker for already-assigned kids", () => {
+    const a = item("a", ["k1"])
+    const b = item("b", ["k2"])
+    const sections = buildLockedEditDecisionSections({
+      items: [a, b],
+      kidRows: [
+        kidRow({
+          key: "FEED-a-k1",
+          itemKey: "FEED-a",
+          kidId: "k1",
+          firstName: "Declan",
+          there: { who: "You", detail: "You" },
+          back: { who: "You", detail: "You" },
+        }),
+        kidRow({
+          key: "FEED-b-k2",
+          itemKey: "FEED-b",
+          kidId: "k2",
+          firstName: "Kian",
+          there: { who: "Mom", detail: "Mom" },
+          back: { who: "Mom", detail: "Mom" },
+        }),
+      ],
+    })
+
+    expect(buildAgendaBlockDecisionSections({
+      items: [a, b],
+      kidRows: [
+        kidRow({
+          key: "FEED-a-k1",
+          itemKey: "FEED-a",
+          kidId: "k1",
+          firstName: "Declan",
+          there: { who: "You", detail: "You" },
+          back: { who: "You", detail: "You" },
+        }),
+        kidRow({
+          key: "FEED-b-k2",
+          itemKey: "FEED-b",
+          kidId: "k2",
+          firstName: "Kian",
+          there: { who: "Mom", detail: "Mom" },
+          back: { who: "Mom", detail: "Mom" },
+        }),
+      ],
+      rideEventFor: () => null,
+    })).toEqual([])
+
+    expect(sections).toHaveLength(1)
+    expect(sections[0]).toMatchObject({
+      kind: "picker",
+      kidIds: ["k1", "k2"],
+      title: "DECLAN + KIAN — ROUND TRIP",
+    })
+    expect(sections[0]!.memberItems.map((row) => row.id)).toEqual(["a", "b"])
   })
 })

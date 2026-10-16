@@ -348,6 +348,41 @@ describe("DriverPicker", () => {
     ).toBeInTheDocument()
   })
 
+  it("saveExistingPlan uses Save ride plan primary and onSaveRidePlan round trip", async () => {
+    const user = userEvent.setup()
+    const onSaveRidePlan = vi.fn()
+    const onAssignCoverage = vi.fn()
+    render(
+      <DriverPicker
+        {...defaultProps}
+        leaveFromLabel="Home"
+        goingKids={[{ id: "k1", firstName: "Declan" }]}
+        onSetRsvp={vi.fn()}
+        notGoingThisWeek
+        saveExistingPlan
+        onSaveRidePlan={onSaveRidePlan}
+        onAssignCoverage={onAssignCoverage}
+      />,
+    )
+
+    expect(screen.getByTestId("driver-picker")).toHaveAttribute("data-mode", "simple")
+    expect(screen.getByRole("button", { name: "Save ride plan" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Mark Declan as not going this week" }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Save ride plan" }))
+    expect(onAssignCoverage).not.toHaveBeenCalled()
+    expect(onSaveRidePlan).toHaveBeenCalledWith({
+      to: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+      from: { action: "HOUSEHOLD", assigneeAdultId: "a1" },
+      toPlace: emptyPlace,
+      fromPlace: emptyPlace,
+      toMeetSide: "REQUESTER",
+      fromMeetSide: "REQUESTER",
+    })
+  })
+
   it("Confirm uses goingKids rather than a stale kidIds subset", async () => {
     const user = userEvent.setup()
     const onAssignCoverage = vi.fn()

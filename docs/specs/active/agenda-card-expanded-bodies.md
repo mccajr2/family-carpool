@@ -203,7 +203,7 @@ Order: lock the regression net first, then restyle.
 - [x] Web: Mount the existing simple DriverPicker on combined cards for kids (or identical-kid groups) that still need a decision. Titled block. Post / Confirm / Save labels name the kid(s). Posted open leg → status + `Cancel this ask` via `onCancelRide`.
 - [x] Web: Single card — reorder into Legs → decision → Plan locked → quiet actions → caption **without removing** any row in the Functionality inventory. Inbound `AgendaInboundRequestRow`, standing ride series band, Request band, coverage Leave from editors, Open Places, conflict lines, needs-coverage line, going-again, manual Edit/Remove stay mounted.
 - [x] Web: Quiet-action row on both shells; real reverse labels from `agendaCommitmentActions` / `decidedAssigneeRevertLabel`; withdraw separate from reassign; Remove recurring danger.
-- [ ] Web: Plan locked section matches H/I; Edit returns to the simple picker with `Save ride plan` and `notGoingThisWeek`.
+- [x] Web: Plan locked section matches H/I; Edit returns to the simple picker with `Save ride plan` and `notGoingThisWeek`.
 - [ ] Web: Block card renders `actionError` when unlocked.
 - [ ] Web: Collapsed recurrence marker (`Every {weekday}`) back in the header meta on locked cards, single and combined. Not per-leg.
 - [ ] Web: Combined title/location fallbacks for L and M (`combinedEventTitle` / location line). No token palette change.

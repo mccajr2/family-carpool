@@ -304,3 +304,52 @@ export function buildAgendaBlockDecisionSections(options: {
 
   return sections
 }
+
+/**
+ * Locked Edit (frames H/I): one simple picker for every going kid on the block,
+ * including kids who are already fully assigned. Settled locked view omits
+ * pickers; Edit must bring the round-trip editor back with Save ride plan.
+ */
+export function buildLockedEditDecisionSections(options: {
+  items: readonly CalendarItem[]
+  kidRows: readonly CombinedKidRow[]
+}): AgendaBlockDecisionPickerSection[] {
+  if (options.kidRows.length === 0) {
+    return []
+  }
+  const itemByKey = new Map(
+    options.items.map((item) => [calendarItemKey(item), item] as const),
+  )
+  const kidIds: string[] = []
+  const goingKids: DriverPickerGoingKid[] = []
+  const firstNames: string[] = []
+  const memberKeys: string[] = []
+  const seenKids = new Set<string>()
+
+  for (const row of options.kidRows) {
+    if (!seenKids.has(row.kidId)) {
+      seenKids.add(row.kidId)
+      kidIds.push(row.kidId)
+      goingKids.push({ id: row.kidId, firstName: row.firstName })
+      firstNames.push(row.firstName)
+    }
+    if (!memberKeys.includes(row.itemKey)) {
+      memberKeys.push(row.itemKey)
+    }
+  }
+
+  return [
+    {
+      kind: "picker",
+      key: `picker-locked-edit-${kidIds.join("-")}`,
+      stateKey: "locked-edit",
+      kidIds,
+      goingKids,
+      memberItems: memberKeys
+        .map((key) => itemByKey.get(key))
+        .filter((item): item is CalendarItem => item != null),
+      title: blockDecisionPickerTitle(firstNames),
+      postLabel: postToTeamNamedRoundTrip(firstNames),
+    },
+  ]
+}

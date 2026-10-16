@@ -1073,6 +1073,163 @@ describe("AgendaBlockCard", () => {
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1", "2030-08-15T17:00:00.000Z")
   })
 
+  it("Frame H/I: Edit reveals simple Save ride plan picker; Remove calls onRemoveStandingBlock", async () => {
+    const user = userEvent.setup()
+    const onRemoveStandingBlock = vi.fn()
+    const onSaveRidePlan = vi.fn()
+    const onAssignCoverage = vi.fn()
+    const onUpdateAssignDraft = vi.fn()
+    const onSetNotGoing = vi.fn()
+    const a = item("a", "2030-08-15T17:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-hi",
+      leaveFromPlaceId: "p1",
+      leaveFromPlaceName: "Home",
+      uncoveredKidIds: [],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T18:00:00.000Z", {
+      standingLocked: true,
+      standingBlockTemplateId: "tmpl-hi",
+      kidIds: ["k2"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T17:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const rides: Record<string, CarpoolRideEvent> = {
+      a: {
+        eventKey: "UID:a",
+        title: "Practice A",
+        startsAt: a.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        ownRequests: [],
+        ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+        otherRequests: [],
+      },
+      b: {
+        eventKey: "UID:b",
+        title: "Practice B",
+        startsAt: b.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k2"],
+        ownRequest: null,
+        ownRequests: [],
+        ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+        otherRequests: [],
+      },
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap(rides)}
+        assignDraft={{ adultId: "a1", kidIds: ["k1", "k2"], soleAdult: false, soleKid: false }}
+        onUpdateAssignDraft={onUpdateAssignDraft}
+        onAssignCoverage={onAssignCoverage}
+        onSaveRidePlan={onSaveRidePlan}
+        onSetNotGoing={onSetNotGoing}
+        onRemoveStandingBlock={onRemoveStandingBlock}
+        onSetLeaveFrom={vi.fn()}
+        onDriveBlockLink={vi.fn()}
+      />,
+    )
+
+    await expandBlock(user)
+    const card = screen.getByTestId("agenda-block-card")
+    const locked = within(card).getByTestId("agenda-block-standing-locked")
+    const quiet = within(card).getByTestId("agenda-block-quiet-actions")
+    const caption = within(card).getByTestId("agenda-block-standing-locked-caption")
+    expect(
+      locked.compareDocumentPosition(quiet) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      quiet.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      within(locked).queryByTestId("agenda-block-standing-locked-caption"),
+    ).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(
+      within(locked).getByRole("button", { name: /Split into/ }),
+    ).toBeInTheDocument()
+
+    await user.click(within(card).getByTestId("agenda-block-standing-locked-edit"))
+    const picker = within(card).getByTestId("driver-picker")
+    expect(picker).toHaveAttribute("data-mode", "simple")
+    expect(
+      within(card).getByRole("button", { name: "Save ride plan" }),
+    ).toBeInTheDocument()
+    expect(
+      within(card).getByRole("button", { name: /not going this week/ }),
+    ).toBeInTheDocument()
+
+    await user.click(within(card).getByRole("button", { name: "Save ride plan" }))
+    expect(onSaveRidePlan).toHaveBeenCalled()
+    expect(onAssignCoverage).not.toHaveBeenCalled()
+
+    await user.click(within(card).getByTestId("agenda-block-standing-locked-remove"))
+    expect(onRemoveStandingBlock).toHaveBeenCalledWith(
+      "tmpl-hi",
+      "2030-08-15T17:00:00.000Z",
+    )
+  })
+
   it("Frame B: open legs prefer urgent status chips over a plan chip", () => {
     const a = item("a", "2030-08-15T18:00:00.000Z", {
       feedName: "Mite 3",

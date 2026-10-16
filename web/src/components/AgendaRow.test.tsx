@@ -3467,6 +3467,7 @@ describe("AgendaRow", () => {
     const user = userEvent.setup()
     const onRemoveStandingBlock = vi.fn()
     const onSetNotGoing = vi.fn()
+    const onSaveRidePlan = vi.fn()
     renderRow(
       item({
         id: "locked",
@@ -3498,6 +3499,7 @@ describe("AgendaRow", () => {
       {
         onRemoveStandingBlock,
         onSetNotGoing,
+        onSaveRidePlan,
         rideEvent: {
           eventKey: "UID:locked",
           title: "Practice",
@@ -3558,9 +3560,22 @@ describe("AgendaRow", () => {
     expect(
       within(row).getByTestId("driver-picker"),
     ).toBeInTheDocument()
+    expect(within(row).getByTestId("driver-picker")).toHaveAttribute(
+      "data-mode",
+      "simple",
+    )
+    expect(
+      within(row).getByRole("button", { name: "Save ride plan" }),
+    ).toBeInTheDocument()
+    expect(
+      within(row).getByRole("button", { name: /not going this week/ }),
+    ).toBeInTheDocument()
     expect(
       within(row).getByText("Different plans for each leg."),
     ).toBeInTheDocument()
+
+    await user.click(within(row).getByRole("button", { name: "Save ride plan" }))
+    expect(onSaveRidePlan).toHaveBeenCalled()
 
     await user.click(within(row).getByText("Different plans for each leg."))
     expect(
