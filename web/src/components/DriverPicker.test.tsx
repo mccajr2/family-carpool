@@ -11,6 +11,8 @@ import {
   PLACE_DROPPING_OFF_AT,
   PLACE_PICKING_UP_FROM,
   POST_TO_TEAM_ROUND_TRIP,
+  blockDecisionPickerTitle,
+  postToTeamNamedRoundTrip,
 } from "@/components/coverageCopy"
 import {
   confirmDriverLabel,
@@ -479,6 +481,44 @@ describe("DriverPicker", () => {
 
     expect(onAskTeam).toHaveBeenCalledOnce()
     expect(onAssignCoverage).not.toHaveBeenCalled()
+  })
+
+  it("block title {Kid} + {Kid} — ROUND TRIP and Post label with names", async () => {
+    const user = userEvent.setup()
+    const onAskTeam = vi.fn()
+    const names = ["Declan", "Kian"] as const
+    const title = blockDecisionPickerTitle(names)
+    const postLabel = postToTeamNamedRoundTrip(names)
+    expect(title).toBe("DECLAN + KIAN — ROUND TRIP")
+    expect(postLabel).toBe("Post to team — Declan + Kian, round trip")
+
+    render(
+      <div>
+        <span data-testid="driver-picker-block-title">{title}</span>
+        <DriverPicker
+          {...defaultProps}
+          leaveFromLabel="Home"
+          kidIds={["k1", "k2"]}
+          goingKids={[
+            { id: "k1", firstName: "Declan" },
+            { id: "k2", firstName: "Kian" },
+          ]}
+          postLabel={postLabel}
+          onAskTeam={onAskTeam}
+        />
+      </div>,
+    )
+
+    expect(screen.getByTestId("driver-picker-block-title")).toHaveTextContent(
+      "DECLAN + KIAN — ROUND TRIP",
+    )
+    await user.click(screen.getByRole("button", { name: ASK_THE_TEAM }))
+    expect(screen.getByRole("button", { name: postLabel })).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: POST_TO_TEAM_ROUND_TRIP }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: postLabel }))
+    expect(onAskTeam).toHaveBeenCalledOnce()
   })
 
   it("returns to household Confirm after selecting an adult from Ask the team", async () => {
