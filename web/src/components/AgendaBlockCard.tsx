@@ -13,7 +13,14 @@ import {
   buildAgendaBlockSections,
   type AgendaBlockRunSection,
 } from "@/components/agendaBlockSections"
-import type { AgendaBlockAssignDraft } from "@/components/agendaBlockDecision"
+import {
+  buildAgendaBlockDecisionSections,
+  fanOutAssignCoverage,
+  fanOutCreateRide,
+  fanOutSaveKidPlans,
+  fanOutSaveRidePlan,
+  type AgendaBlockAssignDraft,
+} from "@/components/agendaBlockDecision"
 import {
   agendaCommitmentActionsForItems,
   blockDepartureItem,
@@ -21,6 +28,7 @@ import {
 } from "@/components/agendaCommitmentActions"
 import { AgendaStatusChip } from "@/components/agendaStatusChip"
 import { canRoute } from "@/components/canRoute"
+import { ownRideDetailLine } from "@/components/carpoolDisplay"
 import { activeCoverages, calendarItemKey } from "@/components/coverageDisplay"
 import {
   isPendingHouseholdConfirm,
@@ -29,11 +37,13 @@ import {
 } from "@/components/coverageQueue"
 import { AgendaLegsTable } from "@/components/AgendaLegsTable"
 import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
-import type {
-  DriverPickerConfirmOptions,
-  DriverPickerKidPlan,
-  DriverPickerSavePlanLegs,
+import {
+  DriverPicker,
+  type DriverPickerConfirmOptions,
+  type DriverPickerKidPlan,
+  type DriverPickerSavePlanLegs,
 } from "@/components/DriverPicker"
+import { resolvedLeaveFromLabel } from "@/components/leaveFromDisplay"
 import {
   agendaBlockDriveBlockControls,
   splitIntoEventsLabel,
@@ -293,6 +303,7 @@ export function AgendaBlockCard({
 }: AgendaBlockCardProps) {
   const [open, setOpen] = useState(false)
   const [editingLockedPlan, setEditingLockedPlan] = useState(false)
+  const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
   const locationLabel = sharedLocation(items)
   const layout = buildCombinedEventLayout({
     items,
@@ -342,6 +353,15 @@ export function AgendaBlockCard({
   const isStandingLocked = standingChrome.showRemove
   const settledLockedView = isStandingLocked && !editingLockedPlan
   const showLockedSummary = isStandingLocked
+  const decisionSections =
+    decisionWiringReady && !settledLockedView
+      ? buildAgendaBlockDecisionSections({
+          items,
+          kidRows: layout.kidRows,
+          rideEventFor,
+        })
+      : []
+  const hasOpenPicker = decisionSections.some((section) => section.kind === "picker")
   const commitmentActions = agendaCommitmentActionsForItems(items, {
     circle,
     currentAdultId,
@@ -365,15 +385,33 @@ export function AgendaBlockCard({
     currentAdultId,
     rideEventFor,
   })
+  const leaveFromItem = departureItem ?? items[0] ?? null
+  const leaveFromFields =
+    leaveFromItem != null
+      ? {
+          leaveFromPlaceId: leaveFromItem.leaveFromPlaceId,
+          leaveFromPlaceName: leaveFromItem.leaveFromPlaceName,
+          leaveFromAddress: leaveFromItem.leaveFromAddress,
+        }
+      : {
+          leaveFromPlaceId: null as string | null,
+          leaveFromPlaceName: null as string | null,
+          leaveFromAddress: null as string | null,
+        }
+  const originForConfirm =
+    confirmOriginLabel || resolvedLeaveFromLabel(leaveFromFields, circle)
   const showLeaveFrom =
     onSetLeaveFrom != null &&
     departureItem != null &&
     sections.toRun != null &&
-    !settledLockedView
+    !settledLockedView &&
+    !hasOpenPicker
   const overrideLinkClass =
     "text-xs underline underline-offset-2 text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
   const splitLinkClass =
     "text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 text-left"
+  const decisionTitleClass =
+    "block uppercase tracking-wide text-[length:var(--fc-font-list-row-team-size)] leading-[var(--fc-font-list-row-team-line)] font-[number:var(--fc-font-list-row-team-weight)] text-[var(--fc-text-secondary)]"
   const focusRingStyle = isFocused
     ? {
         borderColor: "var(--fc-list-row-focus-border)",
@@ -412,6 +450,20 @@ export function AgendaBlockCard({
     items.length > 0
       ? `Leave from for ${items.map((row) => row.title).join(" / ")}`
       : "Leave from for drive block"
+  const leaveFromSlotForPicker =
+    leaveFromItem != null && onSetLeaveFrom != null ? (
+      <LeaveFromControls
+        variant="field-row"
+        value={leaveFromFields}
+        circle={circle}
+        loading={loading}
+        ariaLabel={leaveFromAriaLabel}
+        helperLine={agendaLeaveByLine(leaveFromItem)}
+        onChange={(body) => onSetLeaveFrom(leaveFromItem, body)}
+        onConfirmOriginLabelChange={setConfirmOriginLabel}
+        testIdPrefix={`leave-from-block-${calendarItemKey(leaveFromItem)}`}
+      />
+    ) : undefined
   // Avoid unused-prop lint when Lock is confirm-time only (DriverPicker / Focus).
   void _onLockStandingBlock
 
@@ -605,6 +657,136 @@ export function AgendaBlockCard({
                 onChange={(body) => onSetLeaveFrom(departureItem, body)}
                 testIdPrefix={`leave-from-block-${calendarItemKey(departureItem)}`}
               />
+            </div>
+          ) : null}
+
+          {decisionSections.length > 0 ? (
+            <div
+              data-testid="agenda-block-decision"
+              className="flex flex-col gap-[var(--fc-space-md)]"
+            >
+              {decisionSections.map((section) => {
+                if (section.kind === "cancelAsk") {
+                  return (
+                    <div
+                      key={section.key}
+                      data-testid={`agenda-block-cancel-ask-${section.ride.id}`}
+                      className="flex flex-col gap-[var(--fc-space-sm)]"
+                    >
+                      <p
+                        data-testid={`agenda-block-own-ride-${section.ride.id}`}
+                        className="text-xs text-[var(--fc-text-secondary)]"
+                      >
+                        {ownRideDetailLine(section.ride)}
+                      </p>
+                      {onCancelRide != null ? (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          className={`${overrideLinkClass} text-left`}
+                          data-testid={`agenda-block-cancel-ask-btn-${section.ride.id}`}
+                          onClick={() => onCancelRide(section.item, section.ride.id)}
+                        >
+                          No longer need a ride? Cancel this ask
+                        </button>
+                      ) : null}
+                    </div>
+                  )
+                }
+
+                const groupCanAsk =
+                  onCreateRide != null &&
+                  section.memberItems.some(
+                    (member) =>
+                      canAskTeamForItem == null || canAskTeamForItem(member),
+                  )
+                const groupError =
+                  coverageActionErrorForItem != null
+                    ? section.memberItems
+                        .map((member) => coverageActionErrorForItem(member))
+                        .find((message) => message != null && message.length > 0)
+                    : undefined
+
+                return (
+                  <div
+                    key={section.key}
+                    data-testid={`agenda-block-decision-picker-${section.key}`}
+                    className="flex flex-col gap-[var(--fc-space-sm)]"
+                  >
+                    <span
+                      data-testid={`agenda-block-decision-title-${section.key}`}
+                      className={decisionTitleClass}
+                    >
+                      {section.title}
+                    </span>
+                    <DriverPicker
+                      members={circle.members}
+                      currentAdultId={currentAdultId}
+                      selectedAdultId={assignDraft!.adultId}
+                      onSelectedAdultChange={(adultId) =>
+                        onUpdateAssignDraft!({ adultId })
+                      }
+                      kidIds={section.kidIds}
+                      loading={loading}
+                      leaveFromSlot={leaveFromSlotForPicker}
+                      leaveFromLabel={originForConfirm}
+                      circle={circle}
+                      sharedPlaceValue={leaveFromFields}
+                      postLabel={section.postLabel}
+                      onAssignCoverage={(adultId, kidIds, options) =>
+                        fanOutAssignCoverage(
+                          section.memberItems,
+                          adultId,
+                          kidIds,
+                          onAssignCoverage!,
+                          options,
+                        )
+                      }
+                      onAskTeam={
+                        groupCanAsk
+                          ? () =>
+                              fanOutCreateRide(
+                                section.memberItems,
+                                section.kidIds,
+                                rideEventFor,
+                                onCreateRide!,
+                              )
+                          : undefined
+                      }
+                      onSaveRidePlan={
+                        onSaveRidePlan != null
+                          ? (legs, options) =>
+                              fanOutSaveRidePlan(
+                                section.memberItems,
+                                legs,
+                                section.kidIds,
+                                onSaveRidePlan,
+                                options,
+                              )
+                          : undefined
+                      }
+                      goingKids={section.goingKids}
+                      onSaveKidPlans={
+                        onSaveKidPlans != null
+                          ? (plans, options) =>
+                              fanOutSaveKidPlans(
+                                section.memberItems,
+                                plans,
+                                onSaveKidPlans,
+                                options,
+                              )
+                          : undefined
+                      }
+                      showTeamSection={groupCanAsk}
+                      hasPickupPlace={hasPickupPlace}
+                      actionError={groupError}
+                      standingLockWeekdaySingular={standingLockWeekdaySingular}
+                      standingLockWeekdayPlural={standingLockWeekdayPlural}
+                      notGoingThisWeek={isStandingLocked}
+                    />
+                  </div>
+                )
+              })}
             </div>
           ) : null}
 

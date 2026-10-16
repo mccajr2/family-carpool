@@ -1,9 +1,20 @@
-import type { CalendarItem, CarpoolRideEvent } from "@/api/types"
+import type { CalendarItem, CarpoolRide, CarpoolRideEvent } from "@/api/types"
+import type { CombinedKidRow } from "@/components/combinedEventLayout"
+import {
+  blockDecisionPickerTitle,
+  postToTeamNamedRoundTrip,
+} from "@/components/coverageCopy"
+import { calendarItemKey } from "@/components/coverageDisplay"
 import type {
   DriverPickerConfirmOptions,
+  DriverPickerGoingKid,
   DriverPickerKidPlan,
   DriverPickerSavePlanLegs,
 } from "@/components/DriverPicker"
+import {
+  ownRidePlanForKid,
+  resolveOwnRidePlans,
+} from "@/components/transportPlan"
 
 /** Shared adult draft for a combined Agenda block (one picker adult for the shell). */
 export type AgendaBlockAssignDraft = {
@@ -11,6 +22,58 @@ export type AgendaBlockAssignDraft = {
   kidIds: string[]
   soleAdult: boolean
   soleKid: boolean
+}
+
+const NEEDS_RIDE = "Needs ride"
+const ASKED_TEAM = "Asked team"
+
+export type AgendaBlockDecisionPickerSection = {
+  kind: "picker"
+  key: string
+  stateKey: string
+  kidIds: string[]
+  goingKids: DriverPickerGoingKid[]
+  /** Member events that still have an open row for these kids. */
+  memberItems: CalendarItem[]
+  title: string
+  postLabel: string
+}
+
+export type AgendaBlockDecisionCancelSection = {
+  kind: "cancelAsk"
+  key: string
+  item: CalendarItem
+  ride: CarpoolRide
+  kidIds: string[]
+}
+
+export type AgendaBlockDecisionSection =
+  | AgendaBlockDecisionPickerSection
+  | AgendaBlockDecisionCancelSection
+
+function isOpenWho(who: string): boolean {
+  return who === NEEDS_RIDE || who === ASKED_TEAM
+}
+
+/** Combined-card only: open → picker; asked → cancel; assigned → skip. */
+export function classifyCombinedKidRow(
+  row: Pick<CombinedKidRow, "there" | "back">,
+): "open" | "asked" | "assigned" {
+  const thereOpen = isOpenWho(row.there.who)
+  const backOpen = isOpenWho(row.back.who)
+  if (!thereOpen && !backOpen) {
+    return "assigned"
+  }
+  if (row.there.who === NEEDS_RIDE || row.back.who === NEEDS_RIDE) {
+    return "open"
+  }
+  return "asked"
+}
+
+export function openStateKey(
+  row: Pick<CombinedKidRow, "there" | "back">,
+): string {
+  return `${row.there.who}|${row.back.who}`
 }
 
 /** Kid ids on this member event that are in the picker's selected scope. */
@@ -127,4 +190,117 @@ export function fanOutSaveKidPlans(
     }
     onSaveKidPlans(item, memberPlans, options)
   }
+}
+
+/**
+ * Combined-card decision sections from Legs rows: identical open states share
+ * one picker; posted Asked-team legs get status + cancel; assigned kids omit.
+ */
+export function buildAgendaBlockDecisionSections(options: {
+  items: readonly CalendarItem[]
+  kidRows: readonly CombinedKidRow[]
+  rideEventFor: (item: CalendarItem) => CarpoolRideEvent | null | undefined
+}): AgendaBlockDecisionSection[] {
+  const itemByKey = new Map(
+    options.items.map((item) => [calendarItemKey(item), item] as const),
+  )
+  const sections: AgendaBlockDecisionSection[] = []
+  const pickerByState = new Map<
+    string,
+    {
+      stateKey: string
+      kidIds: string[]
+      goingKids: DriverPickerGoingKid[]
+      memberKeys: string[]
+      firstNames: string[]
+    }
+  >()
+  const seenCancelRideIds = new Set<string>()
+  const seenOpenKidInState = new Map<string, Set<string>>()
+
+  for (const row of options.kidRows) {
+    const kind = classifyCombinedKidRow(row)
+    if (kind === "assigned") {
+      continue
+    }
+    if (kind === "open") {
+      const stateKey = openStateKey(row)
+      let group = pickerByState.get(stateKey)
+      if (group == null) {
+        group = {
+          stateKey,
+          kidIds: [],
+          goingKids: [],
+          memberKeys: [],
+          firstNames: [],
+        }
+        pickerByState.set(stateKey, group)
+        seenOpenKidInState.set(stateKey, new Set())
+        sections.push({
+          kind: "picker",
+          key: `picker-${stateKey}`,
+          stateKey,
+          kidIds: group.kidIds,
+          goingKids: group.goingKids,
+          memberItems: [],
+          title: "",
+          postLabel: "",
+        })
+      }
+      const seenKids = seenOpenKidInState.get(stateKey)!
+      if (!seenKids.has(row.kidId)) {
+        seenKids.add(row.kidId)
+        group.kidIds.push(row.kidId)
+        group.goingKids.push({ id: row.kidId, firstName: row.firstName })
+        group.firstNames.push(row.firstName)
+      }
+      if (!group.memberKeys.includes(row.itemKey)) {
+        group.memberKeys.push(row.itemKey)
+      }
+      continue
+    }
+
+    // asked — status + Cancel this ask for the pending own plan
+    const item = itemByKey.get(row.itemKey)
+    if (item == null) {
+      continue
+    }
+    const plans = resolveOwnRidePlans(options.rideEventFor(item))
+    const plan = ownRidePlanForKid(plans, row.kidId)
+    if (plan == null || plan.status !== "PENDING") {
+      continue
+    }
+    if (seenCancelRideIds.has(plan.id)) {
+      continue
+    }
+    seenCancelRideIds.add(plan.id)
+    sections.push({
+      kind: "cancelAsk",
+      key: `cancel-${plan.id}`,
+      item,
+      ride: plan,
+      kidIds: [...plan.kidIds],
+    })
+  }
+
+  // Resolve picker memberItems + titled labels after the scan (mutable refs).
+  for (const section of sections) {
+    if (section.kind !== "picker") {
+      continue
+    }
+    const group = pickerByState.get(section.stateKey)
+    if (group == null) {
+      continue
+    }
+    section.kidIds = group.kidIds
+    section.goingKids = group.goingKids
+    section.memberItems = group.memberKeys
+      .map((key) => itemByKey.get(key))
+      .filter((item): item is CalendarItem => item != null)
+    section.title = blockDecisionPickerTitle(group.firstNames)
+    section.postLabel = postToTeamNamedRoundTrip(group.firstNames)
+    section.key = `picker-${group.kidIds.join("-") || group.stateKey}`
+  }
+
+  return sections
 }

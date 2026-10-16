@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import type { CalendarItem } from "@/api/types"
 import { carpoolLegsBoth } from "@/api/carpoolLegs"
 import {
+  buildAgendaBlockDecisionSections,
+  classifyCombinedKidRow,
   eventKeyForMember,
   fanOutAssignCoverage,
   fanOutCreateRide,
@@ -10,7 +12,23 @@ import {
   fanOutSaveRidePlan,
   kidIdsForMemberEvent,
 } from "@/components/agendaBlockDecision"
+import type { CombinedKidRow } from "@/components/combinedEventLayout"
 import type { DriverPickerSavePlanLegs } from "@/components/DriverPicker"
+
+function kidRow(
+  partial: Partial<CombinedKidRow> &
+    Pick<CombinedKidRow, "key" | "itemKey" | "kidId" | "firstName">,
+): CombinedKidRow {
+  return {
+    initial: partial.firstName.slice(0, 1),
+    eventLabel: "Practice",
+    timeLabel: "6:00 PM",
+    there: { who: "Needs ride", detail: "Needs ride" },
+    back: { who: "Needs ride", detail: "Needs ride" },
+    assignmentLine: "There Needs ride · Back Needs ride",
+    ...partial,
+  }
+}
 
 function item(
   id: string,
@@ -144,5 +162,176 @@ describe("agendaBlockDecision", () => {
       [plans[1]],
       { standingAsk: true },
     )
+  })
+
+  it("classifies Needs ride as open, Asked team as asked, assignee as assigned", () => {
+    expect(
+      classifyCombinedKidRow({
+        there: { who: "Needs ride", detail: "Needs ride" },
+        back: { who: "Needs ride", detail: "Needs ride" },
+      }),
+    ).toBe("open")
+    expect(
+      classifyCombinedKidRow({
+        there: { who: "Asked team", detail: "Asked team" },
+        back: { who: "Asked team", detail: "Asked team" },
+      }),
+    ).toBe("asked")
+    expect(
+      classifyCombinedKidRow({
+        there: { who: "You", detail: "You" },
+        back: { who: "Katy", detail: "Katy" },
+      }),
+    ).toBe("assigned")
+    expect(
+      classifyCombinedKidRow({
+        there: { who: "Needs ride", detail: "Needs ride" },
+        back: { who: "You", detail: "You" },
+      }),
+    ).toBe("open")
+  })
+
+  it("groups identical open kids into one picker and emits cancel for Asked team", () => {
+    const a = item("a", ["k1"])
+    const b = item("b", ["k2"])
+    const c = item("c", ["k1"], { kidIds: ["k1"] })
+    const askedRide = {
+      id: "ask-b",
+      spaceId: "s1",
+      eventKey: "UID:b",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds: ["k2"],
+      kidFirstNames: ["Kian"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING" as const,
+      legs: [
+        {
+          kind: "TO" as const,
+          phase: "ASKED_TEAM" as const,
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER" as const,
+        },
+        {
+          kind: "FROM" as const,
+          phase: "ASKED_TEAM" as const,
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER" as const,
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const sections = buildAgendaBlockDecisionSections({
+      items: [a, b, c],
+      kidRows: [
+        kidRow({
+          key: "FEED-a-k1",
+          itemKey: "FEED-a",
+          kidId: "k1",
+          firstName: "Declan",
+        }),
+        kidRow({
+          key: "FEED-b-k2",
+          itemKey: "FEED-b",
+          kidId: "k2",
+          firstName: "Kian",
+          there: { who: "Asked team", detail: "Asked team" },
+          back: { who: "Asked team", detail: "Asked team" },
+        }),
+        kidRow({
+          key: "FEED-c-k1",
+          itemKey: "FEED-c",
+          kidId: "k1",
+          firstName: "Declan",
+          there: { who: "You", detail: "You" },
+          back: { who: "You", detail: "You" },
+        }),
+      ],
+      rideEventFor: (row) =>
+        row.id === "b"
+          ? {
+              eventKey: "UID:b",
+              title: "Practice",
+              startsAt: b.startsAt,
+              endsAt: null,
+              defaultKidIds: ["k2"],
+              ownRequest: askedRide,
+              ownRequests: [askedRide],
+              ownLegs: askedRide.legs,
+              otherRequests: [],
+            }
+          : null,
+    })
+
+    expect(sections).toHaveLength(2)
+    expect(sections[0]).toMatchObject({
+      kind: "picker",
+      kidIds: ["k1"],
+      title: "DECLAN — ROUND TRIP",
+      postLabel: "Post to team — Declan, round trip",
+    })
+    if (sections[0]?.kind === "picker") {
+      expect(sections[0].memberItems.map((row) => row.id)).toEqual(["a"])
+    }
+    expect(sections[1]).toMatchObject({
+      kind: "cancelAsk",
+      ride: { id: "ask-b" },
+      kidIds: ["k2"],
+    })
+  })
+
+  it("merges two kids with the same open state into one titled picker", () => {
+    const a = item("a", ["k1"])
+    const b = item("b", ["k2"])
+    const sections = buildAgendaBlockDecisionSections({
+      items: [a, b],
+      kidRows: [
+        kidRow({
+          key: "FEED-a-k1",
+          itemKey: "FEED-a",
+          kidId: "k1",
+          firstName: "Declan",
+        }),
+        kidRow({
+          key: "FEED-b-k2",
+          itemKey: "FEED-b",
+          kidId: "k2",
+          firstName: "Kian",
+        }),
+      ],
+      rideEventFor: () => null,
+    })
+
+    expect(sections).toHaveLength(1)
+    expect(sections[0]).toMatchObject({
+      kind: "picker",
+      kidIds: ["k1", "k2"],
+      title: "DECLAN + KIAN — ROUND TRIP",
+      postLabel: "Post to team — Declan + Kian, round trip",
+    })
+    if (sections[0]?.kind === "picker") {
+      expect(sections[0].memberItems.map((row) => row.id)).toEqual(["a", "b"])
+    }
   })
 })

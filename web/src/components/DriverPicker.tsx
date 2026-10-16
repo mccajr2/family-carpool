@@ -176,6 +176,11 @@ export type DriverPickerProps = {
   /** Override confirm button text for household selection only. */
   confirmLabel?: string
   /**
+   * Override Post primary when Ask the team is selected (combined named block).
+   * Standing Ask checkbox still wins when checked.
+   */
+  postLabel?: string
+  /**
    * When false, selecting Ask the team disables Post/Save with inline copy.
    * Defaults to true (caller did not check).
    */
@@ -544,6 +549,7 @@ export function DriverPicker({
   circle,
   sharedPlaceValue,
   confirmLabel: confirmLabelProp,
+  postLabel: postLabelProp,
   hasPickupPlace = true,
   actionError,
   standingLockWeekdaySingular = null,
@@ -607,7 +613,7 @@ export function DriverPicker({
   const primaryLabel = teamSelected
     ? showStandingAskOffer && standingAsk
       ? postStandingAskLabel(lockWeekdayPlural)
-      : POST_TO_TEAM_ROUND_TRIP
+      : (postLabelProp ?? POST_TO_TEAM_ROUND_TRIP)
     : showStandingLockOffer && lockStanding
       ? confirmAndLockLabel(lockWeekdayPlural)
       : (confirmLabelProp ??
