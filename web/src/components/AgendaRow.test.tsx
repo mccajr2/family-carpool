@@ -1001,7 +1001,10 @@ describe("AgendaRow", () => {
         {...noopHandlers}
       />,
     )
-    expect(within(row).getByText("Asked team")).toBeInTheDocument()
+    expect(within(row).getByTestId("agenda-row-chip-strip")).toHaveTextContent(
+      /Asked team/i,
+    )
+    // Dual-chip labels (Focus) stay off the Agenda row; Legs table uses plain faces.
     expect(within(row).queryByText(/Getting there:/)).not.toBeInTheDocument()
     expect(within(row).queryByText(/Coming back:/)).not.toBeInTheDocument()
     expect(within(row).getByTestId("agenda-row-own-ride")).toHaveTextContent(
@@ -4095,6 +4098,115 @@ describe("AgendaRow", () => {
     expect(
       within(row).getByRole("button", { name: /Confirm and lock for/ }),
     ).toBeInTheDocument()
+  })
+
+  it("expanded order is Legs → decision → Plan locked → quiet → caption", async () => {
+    const user = userEvent.setup()
+    renderRow(
+      item({
+        id: "expanded-order",
+        source: "FEED",
+        title: "Practice",
+        feedId: "f1",
+        feedName: "U12",
+        eventKey: "UID:expanded-order",
+        standingLocked: true,
+        standingBlockTemplateId: "tmpl-order",
+        uncoveredKidIds: [],
+        coverages: [
+          {
+            id: "cov-order",
+            coveringAdultId: "a1",
+            coveringAdultDisplayName: "Alex",
+            assignedByAdultId: "a1",
+            kidIds: ["k1"],
+            status: "CONFIRMED",
+            leaveFromPlaceId: "p1",
+            leaveFromPlaceName: "Home",
+            leaveFromAddress: null,
+            leaveByAt: null,
+            leaveByStatus: null,
+            leaveByReason: null,
+          },
+        ],
+      }),
+      {
+        rideEvent: {
+          eventKey: "UID:expanded-order",
+          title: "Practice",
+          startsAt: "2030-08-15T17:00:00.000Z",
+          endsAt: null,
+          defaultKidIds: ["k1"],
+          ownRequest: null,
+          ownRequests: [],
+          ownLegs: carpoolLegsBoth("CONFIRMED", {
+            assigneeAdultId: "a1",
+            assigneeDisplayName: "Alex",
+          }),
+          otherRequests: [
+            {
+              id: "inbound-order",
+              spaceId: "s1",
+              eventKey: "UID:expanded-order",
+              requestingCircleId: "c2",
+              requestingCircleName: "Other",
+              requestedByAdultId: "a9",
+              kidIds: ["k9"],
+              kidFirstNames: ["Pat"],
+              seats: 1,
+              pickupPlaceName: "Park",
+              pickupAddress: "2 Oak",
+              pickupTown: null,
+              detourMinutes: null,
+              status: "PENDING",
+              legs: carpoolLegsBoth("ASKED_TEAM"),
+              passedByMe: false,
+              passedByAdultNames: [],
+              acceptedByAdultId: null,
+              acceptingCircleId: null,
+              acceptingCircleName: null,
+            },
+          ],
+        },
+      },
+    )
+
+    const row = screen.getByTestId("agenda-row-FEED-expanded-order")
+    await user.click(within(row).getByRole("button", { expanded: false }))
+    // Settled locked hides the picker until Edit — open the editor for decision.
+    await user.click(within(row).getByTestId("agenda-row-standing-locked-edit"))
+
+    const expanded = within(row).getByTestId("agenda-row-expanded")
+    const legs = within(expanded).getByTestId("agenda-row-legs-table")
+    const travel = within(expanded).getByTestId("agenda-band-travel")
+    const decision = within(expanded).getByTestId("agenda-band-decision")
+    const locked = within(expanded).getByTestId("agenda-row-standing-locked")
+    const quiet = within(expanded).getByTestId("agenda-band-kids")
+    const caption = within(expanded).getByTestId("agenda-row-standing-locked-caption")
+    const inbound = within(expanded).getByTestId("agenda-band-inbound-requests")
+
+    expect(
+      legs.compareDocumentPosition(travel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      travel.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      decision.compareDocumentPosition(locked) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      locked.compareDocumentPosition(quiet) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      quiet.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      caption.compareDocumentPosition(inbound) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(within(decision).getByTestId("driver-picker")).toBeInTheDocument()
+    expect(
+      within(locked).queryByTestId("agenda-row-standing-locked-caption"),
+    ).not.toBeInTheDocument()
   })
 
   it("coverage leave-from editor survives next to Legs table", async () => {

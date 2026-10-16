@@ -37,6 +37,11 @@ export type LockedStandingPlanSummaryProps = {
   notGoingScope?: "week" | "name"
   /** Quiet siblings of Edit plan, e.g. Split into 2 events. */
   extraActions?: ReactNode
+  /**
+   * When false, omit the scope caption so the caller can place it after quiet
+   * actions (Agenda expanded order: Plan locked → quiet → caption).
+   */
+  showCaption?: boolean
   testIdPrefix?: string
 }
 
@@ -58,6 +63,7 @@ export function LockedStandingPlanSummary({
   onNotGoing,
   notGoingScope = "week",
   extraActions,
+  showCaption = true,
   testIdPrefix = "standing-locked",
 }: LockedStandingPlanSummaryProps) {
   const linkClass =
@@ -157,12 +163,14 @@ export function LockedStandingPlanSummary({
         </p>
       ) : null}
 
-      <p
-        data-testid={`${testIdPrefix}-caption`}
-        className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
-      >
-        {lockedPlanScopeCaption(weekdays.plural)}
-      </p>
+      {showCaption ? (
+        <p
+          data-testid={`${testIdPrefix}-caption`}
+          className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
+        >
+          {lockedPlanScopeCaption(weekdays.plural)}
+        </p>
+      ) : null}
     </div>
   )
 }

@@ -23,6 +23,7 @@ import {
   resolvedLeaveFromLabel,
 } from "@/components/leaveFromDisplay"
 import {
+  lockedPlanScopeCaption,
   recurrenceHintLabel,
   standingBlockChrome,
   standingWeekdayNames,
@@ -410,6 +411,24 @@ export function AgendaRow({
       waitingOnOtherGames.length > 0)
   /** Leave-from lives inside DriverPicker on Ride Needed — suppress travel duplicate. */
   const leaveFromInPicker = showAssign && active.length === 0
+  const showCoverageLeaveFrom = !outOfPlay && active.length > 0
+  const showItemLeaveFrom =
+    !outOfPlay && active.length === 0 && !leaveFromInPicker
+  const showOpenPlacesForCoverage =
+    !outOfPlay &&
+    active.length > 0 &&
+    item.leaveByStatus === "UNAVAILABLE" &&
+    item.leaveByReason === "NO_ORIGIN" &&
+    selfCoverage != null
+  const showTravelBand =
+    showCoverageLeaveFrom || showItemLeaveFrom || showOpenPlacesForCoverage
+  const showDecisionSection =
+    !outOfPlay &&
+    (ownRequest != null ||
+      showAssign ||
+      (pendingForSelf != null && !showOverrideLinks) ||
+      (pendingHouseholdPlan && !showOverrideLinks && pendingForSelf == null) ||
+      showCarpoolBand)
 
   const itemLeaveFromFields = {
     leaveFromPlaceId: item.leaveFromPlaceId,
@@ -740,16 +759,338 @@ export function AgendaRow({
       ) : null}
 
       {open ? (
-        <div className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]">
-          {settledLockedView ? (
-            <AgendaLegsTable
-              testId="agenda-row-legs-table"
-              rows={collapsedLayout.kidRows}
-              loading={loading}
-              rowTestId={(row) => `agenda-row-legs-row-${row.kidId}`}
-              legPairTestId={(row) => `agenda-row-legs-${row.kidId}`}
-            />
+        <div
+          data-testid="agenda-row-expanded"
+          className="flex flex-col gap-[var(--fc-space-lg)] border-t border-[var(--fc-border)] px-[var(--fc-space-list-row-pad-x)] pb-[var(--fc-space-list-row-pad-x)] pt-[var(--fc-space-sm)]"
+        >
+          {/* 1. Legs (always when expanded) */}
+          <AgendaLegsTable
+            testId="agenda-row-legs-table"
+            rows={collapsedLayout.kidRows}
+            loading={loading}
+            rowTestId={(row) => `agenda-row-legs-row-${row.kidId}`}
+            legPairTestId={(row) => `agenda-row-legs-${row.kidId}`}
+          />
+
+          {/* Below Legs: coverage / item Leave from + Open Places */}
+          {showTravelBand ? (
+            <div
+              data-testid="agenda-band-travel"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {showCoverageLeaveFrom
+                ? active.map((coverage) => {
+                    const leaveBy = coverageLeaveByLine(coverage)
+                    return (
+                      <div
+                        key={coverage.id}
+                        data-testid={`agenda-coverage-leave-${coverage.id}`}
+                        className="flex flex-col gap-[var(--fc-space-sm)]"
+                      >
+                        <LeaveFromControls
+                          variant="field-row"
+                          value={{
+                            leaveFromPlaceId: coverage.leaveFromPlaceId,
+                            leaveFromPlaceName: coverage.leaveFromPlaceName,
+                            leaveFromAddress: coverage.leaveFromAddress,
+                          }}
+                          circle={circle}
+                          loading={loading}
+                          ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
+                          helperLine={leaveBy}
+                          onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
+                          testIdPrefix={`coverage-leave-from-${coverage.id}`}
+                        />
+                      </div>
+                    )
+                  })
+                : null}
+
+              {showItemLeaveFrom ? (
+                <>
+                  <LeaveFromControls
+                    variant="field-row"
+                    value={itemLeaveFromFields}
+                    circle={circle}
+                    loading={loading}
+                    ariaLabel={`Leave from for ${item.title}`}
+                    helperLine={agendaLeaveByLine(item)}
+                    onChange={onSetLeaveFrom}
+                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
+                  />
+                  {item.leaveByStatus === "UNAVAILABLE" &&
+                  item.leaveByReason === "NO_ORIGIN" ? (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                      Open Places
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+
+              {showOpenPlacesForCoverage ? (
+                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
+                  Open Places
+                </Button>
+              ) : null}
+            </div>
           ) : null}
+
+          {/* Above Decision: conflicts */}
+          {!outOfPlay && conflictLines.length > 0 ? (
+            <ul
+              data-testid={`agenda-conflicts-${item.source}-${item.id}`}
+              className="flex flex-col gap-[2px]"
+              aria-label="Schedule conflicts"
+            >
+              {conflictLines.map((line) => (
+                <li
+                  key={`${line.tone}:${line.text}`}
+                  className={
+                    line.tone === "family"
+                      ? "text-[length:var(--fc-font-conflict-family-size)] leading-[var(--fc-font-conflict-family-line)] font-[number:var(--fc-font-conflict-family-weight)] text-[var(--fc-conflict-family)]"
+                      : "text-xs font-medium text-[var(--fc-danger)]"
+                  }
+                >
+                  {line.text}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {!outOfPlay && commitmentConflictLine != null ? (
+            <p
+              data-testid={`agenda-ride-conflict-${item.source}-${item.id}`}
+              className="text-xs font-medium text-[var(--fc-danger)]"
+            >
+              {commitmentConflictLine}
+            </p>
+          ) : null}
+
+          {/* 2. Decision */}
+          {showDecisionSection ? (
+            <div
+              data-testid="agenda-band-decision"
+              className="flex flex-col gap-[var(--fc-space-md)]"
+            >
+              {ownRequest != null ? (
+                <div className="flex flex-col gap-[var(--fc-space-sm)]">
+                  <p
+                    data-testid="agenda-row-own-ride"
+                    className="text-xs text-[var(--fc-text-secondary)]"
+                  >
+                    {ownRideDetailLine(ownRequest)}
+                  </p>
+                  {ownRequest.status === "PENDING" && onCancelRide != null ? (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className={`${overrideLinkClass} text-left`}
+                      onClick={() => onCancelRide(ownRequest.id)}
+                    >
+                      No longer need a ride? Cancel this ask
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {showAssign ? (
+                <div className="mb-2">
+                  <DriverPicker
+                    members={circle.members}
+                    currentAdultId={currentAdultId}
+                    selectedAdultId={assignDraft.adultId}
+                    onSelectedAdultChange={(adultId) =>
+                      onUpdateAssignDraft({ adultId })
+                    }
+                    kidIds={
+                      goingKids.length > 0
+                        ? goingKids.map((kid) => kid.id)
+                        : assignDraft.kidIds.length > 0
+                          ? assignDraft.kidIds
+                          : assignableGapKidIds
+                    }
+                    loading={loading}
+                    leaveFromSlot={leaveFromInPicker ? leaveFromSlotForPicker : undefined}
+                    leaveFromLabel={originForConfirm}
+                    circle={circle}
+                    sharedPlaceValue={itemLeaveFromFields}
+                    onAssignCoverage={onAssignCoverage}
+                    onAskTeam={() => {
+                      const eventKey = rideEvent?.eventKey ?? item.eventKey
+                      if (eventKey && onCreateRide) {
+                        onCreateRide(
+                          eventKey,
+                          goingKids.map((kid) => kid.id),
+                        )
+                      }
+                    }}
+                    onSaveRidePlan={
+                      onSaveRidePlan != null
+                        ? (legs, options) =>
+                            onSaveRidePlan(
+                              legs,
+                              goingKids.map((kid) => kid.id),
+                              options,
+                            )
+                        : undefined
+                    }
+                    goingKids={goingKids}
+                    onSaveKidPlans={onSaveKidPlans}
+                    showTeamSection={canAskTeam}
+                    hasPickupPlace={circle.places.some(
+                      (place) => place.address.trim().length > 0,
+                    )}
+                    actionError={coverageActionError}
+                    standingLockWeekdaySingular={
+                      standingChrome.showLock ? weekdays.singular : null
+                    }
+                    standingLockWeekdayPlural={
+                      standingChrome.showLock ? weekdays.plural : null
+                    }
+                    notGoingThisWeek={standingChrome.showRemove}
+                    onSetRsvp={
+                      standingChrome.showRemove ? onSetRsvp : undefined
+                    }
+                    onSetNotGoing={
+                      standingChrome.showRemove ? onSetNotGoing : undefined
+                    }
+                  />
+                </div>
+              ) : null}
+
+              {pendingForSelf != null && !showOverrideLinks ? (
+                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="agenda-cta-primary"
+                    onClick={() => onConfirmCoverage(pendingForSelf.id)}
+                    disabled={loading}
+                  >
+                    {CONFIRM_COVERAGE}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDeclineCoverage(pendingForSelf.id)}
+                    disabled={loading}
+                  >
+                    {DECLINE_COVERAGE}
+                  </Button>
+                </div>
+              ) : null}
+
+              {pendingHouseholdPlan && !showOverrideLinks && pendingForSelf == null ? (
+                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid="agenda-cta-primary"
+                    onClick={() => onConfirmHouseholdPlan?.()}
+                    disabled={loading}
+                  >
+                    {CONFIRM_COVERAGE}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onDeclineHouseholdPlan?.()}
+                    disabled={loading}
+                  >
+                    {DECLINE_COVERAGE}
+                  </Button>
+                </div>
+              ) : null}
+
+              {showCarpoolBand && rideEvent != null ? (
+                <div
+                  data-testid="agenda-band-carpool"
+                  className="flex flex-col gap-[var(--fc-space-sm)]"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
+                    Carpool
+                  </span>
+                  {showRequestInCarpool && defaultRideKids.length > 0 ? (
+                    <div className="flex flex-col gap-[var(--fc-space-sm)]">
+                      {defaultRideKids.length > 1
+                        ? defaultRideKids.map((kidId) => {
+                            const name = kidDisplayName(circle.kids, kidId)
+                            return (
+                              <label
+                                key={kidId}
+                                className="flex items-center gap-[var(--fc-space-sm)] text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Request ride for ${name}`}
+                                  checked={rideKidSelection.includes(kidId)}
+                                  disabled={loading}
+                                  onChange={(change) => {
+                                    const current = rideKidSelection
+                                    const next = change.target.checked
+                                      ? [...current, kidId]
+                                      : current.filter((id) => id !== kidId)
+                                    setSelectedRideKidIds(next)
+                                  }}
+                                />
+                                {name}
+                              </label>
+                            )
+                          })
+                        : null}
+                      {onCreateRide != null ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={loading || rideKidSelection.length === 0}
+                          onClick={() => {
+                            const allDefault =
+                              rideKidSelection.length === defaultRideKids.length &&
+                              rideKidSelection.every((id) =>
+                                defaultRideKids.includes(id),
+                              )
+                            onCreateRide(
+                              rideEvent.eventKey,
+                              allDefault ? undefined : rideKidSelection,
+                            )
+                          }}
+                        >
+                          Request
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Under Decision: needs coverage + action error */}
+          {!outOfPlay && (unassignedGapKidIds.length > 0 || coverageActionError) ? (
+            <div
+              data-testid="agenda-band-coverage"
+              className="flex flex-col gap-[var(--fc-space-sm)]"
+            >
+              {unassignedGapKidIds.length > 0 ? (
+                <p className="text-sm text-[var(--fc-danger)]">
+                  {needsCoverageWithKids(uncoveredKidNames)}
+                </p>
+              ) : null}
+              {coverageActionError ? (
+                <p
+                  role="alert"
+                  data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
+                  className="text-sm text-[var(--fc-danger)]"
+                >
+                  {coverageActionError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* 3. Plan locked (caption rendered after quiet actions) */}
           {showLockedSummary ? (
             <LockedStandingPlanSummary
               testIdPrefix="agenda-row-standing-locked"
@@ -758,6 +1099,7 @@ export function AgendaRow({
               planSummaryLine={null}
               notGoingScope="week"
               loading={loading}
+              showCaption={false}
               onEditPlan={() => setEditingLockedPlan((wasEditing) => !wasEditing)}
               onRemoveRecurring={
                 onRemoveStandingBlock != null && standingChrome.templateId != null
@@ -795,59 +1137,8 @@ export function AgendaRow({
               }
             />
           ) : null}
-          {!outOfPlay && conflictLines.length > 0 ? (
-            <ul
-              data-testid={`agenda-conflicts-${item.source}-${item.id}`}
-              className="flex flex-col gap-[2px]"
-              aria-label="Schedule conflicts"
-            >
-              {conflictLines.map((line) => (
-                <li
-                  key={`${line.tone}:${line.text}`}
-                  className={
-                    line.tone === "family"
-                      ? "text-[length:var(--fc-font-conflict-family-size)] leading-[var(--fc-font-conflict-family-line)] font-[number:var(--fc-font-conflict-family-weight)] text-[var(--fc-conflict-family)]"
-                      : "text-xs font-medium text-[var(--fc-danger)]"
-                  }
-                >
-                  {line.text}
-                </li>
-              ))}
-            </ul>
-          ) : null}
 
-          {!outOfPlay && commitmentConflictLine != null ? (
-            <p
-              data-testid={`agenda-ride-conflict-${item.source}-${item.id}`}
-              className="text-xs font-medium text-[var(--fc-danger)]"
-            >
-              {commitmentConflictLine}
-            </p>
-          ) : null}
-
-          {!outOfPlay &&
-          onDriveBlockLink != null &&
-          recombineDriveBlockLinks.length > 0 ? (
-            <div
-              data-testid="agenda-drive-block-links"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
-            >
-              {recombineDriveBlockLinks.map((link) => (
-                <button
-                  key={`${link.leg}-${link.otherSource}-${link.otherId}`}
-                  type="button"
-                  disabled={loading}
-                  className={`${overrideLinkClass} text-left`}
-                  data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
-                  onClick={() => onDriveBlockLink(link)}
-                >
-                  {driveBlockLinkLabel(link)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Pending assign / confirm per uncovered kid; confirmed rides use override links */}
+          {/* 4. Quiet actions */}
           {coverageGames.length > 0 ? (
             <div
               data-testid="agenda-band-kids"
@@ -1025,138 +1316,6 @@ export function AgendaRow({
                 </div>
               ) : null}
 
-              {ownRequest != null ? (
-                <div className="flex flex-col gap-[var(--fc-space-sm)]">
-                  <p
-                    data-testid="agenda-row-own-ride"
-                    className="text-xs text-[var(--fc-text-secondary)]"
-                  >
-                    {ownRideDetailLine(ownRequest)}
-                  </p>
-                  {ownRequest.status === "PENDING" && onCancelRide != null ? (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      className={`${overrideLinkClass} text-left`}
-                      onClick={() => onCancelRide(ownRequest.id)}
-                    >
-                      No longer need a ride? Cancel this ask
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {showAssign ? (
-                <div className="mb-2">
-                  <DriverPicker
-                    members={circle.members}
-                    currentAdultId={currentAdultId}
-                    selectedAdultId={assignDraft.adultId}
-                    onSelectedAdultChange={(adultId) =>
-                      onUpdateAssignDraft({ adultId })
-                    }
-                    kidIds={
-                      goingKids.length > 0
-                        ? goingKids.map((kid) => kid.id)
-                        : assignDraft.kidIds.length > 0
-                          ? assignDraft.kidIds
-                          : assignableGapKidIds
-                    }
-                    loading={loading}
-                    leaveFromSlot={leaveFromInPicker ? leaveFromSlotForPicker : undefined}
-                    leaveFromLabel={originForConfirm}
-                    circle={circle}
-                    sharedPlaceValue={itemLeaveFromFields}
-                    onAssignCoverage={onAssignCoverage}
-                    onAskTeam={() => {
-                      const eventKey = rideEvent?.eventKey ?? item.eventKey
-                      if (eventKey && onCreateRide) {
-                        onCreateRide(
-                          eventKey,
-                          goingKids.map((kid) => kid.id),
-                        )
-                      }
-                    }}
-                    onSaveRidePlan={
-                      onSaveRidePlan != null
-                        ? (legs, options) =>
-                            onSaveRidePlan(
-                              legs,
-                              goingKids.map((kid) => kid.id),
-                              options,
-                            )
-                        : undefined
-                    }
-                    goingKids={goingKids}
-                    onSaveKidPlans={onSaveKidPlans}
-                    showTeamSection={canAskTeam}
-                    hasPickupPlace={circle.places.some(
-                      (place) => place.address.trim().length > 0,
-                    )}
-                    actionError={coverageActionError}
-                    standingLockWeekdaySingular={
-                      standingChrome.showLock ? weekdays.singular : null
-                    }
-                    standingLockWeekdayPlural={
-                      standingChrome.showLock ? weekdays.plural : null
-                    }
-                    notGoingThisWeek={standingChrome.showRemove}
-                    onSetRsvp={
-                      standingChrome.showRemove ? onSetRsvp : undefined
-                    }
-                    onSetNotGoing={
-                      standingChrome.showRemove ? onSetNotGoing : undefined
-                    }
-                  />
-                </div>
-              ) : null}
-
-              {pendingForSelf != null && !showOverrideLinks ? (
-                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
-                  <Button
-                    type="button"
-                    size="sm"
-                    data-testid="agenda-cta-primary"
-                    onClick={() => onConfirmCoverage(pendingForSelf.id)}
-                    disabled={loading}
-                  >
-                    {CONFIRM_COVERAGE}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDeclineCoverage(pendingForSelf.id)}
-                    disabled={loading}
-                  >
-                    {DECLINE_COVERAGE}
-                  </Button>
-                </div>
-              ) : null}
-
-              {pendingHouseholdPlan && !showOverrideLinks && pendingForSelf == null ? (
-                <div className="mb-2 flex flex-wrap gap-[var(--fc-space-sm)]">
-                  <Button
-                    type="button"
-                    size="sm"
-                    data-testid="agenda-cta-primary"
-                    onClick={() => onConfirmHouseholdPlan?.()}
-                    disabled={loading}
-                  >
-                    {CONFIRM_COVERAGE}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDeclineHouseholdPlan?.()}
-                    disabled={loading}
-                  >
-                    {DECLINE_COVERAGE}
-                  </Button>
-                </div>
-              ) : null}
-
               {!showOverrideLinks && goingKids.length >= 2 ? (
                 <button
                   type="button"
@@ -1203,26 +1362,25 @@ export function AgendaRow({
             </div>
           ) : null}
 
-          {/* Coverage residuals sit with the decision chrome (below Confirm / overrides) */}
-          {!outOfPlay && (unassignedGapKidIds.length > 0 || coverageActionError) ? (
+          {!outOfPlay &&
+          onDriveBlockLink != null &&
+          recombineDriveBlockLinks.length > 0 ? (
             <div
-              data-testid="agenda-band-coverage"
+              data-testid="agenda-drive-block-links"
               className="flex flex-col gap-[var(--fc-space-sm)]"
             >
-              {unassignedGapKidIds.length > 0 ? (
-                <p className="text-sm text-[var(--fc-danger)]">
-                  {needsCoverageWithKids(uncoveredKidNames)}
-                </p>
-              ) : null}
-              {coverageActionError ? (
-                <p
-                  role="alert"
-                  data-testid={`agenda-coverage-error-${item.source}-${item.id}`}
-                  className="text-sm text-[var(--fc-danger)]"
+              {recombineDriveBlockLinks.map((link) => (
+                <button
+                  key={`${link.leg}-${link.otherSource}-${link.otherId}`}
+                  type="button"
+                  disabled={loading}
+                  className={`${overrideLinkClass} text-left`}
+                  data-testid={`agenda-drive-block-link-${link.leg}-${link.otherId}`}
+                  onClick={() => onDriveBlockLink(link)}
                 >
-                  {coverageActionError}
-                </p>
-              ) : null}
+                  {driveBlockLinkLabel(link)}
+                </button>
+              ))}
             </div>
           ) : null}
 
@@ -1241,132 +1399,31 @@ export function AgendaRow({
             </button>
           ) : null}
 
-          {/* Travel / origin — coverage leave-from when covering/waiting; else item (unless in picker) */}
-          {!outOfPlay ? (
+          {isManual ? (
             <div
-              data-testid="agenda-band-travel"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
+              data-testid="agenda-band-manual-actions"
+              className="flex gap-[var(--fc-space-sm)]"
             >
-              {active.length > 0 ? (
-                active.map((coverage) => {
-                  const leaveBy = coverageLeaveByLine(coverage)
-                  return (
-                    <div
-                      key={coverage.id}
-                      data-testid={`agenda-coverage-leave-${coverage.id}`}
-                      className="flex flex-col gap-[var(--fc-space-sm)]"
-                    >
-                      <LeaveFromControls
-                        variant="field-row"
-                        value={{
-                          leaveFromPlaceId: coverage.leaveFromPlaceId,
-                          leaveFromPlaceName: coverage.leaveFromPlaceName,
-                          leaveFromAddress: coverage.leaveFromAddress,
-                        }}
-                        circle={circle}
-                        loading={loading}
-                        ariaLabel={`Leave from for ${coverageAdultLabel(coverage, circle.members)}`}
-                        helperLine={leaveBy}
-                        onChange={(body) => onSetCoverageLeaveFrom(coverage.id, body)}
-                        testIdPrefix={`coverage-leave-from-${coverage.id}`}
-                      />
-                    </div>
-                  )
-                })
-              ) : null}
-
-              {/* Item-level only when nobody has coverage — and not already in DriverPicker */}
-              {active.length === 0 && !leaveFromInPicker ? (
-                <>
-                  <LeaveFromControls
-                    variant="field-row"
-                    value={itemLeaveFromFields}
-                    circle={circle}
-                    loading={loading}
-                    ariaLabel={`Leave from for ${item.title}`}
-                    helperLine={agendaLeaveByLine(item)}
-                    onChange={onSetLeaveFrom}
-                    testIdPrefix={`leave-from-${item.source}-${item.id}`}
-                  />
-                  {item.leaveByStatus === "UNAVAILABLE" &&
-                  item.leaveByReason === "NO_ORIGIN" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                      Open Places
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
-
-              {active.length > 0 &&
-              item.leaveByStatus === "UNAVAILABLE" &&
-              item.leaveByReason === "NO_ORIGIN" &&
-              selfCoverage != null ? (
-                <Button type="button" size="sm" variant="outline" onClick={onOpenPlaces}>
-                  Open Places
-                </Button>
-              ) : null}
+              <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
+                Edit
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={onRemoveEvent} disabled={loading}>
+                Remove event
+              </Button>
             </div>
           ) : null}
 
-          {showCarpoolBand && rideEvent != null ? (
-            <div
-              data-testid="agenda-band-carpool"
-              className="flex flex-col gap-[var(--fc-space-sm)]"
+          {/* 5. Scope caption when locked (after quiet actions) */}
+          {showLockedSummary ? (
+            <p
+              data-testid="agenda-row-standing-locked-caption"
+              className="text-[length:var(--fc-font-list-row-meta-size)] leading-[var(--fc-font-list-row-meta-line)] text-[var(--fc-text-secondary)]"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--fc-text-secondary)]">
-                Carpool
-              </span>
-              {showRequestInCarpool && defaultRideKids.length > 0 ? (
-                <div className="flex flex-col gap-[var(--fc-space-sm)]">
-                  {defaultRideKids.length > 1
-                    ? defaultRideKids.map((kidId) => {
-                        const name = kidDisplayName(circle.kids, kidId)
-                        return (
-                          <label
-                            key={kidId}
-                            className="flex items-center gap-[var(--fc-space-sm)] text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              aria-label={`Request ride for ${name}`}
-                              checked={rideKidSelection.includes(kidId)}
-                              disabled={loading}
-                              onChange={(change) => {
-                                const current = rideKidSelection
-                                const next = change.target.checked
-                                  ? [...current, kidId]
-                                  : current.filter((id) => id !== kidId)
-                                setSelectedRideKidIds(next)
-                              }}
-                            />
-                            {name}
-                          </label>
-                        )
-                      })
-                    : null}
-                  {onCreateRide != null ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={loading || rideKidSelection.length === 0}
-                      onClick={() => {
-                        const allDefault =
-                          rideKidSelection.length === defaultRideKids.length &&
-                          rideKidSelection.every((id) => defaultRideKids.includes(id))
-                        onCreateRide(
-                          rideEvent.eventKey,
-                          allDefault ? undefined : rideKidSelection,
-                        )
-                      }}
-                    >
-                      Request
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+              {lockedPlanScopeCaption(weekdays.plural)}
+            </p>
           ) : null}
 
+          {/* Below quiet actions: inbound Accept / Pass */}
           {!outOfPlay && rideEvent != null && rideEvent.otherRequests.length > 0 ? (
             <div
               data-testid="agenda-band-inbound-requests"
@@ -1394,20 +1451,6 @@ export function AgendaRow({
                   onWithdrawRide={onWithdrawRide}
                 />
               ))}
-            </div>
-          ) : null}
-
-          {isManual ? (
-            <div
-              data-testid="agenda-band-manual-actions"
-              className="flex gap-[var(--fc-space-sm)]"
-            >
-              <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={loading}>
-                Edit
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={onRemoveEvent} disabled={loading}>
-                Remove event
-              </Button>
             </div>
           ) : null}
         </div>
