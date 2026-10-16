@@ -1295,7 +1295,7 @@ describe("AgendaBlockCard", () => {
     expect(onRemoveStandingBlock).toHaveBeenCalledWith("tmpl-1", "2030-08-15T17:00:00.000Z")
   })
 
-  it("Frame H/I: Edit reveals simple Save ride plan picker; Remove calls onRemoveStandingBlock", async () => {
+  it("Frame H/I Edit reveals picker; Remove recurring calls onRemoveStandingBlock", async () => {
     const user = userEvent.setup()
     const onRemoveStandingBlock = vi.fn()
     const onSaveRidePlan = vi.fn()
@@ -1867,7 +1867,7 @@ describe("AgendaBlockCard", () => {
     expect(card).toHaveAttribute("data-member-coverage-error", "Save failed on B")
   })
 
-  it("Frame F: picker only for open kid; cancel-ask for posted kid; no picker for assigned", async () => {
+  it("Frame F: posts only the open kid's ids via onCreateRide for that member", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const onCancelRide = vi.fn()
@@ -2060,7 +2060,7 @@ describe("AgendaBlockCard", () => {
     expect(onCreateRide).toHaveBeenCalledWith(a, "UID:a", ["k1"])
   })
 
-  it("Frame K: one picker for two open kids; primary fans out per member event", async () => {
+  it("Frame K: one primary issues one call per member event with grouped kid ids", async () => {
     const user = userEvent.setup()
     const onCreateRide = vi.fn()
     const a = item("a", "2030-08-15T18:00:00.000Z", {
@@ -2132,5 +2132,454 @@ describe("AgendaBlockCard", () => {
     expect(onCreateRide).toHaveBeenCalledTimes(2)
     expect(onCreateRide).toHaveBeenNthCalledWith(1, a, "UID:a", ["k1"])
     expect(onCreateRide).toHaveBeenNthCalledWith(2, b, "UID:b", ["k2"])
+  })
+
+  it("Frame F cancel-ask calls onCancelRide with the member ride id", async () => {
+    const user = userEvent.setup()
+    const onCancelRide = vi.fn()
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      kidIds: ["k1"],
+      uncoveredKidIds: ["k1"],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      kidIds: ["k2"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+    })
+    const asked: CarpoolRide = {
+      id: "ask-cancel",
+      spaceId: "s1",
+      eventKey: "UID:b",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds: ["k2"],
+      kidFirstNames: ["Kian"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [
+        {
+          kind: "TO",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+        {
+          kind: "FROM",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          b: {
+            eventKey: "UID:b",
+            title: b.title,
+            startsAt: b.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k2"],
+            ownRequest: asked,
+            ownRequests: [asked],
+            ownLegs: asked.legs,
+            otherRequests: [],
+          },
+        })}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: ["k1"],
+          soleAdult: false,
+          soleKid: true,
+        }}
+        onUpdateAssignDraft={vi.fn()}
+        onAssignCoverage={vi.fn()}
+        onCancelRide={onCancelRide}
+        onSetLeaveFrom={vi.fn()}
+      />,
+    )
+
+    await expandBlock(user)
+    await user.click(
+      screen.getByTestId("agenda-block-cancel-ask-btn-ask-cancel"),
+    )
+    expect(onCancelRide).toHaveBeenCalledWith(b, "ask-cancel")
+  })
+
+  it("keeps both TO and FROM View route links passing leg", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      endsAt: "2030-08-15T19:00:00.000Z",
+      leaveByAt: "2030-08-15T17:40:00.000Z",
+      kidIds: ["k1"],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      endsAt: "2030-08-15T20:00:00.000Z",
+      leaveByAt: "2030-08-15T18:40:00.000Z",
+      kidIds: ["k1"],
+    })
+    const rideA: CarpoolRide = {
+      id: "r-a",
+      spaceId: "s1",
+      eventKey: "UID:a",
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds: ["k1"],
+      kidFirstNames: ["Declan"],
+      seats: 1,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const rideB: CarpoolRide = {
+      ...rideA,
+      id: "r-b",
+      eventKey: "UID:b",
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          a: {
+            eventKey: "UID:a",
+            title: "Practice A",
+            startsAt: a.startsAt,
+            endsAt: a.endsAt,
+            defaultKidIds: ["k1"],
+            ownRequests: [rideA],
+            ownLegs: rideA.legs,
+            ownRequest: rideA,
+            otherRequests: [],
+          },
+          b: {
+            eventKey: "UID:b",
+            title: "Practice B",
+            startsAt: b.startsAt,
+            endsAt: b.endsAt,
+            defaultKidIds: ["k1"],
+            ownRequests: [rideB],
+            ownLegs: rideB.legs,
+            ownRequest: rideB,
+            otherRequests: [],
+          },
+        })}
+        onOpenRide={onOpenRide}
+      />,
+    )
+
+    await expandBlock(user)
+    const toLink = screen.getByTestId("agenda-block-run-to-view-route")
+    const fromLink = screen.getByTestId("agenda-block-run-from-view-route")
+    expect(toLink).toHaveTextContent("View route")
+    expect(fromLink).toHaveTextContent("View route")
+
+    await user.click(toLink)
+    expect(onOpenRide).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "a" }),
+      "TO",
+    )
+    await user.click(fromLink)
+    expect(onOpenRide).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "b" }),
+      "FROM",
+    )
+    expect(onOpenRide).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not mount inbound Accept/Pass (decision)", async () => {
+    const user = userEvent.setup()
+    const inbound: CarpoolRide = {
+      id: "inbound-1",
+      spaceId: "s1",
+      eventKey: "UID:a",
+      requestingCircleId: "c2",
+      requestingCircleName: "Other",
+      requestedByAdultId: "a9",
+      kidIds: ["k9"],
+      kidFirstNames: ["Pat"],
+      seats: 1,
+      pickupPlaceName: "Park",
+      pickupAddress: "2 Oak",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [
+        {
+          kind: "TO",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+        {
+          kind: "FROM",
+          phase: "ASKED_TEAM",
+          assigneeAdultId: null,
+          assigneeDisplayName: null,
+          assigneeCircleId: null,
+          assigneeCircleName: null,
+          placeId: null,
+          placeName: null,
+          placeAddress: null,
+          meetSide: "REQUESTER",
+        },
+      ],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    }
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      uncoveredKidIds: [],
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          a: {
+            eventKey: "UID:a",
+            title: a.title,
+            startsAt: a.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: null,
+            ownRequests: [],
+            ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+            otherRequests: [inbound],
+          },
+        })}
+        onSetLeaveFrom={vi.fn()}
+      />,
+    )
+
+    await expandBlock(user)
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).queryByRole("button", { name: /^Accept$/i })).not.toBeInTheDocument()
+    expect(within(card).queryByRole("button", { name: /^Pass$/i })).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-band-inbound-requests")).not.toBeInTheDocument()
+  })
+
+  it("Frame G shows reassign / cancel-request links and no primary", async () => {
+    const user = userEvent.setup()
+    const onCantMakeIt = vi.fn()
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "b",
+          otherTitle: "Practice B",
+          otherStartsAt: "2030-08-15T19:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T19:00:00.000Z", {
+      kidIds: ["k2"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+      driveBlockLinks: [
+        {
+          leg: "TO",
+          otherSource: "FEED",
+          otherId: "a",
+          otherTitle: "Practice A",
+          otherStartsAt: "2030-08-15T18:00:00.000Z",
+          combined: true,
+          overrideAction: null,
+        },
+      ],
+    })
+    const momOwn = (
+      id: string,
+      eventKey: string,
+      kidIds: string[],
+      names: string[],
+    ): CarpoolRide => ({
+      id,
+      spaceId: "s1",
+      eventKey,
+      requestingCircleId: "c1",
+      requestingCircleName: "House",
+      requestedByAdultId: "a1",
+      kidIds,
+      kidFirstNames: names,
+      seats: kidIds.length,
+      pickupPlaceName: "Home",
+      pickupAddress: "1 Main",
+      pickupTown: null,
+      detourMinutes: null,
+      status: "PENDING",
+      legs: [confirmedLeg("TO", "a2", "Mom"), confirmedLeg("FROM", "a2", "Mom")],
+      passedByMe: false,
+      passedByAdultNames: [],
+      acceptedByAdultId: null,
+      acceptingCircleId: null,
+      acceptingCircleName: null,
+    })
+    const ownA = momOwn("own-a", "UID:a", ["k1"], ["Declan"])
+    const ownB = momOwn("own-b", "UID:b", ["k2"], ["Kian"])
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap({
+          a: {
+            eventKey: "UID:a",
+            title: a.title,
+            startsAt: a.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k1"],
+            ownRequest: ownA,
+            ownRequests: [ownA],
+            ownLegs: ownA.legs,
+            otherRequests: [],
+          },
+          b: {
+            eventKey: "UID:b",
+            title: b.title,
+            startsAt: b.startsAt,
+            endsAt: null,
+            defaultKidIds: ["k2"],
+            ownRequest: ownB,
+            ownRequests: [ownB],
+            ownLegs: ownB.legs,
+            otherRequests: [],
+          },
+        })}
+        assignDraft={{
+          adultId: "a1",
+          kidIds: [],
+          soleAdult: false,
+          soleKid: false,
+        }}
+        onUpdateAssignDraft={vi.fn()}
+        onAssignCoverage={vi.fn()}
+        onCreateRide={vi.fn()}
+        onCantMakeIt={onCantMakeIt}
+        onSetNotGoing={vi.fn()}
+        onDriveBlockLink={vi.fn()}
+        onSetLeaveFrom={vi.fn()}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1")).toHaveTextContent(
+      /There Mom · Back Mom/,
+    )
+    expect(within(card).getByTestId("agenda-block-kid-FEED-a-k1").textContent).not.toMatch(
+      /\bYou\b/,
+    )
+
+    await expandBlock(user, card)
+    expect(within(card).queryByTestId("driver-picker")).not.toBeInTheDocument()
+    expect(within(card).queryByTestId("agenda-block-decision")).not.toBeInTheDocument()
+    expect(
+      within(card).queryByRole("button", { name: /Confirm —/ }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(card).queryByRole("button", { name: /Post to team/ }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(card).queryByRole("button", { name: /Save ride plan/ }),
+    ).not.toBeInTheDocument()
+
+    const actions = within(card).getByTestId("agenda-block-commitment-actions")
+    const reassign = within(actions).getAllByTestId("agenda-reassign-link")
+    expect(reassign.length).toBeGreaterThan(0)
+    expect(reassign[0]).toHaveTextContent(/Mom can't drive anymore/)
+    expect(
+      within(card).getByRole("button", { name: /Split into/ }),
+    ).toBeInTheDocument()
   })
 })
