@@ -317,12 +317,14 @@ describe("AgendaBlockCard", () => {
           item("a", "2030-08-15T18:00:00.000Z", {
             feedName: null,
             title: "Piano lesson",
+            location: null,
             kidIds: ["k1"],
             rsvps: [{ kidId: "k1", status: "YES" }],
           }),
           item("b", "2030-08-15T19:15:00.000Z", {
             feedName: null,
             title: "Swim practice",
+            location: null,
             kidIds: ["k2"],
             rsvps: [{ kidId: "k2", status: "YES" }],
           }),
@@ -343,6 +345,149 @@ describe("AgendaBlockCard", () => {
     )
     expect(within(card).getByTestId("agenda-block-kid-FEED-b-k2")).toHaveTextContent(
       /Swim practice/,
+    )
+  })
+
+  it("Frame L: one venue and unrelated titles fall back to the venue", () => {
+    render(
+      <AgendaBlockCard
+        items={[
+          item("a", "2030-08-15T18:00:00.000Z", {
+            feedName: null,
+            title: "Piano lesson",
+            location: "Community Center",
+            kidIds: ["k1"],
+            rsvps: [{ kidId: "k1", status: "YES" }],
+          }),
+          item("b", "2030-08-15T19:15:00.000Z", {
+            feedName: null,
+            title: "Swim practice",
+            location: "Community Center",
+            kidIds: ["k1"],
+            rsvps: [{ kidId: "k1", status: "YES" }],
+          }),
+        ]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={() => null}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent(
+      "Community Center",
+    )
+    expect(within(card).getByTestId("agenda-block-where")).toHaveTextContent(
+      "Community Center",
+    )
+    expect(within(card).getByTestId("agenda-block-where")).toHaveAttribute(
+      "data-location-variant",
+      "pin",
+    )
+  })
+
+  it("Frame M: several venues show title fallback, N stops location, and TO route click", async () => {
+    const user = userEvent.setup()
+    const onOpenRide = vi.fn()
+    const a = item("a", "2030-08-15T18:00:00.000Z", {
+      feedName: "U10",
+      title: "Piano lesson",
+      location: "Community Center",
+      kidIds: ["k1"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k1", status: "YES" }],
+      coverages: [
+        {
+          id: "c1",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k1"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const b = item("b", "2030-08-15T19:15:00.000Z", {
+      feedName: "U12",
+      title: "Swim practice",
+      location: "Town Pool",
+      kidIds: ["k2"],
+      uncoveredKidIds: [],
+      rsvps: [{ kidId: "k2", status: "YES" }],
+      coverages: [
+        {
+          id: "c2",
+          coveringAdultId: "a1",
+          coveringAdultDisplayName: "Chris",
+          assignedByAdultId: "a1",
+          kidIds: ["k2"],
+          status: "CONFIRMED",
+          leaveFromPlaceId: null,
+          leaveFromPlaceName: null,
+          leaveFromAddress: null,
+          leaveByAt: null,
+          leaveByStatus: null,
+          leaveByReason: null,
+        },
+      ],
+    })
+    const rides: Record<string, CarpoolRideEvent> = {
+      a: {
+        eventKey: "UID:a",
+        title: "Piano lesson",
+        startsAt: a.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k1"],
+        ownRequest: null,
+        ownRequests: [],
+        ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+        otherRequests: [],
+      },
+      b: {
+        eventKey: "UID:b",
+        title: "Swim practice",
+        startsAt: b.startsAt,
+        endsAt: null,
+        defaultKidIds: ["k2"],
+        ownRequest: null,
+        ownRequests: [],
+        ownLegs: [confirmedLeg("TO", "a1", "Chris"), confirmedLeg("FROM", "a1", "Chris")],
+        otherRequests: [],
+      },
+    }
+
+    render(
+      <AgendaBlockCard
+        items={[a, b]}
+        circle={circle}
+        currentAdultId="a1"
+        rideEventFor={rideEventForMap(rides)}
+        onOpenRide={onOpenRide}
+      />,
+    )
+
+    const card = screen.getByTestId("agenda-block-card")
+    expect(within(card).getByTestId("agenda-block-title")).toHaveTextContent(
+      "Community Center + 1 more stops",
+    )
+    const where = within(card).getByTestId("agenda-block-where")
+    expect(where).toHaveTextContent("2 stops")
+    expect(where).toHaveAttribute("data-location-variant", "route")
+    expect(within(card).getByTestId("agenda-block-chip-strip").textContent).toMatch(
+      /You|Chris|round trip/i,
+    )
+
+    await user.click(where)
+    expect(onOpenRide).toHaveBeenCalledWith(a, "TO")
+    expect(within(card).getByTestId("agenda-block-header")).toHaveAttribute(
+      "aria-expanded",
+      "false",
     )
   })
 

@@ -183,8 +183,8 @@ Reviewed 2026-10-16 against `AgendaRow.tsx`, `AgendaBlockCard.tsx`, `DriverPicke
 - [ ] **G** — Combined, other parent drives every leg: Legs name that parent, not You; no picker and no primary; quiet Edit plan, not going, Split, and the existing `{Name} can't drive anymore? Reassign the ride` / `Cancel request to {Name}` links from `agendaCommitmentActions`.
 - [ ] **H / I** — Plan locked single and combined share the locked section. Combined uses Split into N events where the single card uses Combine events.
 - [ ] **K** — Two kids, identical open legs: one picker titled `{Kid} + {Kid} — ROUND TRIP`, one primary for both (one call per member event carrying both kid ids when they share an event, else one call per event), plus Different plans for each kid.
-- [ ] **L** — Same kid, back-to-back, one venue, titles share no words: one kid row with a line per event; one Getting there before the first and one Coming back after the last; title falls back to the venue.
-- [ ] **M** — Several venues, no shared title words: title `{first venue} + N more stops`; location line `N stops` with the route icon; calm plan chip when every leg is assigned.
+- [x] **L** — Same kid, back-to-back, one venue, titles share no words: one kid row with a line per event; one Getting there before the first and one Coming back after the last; title falls back to the venue.
+- [x] **M** — Several venues, no shared title words: title `{first venue} + N more stops`; location line `N stops` with the route icon; calm plan chip when every leg is assigned.
 
 ### Regressions
 
@@ -206,7 +206,7 @@ Order: lock the regression net first, then restyle.
 - [x] Web: Plan locked section matches H/I; Edit returns to the simple picker with `Save ride plan` and `notGoingThisWeek`.
 - [x] Web: Block card renders `actionError` when unlocked.
 - [x] Web: Collapsed recurrence marker (`Every {weekday}`) back in the header meta on locked cards, single and combined. Not per-leg.
-- [ ] Web: Combined title/location fallbacks for L and M (`combinedEventTitle` / location line). No token palette change.
+- [x] Web: Combined title/location fallbacks for L and M (`combinedEventTitle` / location line). No token palette change.
 - [ ] Web: No OpenAPI / backend changes.
 - [ ] Tests: AgendaRow — `keeps End standing Ask and standing series hints when expanded`; `pending self Confirm/Decline call onConfirmCoverage/onDeclineCoverage`; `household-plan Confirm/Decline call onConfirmHouseholdPlan/onDeclineHouseholdPlan`; `Reconsider and Undo call onAcceptRide`; `Open Places renders for NO_ORIGIN`; `manual Edit and Remove event stay in quiet actions`; `Confirm and lock label when Lock checked`; `coverage leave-from editor survives next to Legs table`; `item-level leave-from renders when no coverage and no picker`; `Request band renders when picker not mounted and gap exists`; `collapsed locked card shows Every {weekday}` (restore the intent of the test at ~3639 that was weakened to expand first); `every callback prop is reachable in some rendered state`.
 - [ ] Tests: AgendaBlockCard — `Frame F: posts only the open kid’s ids via onCreateRide for that member`; `Frame K: one primary issues one call per member event with grouped kid ids`; `Frame F cancel-ask calls onCancelRide with the member ride id`; `shows actionError when not locked`; `keeps both TO and FROM View route links passing leg`; `does not mount inbound Accept/Pass (decision)`; `Frame G shows reassign / cancel-request links and no primary`; `Frame H/I Edit reveals picker; Remove recurring calls onRemoveStandingBlock`.

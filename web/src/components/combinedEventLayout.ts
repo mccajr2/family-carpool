@@ -119,12 +119,49 @@ function commonWordSuffix(titles: readonly string[]): string {
   return shared.join(" ")
 }
 
+/** Unique venues in member order (trimmed, non-empty). */
+export function combinedEventVenues(
+  items: readonly { location?: string | null }[],
+): string[] {
+  return uniqueInOrder(
+    items
+      .map((item) => item.location?.trim() || "")
+      .filter((location) => location.length > 0),
+  )
+}
+
+export type CombinedEventLocationLine = {
+  text: string
+  /** True when members span 2+ distinct venues — route icon + N stops. */
+  multiVenue: boolean
+}
+
+/**
+ * Location line for a combined card.
+ * One venue → pin + address. Several venues → route icon + "N stops".
+ */
+export function combinedEventLocationLine(
+  items: readonly { location?: string | null }[],
+): CombinedEventLocationLine | null {
+  const venues = combinedEventVenues(items)
+  if (venues.length === 0) {
+    return null
+  }
+  if (venues.length === 1) {
+    return { text: venues[0]!, multiVenue: false }
+  }
+  return { text: `${venues.length} stops`, multiVenue: true }
+}
+
 /**
  * Shared event name for a combined card.
  * Identical titles stay as-is. "CYH Mite 3 Practice" + "CYH Squirt 1 Practice"
- * becomes "CYH Practice". Unrelated titles join with " + ".
+ * becomes "CYH Practice". When titles share no words: one venue → that venue;
+ * several venues → "{first} + N more stops"; otherwise join with " + ".
  */
-export function combinedEventTitle(items: readonly { title: string }[]): string {
+export function combinedEventTitle(
+  items: readonly { title: string; location?: string | null }[],
+): string {
   const titles = uniqueInOrder(
     items.map((item) => item.title.trim()).filter((title) => title.length > 0),
   )
@@ -147,6 +184,16 @@ export function combinedEventTitle(items: readonly { title: string }[]): string 
       return composed
     }
   }
+  // Venue fallback is only for titles that share no words (frames L / M).
+  if (prefix.length === 0 && suffix.length === 0) {
+    const venues = combinedEventVenues(items)
+    if (venues.length === 1) {
+      return venues[0]!
+    }
+    if (venues.length >= 2) {
+      return `${venues[0]} + ${venues.length - 1} more stops`
+    }
+  }
   return titles.join(" + ")
 }
 
@@ -162,7 +209,10 @@ export function combinedEventEyebrow(
   if (names.length === 0) {
     return null
   }
-  return names.join(" + ")
+  if (names.length <= 3) {
+    return names.join(" + ")
+  }
+  return `${names.slice(0, 3).join(" + ")} + ${names.length - 3} MORE`
 }
 
 export function combinedEventWhen(

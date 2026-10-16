@@ -43,7 +43,10 @@ import {
   AGENDA_QUIET_ACTIONS_ROW_CLASS,
   AGENDA_QUIET_LINK_CLASS,
 } from "@/components/AgendaQuietActions"
-import { buildCombinedEventLayout } from "@/components/combinedEventLayout"
+import {
+  buildCombinedEventLayout,
+  combinedEventLocationLine,
+} from "@/components/combinedEventLayout"
 import {
   DriverPicker,
   type DriverPickerConfirmOptions,
@@ -180,17 +183,6 @@ function isRunRoutable(
   return games.some((game) => canRoute(game, rideEvent))
 }
 
-function sharedLocation(items: CalendarItem[]): string | null {
-  const locations = items
-    .map((item) => item.location?.trim() || null)
-    .filter((value): value is string => value != null)
-  if (locations.length === 0) {
-    return null
-  }
-  const first = locations[0]!
-  return locations.every((value) => value === first) ? first : first
-}
-
 function blockStatusChips(
   items: CalendarItem[],
   circle: FamilyCircle,
@@ -313,7 +305,7 @@ export function AgendaBlockCard({
   const [open, setOpen] = useState(false)
   const [editingLockedPlan, setEditingLockedPlan] = useState(false)
   const [confirmOriginLabel, setConfirmOriginLabel] = useState("")
-  const locationLabel = sharedLocation(items)
+  const locationLine = combinedEventLocationLine(items)
   const layout = buildCombinedEventLayout({
     items,
     currentAdultId,
@@ -538,11 +530,20 @@ export function AgendaBlockCard({
               {recurrenceHintLabel(weekdays.singular)}
             </span>
           ) : null}
-          {locationLabel != null ? (
+          {locationLine != null ? (
             <EventLocationLine
-              location={locationLabel}
+              location={locationLine.text}
+              variant={locationLine.multiVenue ? "route" : "pin"}
               data-testid="agenda-block-where"
               className="mt-0.5"
+              onClick={
+                locationLine.multiVenue &&
+                onOpenRide != null &&
+                sections.toRun != null
+                  ? () =>
+                      onOpenRide(sections.toRun!.representativeItem, "TO")
+                  : undefined
+              }
             />
           ) : null}
         </button>
